@@ -5,7 +5,14 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 #[cfg(test)]
-mod tests;
+mod action;
+#[cfg(test)]
+mod always_success;
+#[cfg(test)]
+mod basic;
+
+mod constants;
+mod util;
 
 const TEST_ENV_VAR: &str = "CAPSULE_TEST_ENV";
 
@@ -50,6 +57,15 @@ impl Loader {
         base_path.push("..");
         base_path.push("build");
         base_path.push(load_prefix);
+        Loader(base_path)
+    }
+
+    fn with_deployed_scripts() -> Self {
+        let dir = env::current_dir().unwrap();
+        let mut base_path = PathBuf::new();
+        base_path.push(dir);
+        base_path.push("..");
+        base_path.push("deployed-scripts");
         Loader(base_path)
     }
 
