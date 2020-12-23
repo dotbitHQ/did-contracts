@@ -6,10 +6,14 @@
 # docker_image = "jjy0/ckb-capsule-recipe-rust:2020-9-28"
 
 # capsule version
-version = "0.4.4"
+version = "0.4.4 fae2bb1"
 # path of deployment config file
 deployment = "deployment.toml"
 
 [[contracts]]
 name = "action"
+template_type = "Rust"
+
+[[contracts]]
+name = "always_success"
 template_type = "Rust"

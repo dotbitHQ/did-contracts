@@ -38,6 +38,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "always_success"
+version = "0.1.0"
+dependencies = [
+ "ckb-std",
+]
+
+[[package]]
 name = "ansi_term"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1399,6 +1406,12 @@ checksum = "5aca5565f760fb5b220e499d72710ed156fdb74e631659e99377d9ebfbd13ae8"
 dependencies = [
  "libc",
 ]
+
+[[package]]
+name = "hex"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "644f9158b2f133fd50f5fb3242878846d9eb792e445c893805ff0e3824006e35"
 
 [[package]]
 name = "hostname"
@@ -3018,6 +3031,9 @@ version = "0.1.0"
 dependencies = [
  "ckb-testtool",
  "ckb-tool",
+ "hex",
+ "lazy_static",
+ "secp256k1",
 ]
 
 [[package]]
