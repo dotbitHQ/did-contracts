@@ -3033,7 +3033,10 @@ dependencies = [
  "ckb-tool",
  "hex",
  "lazy_static",
+ "regex",
  "secp256k1",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

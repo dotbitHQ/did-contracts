@@ -10,9 +10,40 @@ use ckb_tool::ckb_types::{
 };
 use lazy_static::lazy_static;
 use std::collections::HashSet;
+use std::error::Error;
 
 lazy_static! {
     pub static ref SECP256K1: secp256k1::Secp256k1<secp256k1::All> = secp256k1::Secp256k1::new();
+}
+
+pub fn hex_to_bytes(input: &str) -> Result<Bytes, Box<dyn Error>> {
+    let hex = input.trim_start_matches("0x");
+    if hex == "" {
+        Ok(Bytes::default())
+    } else {
+        Ok(Bytes::from(hex::decode(hex)?))
+    }
+}
+
+pub fn hex_to_byte32(input: &str) -> Result<Byte32, Box<dyn Error>> {
+    let hex = input.trim_start_matches("0x");
+    let data = hex::decode(hex)?
+        .into_iter()
+        .map(Byte::new)
+        .collect::<Vec<_>>();
+    let mut inner = [Byte::new(0); 32];
+    inner.copy_from_slice(&data);
+
+    Ok(Byte32::new_builder().set(inner).build())
+}
+
+pub fn hex_to_u64(input: &str) -> Result<u64, Box<dyn Error>> {
+    let hex = input.trim_start_matches("0x");
+    if hex == "" {
+        Ok(0u64)
+    } else {
+        Ok(u64::from_str_radix(hex, 16)?)
+    }
 }
 
 pub fn deploy_contract(context: &mut Context, binary_name: &str) -> OutPoint {

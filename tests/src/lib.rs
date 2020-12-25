@@ -12,6 +12,7 @@ mod always_success;
 mod basic;
 
 mod constants;
+mod template_parser;
 mod util;
 
 const TEST_ENV_VAR: &str = "CAPSULE_TEST_ENV";
