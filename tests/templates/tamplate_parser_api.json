@@ -1,8 +1,8 @@
 {
   "cell_deps": [
     {
-      "tmp_type": "contract",
-      "tmp_file_name": "always-success"
+      "tmp_type": "deployed_contract",
+      "tmp_file_name": "always_success"
     }
   ],
   "header_deps": [],
@@ -12,7 +12,7 @@
         "tmp_type": "full",
         "capacity": 1000,
         "lock": {
-          "code_hash": "{{always-success}}"
+          "code_hash": "{{always_success}}"
         },
         "type": null,
         "tmp_data": "0x"
@@ -26,7 +26,7 @@
       "capacity": 500,
       "lock": {
         "args": "",
-        "code_hash": "{{always-success}}",
+        "code_hash": "0xcd4dc8e481f84ad2c366942b76ca2d15ee411009e1a4d81b41e2671713aaf642",
         "hash_type": "type"
       },
       "type": null
@@ -36,7 +36,7 @@
       "capacity": 500,
       "lock": {
         "args": "",
-        "code_hash": "{{always-success}}",
+        "code_hash": "0xcd4dc8e481f84ad2c366942b76ca2d15ee411009e1a4d81b41e2671713aaf642",
         "hash_type": "type"
       },
       "type": null,

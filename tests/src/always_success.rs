@@ -1,22 +1,16 @@
-//! Here is the tests for always_success contract AND template_parser
-use crate::constants::MAX_CYCLES;
-use crate::template_parser::TemplateParser;
-use crate::util::{deploy_contract, mock_cell, mock_input, mock_output, mock_script};
+use super::constants::MAX_CYCLES;
+use super::template_parser::TemplateParser;
 use ckb_testtool::context::Context;
-use ckb_tool::ckb_types::{bytes::Bytes, core::TransactionBuilder, prelude::*};
 
 #[test]
-fn should_always_success() {
-    let mut context = Context::default();
-    let mut parser = TemplateParser::new(
+fn test_always_success() {
+    let mut context;
+    let mut parser;
+    load_template!(
         &mut context,
-        include_str!("../templates/always_success.json"),
-    )
-    .expect("Init template parser failed.");
-
-    // parse transaction template
-    parser.parse();
-    parser.set_outputs_data(1, Bytes::from("hello world".as_bytes()));
+        &mut parser,
+        "../templates/always_success.json"
+    );
 
     // build transaction
     let tx = parser.build_tx();
@@ -26,5 +20,5 @@ fn should_always_success() {
         .verify_tx(&tx, MAX_CYCLES)
         .expect("pass verification");
 
-    println!("always_success: {} cycles", cycles);
+    println!("test_always_success: {} cycles", cycles);
 }

@@ -1,0 +1,65 @@
+{
+  "cell_deps": [
+    {
+      "tmp_type": "deployed_contract",
+      "tmp_file_name": "secp256k1_data"
+    },
+    {
+      "tmp_type": "deployed_contract",
+      "tmp_file_name": "secp256k1_blake160_sighash_all"
+    }
+  ],
+  "header_deps": [],
+  "inputs": [
+    {
+      "previous_output": {
+        "tmp_type": "full",
+        "capacity": 1000,
+        "lock": {
+          "code_hash": "{{secp256k1_blake160_sighash_all}}",
+          "args": "0x9af92f5e690f4669ca543deb99af8385b12624cc"
+        },
+        "type": null,
+        "tmp_data": "0x"
+      },
+      "since": "0x"
+    },
+    {
+      "previous_output": {
+        "tmp_type": "full",
+        "capacity": 1000,
+        "lock": {
+          "code_hash": "{{secp256k1_blake160_sighash_all}}",
+          "args": "0x9af92f5e690f4669ca543deb99af8385b12624cc"
+        },
+        "type": null,
+        "tmp_data": "0x"
+      },
+      "since": "0x"
+    },
+    {
+      "previous_output": {
+        "tmp_type": "full",
+        "capacity": 1000,
+        "lock": {
+          "code_hash": "{{secp256k1_blake160_sighash_all}}",
+          "args": "0x61f5c7fe9d11685019e9a2b970760185f495dace"
+        },
+        "type": null,
+        "tmp_data": "0x"
+      },
+      "since": "0x"
+    }
+  ],
+  "outputs": [
+    {
+      "tmp_type": "full",
+      "capacity": 3000,
+      "lock": {
+        "code_hash": "{{secp256k1_blake160_sighash_all}}",
+        "args": "0xc75fd5f8add2a04db9ffcaf88b437d76f1812797"
+      },
+      "type": null
+    }
+  ]
+}

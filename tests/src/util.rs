@@ -1,12 +1,10 @@
-// Suppress warning here is because it is mistakenly treat the code as dead code when running unit tests.
-#![allow(dead_code)]
-
 use super::*;
+use crate::constants::SECP_SIGNATURE_SIZE;
 use ckb_testtool::context::Context;
-use ckb_tool::ckb_hash::blake2b_256;
+use ckb_tool::ckb_hash::{blake2b_256, new_blake2b};
 use ckb_tool::ckb_jsonrpc_types as rpc_types;
 use ckb_tool::ckb_types::{
-    bytes::Bytes, core::TransactionBuilder, h256, packed::*, prelude::*, H160, H256,
+    bytes::Bytes, core::TransactionView, h256, packed, packed::*, prelude::*, H160, H256,
 };
 use lazy_static::lazy_static;
 use std::collections::HashSet;
@@ -119,7 +117,8 @@ pub type SignerFn = Box<
     dyn FnMut(&HashSet<H160>, &H256, &rpc_types::Transaction) -> Result<Option<[u8; 65]>, String>,
 >;
 
-pub fn get_privkey_signer(privkey: secp256k1::SecretKey) -> SignerFn {
+pub fn get_privkey_signer(input: &str) -> SignerFn {
+    let privkey = secp256k1::SecretKey::from_str(input.trim_start_matches("0x")).unwrap();
     let pubkey = secp256k1::PublicKey::from_secret_key(&SECP256K1, &privkey);
     let lock_arg = H160::from_slice(&blake2b_256(&pubkey.serialize()[..])[0..20])
         .expect("Generate hash(H160) from pubkey failed");
@@ -139,4 +138,45 @@ pub fn get_privkey_signer(privkey: secp256k1::SecretKey) -> SignerFn {
             }
         },
     )
+}
+
+pub fn build_signature<
+    S: FnMut(&H256, &rpc_types::Transaction) -> Result<[u8; SECP_SIGNATURE_SIZE], String>,
+>(
+    tx: &TransactionView,
+    input_size: usize,
+    input_group_idxs: &[usize],
+    witnesses: &[packed::Bytes],
+    mut signer: S,
+) -> Result<Bytes, String> {
+    let init_witness_idx = input_group_idxs[0];
+    let init_witness = if witnesses[init_witness_idx].raw_data().is_empty() {
+        WitnessArgs::default()
+    } else {
+        WitnessArgs::from_slice(witnesses[init_witness_idx].raw_data().as_ref())
+            .map_err(|err| err.to_string())?
+    };
+
+    let init_witness = init_witness
+        .as_builder()
+        .lock(Some(Bytes::from(vec![0u8; SECP_SIGNATURE_SIZE])).pack())
+        .build();
+
+    let mut blake2b = new_blake2b();
+    blake2b.update(tx.hash().as_slice());
+    blake2b.update(&(init_witness.as_bytes().len() as u64).to_le_bytes());
+    blake2b.update(&init_witness.as_bytes());
+    for idx in input_group_idxs.iter().skip(1).cloned() {
+        let other_witness: &packed::Bytes = &witnesses[idx];
+        blake2b.update(&(other_witness.len() as u64).to_le_bytes());
+        blake2b.update(&other_witness.raw_data());
+    }
+    for outter_witness in &witnesses[input_size..witnesses.len()] {
+        blake2b.update(&(outter_witness.len() as u64).to_le_bytes());
+        blake2b.update(&outter_witness.raw_data());
+    }
+    let mut message = [0u8; 32];
+    blake2b.finalize(&mut message);
+    let message = H256::from(message);
+    signer(&message, &tx.data().into()).map(|data| Bytes::from(data.to_vec()))
 }

@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use ckb_tool::ckb_types::bytes::Bytes;
 use std::env;
 use std::fs;
@@ -5,15 +7,19 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 #[cfg(test)]
-mod action;
+mod constants;
+#[cfg(test)]
+mod template_parser;
+#[cfg(test)]
+mod util;
+#[cfg(test)]
+#[macro_use]
+mod macros;
+
 #[cfg(test)]
 mod always_success;
 #[cfg(test)]
 mod basic;
-
-mod constants;
-mod template_parser;
-mod util;
 
 const TEST_ENV_VAR: &str = "CAPSULE_TEST_ENV";
 
