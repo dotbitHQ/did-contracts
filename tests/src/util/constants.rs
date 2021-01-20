@@ -1,6 +1,3 @@
-// Suppress warning here is because it is mistakenly treat the code as dead code when running unit tests.
-#![allow(dead_code)]
-
 use ckb_tool::ckb_types::{h256, H256};
 
 pub const MAX_CYCLES: u64 = 10_000_000;

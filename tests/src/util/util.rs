@@ -1,25 +1,24 @@
-use super::*;
-use crate::constants::SECP_SIGNATURE_SIZE;
+use super::super::Loader;
+use super::constants::SECP_SIGNATURE_SIZE;
 use ckb_testtool::context::Context;
 use ckb_tool::ckb_hash::{blake2b_256, new_blake2b};
 use ckb_tool::ckb_jsonrpc_types as rpc_types;
-use ckb_tool::ckb_types::{
-    bytes::Bytes, core::TransactionView, h256, packed, packed::*, prelude::*, H160, H256,
-};
+use ckb_tool::ckb_types::{bytes, core::TransactionView, h256, packed::*, prelude::*, H160, H256};
 use lazy_static::lazy_static;
 use std::collections::HashSet;
 use std::error::Error;
+use std::str::FromStr;
 
 lazy_static! {
     pub static ref SECP256K1: secp256k1::Secp256k1<secp256k1::All> = secp256k1::Secp256k1::new();
 }
 
-pub fn hex_to_bytes(input: &str) -> Result<Bytes, Box<dyn Error>> {
+pub fn hex_to_bytes(input: &str) -> Result<bytes::Bytes, Box<dyn Error>> {
     let hex = input.trim_start_matches("0x");
     if hex == "" {
-        Ok(Bytes::default())
+        Ok(bytes::Bytes::default())
     } else {
-        Ok(Bytes::from(hex::decode(hex)?))
+        Ok(bytes::Bytes::from(hex::decode(hex)?))
     }
 }
 
@@ -45,16 +44,20 @@ pub fn hex_to_u64(input: &str) -> Result<u64, Box<dyn Error>> {
 }
 
 pub fn deploy_contract(context: &mut Context, binary_name: &str) -> OutPoint {
-    let contract_bin: Bytes = Loader::default().load_binary(binary_name);
+    let contract_bin: bytes::Bytes = Loader::default().load_binary(binary_name);
     context.deploy_cell(contract_bin)
 }
 
 pub fn deploy_builtin_contract(context: &mut Context, binary_name: &str) -> OutPoint {
-    let contract_bin: Bytes = Loader::with_deployed_scripts().load_binary(binary_name);
+    let contract_bin: bytes::Bytes = Loader::with_deployed_scripts().load_binary(binary_name);
     context.deploy_cell(contract_bin)
 }
 
-pub fn mock_script(context: &mut Context, out_point: OutPoint, args: Bytes) -> (Script, CellDep) {
+pub fn mock_script(
+    context: &mut Context,
+    out_point: OutPoint,
+    args: bytes::Bytes,
+) -> (Script, CellDep) {
     let script = context
         .build_script(&out_point, args)
         .expect("Build script failed, can not find cell of script.");
@@ -68,13 +71,13 @@ pub fn mock_cell(
     capacity: u64,
     lock_script: Script,
     type_script: Option<Script>,
-    bytes: Option<Bytes>,
+    bytes: Option<bytes::Bytes>,
 ) -> OutPoint {
     let data;
     if bytes.is_some() {
         data = bytes.unwrap();
     } else {
-        data = Bytes::new();
+        data = bytes::Bytes::new();
     }
 
     context.create_cell(
@@ -146,9 +149,9 @@ pub fn build_signature<
     tx: &TransactionView,
     input_size: usize,
     input_group_idxs: &[usize],
-    witnesses: &[packed::Bytes],
+    witnesses: &[Bytes],
     mut signer: S,
-) -> Result<Bytes, String> {
+) -> Result<bytes::Bytes, String> {
     let init_witness_idx = input_group_idxs[0];
     let init_witness = if witnesses[init_witness_idx].raw_data().is_empty() {
         WitnessArgs::default()
@@ -159,7 +162,7 @@ pub fn build_signature<
 
     let init_witness = init_witness
         .as_builder()
-        .lock(Some(Bytes::from(vec![0u8; SECP_SIGNATURE_SIZE])).pack())
+        .lock(Some(bytes::Bytes::from(vec![0u8; SECP_SIGNATURE_SIZE])).pack())
         .build();
 
     let mut blake2b = new_blake2b();
@@ -167,7 +170,7 @@ pub fn build_signature<
     blake2b.update(&(init_witness.as_bytes().len() as u64).to_le_bytes());
     blake2b.update(&init_witness.as_bytes());
     for idx in input_group_idxs.iter().skip(1).cloned() {
-        let other_witness: &packed::Bytes = &witnesses[idx];
+        let other_witness: &Bytes = &witnesses[idx];
         blake2b.update(&(other_witness.len() as u64).to_le_bytes());
         blake2b.update(&other_witness.raw_data());
     }
@@ -178,5 +181,5 @@ pub fn build_signature<
     let mut message = [0u8; 32];
     blake2b.finalize(&mut message);
     let message = H256::from(message);
-    signer(&message, &tx.data().into()).map(|data| Bytes::from(data.to_vec()))
+    signer(&message, &tx.data().into()).map(|data| bytes::Bytes::from(data.to_vec()))
 }

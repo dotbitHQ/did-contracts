@@ -1,5 +1,4 @@
-use super::constants::MAX_CYCLES;
-use super::template_parser::TemplateParser;
+use super::util::{constants::MAX_CYCLES, template_parser::TemplateParser};
 use ckb_testtool::context::Context;
 
 #[test]
