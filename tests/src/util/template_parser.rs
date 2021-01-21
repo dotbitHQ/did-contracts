@@ -14,6 +14,8 @@ use regex::Regex;
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
+use std::fs::File;
+use std::io::Read;
 
 lazy_static! {
     static ref VARIABLE_REG: Regex = Regex::new(r"\{\{([\w-]+)\}\}").unwrap();
@@ -29,6 +31,7 @@ pub struct TemplateParser<'a> {
     pub context: &'a mut Context,
     pub data: Value,
     pub contracts: HashMap<String, Contract>,
+    pub deps: Vec<CellDep>,
     pub inputs: Vec<CellInput>,
     pub outputs: Vec<CellOutput>,
     pub outputs_data: Vec<packed::Bytes>,
@@ -54,6 +57,24 @@ impl<'a> TemplateParser<'a> {
             context,
             data,
             contracts: HashMap::new(),
+            deps: Vec::new(),
+            inputs: Vec::new(),
+            outputs: Vec::new(),
+            outputs_data: Vec::new(),
+            witnesses: Vec::new(),
+        })
+    }
+
+    pub fn from_file(context: &'a mut Context, filepath: String) -> Result<Self, Box<dyn Error>> {
+        let mut raw_json = String::new();
+        File::open(filepath)?.read_to_string(&mut raw_json)?;
+        let data: Value = serde_json::from_str(&raw_json)?;
+
+        Ok(TemplateParser {
+            context,
+            data,
+            contracts: HashMap::new(),
+            deps: Vec::new(),
             inputs: Vec::new(),
             outputs: Vec::new(),
             outputs_data: Vec::new(),
@@ -296,7 +317,7 @@ impl<'a> TemplateParser<'a> {
                         .push(data.unwrap_or(Bytes::default()).pack());
                 }
                 _ => {
-                    return Err("Unsupported inputs type.".into());
+                    return Err("Unsupported outputs type.".into());
                 }
             }
         }

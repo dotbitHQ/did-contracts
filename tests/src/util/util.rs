@@ -90,6 +90,34 @@ pub fn mock_cell(
     )
 }
 
+pub fn mock_cell_with_outpoint(
+    context: &mut Context,
+    out_point: OutPoint,
+    capacity: u64,
+    lock_script: Script,
+    type_script: Option<Script>,
+    bytes: Option<bytes::Bytes>,
+) -> OutPoint {
+    let data;
+    if bytes.is_some() {
+        data = bytes.unwrap();
+    } else {
+        data = bytes::Bytes::new();
+    }
+
+    context.create_cell_with_out_point(
+        out_point.clone(),
+        CellOutput::new_builder()
+            .capacity(capacity.pack())
+            .lock(lock_script)
+            .type_(ScriptOpt::new_builder().set(type_script).build())
+            .build(),
+        data,
+    );
+
+    out_point
+}
+
 pub fn mock_input(out_point: OutPoint, since: Option<u64>) -> CellInput {
     let mut builder = CellInput::new_builder().previous_output(out_point);
 

@@ -130,9 +130,7 @@ impl WitnessesParser {
         ))
     }
 
-    // pub fn action_str(&self) -> &str {}
-
-    pub fn get(&self, index: &u32, hash: &Hash, source: Source) -> Result<&Bytes, Error> {
+    pub fn get(&self, index: u32, hash: &Hash, source: Source) -> Result<&Bytes, Error> {
         let group = match source {
             Source::Input => &self.old,
             Source::Output => &self.new,
@@ -143,7 +141,8 @@ impl WitnessesParser {
         };
 
         let entity;
-        if let Some((_, _, _, _hash, _entity)) = group.iter().find(|&(i, _, _, _h, _)| i == index) {
+        if let Some((_, _, _, _hash, _entity)) = group.iter().find(|&(i, _, _, _h, _)| i == &index)
+        {
             if is_entity_eq(hash, _hash) {
                 entity = _entity
             } else {
@@ -235,7 +234,7 @@ mod test {
             hex_to_byte32("0x000045a843802e1c0bb8f1e382ee23be1434c36693eac143f61bbaf04dc90000")
                 .unwrap(),
         );
-        parser.get(&0, &hash, Source::Output).unwrap();
+        parser.get(0, &hash, Source::Output).unwrap();
     }
 
     #[test]
@@ -246,7 +245,7 @@ mod test {
             hex_to_byte32("0x04de45a843802e1c0bb8f1e382ee23be1434c36693eac143f61bbaf04dc901cb")
                 .unwrap(),
         );
-        let entity = parser.get(&0, &hash, Source::Output).unwrap();
+        let entity = parser.get(0, &hash, Source::Output).unwrap();
 
         let entity_data = entity.as_slice().get(4..).unwrap();
         let result = Hash::new_unchecked(blake2b_256(entity_data).to_vec().into());
