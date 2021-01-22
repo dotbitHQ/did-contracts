@@ -21,16 +21,10 @@ lazy_static! {
     static ref VARIABLE_REG: Regex = Regex::new(r"\{\{([\w-]+)\}\}").unwrap();
 }
 
-#[derive(Debug)]
-pub struct Contract {
-    script: Script,
-    cell_dep: CellDep,
-}
-
 pub struct TemplateParser<'a> {
     pub context: &'a mut Context,
     pub data: Value,
-    pub contracts: HashMap<String, Contract>,
+    pub contracts: HashMap<String, Byte32>,
     pub deps: Vec<CellDep>,
     pub inputs: Vec<CellInput>,
     pub outputs: Vec<CellOutput>,
@@ -216,14 +210,8 @@ impl<'a> TemplateParser<'a> {
     }
 
     pub fn build_tx(&mut self) -> TransactionView {
-        let cell_deps = self
-            .contracts
-            .iter()
-            .map(|(_, contract)| contract.cell_dep.clone())
-            .collect::<Vec<_>>();
-
         TransactionBuilder::default()
-            .cell_deps(cell_deps)
+            .cell_deps(self.deps.clone())
             .inputs(self.inputs.clone())
             .outputs(self.outputs.clone())
             .outputs_data(self.outputs_data.clone())
@@ -233,23 +221,39 @@ impl<'a> TemplateParser<'a> {
 
     fn parse_cell_deps(&mut self, cell_deps: Vec<Value>) -> Result<(), Box<dyn Error>> {
         for item in cell_deps {
-            let name = item["tmp_file_name"].as_str().unwrap();
-            let out_point;
-
             match item["tmp_type"].as_str() {
-                Some("contract") => out_point = deploy_contract(self.context, name),
+                Some("contract") => {
+                    let name = item["tmp_file_name"].as_str().unwrap();
+                    let (out_point, cell_dep) = deploy_contract(self.context, name);
+                    self.deps.push(cell_dep);
+                    self.contracts.insert(
+                        name.to_string(),
+                        mock_script(self.context, out_point, Bytes::default()).code_hash(),
+                    );
+                }
                 Some("deployed_contract") => {
-                    out_point = deploy_builtin_contract(self.context, name)
+                    let name = item["tmp_file_name"].as_str().unwrap();
+                    let (out_point, cell_dep) = deploy_builtin_contract(self.context, name);
+                    self.deps.push(cell_dep);
+                    self.contracts.insert(
+                        name.to_string(),
+                        mock_script(self.context, out_point, Bytes::default()).code_hash(),
+                    );
+                }
+                Some("full") => {
+                    let (capacity, lock_script, type_script, data) =
+                        self.parse_cell(item).map_err(|err| {
+                            format!("Field `cell_deps[]` parse failed: {}", err.to_string())
+                        })?;
+                    let out_point =
+                        mock_cell(self.context, capacity, lock_script, type_script, data);
+                    let cell_dep = CellDep::new_builder().out_point(out_point).build();
+                    self.deps.push(cell_dep);
                 }
                 _ => {
                     return Err("Unsupported cell_deps type.".into());
                 }
             }
-
-            let (script, cell_dep) = mock_script(self.context, out_point, Bytes::default());
-
-            self.contracts
-                .insert(name.to_string(), Contract { script, cell_dep });
         }
 
         // eprintln!("Parse self.contracts = {:#?}", self.contracts);
@@ -379,10 +383,8 @@ impl<'a> TemplateParser<'a> {
             if let Some(caps) = VARIABLE_REG.captures(code_hash) {
                 let script_name = caps.get(1).map(|m| m.as_str()).unwrap();
                 let real_code_hash = match self.contracts.get(script_name) {
-                    Some(contract) => contract.script.code_hash(),
-                    _ => {
-                        return Err(format!("not found script {}", script_name).into());
-                    }
+                    Some(code_hash) => code_hash.to_owned(),
+                    _ => return Err(format!("not found script {}", script_name).into()),
                 };
                 let args = script_val["args"].as_str().unwrap_or("");
                 let hash_type = match script_val["hash_type"].as_str() {

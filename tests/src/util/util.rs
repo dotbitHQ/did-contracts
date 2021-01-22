@@ -43,27 +43,26 @@ pub fn hex_to_u64(input: &str) -> Result<u64, Box<dyn Error>> {
     }
 }
 
-pub fn deploy_contract(context: &mut Context, binary_name: &str) -> OutPoint {
+pub fn deploy_contract(context: &mut Context, binary_name: &str) -> (OutPoint, CellDep) {
     let contract_bin: bytes::Bytes = Loader::default().load_binary(binary_name);
-    context.deploy_cell(contract_bin)
+    let out_point = context.deploy_cell(contract_bin);
+    let cell_dep = CellDep::new_builder().out_point(out_point.clone()).build();
+
+    (out_point, cell_dep)
 }
 
-pub fn deploy_builtin_contract(context: &mut Context, binary_name: &str) -> OutPoint {
+pub fn deploy_builtin_contract(context: &mut Context, binary_name: &str) -> (OutPoint, CellDep) {
     let contract_bin: bytes::Bytes = Loader::with_deployed_scripts().load_binary(binary_name);
-    context.deploy_cell(contract_bin)
+    let out_point = context.deploy_cell(contract_bin);
+    let cell_dep = CellDep::new_builder().out_point(out_point.clone()).build();
+
+    (out_point, cell_dep)
 }
 
-pub fn mock_script(
-    context: &mut Context,
-    out_point: OutPoint,
-    args: bytes::Bytes,
-) -> (Script, CellDep) {
-    let script = context
+pub fn mock_script(context: &mut Context, out_point: OutPoint, args: bytes::Bytes) -> Script {
+    context
         .build_script(&out_point, args)
-        .expect("Build script failed, can not find cell of script.");
-    let cell_dep = CellDep::new_builder().out_point(out_point).build();
-
-    (script, cell_dep)
+        .expect("Build script failed, can not find cell of script.")
 }
 
 pub fn mock_cell(
