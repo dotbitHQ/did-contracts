@@ -1,6 +1,7 @@
 use super::error::Error;
 use super::util::{blake2b_256, is_entity_eq};
 use ckb_std::ckb_constants::Source;
+use ckb_std::debug;
 use das_types::{
     constants::{DataType, WITNESS_HEADER},
     packed::*,
@@ -12,6 +13,7 @@ use std::prelude::v1::*;
 pub struct WitnessesParser {
     pub action: Bytes,
     pub params: Bytes,
+    // The Bytes is wrapped DataEntity.entity.
     pub dep: Vec<(u32, u32, u32, Hash, Bytes)>,
     pub old: Vec<(u32, u32, u32, Hash, Bytes)>,
     pub new: Vec<(u32, u32, u32, Hash, Bytes)>,
@@ -28,8 +30,8 @@ impl WitnessesParser {
         }
         let action_data = Self::parse_action_data(&witness)?;
 
-        let action = Bytes::from_slice(action_data.action().as_slice()).unwrap();
-        let params = Bytes::from_slice(action_data.params().as_slice()).unwrap();
+        let action = Bytes::from(action_data.action());
+        let params = Bytes::from(action_data.params());
 
         let mut dep = Vec::new();
         let mut old = Vec::new();
@@ -116,7 +118,7 @@ impl WitnessesParser {
         let entity_data = data
             .as_slice()
             .get(4..)
-            .ok_or(Error::WitnessEntityDecodingError)?;
+            .ok_or(Error::WitnessEntityMissing)?;
         let hash = Hash::new_unchecked(blake2b_256(entity_data).to_vec().into());
         // eprintln!("entity = {:#?}", data);
         // eprintln!("hash = {:#?}", hash);
@@ -126,7 +128,7 @@ impl WitnessesParser {
             version,
             type_,
             hash,
-            Bytes::from_slice(data.as_slice()).unwrap(),
+            Bytes::new_unchecked(data.as_bytes()),
         ))
     }
 
@@ -144,14 +146,15 @@ impl WitnessesParser {
         if let Some((_, _, _, _hash, _entity)) = group.iter().find(|&(i, _, _, _h, _)| i == &index)
         {
             if is_entity_eq(hash, _hash) {
-                entity = _entity
+                entity = _entity;
             } else {
-                return Err(Error::CellDataIsCorrupted);
+                return Err(Error::WitnessDataIsCorrupted);
             }
         } else {
-            return Err(Error::CellDataMissing);
+            return Err(Error::WitnessDataMissing);
         }
 
+        // This is DataEntity.entity wrapped in Bytes.
         Ok(entity)
     }
 }

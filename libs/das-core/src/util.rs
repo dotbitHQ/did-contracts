@@ -1,20 +1,27 @@
-use super::constants::ScriptType;
-use super::constants::CKB_HASH_PERSONALIZATION;
-use super::error::Error;
-use super::types::ScriptLiteral;
+use super::{
+    constants::{ScriptType, CKB_HASH_PERSONALIZATION},
+    error::Error,
+    types::ScriptLiteral,
+    witness_parser::WitnessesParser,
+};
 use blake2b_ref::{Blake2b, Blake2bBuilder};
 use ckb_std::{
     ckb_constants::Source,
     ckb_types::{bytes, packed::*, prelude::*},
+    debug,
     error::SysError,
     high_level, syscalls,
 };
 use das_types::{constants::WITNESS_HEADER, packed as das_packed};
 use hex::FromHexError;
+use std::convert::TryFrom;
 use std::prelude::v1::*;
 
-pub use das_types::util::is_entity_eq;
+use crate::constants::{ScriptHashType, CONFIG_CELL_TYPE, TIME_CELL_TYPE};
+use core::convert::TryInto;
+pub use das_types::util::{is_entity_eq, is_reader_eq};
 
+#[cfg(test)]
 pub fn hex_to_unpacked_bytes(input: &str) -> Result<bytes::Bytes, FromHexError> {
     let trimed_input = input.trim_start_matches("0x");
     if trimed_input == "" {
@@ -24,6 +31,7 @@ pub fn hex_to_unpacked_bytes(input: &str) -> Result<bytes::Bytes, FromHexError> 
     }
 }
 
+#[cfg(test)]
 pub fn hex_to_bytes(input: &str) -> Result<Bytes, FromHexError> {
     let trimed_input = input.trim_start_matches("0x");
     if trimed_input == "" {
@@ -33,6 +41,7 @@ pub fn hex_to_bytes(input: &str) -> Result<Bytes, FromHexError> {
     }
 }
 
+#[cfg(test)]
 pub fn hex_to_byte32(input: &str) -> Result<Byte32, FromHexError> {
     let hex = input.trim_start_matches("0x");
     let data = hex::decode(hex)?
@@ -45,13 +54,18 @@ pub fn hex_to_byte32(input: &str) -> Result<Byte32, FromHexError> {
     Ok(Byte32::new_builder().set(inner).build())
 }
 
+pub fn account_to_id(input: Bytes) -> Bytes {
+    let account = input.as_reader().raw_data();
+    let hash = blake2b_256(account);
+    bytes::Bytes::from(hash.get(..20).unwrap()).pack()
+}
+
+// 68575 cycles
 pub fn script_literal_to_script(script: ScriptLiteral) -> Result<Script, FromHexError> {
-    let code_hash = hex_to_byte32(script.code_hash)?;
-    let args = hex_to_unpacked_bytes(script.args).map(|bytes| bytes.pack())?;
     Ok(Script::new_builder()
-        .code_hash(code_hash)
+        .code_hash(script.code_hash.pack())
         .hash_type(Byte::new(script.hash_type as u8))
-        .args(args)
+        .args(bytes::Bytes::from(script.args).pack())
         .build())
 }
 
@@ -59,23 +73,57 @@ pub fn is_unpacked_bytes_eq(a: &bytes::Bytes, b: &bytes::Bytes) -> bool {
     **a == **b
 }
 
-pub fn find_cell_by_script(
+pub fn find_cells_by_type_id(
+    script_type: ScriptType,
+    type_id: das_packed::HashReader,
+    source: Source,
+) -> Result<Vec<usize>, Error> {
+    let code_hash: das_packed::Hash = type_id.to_entity();
+    let script: Script = Script::new_builder()
+        .code_hash(code_hash.into())
+        .hash_type(Byte::new(ScriptHashType::Type as u8))
+        .build();
+
+    find_cells_by_script(script_type, &script, source)
+}
+
+// 229893 cycles
+pub fn find_cells_by_script(
     script_type: ScriptType,
     script: &Script,
     source: Source,
-) -> Result<Vec<(CellOutput, usize)>, Error> {
-    find_cell(
-        |cell, _| -> bool {
-            match script_type {
-                ScriptType::Lock => is_entity_eq(&cell.lock(), &script),
-                _ => is_entity_eq(&cell.type_().to_opt().unwrap_or(Script::default()), &script),
+) -> Result<Vec<usize>, Error> {
+    let mut i = 0;
+    let mut cell_indexes = Vec::new();
+    let hash = blake2b_256(script.as_slice());
+    loop {
+        let ret = match script_type {
+            ScriptType::Lock => high_level::load_cell_lock_hash(i, source).map(|item| Some(item)),
+            _ => high_level::load_cell_type_hash(i, source),
+        };
+
+        if let Err(e) = ret {
+            if e == SysError::IndexOutOfBound {
+                break;
+            } else {
+                return Err(Error::from(e));
             }
-        },
-        source,
-    )
+        }
+
+        if let Some(cell_script) = ret.unwrap() {
+            // debug!("{}: {:x?} == {:x?}", cell_script == hash, cell_script, hash);
+            if cell_script == hash {
+                cell_indexes.push(i);
+            }
+        }
+
+        i += 1;
+    }
+
+    Ok(cell_indexes)
 }
 
-pub fn find_cell<F>(f: F, source: Source) -> Result<Vec<(CellOutput, usize)>, Error>
+pub fn find_cells<F>(f: F, source: Source) -> Result<Vec<(CellOutput, usize)>, Error>
 where
     F: Fn(&CellOutput, usize) -> bool,
 {
@@ -122,6 +170,66 @@ pub fn load_data<F: Fn(&mut [u8], usize) -> Result<usize, SysError>>(
     }
 }
 
+pub fn load_timestamp() -> Result<u64, Error> {
+    if cfg!(debug_assertions) {
+        debug!("Reading TimeCell ...");
+    }
+
+    // Define nervos official TimeCell type script.
+    let time_cell_type =
+        script_literal_to_script(TIME_CELL_TYPE).map_err(|_| Error::HardCodedError)?;
+
+    // There must be one TimeCell in the cell_deps, no more and no less.
+    let ret = find_cells_by_script(ScriptType::Type, &time_cell_type, Source::CellDep)?;
+    if ret.len() != 1 {
+        return Err(Error::TimeCellIsRequired);
+    }
+
+    if cfg!(debug_assertions) {
+        debug!("Reading outputs_data of the TimeCell ...");
+    }
+
+    // Read the passed timestamp from outputs_data of TimeCell
+    let data = high_level::load_cell_data(ret[0], Source::CellDep).map_err(|e| Error::from(e))?;
+    let timestamp = match data.get(1..) {
+        Some(bytes) => {
+            if bytes.len() != 8 {
+                return Err(Error::TimeCellDataDecodingError);
+            }
+            u64::from_le_bytes(bytes.try_into().unwrap())
+        }
+        _ => return Err(Error::TimeCellDataDecodingError),
+    };
+
+    Ok(timestamp)
+}
+
+pub fn load_config(parser: &WitnessesParser) -> Result<das_packed::ConfigCellData, Error> {
+    if cfg!(debug_assertions) {
+        debug!("Reading ConfigCell ...");
+    }
+
+    let config_cell_type =
+        script_literal_to_script(CONFIG_CELL_TYPE).map_err(|_| Error::HardCodedError)?;
+    // There must be one ConfigCell in the cell_deps, no more and no less.
+    let ret = find_cells_by_script(ScriptType::Type, &config_cell_type, Source::CellDep)?;
+    if ret.len() != 1 {
+        return Err(Error::ConfigCellIsRequired);
+    }
+
+    if cfg!(debug_assertions) {
+        debug!("Reading witness of the ConfigCell ...");
+    }
+
+    // Read and decode the witness of ConfigCell.
+    let entity = get_cell_witness(parser, ret[0], Source::CellDep)?;
+    let config_cell_data =
+        das_packed::ConfigCellData::new_unchecked(entity.as_reader().raw_data().into());
+
+    Ok(config_cell_data)
+}
+
+// 1251831 cycles
 pub fn load_das_witnesses() -> Result<Vec<das_packed::Bytes>, Error> {
     let mut i = 0;
     let mut start_reading_das_witness = false;
@@ -152,13 +260,40 @@ pub fn load_das_witnesses() -> Result<Vec<das_packed::Bytes>, Error> {
         }
 
         // Start reading DAS witnesses, it is a convention that all DAS witnesses stay together in the end of the witnesses vector.
-        let witness = das_packed::Bytes::new_builder()
-            .set(data.into_iter().map(das_packed::Byte::new).collect())
-            .build();
+        let witness = das_packed::Bytes::from(bytes::Bytes::from(data).pack());
         witnesses.push(witness);
     }
 
     Ok(witnesses)
+}
+
+pub fn verify_cells_witnesses(
+    parser: &WitnessesParser,
+    cells: &Vec<(CellOutput, usize)>,
+    source: Source,
+) -> Result<(), Error> {
+    for (_, _index) in cells.iter() {
+        let index = _index.to_owned();
+        let data = high_level::load_cell_data(index, source).map_err(|e| Error::from(e))?;
+        let hash = das_packed::Hash::try_from(data).map_err(|_| Error::InvalidCellData)?;
+
+        parser.get(index as u32, &hash, source)?;
+    }
+
+    Ok(())
+}
+
+// 108040 cycles
+pub fn get_cell_witness(
+    parser: &WitnessesParser,
+    index: usize,
+    source: Source,
+) -> Result<&das_packed::Bytes, Error> {
+    let data = high_level::load_cell_data(index, source).map_err(|e| Error::from(e))?;
+    let hash = das_packed::Hash::try_from(data).map_err(|_| Error::InvalidCellData)?;
+    let entity = parser.get(index as u32, &hash, source)?;
+
+    Ok(entity)
 }
 
 pub fn new_blake2b() -> Blake2b {
@@ -225,6 +360,18 @@ mod test {
         // eprintln!("result = {:#?}", result);
         // eprintln!("expect = {:#?}", expect);
         assert!(is_entity_eq(&result, &expect));
+    }
+
+    #[test]
+    fn test_account_to_id() {
+        let account = bytes::Bytes::from("das.bit".as_bytes());
+        let id = account_to_id(account.pack());
+        let expect = hex_to_bytes("0xb7526803f67ebe70aba631ae3e9560e0cd969c2d").unwrap();
+
+        assert!(
+            is_entity_eq(&id, &expect),
+            "Expect account ID of das.bit is equal to 0xb7526803f67ebe70aba631ae3e9560e0cd969c2d"
+        );
     }
 
     #[test]

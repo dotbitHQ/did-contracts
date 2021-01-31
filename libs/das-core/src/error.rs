@@ -11,17 +11,38 @@ pub enum Error {
     // Customized errors:
     HardCodedError,
     InvalidTransactionStructure,
-    SuperLockRequired,
-    WitnessReadingError = 10,
+    InvalidCellData,
+    SuperLockIsRequired,
+    CellMustUseSuperLock,
+    TimeCellIsRequired,
+    ConfigCellIsRequired, // 11
+    WitnessReadingError = 20,
     WitnessEmpty,
     WitnessDasHeaderDecodingError,
     WitnessTypeDecodingError,
     WitnessActionIsNotTheFirst,
     WitnessActionDecodingError,
-    WitnessEntityDecodingError,
-    CellDataIsCorrupted,
-    CellDataMissing,
-    ActionNotSupported = 20,
+    WitnessEntityMissing,
+    WitnessDataIsCorrupted,
+    WitnessDataMissing,
+    WitnessEntityDecodingError, // 29
+    ActionNotSupported = 40,
+    ConfigCellDataDecodingError,
+    ApplyRegisterFoundInvalidTransaction,
+    ApplyRegisterCellDataDecodingError,
+    ApplyRegisterCellTimeError,
+    ApplyRegisterNeedWaitLonger, // 45
+    ApplyRegisterHasTimeout,
+    PreRegisterFoundInvalidTransaction,
+    PreRegisterApplyHashIsInvalid,
+    PreRegisterCreateAtIsInvalid,
+    PreRegisterAccountLengthMissMatch, // 50
+    PreRegisterFoundUndefinedCharSet,
+    PreRegisterCKBInsufficient,
+    PreRegisterAccountCanNotRegisterNow,
+    PreRegisterAccountCharSetConflict,
+    PreRegisterAccountCharIsInvalid, // 55
+    TimeCellDataDecodingError = 100,
 }
 
 impl From<SysError> for Error {
