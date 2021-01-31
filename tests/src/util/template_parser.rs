@@ -1,13 +1,15 @@
 use super::constants::{MULTISIG_TYPE_HASH, SECP_SIGNATURE_SIZE, SIGHASH_TYPE_HASH};
 use super::util::{
-    build_signature, deploy_builtin_contract, deploy_contract, get_privkey_signer, hex_to_byte32,
-    hex_to_bytes, hex_to_u64, mock_cell, mock_input, mock_script,
+    build_signature, deploy_builtin_contract, deploy_dev_contract, get_privkey_signer,
+    hex_to_byte32, hex_to_bytes, hex_to_u64, mock_cell, mock_input,
 };
 use ckb_testtool::context::Context;
-use ckb_tool::ckb_jsonrpc_types as rpc_types;
-use ckb_tool::ckb_types::{
-    bytes::Bytes, core::ScriptHashType, core::TransactionBuilder, core::TransactionView, h256,
-    packed, packed::*, prelude::*, H160, H256,
+use ckb_tool::{
+    ckb_jsonrpc_types as rpc_types,
+    ckb_types::{
+        bytes::Bytes, core::ScriptHashType, core::TransactionBuilder, core::TransactionView, h256,
+        packed, packed::*, prelude::*, H160, H256,
+    },
 };
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -224,25 +226,24 @@ impl<'a> TemplateParser<'a> {
             match item["tmp_type"].as_str() {
                 Some("contract") => {
                     let name = item["tmp_file_name"].as_str().unwrap();
-                    let (out_point, cell_dep) = deploy_contract(self.context, name);
+                    let (type_id, _, cell_dep) = deploy_dev_contract(self.context, name);
+                    // println!("{:>30}: {}", name, type_id);
                     self.deps.push(cell_dep);
-                    self.contracts.insert(
-                        name.to_string(),
-                        mock_script(self.context, out_point, Bytes::default()).code_hash(),
-                    );
+                    self.contracts.insert(name.to_string(), type_id);
                 }
                 Some("deployed_contract") => {
                     let name = item["tmp_file_name"].as_str().unwrap();
-                    let (out_point, cell_dep) = deploy_builtin_contract(self.context, name);
+                    let (type_id, _, cell_dep) = deploy_builtin_contract(self.context, name);
+                    // println!("{:>30}: {}", name, type_id);
                     self.deps.push(cell_dep);
-                    self.contracts.insert(
-                        name.to_string(),
-                        mock_script(self.context, out_point, Bytes::default()).code_hash(),
-                    );
+                    self.contracts.insert(name.to_string(), type_id);
                 }
                 Some("full") => {
+                    // If we use {{...}} variable in cell_deps, then the contract need to be put in the cell_deps either.
+                    // This is because variable is not a real code_hash, but everything needs code_hash here, so the
+                    // contract need to be loaded for calculating hash.
                     let (capacity, lock_script, type_script, data) =
-                        self.parse_cell(item).map_err(|err| {
+                        self.parse_cell(item.clone()).map_err(|err| {
                             format!("Field `cell_deps[]` parse failed: {}", err.to_string())
                         })?;
                     let out_point =
@@ -388,8 +389,8 @@ impl<'a> TemplateParser<'a> {
                 };
                 let args = script_val["args"].as_str().unwrap_or("");
                 let hash_type = match script_val["hash_type"].as_str() {
-                    Some("type") => ScriptHashType::Type,
-                    _ => ScriptHashType::Data,
+                    Some("data") => ScriptHashType::Data,
+                    _ => ScriptHashType::Type,
                 };
                 script = Some(
                     Script::new_builder()
@@ -403,9 +404,7 @@ impl<'a> TemplateParser<'a> {
                 let code_hash = script_val["code_hash"]
                     .as_str()
                     .expect("The code_hash field is required.");
-                let args = script_val["args"]
-                    .as_str()
-                    .expect("The args field is required.");
+                let args = script_val["args"].as_str().unwrap_or("");
                 let hash_type = match script_val["hash_type"].as_str() {
                     Some("type") => ScriptHashType::Type,
                     _ => ScriptHashType::Data,
