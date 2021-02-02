@@ -3,6 +3,7 @@ use super::util::{
     build_signature, deploy_builtin_contract, deploy_dev_contract, get_privkey_signer,
     hex_to_byte32, hex_to_bytes, hex_to_u64, mock_cell, mock_input,
 };
+use crate::util::constants::TYPE_ID_TABLE;
 use ckb_testtool::context::Context;
 use ckb_tool::{
     ckb_jsonrpc_types as rpc_types,
@@ -14,6 +15,7 @@ use ckb_tool::{
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde_json::Value;
+use std::collections::hash_map::RandomState;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fs::File;
@@ -52,7 +54,7 @@ impl<'a> TemplateParser<'a> {
         Ok(TemplateParser {
             context,
             data,
-            contracts: HashMap::new(),
+            contracts: TemplateParser::init_contracts(),
             deps: Vec::new(),
             inputs: Vec::new(),
             outputs: Vec::new(),
@@ -69,13 +71,23 @@ impl<'a> TemplateParser<'a> {
         Ok(TemplateParser {
             context,
             data,
-            contracts: HashMap::new(),
+            contracts: TemplateParser::init_contracts(),
             deps: Vec::new(),
             inputs: Vec::new(),
             outputs: Vec::new(),
             outputs_data: Vec::new(),
             witnesses: Vec::new(),
         })
+    }
+
+    fn init_contracts() -> HashMap<String, Byte32, RandomState> {
+        // The type IDs here are testing only.
+        let mut contracts = HashMap::new();
+        for (key, val) in TYPE_ID_TABLE.iter() {
+            contracts.insert(key.to_string(), hex_to_byte32(val).unwrap());
+        }
+
+        contracts
     }
 
     pub fn parse(&mut self) -> () {
