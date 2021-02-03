@@ -21,6 +21,10 @@ pub struct WitnessesParser {
 
 impl WitnessesParser {
     pub fn new(witnesses: Vec<Bytes>) -> Result<Self, Error> {
+        if cfg!(debug_assertions) {
+            debug!("Start parsing witnesses ...");
+        }
+
         // Parsing first witness as ActionData.
         let witness = witnesses.get(0).ok_or(Error::WitnessEmpty)?;
         Self::verify_das_header(&witness)?;
@@ -51,6 +55,10 @@ impl WitnessesParser {
             if let Some(entity) = data.new().to_opt() {
                 new.push(Self::parse_entity(entity, type_)?)
             }
+        }
+
+        if cfg!(debug_assertions) {
+            debug!("Witnesses have been parsed successfully.");
         }
 
         Ok(WitnessesParser {
@@ -110,7 +118,10 @@ impl WitnessesParser {
         }
     }
 
-    fn parse_entity(entity: DataEntity, type_: u32) -> Result<(u32, u32, u32, Hash, Bytes), Error> {
+    fn parse_entity(
+        entity: DataEntity,
+        entity_type: u32,
+    ) -> Result<(u32, u32, u32, Hash, Bytes), Error> {
         let index = u32::from(entity.index());
         let version = u32::from(entity.version());
         let data = entity.entity();
@@ -126,13 +137,18 @@ impl WitnessesParser {
         Ok((
             index,
             version,
-            type_,
+            entity_type,
             hash,
             Bytes::new_unchecked(data.as_bytes()),
         ))
     }
 
-    pub fn get(&self, index: u32, hash: &Hash, source: Source) -> Result<&Bytes, Error> {
+    pub fn get(
+        &self,
+        index: u32,
+        hash: &Hash,
+        source: Source,
+    ) -> Result<(u32, u32, &Bytes), Error> {
         let group = match source {
             Source::Input => &self.old,
             Source::Output => &self.new,
@@ -143,9 +159,14 @@ impl WitnessesParser {
         };
 
         let entity;
-        if let Some((_, _, _, _hash, _entity)) = group.iter().find(|&(i, _, _, _h, _)| i == &index)
+        let version;
+        let entity_type;
+        if let Some((_, _version, _entity_type, _hash, _entity)) =
+            group.iter().find(|&(i, _, _, _h, _)| i == &index)
         {
             if is_entity_eq(hash, _hash) {
+                version = _version.to_owned();
+                entity_type = _entity_type.to_owned();
                 entity = _entity;
             } else {
                 return Err(Error::WitnessDataIsCorrupted);
@@ -155,7 +176,7 @@ impl WitnessesParser {
         }
 
         // This is DataEntity.entity wrapped in Bytes.
-        Ok(entity)
+        Ok((version, entity_type, entity))
     }
 }
 
@@ -248,7 +269,7 @@ mod test {
             hex_to_byte32("0x04de45a843802e1c0bb8f1e382ee23be1434c36693eac143f61bbaf04dc901cb")
                 .unwrap(),
         );
-        let entity = parser.get(0, &hash, Source::Output).unwrap();
+        let (_, _, entity) = parser.get(0, &hash, Source::Output).unwrap();
 
         let entity_data = entity.as_slice().get(4..).unwrap();
         let result = Hash::new_unchecked(blake2b_256(entity_data).to_vec().into());

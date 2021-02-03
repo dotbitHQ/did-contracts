@@ -34,14 +34,18 @@ pub enum Error {
     ApplyRegisterNeedWaitLonger, // 45
     ApplyRegisterHasTimeout,
     PreRegisterFoundInvalidTransaction,
+    PreRegisterAccountIdIsInvalid,
     PreRegisterApplyHashIsInvalid,
-    PreRegisterCreateAtIsInvalid,
-    PreRegisterAccountLengthMissMatch, // 50
+    PreRegisterCreateAtIsInvalid, // 50
+    PreRegisterAccountLengthMissMatch,
     PreRegisterFoundUndefinedCharSet,
     PreRegisterCKBInsufficient,
     PreRegisterAccountCanNotRegisterNow,
-    PreRegisterAccountCharSetConflict,
-    PreRegisterAccountCharIsInvalid, // 55
+    PreRegisterAccountCharSetConflict, // 55
+    PreRegisterAccountCharIsInvalid,
+    ProposalFoundInvalidTransaction,
+    ProposalFoundInvalidSlice,
+    ProposalFoundSlicesRelatedCellInvalid, // 59
     TimeCellDataDecodingError = 100,
 }
 
