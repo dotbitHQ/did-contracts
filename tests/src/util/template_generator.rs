@@ -163,27 +163,14 @@ impl TemplateGenerator {
         }
     }
 
-    fn gen_witness(
+    pub fn gen_witness<T: Entity>(
         &mut self,
-        entity: impl Entity,
         data_type: DataType,
-        version: u32,
-        index: u32,
-        group: Source,
+        output_opt: Option<(u32, u32, T)>,
+        input_opt: Option<(u32, u32, T)>,
+        dep_opt: Option<(u32, u32, T)>,
     ) {
-        let witness = match group {
-            Source::CellDep => {
-                das_util::wrap_data_witness(data_type, None, None, Some((version, index, entity)))
-            }
-            Source::Input => {
-                das_util::wrap_data_witness(data_type, None, Some((version, index, entity)), None)
-            }
-            Source::Output => {
-                das_util::wrap_data_witness(data_type, Some((version, index, entity)), None, None)
-            }
-            _ => return (),
-        };
-
+        let witness = das_util::wrap_data_witness(data_type, output_opt, input_opt, dep_opt);
         self.witnesses.push(bytes_to_hex(witness));
     }
 
@@ -212,7 +199,7 @@ impl TemplateGenerator {
         self.push_value(data, Source::CellDep);
     }
 
-    pub fn gen_config_cell(&mut self, group: Source, witness_params: (u32, u32)) {
+    pub fn gen_config_cell(&mut self, group: Source) -> ConfigCellData {
         let entity = ConfigCellData::new_builder()
             .reserved_account_filter(Bytes::default())
             .proposal_min_confirm_require(Uint8::from(4))
@@ -236,7 +223,8 @@ impl TemplateGenerator {
           "tmp_type": "full",
           "capacity": 1000,
           "lock": {
-            "code_hash": "{{always_success}}"
+            "code_hash": "{{always_success}}",
+            "args": "0x0000000000000000000000000000000000000000"
           },
           "type": {
             "code_hash": "{{config-cell-type}}"
@@ -245,9 +233,7 @@ impl TemplateGenerator {
         });
         self.push_value(data, group);
 
-        // Generate the witness of ConfigCell.
-        let (version, index) = witness_params;
-        self.gen_witness(entity, DataType::ConfigCellData, version, index, group);
+        entity
     }
 
     pub fn gen_apply_register_cell(
@@ -298,8 +284,7 @@ impl TemplateGenerator {
         account_chars: &AccountChars,
         created_at: u64,
         group: Source,
-        witness_params: (u32, u32),
-    ) {
+    ) -> PreAccountCellData {
         let account_string = account.to_string() + ".bit";
         let id = util::account_to_id(account_string.as_bytes().to_vec());
 
@@ -331,9 +316,7 @@ impl TemplateGenerator {
 
         self.push_value(data, group);
 
-        // Generate the witness of PreAccountCell.
-        let (version, index) = witness_params;
-        self.gen_witness(entity, DataType::PreAccountCellData, version, index, group);
+        entity
     }
 
     pub fn gen_account_cell(
@@ -344,8 +327,7 @@ impl TemplateGenerator {
         registered_at: u64,
         expired_at: u64,
         group: Source,
-        witness_params: (u32, u32),
-    ) {
+    ) -> AccountCellData {
         let account_string = account.to_string() + ".bit";
         let id = util::account_to_id(account_string.as_bytes().to_vec());
 
@@ -386,9 +368,7 @@ impl TemplateGenerator {
 
         self.push_value(data, group);
 
-        // Generate the witness of PreAccountCell.
-        let (version, index) = witness_params;
-        self.gen_witness(entity, DataType::AccountCellData, version, index, group);
+        entity
     }
 
     pub fn gen_slice_data_and_witness(
@@ -401,22 +381,32 @@ impl TemplateGenerator {
             for (_, item_type, next, account, registered_at, expired_at) in slice {
                 let account_chars = gen_account_chars(account.split("").collect());
                 if *item_type == ProposalSliceItemType::Exist {
-                    self.gen_account_cell(
+                    let entity = self.gen_account_cell(
                         account,
                         &account_chars,
                         util::hex_to_bytes(next).unwrap(),
                         registered_at.to_owned(),
                         expired_at.to_owned(),
                         Source::CellDep,
-                        (1, dep_index),
+                    );
+                    self.gen_witness(
+                        DataType::AccountCellData,
+                        None,
+                        None,
+                        Some((1, dep_index, entity)),
                     );
                 } else {
-                    self.gen_pre_account_cell(
+                    let entity = self.gen_pre_account_cell(
                         account,
                         &account_chars,
                         registered_at.to_owned(),
                         Source::CellDep,
-                        (1, dep_index),
+                    );
+                    self.gen_witness(
+                        DataType::PreAccountCellData,
+                        None,
+                        None,
+                        Some((1, dep_index, entity)),
                     );
                 }
 
@@ -486,8 +476,7 @@ impl TemplateGenerator {
         &mut self,
         slices: &Vec<Vec<(&str, ProposalSliceItemType, &str, &str, u64, u64)>>,
         group: Source,
-        witness_params: (u32, u32),
-    ) {
+    ) -> ProposalCellData {
         let entity = ProposalCellData::new_builder()
             .starter_lock(Script::default())
             .slices(self.gen_slices(slices))
@@ -509,9 +498,7 @@ impl TemplateGenerator {
 
         self.push_value(data, group);
 
-        // Generate the witness of ProposalCell.
-        let (version, index) = witness_params;
-        self.gen_witness(entity, DataType::ProposalCellData, version, index, group);
+        entity
     }
 
     pub fn pretty_print(&self) {
