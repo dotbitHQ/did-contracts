@@ -44,8 +44,12 @@ pub enum Error {
     PreRegisterAccountCharSetConflict, // 55
     PreRegisterAccountCharIsInvalid,
     ProposalFoundInvalidTransaction,
-    ProposalFoundInvalidSlice,
-    ProposalFoundSlicesRelatedCellInvalid, // 59
+    ProposalSliceIsNotSorted,
+    ProposalSliceIsDiscontinuity,
+    ProposalFoundSlicesRelatedCellInvalid, // 60
+    ProposalSliceAndRelevantCellMissMatch,
+    ProposalSliceAndAccountIdMissMatch,
+    ProposalSliceNotEndCorrectly,
     TimeCellDataDecodingError = 100,
 }
 
