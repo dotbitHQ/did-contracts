@@ -4,7 +4,9 @@ members = [
     "libs/das-core",
     "libs/das-sorted-list",
     "contracts/always-success",
-    "contracts/config-cell-type", "contracts/apply-register-cell-type",
+    "contracts/apply-register-cell-type",
+    "contracts/config-cell-type",
+    "contracts/pre-account-cell-type",
 ]
 
 [profile.release]

@@ -11,9 +11,17 @@ version = "0.4.4 fae2bb1"
 deployment = "deployment.toml"
 
 [[contracts]]
-name = "action"
+name = "always-success"
 template_type = "Rust"
 
 [[contracts]]
-name = "always_success"
+name = "config-cell-type"
+template_type = "Rust"
+
+[[contracts]]
+name = "apply-register-cell-type"
+template_type = "Rust"
+
+[[contracts]]
+name = "pre-account-cell-type"
 template_type = "Rust"
