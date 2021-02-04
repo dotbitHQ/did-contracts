@@ -112,6 +112,15 @@ pub fn gen_account_list() {
         "das00007.bit",
         "das00008.bit",
         "das00009.bit",
+        "das00010.bit",
+        "das00011.bit",
+        "das00012.bit",
+        "das00013.bit",
+        "das00014.bit",
+        "das00015.bit",
+        "das00016.bit",
+        "das00018.bit",
+        "das00019.bit",
     ];
 
     let mut account_id_map = HashMap::new();
@@ -127,6 +136,34 @@ pub fn gen_account_list() {
         let account = account_id_map.get(item).unwrap();
         println!("{} => {}", account, item.pack());
     }
+}
+
+fn account_to_id_bytes(account: &str) -> Vec<u8> {
+    // Sorted testing accounts, generated from gen_account_list().
+    let account_id = match account {
+        "das00012.bit" => "0x05d2771e6c0366846677ce2e97fe7a78a20ad1f8",
+        "das00005.bit" => "0x0eb54a48689ce16b1fe8eaf126f81e9eff558a73",
+        "das00009.bit" => "0x100871e1ff8a4cbde1d4673914707a32083e4ce0",
+        "das00002.bit" => "0x1710cbaf08cf1fa2dcad206a909c76705970a2ee",
+        "das00013.bit" => "0x2ba50252fba902dc5287c8617a98d2b8e0c201d9",
+        "das00010.bit" => "0x5998f1666df91f989212994540a51561e1d3dc44",
+        "das00004.bit" => "0x5cbc30a5bfd00de7f7c512473f2ff097e7bba50b",
+        "das00018.bit" => "0x60e70978fd6456883990ab9a6a0785efdf0d5250",
+        "das00008.bit" => "0x6729295b9a936d6c67fd8b84990c9639b01985bd",
+        "das00011.bit" => "0x70aa5e4d41c3d557ca847bd10f1efe9b2ca07aca",
+        "das00006.bit" => "0x76b1e100d9ff3dc62e75e810be3253bf61d8e794",
+        "das00019.bit" => "0x9b992223d5ccd0fca8e17e122e97cff52afaf3ec",
+        "das00001.bit" => "0xa2e06438859db0449574d1443ade636a7e6bd09f",
+        "das00014.bit" => "0xb209ac25bd48f00b9ae6a1cb7ecff4b58d6c1d07",
+        "das00003.bit" => "0xbfab64fccdb83b3316cf3b8faaf6bb5cedef7e4c",
+        "das00007.bit" => "0xc9804583fc51c64512c0153264a707c254ae81ff",
+        "das00000.bit" => "0xcc4e1b0c31b5f537ad0a91f37c7aea0f47b450f5",
+        "das00016.bit" => "0xeb12a2e3eabe2a20015c8bee1b3cfb8577f6360f",
+        "das00015.bit" => "0xed912d8f62ce9815d415370c66b00cefc80fcce6",
+        _ => "",
+    };
+
+    util::hex_to_bytes(account_id).unwrap().to_vec()
 }
 
 fn bytes_to_hex(input: Bytes) -> String {
@@ -284,7 +321,7 @@ impl TemplateGenerator {
         account_chars: &AccountChars,
         created_at: u64,
         group: Source,
-    ) -> PreAccountCellData {
+    ) -> (PreAccountCellData, String) {
         let account_string = account.to_string() + ".bit";
         let id = util::account_to_id(account_string.as_bytes().to_vec());
 
@@ -311,12 +348,12 @@ impl TemplateGenerator {
           "type": {
             "code_hash": "{{pre-account-cell-type}}"
           },
-          "tmp_data": bytes_to_hex(cell_data)
+          "tmp_data": bytes_to_hex(cell_data.clone())
         });
 
         self.push_value(data, group);
 
-        entity
+        (entity, bytes_to_hex(cell_data))
     }
 
     pub fn gen_account_cell(
@@ -327,7 +364,7 @@ impl TemplateGenerator {
         registered_at: u64,
         expired_at: u64,
         group: Source,
-    ) -> AccountCellData {
+    ) -> (AccountCellData, String) {
         let account_string = account.to_string() + ".bit";
         let id = util::account_to_id(account_string.as_bytes().to_vec());
 
@@ -363,32 +400,34 @@ impl TemplateGenerator {
           "type": {
             "code_hash": "{{account-cell-type}}"
           },
-          "tmp_data": bytes_to_hex(cell_data)
+          "tmp_data": bytes_to_hex(cell_data.clone())
         });
 
         self.push_value(data, group);
 
-        entity
+        (entity, bytes_to_hex(cell_data))
     }
 
     pub fn gen_slice_data_and_witness(
         &mut self,
-        slices: &Vec<Vec<(&str, ProposalSliceItemType, &str, &str, u64, u64)>>,
+        slices: &Vec<Vec<(&str, ProposalSliceItemType, &str, u64, u64)>>,
         start_from: u32,
     ) {
         let mut dep_index = start_from;
         for slice in slices {
-            for (_, item_type, next, account, registered_at, expired_at) in slice {
-                let account_chars = gen_account_chars(account.split("").collect());
+            for (account, item_type, next, registered_at, expired_at) in slice {
+                let account_chars =
+                    gen_account_chars(account[..&account.len() - 4].split("").collect());
                 if *item_type == ProposalSliceItemType::Exist {
-                    let entity = self.gen_account_cell(
+                    let (entity, data) = self.gen_account_cell(
                         account,
                         &account_chars,
-                        util::hex_to_bytes(next).unwrap(),
+                        bytes::Bytes::from(account_to_id_bytes(next)),
                         registered_at.to_owned(),
                         expired_at.to_owned(),
                         Source::CellDep,
                     );
+                    println!("Generate cell_dep: {}", data);
                     self.gen_witness(
                         DataType::AccountCellData,
                         None,
@@ -396,12 +435,13 @@ impl TemplateGenerator {
                         Some((1, dep_index, entity)),
                     );
                 } else {
-                    let entity = self.gen_pre_account_cell(
+                    let (entity, data) = self.gen_pre_account_cell(
                         account,
                         &account_chars,
                         registered_at.to_owned(),
                         Source::CellDep,
                     );
+                    println!("Generate cell_dep: {}", data);
                     self.gen_witness(
                         DataType::PreAccountCellData,
                         None,
@@ -417,19 +457,17 @@ impl TemplateGenerator {
 
     fn gen_proposal_item(
         &self,
-        account_id: &str,
+        account: &str,
         item_type: &ProposalSliceItemType,
         next: &str,
     ) -> ProposalItem {
-        let account_id =
-            AccountId::try_from(util::hex_to_bytes(account_id).unwrap().to_vec()).unwrap();
+        let account_id = AccountId::try_from(account_to_id_bytes(account)).unwrap();
         let mut builder = ProposalItem::new_builder()
             .account_id(account_id)
             .item_type(Uint8::from(*item_type as u8));
 
         if !next.is_empty() {
-            let next_account_id =
-                AccountId::try_from(util::hex_to_bytes(next).unwrap().to_vec()).unwrap();
+            let next_account_id = AccountId::try_from(account_to_id_bytes(next)).unwrap();
             builder = builder.next(
                 AccountIdOpt::new_builder()
                     .set(Some(next_account_id))
@@ -442,7 +480,7 @@ impl TemplateGenerator {
 
     fn gen_slices(
         &self,
-        slices: &Vec<Vec<(&str, ProposalSliceItemType, &str, &str, u64, u64)>>,
+        slices: &Vec<Vec<(&str, ProposalSliceItemType, &str, u64, u64)>>,
     ) -> SliceList {
         let mut sl_list = SliceList::new_builder();
         for slice in slices {
@@ -452,19 +490,19 @@ impl TemplateGenerator {
 
             let mut sl = SL::new_builder();
             let mut next_of_first_item = "";
-            for (index, (account_id, item_type, next, _, _, _)) in slice.iter().enumerate() {
+            for (index, (account, item_type, next, _, _)) in slice.iter().enumerate() {
                 // When it is the first item, saving its next.
                 if index == 0 {
                     next_of_first_item = next;
-                    let (next, _, _, _, _, _) = slice.get(index + 1).unwrap();
-                    sl = sl.push(self.gen_proposal_item(account_id, item_type, next));
+                    let (next, _, _, _, _) = slice.get(index + 1).unwrap();
+                    sl = sl.push(self.gen_proposal_item(account, item_type, next));
                 // When it is the last item, use next_of_first_item as its next.
                 } else if index == slice.len() - 1 {
-                    sl = sl.push(self.gen_proposal_item(account_id, item_type, next_of_first_item));
+                    sl = sl.push(self.gen_proposal_item(account, item_type, next_of_first_item));
                 // When it is the items between the first and the last, using its next item's account_id as next.
                 } else {
-                    let (next, _, _, _, _, _) = slice.get(index + 1).unwrap();
-                    sl = sl.push(self.gen_proposal_item(account_id, item_type, next));
+                    let (next, _, _, _, _) = slice.get(index + 1).unwrap();
+                    sl = sl.push(self.gen_proposal_item(account, item_type, next));
                 }
             }
             sl_list = sl_list.push(sl.build());
@@ -474,7 +512,7 @@ impl TemplateGenerator {
 
     pub fn gen_proposal_cell(
         &mut self,
-        slices: &Vec<Vec<(&str, ProposalSliceItemType, &str, &str, u64, u64)>>,
+        slices: &Vec<Vec<(&str, ProposalSliceItemType, &str, u64, u64)>>,
         group: Source,
     ) -> ProposalCellData {
         let entity = ProposalCellData::new_builder()

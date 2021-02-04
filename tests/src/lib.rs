@@ -14,9 +14,15 @@ mod util;
 #[cfg(test)]
 mod always_success;
 #[cfg(test)]
-mod template_parser;
+mod apply_register;
+#[cfg(test)]
+mod config_cell_type;
+#[cfg(test)]
+mod hash_printer;
+#[cfg(test)]
+mod pre_register;
 // #[cfg(test)]
-// mod config_cell_type;
+// mod template_parser;
 
 const TEST_ENV_VAR: &str = "CAPSULE_TEST_ENV";
 
