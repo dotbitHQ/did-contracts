@@ -75,13 +75,10 @@
       "tmp_type": "full",
       "capacity": 10000,
       "lock": {
-        "code_hash": "{{always_success}}",
-        "args": ""
+        "code_hash": "{{always_success}}"
       },
       "type": {
-        "code_hash": "{{pre-account-cell-type}}",
-        "hash_type": "data",
-        "args": ""
+        "code_hash": "{{pre-account-cell-type}}"
       },
       "tmp_data": "0xaf231ea2bb162128e88dd2d70baba1360db5787296ca025e15a79701859319ed1c3d1b2e9cef296a6d303144ea1025ec1ab68a8d"
     },
