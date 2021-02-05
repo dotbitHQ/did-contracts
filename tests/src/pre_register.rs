@@ -19,8 +19,7 @@ fn gen_transaction_data() {
         Some((1, 5, dep_entity)),
     );
 
-    let account = "✨dasdas✨";
-    let account_chars = gen_account_chars(account.split("").collect());
+    let account_chars = gen_account_chars("✨dasdas✨".split("").collect());
     template.gen_apply_register_cell(
         "0x9af92f5e690f4669ca543deb99af8385b12624cc",
         &account_chars,
@@ -28,8 +27,7 @@ fn gen_transaction_data() {
         Source::Input,
     );
 
-    let (new_entity, _) =
-        template.gen_pre_account_cell(account, &account_chars, timestamp, Source::Output);
+    let (new_entity, _) = template.gen_pre_account_cell(&account_chars, timestamp, Source::Output);
     template.gen_witness(
         DataType::PreAccountCellData,
         Some((1, 0, new_entity)),

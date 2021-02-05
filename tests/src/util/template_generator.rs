@@ -9,6 +9,7 @@ use das_types::{constants::*, packed::*, prelude::*, util as das_util};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::convert::TryFrom;
+use std::str;
 
 fn gen_price_config(length: u8, new_price: u64, renew_price: u64) -> PriceConfig {
     PriceConfig::new_builder()
@@ -50,13 +51,18 @@ fn gen_char_sets() -> CharSetList {
     CharSetList::new_builder()
         .push(gen_char_set(CharSetType::Emoji, 1, vec!["😂", "👍", "✨"]))
         .push(gen_char_set(
+            CharSetType::Digit,
+            1,
+            vec!["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
+        ))
+        .push(gen_char_set(
             CharSetType::En,
             0,
             vec![
-                "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f",
-                "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v",
-                "w", "x", "y", "z", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L",
-                "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
+                "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p",
+                "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "A", "B", "C", "D", "E", "F",
+                "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V",
+                "W", "X", "Y", "Z",
             ],
         ))
         .build()
@@ -90,10 +96,20 @@ fn gen_account_char(char: &str, char_set_type: CharSetType) -> AccountChar {
 pub fn gen_account_chars(chars: Vec<&str>) -> AccountChars {
     let mut builder = AccountChars::new_builder();
     for char in chars {
+        // Filter empty chars come from str.split("").
+        if char.is_empty() {
+            continue;
+        }
+
         if char.len() != 1 {
             builder = builder.push(gen_account_char(char, CharSetType::Emoji))
         } else {
-            builder = builder.push(gen_account_char(char, CharSetType::En))
+            let raw_char = char.chars().next().unwrap();
+            if raw_char.is_digit(10) {
+                builder = builder.push(gen_account_char(char, CharSetType::Digit))
+            } else {
+                builder = builder.push(gen_account_char(char, CharSetType::En))
+            }
         }
     }
 
@@ -126,7 +142,7 @@ pub fn gen_account_list() {
     let mut account_id_map = HashMap::new();
     let mut account_id_list = Vec::new();
     for account in accounts.iter() {
-        let account_id = bytes::Bytes::from(util::account_to_id(account.as_bytes().to_vec()));
+        let account_id = bytes::Bytes::from(util::account_to_id(account.as_bytes()));
         account_id_map.insert(account_id.clone(), *account);
         account_id_list.push(account_id);
     }
@@ -317,13 +333,18 @@ impl TemplateGenerator {
 
     pub fn gen_pre_account_cell(
         &mut self,
-        account: &str,
         account_chars: &AccountChars,
         created_at: u64,
         group: Source,
     ) -> (PreAccountCellData, String) {
-        let account_string = account.to_string() + ".bit";
-        let id = util::account_to_id(account_string.as_bytes().to_vec());
+        let mut account = account_chars.as_readable();
+        account.append(&mut ".bit".as_bytes().to_vec());
+        let id = util::account_to_id(account.as_slice());
+        // println!(
+        //     "{} => {:x?}",
+        //     str::from_utf8(account.as_slice()).unwrap(),
+        //     id
+        // );
 
         let entity = PreAccountCellData::new_builder()
             .account(account_chars.to_owned())
@@ -358,15 +379,20 @@ impl TemplateGenerator {
 
     pub fn gen_account_cell(
         &mut self,
-        account: &str,
         account_chars: &AccountChars,
         next: bytes::Bytes,
         registered_at: u64,
         expired_at: u64,
         group: Source,
     ) -> (AccountCellData, String) {
-        let account_string = account.to_string() + ".bit";
-        let id = util::account_to_id(account_string.as_bytes().to_vec());
+        let mut account = account_chars.as_readable();
+        account.append(&mut ".bit".as_bytes().to_vec());
+        let id = util::account_to_id(account.as_slice());
+        // println!(
+        //     "{} => {:x?}",
+        //     str::from_utf8(account.as_slice()).unwrap(),
+        //     id
+        // );
 
         let entity = AccountCellData::new_builder()
             .id(AccountId::try_from(id.clone()).unwrap())
@@ -385,7 +411,7 @@ impl TemplateGenerator {
             id.as_slice(),
             &next[..],
             Timestamp::from(expired_at).as_reader().raw_data(),
-            account_string.as_bytes(),
+            account.as_slice(),
         ]
         .concat();
 
@@ -416,18 +442,19 @@ impl TemplateGenerator {
         let mut dep_index = start_from;
         for slice in slices {
             for (account, item_type, next, registered_at, expired_at) in slice {
-                let account_chars =
-                    gen_account_chars(account[..&account.len() - 4].split("").collect());
+                let splited_account = account[..&account.len() - 4]
+                    .split("")
+                    .filter(|item| !item.is_empty())
+                    .collect::<Vec<&str>>();
+                let account_chars = gen_account_chars(splited_account);
                 if *item_type == ProposalSliceItemType::Exist {
-                    let (entity, data) = self.gen_account_cell(
-                        account,
+                    let (entity, _) = self.gen_account_cell(
                         &account_chars,
                         bytes::Bytes::from(account_to_id_bytes(next)),
                         registered_at.to_owned(),
                         expired_at.to_owned(),
                         Source::CellDep,
                     );
-                    println!("Generate cell_dep: {}", data);
                     self.gen_witness(
                         DataType::AccountCellData,
                         None,
@@ -435,13 +462,11 @@ impl TemplateGenerator {
                         Some((1, dep_index, entity)),
                     );
                 } else {
-                    let (entity, data) = self.gen_pre_account_cell(
-                        account,
+                    let (entity, _) = self.gen_pre_account_cell(
                         &account_chars,
                         registered_at.to_owned(),
                         Source::CellDep,
                     );
-                    println!("Generate cell_dep: {}", data);
                     self.gen_witness(
                         DataType::PreAccountCellData,
                         None,

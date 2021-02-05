@@ -19,8 +19,7 @@ fn gen_transaction_data() {
         Some((1, 4, dep_entity)),
     );
 
-    let account = "✨dasdas✨";
-    let account_chars = gen_account_chars(account.split("").collect());
+    let account_chars = gen_account_chars("✨dasdas✨".split("").collect());
     template.gen_apply_register_cell(
         "0x9af92f5e690f4669ca543deb99af8385b12624cc",
         &account_chars,
