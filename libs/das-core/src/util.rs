@@ -156,7 +156,8 @@ where
 fn load_data<F: Fn(&mut [u8], usize) -> Result<usize, SysError>>(
     syscall: F,
 ) -> Result<Vec<u8>, SysError> {
-    let mut buf = [0u8; 1000];
+    // The buffer length should be a little bigger than the size of the biggest data.
+    let mut buf = [0u8; 2000];
     match syscall(&mut buf, 0) {
         Ok(len) => Ok(buf[..len].to_vec()),
         Err(SysError::LengthNotEnough(actual_size)) => {
@@ -173,9 +174,7 @@ fn load_data<F: Fn(&mut [u8], usize) -> Result<usize, SysError>>(
 }
 
 pub fn load_timestamp() -> Result<u64, Error> {
-    if cfg!(debug_assertions) {
-        debug!("Reading TimeCell ...");
-    }
+    debug!("Reading TimeCell ...");
 
     // Define nervos official TimeCell type script.
     let time_cell_type = script_literal_to_script(TIME_CELL_TYPE);
@@ -186,9 +185,7 @@ pub fn load_timestamp() -> Result<u64, Error> {
         return Err(Error::TimeCellIsRequired);
     }
 
-    if cfg!(debug_assertions) {
-        debug!("Reading outputs_data of the TimeCell ...");
-    }
+    debug!("Reading outputs_data of the TimeCell ...");
 
     // Read the passed timestamp from outputs_data of TimeCell
     let data = high_level::load_cell_data(ret[0], Source::CellDep).map_err(|e| Error::from(e))?;
@@ -206,9 +203,7 @@ pub fn load_timestamp() -> Result<u64, Error> {
 }
 
 pub fn load_config(parser: &WitnessesParser) -> Result<das_packed::ConfigCellData, Error> {
-    if cfg!(debug_assertions) {
-        debug!("Reading ConfigCell ...");
-    }
+    debug!("Reading ConfigCell ...");
 
     let config_cell_type = script_literal_to_script(CONFIG_CELL_TYPE);
     // There must be one ConfigCell in the cell_deps, no more and no less.
@@ -217,9 +212,7 @@ pub fn load_config(parser: &WitnessesParser) -> Result<das_packed::ConfigCellDat
         return Err(Error::ConfigCellIsRequired);
     }
 
-    if cfg!(debug_assertions) {
-        debug!("Reading witness of the ConfigCell ...");
-    }
+    debug!("Reading witness of the ConfigCell ...");
 
     // Read and decode the witness of ConfigCell.
     let (_, _, entity) = get_cell_witness(parser, ret[0], Source::CellDep)?;
