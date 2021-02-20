@@ -19,103 +19,114 @@ pub fn main() -> Result<(), Error> {
 
     // Loading and parsing DAS witnesses.
     let witnesses = util::load_das_witnesses()?;
-    let parser = WitnessesParser::new(witnesses)?;
+    let action = WitnessesParser::find_action(&witnesses)?;
 
-    let timestamp = util::load_timestamp()?;
-    let config = util::load_config(&parser)?;
-
-    debug!("Find out PreAccountCell ...");
-
-    // Find out PreAccountCells in current transaction.
-    let this_type_script = load_script().map_err(|e| Error::from(e))?;
-    let old_cells = util::find_cells_by_script(ScriptType::Type, &this_type_script, Source::Input)?;
-    let new_cells =
-        util::find_cells_by_script(ScriptType::Type, &this_type_script, Source::Output)?;
-
-    // Routing by ActionData in witness.
-    let action = parser.action.as_reader().raw_data();
-    if action == "pre_register".as_bytes() {
-        debug!("Route to pre_register action ...");
-
-        debug!(
-            "depends on apply-register-cell-type: {}",
-            config.as_reader().type_id_table().apply_register_cell()
-        );
-
-        // Consuming PreAccountCell is not allowed in pre_register action.
-        if old_cells.len() != 0 {
-            return Err(Error::PreRegisterFoundInvalidTransaction);
-        }
-        // Only one PreAccountCell can be created at one time.
-        if new_cells.len() != 1 {
-            return Err(Error::PreRegisterFoundInvalidTransaction);
-        }
-
-        debug!("Find out ApplyRegisterCell ...");
-
-        // Find out ApplyRegisterCells in current transaction.
-        let apply_register_cells = util::find_cells_by_type_id(
-            ScriptType::Type,
-            config.as_reader().type_id_table().apply_register_cell(),
-            Source::Input,
-        )?;
-        // There must be a PreAccountCell created in the transaction.
-        if apply_register_cells.len() != 1 {
-            return Err(Error::PreRegisterFoundInvalidTransaction);
-        }
-
-        debug!("Read data of ApplyRegisterCell ...");
-
-        // Read the hash from outputs_data of the ApplyRegisterCell.
-        let index = &apply_register_cells[0];
-        let data = load_cell_data(index.to_owned(), Source::Input).map_err(|e| Error::from(e))?;
-        let apply_register_hash = match data.get(..32) {
-            Some(bytes) => bytes,
-            _ => return Err(Error::InvalidCellData),
-        };
-        let apply_register_lock =
-            load_cell_lock(index.to_owned(), Source::Input).map_err(|e| Error::from(e))?;
-
-        debug!("Read witness of PreAccountCell ...");
-
-        // Read outputs_data and witness of the PreAccountCell.
-        let index = &new_cells[0];
-        let data = load_cell_data(index.to_owned(), Source::Output).map_err(|e| Error::from(e))?;
-        let account_id = match data.get(32..) {
-            Some(bytes) => Bytes::from(bytes),
-            _ => return Err(Error::InvalidCellData),
-        };
-        let capacity =
-            load_cell_capacity(index.to_owned(), Source::Output).map_err(|e| Error::from(e))?;
-
-        let (_, _, entity) = util::get_cell_witness(&parser, index.to_owned(), Source::Output)?;
-        let pre_account_cell_data = PreAccountCellData::from_slice(entity.as_reader().raw_data())
-            .map_err(|_| Error::WitnessEntityDecodingError)?;
-        let pre_account_cell_data_reader = pre_account_cell_data.as_reader();
-
-        verify_account_id(&pre_account_cell_data_reader, account_id.as_reader())?;
-        verify_apply_register_hash(
-            &pre_account_cell_data_reader,
-            apply_register_lock.as_reader(),
-            apply_register_hash,
-        )?;
-        verify_create_at_is_correct(&pre_account_cell_data_reader, timestamp)?;
-        verify_account_length_is_correct(&pre_account_cell_data_reader)?;
-        // Verify quote cell's lock script
-        // Verify quote cell exist and has the same value as pre-account-cell.quote field.
-        // TODO
-        verify_payed_capacity_is_enough(&pre_account_cell_data_reader, capacity)?;
-        verify_account_is_available_for_registration(&pre_account_cell_data_reader, timestamp)?;
-        verify_account_chars_is_available(&pre_account_cell_data_reader, config.as_reader())?;
-
-    // Verify if the account is preserved.
-    // TODO
-    } else if action == "confirm_proposal".as_bytes() {
+    if action.as_reader().raw_data() == "confirm_proposal".as_bytes() {
+        // Move all logic to proposal-cell-type to save cycles, this will save a huge cycles.
+        Ok(())
     } else {
-        return Err(Error::ActionNotSupported);
-    }
+        // Parsing all DAS witnesses.
+        let parser = WitnessesParser::new(witnesses)?;
 
-    Ok(())
+        let timestamp = util::load_timestamp()?;
+        let config = util::load_config(&parser)?;
+
+        debug!("Find out PreAccountCell ...");
+
+        // Find out PreAccountCells in current transaction.
+        let this_type_script = load_script().map_err(|e| Error::from(e))?;
+        let old_cells =
+            util::find_cells_by_script(ScriptType::Type, &this_type_script, Source::Input)?;
+        let new_cells =
+            util::find_cells_by_script(ScriptType::Type, &this_type_script, Source::Output)?;
+
+        // Routing by ActionData in witness.
+        let action = parser.action.as_reader().raw_data();
+        if action == "pre_register".as_bytes() {
+            debug!("Route to pre_register action ...");
+
+            debug!(
+                "depends on apply-register-cell-type: {}",
+                config.as_reader().type_id_table().apply_register_cell()
+            );
+
+            // Consuming PreAccountCell is not allowed in pre_register action.
+            if old_cells.len() != 0 {
+                return Err(Error::PreRegisterFoundInvalidTransaction);
+            }
+            // Only one PreAccountCell can be created at one time.
+            if new_cells.len() != 1 {
+                return Err(Error::PreRegisterFoundInvalidTransaction);
+            }
+
+            debug!("Find out ApplyRegisterCell ...");
+
+            // Find out ApplyRegisterCells in current transaction.
+            let apply_register_cells = util::find_cells_by_type_id(
+                ScriptType::Type,
+                config.as_reader().type_id_table().apply_register_cell(),
+                Source::Input,
+            )?;
+            // There must be a PreAccountCell created in the transaction.
+            if apply_register_cells.len() != 1 {
+                return Err(Error::PreRegisterFoundInvalidTransaction);
+            }
+
+            debug!("Read data of ApplyRegisterCell ...");
+
+            // Read the hash from outputs_data of the ApplyRegisterCell.
+            let index = &apply_register_cells[0];
+            let data =
+                load_cell_data(index.to_owned(), Source::Input).map_err(|e| Error::from(e))?;
+            let apply_register_hash = match data.get(..32) {
+                Some(bytes) => bytes,
+                _ => return Err(Error::InvalidCellData),
+            };
+            let apply_register_lock =
+                load_cell_lock(index.to_owned(), Source::Input).map_err(|e| Error::from(e))?;
+
+            debug!("Read witness of PreAccountCell ...");
+
+            // Read outputs_data and witness of the PreAccountCell.
+            let index = &new_cells[0];
+            let data =
+                load_cell_data(index.to_owned(), Source::Output).map_err(|e| Error::from(e))?;
+            let account_id = match data.get(32..) {
+                Some(bytes) => Bytes::from(bytes),
+                _ => return Err(Error::InvalidCellData),
+            };
+            let capacity =
+                load_cell_capacity(index.to_owned(), Source::Output).map_err(|e| Error::from(e))?;
+
+            let (_, _, entity) = util::get_cell_witness(&parser, index.to_owned(), Source::Output)?;
+            let pre_account_cell_data =
+                PreAccountCellData::from_slice(entity.as_reader().raw_data())
+                    .map_err(|_| Error::WitnessEntityDecodingError)?;
+            let pre_account_cell_data_reader = pre_account_cell_data.as_reader();
+
+            verify_account_id(&pre_account_cell_data_reader, account_id.as_reader())?;
+            verify_apply_register_hash(
+                &pre_account_cell_data_reader,
+                apply_register_lock.as_reader(),
+                apply_register_hash,
+            )?;
+            verify_create_at_is_correct(&pre_account_cell_data_reader, timestamp)?;
+            verify_account_length_is_correct(&pre_account_cell_data_reader)?;
+            // Verify quote cell's lock script
+            // Verify quote cell exist and has the same value as pre-account-cell.quote field.
+            // TODO
+            verify_payed_capacity_is_enough(&pre_account_cell_data_reader, capacity)?;
+            verify_account_is_available_for_registration(&pre_account_cell_data_reader, timestamp)?;
+            verify_account_chars_is_available(&pre_account_cell_data_reader, config.as_reader())?;
+
+        // Verify if the account is preserved.
+        // TODO
+        } else {
+            return Err(Error::ActionNotSupported);
+        }
+
+        Ok(())
+    }
 }
 
 fn verify_account_id(

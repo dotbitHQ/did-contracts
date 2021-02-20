@@ -20,10 +20,22 @@ pub struct WitnessesParser {
 }
 
 impl WitnessesParser {
-    pub fn new(witnesses: Vec<Bytes>) -> Result<Self, Error> {
-        if cfg!(debug_assertions) {
-            debug!("Start parsing witnesses ...");
+    pub fn find_action(witnesses: &Vec<Bytes>) -> Result<Bytes, Error> {
+        debug!("Just parsing action witness ...");
+
+        let witness = witnesses.get(0).ok_or(Error::WitnessEmpty)?;
+        Self::verify_das_header(&witness)?;
+        let type_ = Self::parse_data_type(&witness)?;
+        if type_ != DataType::ActionData as u32 {
+            return Err(Error::WitnessActionIsNotTheFirst);
         }
+        let action_data = Self::parse_action_data(&witness)?;
+
+        Ok(Bytes::from(action_data.action()))
+    }
+
+    pub fn new(witnesses: Vec<Bytes>) -> Result<Self, Error> {
+        debug!("Start parsing witnesses ...");
 
         // Parsing first witness as ActionData.
         let witness = witnesses.get(0).ok_or(Error::WitnessEmpty)?;
@@ -57,9 +69,7 @@ impl WitnessesParser {
             }
         }
 
-        if cfg!(debug_assertions) {
-            debug!("Witnesses have been parsed successfully.");
-        }
+        debug!("Witnesses have been parsed successfully.");
 
         Ok(WitnessesParser {
             action,
