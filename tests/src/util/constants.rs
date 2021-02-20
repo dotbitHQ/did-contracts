@@ -1,6 +1,6 @@
 use ckb_tool::ckb_types::{h256, H256};
 
-pub const MAX_CYCLES: u64 = 50_000_000; // up to 70_000_000
+pub const MAX_CYCLES: u64 = 100_000_000; // up to 70_000_000
 
 // error numbers
 pub const ERROR_EMPTY_ARGS: i8 = 5;
@@ -13,6 +13,13 @@ pub const MULTISIG_TYPE_HASH: H256 =
     h256!("0x5c5069eb0857efc65e1bca0c07df34c31663b3622fd3876c876320fc9634e2a8");
 pub const DAO_TYPE_HASH: H256 =
     h256!("0x82d76d1b75fe2fd9a27dfbaa65a039221a380d76c926f378d3f81cf3e7e13f2e");
+
+pub const ALWAYS_SUCCESS_CODE_HASH: [u8; 32] = [
+    157, 111, 41, 25, 227, 40, 243, 33, 125, 125, 211, 218, 181, 247, 206, 233, 216, 224, 98, 190,
+    230, 168, 13, 93, 5, 205, 73, 92, 163, 65, 99, 120,
+];
+
+pub const CONFIG_LOCK_ARGS: &str = "0x0000000000000000000000000000000000000000";
 
 // The type IDs here are testing only.
 pub const TYPE_ID_TABLE: [(&str, &str); 6] = [
