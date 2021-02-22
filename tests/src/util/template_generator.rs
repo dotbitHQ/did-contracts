@@ -632,6 +632,19 @@ impl TemplateGenerator {
         }
     }
 
+    pub fn push_wallet_cell(&mut self, account: &str, capacity: u64, source: Source) {
+        let account_id = Bytes::from(util::account_to_id(account.as_bytes()));
+        let lock_script = json!({
+          "code_hash": "{{always_success}}"
+        });
+        let type_script = json!({
+          "code_hash": "{{wallet-cell-type}}",
+          "args": bytes_to_hex(account_id)
+        });
+
+        self.push_cell(capacity, lock_script, type_script, None, source);
+    }
+
     pub fn pretty_print(&self) {
         let data = json!({
             "cell_deps": self.cell_deps,

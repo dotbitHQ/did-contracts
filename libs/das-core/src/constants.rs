@@ -19,7 +19,11 @@ pub enum ScriptType {
 pub const CKB_HASH_PERSONALIZATION: &[u8] = b"ckb-default-hash";
 
 // TODO Calculate real AccountCell base capacity
-pub const ACCOUNT_CELL_BASE_CAPACITY: u64 = 200;
+pub const ACCOUNT_CELL_BASIC_CAPACITY: u64 = 182;
+pub const REF_CELL_BASIC_CAPACITY: u64 = 114;
+pub const WALLET_CELL_BASIC_CAPACITY: u64 = 94;
+
+pub const ACCOUNT_SUFFIX: &str = ".bit";
 
 pub fn super_lock() -> Script {
     #[cfg(debug_assertions)]
@@ -101,6 +105,26 @@ pub const CONFIG_CELL_TYPE: ScriptLiteral = ScriptLiteral {
 
 #[cfg(not(debug_assertions))]
 pub const CONFIG_CELL_TYPE: ScriptLiteral = ScriptLiteral {
+    code_hash: [
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0,
+    ],
+    hash_type: ScriptHashType::Type,
+    args: Vec::new(),
+};
+
+#[cfg(debug_assertions)]
+pub const ALWAYS_SUCCESS_LOCK: ScriptLiteral = ScriptLiteral {
+    code_hash: [
+        157, 111, 41, 25, 227, 40, 243, 33, 125, 125, 211, 218, 181, 247, 206, 233, 216, 224, 98,
+        190, 230, 168, 13, 93, 5, 205, 73, 92, 163, 65, 99, 120,
+    ],
+    hash_type: ScriptHashType::Type,
+    args: Vec::new(),
+};
+
+#[cfg(not(debug_assertions))]
+pub const ALWAYS_SUCCESS_LOCK: ScriptLiteral = ScriptLiteral {
     code_hash: [
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0,

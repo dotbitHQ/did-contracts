@@ -15,10 +15,9 @@ use ckb_std::{
 use das_types::{constants::WITNESS_HEADER, packed as das_packed};
 #[cfg(test)]
 use hex::FromHexError;
-use std::convert::TryFrom;
 use std::prelude::v1::*;
 
-use crate::constants::{ScriptHashType, CONFIG_CELL_TYPE, TIME_CELL_TYPE};
+use crate::constants::{CONFIG_CELL_TYPE, TIME_CELL_TYPE};
 use core::convert::TryInto;
 pub use das_types::util::{is_entity_eq, is_reader_eq};
 
@@ -73,13 +72,54 @@ pub fn find_cells_by_type_id(
     type_id: das_packed::HashReader,
     source: Source,
 ) -> Result<Vec<usize>, Error> {
-    let code_hash: das_packed::Hash = type_id.to_entity();
-    let script: Script = Script::new_builder()
-        .code_hash(code_hash.into())
-        .hash_type(Byte::new(ScriptHashType::Type as u8))
-        .build();
+    let mut i = 0;
+    let mut cell_indexes = Vec::new();
+    loop {
+        // TODO Need optimization, load_cell_type and load_cell_lock will cost lots of cycles.
+        let ret = match script_type {
+            ScriptType::Lock => high_level::load_cell_lock(i, source),
+            _ => high_level::load_cell_type(i, source).map(|hash_opt| match hash_opt {
+                Some(hash) => hash,
+                None => Script::default(),
+            }),
+        };
 
-    find_cells_by_script(script_type, &script, source)
+        if ret.is_err() {
+            match ret {
+                Err(SysError::IndexOutOfBound) => break,
+                _ => return Err(Error::from(ret.unwrap_err())),
+            }
+        } else {
+            let script = ret.unwrap();
+            // debug!(
+            //     "{} {}: {:x?} == {:x?}",
+            //     i,
+            //     is_entity_eq(&script.code_hash(), &type_id.to_entity().into()),
+            //     script.code_hash(),
+            //     type_id.to_entity()
+            // );
+            if is_entity_eq(&script.code_hash(), &type_id.to_entity().into()) {
+                cell_indexes.push(i);
+            }
+
+            i += 1;
+        }
+    }
+
+    Ok(cell_indexes)
+}
+
+pub fn find_only_cell_by_type_id(
+    script_type: ScriptType,
+    type_id: das_packed::HashReader,
+    source: Source,
+) -> Result<usize, Error> {
+    let cells = find_cells_by_type_id(script_type, type_id, source)?;
+    if cells.len() != 1 {
+        return Err(Error::InvalidTransactionStructure);
+    }
+
+    Ok(cells[0])
 }
 
 // 229893 cycles
@@ -267,7 +307,7 @@ pub fn verify_cells_witness(
 ) -> Result<(), Error> {
     let data = high_level::load_cell_data(index, source).map_err(|e| Error::from(e))?;
     let hash = match data.get(..32) {
-        Some(bytes) => das_packed::Hash::try_from(bytes).map_err(|_| Error::InvalidCellData)?,
+        Some(bytes) => bytes.to_vec(),
         _ => return Err(Error::InvalidCellData),
     };
     parser.get(index as u32, &hash, source)?;
@@ -283,7 +323,7 @@ pub fn get_cell_witness(
 ) -> Result<(u32, u32, &das_packed::Bytes), Error> {
     let data = high_level::load_cell_data(index, source).map_err(|e| Error::from(e))?;
     let hash = match data.get(..32) {
-        Some(bytes) => das_packed::Hash::try_from(bytes).map_err(|_| Error::InvalidCellData)?,
+        Some(bytes) => bytes.to_vec(),
         _ => return Err(Error::InvalidCellData),
     };
 
@@ -302,6 +342,142 @@ pub fn blake2b_256(s: &[u8]) -> [u8; 32] {
     blake2b.update(s);
     blake2b.finalize(&mut result);
     result
+}
+
+pub fn verify_if_cell_consistent(old_index: usize, new_index: usize) -> Result<(), Error> {
+    verify_if_cell_lock_consistent(old_index, new_index)?;
+    verify_if_cell_type_consistent(old_index, new_index)?;
+    verify_if_cell_data_consistent(old_index, new_index)?;
+
+    Ok(())
+}
+
+pub fn verify_if_cell_lock_consistent(old_index: usize, new_index: usize) -> Result<(), Error> {
+    let old_lock_script =
+        high_level::load_cell_lock_hash(old_index, Source::Input).map_err(|e| Error::from(e))?;
+    let new_lock_script =
+        high_level::load_cell_lock_hash(new_index, Source::Output).map_err(|e| Error::from(e))?;
+
+    if old_lock_script != new_lock_script {
+        debug!(
+            "Compare cell lock script: [{}]{:?} != [{}]{:?} => {}",
+            old_index,
+            old_lock_script,
+            new_index,
+            new_lock_script,
+            old_lock_script != new_lock_script
+        );
+        return Err(Error::CellLockCanNotBeModified);
+    }
+
+    Ok(())
+}
+
+pub fn verify_if_cell_type_consistent(old_index: usize, new_index: usize) -> Result<(), Error> {
+    let old_type_script = high_level::load_cell_type_hash(old_index, Source::Input)
+        .map_err(|e| Error::from(e))?
+        .unwrap();
+    let new_type_script = high_level::load_cell_type_hash(new_index, Source::Output)
+        .map_err(|e| Error::from(e))?
+        .unwrap();
+
+    if old_type_script != new_type_script {
+        debug!(
+            "Compare cell type script: [{}]{:?} != [{}]{:?} => {}",
+            old_index,
+            old_type_script,
+            new_index,
+            new_type_script,
+            old_type_script != new_type_script
+        );
+        return Err(Error::CellTypeCanNotBeModified);
+    }
+
+    Ok(())
+}
+
+pub fn verify_if_cell_data_consistent(old_index: usize, new_index: usize) -> Result<(), Error> {
+    let old_data =
+        high_level::load_cell_data(old_index, Source::Input).map_err(|e| Error::from(e))?;
+    let new_data =
+        high_level::load_cell_data(new_index, Source::Output).map_err(|e| Error::from(e))?;
+
+    if old_data != new_data {
+        debug!(
+            "Compare cell capacity: [{}]{:?} != [{}]{:?} => {}",
+            old_index,
+            old_data,
+            new_index,
+            new_data,
+            old_data != new_data
+        );
+        return Err(Error::CellDataCanNotBeModified);
+    }
+
+    Ok(())
+}
+
+pub fn verify_if_cell_capacity_reduced(old_index: usize, new_index: usize) -> Result<(), Error> {
+    let old_capacity =
+        high_level::load_cell_capacity(old_index, Source::Input).map_err(|e| Error::from(e))?;
+    let new_capacity =
+        high_level::load_cell_capacity(new_index, Source::Output).map_err(|e| Error::from(e))?;
+
+    if old_capacity <= new_capacity {
+        debug!(
+            "Compare cell capacity: [{}]{:?} <= [{}]{:?} => {}",
+            old_index,
+            old_capacity,
+            new_index,
+            new_capacity,
+            old_capacity != new_capacity
+        );
+        return Err(Error::CellCapacityMustReduced);
+    }
+
+    Ok(())
+}
+
+pub fn verify_if_cell_capacity_increased(old_index: usize, new_index: usize) -> Result<(), Error> {
+    let old_capacity =
+        high_level::load_cell_capacity(old_index, Source::Input).map_err(|e| Error::from(e))?;
+    let new_capacity =
+        high_level::load_cell_capacity(new_index, Source::Output).map_err(|e| Error::from(e))?;
+
+    if old_capacity >= new_capacity {
+        debug!(
+            "Compare cell capacity: [{}]{:?} >= [{}]{:?} => {}",
+            old_index,
+            old_capacity,
+            new_index,
+            new_capacity,
+            old_capacity != new_capacity
+        );
+        return Err(Error::CellCapacityMustIncreased);
+    }
+
+    Ok(())
+}
+
+pub fn verify_if_cell_capacity_consistent(old_index: usize, new_index: usize) -> Result<(), Error> {
+    let old_capacity =
+        high_level::load_cell_capacity(old_index, Source::Input).map_err(|e| Error::from(e))?;
+    let new_capacity =
+        high_level::load_cell_capacity(new_index, Source::Output).map_err(|e| Error::from(e))?;
+
+    if old_capacity != new_capacity {
+        debug!(
+            "Compare cell capacity: [{}]{:?} != [{}]{:?} => {}",
+            old_index,
+            old_capacity,
+            new_index,
+            new_capacity,
+            old_capacity != new_capacity
+        );
+        return Err(Error::CellCapacityMustConsistent);
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
