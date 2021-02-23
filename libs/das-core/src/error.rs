@@ -9,49 +9,74 @@ pub enum Error {
     LengthNotEnough,
     Encoding,
     // Customized errors:
-    HardCodedError,
+    HardCodedError, // 5
     InvalidTransactionStructure,
     InvalidCellData,
     SuperLockIsRequired,
     CellMustUseSuperLock,
-    TimeCellIsRequired,
-    ConfigCellIsRequired, // 11
-    WitnessReadingError = 20,
+    TimeCellIsRequired, // 10
+    QuoteCellIsRequired,
+    ConfigCellIsRequired,
+    ConfigCellWitnessInvalid,
+    CellLockCanNotBeModified,
+    CellTypeCanNotBeModified, // 15
+    CellDataCanNotBeModified,
+    CellCapacityMustReduced,
+    CellCapacityMustIncreased,
+    CellCapacityMustConsistent,
+    CellsMustHaveSameOrderAndNumber, // 20
+    ActionNotSupported,
+    WitnessReadingError = 30,
     WitnessEmpty,
     WitnessDasHeaderDecodingError,
     WitnessTypeDecodingError,
     WitnessActionIsNotTheFirst,
-    WitnessActionDecodingError,
+    WitnessActionDecodingError, // 35
     WitnessEntityMissing,
     WitnessDataIsCorrupted,
     WitnessDataMissing,
-    WitnessEntityDecodingError, // 29
-    ActionNotSupported = 40,
-    ConfigCellDataDecodingError,
-    ApplyRegisterFoundInvalidTransaction,
+    WitnessEntityDecodingError,
+    ApplyRegisterFoundInvalidTransaction = 50,
     ApplyRegisterCellDataDecodingError,
     ApplyRegisterCellTimeError,
-    ApplyRegisterNeedWaitLonger, // 45
+    ApplyRegisterNeedWaitLonger,
     ApplyRegisterHasTimeout,
-    PreRegisterFoundInvalidTransaction,
+    PreRegisterFoundInvalidTransaction = 60,
     PreRegisterAccountIdIsInvalid,
     PreRegisterApplyHashIsInvalid,
-    PreRegisterCreateAtIsInvalid, // 50
+    PreRegisterCreateAtIsInvalid,
     PreRegisterAccountLengthMissMatch,
     PreRegisterFoundUndefinedCharSet,
     PreRegisterCKBInsufficient,
     PreRegisterAccountCanNotRegisterNow,
-    PreRegisterAccountCharSetConflict, // 55
+    PreRegisterAccountCharSetConflict,
     PreRegisterAccountCharIsInvalid,
-    ProposalFoundInvalidTransaction,
+    PreRegisterQuoteIsInvalid,
+    ProposalFoundInvalidTransaction, // 70
     ProposalMustIncludeSomePreAccountCell,
     ProposalSliceIsNotSorted,
-    ProposalSliceIsDiscontinuity, // 60
-    ProposalFoundSlicesRelatedCellInvalid,
-    ProposalSliceAndRelevantCellMissMatch,
-    ProposalSliceAndAccountIdMissMatch,
+    ProposalSliceIsDiscontinuity,
+    ProposalSliceRelatedCellNotFound,
+    ProposalCellTypeError,
+    ProposalCellAccountIdError,
+    ProposalFieldCanNotBeModified,
+    ProposalWitnessCanNotBeModified,
+    ProposalConfirmIdError,
+    ProposalConfirmNextError, // 80
+    ProposalConfirmExpiredAtError,
+    ProposalConfirmAccountError,
+    ProposalConfirmWitnessIDError,
+    ProposalConfirmWitnessAccountError,
+    ProposalConfirmWitnessOwnerError,
+    ProposalConfirmWitnessManagerError,
+    ProposalConfirmWitnessStatusError,
+    ProposalConfirmWitnessRecordsError,
     ProposalSliceNotEndCorrectly,
-    ProposalSliceMustStartWithAccountCell, // 65
+    ProposalSliceMustStartWithAccountCell, // 90
+    WalletFoundInvalidTransaction,
+    WalletRequireAlwaysSuccess,
+    WalletBaseCapacityIsWrong,
+    WalletPermissionInvalid,
     PrevProposalItemNotFound,
     TimeCellDataDecodingError = 100,
 }

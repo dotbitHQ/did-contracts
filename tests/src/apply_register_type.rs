@@ -1,29 +1,24 @@
 use super::util::{constants::*, template_generator::*, template_parser::TemplateParser};
 use ckb_testtool::context::Context;
-use das_types::constants::*;
 
 // #[test]
-fn gen_transaction_data() {
-    println!("====== Print generated transaction data ======");
+fn gen_apply_register_test_data() {
+    println!("====== Print apply_register test data ======");
 
     let mut template = TemplateGenerator::new("apply_register", None);
 
-    let timestamp = 1611200000;
-    template.gen_time_cell(1, timestamp);
+    let timestamp = 1611200000u64;
+    template.push_time_cell(1, timestamp, 1000, Source::CellDep);
 
-    let dep_entity = template.gen_config_cell(Source::CellDep);
-    template.gen_witness(
-        DataType::ConfigCellData,
-        None,
-        None,
-        Some((1, 4, dep_entity)),
-    );
+    let (cell_data, entity) = template.gen_config_cell_data();
+    template.push_config_cell(cell_data, Some((1, 4, entity)), 1000, Source::CellDep);
 
-    let account_chars = gen_account_chars("✨dasdas✨".split("").collect());
-    template.gen_apply_register_cell(
+    let account_chars = gen_account_chars("das00001".split("").collect());
+    template.push_apply_register_cell(
         "0x9af92f5e690f4669ca543deb99af8385b12624cc",
         &account_chars,
         timestamp,
+        1000,
         Source::Output,
     );
 

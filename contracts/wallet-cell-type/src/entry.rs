@@ -24,8 +24,9 @@ pub fn main() -> Result<(), Error> {
 
     match util::load_das_witnesses() {
         Ok(witnesses) => {
-            let action = WitnessesParser::parse_only_action(&witnesses)?;
-            if action.as_reader().raw_data() == "create_wallet".as_bytes() {
+            let action_data = WitnessesParser::parse_only_action(&witnesses)?;
+            let action = action_data.as_reader().action().raw_data();
+            if action == "create_wallet".as_bytes() {
                 debug!("Route to create_wallet action ...");
 
                 let always_success_script = util::script_literal_to_script(ALWAYS_SUCCESS_LOCK);
@@ -64,7 +65,7 @@ pub fn main() -> Result<(), Error> {
                         return Err(Error::WalletBaseCapacityIsWrong);
                     }
                 }
-            } else if action.as_reader().raw_data() == "recycle_wallet".as_bytes() {
+            } else if action == "recycle_wallet".as_bytes() {
                 debug!("Route to recycle_wallet action ...");
 
                 debug!("Check if super lock has been used in inputs ...");
@@ -86,7 +87,7 @@ pub fn main() -> Result<(), Error> {
                 if new_cells.len() != 0 {
                     return Err(Error::WalletFoundInvalidTransaction);
                 }
-            } else if action.as_reader().raw_data() == "withdraw_from_wallet".as_bytes() {
+            } else if action == "withdraw_from_wallet".as_bytes() {
                 debug!("Route to recycle_wallet action ...");
 
                 debug!("For WalletCell, check if only capacity is reduced ...");

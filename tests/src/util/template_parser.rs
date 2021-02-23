@@ -438,11 +438,14 @@ impl<'a> TemplateParser<'a> {
     }
 
     fn parse_witnesses(&mut self, witnesses: Vec<Value>) -> Result<(), Box<dyn Error>> {
-        for witness in witnesses {
+        for (i, witness) in witnesses.into_iter().enumerate() {
             let data = witness
                 .as_str()
                 .map(|hex| {
-                    hex_to_bytes(hex).expect("Field `inputs[].since` is not valid u64 in hex.")
+                    hex_to_bytes(hex).expect(&format!(
+                        "Field `witnesses[{}]` is not valid u64 in hex.",
+                        i
+                    ))
                 })
                 .unwrap();
 

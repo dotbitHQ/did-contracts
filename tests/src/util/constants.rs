@@ -20,6 +20,7 @@ pub const ALWAYS_SUCCESS_CODE_HASH: [u8; 32] = [
 ];
 
 pub const CONFIG_LOCK_ARGS: &str = "0x0000000000000000000000000000000000000000";
+pub const QUOTE_LOCK_ARGS: &str = "0x0100000000000000000000000000000000000000";
 
 // The type IDs here are testing only.
 pub const TYPE_ID_TABLE: [(&str, &str); 6] = [

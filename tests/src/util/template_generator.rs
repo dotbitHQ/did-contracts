@@ -373,22 +373,37 @@ impl TemplateGenerator {
         self.push_cell(capacity, lock_script, type_script, Some(cell_data), source);
     }
 
+    pub fn push_quote_cell(&mut self, quote: u64, capacity: u64, source: Source) {
+        let raw = quote.to_le_bytes();
+        let cell_data = Bytes::from(&raw[..]);
+
+        let lock_script = json!({
+            "code_hash": "{{always_success}}",
+            "args": QUOTE_LOCK_ARGS
+        });
+        let type_script = json!(null);
+
+        self.push_cell(capacity, lock_script, type_script, Some(cell_data), source);
+    }
+
     pub fn push_apply_register_cell(
         &mut self,
-        pubkey_hash: &str,
+        lock_args: &str,
         account: &AccountChars,
         timestamp: u64,
         capacity: u64,
         source: Source,
     ) {
-        let pubkey_hash = util::hex_to_bytes(pubkey_hash).unwrap();
         let mut account_bytes = account.as_readable();
         account_bytes.append(&mut ".bit".as_bytes().to_vec());
         let hash_of_account = Hash::new_unchecked(
             blake2b_256(
-                [pubkey_hash, bytes::Bytes::from(account_bytes)]
-                    .concat()
-                    .as_slice(),
+                [
+                    util::hex_to_bytes(lock_args).unwrap(),
+                    bytes::Bytes::from(account_bytes),
+                ]
+                .concat()
+                .as_slice(),
             )
             .to_vec()
             .into(),
@@ -402,7 +417,8 @@ impl TemplateGenerator {
         let cell_data = Bytes::from(raw);
 
         let lock_script = json!({
-            "code_hash": "{{always_success}}"
+            "code_hash": "{{always_success}}",
+            "args": lock_args
         });
         let type_script = json!({
             "code_hash": "{{apply-register-cell-type}}"
