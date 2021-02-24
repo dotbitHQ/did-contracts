@@ -1,5 +1,4 @@
 use alloc::borrow::ToOwned;
-use alloc::vec;
 use ckb_std::{
     ckb_constants::Source,
     debug,

@@ -1,6 +1,7 @@
 use super::util::{constants::*, template_generator::*, template_parser::TemplateParser};
 use ckb_testtool::context::Context;
 use das_types::constants::*;
+use das_types::packed::ConfigCellData;
 
 // #[test]
 fn gen_config_cell_create() {
@@ -8,13 +9,8 @@ fn gen_config_cell_create() {
 
     let mut template = TemplateGenerator::new("config", None);
 
-    let new_entity = template.gen_config_cell(Source::Output);
-    template.gen_witness(
-        DataType::ConfigCellData,
-        Some((1, 0, new_entity)),
-        None,
-        None,
-    );
+    let (cell_data, entity) = template.gen_config_cell_data();
+    template.push_config_cell(cell_data, Some((1, 0, entity)), 1000, Source::Output);
 
     template.pretty_print();
 }
@@ -46,12 +42,23 @@ fn gen_config_cell_edit() {
 
     let mut template = TemplateGenerator::new("config", None);
 
-    let old_entity = template.gen_config_cell(Source::Input);
-    let new_entity = template.gen_config_cell(Source::Output);
-    template.gen_witness(
+    let (cell_data, entity) = template.gen_config_cell_data();
+    template.push_config_cell(
+        cell_data.clone(),
+        None::<(u32, u32, ConfigCellData)>,
+        1000,
+        Source::Input,
+    );
+    template.push_config_cell(
+        cell_data,
+        None::<(u32, u32, ConfigCellData)>,
+        1000,
+        Source::Output,
+    );
+    template.push_witness(
         DataType::ConfigCellData,
-        Some((1, 0, new_entity)),
-        Some((1, 0, old_entity)),
+        Some((1, 0, entity.clone())),
+        Some((1, 0, entity)), // Because there is no needs in testing, we use the same entity.
         None,
     );
 
@@ -64,9 +71,9 @@ fn test_config_cell_edit() {
     let mut parser;
     load_template!(&mut context, &mut parser, "config_cell_edit.json");
 
-    parser
-        .sign_by_key("0x3500349eec0f58fe28e204e4f5ce4ef93643da7c071a46a9c618632c93767ded")
-        .unwrap();
+    // parser
+    //     .sign_by_key("0x3500349eec0f58fe28e204e4f5ce4ef93643da7c071a46a9c618632c93767ded")
+    //     .unwrap();
 
     // build transaction
     let tx = parser.build_tx();
