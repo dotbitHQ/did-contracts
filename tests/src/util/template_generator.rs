@@ -447,21 +447,41 @@ impl TemplateGenerator {
             price_config_list_builder = price_config_list_builder.push(price.to_owned());
         }
 
+        let primary_market_config = MarketConfig::new_builder()
+            .max_auction_waiting(Uint32::from(86400))
+            .min_auction_raise_rate(Uint32::from(1000))
+            .build();
+
+        let secondary_market_config = MarketConfig::new_builder()
+            .max_auction_time(Uint32::from(2_592_000))
+            .max_auction_waiting(Uint32::from(86400))
+            .max_selling_time(Uint32::from(2_592_000))
+            .min_auction_raise_rate(Uint32::from(1000))
+            .build();
+
+        let profit_config = ProfitConfig::new_builder()
+            .profit_rate_of_channel(Uint32::from(1000))
+            .profit_rate_of_inviter(Uint32::from(1000))
+            .profit_rate_of_das(Uint32::from(8000))
+            .build();
+
         let entity = ConfigCellData::new_builder()
-            .reserved_account_filter(Bytes::default())
+            .apply_min_waiting_time(Uint32::from(60))
+            .apply_max_waiting_time(Uint32::from(86400))
+            .account_max_length(Uint32::from(1000))
+            .account_expiration_grace_period(Uint32::from(2_592_000))
+            .char_sets(gen_char_sets())
+            .min_ttl(Uint32::from(300))
+            .price_configs(price_config_list_builder.build())
+            .primary_market(primary_market_config)
             .proposal_min_confirm_require(Uint8::from(4))
             .proposal_min_extend_interval(Uint8::from(2))
             .proposal_min_recycle_interval(Uint8::from(6))
             .proposal_max_account_affect(Uint32::from(50))
             .proposal_max_pre_account_contain(Uint32::from(50))
-            .apply_min_waiting_time(Uint32::from(60))
-            .apply_max_waiting_time(Uint32::from(86400))
-            .account_max_length(Uint32::from(1000))
-            .price_configs(price_config_list_builder.build())
-            .char_sets(gen_char_sets())
-            .min_ttl(Uint32::from(300))
-            .closing_limit_of_primary_market_auction(Uint32::from(86400))
-            .closing_limit_of_secondary_market_auction(Uint32::from(86400))
+            .profit(profit_config)
+            .reserved_account_filter(Bytes::default())
+            .secondary_market(secondary_market_config)
             .type_id_table(gen_type_id_table())
             .build();
 

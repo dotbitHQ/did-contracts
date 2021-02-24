@@ -373,10 +373,7 @@ impl<'a> TemplateParser<'a> {
         let data;
         if let Some(hex) = cell["tmp_data"].as_str() {
             data = Some(hex_to_bytes(hex).map_err(|err| {
-                format!(
-                    "Field `inputs[].previous_output.tmp_data` parse failed: {}",
-                    err.to_string()
-                )
+                format!("Field `cell.tmp_data` parse failed: {}", err.to_string())
             })?)
         } else {
             data = None;
