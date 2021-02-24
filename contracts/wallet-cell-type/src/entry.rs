@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use ckb_std::high_level::{load_cell_capacity, load_cell_lock, load_cell_type};
 use ckb_std::{
     ckb_constants::Source,
@@ -175,27 +176,36 @@ pub fn main() -> Result<(), Error> {
                     return Err(Error::WalletPermissionInvalid);
                 }
             } else {
-                return Err(Error::ActionNotSupported);
-            }
+                debug!("Route to other action ...");
 
-            Ok(())
+                verify_if_only_capacity_increased(old_cells, new_cells)?;
+            }
         }
         _ => {
             debug!("Route to non-action ...");
 
-            debug!("Check if WalletCell is consistent and has more capacity than before.");
-
-            if old_cells.len() != new_cells.len() {
-                return Err(Error::CellsMustHaveSameOrderAndNumber);
-            }
-
-            for (i, old_index) in old_cells.into_iter().enumerate() {
-                let new_index = new_cells[i];
-                util::verify_if_cell_capacity_increased(old_index, new_index)?;
-                util::verify_if_cell_consistent(old_index, new_index)?;
-            }
-
-            Ok(())
+            verify_if_only_capacity_increased(old_cells, new_cells)?;
         }
     }
+
+    Ok(())
+}
+
+fn verify_if_only_capacity_increased(
+    old_cells: Vec<usize>,
+    new_cells: Vec<usize>,
+) -> Result<(), Error> {
+    debug!("Check if WalletCell is consistent and has more capacity than before.");
+
+    if old_cells.len() != new_cells.len() {
+        return Err(Error::CellsMustHaveSameOrderAndNumber);
+    }
+
+    for (i, old_index) in old_cells.into_iter().enumerate() {
+        let new_index = new_cells[i];
+        util::verify_if_cell_capacity_increased(old_index, new_index)?;
+        util::verify_if_cell_consistent(old_index, new_index)?;
+    }
+
+    Ok(())
 }
