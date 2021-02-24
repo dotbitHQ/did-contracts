@@ -54,6 +54,17 @@ pub fn hex_to_byte32(input: &str) -> Result<Byte32, FromHexError> {
     Ok(Byte32::new_builder().set(inner).build())
 }
 
+pub fn source_to_str(source: Source) -> &'static str {
+    match source {
+        Source::HeaderDep => "header_deps",
+        Source::CellDep => "cell_deps",
+        Source::Input => "inputs",
+        Source::Output => "outputs",
+        Source::GroupInput => "inputs",
+        Source::GroupOutput => "outputs",
+    }
+}
+
 // 68575 cycles
 pub fn script_literal_to_script(script: ScriptLiteral) -> Script {
     Script::new_builder()
