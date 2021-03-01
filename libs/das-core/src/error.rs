@@ -33,6 +33,7 @@ pub enum Error {
     WitnessActionIsNotTheFirst,
     WitnessActionDecodingError, // 35
     WitnessEntityMissing,
+    WitnessDataDecodingError,
     WitnessDataIsCorrupted,
     WitnessDataMissing,
     WitnessEntityDecodingError,
@@ -51,8 +52,8 @@ pub enum Error {
     PreRegisterAccountCanNotRegisterNow,
     PreRegisterAccountCharSetConflict,
     PreRegisterAccountCharIsInvalid,
-    PreRegisterQuoteIsInvalid,
-    ProposalFoundInvalidTransaction, // 70
+    PreRegisterQuoteIsInvalid = 70,
+    ProposalFoundInvalidTransaction,
     ProposalMustIncludeSomePreAccountCell,
     ProposalSliceIsNotSorted,
     ProposalSliceIsDiscontinuity,
@@ -61,8 +62,8 @@ pub enum Error {
     ProposalCellAccountIdError,
     ProposalFieldCanNotBeModified,
     ProposalWitnessCanNotBeModified,
-    ProposalConfirmIdError,
-    ProposalConfirmNextError, // 80
+    ProposalConfirmIdError = 80,
+    ProposalConfirmNextError,
     ProposalConfirmExpiredAtError,
     ProposalConfirmAccountError,
     ProposalConfirmWitnessIDError,
@@ -71,8 +72,10 @@ pub enum Error {
     ProposalConfirmWitnessManagerError,
     ProposalConfirmWitnessStatusError,
     ProposalConfirmWitnessRecordsError,
+    ProposalConfirmWalletMissMatch = 90,
+    ProposalConfirmWalletBalanceError,
     ProposalSliceNotEndCorrectly,
-    ProposalSliceMustStartWithAccountCell, // 90
+    ProposalSliceMustStartWithAccountCell,
     WalletFoundInvalidTransaction,
     WalletRequireAlwaysSuccess,
     WalletBaseCapacityIsWrong,

@@ -2,6 +2,7 @@ use super::constants::*;
 use super::error::Error;
 use super::util::{blake2b_256, find_cells_by_script, script_literal_to_script};
 use ckb_std::{ckb_constants::Source, debug, high_level};
+use core::convert::TryInto;
 use das_types::{
     constants::{DataType, WITNESS_HEADER},
     packed::*,
@@ -165,14 +166,20 @@ impl WitnessesParser {
     }
 
     fn parse_data(witness: &Bytes) -> Result<Data, Error> {
-        if let Some(raw) = witness.as_slice().get(11..) {
-            let data = match Data::from_slice(raw) {
-                Ok(data) => data,
-                Err(_) => return Err(Error::WitnessActionDecodingError),
-            };
-            Ok(data)
+        if let Some(raw) = witness.as_slice().get(11..15) {
+            // Because of the redundancy of the witness, appropriate trimming is performed here.
+            let length = u32::from_le_bytes(raw.try_into().unwrap()) as usize;
+            if let Some(raw) = witness.as_slice().get(11..(11 + length)) {
+                let data = match Data::from_slice(raw) {
+                    Ok(data) => data,
+                    Err(_) => return Err(Error::WitnessDataDecodingError),
+                };
+                Ok(data)
+            } else {
+                Err(Error::WitnessDataDecodingError)
+            }
         } else {
-            Err(Error::WitnessActionDecodingError)
+            Err(Error::WitnessDataDecodingError)
         }
     }
 

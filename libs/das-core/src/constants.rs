@@ -18,12 +18,17 @@ pub enum ScriptType {
 
 pub const CKB_HASH_PERSONALIZATION: &[u8] = b"ckb-default-hash";
 
-// TODO Calculate real AccountCell base capacity
-pub const ACCOUNT_CELL_BASIC_CAPACITY: u64 = 182;
-pub const REF_CELL_BASIC_CAPACITY: u64 = 114;
-pub const WALLET_CELL_BASIC_CAPACITY: u64 = 94;
+pub const ACCOUNT_CELL_BASIC_CAPACITY: u64 = 16_200_000_000;
+pub const REF_CELL_BASIC_CAPACITY: u64 = 11_400_000_000;
+pub const WALLET_CELL_BASIC_CAPACITY: u64 = 9_400_000_000;
+
+pub const RATE_BASE: u64 = 10_000;
 
 pub const ACCOUNT_SUFFIX: &str = ".bit";
+
+pub const DAS_WALLET_ID: [u8; 20] = [
+    38, 188, 217, 147, 236, 105, 146, 36, 129, 210, 111, 101, 208, 215, 120, 89, 37, 48, 222, 94,
+];
 
 pub fn super_lock() -> Script {
     #[cfg(debug_assertions)]
@@ -39,11 +44,14 @@ pub fn super_lock() -> Script {
     #[cfg(not(debug_assertions))]
     let super_lock: ScriptLiteral = ScriptLiteral {
         code_hash: [
-            157, 111, 41, 25, 227, 40, 243, 33, 125, 125, 211, 218, 181, 247, 206, 233, 216, 224,
-            98, 190, 230, 168, 13, 93, 5, 205, 73, 92, 163, 65, 99, 120,
+            155, 215, 224, 111, 62, 207, 75, 224, 242, 252, 210, 24, 139, 35, 241, 185, 252, 200,
+            142, 93, 75, 101, 168, 99, 123, 23, 114, 59, 189, 163, 204, 232,
         ],
         hash_type: ScriptHashType::Type,
-        args: vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        args: vec![
+            94, 176, 12, 14, 81, 175, 181, 55, 252, 128, 113, 129, 0, 52, 206, 146, 249, 140, 50,
+            89,
+        ],
     };
 
     util::script_literal_to_script(super_lock)
