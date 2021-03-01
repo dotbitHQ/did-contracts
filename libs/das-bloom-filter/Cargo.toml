@@ -1,0 +1,18 @@
+[package]
+name = "das-bloom-filter"
+version = "0.1.0"
+edition = "2018"
+
+[features]
+default = ["no_std"]
+std = ["no-std-compat/std"]
+no_std = []
+
+[dependencies]
+ckb-std = "0.7.1"
+no-std-compat = { version = "0.4", features = [ "alloc", "compat_macros" ] }
+blake2b-ref = "0.3"
+
+[dev-dependencies]
+hex = { version = "0.4", default-features = false }
+rand = "0.8.3"
