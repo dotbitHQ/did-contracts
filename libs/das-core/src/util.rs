@@ -204,20 +204,39 @@ where
     Ok(cells)
 }
 
-fn load_data<F: Fn(&mut [u8], usize) -> Result<usize, SysError>>(
+pub fn load_data<F: Fn(&mut [u8], usize) -> Result<usize, SysError>>(
     syscall: F,
 ) -> Result<Vec<u8>, SysError> {
     // The buffer length should be a little bigger than the size of the biggest data.
     let mut buf = [0u8; 2000];
+    let extend_buf = [0u8; 5000];
     match syscall(&mut buf, 0) {
         Ok(len) => Ok(buf[..len].to_vec()),
         Err(SysError::LengthNotEnough(actual_size)) => {
+            debug!("Actual data size: {}", actual_size);
+            // read 30000 bytes in 733165 cycles
+            // read 2500 bytes in 471424 cycles
             let mut data = Vec::with_capacity(actual_size);
-            data.resize(actual_size, 0);
+            loop {
+                if data.len() >= actual_size {
+                    break;
+                }
+                data.extend(extend_buf.iter());
+            }
             let loaded_len = buf.len();
             data[..loaded_len].copy_from_slice(&buf);
             let len = syscall(&mut data[loaded_len..], loaded_len)?;
             debug_assert_eq!(len + loaded_len, actual_size);
+
+            // read 30000 bytes in 22806311 cycles
+            // read 2500 bytes in 2223269 cycles
+            // let mut data = Vec::with_capacity(actual_size);
+            // data.resize(actual_size, 0);
+            // let loaded_len = buf.len();
+            // data[..loaded_len].copy_from_slice(&buf);
+            // let len = syscall(&mut data[loaded_len..], loaded_len)?;
+            // debug_assert_eq!(len + loaded_len, actual_size);
+
             Ok(data)
         }
         Err(err) => Err(err),
