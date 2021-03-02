@@ -1,12 +1,18 @@
 [workspace]
 members = [
     "tests",
+    "libs/das-bloom-filter",
     "libs/das-core",
     "libs/das-sorted-list",
+    "libs/das-wallet",
     "contracts/always-success",
     "contracts/apply-register-cell-type",
+    "contracts/account-cell-type",
     "contracts/config-cell-type",
     "contracts/pre-account-cell-type",
+    "contracts/proposal-cell-type",
+    "contracts/ref-cell-type",
+    "contracts/wallet-cell-type",
 ]
 
 [profile.release]

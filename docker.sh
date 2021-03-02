@@ -17,10 +17,17 @@ function build() {
         exit 1
     fi
 
+    # Build debug version
     docker exec -it -w /code/contracts/$contract $DOCKER_CONTAINER bash -c \
         "cargo build --target riscv64imac-unknown-none-elf && ckb-binary-patcher -i /code/target/riscv64imac-unknown-none-elf/debug/${contract} -o /code/target/riscv64imac-unknown-none-elf/debug/${contract}"
     docker exec -it -w /code $DOCKER_CONTAINER bash -c \
         "cp /code/target/riscv64imac-unknown-none-elf/debug/${contract} /code/build/debug"
+
+    # Build release version
+#    docker exec -it -w /code/contracts/$contract $DOCKER_CONTAINER bash -c \
+#        "RUSTFLAGS=\"-Z pre-link-arg=-zseparate-code -Z pre-link-arg=-zseparate-loadable-segments\" cargo build --release --target riscv64imac-unknown-none-elf && ckb-binary-patcher -i /code/target/riscv64imac-unknown-none-elf/release/${contract} -o /code/target/riscv64imac-unknown-none-elf/release/${contract}"
+#    docker exec -it -w /code $DOCKER_CONTAINER bash -c \
+#        "cp /code/target/riscv64imac-unknown-none-elf/release/${contract} /code/build/release"
 }
 
 function build_all() {
