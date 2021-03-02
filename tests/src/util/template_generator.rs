@@ -4,6 +4,7 @@ use ckb_tool::{
     ckb_types::{bytes, prelude::Pack},
     faster_hex::hex_string,
 };
+use das_bloom_filter::BloomFilter;
 use das_sorted_list::DasSortedList;
 use das_types::{constants::*, packed::*, prelude::*, util as das_util};
 use serde_json::{json, Value};
@@ -73,6 +74,7 @@ fn gen_type_id_table() -> TypeIdTable {
             "account-cell-type" => builder.account_cell(util::hex_to_hash(val).unwrap()),
             "ref-cell-type" => builder.ref_cell(util::hex_to_hash(val).unwrap()),
             "proposal-cell-type" => builder.proposal_cell(util::hex_to_hash(val).unwrap()),
+            "wallet-cell-type" => builder.wallet_cell(util::hex_to_hash(val).unwrap()),
             _ => builder,
         }
     }
@@ -241,6 +243,7 @@ pub fn account_to_id_bytes(account: &str) -> Vec<u8> {
         "proposer_01.bit" => "0xdb352d1d5e245fa09697221b5f7e1bde025f2ee8",
         "proposer_02.bit" => "0xc0d1d7b1b88c584c4c2309d550cfab60cf3b3c7d",
         "proposer_03.bit" => "0x26bcd993ec69922481d26f65d0d778592530de5e",
+        "das.bit" => "0x26bcd993ec69922481d26f65d0d778592530de5e",
         // ======
         _ => panic!("Can not find ID of account."),
     };
@@ -441,12 +444,69 @@ impl TemplateGenerator {
         self.push_cell(capacity, lock_script, type_script, None, source);
     }
 
-    pub fn gen_config_cell_data(&mut self) -> (Bytes, ConfigCellData) {
+    fn gen_config_cell_main(&mut self) -> (Bytes, ConfigCellMain) {
+        let entity = ConfigCellMain::new_builder()
+            .account_expiration_grace_period(Uint32::from(2_592_000))
+            .min_ttl(Uint32::from(300))
+            .type_id_table(gen_type_id_table())
+            .build();
+
+        // Generate the cell structure of ConfigCell.
+        let cell_data = Bytes::from(blake2b_256(entity.as_slice()).to_vec());
+
+        (cell_data, entity)
+    }
+
+    fn gen_config_cell_register(&mut self) -> (Bytes, ConfigCellRegister) {
         let mut price_config_list_builder = PriceConfigList::new_builder();
         for (_, price) in self.prices.iter() {
             price_config_list_builder = price_config_list_builder.push(price.to_owned());
         }
 
+        let profit_config = ProfitConfig::new_builder()
+            .profit_rate_of_channel(Uint32::from(1000))
+            .profit_rate_of_inviter(Uint32::from(1000))
+            .profit_rate_of_das(Uint32::from(8000))
+            .build();
+
+        let entity = ConfigCellRegister::new_builder()
+            .apply_min_waiting_time(Uint32::from(60))
+            .apply_max_waiting_time(Uint32::from(86400))
+            .account_max_length(Uint32::from(1000))
+            .char_sets(gen_char_sets())
+            .price_configs(price_config_list_builder.build())
+            .proposal_min_confirm_require(Uint8::from(4))
+            .proposal_min_extend_interval(Uint8::from(2))
+            .proposal_min_recycle_interval(Uint8::from(6))
+            .proposal_max_account_affect(Uint32::from(50))
+            .proposal_max_pre_account_contain(Uint32::from(50))
+            .profit(profit_config)
+            .build();
+
+        // Generate the cell structure of ConfigCell.
+        let cell_data = Bytes::from(blake2b_256(entity.as_slice()).to_vec());
+
+        (cell_data, entity)
+    }
+
+    fn gen_config_cell_bloom_filter(&mut self) -> (Bytes, Vec<u8>) {
+        let mut bf = BloomFilter::new(239627, 17);
+        bf.insert(b"google");
+        bf.insert(b"apple");
+        bf.insert(b"microsoft");
+        bf.insert(b"qq");
+        bf.insert(b"ali");
+        bf.insert(b"baidu");
+        bf.insert(b"das");
+        let entity = bf.export_bit_u8();
+
+        // Generate the cell structure of ConfigCell.
+        let cell_data = Bytes::from(blake2b_256(entity.as_slice()).to_vec());
+
+        (cell_data, entity)
+    }
+
+    fn gen_config_cell_market(&mut self) -> (Bytes, ConfigCellMarket) {
         let primary_market_config = MarketConfig::new_builder()
             .max_auction_waiting(Uint32::from(86400))
             .min_auction_raise_rate(Uint32::from(1000))
@@ -459,30 +519,9 @@ impl TemplateGenerator {
             .min_auction_raise_rate(Uint32::from(1000))
             .build();
 
-        let profit_config = ProfitConfig::new_builder()
-            .profit_rate_of_channel(Uint32::from(1000))
-            .profit_rate_of_inviter(Uint32::from(1000))
-            .profit_rate_of_das(Uint32::from(8000))
-            .build();
-
-        let entity = ConfigCellData::new_builder()
-            .apply_min_waiting_time(Uint32::from(60))
-            .apply_max_waiting_time(Uint32::from(86400))
-            .account_max_length(Uint32::from(1000))
-            .account_expiration_grace_period(Uint32::from(2_592_000))
-            .char_sets(gen_char_sets())
-            .min_ttl(Uint32::from(300))
-            .price_configs(price_config_list_builder.build())
+        let entity = ConfigCellMarket::new_builder()
             .primary_market(primary_market_config)
-            .proposal_min_confirm_require(Uint8::from(4))
-            .proposal_min_extend_interval(Uint8::from(2))
-            .proposal_min_recycle_interval(Uint8::from(6))
-            .proposal_max_account_affect(Uint32::from(50))
-            .proposal_max_pre_account_contain(Uint32::from(50))
-            .profit(profit_config)
-            .reserved_account_filter(Bytes::default())
             .secondary_market(secondary_market_config)
-            .type_id_table(gen_type_id_table())
             .build();
 
         // Generate the cell structure of ConfigCell.
@@ -493,23 +532,57 @@ impl TemplateGenerator {
 
     pub fn push_config_cell(
         &mut self,
-        cell_data: Bytes,
-        entity_opt: Option<(u32, u32, impl Entity)>,
+        config_id: ConfigID,
+        push_witness: bool,
         capacity: u64,
         source: Source,
     ) {
+        let (cell_data, witness) = match config_id {
+            ConfigID::ConfigCellMain => {
+                let (cell_data, entity) = self.gen_config_cell_main();
+                (
+                    cell_data,
+                    das_util::wrap_entity_witness(DataType::ConfigCellMarket, entity),
+                )
+            }
+            ConfigID::ConfigCellRegister => {
+                let (cell_data, entity) = self.gen_config_cell_register();
+                (
+                    cell_data,
+                    das_util::wrap_entity_witness(DataType::ConfigCellMarket, entity),
+                )
+            }
+            ConfigID::ConfigCellMarket => {
+                let (cell_data, entity) = self.gen_config_cell_market();
+                (
+                    cell_data,
+                    das_util::wrap_entity_witness(DataType::ConfigCellMarket, entity),
+                )
+            }
+            ConfigID::ConfigCellBloomFilter => {
+                let (cell_data, filter) = self.gen_config_cell_bloom_filter();
+                (
+                    cell_data,
+                    das_util::wrap_raw_witness(DataType::ConfigCellBloomFilter, filter),
+                )
+            }
+        };
+
+        // Create config cell.
+        let config_id_hex = hex_string(&(config_id as u32).to_le_bytes()).unwrap();
         let lock_script = json!({
           "code_hash": "{{always_success}}",
           "args": CONFIG_LOCK_ARGS
         });
         let type_script = json!({
-          "code_hash": "{{config-cell-type}}"
+          "code_hash": "{{config-cell-type}}",
+          "args": config_id_hex,
         });
-
         self.push_cell(capacity, lock_script, type_script, Some(cell_data), source);
 
-        if let Some(entity) = entity_opt {
-            self.push_witness_with_group(DataType::ConfigCellData, source, entity);
+        if push_witness {
+            // Create config cell witness.
+            self.witnesses.push(bytes_to_hex(witness));
         }
     }
 
@@ -669,7 +742,7 @@ impl TemplateGenerator {
     }
 
     pub fn push_wallet_cell(&mut self, account: &str, capacity: u64, source: Source) {
-        let account_id = Bytes::from(util::account_to_id(account.as_bytes()));
+        let account_id = Bytes::from(account_to_id_bytes(account));
         let lock_script = json!({
           "code_hash": "{{always_success}}"
         });

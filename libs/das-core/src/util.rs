@@ -1,5 +1,5 @@
 use super::{
-    constants::{ScriptType, CKB_HASH_PERSONALIZATION},
+    constants::{ScriptType, CKB_HASH_PERSONALIZATION, TIME_CELL_TYPE},
     error::Error,
     types::ScriptLiteral,
     witness_parser::WitnessesParser,
@@ -12,13 +12,12 @@ use ckb_std::{
     error::SysError,
     high_level, syscalls,
 };
+use core::convert::TryInto;
 use das_types::{constants::WITNESS_HEADER, packed as das_packed};
 #[cfg(test)]
 use hex::FromHexError;
 use std::prelude::v1::*;
 
-use crate::constants::{CONFIG_CELL_TYPE, TIME_CELL_TYPE};
-use core::convert::TryInto;
 pub use das_types::util::{is_entity_eq, is_reader_eq};
 
 #[cfg(test)]
@@ -272,28 +271,8 @@ pub fn load_timestamp() -> Result<u64, Error> {
     Ok(timestamp)
 }
 
-pub fn load_config(parser: &WitnessesParser) -> Result<das_packed::ConfigCellData, Error> {
-    debug!("Reading ConfigCell ...");
-
-    let config_cell_type = script_literal_to_script(CONFIG_CELL_TYPE);
-    // There must be one ConfigCell in the cell_deps, no more and no less.
-    let ret = find_cells_by_script(ScriptType::Type, &config_cell_type, Source::CellDep)?;
-    if ret.len() != 1 {
-        return Err(Error::ConfigCellIsRequired);
-    }
-
-    debug!("Reading witness of the ConfigCell ...");
-
-    // Read and decode the witness of ConfigCell.
-    let (_, _, entity) = get_cell_witness(parser, ret[0], Source::CellDep)?;
-    let config_cell_data =
-        das_packed::ConfigCellData::new_unchecked(entity.as_reader().raw_data().to_owned().into());
-
-    Ok(config_cell_data)
-}
-
 // 1251831 cycles
-pub fn load_das_witnesses() -> Result<Vec<das_packed::Bytes>, Error> {
+pub fn load_das_witnesses() -> Result<Vec<Vec<u8>>, Error> {
     let mut i = 0;
     let mut start_reading_das_witness = false;
     let mut witnesses = Vec::new();
@@ -323,8 +302,7 @@ pub fn load_das_witnesses() -> Result<Vec<das_packed::Bytes>, Error> {
         }
 
         // Start reading DAS witnesses, it is a convention that all DAS witnesses stay together in the end of the witnesses vector.
-        let witness = das_packed::Bytes::from(bytes::Bytes::from(data).pack());
-        witnesses.push(witness);
+        witnesses.push(data);
     }
 
     Ok(witnesses)
@@ -560,18 +538,6 @@ mod test {
         // eprintln!("result = {:#?}", result);
         // eprintln!("expect = {:#?}", expect);
         assert!(is_entity_eq(&result, &expect));
-    }
-
-    #[test]
-    fn test_account_to_id() {
-        let account = bytes::Bytes::from("das.bit".as_bytes());
-        let id = account_to_id(account.pack());
-        let expect = hex_to_bytes("0xb7526803f67ebe70aba631ae3e9560e0cd969c2d").unwrap();
-
-        assert!(
-            is_entity_eq(&id, &expect),
-            "Expect account ID of das.bit is equal to 0xb7526803f67ebe70aba631ae3e9560e0cd969c2d"
-        );
     }
 
     #[test]

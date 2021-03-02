@@ -1,12 +1,14 @@
-use alloc::borrow::ToOwned;
+use alloc::vec::Vec;
 use ckb_std::{
     ckb_constants::Source,
     debug,
-    // debug,
-    high_level::{load_cell_lock, load_script},
+    high_level::{load_cell_lock_hash, load_cell_type, load_script},
 };
+use core::convert::{TryFrom, TryInto};
 use core::result::Result;
+use das_core::util::blake2b_256;
 use das_core::{constants::*, error::Error, util, witness_parser::WitnessesParser};
+use das_types::{constants::ConfigID, prelude::Entity};
 
 pub fn main() -> Result<(), Error> {
     debug!("====== Running config-cell-type ======");
@@ -25,11 +27,11 @@ pub fn main() -> Result<(), Error> {
 
     // Loading and parsing DAS witnesses.
     let witnesses = util::load_das_witnesses()?;
-    let parser = WitnessesParser::new(witnesses)?;
+    let mut parser = WitnessesParser::new(witnesses)?;
+    let (action, _) = parser.parse_only_action()?;
 
     // Routing by ActionData in witness.
-    let action = parser.action.as_reader().raw_data();
-    if action == "config".as_bytes() {
+    if action == b"config" {
         debug!("Route to config action ...");
 
         // Finding out ConfigCells in current transaction.
@@ -39,41 +41,69 @@ pub fn main() -> Result<(), Error> {
         let new_cells =
             util::find_cells_by_script(ScriptType::Type, &config_cell_type, Source::Output)?;
 
-        // There must be one ConfigCell in the outputs, no more and no less.
-        if new_cells.len() != 1 {
-            return Err(Error::InvalidTransactionStructure);
-        }
-        let index = &new_cells[0];
-        // The ConfigCell must be the first one in the outputs.
-        if index.to_owned() != 0 {
+        // There must be at least one ConfigCell in the outputs.
+        if new_cells.len() < 1 {
             return Err(Error::InvalidTransactionStructure);
         }
 
-        debug!("Check if the witness of config cell is correct ...");
+        debug!("Check super lock of ConfigCells ...");
 
-        util::verify_cells_witness(&parser, index.to_owned(), Source::Output)?;
+        let super_lock_hash = blake2b_256(super_lock.as_slice());
+        let mut new_config_ids = Vec::new();
+        for index in new_cells.clone() {
+            // The output ConfigCell must has the same lock script as super lock.
+            // Why we do not limit the input ConfigCell's lock script is because when super lock need to be updated,
+            // we need to update this type script at first, then update the ConfigCell after type script deployed.
+            let cell_lock_hash =
+                load_cell_lock_hash(index, Source::Output).map_err(|e| Error::from(e))?;
+            if cell_lock_hash != super_lock_hash {
+                return Err(Error::CellMustUseSuperLock);
+            }
 
-        // The output ConfigCell must has the same lock script as super lock.
-        // Why we do not limit the input ConfigCell's lock script is because when super lock need to be updated,
-        // we need to update this type script at first, then update the ConfigCell after type script deployed.
-        let cell_lock =
-            load_cell_lock(index.to_owned(), Source::Output).map_err(|e| Error::from(e))?;
-        if !util::is_entity_eq(&cell_lock, &super_lock) {
-            return Err(Error::CellMustUseSuperLock);
+            // Store config IDs for later verification.
+            let cell_type = load_cell_type(index, Source::Output)
+                .map_err(|e| Error::from(e))?
+                .unwrap();
+            let args: [u8; 4] = cell_type
+                .as_reader()
+                .args()
+                .raw_data()
+                .try_into()
+                .map_err(|_| Error::Encoding)?;
+            let config_id = ConfigID::try_from(u32::from_le_bytes(args))
+                .map_err(|_| Error::ConfigIDIsUndefined)?;
+            new_config_ids.push(config_id);
         }
 
         if old_cells.len() > 0 {
-            // Only one ConfigCell is allowed in inputs at most.
-            if old_cells.len() != 1 {
-                return Err(Error::InvalidTransactionStructure);
-            }
-            let index = &old_cells[0];
-            // The ConfigCell must be the first one in the inputs.
-            if index.to_owned() != 0 {
+            debug!("Check if ConfigCells in inputs and outputs are consistent ...");
+
+            // If ConfigCells exist in inputs, it means updating and the number of ConfigCell in inputs and outputs must be the same.
+            if old_cells.len() != new_cells.len() {
                 return Err(Error::InvalidTransactionStructure);
             }
 
-            util::verify_cells_witness(&parser, index.to_owned(), Source::Input)?;
+            let mut old_config_ids = Vec::new();
+            for index in new_cells {
+                // Store config IDs for later verification.
+                let cell_type = load_cell_type(index, Source::Output)
+                    .map_err(|e| Error::from(e))?
+                    .unwrap();
+                let args: [u8; 4] = cell_type
+                    .as_reader()
+                    .args()
+                    .raw_data()
+                    .try_into()
+                    .map_err(|_| Error::Encoding)?;
+                let config_id = ConfigID::try_from(u32::from_le_bytes(args))
+                    .map_err(|_| Error::ConfigIDIsUndefined)?;
+                old_config_ids.push(config_id);
+            }
+
+            // Config IDs in inputs and outputs must be the consistent.
+            if old_config_ids != new_config_ids {
+                return Err(Error::InvalidTransactionStructure);
+            }
         }
     } else {
         return Err(Error::ActionNotSupported);

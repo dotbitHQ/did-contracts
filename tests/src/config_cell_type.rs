@@ -1,29 +1,46 @@
 use super::util::{constants::*, template_generator::*, template_parser::TemplateParser};
 use ckb_testtool::context::Context;
 use das_types::constants::*;
-use das_types::packed::ConfigCellData;
 
 // #[test]
-fn gen_config_cell_create() {
+fn gen_config_create_test_data() {
     println!("====== Print config cell creation transaction ======");
 
     let mut template = TemplateGenerator::new("config", None);
 
-    let (cell_data, entity) = template.gen_config_cell_data();
-    template.push_config_cell(cell_data, Some((1, 0, entity)), 1000, Source::Output);
+    template.push_config_cell(
+        ConfigID::ConfigCellMain,
+        true,
+        100_000_000_000,
+        Source::Output,
+    );
+    template.push_config_cell(
+        ConfigID::ConfigCellRegister,
+        true,
+        100_000_000_000,
+        Source::Output,
+    );
+    template.push_config_cell(
+        ConfigID::ConfigCellBloomFilter,
+        true,
+        100_000_000_000,
+        Source::Output,
+    );
+    template.push_config_cell(
+        ConfigID::ConfigCellMarket,
+        true,
+        100_000_000_000,
+        Source::Output,
+    );
 
     template.pretty_print();
 }
 
-#[test]
-fn test_config_cell_create() {
+// #[test]
+fn test_config_create() {
     let mut context;
     let mut parser;
-    load_template!(&mut context, &mut parser, "config_cell_create.json");
-
-    // parser
-    //     .sign_by_key("0x3500349eec0f58fe28e204e4f5ce4ef93643da7c071a46a9c618632c93767ded")
-    //     .unwrap();
+    load_template!(&mut context, &mut parser, "config_create.json");
 
     // build transaction
     let tx = parser.build_tx();
@@ -37,43 +54,68 @@ fn test_config_cell_create() {
 }
 
 // #[test]
-fn gen_config_cell_edit() {
+fn gen_config_edit_test_data() {
     println!("====== Print config cell editing transaction ======");
 
     let mut template = TemplateGenerator::new("config", None);
 
-    let (cell_data, entity) = template.gen_config_cell_data();
     template.push_config_cell(
-        cell_data.clone(),
-        None::<(u32, u32, ConfigCellData)>,
-        1000,
+        ConfigID::ConfigCellMain,
+        false,
+        100_000_000_000,
         Source::Input,
     );
     template.push_config_cell(
-        cell_data,
-        None::<(u32, u32, ConfigCellData)>,
-        1000,
+        ConfigID::ConfigCellRegister,
+        false,
+        100_000_000_000,
+        Source::Input,
+    );
+    template.push_config_cell(
+        ConfigID::ConfigCellBloomFilter,
+        false,
+        100_000_000_000,
+        Source::Input,
+    );
+    template.push_config_cell(
+        ConfigID::ConfigCellMarket,
+        false,
+        100_000_000_000,
+        Source::Input,
+    );
+    template.push_config_cell(
+        ConfigID::ConfigCellMain,
+        true,
+        100_000_000_000,
         Source::Output,
     );
-    template.push_witness(
-        DataType::ConfigCellData,
-        Some((1, 0, entity.clone())),
-        Some((1, 0, entity)), // Because there is no needs in testing, we use the same entity.
-        None,
+    template.push_config_cell(
+        ConfigID::ConfigCellRegister,
+        true,
+        100_000_000_000,
+        Source::Output,
+    );
+    template.push_config_cell(
+        ConfigID::ConfigCellBloomFilter,
+        true,
+        100_000_000_000,
+        Source::Output,
+    );
+    template.push_config_cell(
+        ConfigID::ConfigCellMarket,
+        true,
+        100_000_000_000,
+        Source::Output,
     );
 
     template.pretty_print();
 }
 
 #[test]
-fn test_config_cell_edit() {
+fn test_config_edit() {
     let mut context;
     let mut parser;
-    load_template!(&mut context, &mut parser, "config_cell_edit.json");
-
-    // parser
-    //     .sign_by_key("0x3500349eec0f58fe28e204e4f5ce4ef93643da7c071a46a9c618632c93767ded")
-    //     .unwrap();
+    load_template!(&mut context, &mut parser, "config_edit.json");
 
     // build transaction
     let tx = parser.build_tx();

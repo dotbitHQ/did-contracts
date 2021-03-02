@@ -23,14 +23,14 @@ pub const CONFIG_LOCK_ARGS: &str = "0x0000000000000000000000000000000000000000";
 pub const QUOTE_LOCK_ARGS: &str = "0x0100000000000000000000000000000000000000";
 
 // The type IDs here are testing only.
-pub const TYPE_ID_TABLE: [(&str, &str); 6] = [
-    (
-        "config-cell-type",
-        "0x086BDCBEF0AB628D31AED1E7BAA26416D3BDE1E242A5A47DDDAEC06E87E595D0",
-    ),
+pub const TYPE_ID_TABLE: [(&str, &str); 7] = [
     (
         "apply-register-cell-type",
         "0xcac501b0a5826bffa485ccac13c2195fcdf3aa86b113203f620ddd34d3decd70",
+    ),
+    (
+        "config-cell-type",
+        "0x086BDCBEF0AB628D31AED1E7BAA26416D3BDE1E242A5A47DDDAEC06E87E595D0",
     ),
     (
         "pre-account-cell-type",
@@ -41,12 +41,16 @@ pub const TYPE_ID_TABLE: [(&str, &str); 6] = [
         "0x3d216e5bfb54b9e2ec0f0fbb1cdf23703f550a7ec7c35264742fce69308482e1",
     ),
     (
+        "proposal-cell-type",
+        "0x071ee1a005b5bc1a619aed290c39bbb613ac93991eabab8418d6b0a9bdd220eb",
+    ),
+    (
         "ref-cell-type",
         "0x15f69a14cfafac4e21516e7076e135492c4b20fe4fb5af9e1942577a46985a13",
     ),
     (
-        "proposal-cell-type",
-        "0x071ee1a005b5bc1a619aed290c39bbb613ac93991eabab8418d6b0a9bdd220eb",
+        "wallet-cell-type",
+        "0xcf2f19e19c13d4ccfeae96634f6be6cdb2e4cd68f810ce3b865ee34030374524",
     ),
 ];
 

@@ -16,15 +16,17 @@ pub enum Error {
     CellMustUseSuperLock,
     TimeCellIsRequired, // 10
     QuoteCellIsRequired,
+    ConfigIDIsUndefined,
     ConfigCellIsRequired,
-    ConfigCellWitnessInvalid,
-    CellLockCanNotBeModified,
-    CellTypeCanNotBeModified, // 15
+    ConfigCellWitnessIsRedundant,
+    ConfigCellWitnessDecodingError,
+    CellLockCanNotBeModified, // 15
+    CellTypeCanNotBeModified,
     CellDataCanNotBeModified,
     CellCapacityMustReduced,
     CellCapacityMustIncreased,
-    CellCapacityMustConsistent,
-    CellsMustHaveSameOrderAndNumber, // 20
+    CellCapacityMustConsistent, // 20
+    CellsMustHaveSameOrderAndNumber,
     ActionNotSupported,
     WitnessReadingError = 30,
     WitnessEmpty,
