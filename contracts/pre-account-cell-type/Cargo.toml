@@ -9,5 +9,6 @@ edition = "2018"
 ckb-std = "0.7.1"
 hex = { default-features = false, version = "0.4.2"}
 das-core = { path = "../../libs/das-core" }
+das-bloom-filter = { path = "../../libs/das-bloom-filter" }
 das-types = { path = "../../../das-types/rust", default-features = false }
 chrono = { version = "0.4", default-features = false }

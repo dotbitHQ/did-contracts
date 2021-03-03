@@ -10,9 +10,6 @@ fn gen_apply_register_test_data() {
     let timestamp = 1611200000u64;
     template.push_time_cell(1, timestamp, 1000, Source::CellDep);
 
-    let (cell_data, entity) = template.gen_config_cell_data();
-    template.push_config_cell(cell_data, Some((1, 4, entity)), 1000, Source::CellDep);
-
     let account_chars = gen_account_chars("das00001".split("").collect());
     template.push_apply_register_cell(
         "0x9af92f5e690f4669ca543deb99af8385b12624cc",

@@ -6,6 +6,7 @@ use ckb_std::{
 use core::convert::{TryFrom, TryInto};
 use core::result::Result;
 use das_core::{constants::ScriptType, error::Error, util, witness_parser::WitnessesParser};
+use das_types::constants::ConfigID;
 use das_types::{packed::*, prelude::*};
 
 pub fn main() -> Result<(), Error> {
@@ -13,10 +14,11 @@ pub fn main() -> Result<(), Error> {
 
     // Loading DAS witnesses and parsing the action.
     let witnesses = util::load_das_witnesses()?;
-    let action_data = WitnessesParser::parse_only_action(&witnesses)?;
-    let action = action_data.as_reader().action().raw_data();
+    let mut parser = WitnessesParser::new(witnesses)?;
+    parser.parse_only_action()?;
+    let (action, _) = parser.action();
 
-    if action == "apply_register".as_bytes() {
+    if action == b"apply_register" {
         debug!("Route to apply_register action ...");
 
         let current = util::load_timestamp()?;
@@ -70,20 +72,21 @@ pub fn main() -> Result<(), Error> {
         if apply_timestamp != current {
             return Err(Error::ApplyRegisterCellTimeError);
         }
-    } else if action == "pre_register".as_bytes() {
+    } else if action == b"pre_register" {
         debug!("Route to pre_register action ...");
 
-        let config = WitnessesParser::parse_only_config(&witnesses)?;
+        parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
+        let config = parser.configs().main()?;
 
         debug!(
             "The following logic depends on pre-account-cell-type: {}",
-            config.as_reader().type_id_table().pre_account_cell()
+            config.type_id_table().pre_account_cell()
         );
 
         // Find out PreAccountCells in current transaction.
         let pre_account_cells = util::find_cells_by_type_id(
             ScriptType::Type,
-            config.as_reader().type_id_table().pre_account_cell(),
+            config.type_id_table().pre_account_cell(),
             Source::Output,
         )?;
         // There must be a PreAccountCell created in the transaction.

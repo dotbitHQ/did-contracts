@@ -5,6 +5,7 @@ use ckb_tool::{
     faster_hex::hex_string,
 };
 use das_bloom_filter::BloomFilter;
+use das_core::constants::{BLOOM_FILTER_K, BLOOM_FILTER_M};
 use das_sorted_list::DasSortedList;
 use das_types::{constants::*, packed::*, prelude::*, util as das_util};
 use serde_json::{json, Value};
@@ -490,7 +491,7 @@ impl TemplateGenerator {
     }
 
     fn gen_config_cell_bloom_filter(&mut self) -> (Bytes, Vec<u8>) {
-        let mut bf = BloomFilter::new(239627, 17);
+        let mut bf = BloomFilter::new(BLOOM_FILTER_M, BLOOM_FILTER_K);
         bf.insert(b"google");
         bf.insert(b"apple");
         bf.insert(b"microsoft");
@@ -498,7 +499,12 @@ impl TemplateGenerator {
         bf.insert(b"ali");
         bf.insert(b"baidu");
         bf.insert(b"das");
-        let entity = bf.export_bit_u8();
+        let mut entity = bf.export_bit_u8();
+
+        // Prepend length of bytes to bloom filter data, 4 bytes is the length of first u32.
+        let mut length = (entity.len() as u32 + 4).to_le_bytes().to_vec();
+        length.extend(entity);
+        entity = length;
 
         // Generate the cell structure of ConfigCell.
         let cell_data = Bytes::from(blake2b_256(entity.as_slice()).to_vec());
@@ -542,14 +548,14 @@ impl TemplateGenerator {
                 let (cell_data, entity) = self.gen_config_cell_main();
                 (
                     cell_data,
-                    das_util::wrap_entity_witness(DataType::ConfigCellMarket, entity),
+                    das_util::wrap_entity_witness(DataType::ConfigCellMain, entity),
                 )
             }
             ConfigID::ConfigCellRegister => {
                 let (cell_data, entity) = self.gen_config_cell_register();
                 (
                     cell_data,
-                    das_util::wrap_entity_witness(DataType::ConfigCellMarket, entity),
+                    das_util::wrap_entity_witness(DataType::ConfigCellRegister, entity),
                 )
             }
             ConfigID::ConfigCellMarket => {

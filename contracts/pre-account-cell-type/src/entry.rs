@@ -6,29 +6,36 @@ use ckb_std::{
 };
 use core::convert::TryInto;
 use core::result::Result;
+use das_bloom_filter::BloomFilter;
 use das_core::{constants::*, error::Error, util, witness_parser::WitnessesParser};
-use das_types::{packed::*, prelude::*};
+use das_types::{constants::ConfigID, packed::*, prelude::*};
 
 pub fn main() -> Result<(), Error> {
     debug!("====== Running pre-account-cell-type ======");
 
     // Loading and parsing DAS witnesses.
     let witnesses = util::load_das_witnesses()?;
-    let action_data = WitnessesParser::parse_only_action(&witnesses)?;
-    let action = action_data.as_reader().action().raw_data();
+    let mut parser = WitnessesParser::new(witnesses)?;
+    parser.parse_only_action()?;
+    let (action, _) = parser.action();
 
-    if action == "confirm_proposal".as_bytes() {
+    if action == b"confirm_proposal" {
         // Move all logic to proposal-cell-type to save cycles, this will save a huge cycles.
         return Ok(());
-    } else if action == "pre_register".as_bytes() {
+    } else if action == b"pre_register" {
         debug!("Route to pre_register action ...");
 
-        // Parsing all DAS witnesses.
-        let parser = WitnessesParser::new(witnesses)?;
-
         let timestamp = util::load_timestamp()?;
-        let config = util::load_config(&parser)?;
-        let config_reader = config.as_reader();
+
+        parser.parse_all_data()?;
+        parser.parse_only_config(&[
+            ConfigID::ConfigCellMain,
+            ConfigID::ConfigCellRegister,
+            ConfigID::ConfigCellBloomFilter,
+        ])?;
+        let configs = parser.configs();
+        let config_main_reader = configs.main()?;
+        let config_register_reader = configs.register()?;
 
         debug!("Find out PreAccountCell ...");
 
@@ -52,14 +59,15 @@ pub fn main() -> Result<(), Error> {
 
         let old_apply_register_cells = util::find_cells_by_type_id(
             ScriptType::Type,
-            config_reader.type_id_table().apply_register_cell(),
+            config_main_reader.type_id_table().apply_register_cell(),
             Source::Input,
         )?;
         let new_apply_register_cells = util::find_cells_by_type_id(
             ScriptType::Type,
-            config_reader.type_id_table().apply_register_cell(),
+            config_main_reader.type_id_table().apply_register_cell(),
             Source::Output,
         )?;
+
         // There must be one ApplyRegisterCell in inputs.
         if old_apply_register_cells.len() != 1 {
             return Err(Error::PreRegisterFoundInvalidTransaction);
@@ -81,7 +89,7 @@ pub fn main() -> Result<(), Error> {
         let apply_register_lock =
             load_cell_lock(index.to_owned(), Source::Input).map_err(|e| Error::from(e))?;
 
-        verify_apply_timestamp(timestamp, config_reader, &data)?;
+        verify_apply_timestamp(timestamp, config_register_reader, &data)?;
 
         debug!("Read witness of PreAccountCell ...");
 
@@ -95,7 +103,7 @@ pub fn main() -> Result<(), Error> {
         let capacity =
             load_cell_capacity(index.to_owned(), Source::Output).map_err(|e| Error::from(e))?;
 
-        let (_, _, entity) = util::get_cell_witness(&parser, index.to_owned(), Source::Output)?;
+        let (_, _, entity) = parser.verify_and_get(index.to_owned(), Source::Output)?;
         let pre_account_witness = PreAccountCellData::from_slice(entity.as_reader().raw_data())
             .map_err(|_| Error::WitnessEntityDecodingError)?;
         let reader = pre_account_witness.as_reader();
@@ -113,8 +121,10 @@ pub fn main() -> Result<(), Error> {
         verify_quote(reader)?;
         verify_account_length_and_price(reader)?;
         verify_account_length_and_years(timestamp, reader)?;
-        verify_account_chars(config_reader, reader)?;
-        verify_preserved_accounts(reader)?;
+        verify_account_chars(config_register_reader, reader)?;
+
+        let config_bloom_filter = configs.bloom_filter()?;
+        verify_preserved_accounts(config_bloom_filter, reader)?;
     } else {
         return Err(Error::ActionNotSupported);
     }
@@ -124,7 +134,7 @@ pub fn main() -> Result<(), Error> {
 
 fn verify_apply_timestamp(
     current_timestamp: u64,
-    config_reader: ConfigCellDataReader,
+    config_reader: ConfigCellRegisterReader,
     data: &[u8],
 ) -> Result<(), Error> {
     // Read the apply timestamp from outputs_data of ApplyRegisterCell.
@@ -252,10 +262,11 @@ fn verify_payed_capacity_is_enough(
     let new_account_price = u64::from(reader.price().new()); // x USD
     let quote = u64::from(reader.quote()); // y USD/CKB
                                            // Register price for 1 year in CKB = x ÷ y
-    let register_capacity = new_account_price / quote;
+    let register_capacity = new_account_price / quote * 100_000_000;
     // Storage price in CKB = AccountCell base capacity + RefCell base capacity + account.length
-    let storage_capacity =
-        ACCOUNT_CELL_BASIC_CAPACITY + REF_CELL_BASIC_CAPACITY + reader.account().len() as u64 + 4;
+    let storage_capacity = ACCOUNT_CELL_BASIC_CAPACITY
+        + REF_CELL_BASIC_CAPACITY
+        + (reader.account().len() as u64 + 4) * 100_000_000;
 
     debug!("Verify is user payed enough capacity: {}(paied) < {}(minimal register fee) + {}(storage fee) -> {}",
         capacity,
@@ -272,8 +283,21 @@ fn verify_payed_capacity_is_enough(
 }
 
 fn verify_account_length_and_price(reader: PreAccountCellDataReader) -> Result<(), Error> {
-    let price_length: usize = u8::from(reader.price().length()).into();
-    if reader.account().len() != price_length {
+    let price_length = u8::from(reader.price().length());
+
+    // Limit the lower bound on account pricing to a length of ACCOUNT_MAX_PRICED_LENGTH.
+    let account_length = if reader.account().len() > ACCOUNT_MAX_PRICED_LENGTH.into() {
+        ACCOUNT_MAX_PRICED_LENGTH.into()
+    } else {
+        reader.account().len()
+    };
+
+    if account_length != price_length.into() {
+        debug!(
+            "Account length is mismatched with the length in price: {} != {}",
+            reader.account().len(),
+            price_length
+        );
         return Err(Error::PreRegisterAccountLengthMissMatch);
     }
 
@@ -317,7 +341,7 @@ fn verify_account_length_and_years(
 }
 
 fn verify_account_chars(
-    config: ConfigCellDataReader,
+    config: ConfigCellRegisterReader,
     reader: PreAccountCellDataReader,
 ) -> Result<(), Error> {
     debug!("Verify if account chars is available.");
@@ -363,10 +387,20 @@ fn verify_account_chars(
     Ok(())
 }
 
-fn verify_preserved_accounts(reader: PreAccountCellDataReader) -> Result<(), Error> {
+fn verify_preserved_accounts(
+    bloom_filter: &[u8],
+    reader: PreAccountCellDataReader,
+) -> Result<(), Error> {
     debug!("Verify if account is preserved.");
 
-    // TODO
+    let account = reader.account().as_readable();
+    // debug!("account :{:?}", account);
+    // debug!("filter :{:?}", bloom_filter.get(..10));
+    let bf = BloomFilter::new_with_data(BLOOM_FILTER_M, BLOOM_FILTER_K, bloom_filter);
+    if bf.contains(account.as_slice()) {
+        debug!("Account {:?} is reserved.", account);
+        return Err(Error::AccountIsReserved);
+    }
 
     Ok(())
 }

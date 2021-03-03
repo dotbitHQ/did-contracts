@@ -1,6 +1,7 @@
 use super::constants::ScriptHashType;
+use super::error::Error;
 use alloc::vec::Vec;
-use das_types::packed::{ConfigCellMain, ConfigCellMarket, ConfigCellRegister};
+use das_types::packed::*;
 
 #[derive(Debug)]
 pub struct ScriptLiteral {
@@ -25,5 +26,41 @@ impl Configs {
             bloom_filter: None,
             market: None,
         }
+    }
+
+    pub fn main(&self) -> Result<ConfigCellMainReader, Error> {
+        let reader = self
+            .main
+            .as_ref()
+            .map(|item| item.as_reader())
+            .ok_or(Error::ConfigIsPartialMissing)?;
+        Ok(reader)
+    }
+
+    pub fn register(&self) -> Result<ConfigCellRegisterReader, Error> {
+        let reader = self
+            .register
+            .as_ref()
+            .map(|item| item.as_reader())
+            .ok_or(Error::ConfigIsPartialMissing)?;
+        Ok(reader)
+    }
+
+    pub fn bloom_filter(&self) -> Result<&[u8], Error> {
+        let reader = self
+            .bloom_filter
+            .as_ref()
+            .map(|item| item.as_slice())
+            .ok_or(Error::ConfigIsPartialMissing)?;
+        Ok(reader)
+    }
+
+    pub fn market(&self) -> Result<ConfigCellMarketReader, Error> {
+        let reader = self
+            .market
+            .as_ref()
+            .map(|item| item.as_reader())
+            .ok_or(Error::ConfigIsPartialMissing)?;
+        Ok(reader)
     }
 }

@@ -17,17 +17,19 @@ pub enum Error {
     TimeCellIsRequired, // 10
     QuoteCellIsRequired,
     ConfigIDIsUndefined,
+    ConfigIsPartialMissing,
     ConfigCellIsRequired,
-    ConfigCellWitnessIsRedundant,
+    ConfigCellWitnessIsCorrupted, // 15
     ConfigCellWitnessDecodingError,
-    CellLockCanNotBeModified, // 15
+    CellLockCanNotBeModified,
     CellTypeCanNotBeModified,
     CellDataCanNotBeModified,
-    CellCapacityMustReduced,
+    CellCapacityMustReduced, // 20
     CellCapacityMustIncreased,
-    CellCapacityMustConsistent, // 20
+    CellCapacityMustConsistent,
     CellsMustHaveSameOrderAndNumber,
     ActionNotSupported,
+    AccountIsReserved,
     WitnessReadingError = 30,
     WitnessEmpty,
     WitnessDasHeaderDecodingError,

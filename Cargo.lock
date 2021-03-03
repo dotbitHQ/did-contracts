@@ -2319,6 +2319,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "ckb-std",
+ "das-bloom-filter",
  "das-core",
  "das-types",
  "hex",

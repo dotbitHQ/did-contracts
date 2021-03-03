@@ -25,6 +25,10 @@ pub const WALLET_CELL_BASIC_CAPACITY: u64 = 9_400_000_000;
 pub const RATE_BASE: u64 = 10_000;
 
 pub const ACCOUNT_SUFFIX: &str = ".bit";
+pub const ACCOUNT_MAX_PRICED_LENGTH: u8 = 8;
+
+pub const BLOOM_FILTER_M: u64 = 1438;
+pub const BLOOM_FILTER_K: u64 = 10;
 
 pub const DAS_WALLET_ID: [u8; 20] = [
     38, 188, 217, 147, 236, 105, 146, 36, 129, 210, 111, 101, 208, 215, 120, 89, 37, 48, 222, 94,

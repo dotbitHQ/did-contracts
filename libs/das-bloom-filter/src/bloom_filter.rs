@@ -31,7 +31,7 @@ impl BloomFilter {
         }
     }
 
-    pub fn new_with_data(bits_count: u64, hash_fn_count: u64, b_u8: Vec<u8>) -> Self {
+    pub fn new_with_data(bits_count: u64, hash_fn_count: u64, b_u8: &[u8]) -> Self {
         let mut bv = vec![false; bits_count as usize];
         let mut i = 0;
         let last_index = bits_count as usize;
@@ -221,7 +221,9 @@ mod tests {
         bf.insert(b"das");
 
         let filter = bf.export_bit_u8();
-        let bf2 = BloomFilter::new_with_data(239627, 17, filter.clone());
+        let bf2 = BloomFilter::new_with_data(239627, 17, filter.as_slice());
+
+        // println!("0x{}", hex::encode(filter));
 
         assert!(
             bf.bits == bf2.bits,
