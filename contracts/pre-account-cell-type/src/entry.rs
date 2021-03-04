@@ -178,14 +178,14 @@ fn verify_account_id(
 
     debug!(
         "Verify account ID in PreAccountCell: {:?} != {:?} {}",
-        &hash[..20],
+        &hash[..10],
         account_id.raw_data(),
-        &hash[..20] != account_id.raw_data()
+        &hash[..10] != account_id.raw_data()
     );
 
     // The account ID in PreAccountCell must be calculated from the account.
-    if &hash[..20] != account_id.raw_data() {
-        return Err(Error::PreRegisterApplyHashIsInvalid);
+    if &hash[..10] != account_id.raw_data() {
+        return Err(Error::PreRegisterAccountIdIsInvalid);
     }
 
     Ok(())

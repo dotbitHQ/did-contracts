@@ -67,15 +67,9 @@ pub fn hex_to_u64(input: &str) -> Result<u64, Box<dyn Error>> {
     }
 }
 
-pub fn account_bytes_to_id(input: das_packed::Bytes) -> das_packed::Bytes {
-    let account = input.as_reader().raw_data();
-    let hash = blake2b_256(account);
-    das_packed::Bytes::from(hash.get(..20).unwrap())
-}
-
 pub fn account_to_id(input: &[u8]) -> Vec<u8> {
     let hash = blake2b_256(input);
-    hash.get(..20).unwrap().to_vec()
+    hash.get(..10).unwrap().to_vec()
 }
 
 pub fn deploy_dev_contract(

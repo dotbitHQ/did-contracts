@@ -11,7 +11,7 @@ use das_core::{
     util,
     witness_parser::WitnessesParser,
 };
-use das_types::{packed::AccountCellData, prelude::Entity};
+use das_types::{constants::ConfigID, packed::AccountCellData, prelude::Entity};
 
 pub fn main() -> Result<(), Error> {
     debug!("====== Running wallet-cell-type ======");
@@ -25,8 +25,10 @@ pub fn main() -> Result<(), Error> {
 
     match util::load_das_witnesses() {
         Ok(witnesses) => {
-            let action_data = WitnessesParser::parse_only_action(&witnesses)?;
-            let action = action_data.as_reader().action().raw_data();
+            let mut parser = WitnessesParser::new(witnesses)?;
+            parser.parse_only_action()?;
+
+            let (action, _) = parser.action();
             if action == "create_wallet".as_bytes() {
                 debug!("Route to create_wallet action ...");
 
@@ -110,18 +112,18 @@ pub fn main() -> Result<(), Error> {
                 debug!("Check if OwnerCell and AccountCell exists ...");
 
                 // Load config from witnesses.
-                let parser = WitnessesParser::new(witnesses)?;
-                let config = util::load_config(&parser)?;
+                parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
+                let config = parser.configs().main()?;
 
                 // Find out RefCells in current transaction.
                 let old_ref_index = util::find_only_cell_by_type_id(
                     ScriptType::Type,
-                    config.as_reader().type_id_table().ref_cell(),
+                    config.type_id_table().ref_cell(),
                     Source::Input,
                 )?;
                 let new_ref_index = util::find_only_cell_by_type_id(
                     ScriptType::Type,
-                    config.as_reader().type_id_table().ref_cell(),
+                    config.type_id_table().ref_cell(),
                     Source::Output,
                 )?;
                 util::verify_if_cell_consistent(old_ref_index, new_ref_index)?;
@@ -130,12 +132,12 @@ pub fn main() -> Result<(), Error> {
                 // Find out AccountCells in current transaction.
                 let old_account_index = util::find_only_cell_by_type_id(
                     ScriptType::Type,
-                    config.as_reader().type_id_table().account_cell(),
+                    config.type_id_table().account_cell(),
                     Source::Input,
                 )?;
                 let new_account_index = util::find_only_cell_by_type_id(
                     ScriptType::Type,
-                    config.as_reader().type_id_table().account_cell(),
+                    config.type_id_table().account_cell(),
                     Source::Output,
                 )?;
                 util::verify_if_cell_consistent(old_account_index, new_account_index)?;

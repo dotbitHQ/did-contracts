@@ -295,8 +295,11 @@ impl WitnessesParser {
             .get(4..)
             .ok_or(Error::WitnessEntityMissing)?;
         let hash = blake2b_256(entity_data).to_vec();
-        // eprintln!("entity = {:#?}", data);
-        // eprintln!("hash = {:#?}", hash);
+
+        // debug!(
+        //     "entity: index = {} hash = {:?} entity = {:?}",
+        //     index, hash, data
+        // );
 
         Ok((
             index,
@@ -347,9 +350,17 @@ impl WitnessesParser {
                 entity_type = _entity_type.to_owned();
                 entity = _entity;
             } else {
+                debug!(
+                    "Witness hash verify failed: {:?}[{}] {:?}",
+                    source, index, hash
+                );
                 return Err(Error::WitnessDataIsCorrupted);
             }
         } else {
+            debug!(
+                "Can not find witness at: {:?}[{}] {:?}",
+                source, index, hash
+            );
             return Err(Error::WitnessDataMissing);
         }
 
