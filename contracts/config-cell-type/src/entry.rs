@@ -28,7 +28,8 @@ pub fn main() -> Result<(), Error> {
     // Loading and parsing DAS witnesses.
     let witnesses = util::load_das_witnesses()?;
     let mut parser = WitnessesParser::new(witnesses)?;
-    let (action, _) = parser.parse_only_action()?;
+    parser.parse_only_action()?;
+    let (action, _) = parser.action();
 
     // Routing by ActionData in witness.
     if action == b"config" {
