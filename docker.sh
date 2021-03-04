@@ -42,10 +42,11 @@ function build_all() {
 
 case $1 in
 start)
+    dir="$(dirname $PWD)"
     docker run -it --rm \
         --name $DOCKER_CONTAINER \
-        -v ${PWD}:/code \
-        -v ${PWD}/das-types:/das-types \
+        -v ${dir}/das-contracts:/code \
+        -v ${dir}/das-types:/das-types \
         -v $CACHE_VOLUME:/root/.cargo \
         -e RUSTFLAGS="-Z pre-link-arg=-zseparate-code -Z pre-link-arg=-zseparate-loadable-segments" \
         -e CAPSULE_TEST_ENV=debug \
