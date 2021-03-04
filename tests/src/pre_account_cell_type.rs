@@ -64,7 +64,7 @@ fn gen_pre_register_test_data() {
     template.pretty_print();
 }
 
-// #[test]
+#[test]
 fn test_pre_register() {
     let mut context;
     let mut parser;
@@ -118,7 +118,7 @@ fn gen_reserved_account_verification_test_data() {
     template.pretty_print();
 }
 
-#[test]
+// #[test]
 #[should_panic]
 fn test_reserved_account_verification() {
     let mut context;
