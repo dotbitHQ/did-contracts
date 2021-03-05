@@ -20,11 +20,30 @@ pub fn main() -> Result<(), Error> {
     let (action, _) = parser.action();
 
     if action == b"confirm_proposal" {
-        // Move all logic to proposal-cell-type to save cycles, this will save a huge cycles.
-        return Ok(());
+        debug!("Route to confirm_proposal action ...");
+
+        parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
+        let config = parser.configs().main()?;
+
+        debug!(
+            "The following logic depends on proposal-cell-type: {}",
+            config.type_id_table().proposal_cell()
+        );
+
+        // Find out PreAccountCells in current transaction.
+        let proposal_cells = util::find_cells_by_type_id(
+            ScriptType::Type,
+            config.type_id_table().proposal_cell(),
+            Source::Input,
+        )?;
+        // There must be a PreAccountCell created in the transaction.
+        if proposal_cells.len() != 1 {
+            return Err(Error::PreRegisterFoundInvalidTransaction);
+        }
     } else if action == b"pre_register" {
         debug!("Route to pre_register action ...");
 
+        let height = util::load_height()?;
         let timestamp = util::load_timestamp()?;
 
         parser.parse_all_data()?;
@@ -89,7 +108,7 @@ pub fn main() -> Result<(), Error> {
         let apply_register_lock =
             load_cell_lock(index.to_owned(), Source::Input).map_err(|e| Error::from(e))?;
 
-        verify_apply_timestamp(timestamp, config_register_reader, &data)?;
+        verify_apply_height(height, config_register_reader, &data)?;
 
         debug!("Read witness of PreAccountCell ...");
 
@@ -132,13 +151,13 @@ pub fn main() -> Result<(), Error> {
     Ok(())
 }
 
-fn verify_apply_timestamp(
-    current_timestamp: u64,
+fn verify_apply_height(
+    current_height: u64,
     config_reader: ConfigCellRegisterReader,
     data: &[u8],
 ) -> Result<(), Error> {
     // Read the apply timestamp from outputs_data of ApplyRegisterCell.
-    let apply_timestamp = match data.get(32..) {
+    let apply_height = match data.get(32..) {
         Some(bytes) => {
             if bytes.len() != 8 {
                 return Err(Error::InvalidCellData);
@@ -149,19 +168,19 @@ fn verify_apply_timestamp(
     };
 
     // Check that the ApplyRegisterCell has existed long enough, but has not yet timed out.
-    let apply_min_waiting_time = u32::from(config_reader.apply_min_waiting_time());
-    let apply_max_waiting_time = u32::from(config_reader.apply_max_waiting_time());
-    let passed_time = current_timestamp - apply_timestamp;
+    let apply_min_waiting_time = u32::from(config_reader.apply_min_waiting_block_number());
+    let apply_max_waiting_time = u32::from(config_reader.apply_max_waiting_block_number());
+    let passed_block_number = current_height - apply_height;
 
     debug!(
         "Has passed {}s after apply.(min waiting: {}s, max waiting: {}s)",
-        passed_time, apply_min_waiting_time, apply_max_waiting_time
+        passed_block_number, apply_min_waiting_time, apply_max_waiting_time
     );
 
-    if passed_time < apply_min_waiting_time as u64 {
+    if passed_block_number < apply_min_waiting_time as u64 {
         return Err(Error::ApplyRegisterNeedWaitLonger);
     }
-    if passed_time > apply_max_waiting_time as u64 {
+    if passed_block_number > apply_max_waiting_time as u64 {
         return Err(Error::ApplyRegisterHasTimeout);
     }
 
