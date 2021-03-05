@@ -15,16 +15,17 @@ pub enum Error {
     SuperLockIsRequired,
     CellMustUseSuperLock,
     TimeCellIsRequired, // 10
+    HeightCellIsRequired,
     QuoteCellIsRequired,
     ConfigIDIsUndefined,
     ConfigIsPartialMissing,
-    ConfigCellIsRequired,
-    ConfigCellWitnessIsCorrupted, // 15
+    ConfigCellIsRequired, // 15
+    ConfigCellWitnessIsCorrupted,
     ConfigCellWitnessDecodingError,
     CellLockCanNotBeModified,
     CellTypeCanNotBeModified,
-    CellDataCanNotBeModified,
-    CellCapacityMustReduced, // 20
+    CellDataCanNotBeModified, // 20
+    CellCapacityMustReduced,
     CellCapacityMustIncreased,
     CellCapacityMustConsistent,
     CellsMustHaveSameOrderAndNumber,
@@ -43,7 +44,7 @@ pub enum Error {
     WitnessEntityDecodingError,
     ApplyRegisterFoundInvalidTransaction = 50,
     ApplyRegisterCellDataDecodingError,
-    ApplyRegisterCellTimeError,
+    ApplyRegisterCellHeightInvalid,
     ApplyRegisterNeedWaitLonger,
     ApplyRegisterHasTimeout,
     PreRegisterFoundInvalidTransaction = 60,
@@ -85,6 +86,7 @@ pub enum Error {
     WalletBaseCapacityIsWrong,
     WalletPermissionInvalid,
     PrevProposalItemNotFound,
+    AccountCellFoundInvalidTransaction,
     TimeCellDataDecodingError = 100,
 }
 

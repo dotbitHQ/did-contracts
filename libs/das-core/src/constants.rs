@@ -92,7 +92,7 @@ pub fn time_cell_type() -> Script {
             0, 0, 0,
         ],
         hash_type: ScriptHashType::Type,
-        args: vec![116, 105, 109, 101],
+        args: Vec::new(),
     };
 
     #[cfg(not(debug_assertions))]

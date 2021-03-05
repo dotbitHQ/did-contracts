@@ -21,7 +21,7 @@ pub fn main() -> Result<(), Error> {
     if action == b"apply_register" {
         debug!("Route to apply_register action ...");
 
-        let current = util::load_timestamp()?;
+        let current = util::load_height()?;
 
         debug!("Reading ApplyRegisterCell ...");
 
@@ -58,7 +58,7 @@ pub fn main() -> Result<(), Error> {
         debug!("Check if the ApplyRegisterCell and the TimeCell has the same timestamp...");
 
         // Then follows the 8 bytes u64.
-        let apply_timestamp = match data.get(32..) {
+        let apply_height = match data.get(32..) {
             Some(bytes) => {
                 if bytes.len() != 8 {
                     return Err(Error::InvalidCellData);
@@ -69,8 +69,8 @@ pub fn main() -> Result<(), Error> {
         };
 
         // The timestamp in ApplyRegisterCell must be the same as the timestamp in TimeCell.
-        if apply_timestamp != current {
-            return Err(Error::ApplyRegisterCellTimeError);
+        if apply_height != current {
+            return Err(Error::ApplyRegisterCellHeightInvalid);
         }
     } else if action == b"pre_register" {
         debug!("Route to pre_register action ...");

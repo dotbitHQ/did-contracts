@@ -357,21 +357,33 @@ impl TemplateGenerator {
     }
 
     pub fn push_time_cell(&mut self, index: u8, timestamp: u64, capacity: u64, source: Source) {
-        let index = Bytes::from(vec![index]);
-        let timestamp = Uint64::from(timestamp);
-
-        let raw = [
-            index.as_reader().raw_data(),
-            timestamp.as_reader().raw_data(),
-        ]
-        .concat();
-        let cell_data = Bytes::from(raw);
+        let mut cell_raw_data = Vec::new();
+        cell_raw_data.extend(index.to_le_bytes().iter());
+        cell_raw_data.extend((timestamp as u32).to_le_bytes().iter());
+        let cell_data = Bytes::from(cell_raw_data);
 
         let lock_script = json!({
             "code_hash": "{{always_success}}"
         });
         let type_script = json!({
             "code_hash": "0x0100000000000000000000000000000000000000000000000000000000000000",
+            "hash_type": "type"
+        });
+
+        self.push_cell(capacity, lock_script, type_script, Some(cell_data), source);
+    }
+
+    pub fn push_height_cell(&mut self, index: u8, height: u64, capacity: u64, source: Source) {
+        let mut cell_raw_data = Vec::new();
+        cell_raw_data.extend(index.to_le_bytes().iter());
+        cell_raw_data.extend(height.to_le_bytes().iter());
+        let cell_data = Bytes::from(cell_raw_data);
+
+        let lock_script = json!({
+            "code_hash": "{{always_success}}"
+        });
+        let type_script = json!({
+            "code_hash": "0x0200000000000000000000000000000000000000000000000000000000000000",
             "hash_type": "type"
         });
 
@@ -395,7 +407,7 @@ impl TemplateGenerator {
         &mut self,
         lock_args: &str,
         account: &AccountChars,
-        timestamp: u64,
+        height: u64,
         capacity: u64,
         source: Source,
     ) {
@@ -416,7 +428,7 @@ impl TemplateGenerator {
 
         let raw = [
             hash_of_account.as_reader().raw_data(),
-            Uint64::from(timestamp).as_reader().raw_data(),
+            &height.to_le_bytes(),
         ]
         .concat();
         let cell_data = Bytes::from(raw);
@@ -472,12 +484,12 @@ impl TemplateGenerator {
             .build();
 
         let entity = ConfigCellRegister::new_builder()
-            .apply_min_waiting_time(Uint32::from(60))
-            .apply_max_waiting_time(Uint32::from(86400))
+            .apply_min_waiting_block_number(Uint32::from(4))
+            .apply_max_waiting_block_number(Uint32::from(5760))
             .account_max_length(Uint32::from(1000))
             .char_sets(gen_char_sets())
             .price_configs(price_config_list_builder.build())
-            .proposal_min_confirm_require(Uint8::from(4))
+            .proposal_min_confirm_interval(Uint8::from(4))
             .proposal_min_extend_interval(Uint8::from(2))
             .proposal_min_recycle_interval(Uint8::from(6))
             .proposal_max_account_affect(Uint32::from(50))

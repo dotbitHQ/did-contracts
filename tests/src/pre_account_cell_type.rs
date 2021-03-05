@@ -2,7 +2,8 @@ use super::util::{constants::*, template_generator::*, template_parser::Template
 use ckb_testtool::context::Context;
 use das_types::constants::*;
 
-fn gen_cell_deps(template: &mut TemplateGenerator, timestamp: u64) {
+fn gen_cell_deps(template: &mut TemplateGenerator, height: u64, timestamp: u64) {
+    template.push_height_cell(1, height, 200_000_000_000, Source::CellDep);
     template.push_time_cell(1, timestamp, 200_000_000_000, Source::CellDep);
 
     template.push_quote_cell(1000, 500_000_000_000, Source::CellDep);
@@ -32,15 +33,16 @@ fn gen_pre_register_test_data() {
     println!("====== Print pre_register test data ======");
 
     let mut template = TemplateGenerator::new("pre_register", None);
-    let timestamp = 1611200060;
+    let timestamp = 1611200060u64;
+    let height = 1000u64;
 
-    gen_cell_deps(&mut template, timestamp);
+    gen_cell_deps(&mut template, height, timestamp);
 
     let account_chars = gen_account_chars("das00001".split("").collect());
     template.push_apply_register_cell(
         "0x9af92f5e690f4669ca543deb99af8385b12624cc",
         &account_chars,
-        timestamp - 60,
+        height - 4,
         100_000_000_000,
         Source::Input,
     );
@@ -86,9 +88,10 @@ fn gen_reserved_account_verification_test_data() {
     println!("====== Print pre_register test data ======");
 
     let mut template = TemplateGenerator::new("pre_register", None);
-    let timestamp = 1611200060;
+    let timestamp = 1611200060u64;
+    let height = 1000u64;
 
-    gen_cell_deps(&mut template, timestamp);
+    gen_cell_deps(&mut template, height, timestamp);
 
     let account_chars = gen_account_chars("microsoft".split("").collect());
     template.push_apply_register_cell(

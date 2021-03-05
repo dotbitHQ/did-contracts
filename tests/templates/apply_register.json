@@ -19,10 +19,10 @@
         "code_hash": "{{always_success}}"
       },
       "type": {
-        "code_hash": "0x0100000000000000000000000000000000000000000000000000000000000000",
+        "code_hash": "0x0200000000000000000000000000000000000000000000000000000000000000",
         "hash_type": "type"
       },
-      "tmp_data": "0x0100f6086000000000"
+      "tmp_data": "0x01e803000000000000"
     }
   ],
   "header_deps": [],
@@ -51,7 +51,7 @@
       "type": {
         "code_hash": "{{apply-register-cell-type}}"
       },
-      "tmp_data": "0xaf6b40559e6b71f68646dc140f6c20d9a7c3eb44a22c38f48b8821ec65dc816f00f6086000000000"
+      "tmp_data": "0xaf6b40559e6b71f68646dc140f6c20d9a7c3eb44a22c38f48b8821ec65dc816fe803000000000000"
     },
     {
       "tmp_type": "full",

@@ -1,5 +1,5 @@
 use super::{
-    constants::{ScriptType, CKB_HASH_PERSONALIZATION, TIME_CELL_TYPE},
+    constants::{height_cell_type, time_cell_type, ScriptType, CKB_HASH_PERSONALIZATION},
     error::Error,
     types::ScriptLiteral,
     witness_parser::WitnessesParser,
@@ -246,10 +246,10 @@ pub fn load_timestamp() -> Result<u64, Error> {
     debug!("Reading TimeCell ...");
 
     // Define nervos official TimeCell type script.
-    let time_cell_type = script_literal_to_script(TIME_CELL_TYPE);
+    let type_script = time_cell_type();
 
     // There must be one TimeCell in the cell_deps, no more and no less.
-    let ret = find_cells_by_script(ScriptType::Type, &time_cell_type, Source::CellDep)?;
+    let ret = find_cells_by_script(ScriptType::Type, &type_script, Source::CellDep)?;
     if ret.len() != 1 {
         return Err(Error::TimeCellIsRequired);
     }
@@ -260,6 +260,35 @@ pub fn load_timestamp() -> Result<u64, Error> {
     let data = high_level::load_cell_data(ret[0], Source::CellDep).map_err(|e| Error::from(e))?;
     let timestamp = match data.get(1..) {
         Some(bytes) => {
+            if bytes.len() != 4 {
+                return Err(Error::TimeCellDataDecodingError);
+            }
+            u32::from_le_bytes(bytes.try_into().unwrap())
+        }
+        _ => return Err(Error::TimeCellDataDecodingError),
+    };
+
+    Ok(timestamp as u64)
+}
+
+pub fn load_height() -> Result<u64, Error> {
+    debug!("Reading HeightCell ...");
+
+    // Define nervos official TimeCell type script.
+    let type_script = height_cell_type();
+
+    // There must be one TimeCell in the cell_deps, no more and no less.
+    let ret = find_cells_by_script(ScriptType::Type, &type_script, Source::CellDep)?;
+    if ret.len() != 1 {
+        return Err(Error::HeightCellIsRequired);
+    }
+
+    debug!("Reading outputs_data of the HeightCell ...");
+
+    // Read the passed timestamp from outputs_data of TimeCell
+    let data = high_level::load_cell_data(ret[0], Source::CellDep).map_err(|e| Error::from(e))?;
+    let height = match data.get(1..) {
+        Some(bytes) => {
             if bytes.len() != 8 {
                 return Err(Error::TimeCellDataDecodingError);
             }
@@ -268,7 +297,7 @@ pub fn load_timestamp() -> Result<u64, Error> {
         _ => return Err(Error::TimeCellDataDecodingError),
     };
 
-    Ok(timestamp)
+    Ok(height)
 }
 
 // 1251831 cycles
