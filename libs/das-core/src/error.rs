@@ -83,7 +83,6 @@ pub enum Error {
     ProposalSliceMustStartWithAccountCell,
     WalletFoundInvalidTransaction,
     WalletRequireAlwaysSuccess,
-    WalletBaseCapacityIsWrong,
     WalletPermissionInvalid,
     PrevProposalItemNotFound,
     AccountCellFoundInvalidTransaction,

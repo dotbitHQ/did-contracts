@@ -20,7 +20,6 @@ pub const CKB_HASH_PERSONALIZATION: &[u8] = b"ckb-default-hash";
 
 pub const ACCOUNT_CELL_BASIC_CAPACITY: u64 = 14_600_000_000;
 pub const REF_CELL_BASIC_CAPACITY: u64 = 8_400_000_000;
-pub const WALLET_CELL_BASIC_CAPACITY: u64 = 8_400_000_000;
 
 pub const RATE_BASE: u64 = 10_000;
 

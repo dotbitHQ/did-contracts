@@ -1,15 +1,13 @@
 use super::util::{constants::*, template_generator::*, template_parser::TemplateParser};
 use ckb_testtool::context::Context;
 use ckb_tool::ckb_types::bytes;
+use das_types::constants::ConfigID;
 
 // #[test]
 fn gen_wallet_create_test_data() {
     println!("====== Print wallet_create transaction data ======");
 
     let mut template = TemplateGenerator::new("create_wallet", None);
-
-    let (cell_data, entity) = template.gen_config_cell_data();
-    template.push_config_cell(cell_data, Some((1, 2, entity)), 1000, Source::CellDep);
 
     let source = Source::Output;
     template.push_wallet_cell("das00001.bit", 94, source);
@@ -19,7 +17,7 @@ fn gen_wallet_create_test_data() {
     template.pretty_print();
 }
 
-// #[test]
+#[test]
 fn test_wallet_create() {
     let mut context;
     let mut parser;
@@ -42,8 +40,12 @@ fn gen_wallet_withdraw_test_data() {
 
     let mut template = TemplateGenerator::new("withdraw_from_wallet", None);
 
-    let (cell_data, entity) = template.gen_config_cell_data();
-    template.push_config_cell(cell_data, Some((1, 4, entity)), 1000, Source::CellDep);
+    template.push_config_cell(
+        ConfigID::ConfigCellMain,
+        true,
+        100_000_000_000,
+        Source::CellDep,
+    );
 
     let account = "das00001.bit";
 
@@ -112,9 +114,6 @@ fn gen_wallet_recycle_test_data() {
     println!("====== Print wallet_recycle transaction data ======");
 
     let mut template = TemplateGenerator::new("recycle_wallet", None);
-
-    let (cell_data, entity) = template.gen_config_cell_data();
-    template.push_config_cell(cell_data, Some((1, 2, entity)), 1000, Source::CellDep);
 
     let source = Source::Output;
     template.push_wallet_cell("das00001.bit", 94, source);

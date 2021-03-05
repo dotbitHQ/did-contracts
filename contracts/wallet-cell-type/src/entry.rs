@@ -1,12 +1,12 @@
 use alloc::vec::Vec;
-use ckb_std::high_level::{load_cell_capacity, load_cell_lock, load_cell_type};
+use ckb_std::high_level::{load_cell_lock, load_cell_type};
 use ckb_std::{
     ckb_constants::Source,
     debug,
     high_level::{load_cell_lock_hash, load_script},
 };
 use das_core::{
-    constants::{super_lock, ScriptType, ALWAYS_SUCCESS_LOCK, WALLET_CELL_BASIC_CAPACITY},
+    constants::{super_lock, ScriptType, ALWAYS_SUCCESS_LOCK},
     error::Error,
     util,
     witness_parser::WitnessesParser,
@@ -29,7 +29,7 @@ pub fn main() -> Result<(), Error> {
             parser.parse_only_action()?;
 
             let (action, _) = parser.action();
-            if action == "create_wallet".as_bytes() {
+            if action == b"create_wallet" {
                 debug!("Route to create_wallet action ...");
 
                 let always_success_script = util::script_literal_to_script(ALWAYS_SUCCESS_LOCK);
@@ -61,14 +61,8 @@ pub fn main() -> Result<(), Error> {
                     if lock_script != always_success_script_hash {
                         return Err(Error::WalletRequireAlwaysSuccess);
                     }
-
-                    let capacity =
-                        load_cell_capacity(i, Source::Output).map_err(|e| Error::from(e))?;
-                    if capacity > WALLET_CELL_BASIC_CAPACITY {
-                        return Err(Error::WalletBaseCapacityIsWrong);
-                    }
                 }
-            } else if action == "recycle_wallet".as_bytes() {
+            } else if action == b"recycle_wallet" {
                 debug!("Route to recycle_wallet action ...");
 
                 debug!("Check if super lock has been used in inputs ...");
@@ -90,7 +84,7 @@ pub fn main() -> Result<(), Error> {
                 if new_cells.len() != 0 {
                     return Err(Error::WalletFoundInvalidTransaction);
                 }
-            } else if action == "withdraw_from_wallet".as_bytes() {
+            } else if action == b"withdraw_from_wallet" {
                 debug!("Route to recycle_wallet action ...");
 
                 debug!("For WalletCell, check if only capacity is reduced ...");
