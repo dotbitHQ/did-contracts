@@ -126,7 +126,7 @@ pub fn height_cell_type() -> Script {
             153, 45, 17, 214, 103, 205, 243, 84, 151, 226, 103, 190, 50,
         ],
         hash_type: ScriptHashType::Type,
-        args: [104, 101, 105, 103, 104, 116],
+        args: vec![104, 101, 105, 103, 104, 116],
     };
 
     util::script_literal_to_script(height_cell_type)
