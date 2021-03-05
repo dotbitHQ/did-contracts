@@ -1,5 +1,10 @@
 use ckb_std::{ckb_constants::Source, debug, high_level::load_script};
-use das_core::{constants::ScriptType, error::Error, util, witness_parser::WitnessesParser};
+use das_core::{
+    constants::{super_lock, ScriptType},
+    error::Error,
+    util,
+    witness_parser::WitnessesParser,
+};
 use das_types::constants::ConfigID;
 
 pub fn main() -> Result<(), Error> {
@@ -11,7 +16,19 @@ pub fn main() -> Result<(), Error> {
     parser.parse_only_action()?;
     let (action, _) = parser.action();
 
-    if action == "confirm_proposal".as_bytes() {
+    debug!("action = {:?}", action);
+    if action == b"init_account_chain" {
+        debug!("Route to init_account_chain action ...");
+
+        let super_lock = super_lock();
+
+        // Limit this type script must be used with super lock.
+        let has_super_lock =
+            util::find_cells_by_script(ScriptType::Lock, &super_lock, Source::Input)?.len() > 0;
+        if !has_super_lock {
+            return Err(Error::SuperLockIsRequired);
+        }
+    } else if action == b"confirm_proposal" {
         debug!("Route to confirm_proposal action ...");
 
         parser.parse_only_config(&[ConfigID::ConfigCellMain])?;

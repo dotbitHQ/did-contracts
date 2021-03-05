@@ -689,6 +689,38 @@ impl TemplateGenerator {
         (cell_data, entity)
     }
 
+    pub fn gen_root_account_cell_data(&mut self) -> (Bytes, AccountCellData) {
+        let id: Vec<u8> = vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        let next: Vec<u8> = vec![255, 255, 255, 255, 255, 255, 255, 255, 255, 255];
+        let account = AccountChars::default();
+        let expired_at = u64::MAX.to_le_bytes();
+
+        let owner_lock = Script::default();
+        let manager_lock = Script::default();
+
+        let entity = AccountCellData::new_builder()
+            .id(AccountId::try_from(id.clone()).unwrap())
+            .account(account)
+            .owner_lock(owner_lock)
+            .manager_lock(manager_lock)
+            .registered_at(Uint64::from(0))
+            .status(Uint8::from(0))
+            .build();
+
+        let hash = Hash::try_from(blake2b_256(entity.as_slice()).to_vec()).unwrap();
+        let raw = [
+            hash.as_reader().raw_data(),
+            id.as_slice(),
+            next.as_slice(),
+            &expired_at[..],
+            &[0],
+        ]
+        .concat();
+        let cell_data = Bytes::from(raw);
+
+        (cell_data, entity)
+    }
+
     pub fn push_account_cell(
         &mut self,
         cell_data: Bytes,
