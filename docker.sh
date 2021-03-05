@@ -16,7 +16,7 @@ function build() {
         exit 1
     fi
 
-    if [[ is_release == "--release" ]]; then
+    if [[ $is_release == "--release" ]]; then
         # Build release version
         docker exec -it -w /code/contracts/$contract $DOCKER_CONTAINER bash -c \
             "RUSTFLAGS=\"-Z pre-link-arg=-zseparate-code -Z pre-link-arg=-zseparate-loadable-segments\" cargo build --release --target riscv64imac-unknown-none-elf && ckb-binary-patcher -i /code/target/riscv64imac-unknown-none-elf/release/${contract} -o /code/target/riscv64imac-unknown-none-elf/release/${contract}"
@@ -43,15 +43,32 @@ function build_all() {
 case $1 in
 start)
     dir="$(dirname $PWD)"
-    docker run -it --rm \
-        --name $DOCKER_CONTAINER \
-        -v ${dir}/das-contracts:/code \
-        -v ${dir}/das-types:/das-types \
-        -v $CACHE_VOLUME:/root/.cargo \
-        -e RUSTFLAGS="-Z pre-link-arg=-zseparate-code -Z pre-link-arg=-zseparate-loadable-segments" \
-        -e CAPSULE_TEST_ENV=debug \
-        $DOCKER_IMAGE bin/bash
+	if [[ $2 == "-b" || $2 == "--background" ]]; then
+		docker run -d -t --rm \
+			--name $DOCKER_CONTAINER \
+			-v ${dir}/das-contracts:/code \
+			-v ${dir}/das-types:/das-types \
+			-v $CACHE_VOLUME:/root/.cargo \
+			-e RUSTFLAGS="-Z pre-link-arg=-zseparate-code -Z pre-link-arg=-zseparate-loadable-segments" \
+			-e CAPSULE_TEST_ENV=debug \
+			$DOCKER_IMAGE bin/bash &> /dev/null
+	else
+		docker run -it --rm \
+			--name $DOCKER_CONTAINER \
+			-v ${dir}/das-contracts:/code \
+			-v ${dir}/das-types:/das-types \
+			-v $CACHE_VOLUME:/root/.cargo \
+			-e RUSTFLAGS="-Z pre-link-arg=-zseparate-code -Z pre-link-arg=-zseparate-loadable-segments" \
+			-e CAPSULE_TEST_ENV=debug \
+			$DOCKER_IMAGE bin/bash
+	fi
     ;;
+stop)
+	uuid=`docker ps -a | grep ${DOCKER_IMAGE} | awk '{print $1}'`
+	if [[ ${uuid} != "" ]]; then
+		docker stop ${uuid}
+	fi
+	;;
 build)
     if [[ $2 == "--release" || $3 == "--release" ]]; then
         if [[ ! -d ./build/release ]]; then

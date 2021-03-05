@@ -45,7 +45,6 @@ name = "always-success"
 version = "0.1.0"
 dependencies = [
  "ckb-std",
- "das-core",
 ]
 
 [[package]]
@@ -642,9 +641,9 @@ dependencies = [
 
 [[package]]
 name = "ckb-std"
-version = "0.7.2"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35e14bf64c694f078d6d33bad7e2b9a87d129d8b4e4c9a6cfc4364e2c6eddbd9"
+checksum = "c9baa934b70b15759b6d0c118b33c56cc4a64c1c35bece24af8c9e2e11cf1541"
 dependencies = [
  "buddy-alloc",
  "cc",
