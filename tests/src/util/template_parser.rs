@@ -1,7 +1,7 @@
 use super::constants::{MULTISIG_TYPE_HASH, SECP_SIGNATURE_SIZE, SIGHASH_TYPE_HASH};
 use super::util::{
     build_signature, deploy_builtin_contract, deploy_dev_contract, get_privkey_signer,
-    hex_to_byte32, hex_to_bytes, hex_to_u64, mock_cell, mock_input,
+    hex_to_byte32, hex_to_bytes, hex_to_u64, mock_cell, mock_header_deps, mock_input,
 };
 use crate::util::constants::TYPE_ID_TABLE;
 use ckb_testtool::context::Context;
@@ -28,6 +28,7 @@ lazy_static! {
 pub struct TemplateParser<'a> {
     pub context: &'a mut Context,
     pub data: Value,
+    pub header_deps: Vec<Byte32>,
     pub contracts: HashMap<String, Byte32>,
     pub deps: Vec<CellDep>,
     pub inputs: Vec<CellInput>,
@@ -54,6 +55,7 @@ impl<'a> TemplateParser<'a> {
         Ok(TemplateParser {
             context,
             data,
+            header_deps: Vec::new(),
             contracts: TemplateParser::init_contracts(),
             deps: Vec::new(),
             inputs: Vec::new(),
@@ -71,6 +73,7 @@ impl<'a> TemplateParser<'a> {
         Ok(TemplateParser {
             context,
             data,
+            header_deps: Vec::new(),
             contracts: TemplateParser::init_contracts(),
             deps: Vec::new(),
             inputs: Vec::new(),
@@ -99,6 +102,9 @@ impl<'a> TemplateParser<'a> {
     pub fn try_parse(&mut self) -> Result<(), Box<dyn Error>> {
         let to_owned = |v: &Vec<Value>| -> Vec<Value> { v.to_owned() };
 
+        if let Some(header_deps) = self.data["header_deps"].as_array().map(to_owned) {
+            self.parse_header_deps(header_deps)?
+        }
         if let Some(cell_deps) = self.data["cell_deps"].as_array().map(to_owned) {
             self.parse_cell_deps(cell_deps)?
         }
@@ -225,12 +231,55 @@ impl<'a> TemplateParser<'a> {
 
     pub fn build_tx(&mut self) -> TransactionView {
         TransactionBuilder::default()
+            .header_deps(self.header_deps.clone())
             .cell_deps(self.deps.clone())
             .inputs(self.inputs.clone())
             .outputs(self.outputs.clone())
             .outputs_data(self.outputs_data.clone())
             .set_witnesses(self.witnesses.clone())
             .build()
+    }
+
+    fn parse_header_deps(&mut self, header_deps: Vec<Value>) -> Result<(), Box<dyn Error>> {
+        for (i, item) in header_deps.iter().enumerate() {
+            let header_hash = item["tmp_hash"]
+                .as_str()
+                .expect(&format!("Field `header_deps[{}].tmp_hash` is required.", i));
+
+            let number: u64;
+            if item["number"].is_number() {
+                number = item["number"]
+                    .as_u64()
+                    .ok_or(format!("Field `header_deps[{}].number` is required.", i))?;
+            } else {
+                let hex = item["number"]
+                    .as_str()
+                    .ok_or(format!("Field `header_deps[{}].number` is required.", i))?;
+                number = hex_to_u64(hex).expect(&format!(
+                    "Field `header_deps[{}].number` is not valid u64 in hex.",
+                    i
+                ));
+            }
+
+            let timestamp: u64;
+            if item["timestamp"].is_number() {
+                timestamp = item["timestamp"]
+                    .as_u64()
+                    .ok_or(format!("Field `header_deps[{}].timestamp` is required.", i))?;
+            } else {
+                let hex = item["timestamp"]
+                    .as_str()
+                    .ok_or(format!("Field `header_deps[{}].timestamp` is required.", i))?;
+                timestamp = hex_to_u64(hex).expect(&format!(
+                    "Field `header_deps[{}].timestamp` is not valid u64 in hex.",
+                    i
+                ));
+            }
+
+            mock_header_deps(self.context, hex_to_byte32(header_hash)?, number, timestamp);
+        }
+
+        Ok(())
     }
 
     fn parse_cell_deps(&mut self, cell_deps: Vec<Value>) -> Result<(), Box<dyn Error>> {
@@ -300,6 +349,8 @@ impl<'a> TemplateParser<'a> {
                                 .expect("Field `inputs[].since` is not valid u64 in hex.")
                         });
                     }
+
+                    // TODO implement context.link_cell_with_block
 
                     self.inputs.push(mock_input(out_point, since));
                 }

@@ -125,6 +125,17 @@ pub fn mock_script(context: &mut Context, out_point: OutPoint, args: bytes::Byte
         .expect("Build script failed, can not find cell of script.")
 }
 
+pub fn mock_header_deps(context: &mut Context, header_hash: Byte32, number: u64, timestamp: u64) {
+    let raw_header = RawHeader::new_builder()
+        .number(number.pack())
+        .timestamp(timestamp.pack())
+        .build();
+    let header = Header::new_builder().raw(raw_header).build().into_view();
+
+    // Set header with manually specified hash will make writing tests much easier.
+    context.headers.insert(header_hash, header);
+}
+
 pub fn mock_cell(
     context: &mut Context,
     capacity: u64,
