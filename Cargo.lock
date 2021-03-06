@@ -47,6 +47,7 @@ name = "always-success"
 version = "0.1.0"
 dependencies = [
  "ckb-std",
+ "das-core",
 ]
 
 [[package]]

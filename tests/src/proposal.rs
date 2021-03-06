@@ -3,8 +3,9 @@ use ckb_testtool::context::Context;
 use ckb_tool::ckb_types::{bytes, prelude::Pack};
 use das_types::constants::*;
 
-fn gen_cell_deps(template: &mut TemplateGenerator, timestamp: u64) {
+fn gen_cell_deps(template: &mut TemplateGenerator, height: u64, timestamp: u64) {
     template.push_time_cell(1, timestamp, 200_000_000_000, Source::CellDep);
+    template.push_height_cell(1, height, 200_000_000_000, Source::CellDep);
 
     template.push_config_cell(
         ConfigID::ConfigCellMain,
@@ -90,9 +91,10 @@ fn gen_proposal_create_test_data() {
     println!("====== Print propose transaction data ======");
 
     let mut template = TemplateGenerator::new("propose", None);
+    let height = 1000u64;
     let timestamp = 1611200090u64;
 
-    gen_cell_deps(&mut template, timestamp);
+    gen_cell_deps(&mut template, height, timestamp);
 
     let slices = vec![
         vec![
@@ -109,6 +111,7 @@ fn gen_proposal_create_test_data() {
     let (cell_data, entity) = template.gen_proposal_cell_data(
         "0x0100000000000000000000000000000000000000",
         "proposer_01.bit",
+        height,
         &slices,
     );
     template.push_proposal_cell(cell_data, Some((1, 0, entity)), 1000, Source::Output);
@@ -140,9 +143,10 @@ fn gen_extend_proposal_test_data() {
     println!("====== Print extend proposal transaction data ======");
 
     let mut template = TemplateGenerator::new("extend_proposal", None);
+    let height = 1000u64;
     let timestamp = 1611200090u64;
 
-    gen_cell_deps(&mut template, timestamp);
+    gen_cell_deps(&mut template, height, timestamp);
 
     // Generate previous proposal
     let slices = vec![
@@ -164,6 +168,7 @@ fn gen_extend_proposal_test_data() {
     let (cell_data, entity) = template.gen_proposal_cell_data(
         "0x0100000000000000000000000000000000000000",
         "proposer_01.bit",
+        height - 5,
         &slices,
     );
     template.push_proposal_cell(cell_data, Some((1, 5, entity)), 1000, Source::CellDep);
@@ -195,6 +200,7 @@ fn gen_extend_proposal_test_data() {
     let (cell_data, entity) = template.gen_proposal_cell_data(
         "0x0200000000000000000000000000000000000000",
         "proposer_02.bit",
+        height,
         &slices,
     );
     template.push_proposal_cell(cell_data, Some((1, 0, entity)), 1000, Source::Output);
@@ -366,9 +372,10 @@ fn gen_confirm_proposal_test_data() {
     println!("====== Print confirm proposal transaction data ======");
 
     let mut template = TemplateGenerator::new("confirm_proposal", None);
+    let height = 1000u64;
     let timestamp = 1611200090u64;
 
-    gen_cell_deps(&mut template, timestamp);
+    gen_cell_deps(&mut template, height, timestamp);
 
     let slices = vec![
         // A slice base on previous modified AccountCell
@@ -396,6 +403,7 @@ fn gen_confirm_proposal_test_data() {
     let (cell_data, entity) = template.gen_proposal_cell_data(
         "0x0100000000000000000000000000000000000000",
         "proposer_01.bit",
+        height,
         &slices,
     );
     template.push_proposal_cell(
@@ -407,17 +415,17 @@ fn gen_confirm_proposal_test_data() {
 
     gen_proposal_related_cell_at_confirm(&mut template, slices, timestamp);
 
-    template.push_wallet_cell("inviter_01.bit", 8_400_000_000, Source::Input);
-    template.push_wallet_cell("channel_01.bit", 8_400_000_000, Source::Input);
-    template.push_wallet_cell("das.bit", 8_400_000_000, Source::Input);
-    template.push_wallet_cell("inviter_01.bit", 208_400_000_000, Source::Output);
-    template.push_wallet_cell("channel_01.bit", 208_400_000_000, Source::Output);
-    template.push_wallet_cell("das.bit", 1608_400_000_000, Source::Output);
+    template.push_wallet_cell("inviter_01.bit", 9_400_000_000, Source::Input);
+    template.push_wallet_cell("channel_01.bit", 9_400_000_000, Source::Input);
+    template.push_wallet_cell("das.bit", 9_400_000_000, Source::Input);
+    template.push_wallet_cell("inviter_01.bit", 209_400_000_000, Source::Output);
+    template.push_wallet_cell("channel_01.bit", 209_400_000_000, Source::Output);
+    template.push_wallet_cell("das.bit", 1609_400_000_000, Source::Output);
 
     template.pretty_print();
 }
 
-#[test]
+// #[test]
 fn test_proposal_confirm() {
     let mut context;
     let mut parser;
@@ -435,6 +443,66 @@ fn test_proposal_confirm() {
 }
 
 // #[test]
+fn gen_proposal_recycle_test_data() {
+    println!("====== Print recycle proposal transaction data ======");
+
+    let mut template = TemplateGenerator::new("recycle_proposal", None);
+    let height = 1000u64;
+
+    template.push_height_cell(1, height, 200_000_000_000, Source::CellDep);
+    template.push_config_cell(
+        ConfigID::ConfigCellMain,
+        true,
+        100_000_000_000,
+        Source::CellDep,
+    );
+    template.push_config_cell(
+        ConfigID::ConfigCellRegister,
+        true,
+        100_000_000_000,
+        Source::CellDep,
+    );
+
+    let slices = vec![
+        // A slice base on previous modified AccountCell
+        vec![
+            ("das00012.bit", ProposalSliceItemType::Exist, "das00009.bit"),
+            ("das00005.bit", ProposalSliceItemType::New, ""),
+        ],
+        // A slice base on previous modified PreAccountCell
+        vec![
+            (
+                "das00004.bit",
+                ProposalSliceItemType::Proposed,
+                "das00011.bit",
+            ),
+            ("das00018.bit", ProposalSliceItemType::New, ""),
+            ("das00008.bit", ProposalSliceItemType::New, ""),
+        ],
+        // A whole new slice
+        vec![
+            ("das00006.bit", ProposalSliceItemType::Exist, "das00001.bit"),
+            ("das00019.bit", ProposalSliceItemType::New, ""),
+        ],
+    ];
+
+    let (cell_data, entity) = template.gen_proposal_cell_data(
+        "0x0100000000000000000000000000000000000000",
+        "proposer_01.bit",
+        height - 10,
+        &slices,
+    );
+    template.push_proposal_cell(
+        cell_data,
+        Some((1, 0, entity)),
+        100_000_000_000,
+        Source::Input,
+    );
+
+    template.pretty_print();
+}
+
+#[test]
 fn test_proposal_recycle() {
     let mut context;
     let mut parser;

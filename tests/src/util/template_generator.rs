@@ -758,11 +758,13 @@ impl TemplateGenerator {
         &mut self,
         proposer_lock_args: &str,
         proposer_wallet: &str,
+        created_at_height: u64,
         slices: &Vec<Vec<(&str, ProposalSliceItemType, &str)>>,
     ) -> (Bytes, ProposalCellData) {
         let entity = ProposalCellData::new_builder()
             .proposer_lock(gen_always_success_lock(proposer_lock_args))
             .proposer_wallet(Bytes::from(account_to_id_bytes(proposer_wallet)))
+            .created_at_height(Uint64::from(created_at_height))
             .slices(gen_slices(slices))
             .build();
 
@@ -804,6 +806,8 @@ impl TemplateGenerator {
 
         self.push_cell(capacity, lock_script, type_script, None, source);
     }
+
+    pub fn gen_header() {}
 
     pub fn pretty_print(&self) {
         let data = json!({

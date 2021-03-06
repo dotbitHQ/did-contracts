@@ -14,17 +14,19 @@ pub enum Error {
     InvalidCellData,
     SuperLockIsRequired,
     CellMustUseSuperLock,
-    TimeCellIsRequired, // 10
+    TimeCellIsRequired = 10,
+    TimeCellDataDecodingError,
     HeightCellIsRequired,
+    HeightCellDataDecodingError,
     QuoteCellIsRequired,
     ConfigIDIsUndefined,
     ConfigIsPartialMissing,
-    ConfigCellIsRequired, // 15
+    ConfigCellIsRequired,
     ConfigCellWitnessIsCorrupted,
     ConfigCellWitnessDecodingError,
-    CellLockCanNotBeModified,
+    CellLockCanNotBeModified = 20,
     CellTypeCanNotBeModified,
-    CellDataCanNotBeModified, // 20
+    CellDataCanNotBeModified,
     CellCapacityMustReduced,
     CellCapacityMustIncreased,
     CellCapacityMustConsistent,
@@ -57,8 +59,8 @@ pub enum Error {
     PreRegisterAccountCanNotRegisterNow,
     PreRegisterAccountCharSetConflict,
     PreRegisterAccountCharIsInvalid,
-    PreRegisterQuoteIsInvalid = 70,
-    ProposalFoundInvalidTransaction,
+    PreRegisterQuoteIsInvalid, // 70
+    ProposalFoundInvalidTransaction = 80,
     ProposalMustIncludeSomePreAccountCell,
     ProposalSliceIsNotSorted,
     ProposalSliceIsDiscontinuity,
@@ -67,8 +69,8 @@ pub enum Error {
     ProposalCellAccountIdError,
     ProposalFieldCanNotBeModified,
     ProposalWitnessCanNotBeModified,
-    ProposalConfirmIdError = 80,
-    ProposalConfirmNextError,
+    ProposalConfirmIdError,
+    ProposalConfirmNextError, // 90
     ProposalConfirmExpiredAtError,
     ProposalConfirmAccountError,
     ProposalConfirmWitnessIDError,
@@ -77,16 +79,18 @@ pub enum Error {
     ProposalConfirmWitnessManagerError,
     ProposalConfirmWitnessStatusError,
     ProposalConfirmWitnessRecordsError,
-    ProposalConfirmWalletMissMatch = 90,
-    ProposalConfirmWalletBalanceError,
+    ProposalConfirmWalletMissMatch,
+    ProposalConfirmWalletBalanceError, // 100
     ProposalSliceNotEndCorrectly,
     ProposalSliceMustStartWithAccountCell,
-    WalletFoundInvalidTransaction,
+    ProposalRecycleNeedWaitLonger,
+    ProposalRecycleCanNotFoundRefundCell,
+    ProposalRecycleRefundAmountError,
+    WalletFoundInvalidTransaction = 110,
     WalletRequireAlwaysSuccess,
     WalletPermissionInvalid,
     PrevProposalItemNotFound,
     AccountCellFoundInvalidTransaction,
-    TimeCellDataDecodingError = 100,
 }
 
 impl From<SysError> for Error {

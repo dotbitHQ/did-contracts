@@ -24,8 +24,6 @@ pub fn main() -> Result<(), Error> {
     let mut parser = WitnessesParser::new(witnesses)?;
     parser.parse_only_action()?;
 
-    let timestamp = util::load_timestamp()?;
-
     debug!("Find out ProposalCell ...");
 
     // Find out PreAccountCells in current transaction.
@@ -100,6 +98,8 @@ pub fn main() -> Result<(), Error> {
     } else if action == b"confirm_proposal" {
         debug!("Route to confirm_proposal action ...");
 
+        let timestamp = util::load_timestamp()?;
+
         parser.parse_all_data()?;
         parser.parse_only_config(&[ConfigID::ConfigCellMain, ConfigID::ConfigCellRegister])?;
         let config_main = parser.configs().main()?;
@@ -117,6 +117,7 @@ pub fn main() -> Result<(), Error> {
         let proposal_cell_data_reader = proposal_cell_data.as_reader();
 
         debug!("Check all AccountCells are updated or created base on proposal.");
+
         let old_related_cells = find_proposal_related_cells(config_main, Source::Input)?;
         let new_account_cells = find_new_account_cells(config_main)?;
         verify_proposal_execution_result(
@@ -130,7 +131,49 @@ pub fn main() -> Result<(), Error> {
         )?;
 
         debug!("Check that all revenues are correctly allocated to each roles in DAS.");
-    } else if action == b"recycle_propose" {
+    } else if action == b"recycle_proposal" {
+        debug!("Route to recycle_propose action ...");
+
+        let height = util::load_height()?;
+
+        parser.parse_all_data()?;
+        parser.parse_only_config(&[ConfigID::ConfigCellRegister])?;
+        let config_register = parser.configs().register()?;
+
+        if dep_cells.len() != 0 || old_cells.len() != 1 || new_cells.len() != 0 {
+            return Err(Error::ProposalFoundInvalidTransaction);
+        }
+
+        debug!("Check if ProposalCell can be recycled.");
+
+        let index = &old_cells[0];
+        let (_, _, entity) = parser.verify_and_get(index.to_owned(), Source::Input)?;
+        let proposal_cell_data = ProposalCellData::from_slice(entity.as_reader().raw_data())
+            .map_err(|_| Error::WitnessEntityDecodingError)?;
+        let proposal_cell_data_reader = proposal_cell_data.as_reader();
+
+        let proposal_min_recycle_interval =
+            u8::from(config_register.proposal_min_recycle_interval()) as u64;
+        let created_at_height = u64::from(proposal_cell_data_reader.created_at_height());
+        if height - created_at_height < proposal_min_recycle_interval {
+            return Err(Error::ProposalRecycleNeedWaitLonger);
+        }
+
+        debug!("Check if refund lock and amount is correct.");
+
+        let refund_lock = proposal_cell_data_reader.proposer_lock().to_entity();
+        let refund_cells =
+            util::find_cells_by_script(ScriptType::Lock, &refund_lock.into(), Source::Output)?;
+        if refund_cells.len() != 1 {
+            return Err(Error::ProposalRecycleCanNotFoundRefundCell);
+        }
+        let proposal_capacity =
+            load_cell_capacity(index.to_owned(), Source::Input).map_err(|e| Error::from(e))?;
+        let refund_capacity =
+            load_cell_capacity(refund_cells[0], Source::Output).map_err(|e| Error::from(e))?;
+        if proposal_capacity > refund_capacity {
+            return Err(Error::ProposalRecycleRefundAmountError);
+        }
     } else {
         return Err(Error::ActionNotSupported);
     }
