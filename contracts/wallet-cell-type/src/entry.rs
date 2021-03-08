@@ -95,8 +95,8 @@ pub fn main() -> Result<(), Error> {
                 }
                 let old_index = old_cells[0];
                 let new_index = new_cells[0];
-                util::verify_if_cell_consistent(old_index, new_index)?;
-                util::verify_if_cell_capacity_reduced(old_index, new_index)?;
+                util::is_cell_consistent(old_index, new_index)?;
+                util::is_cell_capacity_lte(old_index, new_index)?;
 
                 let wallet_type = load_cell_type(old_index, Source::Input)
                     .map_err(|err| Error::from(err))?
@@ -120,8 +120,8 @@ pub fn main() -> Result<(), Error> {
                     config.type_id_table().ref_cell(),
                     Source::Output,
                 )?;
-                util::verify_if_cell_consistent(old_ref_index, new_ref_index)?;
-                util::verify_if_cell_capacity_consistent(old_ref_index, new_ref_index)?;
+                util::is_cell_consistent(old_ref_index, new_ref_index)?;
+                util::is_cell_capacity_equal(old_ref_index, new_ref_index)?;
 
                 // Find out AccountCells in current transaction.
                 let old_account_index = util::find_only_cell_by_type_id(
@@ -134,8 +134,8 @@ pub fn main() -> Result<(), Error> {
                     config.type_id_table().account_cell(),
                     Source::Output,
                 )?;
-                util::verify_if_cell_consistent(old_account_index, new_account_index)?;
-                util::verify_if_cell_capacity_consistent(old_account_index, new_account_index)?;
+                util::is_cell_consistent(old_account_index, new_account_index)?;
+                util::is_cell_capacity_equal(old_account_index, new_account_index)?;
 
                 debug!("Check if OwnerCell has permission to withdraw from WalletCell ...");
                 // User must have the owner permission to withdraw CKB from the WalletCell.
@@ -199,8 +199,8 @@ fn verify_if_only_capacity_increased(
 
     for (i, old_index) in old_cells.into_iter().enumerate() {
         let new_index = new_cells[i];
-        util::verify_if_cell_capacity_increased(old_index, new_index)?;
-        util::verify_if_cell_consistent(old_index, new_index)?;
+        util::is_cell_capacity_gte(old_index, new_index)?;
+        util::is_cell_consistent(old_index, new_index)?;
     }
 
     Ok(())

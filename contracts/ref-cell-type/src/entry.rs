@@ -11,7 +11,7 @@ pub fn main() -> Result<(), Error> {
     parser.parse_only_action()?;
     let (action, _) = parser.action();
 
-    if action == "confirm_proposal".as_bytes() {
+    if action == b"confirm_proposal" {
         debug!("Route to confirm_proposal action ...");
 
         parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
@@ -28,6 +28,24 @@ pub fn main() -> Result<(), Error> {
         // There must be a ProposalCell consumed in the transaction.
         if proposal_cells.len() != 1 {
             return Err(Error::ProposalFoundInvalidTransaction);
+        }
+    } else if action == b"transfer_account" {
+        debug!("Route to transfer_account action ...");
+
+        parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
+        let config = parser.configs().main()?;
+
+        debug!("The following logic depends on account-cell-type.");
+
+        // Find out AccountCells in current transaction.
+        let account_cells = util::find_cells_by_type_id(
+            ScriptType::Type,
+            config.type_id_table().account_cell(),
+            Source::Input,
+        )?;
+        // There must be a AccountCell consumed in the transaction.
+        if account_cells.len() != 1 {
+            return Err(Error::AccountCellFoundInvalidTransaction);
         }
 
     // The RefCell can be used as long as it is not modified.
@@ -48,8 +66,8 @@ pub fn main() -> Result<(), Error> {
 
         for (i, old_index) in old_cells.into_iter().enumerate() {
             let new_index = new_cells[i];
-            util::verify_if_cell_capacity_consistent(old_index, new_index)?;
-            util::verify_if_cell_consistent(old_index, new_index)?;
+            util::is_cell_capacity_equal(old_index, new_index)?;
+            util::is_cell_consistent(old_index, new_index)?;
         }
     }
 

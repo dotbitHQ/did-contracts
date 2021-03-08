@@ -91,6 +91,7 @@ pub enum Error {
     WalletPermissionInvalid,
     PrevProposalItemNotFound,
     AccountCellFoundInvalidTransaction,
+    AccountCellOwnerLockNotConsistent,
 }
 
 impl From<SysError> for Error {

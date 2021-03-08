@@ -381,15 +381,15 @@ pub fn blake2b_256(s: &[u8]) -> [u8; 32] {
     result
 }
 
-pub fn verify_if_cell_consistent(old_index: usize, new_index: usize) -> Result<(), Error> {
-    verify_if_cell_lock_consistent(old_index, new_index)?;
-    verify_if_cell_type_consistent(old_index, new_index)?;
-    verify_if_cell_data_consistent(old_index, new_index)?;
+pub fn is_cell_consistent(old_index: usize, new_index: usize) -> Result<(), Error> {
+    is_cell_lock_equal(old_index, new_index)?;
+    is_cell_type_equal(old_index, new_index)?;
+    is_cell_data_equal(old_index, new_index)?;
 
     Ok(())
 }
 
-pub fn verify_if_cell_lock_consistent(old_index: usize, new_index: usize) -> Result<(), Error> {
+pub fn is_cell_lock_equal(old_index: usize, new_index: usize) -> Result<(), Error> {
     let old_lock_script =
         high_level::load_cell_lock_hash(old_index, Source::Input).map_err(|e| Error::from(e))?;
     let new_lock_script =
@@ -397,12 +397,11 @@ pub fn verify_if_cell_lock_consistent(old_index: usize, new_index: usize) -> Res
 
     if old_lock_script != new_lock_script {
         debug!(
-            "Compare cell lock script: [{}]{:?} != [{}]{:?} => {}",
+            "Compare cell lock script: [{}]{:?} != [{}]{:?} => true",
             old_index,
             old_lock_script,
             new_index,
-            new_lock_script,
-            old_lock_script != new_lock_script
+            new_lock_script
         );
         return Err(Error::CellLockCanNotBeModified);
     }
@@ -410,7 +409,7 @@ pub fn verify_if_cell_lock_consistent(old_index: usize, new_index: usize) -> Res
     Ok(())
 }
 
-pub fn verify_if_cell_type_consistent(old_index: usize, new_index: usize) -> Result<(), Error> {
+pub fn is_cell_type_equal(old_index: usize, new_index: usize) -> Result<(), Error> {
     let old_type_script = high_level::load_cell_type_hash(old_index, Source::Input)
         .map_err(|e| Error::from(e))?
         .unwrap();
@@ -420,12 +419,11 @@ pub fn verify_if_cell_type_consistent(old_index: usize, new_index: usize) -> Res
 
     if old_type_script != new_type_script {
         debug!(
-            "Compare cell type script: [{}]{:?} != [{}]{:?} => {}",
+            "Compare cell type script: [{}]{:?} != [{}]{:?} => true",
             old_index,
             old_type_script,
             new_index,
-            new_type_script,
-            old_type_script != new_type_script
+            new_type_script
         );
         return Err(Error::CellTypeCanNotBeModified);
     }
@@ -433,7 +431,7 @@ pub fn verify_if_cell_type_consistent(old_index: usize, new_index: usize) -> Res
     Ok(())
 }
 
-pub fn verify_if_cell_data_consistent(old_index: usize, new_index: usize) -> Result<(), Error> {
+pub fn is_cell_data_equal(old_index: usize, new_index: usize) -> Result<(), Error> {
     let old_data =
         high_level::load_cell_data(old_index, Source::Input).map_err(|e| Error::from(e))?;
     let new_data =
@@ -441,12 +439,11 @@ pub fn verify_if_cell_data_consistent(old_index: usize, new_index: usize) -> Res
 
     if old_data != new_data {
         debug!(
-            "Compare cell capacity: [{}]{:?} != [{}]{:?} => {}",
+            "Compare cell capacity: [{}]{:?} != [{}]{:?} => true",
             old_index,
             old_data,
             new_index,
-            new_data,
-            old_data != new_data
+            new_data
         );
         return Err(Error::CellDataCanNotBeModified);
     }
@@ -454,7 +451,7 @@ pub fn verify_if_cell_data_consistent(old_index: usize, new_index: usize) -> Res
     Ok(())
 }
 
-pub fn verify_if_cell_capacity_reduced(old_index: usize, new_index: usize) -> Result<(), Error> {
+pub fn is_cell_capacity_lte(old_index: usize, new_index: usize) -> Result<(), Error> {
     let old_capacity =
         high_level::load_cell_capacity(old_index, Source::Input).map_err(|e| Error::from(e))?;
     let new_capacity =
@@ -462,12 +459,11 @@ pub fn verify_if_cell_capacity_reduced(old_index: usize, new_index: usize) -> Re
 
     if old_capacity <= new_capacity {
         debug!(
-            "Compare cell capacity: [{}]{:?} <= [{}]{:?} => {}",
+            "Compare cell capacity: [{}]{:?} <= [{}]{:?} => true",
             old_index,
             old_capacity,
             new_index,
-            new_capacity,
-            old_capacity != new_capacity
+            new_capacity
         );
         return Err(Error::CellCapacityMustReduced);
     }
@@ -475,7 +471,7 @@ pub fn verify_if_cell_capacity_reduced(old_index: usize, new_index: usize) -> Re
     Ok(())
 }
 
-pub fn verify_if_cell_capacity_increased(old_index: usize, new_index: usize) -> Result<(), Error> {
+pub fn is_cell_capacity_gte(old_index: usize, new_index: usize) -> Result<(), Error> {
     let old_capacity =
         high_level::load_cell_capacity(old_index, Source::Input).map_err(|e| Error::from(e))?;
     let new_capacity =
@@ -483,12 +479,11 @@ pub fn verify_if_cell_capacity_increased(old_index: usize, new_index: usize) -> 
 
     if old_capacity >= new_capacity {
         debug!(
-            "Compare cell capacity: [{}]{:?} >= [{}]{:?} => {}",
+            "Compare cell capacity: [{}]{:?} >= [{}]{:?} => true",
             old_index,
             old_capacity,
             new_index,
-            new_capacity,
-            old_capacity != new_capacity
+            new_capacity
         );
         return Err(Error::CellCapacityMustIncreased);
     }
@@ -496,7 +491,7 @@ pub fn verify_if_cell_capacity_increased(old_index: usize, new_index: usize) -> 
     Ok(())
 }
 
-pub fn verify_if_cell_capacity_consistent(old_index: usize, new_index: usize) -> Result<(), Error> {
+pub fn is_cell_capacity_equal(old_index: usize, new_index: usize) -> Result<(), Error> {
     let old_capacity =
         high_level::load_cell_capacity(old_index, Source::Input).map_err(|e| Error::from(e))?;
     let new_capacity =
@@ -504,12 +499,11 @@ pub fn verify_if_cell_capacity_consistent(old_index: usize, new_index: usize) ->
 
     if old_capacity != new_capacity {
         debug!(
-            "Compare cell capacity: [{}]{:?} != [{}]{:?} => {}",
+            "Compare cell capacity: [{}]{:?} != [{}]{:?} => true",
             old_index,
             old_capacity,
             new_index,
-            new_capacity,
-            old_capacity != new_capacity
+            new_capacity
         );
         return Err(Error::CellCapacityMustConsistent);
     }
