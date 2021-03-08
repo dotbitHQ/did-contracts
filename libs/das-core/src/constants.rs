@@ -33,7 +33,7 @@ pub const BLOOM_FILTER_K: u64 = 10;
 pub const DAS_WALLET_ID: [u8; ACCOUNT_ID_LENGTH] = [183, 82, 104, 3, 246, 126, 190, 112, 171, 166];
 
 pub fn super_lock() -> Script {
-    #[cfg(debug_assertions)]
+    #[cfg(feature = "local")]
     let super_lock = ScriptLiteral {
         code_hash: [
             157, 111, 41, 25, 227, 40, 243, 33, 125, 125, 211, 218, 181, 247, 206, 233, 216, 224,
@@ -43,7 +43,7 @@ pub fn super_lock() -> Script {
         args: vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     };
 
-    #[cfg(not(debug_assertions))]
+    #[cfg(feature = "testnet")]
     let super_lock = ScriptLiteral {
         code_hash: [
             155, 215, 224, 111, 62, 207, 75, 224, 242, 252, 210, 24, 139, 35, 241, 185, 252, 200,
@@ -56,11 +56,21 @@ pub fn super_lock() -> Script {
         ],
     };
 
+    #[cfg(feature = "mainnet")]
+    let super_lock = ScriptLiteral {
+        code_hash: [
+            155, 215, 224, 111, 62, 207, 75, 224, 242, 252, 210, 24, 139, 35, 241, 185, 252, 200,
+            142, 93, 75, 101, 168, 99, 123, 23, 114, 59, 189, 163, 204, 232,
+        ],
+        hash_type: ScriptHashType::Type,
+        args: vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
+    };
+
     util::script_literal_to_script(super_lock)
 }
 
 pub fn oracle_lock() -> Script {
-    #[cfg(debug_assertions)]
+    #[cfg(feature = "local")]
     let oracle_lock = ScriptLiteral {
         code_hash: [
             157, 111, 41, 25, 227, 40, 243, 33, 125, 125, 211, 218, 181, 247, 206, 233, 216, 224,
@@ -70,21 +80,34 @@ pub fn oracle_lock() -> Script {
         args: vec![1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     };
 
-    #[cfg(not(debug_assertions))]
+    #[cfg(feature = "testnet")]
     let oracle_lock = ScriptLiteral {
         code_hash: [
-            157, 111, 41, 25, 227, 40, 243, 33, 125, 125, 211, 218, 181, 247, 206, 233, 216, 224,
-            98, 190, 230, 168, 13, 93, 5, 205, 73, 92, 163, 65, 99, 120,
+            155, 215, 224, 111, 62, 207, 75, 224, 242, 252, 210, 24, 139, 35, 241, 185, 252, 200,
+            142, 93, 75, 101, 168, 99, 123, 23, 114, 59, 189, 163, 204, 232,
         ],
         hash_type: ScriptHashType::Type,
-        args: vec![1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        args: vec![
+            94, 176, 12, 14, 81, 175, 181, 55, 252, 128, 113, 129, 0, 52, 206, 146, 249, 140, 50,
+            89,
+        ],
+    };
+
+    #[cfg(feature = "mainnet")]
+    let oracle_lock = ScriptLiteral {
+        code_hash: [
+            155, 215, 224, 111, 62, 207, 75, 224, 242, 252, 210, 24, 139, 35, 241, 185, 252, 200,
+            142, 93, 75, 101, 168, 99, 123, 23, 114, 59, 189, 163, 204, 232,
+        ],
+        hash_type: ScriptHashType::Type,
+        args: vec![1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
     };
 
     util::script_literal_to_script(oracle_lock)
 }
 
 pub fn time_cell_type() -> Script {
-    #[cfg(debug_assertions)]
+    #[cfg(feature = "local")]
     let time_cell_type = ScriptLiteral {
         code_hash: [
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -94,7 +117,20 @@ pub fn time_cell_type() -> Script {
         args: Vec::new(),
     };
 
-    #[cfg(not(debug_assertions))]
+    #[cfg(feature = "testnet")]
+    let time_cell_type = ScriptLiteral {
+        code_hash: [
+            35, 74, 208, 253, 241, 205, 39, 29, 66, 30, 176, 244, 177, 139, 107, 98, 245, 64, 191,
+            143, 14, 133, 142, 35, 74, 168, 101, 104, 136, 218, 184, 209,
+        ],
+        hash_type: ScriptHashType::Type,
+        args: vec![
+            208, 193, 199, 21, 111, 46, 49, 10, 18, 130, 46, 44, 195, 54, 57, 142, 196, 239, 25,
+            74, 188, 31, 150, 2, 59, 116, 63, 50, 73, 240, 158, 33, 2, 0, 0, 0,
+        ],
+    };
+
+    #[cfg(feature = "mainnet")]
     let time_cell_type = ScriptLiteral {
         code_hash: [
             184, 243, 231, 77, 189, 72, 86, 149, 58, 151, 112, 104, 42, 255, 194, 137, 221, 0, 152,
@@ -108,7 +144,7 @@ pub fn time_cell_type() -> Script {
 }
 
 pub fn height_cell_type() -> Script {
-    #[cfg(debug_assertions)]
+    #[cfg(feature = "local")]
     let height_cell_type = ScriptLiteral {
         code_hash: [
             2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -118,7 +154,20 @@ pub fn height_cell_type() -> Script {
         args: Vec::new(),
     };
 
-    #[cfg(not(debug_assertions))]
+    #[cfg(feature = "testnet")]
+    let height_cell_type = ScriptLiteral {
+        code_hash: [
+            158, 96, 159, 245, 153, 215, 2, 195, 87, 76, 47, 78, 158, 245, 161, 169, 149, 216, 118,
+            18, 161, 250, 96, 11, 197, 95, 17, 193, 153, 116, 104, 148,
+        ],
+        hash_type: ScriptHashType::Type,
+        args: vec![
+            225, 169, 88, 164, 193, 18, 175, 149, 161, 34, 12, 111, 238, 95, 150, 153, 114, 163,
+            216, 206, 19, 251, 123, 50, 17, 247, 26, 187, 93, 177, 130, 65, 2, 0, 0, 0,
+        ],
+    };
+
+    #[cfg(feature = "mainnet")]
     let height_cell_type = ScriptLiteral {
         code_hash: [
             184, 243, 231, 77, 189, 72, 86, 149, 58, 151, 112, 104, 42, 255, 194, 137, 221, 0, 152,
@@ -131,7 +180,7 @@ pub fn height_cell_type() -> Script {
     util::script_literal_to_script(height_cell_type)
 }
 
-#[cfg(debug_assertions)]
+#[cfg(feature = "local")]
 pub const CONFIG_CELL_TYPE: ScriptLiteral = ScriptLiteral {
     code_hash: [
         8, 107, 220, 190, 240, 171, 98, 141, 49, 174, 209, 231, 186, 162, 100, 22, 211, 189, 225,
@@ -141,16 +190,27 @@ pub const CONFIG_CELL_TYPE: ScriptLiteral = ScriptLiteral {
     args: Vec::new(),
 };
 
-#[cfg(not(debug_assertions))]
+#[cfg(feature = "testnet")]
 pub const CONFIG_CELL_TYPE: ScriptLiteral = ScriptLiteral {
     code_hash: [
-72 ,159 ,242 ,25 ,94 ,212 ,26 ,172 ,154 ,146 ,101 ,198 ,83 ,216 ,202 ,87 ,200 ,37 ,178 ,45 ,183 ,101 ,185 ,224 ,141 ,83 ,117 ,114 ,255 ,44 ,188 ,27
-],
+        1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
+        1, 1,
+    ],
     hash_type: ScriptHashType::Type,
     args: Vec::new(),
 };
 
-#[cfg(debug_assertions)]
+#[cfg(feature = "mainnet")]
+pub const CONFIG_CELL_TYPE: ScriptLiteral = ScriptLiteral {
+    code_hash: [
+        1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2,
+        2, 2,
+    ],
+    hash_type: ScriptHashType::Type,
+    args: Vec::new(),
+};
+
+#[cfg(feature = "local")]
 pub const ALWAYS_SUCCESS_LOCK: ScriptLiteral = ScriptLiteral {
     code_hash: [
         157, 111, 41, 25, 227, 40, 243, 33, 125, 125, 211, 218, 181, 247, 206, 233, 216, 224, 98,
@@ -160,11 +220,22 @@ pub const ALWAYS_SUCCESS_LOCK: ScriptLiteral = ScriptLiteral {
     args: Vec::new(),
 };
 
-#[cfg(not(debug_assertions))]
+#[cfg(feature = "testnet")]
 pub const ALWAYS_SUCCESS_LOCK: ScriptLiteral = ScriptLiteral {
     code_hash: [
-241 ,239 ,97 ,182 ,151 ,117 ,8 ,217 ,236 ,86 ,254 ,67 ,57 ,154 ,1 ,229 ,118 ,8 ,106 ,118 ,207 ,15 ,124 ,104 ,125 ,20 ,24 ,51 ,94 ,140 ,64 ,31
-],
+        2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
+        1, 1,
+    ],
+    hash_type: ScriptHashType::Type,
+    args: Vec::new(),
+};
+
+#[cfg(feature = "mainnet")]
+pub const ALWAYS_SUCCESS_LOCK: ScriptLiteral = ScriptLiteral {
+    code_hash: [
+        2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2,
+        2, 2,
+    ],
     hash_type: ScriptHashType::Type,
     args: Vec::new(),
 };

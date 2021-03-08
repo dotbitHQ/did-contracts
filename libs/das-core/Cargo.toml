@@ -4,9 +4,11 @@ version = "0.1.0"
 edition = "2018"
 
 [features]
-default = ["no_std"]
+default = ["mainnet"]
 std = ["no-std-compat/std"]
-no_std = []
+local = []
+testnet = []
+mainnet = []
 
 [dependencies]
 ckb-std = "0.7.1"

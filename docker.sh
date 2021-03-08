@@ -1,5 +1,7 @@
 #!/bin/bash
 
+echo "Arguments: \$1="$1 "\$2="$2 "\$3="$3
+
 # Docker image name
 DOCKER_IMAGE="jjy0/ckb-capsule-recipe-rust:2020-9-28"
 # Docker container name
@@ -7,32 +9,82 @@ DOCKER_CONTAINER="capsule-dev"
 # Name of capsule cache volume
 CACHE_VOLUME="capsule-cache"
 
+function is_feature_available() {
+    case $1 in
+    local | testnet | mainnet) ;;
+
+    *)
+        echo "Feature $1 is invalid, please choose one of local|testnet|mainnet ."
+        exit 1
+        ;;
+    esac
+}
+
+# Support `--release --local/testnet/mainnet` or just `--local/testnet/mainnet`
+is_release=false
+feature="mainnet"
+function parse_args() {
+    if [[ $1 == "--release" ]]; then
+        is_release=true
+
+        if [[ ! -z $2 ]]; then
+            tmp=$2
+            feature=${tmp:2}
+
+            is_feature_available $feature
+        fi
+    else
+        tmp=$1
+        feature=${tmp:2}
+
+        is_feature_available $feature
+    fi
+}
+
+function create_output_dir() {
+    if [[ $is_release ]]; then
+        if [[ ! -d ./build/release ]]; then
+            mkdir -p ./build/release
+        fi
+    else
+        if [[ ! -d ./build/debug ]]; then
+            mkdir -p ./build/debug
+        fi
+    fi
+}
+
 function build() {
     local contract=$1
-    local is_release=$2
 
-    if [ ! -d contracts/$contract ]; then
+    #    echo "is_release="$is_release "feature="$feature
+    #    exit 0
+
+    if [[ ! -d contracts/$contract ]]; then
         echo "Contract ${contract} is not exists, please check for spelling errors."
         exit 1
     fi
 
-    if [[ $is_release == "--release" ]]; then
+    if [[ $is_release == true ]]; then
+        command="RUSTFLAGS=\"-Z pre-link-arg=-zseparate-code -Z pre-link-arg=-zseparate-loadable-segments\" cargo build --release --features \"${feature}\" --target riscv64imac-unknown-none-elf && ckb-binary-patcher -i /code/target/riscv64imac-unknown-none-elf/release/${contract} -o /code/target/riscv64imac-unknown-none-elf/release/${contract}"
+        echo "Run build command: "$command
+
         # Build release version
-        docker exec -it -w /code/contracts/$contract $DOCKER_CONTAINER bash -c \
-            "RUSTFLAGS=\"-Z pre-link-arg=-zseparate-code -Z pre-link-arg=-zseparate-loadable-segments\" cargo build --release --target riscv64imac-unknown-none-elf && ckb-binary-patcher -i /code/target/riscv64imac-unknown-none-elf/release/${contract} -o /code/target/riscv64imac-unknown-none-elf/release/${contract}"
+        docker exec -it -w /code/contracts/$contract $DOCKER_CONTAINER bash -c "${command}"
         docker exec -it -w /code $DOCKER_CONTAINER bash -c \
             "cp /code/target/riscv64imac-unknown-none-elf/release/${contract} /code/build/release/"
     else
+        command="cargo build --features \"${feature}\" --target riscv64imac-unknown-none-elf && ckb-binary-patcher -i /code/target/riscv64imac-unknown-none-elf/debug/${contract} -o /code/target/riscv64imac-unknown-none-elf/debug/${contract}"
+        echo "Run build command: "$command
+
         # Build debug version
-        docker exec -it -w /code/contracts/$contract $DOCKER_CONTAINER bash -c \
-            "cargo build --target riscv64imac-unknown-none-elf && ckb-binary-patcher -i /code/target/riscv64imac-unknown-none-elf/debug/${contract} -o /code/target/riscv64imac-unknown-none-elf/debug/${contract}"
+        docker exec -it -w /code/contracts/$contract $DOCKER_CONTAINER bash -c "${command}"
         docker exec -it -w /code $DOCKER_CONTAINER bash -c \
             "cp /code/target/riscv64imac-unknown-none-elf/debug/${contract} /code/build/debug/"
     fi
 }
 
 function build_all() {
-    dirs=$(ls -a contracts)
+    local dirs=$(ls -a contracts)
     for contract in $dirs; do
         if [[ $contract != "." && $contract != ".." && -d contracts/$contract ]]; then
             build $contract $1
@@ -43,48 +95,41 @@ function build_all() {
 case $1 in
 start)
     dir="$(dirname $PWD)"
-	if [[ $2 == "-b" || $2 == "--background" ]]; then
-		docker run -d -t --rm \
-			--name $DOCKER_CONTAINER \
-			-v ${dir}/das-contracts:/code \
-			-v ${dir}/das-types:/das-types \
-			-v $CACHE_VOLUME:/root/.cargo \
-			-e RUSTFLAGS="-Z pre-link-arg=-zseparate-code -Z pre-link-arg=-zseparate-loadable-segments" \
-			-e CAPSULE_TEST_ENV=debug \
-			$DOCKER_IMAGE bin/bash &> /dev/null
-	else
-		docker run -it --rm \
-			--name $DOCKER_CONTAINER \
-			-v ${dir}/das-contracts:/code \
-			-v ${dir}/das-types:/das-types \
-			-v $CACHE_VOLUME:/root/.cargo \
-			-e RUSTFLAGS="-Z pre-link-arg=-zseparate-code -Z pre-link-arg=-zseparate-loadable-segments" \
-			-e CAPSULE_TEST_ENV=debug \
-			$DOCKER_IMAGE bin/bash
-	fi
+    if [[ $2 == "-b" || $2 == "--background" ]]; then
+        docker run -d -t --rm \
+            --name $DOCKER_CONTAINER \
+            -v ${dir}/das-contracts:/code \
+            -v ${dir}/das-types:/das-types \
+            -v $CACHE_VOLUME:/root/.cargo \
+            -e RUSTFLAGS="-Z pre-link-arg=-zseparate-code -Z pre-link-arg=-zseparate-loadable-segments" \
+            -e CAPSULE_TEST_ENV=debug \
+            $DOCKER_IMAGE bin/bash &>/dev/null
+    else
+        docker run -it --rm \
+            --name $DOCKER_CONTAINER \
+            -v ${dir}/das-contracts:/code \
+            -v ${dir}/das-types:/das-types \
+            -v $CACHE_VOLUME:/root/.cargo \
+            -e RUSTFLAGS="-Z pre-link-arg=-zseparate-code -Z pre-link-arg=-zseparate-loadable-segments" \
+            -e CAPSULE_TEST_ENV=debug \
+            $DOCKER_IMAGE bin/bash
+    fi
     ;;
 stop)
-	uuid=`docker ps -a | grep ${DOCKER_IMAGE} | awk '{print $1}'`
-	if [[ ${uuid} != "" ]]; then
-		docker stop ${uuid}
-	fi
-	;;
+    uuid=$(docker ps -a | grep ${DOCKER_IMAGE} | awk '{print $1}')
+    if [[ ${uuid} != "" ]]; then
+        docker stop ${uuid}
+    fi
+    ;;
 build)
-    if [[ $2 == "--release" || $3 == "--release" ]]; then
-        if [[ ! -d ./build/release ]]; then
-            mkdir -p ./build/release
-        fi
-    else
-        if [[ ! -d ./build/debug ]]; then
-            mkdir -p ./build/debug
-        fi
-    fi
-
-    if [[ -z $2 || $2 == "--release" ]];then
-        build_all $2
-    else
-        build $2 $3
-    fi
+    parse_args $3 $4
+    create_output_dir
+    build $2
+    ;;
+build-all)
+    parse_args $2 $3
+    create_output_dir
+    build_all
     ;;
 test)
     docker exec -it -w /code $DOCKER_CONTAINER bash -c "cargo test -p tests -- --nocapture"

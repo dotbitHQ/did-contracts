@@ -398,10 +398,7 @@ pub fn is_cell_lock_equal(old_index: usize, new_index: usize) -> Result<(), Erro
     if old_lock_script != new_lock_script {
         debug!(
             "Compare cell lock script: [{}]{:?} != [{}]{:?} => true",
-            old_index,
-            old_lock_script,
-            new_index,
-            new_lock_script
+            old_index, old_lock_script, new_index, new_lock_script
         );
         return Err(Error::CellLockCanNotBeModified);
     }
@@ -420,10 +417,7 @@ pub fn is_cell_type_equal(old_index: usize, new_index: usize) -> Result<(), Erro
     if old_type_script != new_type_script {
         debug!(
             "Compare cell type script: [{}]{:?} != [{}]{:?} => true",
-            old_index,
-            old_type_script,
-            new_index,
-            new_type_script
+            old_index, old_type_script, new_index, new_type_script
         );
         return Err(Error::CellTypeCanNotBeModified);
     }
@@ -440,10 +434,7 @@ pub fn is_cell_data_equal(old_index: usize, new_index: usize) -> Result<(), Erro
     if old_data != new_data {
         debug!(
             "Compare cell capacity: [{}]{:?} != [{}]{:?} => true",
-            old_index,
-            old_data,
-            new_index,
-            new_data
+            old_index, old_data, new_index, new_data
         );
         return Err(Error::CellDataCanNotBeModified);
     }
@@ -460,10 +451,7 @@ pub fn is_cell_capacity_lte(old_index: usize, new_index: usize) -> Result<(), Er
     if old_capacity <= new_capacity {
         debug!(
             "Compare cell capacity: [{}]{:?} <= [{}]{:?} => true",
-            old_index,
-            old_capacity,
-            new_index,
-            new_capacity
+            old_index, old_capacity, new_index, new_capacity
         );
         return Err(Error::CellCapacityMustReduced);
     }
@@ -480,10 +468,7 @@ pub fn is_cell_capacity_gte(old_index: usize, new_index: usize) -> Result<(), Er
     if old_capacity >= new_capacity {
         debug!(
             "Compare cell capacity: [{}]{:?} >= [{}]{:?} => true",
-            old_index,
-            old_capacity,
-            new_index,
-            new_capacity
+            old_index, old_capacity, new_index, new_capacity
         );
         return Err(Error::CellCapacityMustIncreased);
     }
@@ -500,10 +485,7 @@ pub fn is_cell_capacity_equal(old_index: usize, new_index: usize) -> Result<(), 
     if old_capacity != new_capacity {
         debug!(
             "Compare cell capacity: [{}]{:?} != [{}]{:?} => true",
-            old_index,
-            old_capacity,
-            new_index,
-            new_capacity
+            old_index, old_capacity, new_index, new_capacity
         );
         return Err(Error::CellCapacityMustConsistent);
     }
