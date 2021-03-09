@@ -1,7 +1,7 @@
 use super::util::{constants::*, template_generator::*, template_parser::TemplateParser};
 use ckb_testtool::context::Context;
 use ckb_tool::ckb_types::bytes;
-use das_types::constants::ConfigID;
+use das_types::constants::{ConfigID, DataType};
 
 // #[test]
 fn gen_wallet_create_test_data() {
@@ -17,7 +17,7 @@ fn gen_wallet_create_test_data() {
     template.pretty_print();
 }
 
-#[test]
+// #[test]
 fn test_wallet_create() {
     let mut context;
     let mut parser;
@@ -53,13 +53,13 @@ fn gen_wallet_withdraw_test_data() {
     template.push_ref_cell(
         "0x0000000000000000000000000000000000001111",
         account,
-        194,
+        19_400_000_000,
         Source::Input,
     );
     template.push_ref_cell(
         "0x0000000000000000000000000000000000001111",
         account,
-        194,
+        19_400_000_000,
         Source::Output,
     );
 
@@ -77,13 +77,14 @@ fn gen_wallet_withdraw_test_data() {
         1611200000u64,
         1611200000u64 + 31536000,
     );
-    template.push_account_cell(
-        cell_data.clone(),
+    template.push_account_cell(cell_data.clone(), None, 19_400_000_000, Source::Input);
+    template.push_account_cell(cell_data.clone(), None, 19_400_000_000, Source::Output);
+    template.push_witness(
+        DataType::AccountCellData,
         Some((1, 1, entity.clone())),
-        194,
-        Source::Input,
+        Some((1, 1, entity)),
+        None,
     );
-    template.push_account_cell(cell_data, Some((1, 1, entity)), 194, Source::Output);
 
     // Generate WalletCells ...
     template.push_wallet_cell(account, 10094, Source::Input);
@@ -92,7 +93,7 @@ fn gen_wallet_withdraw_test_data() {
     template.pretty_print();
 }
 
-// #[test]
+#[test]
 fn test_wallet_withdraw() {
     let mut context;
     let mut parser;

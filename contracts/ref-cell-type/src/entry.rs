@@ -66,8 +66,8 @@ pub fn main() -> Result<(), Error> {
 
         for (i, old_index) in old_cells.into_iter().enumerate() {
             let new_index = new_cells[i];
-            util::is_cell_capacity_equal(old_index, new_index)?;
-            util::is_cell_consistent(old_index, new_index)?;
+            util::is_cell_capacity_equal((old_index, Source::Input), (new_index, Source::Output))?;
+            util::is_cell_consistent((old_index, Source::Input), (new_index, Source::Output))?;
         }
     }
 

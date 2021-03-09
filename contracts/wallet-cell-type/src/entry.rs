@@ -1,9 +1,8 @@
 use alloc::vec::Vec;
-use ckb_std::high_level::{load_cell_lock, load_cell_type};
 use ckb_std::{
     ckb_constants::Source,
     debug,
-    high_level::{load_cell_lock_hash, load_script},
+    high_level::{load_cell_lock, load_cell_lock_hash, load_cell_type, load_script},
 };
 use das_core::{
     constants::{super_lock, ScriptType, ALWAYS_SUCCESS_LOCK},
@@ -87,6 +86,10 @@ pub fn main() -> Result<(), Error> {
             } else if action == b"withdraw_from_wallet" {
                 debug!("Route to recycle_wallet action ...");
 
+                parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
+                parser.parse_all_data()?;
+                let config = parser.configs().main()?;
+
                 debug!("For WalletCell, check if only capacity is reduced ...");
 
                 // Only one WalletCell can be withdrawn at a time.
@@ -95,8 +98,11 @@ pub fn main() -> Result<(), Error> {
                 }
                 let old_index = old_cells[0];
                 let new_index = new_cells[0];
-                util::is_cell_consistent(old_index, new_index)?;
-                util::is_cell_capacity_lte(old_index, new_index)?;
+                util::is_cell_consistent((old_index, Source::Input), (new_index, Source::Output))?;
+                util::is_cell_capacity_lte(
+                    (old_index, Source::Input),
+                    (new_index, Source::Output),
+                )?;
 
                 let wallet_type = load_cell_type(old_index, Source::Input)
                     .map_err(|err| Error::from(err))?
@@ -104,10 +110,6 @@ pub fn main() -> Result<(), Error> {
                 let id_in_wallet = wallet_type.as_reader().args().raw_data();
 
                 debug!("Check if OwnerCell and AccountCell exists ...");
-
-                // Load config from witnesses.
-                parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
-                let config = parser.configs().main()?;
 
                 // Find out RefCells in current transaction.
                 let old_ref_index = util::find_only_cell_by_type_id(
@@ -120,8 +122,14 @@ pub fn main() -> Result<(), Error> {
                     config.type_id_table().ref_cell(),
                     Source::Output,
                 )?;
-                util::is_cell_consistent(old_ref_index, new_ref_index)?;
-                util::is_cell_capacity_equal(old_ref_index, new_ref_index)?;
+                util::is_cell_consistent(
+                    (old_ref_index, Source::Input),
+                    (new_ref_index, Source::Output),
+                )?;
+                util::is_cell_capacity_equal(
+                    (old_ref_index, Source::Input),
+                    (new_ref_index, Source::Output),
+                )?;
 
                 // Find out AccountCells in current transaction.
                 let old_account_index = util::find_only_cell_by_type_id(
@@ -134,8 +142,14 @@ pub fn main() -> Result<(), Error> {
                     config.type_id_table().account_cell(),
                     Source::Output,
                 )?;
-                util::is_cell_consistent(old_account_index, new_account_index)?;
-                util::is_cell_capacity_equal(old_account_index, new_account_index)?;
+                util::is_cell_consistent(
+                    (old_account_index, Source::Input),
+                    (new_account_index, Source::Output),
+                )?;
+                util::is_cell_capacity_equal(
+                    (old_account_index, Source::Input),
+                    (new_account_index, Source::Output),
+                )?;
 
                 debug!("Check if OwnerCell has permission to withdraw from WalletCell ...");
                 // User must have the owner permission to withdraw CKB from the WalletCell.
@@ -144,8 +158,7 @@ pub fn main() -> Result<(), Error> {
                     .map_err(|err| Error::from(err))?
                     .unwrap();
                 let id_in_ref = ref_type.as_reader().args().raw_data();
-                let (_, _, entity) =
-                    util::get_cell_witness(&parser, old_account_index, Source::Input)?;
+                let (_, _, entity) = parser.verify_and_get(old_account_index, Source::Input)?;
                 let account_cell_witness =
                     AccountCellData::from_slice(entity.as_reader().raw_data())
                         .map_err(|_| Error::WitnessEntityDecodingError)?;
@@ -199,8 +212,8 @@ fn verify_if_only_capacity_increased(
 
     for (i, old_index) in old_cells.into_iter().enumerate() {
         let new_index = new_cells[i];
-        util::is_cell_capacity_gte(old_index, new_index)?;
-        util::is_cell_consistent(old_index, new_index)?;
+        util::is_cell_capacity_gte((old_index, Source::Input), (new_index, Source::Output))?;
+        util::is_cell_consistent((old_index, Source::Input), (new_index, Source::Output))?;
     }
 
     Ok(())
