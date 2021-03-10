@@ -12,7 +12,9 @@ if [ $? -ne 0 ]; then
 	cd ${CONTRACT_ROOT};./docker.sh start --background
 fi
 contract_bin=$1
-cd ${CONTRACT_ROOT};./docker.sh build ${contract_bin} --release 
+net_env=$4
+
+cd ${CONTRACT_ROOT};./docker.sh build ${contract_bin} --release --${net_env}
 if [ $? -eq 0 ]; then
 	c_args=" -c "${CONTRACT_RELEASE_DIR}${contract_bin}
 	w_args=" -w "${CELL_DATA_ROOT}${contract_bin}"-generator/"
