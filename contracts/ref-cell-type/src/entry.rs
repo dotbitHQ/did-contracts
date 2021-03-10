@@ -29,8 +29,8 @@ pub fn main() -> Result<(), Error> {
         if proposal_cells.len() != 1 {
             return Err(Error::ProposalFoundInvalidTransaction);
         }
-    } else if action == b"transfer_account" {
-        debug!("Route to transfer_account action ...");
+    } else if action == b"transfer_account" || action == b"edit_manager" {
+        debug!("Route to transfer_account/edit_manager action ...");
 
         parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
         let config = parser.configs().main()?;

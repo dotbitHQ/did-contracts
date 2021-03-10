@@ -66,7 +66,7 @@ fn gen_pre_register_test_data() {
     template.pretty_print();
 }
 
-#[test]
+// #[test]
 fn test_pre_register() {
     let mut context;
     let mut parser;
