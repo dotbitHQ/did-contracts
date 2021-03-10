@@ -263,7 +263,7 @@ pub fn load_timestamp() -> Result<u64, Error> {
             if bytes.len() != 4 {
                 return Err(Error::TimeCellDataDecodingError);
             }
-            u32::from_le_bytes(bytes.try_into().unwrap())
+            u32::from_be_bytes(bytes.try_into().unwrap())
         }
         _ => return Err(Error::TimeCellDataDecodingError),
     };
@@ -290,11 +290,11 @@ pub fn load_height() -> Result<u64, Error> {
     let height = match data.get(1..) {
         Some(bytes) => {
             if bytes.len() != 8 {
-                return Err(Error::TimeCellDataDecodingError);
+                return Err(Error::HeightCellDataDecodingError);
             }
-            u64::from_le_bytes(bytes.try_into().unwrap())
+            u64::from_be_bytes(bytes.try_into().unwrap())
         }
-        _ => return Err(Error::TimeCellDataDecodingError),
+        _ => return Err(Error::HeightCellDataDecodingError),
     };
 
     Ok(height)

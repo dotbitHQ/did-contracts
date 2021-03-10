@@ -55,7 +55,7 @@ pub fn main() -> Result<(), Error> {
             _ => return Err(Error::InvalidCellData),
         }
 
-        debug!("Check if the ApplyRegisterCell and the TimeCell has the same timestamp...");
+        debug!("Check if the ApplyRegisterCell and the HeightCell has the same height...");
 
         // Then follows the 8 bytes u64.
         let apply_height = match data.get(32..) {

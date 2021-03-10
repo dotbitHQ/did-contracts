@@ -424,8 +424,8 @@ impl TemplateGenerator {
 
     pub fn push_time_cell(&mut self, index: u8, timestamp: u64, capacity: u64, source: Source) {
         let mut cell_raw_data = Vec::new();
-        cell_raw_data.extend(index.to_le_bytes().iter());
-        cell_raw_data.extend((timestamp as u32).to_le_bytes().iter());
+        cell_raw_data.extend(index.to_be_bytes().iter());
+        cell_raw_data.extend((timestamp as u32).to_be_bytes().iter());
         let cell_data = Bytes::from(cell_raw_data);
 
         let lock_script = json!({
@@ -441,8 +441,8 @@ impl TemplateGenerator {
 
     pub fn push_height_cell(&mut self, index: u8, height: u64, capacity: u64, source: Source) {
         let mut cell_raw_data = Vec::new();
-        cell_raw_data.extend(index.to_le_bytes().iter());
-        cell_raw_data.extend(height.to_le_bytes().iter());
+        cell_raw_data.extend(index.to_be_bytes().iter());
+        cell_raw_data.extend(height.to_be_bytes().iter());
         let cell_data = Bytes::from(cell_raw_data);
 
         let lock_script = json!({
