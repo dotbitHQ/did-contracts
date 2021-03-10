@@ -133,6 +133,72 @@ fn gen_slices(slices: &Vec<Vec<(&str, ProposalSliceItemType, &str)>>) -> SliceLi
     sl_list.build()
 }
 
+pub fn gen_account_record(
+    type_: &str,
+    label: &str,
+    key: &str,
+    value: impl AsRef<[u8]>,
+    ttl: u32,
+) -> Record {
+    Record::new_builder()
+        .record_type(Bytes::from(type_.as_bytes()))
+        .record_label(Bytes::from(label.as_bytes()))
+        .record_key(Bytes::from(key.as_bytes()))
+        .record_value(Bytes::from(value.as_ref()))
+        .record_ttl(Uint32::from(ttl))
+        .build()
+}
+
+pub fn gen_account_records() -> Records {
+    let address_records = [
+        (
+            "address",
+            "Personal",
+            "ETH",
+            util::hex_to_bytes("0x00000000000000000000").unwrap(),
+        ),
+        (
+            "address",
+            "Company",
+            "ETH",
+            util::hex_to_bytes("0x00000000000000000000").unwrap(),
+        ),
+        (
+            "address",
+            "Personal",
+            "BTC",
+            util::hex_to_bytes("0x00000000000000000000").unwrap(),
+        ),
+        (
+            "address",
+            "Company",
+            "BTC",
+            util::hex_to_bytes("0x00000000000000000000").unwrap(),
+        ),
+    ];
+
+    let profile_records = [
+        (
+            "profile",
+            "Mars",
+            "id",
+            "120981203982901389398390".as_bytes(),
+        ),
+        ("profile", "Company", "email", "xxxxx@mars.bit".as_bytes()),
+    ];
+
+    let mut records = Records::new_builder();
+
+    for (type_, label, key, value) in address_records.iter() {
+        records = records.push(gen_account_record(type_, label, key, value, 300));
+    }
+    for (type_, label, key, value) in profile_records.iter() {
+        records = records.push(gen_account_record(type_, label, key, value, 300));
+    }
+
+    records.build()
+}
+
 pub fn gen_account_chars(chars: Vec<&str>) -> AccountChars {
     let mut builder = AccountChars::new_builder();
     for char in chars {
@@ -358,8 +424,8 @@ impl TemplateGenerator {
 
     pub fn push_time_cell(&mut self, index: u8, timestamp: u64, capacity: u64, source: Source) {
         let mut cell_raw_data = Vec::new();
-        cell_raw_data.extend(index.to_le_bytes().iter());
-        cell_raw_data.extend((timestamp as u32).to_le_bytes().iter());
+        cell_raw_data.extend(index.to_be_bytes().iter());
+        cell_raw_data.extend((timestamp as u32).to_be_bytes().iter());
         let cell_data = Bytes::from(cell_raw_data);
 
         let lock_script = json!({
@@ -375,8 +441,8 @@ impl TemplateGenerator {
 
     pub fn push_height_cell(&mut self, index: u8, height: u64, capacity: u64, source: Source) {
         let mut cell_raw_data = Vec::new();
-        cell_raw_data.extend(index.to_le_bytes().iter());
-        cell_raw_data.extend(height.to_le_bytes().iter());
+        cell_raw_data.extend(index.to_be_bytes().iter());
+        cell_raw_data.extend(height.to_be_bytes().iter());
         let cell_data = Bytes::from(cell_raw_data);
 
         let lock_script = json!({
@@ -673,10 +739,16 @@ impl TemplateGenerator {
         next: bytes::Bytes,
         registered_at: u64,
         expired_at: u64,
+        records_opt: Option<Records>,
     ) -> (Bytes, AccountCellData) {
         let mut account = account_chars.as_readable();
         account.append(&mut ".bit".as_bytes().to_vec());
         let id = util::account_to_id(account.as_slice());
+
+        let records = match records_opt {
+            Some(records) => records,
+            None => Records::default(),
+        };
 
         let entity = AccountCellData::new_builder()
             .id(AccountId::try_from(id.clone()).unwrap())
@@ -685,6 +757,7 @@ impl TemplateGenerator {
             .manager_lock(gen_always_success_lock(manager_lock_args))
             .registered_at(Uint64::from(registered_at))
             .status(Uint8::from(0))
+            .records(records)
             .build();
 
         let hash = Hash::try_from(blake2b_256(entity.as_slice()).to_vec()).unwrap();

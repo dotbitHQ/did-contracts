@@ -29,8 +29,8 @@ pub fn main() -> Result<(), Error> {
         if proposal_cells.len() != 1 {
             return Err(Error::ProposalFoundInvalidTransaction);
         }
-    } else if action == b"transfer_account" {
-        debug!("Route to transfer_account action ...");
+    } else if action == b"transfer_account" || action == b"edit_manager" {
+        debug!("Route to transfer_account/edit_manager action ...");
 
         parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
         let config = parser.configs().main()?;
@@ -66,8 +66,8 @@ pub fn main() -> Result<(), Error> {
 
         for (i, old_index) in old_cells.into_iter().enumerate() {
             let new_index = new_cells[i];
-            util::is_cell_capacity_equal(old_index, new_index)?;
-            util::is_cell_consistent(old_index, new_index)?;
+            util::is_cell_capacity_equal((old_index, Source::Input), (new_index, Source::Output))?;
+            util::is_cell_consistent((old_index, Source::Input), (new_index, Source::Output))?;
         }
     }
 

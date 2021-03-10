@@ -1,7 +1,5 @@
 #!/bin/bash
 
-echo "Arguments: \$1="$1 "\$2="$2 "\$3="$3
-
 # Docker image name
 DOCKER_IMAGE="jjy0/ckb-capsule-recipe-rust:2020-9-28"
 # Docker container name
@@ -34,10 +32,12 @@ function parse_args() {
             is_feature_available $feature
         fi
     else
-        tmp=$1
-        feature=${tmp:2}
+        if [[ ! -z $1 ]]; then
+            tmp=$1
+            feature=${tmp:2}
 
-        is_feature_available $feature
+            is_feature_available $feature
+        fi
     fi
 }
 
@@ -123,11 +123,15 @@ stop)
     ;;
 build)
     parse_args $3 $4
+    echo "Arguments: \$contract="$2 "\$is_release="$is_release "\$feature="$feature
+
     create_output_dir
     build $2
     ;;
 build-all)
     parse_args $2 $3
+    echo "Arguments: \$is_release="$is_release "\$feature="$feature
+
     create_output_dir
     build_all
     ;;

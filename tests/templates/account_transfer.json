@@ -42,7 +42,7 @@
     {
       "previous_output": {
         "tmp_type": "full",
-        "capacity": 19400000000,
+        "capacity": 10400000000,
         "lock": {
           "code_hash": "{{always_success}}",
           "args": "0x0000000000000000000000000000000000001111"
@@ -72,7 +72,7 @@
   "outputs": [
     {
       "tmp_type": "full",
-      "capacity": 19400000000,
+      "capacity": 10400000000,
       "lock": {
         "code_hash": "{{always_success}}",
         "args": "0x0000000000000000000000000000000000002222"

@@ -56,6 +56,7 @@ fn gen_proposal_related_cell_at_create(
                     origin_next.clone(),
                     old_registered_at,
                     old_expired_at,
+                    None,
                 );
                 template.push_account_cell(
                     cell_data,
@@ -271,6 +272,7 @@ fn gen_proposal_related_cell_at_confirm(
                     origin_next.clone(),
                     old_registered_at,
                     old_expired_at,
+                    None,
                 );
                 template.push_account_cell(cell_data, None, 15_800_000_000, Source::Input);
 
@@ -284,6 +286,7 @@ fn gen_proposal_related_cell_at_confirm(
                     updated_next.clone(),
                     old_registered_at,
                     old_expired_at,
+                    None,
                 );
                 template.push_account_cell(cell_data, None, 15_800_000_000, Source::Output);
 
@@ -334,6 +337,7 @@ fn gen_proposal_related_cell_at_confirm(
                     updated_next.clone(),
                     new_registered_at,
                     new_expired_at,
+                    None,
                 );
                 template.push_account_cell(
                     cell_data,

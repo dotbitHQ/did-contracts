@@ -263,7 +263,7 @@ pub fn load_timestamp() -> Result<u64, Error> {
             if bytes.len() != 4 {
                 return Err(Error::TimeCellDataDecodingError);
             }
-            u32::from_le_bytes(bytes.try_into().unwrap())
+            u32::from_be_bytes(bytes.try_into().unwrap())
         }
         _ => return Err(Error::TimeCellDataDecodingError),
     };
@@ -290,11 +290,11 @@ pub fn load_height() -> Result<u64, Error> {
     let height = match data.get(1..) {
         Some(bytes) => {
             if bytes.len() != 8 {
-                return Err(Error::TimeCellDataDecodingError);
+                return Err(Error::HeightCellDataDecodingError);
             }
-            u64::from_le_bytes(bytes.try_into().unwrap())
+            u64::from_be_bytes(bytes.try_into().unwrap())
         }
-        _ => return Err(Error::TimeCellDataDecodingError),
+        _ => return Err(Error::HeightCellDataDecodingError),
     };
 
     Ok(height)
@@ -381,24 +381,45 @@ pub fn blake2b_256(s: &[u8]) -> [u8; 32] {
     result
 }
 
-pub fn is_cell_consistent(old_index: usize, new_index: usize) -> Result<(), Error> {
-    is_cell_lock_equal(old_index, new_index)?;
-    is_cell_type_equal(old_index, new_index)?;
-    is_cell_data_equal(old_index, new_index)?;
+pub fn is_cell_consistent(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
+    debug!(
+        "Compare if the cells' are consistent: {:?}[{}] & {:?}[{}]",
+        cell_a.1, cell_a.0, cell_b.1, cell_b.0
+    );
+
+    is_cell_lock_equal(cell_a, cell_b)?;
+    is_cell_type_equal(cell_a, cell_b)?;
+    is_cell_data_equal(cell_a, cell_b)?;
 
     Ok(())
 }
 
-pub fn is_cell_lock_equal(old_index: usize, new_index: usize) -> Result<(), Error> {
-    let old_lock_script =
-        high_level::load_cell_lock_hash(old_index, Source::Input).map_err(|e| Error::from(e))?;
-    let new_lock_script =
-        high_level::load_cell_lock_hash(new_index, Source::Output).map_err(|e| Error::from(e))?;
+pub fn is_cell_only_lock_changed(
+    cell_a: (usize, Source),
+    cell_b: (usize, Source),
+) -> Result<(), Error> {
+    debug!(
+        "Compare if only the cells' lock script are different: {:?}[{}] & {:?}[{}]",
+        cell_a.1, cell_a.0, cell_b.1, cell_b.0
+    );
 
-    if old_lock_script != new_lock_script {
+    is_cell_capacity_equal(cell_a, cell_b)?;
+    is_cell_type_equal(cell_a, cell_b)?;
+    is_cell_data_equal(cell_a, cell_b)?;
+
+    Ok(())
+}
+
+pub fn is_cell_lock_equal(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
+    let a_lock_script =
+        high_level::load_cell_lock_hash(cell_a.0, cell_a.1).map_err(|e| Error::from(e))?;
+    let b_lock_script =
+        high_level::load_cell_lock_hash(cell_b.0, cell_b.1).map_err(|e| Error::from(e))?;
+
+    if a_lock_script != b_lock_script {
         debug!(
-            "Compare cell lock script: [{}]{:?} != [{}]{:?} => true",
-            old_index, old_lock_script, new_index, new_lock_script
+            "Compare cell lock script: {:?}[{}] {:?} != {:?}[{}] {:?} => true",
+            cell_a.1, cell_a.0, a_lock_script, cell_b.1, cell_b.0, b_lock_script
         );
         return Err(Error::CellLockCanNotBeModified);
     }
@@ -406,18 +427,18 @@ pub fn is_cell_lock_equal(old_index: usize, new_index: usize) -> Result<(), Erro
     Ok(())
 }
 
-pub fn is_cell_type_equal(old_index: usize, new_index: usize) -> Result<(), Error> {
-    let old_type_script = high_level::load_cell_type_hash(old_index, Source::Input)
+pub fn is_cell_type_equal(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
+    let a_type_script = high_level::load_cell_type_hash(cell_a.0, cell_a.1)
         .map_err(|e| Error::from(e))?
         .unwrap();
-    let new_type_script = high_level::load_cell_type_hash(new_index, Source::Output)
+    let b_type_script = high_level::load_cell_type_hash(cell_b.0, cell_b.1)
         .map_err(|e| Error::from(e))?
         .unwrap();
 
-    if old_type_script != new_type_script {
+    if a_type_script != b_type_script {
         debug!(
-            "Compare cell type script: [{}]{:?} != [{}]{:?} => true",
-            old_index, old_type_script, new_index, new_type_script
+            "Compare cell type script: {:?}[{}] {:?} != {:?}[{}] {:?} => true",
+            cell_a.1, cell_a.0, a_type_script, cell_b.1, cell_b.0, b_type_script
         );
         return Err(Error::CellTypeCanNotBeModified);
     }
@@ -425,16 +446,14 @@ pub fn is_cell_type_equal(old_index: usize, new_index: usize) -> Result<(), Erro
     Ok(())
 }
 
-pub fn is_cell_data_equal(old_index: usize, new_index: usize) -> Result<(), Error> {
-    let old_data =
-        high_level::load_cell_data(old_index, Source::Input).map_err(|e| Error::from(e))?;
-    let new_data =
-        high_level::load_cell_data(new_index, Source::Output).map_err(|e| Error::from(e))?;
+pub fn is_cell_data_equal(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
+    let a_data = high_level::load_cell_data(cell_a.0, cell_a.1).map_err(|e| Error::from(e))?;
+    let b_data = high_level::load_cell_data(cell_b.0, cell_b.1).map_err(|e| Error::from(e))?;
 
-    if old_data != new_data {
+    if a_data != b_data {
         debug!(
-            "Compare cell capacity: [{}]{:?} != [{}]{:?} => true",
-            old_index, old_data, new_index, new_data
+            "Compare cell data: {:?}[{}] {:?} != {:?}[{}] {:?} => true",
+            cell_a.1, cell_a.0, a_data, cell_b.1, cell_b.0, b_data
         );
         return Err(Error::CellDataCanNotBeModified);
     }
@@ -442,16 +461,16 @@ pub fn is_cell_data_equal(old_index: usize, new_index: usize) -> Result<(), Erro
     Ok(())
 }
 
-pub fn is_cell_capacity_lte(old_index: usize, new_index: usize) -> Result<(), Error> {
-    let old_capacity =
-        high_level::load_cell_capacity(old_index, Source::Input).map_err(|e| Error::from(e))?;
-    let new_capacity =
-        high_level::load_cell_capacity(new_index, Source::Output).map_err(|e| Error::from(e))?;
+pub fn is_cell_capacity_lte(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
+    let a_capacity =
+        high_level::load_cell_capacity(cell_a.0, cell_a.1).map_err(|e| Error::from(e))?;
+    let b_capacity =
+        high_level::load_cell_capacity(cell_b.0, cell_b.1).map_err(|e| Error::from(e))?;
 
-    if old_capacity <= new_capacity {
+    if a_capacity <= b_capacity {
         debug!(
-            "Compare cell capacity: [{}]{:?} <= [{}]{:?} => true",
-            old_index, old_capacity, new_index, new_capacity
+            "Compare cell capacity: {:?}[{}] {:?} <= {:?}[{}] {:?} => true",
+            cell_a.1, cell_a.0, a_capacity, cell_b.1, cell_b.0, b_capacity
         );
         return Err(Error::CellCapacityMustReduced);
     }
@@ -459,16 +478,16 @@ pub fn is_cell_capacity_lte(old_index: usize, new_index: usize) -> Result<(), Er
     Ok(())
 }
 
-pub fn is_cell_capacity_gte(old_index: usize, new_index: usize) -> Result<(), Error> {
-    let old_capacity =
-        high_level::load_cell_capacity(old_index, Source::Input).map_err(|e| Error::from(e))?;
-    let new_capacity =
-        high_level::load_cell_capacity(new_index, Source::Output).map_err(|e| Error::from(e))?;
+pub fn is_cell_capacity_gte(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
+    let a_capacity =
+        high_level::load_cell_capacity(cell_a.0, cell_a.1).map_err(|e| Error::from(e))?;
+    let b_capacity =
+        high_level::load_cell_capacity(cell_b.0, cell_b.1).map_err(|e| Error::from(e))?;
 
-    if old_capacity >= new_capacity {
+    if a_capacity >= b_capacity {
         debug!(
-            "Compare cell capacity: [{}]{:?} >= [{}]{:?} => true",
-            old_index, old_capacity, new_index, new_capacity
+            "Compare cell capacity: {:?}[{}] {:?} >= {:?}[{}] {:?} => true",
+            cell_a.1, cell_a.0, a_capacity, cell_b.1, cell_b.0, b_capacity
         );
         return Err(Error::CellCapacityMustIncreased);
     }
@@ -476,16 +495,19 @@ pub fn is_cell_capacity_gte(old_index: usize, new_index: usize) -> Result<(), Er
     Ok(())
 }
 
-pub fn is_cell_capacity_equal(old_index: usize, new_index: usize) -> Result<(), Error> {
-    let old_capacity =
-        high_level::load_cell_capacity(old_index, Source::Input).map_err(|e| Error::from(e))?;
-    let new_capacity =
-        high_level::load_cell_capacity(new_index, Source::Output).map_err(|e| Error::from(e))?;
+pub fn is_cell_capacity_equal(
+    cell_a: (usize, Source),
+    cell_b: (usize, Source),
+) -> Result<(), Error> {
+    let a_capacity =
+        high_level::load_cell_capacity(cell_a.0, cell_a.1).map_err(|e| Error::from(e))?;
+    let b_capacity =
+        high_level::load_cell_capacity(cell_b.0, cell_b.1).map_err(|e| Error::from(e))?;
 
-    if old_capacity != new_capacity {
+    if a_capacity != b_capacity {
         debug!(
-            "Compare cell capacity: [{}]{:?} != [{}]{:?} => true",
-            old_index, old_capacity, new_index, new_capacity
+            "Compare cell capacity: {:?}[{}] {:?} != {:?}[{}] {:?} => true",
+            cell_a.1, cell_a.0, a_capacity, cell_b.1, cell_b.0, b_capacity
         );
         return Err(Error::CellCapacityMustConsistent);
     }
