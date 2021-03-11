@@ -90,7 +90,7 @@ pub enum Error {
     WalletRequireAlwaysSuccess,
     WalletPermissionInvalid,
     PrevProposalItemNotFound,
-    AccountCellFoundInvalidTransaction = 120,
+    AccountCellFoundInvalidTransaction = -126,
     AccountCellDataNotConsistent,
     AccountCellRefCellIsRequired,
     AccountCellOwnerCellIsRequired,
@@ -98,6 +98,10 @@ pub enum Error {
     AccountCellUnrelatedRefCellFound, // 125
     AccountCellRedundantRefCellNotAllowed,
     AccountCellProtectFieldIsModified,
+    AccountCellRenewDurationMustLongerThanYear,
+    AccountCellRenewDurationBiggerThanPaied,
+    AccountCellInExpirationGracePeriod, // 130
+    AccountCellHasExpired,
 }
 
 impl From<SysError> for Error {

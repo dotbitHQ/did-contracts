@@ -3,8 +3,13 @@ use ckb_std::{
     ckb_constants::Source,
     ckb_types::prelude::*,
     debug,
-    high_level::{load_cell_data, load_cell_lock, load_cell_lock_hash, load_script},
+    high_level::{
+        load_cell_capacity, load_cell_data, load_cell_lock, load_cell_lock_hash, load_script,
+    },
 };
+use core::convert::TryInto;
+use das_core::account_cell_parser::get_expired_at;
+use das_core::constants::oracle_lock;
 use das_core::{
     constants::{super_lock, ScriptType, ALWAYS_SUCCESS_LOCK},
     error::Error,
@@ -80,6 +85,7 @@ pub fn main() -> Result<(), Error> {
         parser.parse_all_data()?;
         parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
         let config = parser.configs().main()?;
+        let timestamp = util::load_timestamp()?;
 
         let old_ref_cells = util::find_cells_by_type_id(
             ScriptType::Type,
@@ -93,6 +99,7 @@ pub fn main() -> Result<(), Error> {
         )?;
         let (old_account_cells, new_account_cells) = load_account_cells()?;
 
+        verify_account_expiration(old_account_cells[0], timestamp)?;
         verify_account_consistent(old_account_cells[0], new_account_cells[0])?;
 
         debug!("Check the relationship between RefCells and AccountCell is correct.");
@@ -124,7 +131,9 @@ pub fn main() -> Result<(), Error> {
             (new_owner_cell.unwrap(), Source::Output),
         )?;
 
-        debug!("Check if every fields except owner_lock and manager_lock in witness are consistent.");
+        debug!(
+            "Check if every fields except owner_lock and manager_lock in witness are consistent."
+        );
 
         let (_, _, entity) = parser.verify_and_get(old_account_cells[0], Source::Input)?;
         let old_account_witness = AccountCellData::from_slice(entity.as_reader().raw_data())
@@ -145,6 +154,7 @@ pub fn main() -> Result<(), Error> {
 
         parser.parse_all_data()?;
         parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
+        let timestamp = util::load_timestamp()?;
 
         let config = parser.configs().main()?;
 
@@ -160,6 +170,7 @@ pub fn main() -> Result<(), Error> {
         )?;
         let (old_account_cells, new_account_cells) = load_account_cells()?;
 
+        verify_account_expiration(old_account_cells[0], timestamp)?;
         verify_account_consistent(old_account_cells[0], new_account_cells[0])?;
 
         debug!("Check the relationship between RefCells and AccountCell is correct.");
@@ -215,6 +226,7 @@ pub fn main() -> Result<(), Error> {
         parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
 
         let config = parser.configs().main()?;
+        let timestamp = util::load_timestamp()?;
 
         let old_ref_cells = util::find_cells_by_type_id(
             ScriptType::Type,
@@ -228,6 +240,7 @@ pub fn main() -> Result<(), Error> {
         )?;
         let (old_account_cells, new_account_cells) = load_account_cells()?;
 
+        verify_account_expiration(old_account_cells[0], timestamp)?;
         verify_account_consistent(old_account_cells[0], new_account_cells[0])?;
 
         debug!("Check the relationship between RefCells and AccountCell is correct.");
@@ -271,6 +284,105 @@ pub fn main() -> Result<(), Error> {
         verify_if_manager_lock_consistent(old_witness_reader, new_witness_reader)?;
         verify_if_registered_at_consistent(old_witness_reader, new_witness_reader)?;
         verify_if_status_consistent(old_witness_reader, new_witness_reader)?;
+    } else if action == b"renew_account" {
+        debug!("Route to transfer_account action ...");
+
+        parser.parse_all_data()?;
+        parser.parse_only_config(&[ConfigID::ConfigCellMain, ConfigID::ConfigCellRegister])?;
+
+        let config_main = parser.configs().main()?;
+        let config_register = parser.configs().register()?;
+
+        let (old_account_cells, new_account_cells) = load_account_cells()?;
+
+        verify_account_consistent(old_account_cells[0], new_account_cells[0])?;
+
+        debug!("Check if every fields except registered_at in witness are consistent.");
+
+        let (_, _, entity) = parser.verify_and_get(old_account_cells[0], Source::Input)?;
+        let old_account_witness = AccountCellData::from_slice(entity.as_reader().raw_data())
+            .map_err(|_| Error::WitnessEntityDecodingError)?;
+        let old_witness_reader = old_account_witness.as_reader();
+        let (_, _, entity) = parser.verify_and_get(new_account_cells[0], Source::Output)?;
+        let new_account_witness = AccountCellData::from_slice(entity.as_reader().raw_data())
+            .map_err(|_| Error::WitnessEntityDecodingError)?;
+        let new_witness_reader = new_account_witness.as_reader();
+
+        verify_if_id_consistent(old_witness_reader, new_witness_reader)?;
+        verify_if_account_consistent(old_witness_reader, new_witness_reader)?;
+        verify_if_owner_lock_consistent(old_witness_reader, new_witness_reader)?;
+        verify_if_manager_lock_consistent(old_witness_reader, new_witness_reader)?;
+        verify_if_status_consistent(old_witness_reader, new_witness_reader)?;
+        verify_if_records_consistent(old_witness_reader, new_witness_reader)?;
+
+        debug!("Check if the renewal duration is longer than or equal to one year.");
+
+        let old_registered_at = u64::from(old_witness_reader.registered_at());
+        let new_registered_at = u64::from(new_witness_reader.registered_at());
+        let duration = new_registered_at - old_registered_at;
+
+        if duration < 86400 * 365 {
+            return Err(Error::AccountCellRenewDurationMustLongerThanYear);
+        }
+
+        debug!("Check if the registered_at field has been updated correctly based on the capacity paid by the user.");
+
+        let account_length = old_witness_reader.account().len();
+        let prices = config_register.price_configs();
+
+        // Find out renew price in USD.
+        let mut price_opt = None;
+        for item in prices.iter() {
+            if u8::from(item.length()) as usize == account_length {
+                price_opt = Some(u64::from(item.renew()));
+                break;
+            }
+        }
+        if price_opt.is_none() {
+            price_opt = Some(u64::from(prices.get(prices.len() - 1).unwrap().renew()));
+        }
+        let renew_price_in_usd = price_opt.unwrap(); // x USD
+
+        // Find out all WalletCells in transaction.
+        let (old_wallet_cells, new_wallet_cells) = load_wallet_cells(config_main)?;
+
+        if old_wallet_cells.len() != 1 || new_wallet_cells.len() != 1 {
+            return Err(Error::AccountCellFoundInvalidTransaction);
+        }
+
+        // Get the current quotation of CKB/USD from QuoteCell.
+        let quote_lock = oracle_lock();
+        let quote_cells =
+            util::find_cells_by_script(ScriptType::Lock, &quote_lock, Source::CellDep)?;
+
+        if quote_cells.len() != 1 {
+            return Err(Error::QuoteCellIsRequired);
+        }
+
+        let quote_cell_data =
+            load_cell_data(quote_cells[0], Source::CellDep).map_err(|e| Error::from(e))?;
+        let quote = u64::from_le_bytes(quote_cell_data.try_into().unwrap()); // y CKB/USD
+
+        let old_wallet_capacity =
+            load_cell_capacity(old_wallet_cells[0], Source::Input).map_err(|e| Error::from(e))?;
+        let new_wallet_capacity =
+            load_cell_capacity(new_wallet_cells[0], Source::Output).map_err(|e| Error::from(e))?;
+
+        // Renew price for 1 year in CKB = x ÷ y .
+        let renew_price = renew_price_in_usd / quote * 100_000_000;
+
+        let expected_duration =
+            (new_wallet_capacity - old_wallet_capacity) * 86400 * 365 / renew_price;
+        if duration > expected_duration {
+            debug!("Verify is user payed enough capacity: {}[duration] > ({}[after_ckb] - {}[before_ckb]) * 86400 * 365 / {}[renew_price] -> true",
+                duration,
+                new_wallet_capacity,
+                old_wallet_capacity,
+                renew_price
+            );
+
+            return Err(Error::AccountCellRenewDurationBiggerThanPaied);
+        }
 
         // The AccountCell can be used as long as it is not modified.
     } else {
@@ -308,6 +420,21 @@ fn load_account_cells() -> Result<(Vec<usize>, Vec<usize>), Error> {
     Ok((old_account_cells, new_account_cells))
 }
 
+fn load_wallet_cells(config: ConfigCellMainReader) -> Result<(Vec<usize>, Vec<usize>), Error> {
+    let old_wallet_cells = util::find_cells_by_type_id(
+        ScriptType::Type,
+        config.type_id_table().wallet_cell(),
+        Source::Input,
+    )?;
+    let new_wallet_cells = util::find_cells_by_type_id(
+        ScriptType::Type,
+        config.type_id_table().wallet_cell(),
+        Source::Output,
+    )?;
+
+    Ok((old_wallet_cells, new_wallet_cells))
+}
+
 fn verify_account_consistent(
     old_account_index: usize,
     new_account_index: usize,
@@ -339,7 +466,27 @@ fn verify_account_consistent(
     Ok(())
 }
 
-fn verify_if_id_consistent(old_witness_reader: AccountCellDataReader, new_witness_reader: AccountCellDataReader) -> Result<(), Error> {
+fn verify_account_expiration(account_cell_index: usize, current: u64) -> Result<(), Error> {
+    debug!("Check if AccountCell is expired.");
+
+    let data = load_cell_data(account_cell_index, Source::Input).map_err(|e| Error::from(e))?;
+    let expired_at = get_expired_at(data.as_slice());
+
+    if current > expired_at {
+        if current - expired_at > 86400 * 30 {
+            return Err(Error::AccountCellHasExpired);
+        } else {
+            return Err(Error::AccountCellInExpirationGracePeriod);
+        }
+    }
+
+    Ok(())
+}
+
+fn verify_if_id_consistent(
+    old_witness_reader: AccountCellDataReader,
+    new_witness_reader: AccountCellDataReader,
+) -> Result<(), Error> {
     if !util::is_reader_eq(old_witness_reader.id(), new_witness_reader.id()) {
         return Err(Error::AccountCellProtectFieldIsModified);
     }
@@ -347,23 +494,38 @@ fn verify_if_id_consistent(old_witness_reader: AccountCellDataReader, new_witnes
     Ok(())
 }
 
-fn verify_if_owner_lock_consistent(old_witness_reader: AccountCellDataReader, new_witness_reader: AccountCellDataReader) -> Result<(), Error> {
-    if !util::is_reader_eq(old_witness_reader.owner_lock(), new_witness_reader.owner_lock()) {
+fn verify_if_owner_lock_consistent(
+    old_witness_reader: AccountCellDataReader,
+    new_witness_reader: AccountCellDataReader,
+) -> Result<(), Error> {
+    if !util::is_reader_eq(
+        old_witness_reader.owner_lock(),
+        new_witness_reader.owner_lock(),
+    ) {
         return Err(Error::AccountCellProtectFieldIsModified);
     }
 
     Ok(())
 }
 
-fn verify_if_manager_lock_consistent(old_witness_reader: AccountCellDataReader, new_witness_reader: AccountCellDataReader) -> Result<(), Error> {
-    if !util::is_reader_eq(old_witness_reader.manager_lock(), new_witness_reader.manager_lock()) {
+fn verify_if_manager_lock_consistent(
+    old_witness_reader: AccountCellDataReader,
+    new_witness_reader: AccountCellDataReader,
+) -> Result<(), Error> {
+    if !util::is_reader_eq(
+        old_witness_reader.manager_lock(),
+        new_witness_reader.manager_lock(),
+    ) {
         return Err(Error::AccountCellProtectFieldIsModified);
     }
 
     Ok(())
 }
 
-fn verify_if_account_consistent(old_witness_reader: AccountCellDataReader, new_witness_reader: AccountCellDataReader) -> Result<(), Error> {
+fn verify_if_account_consistent(
+    old_witness_reader: AccountCellDataReader,
+    new_witness_reader: AccountCellDataReader,
+) -> Result<(), Error> {
     if !util::is_reader_eq(old_witness_reader.account(), new_witness_reader.account()) {
         return Err(Error::AccountCellProtectFieldIsModified);
     }
@@ -371,15 +533,24 @@ fn verify_if_account_consistent(old_witness_reader: AccountCellDataReader, new_w
     Ok(())
 }
 
-fn verify_if_registered_at_consistent(old_witness_reader: AccountCellDataReader, new_witness_reader: AccountCellDataReader) -> Result<(), Error> {
-    if !util::is_reader_eq(old_witness_reader.registered_at(), new_witness_reader.registered_at()) {
+fn verify_if_registered_at_consistent(
+    old_witness_reader: AccountCellDataReader,
+    new_witness_reader: AccountCellDataReader,
+) -> Result<(), Error> {
+    if !util::is_reader_eq(
+        old_witness_reader.registered_at(),
+        new_witness_reader.registered_at(),
+    ) {
         return Err(Error::AccountCellProtectFieldIsModified);
     }
 
     Ok(())
 }
 
-fn verify_if_status_consistent(old_witness_reader: AccountCellDataReader, new_witness_reader: AccountCellDataReader) -> Result<(), Error> {
+fn verify_if_status_consistent(
+    old_witness_reader: AccountCellDataReader,
+    new_witness_reader: AccountCellDataReader,
+) -> Result<(), Error> {
     if !util::is_reader_eq(old_witness_reader.status(), new_witness_reader.status()) {
         return Err(Error::AccountCellProtectFieldIsModified);
     }
@@ -387,7 +558,10 @@ fn verify_if_status_consistent(old_witness_reader: AccountCellDataReader, new_wi
     Ok(())
 }
 
-fn verify_if_records_consistent(old_witness_reader: AccountCellDataReader, new_witness_reader: AccountCellDataReader) -> Result<(), Error> {
+fn verify_if_records_consistent(
+    old_witness_reader: AccountCellDataReader,
+    new_witness_reader: AccountCellDataReader,
+) -> Result<(), Error> {
     if !util::is_reader_eq(old_witness_reader.records(), new_witness_reader.records()) {
         return Err(Error::AccountCellProtectFieldIsModified);
     }
