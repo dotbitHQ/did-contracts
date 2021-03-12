@@ -1,13 +1,12 @@
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use ckb_std::{
     ckb_constants::Source,
-    debug,
     high_level::{load_cell_capacity, load_cell_data, load_cell_lock, load_script},
 };
 use core::convert::TryInto;
 use core::result::Result;
 use das_bloom_filter::BloomFilter;
-use das_core::{constants::*, error::Error, util, witness_parser::WitnessesParser};
+use das_core::{constants::*, debug, error::Error, util, witness_parser::WitnessesParser};
 use das_types::{constants::ConfigID, packed::*, prelude::*};
 
 pub fn main() -> Result<(), Error> {

@@ -1,8 +1,9 @@
 use super::constants::*;
+use super::debug;
 use super::error::Error;
 use super::types::Configs;
 use super::util::{blake2b_256, find_cells_by_script, script_literal_to_script};
-use ckb_std::{ckb_constants::Source, debug, high_level};
+use ckb_std::{ckb_constants::Source, high_level};
 use core::convert::{TryFrom, TryInto};
 use das_types::{
     constants::{ConfigID, DataType, WITNESS_HEADER},

@@ -3,6 +3,7 @@ use super::{
         height_cell_type, time_cell_type, ScriptType, ACCOUNT_MAX_PRICED_LENGTH,
         CKB_HASH_PERSONALIZATION,
     },
+    debug,
     error::Error,
     types::ScriptLiteral,
     witness_parser::WitnessesParser,
@@ -11,7 +12,6 @@ use blake2b_ref::{Blake2b, Blake2bBuilder};
 use ckb_std::{
     ckb_constants::Source,
     ckb_types::{bytes, packed::*, prelude::*},
-    debug,
     error::SysError,
     high_level, syscalls,
 };

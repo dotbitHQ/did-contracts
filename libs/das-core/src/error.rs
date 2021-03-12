@@ -40,6 +40,8 @@ pub enum Error {
     WitnessActionIsNotTheFirst,
     WitnessActionDecodingError, // 35
     WitnessEntityMissing,
+    WitnessDataParseLengthHeaderFailed,
+    WitnessDataReadDataBodyFailed,
     WitnessDataDecodingError,
     WitnessDataIsCorrupted,
     WitnessDataMissing,
@@ -53,7 +55,7 @@ pub enum Error {
     PreRegisterAccountIdIsInvalid,
     PreRegisterApplyHashIsInvalid,
     PreRegisterCreateAtIsInvalid,
-    PreRegisterAccountLengthMissMatch,
+    PreRegisterPriceInvalid,
     PreRegisterFoundUndefinedCharSet,
     PreRegisterCKBInsufficient,
     PreRegisterAccountCanNotRegisterNow,
