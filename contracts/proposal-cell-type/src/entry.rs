@@ -740,13 +740,18 @@ fn is_expired_at_same(
     new_cell_data: &Vec<u8>,
     old_cell_data: &Vec<u8>,
 ) -> Result<(), Error> {
-    is_bytes_eq(
-        item_index,
-        "expired_at",
-        get_expired_at(new_cell_data),
-        get_expired_at(old_cell_data),
-        Error::ProposalFieldCanNotBeModified,
-    )
+    let old_expired_at = get_expired_at(old_cell_data);
+    let new_expired_at = get_expired_at(new_cell_data);
+
+    if old_expired_at != new_expired_at {
+        debug!(
+            "  [{}] Check outputs[].AccountCell.expired_at: {:x?} != {:x?} => true",
+            item_index, old_expired_at, new_expired_at
+        );
+        return Err(Error::ProposalFieldCanNotBeModified);
+    }
+
+    Ok(())
 }
 
 fn is_id_correct(
@@ -790,12 +795,8 @@ fn is_expired_at_correct(
     let cell_storage = ACCOUNT_CELL_BASIC_CAPACITY + (account_size * 100_000_000);
     let price = u64::from(pre_account_cell_witness.price().new());
     let quote = u64::from(pre_account_cell_witness.quote());
-    let duration = ((income - cell_storage) / (price / quote * 100_000_000)) * 365 * 86400;
-
-    let current_expired_at = get_expired_at(new_cell_data);
-    let mut buf = [0u8; 8];
-    buf.copy_from_slice(current_expired_at);
-    let expired_at = u64::from_le_bytes(buf);
+    let duration = (income - cell_storage) * 365 * 86400 / (price / quote * 100_000_000);
+    let expired_at = get_expired_at(new_cell_data);
 
     if current_timestamp + duration != expired_at {
         debug!(
