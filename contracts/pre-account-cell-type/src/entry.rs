@@ -240,9 +240,9 @@ fn verify_created_at(
     current_timestamp: u64,
     reader: PreAccountCellDataReader,
 ) -> Result<(), Error> {
-    let create_at: Timestamp = reader.created_at().to_entity();
+    let create_at = reader.created_at();
     if u64::from(create_at) != current_timestamp {
-        return Err(Error::PreRegisterApplyHashIsInvalid);
+        return Err(Error::PreRegisterCreateAtIsInvalid);
     }
 
     Ok(())
