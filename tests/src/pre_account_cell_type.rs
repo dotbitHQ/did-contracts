@@ -59,14 +59,14 @@ fn gen_pre_register_test_data() {
     template.push_pre_account_cell(
         cell_data,
         Some((1, 0, entity)),
-        528_800_000_000,
+        536_600_000_000,
         Source::Output,
     );
 
     template.pretty_print();
 }
 
-// #[test]
+#[test]
 fn test_pre_register() {
     let mut context;
     let mut parser;

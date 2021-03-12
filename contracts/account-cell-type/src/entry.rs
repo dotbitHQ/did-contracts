@@ -327,21 +327,18 @@ pub fn main() -> Result<(), Error> {
 
         debug!("Check if the registered_at field has been updated correctly based on the capacity paid by the user.");
 
-        let account_length = old_witness_reader.account().len();
+        let length_in_price = util::get_length_in_price(old_witness_reader.account().len() as u64);
         let prices = config_register.price_configs();
 
         // Find out renew price in USD.
-        let mut price_opt = None;
+        let mut price_opt = Some(prices.get(prices.len() - 1).unwrap());
         for item in prices.iter() {
-            if u8::from(item.length()) as usize == account_length {
-                price_opt = Some(u64::from(item.renew()));
+            if u8::from(item.length()) == length_in_price {
+                price_opt = Some(item);
                 break;
             }
         }
-        if price_opt.is_none() {
-            price_opt = Some(u64::from(prices.get(prices.len() - 1).unwrap().renew()));
-        }
-        let renew_price_in_usd = price_opt.unwrap(); // x USD
+        let renew_price_in_usd = u64::from(price_opt.unwrap().renew()); // x USD
 
         // Find out all WalletCells in transaction.
         let (old_wallet_cells, new_wallet_cells) = load_wallet_cells(config_main)?;

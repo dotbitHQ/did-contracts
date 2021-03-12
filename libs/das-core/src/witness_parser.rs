@@ -271,14 +271,17 @@ impl WitnessesParser {
             if let Some(raw) = witness.get(7..(7 + length)) {
                 let data = match Data::from_slice(raw) {
                     Ok(data) => data,
-                    Err(_) => return Err(Error::WitnessDataDecodingError),
+                    Err(e) => {
+                        debug!("WitnessDataDecodingError: {:?}", e);
+                        return Err(Error::WitnessDataDecodingError);
+                    }
                 };
                 Ok(data)
             } else {
-                Err(Error::WitnessDataDecodingError)
+                Err(Error::WitnessDataReadDataBodyFailed)
             }
         } else {
-            Err(Error::WitnessDataDecodingError)
+            Err(Error::WitnessDataParseLengthHeaderFailed)
         }
     }
 
