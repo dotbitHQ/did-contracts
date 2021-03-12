@@ -130,7 +130,7 @@ fn test_transfer_account() {
 
 // #[test]
 fn gen_edit_manager_test_data() {
-    println!("====== Print transfer_account test data ======");
+    println!("====== Print edit_manager test data ======");
 
     let mut template = TemplateGenerator::new("edit_manager", None);
     let timestamp = 1611200000u64;
@@ -229,7 +229,7 @@ fn test_edit_manager() {
 
 // #[test]
 fn gen_edit_records_test_data() {
-    println!("====== Print transfer_account test data ======");
+    println!("====== Print edit_records test data ======");
 
     let mut template = TemplateGenerator::new("edit_records", None);
     let timestamp = 1611200000u64;
@@ -303,6 +303,90 @@ fn test_edit_records() {
         &mut context,
         &mut parser,
         "../templates/account_edit_records.json"
+    );
+
+    // build transaction
+    let tx = parser.build_tx();
+
+    // run in vm
+    let cycles = context
+        .verify_tx(&tx, MAX_CYCLES)
+        .expect("pass verification");
+
+    println!("test_always_success: {} cycles", cycles);
+}
+
+// #[test]
+fn gen_renew_account_test_data() {
+    println!("====== Print renew_account test data ======");
+
+    let mut template = TemplateGenerator::new("renew_account", None);
+    let timestamp = 1611200000u64;
+
+    template.push_time_cell(1, timestamp, 200_000_000_000, Source::CellDep);
+
+    template.push_quote_cell(1000, 200_000_000_000, Source::CellDep);
+
+    template.push_config_cell(
+        ConfigID::ConfigCellMain,
+        true,
+        100_000_000_000,
+        Source::CellDep,
+    );
+    template.push_config_cell(
+        ConfigID::ConfigCellRegister,
+        true,
+        100_000_000_000,
+        Source::CellDep,
+    );
+
+    let account_chars = gen_account_chars("das00001".split("").collect::<Vec<&str>>());
+    let registered_at = timestamp - 86400;
+    let expired_at = timestamp + 31536000 - 86400;
+    let next = bytes::Bytes::from(account_to_id_bytes("das00014.bit"));
+
+    let (cell_data, old_entity) = template.gen_account_cell_data(
+        &account_chars,
+        "0x0000000000000000000000000000000000001111",
+        "0x0000000000000000000000000000000000002222",
+        next.clone(),
+        registered_at,
+        expired_at,
+        None,
+    );
+    template.push_account_cell(cell_data, None, 19_400_000_000, Source::Input);
+    template.push_wallet_cell("das.bit", 9_400_000_000, Source::Input);
+
+    let (cell_data, new_entity) = template.gen_account_cell_data(
+        &account_chars,
+        "0x0000000000000000000000000000000000001111",
+        "0x0000000000000000000000000000000000002222",
+        next.clone(),
+        registered_at + 86400 * 365,
+        expired_at,
+        None,
+    );
+    template.push_account_cell(cell_data, None, 19_400_000_000, Source::Output);
+    template.push_wallet_cell("das.bit", 509_400_000_000, Source::Output);
+
+    template.push_witness(
+        DataType::AccountCellData,
+        Some((1, 0, new_entity)),
+        Some((1, 0, old_entity)),
+        None,
+    );
+
+    template.pretty_print();
+}
+
+// #[test]
+fn test_renew_account() {
+    let mut context;
+    let mut parser;
+    load_template!(
+        &mut context,
+        &mut parser,
+        "../templates/account_renew_account.json"
     );
 
     // build transaction

@@ -1,13 +1,12 @@
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use ckb_std::{
     ckb_constants::Source,
-    debug,
     high_level::{load_cell_capacity, load_cell_data, load_cell_lock, load_script},
 };
 use core::convert::TryInto;
 use core::result::Result;
 use das_bloom_filter::BloomFilter;
-use das_core::{constants::*, error::Error, util, witness_parser::WitnessesParser};
+use das_core::{constants::*, debug, error::Error, util, witness_parser::WitnessesParser};
 use das_types::{constants::ConfigID, packed::*, prelude::*};
 
 pub fn main() -> Result<(), Error> {
@@ -133,12 +132,11 @@ pub fn main() -> Result<(), Error> {
             apply_register_hash,
         )?;
 
-        verify_payed_capacity_is_enough(reader, capacity)?;
+        verify_quote(reader)?;
+        verify_price_and_capacity(config_register_reader, reader, capacity)?;
 
         verify_account_id(reader, account_id.as_reader())?;
         verify_created_at(timestamp, reader)?;
-        verify_quote(reader)?;
-        verify_account_length_and_price(reader)?;
         verify_account_length_and_years(timestamp, reader)?;
         verify_account_chars(config_register_reader, reader)?;
 
@@ -241,9 +239,9 @@ fn verify_created_at(
     current_timestamp: u64,
     reader: PreAccountCellDataReader,
 ) -> Result<(), Error> {
-    let create_at: Timestamp = reader.created_at().to_entity();
+    let create_at = reader.created_at();
     if u64::from(create_at) != current_timestamp {
-        return Err(Error::PreRegisterApplyHashIsInvalid);
+        return Err(Error::PreRegisterCreateAtIsInvalid);
     }
 
     Ok(())
@@ -274,20 +272,47 @@ fn verify_quote(reader: PreAccountCellDataReader) -> Result<(), Error> {
     Ok(())
 }
 
-fn verify_payed_capacity_is_enough(
+fn verify_price_and_capacity(
+    config: ConfigCellRegisterReader,
     reader: PreAccountCellDataReader,
     capacity: u64,
 ) -> Result<(), Error> {
-    let new_account_price = u64::from(reader.price().new()); // x USD
-    let quote = u64::from(reader.quote()); // y USD/CKB
-                                           // Register price for 1 year in CKB = x ÷ y
-    let register_capacity = new_account_price / quote * 100_000_000;
+    let length_in_price = util::get_length_in_price(reader.account().len() as u64);
+    let price = reader.price();
+    let prices = config.price_configs();
+
+    // Find out register price in from ConfigCellRegister.
+    let mut price_opt = Some(prices.get(prices.len() - 1).unwrap());
+    for item in prices.iter() {
+        if u8::from(item.length()) == length_in_price {
+            price_opt = Some(item);
+            break;
+        }
+    }
+    let expected_price = price_opt.unwrap(); // x USD
+
+    debug!("Check if PreAccountCell.witness.price is selected base on account length.");
+
+    if !util::is_reader_eq(expected_price, price) {
+        debug!(
+            "PreAccountCell.price is invalid: {}(expected.length) != {}(result.length)",
+            u8::from(reader.price().length()),
+            u8::from(expected_price.length())
+        );
+        return Err(Error::PreRegisterPriceInvalid);
+    }
+
+    let new_account_price_in_usd = u64::from(reader.price().new()); // x USD
+    let quote = u64::from(reader.quote()); // y CKB/USD
+
+    // Register price for 1 year in CKB = x ÷ y.
+    let register_capacity = new_account_price_in_usd / quote * 100_000_000;
     // Storage price in CKB = AccountCell base capacity + RefCell base capacity + account.length
     let storage_capacity = ACCOUNT_CELL_BASIC_CAPACITY
-        + REF_CELL_BASIC_CAPACITY
+        + REF_CELL_BASIC_CAPACITY * 2
         + (reader.account().len() as u64 + 4) * 100_000_000;
 
-    debug!("Verify is user payed enough capacity: {}(paied) < {}(minimal register fee) + {}(storage fee) -> {}",
+    debug!("Verify if PreAccountCell.capacity is enough for registration: {}(paied) < {}(minimal register fee) + {}(storage fee) -> {}",
         capacity,
         register_capacity,
         storage_capacity,
@@ -296,28 +321,6 @@ fn verify_payed_capacity_is_enough(
 
     if capacity < register_capacity + storage_capacity {
         return Err(Error::PreRegisterCKBInsufficient);
-    }
-
-    Ok(())
-}
-
-fn verify_account_length_and_price(reader: PreAccountCellDataReader) -> Result<(), Error> {
-    let price_length = u8::from(reader.price().length());
-
-    // Limit the lower bound on account pricing to a length of ACCOUNT_MAX_PRICED_LENGTH.
-    let account_length = if reader.account().len() > ACCOUNT_MAX_PRICED_LENGTH.into() {
-        ACCOUNT_MAX_PRICED_LENGTH.into()
-    } else {
-        reader.account().len()
-    };
-
-    if account_length != price_length.into() {
-        debug!(
-            "Account length is mismatched with the length in price: {} != {}",
-            reader.account().len(),
-            price_length
-        );
-        return Err(Error::PreRegisterAccountLengthMissMatch);
     }
 
     Ok(())

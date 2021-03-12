@@ -1,5 +1,9 @@
 use super::{
-    constants::{height_cell_type, time_cell_type, ScriptType, CKB_HASH_PERSONALIZATION},
+    constants::{
+        height_cell_type, time_cell_type, ScriptType, ACCOUNT_MAX_PRICED_LENGTH,
+        CKB_HASH_PERSONALIZATION,
+    },
+    debug,
     error::Error,
     types::ScriptLiteral,
     witness_parser::WitnessesParser,
@@ -8,7 +12,6 @@ use blake2b_ref::{Blake2b, Blake2bBuilder};
 use ckb_std::{
     ckb_constants::Source,
     ckb_types::{bytes, packed::*, prelude::*},
-    debug,
     error::SysError,
     high_level, syscalls,
 };
@@ -513,6 +516,14 @@ pub fn is_cell_capacity_equal(
     }
 
     Ok(())
+}
+
+pub fn get_length_in_price(account_length: u64) -> u8 {
+    if account_length > ACCOUNT_MAX_PRICED_LENGTH.into() {
+        ACCOUNT_MAX_PRICED_LENGTH
+    } else {
+        account_length as u8
+    }
 }
 
 #[cfg(test)]

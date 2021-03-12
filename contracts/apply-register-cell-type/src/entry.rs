@@ -1,11 +1,10 @@
 use ckb_std::{
     ckb_constants::Source,
-    debug,
     high_level::{load_cell_data, load_script},
 };
 use core::convert::{TryFrom, TryInto};
 use core::result::Result;
-use das_core::{constants::ScriptType, error::Error, util, witness_parser::WitnessesParser};
+use das_core::{constants::ScriptType, debug, error::Error, util, witness_parser::WitnessesParser};
 use das_types::constants::ConfigID;
 use das_types::{packed::*, prelude::*};
 
