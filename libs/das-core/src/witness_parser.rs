@@ -120,7 +120,7 @@ impl WitnessesParser {
         debug!("  Load witnesses of the ConfigCells ...");
 
         let mut configs = Configs::new();
-        for (i, witness) in self.witnesses.iter().enumerate().skip(1) {
+        for (_i, witness) in self.witnesses.iter().enumerate().skip(1) {
             Self::verify_das_header(&witness)?;
 
             // Just handle required config witness.
@@ -130,7 +130,7 @@ impl WitnessesParser {
             }
 
             let entity = Self::verify_hash_and_get_entity(witness, &mut config_entity_hashes)?;
-            debug!("    Found matched ConfigCell witness at: witnesses[{}]", i);
+            debug!("    Found matched ConfigCell witness at: witnesses[{}]", _i);
             match data_type {
                 DataType::ConfigCellMain => {
                     configs.main = Some(
@@ -272,8 +272,8 @@ impl WitnessesParser {
             if let Some(raw) = witness.get(7..(7 + length)) {
                 let data = match Data::from_slice(raw) {
                     Ok(data) => data,
-                    Err(e) => {
-                        debug!("WitnessDataDecodingError: {:?}", e);
+                    Err(_e) => {
+                        debug!("WitnessDataDecodingError: {:?}", _e);
                         return Err(Error::WitnessDataDecodingError);
                     }
                 };
