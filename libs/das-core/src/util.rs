@@ -213,7 +213,11 @@ pub fn load_data<F: Fn(&mut [u8], usize) -> Result<usize, SysError>>(
     let mut buf = [0u8; 2000];
     let extend_buf = [0u8; 5000];
     match syscall(&mut buf, 0) {
-        Ok(len) => Ok(buf[..len].to_vec()),
+        Ok(len) => {
+            let data = buf[..len].to_vec();
+            // debug!("{:?}", data);
+            Ok(data)
+        }
         Err(SysError::LengthNotEnough(actual_size)) => {
             debug!("Actual data size: {}", actual_size);
             // read 30000 bytes in 733165 cycles
@@ -245,6 +249,10 @@ pub fn load_data<F: Fn(&mut [u8], usize) -> Result<usize, SysError>>(
     }
 }
 
+pub fn load_cell_data(index: usize, source: Source) -> Result<Vec<u8>, SysError> {
+    load_data(|buf, offset| syscalls::load_cell_data(buf, offset, index, source))
+}
+
 pub fn load_timestamp() -> Result<u64, Error> {
     debug!("Reading TimeCell ...");
 
@@ -260,7 +268,7 @@ pub fn load_timestamp() -> Result<u64, Error> {
     debug!("Reading outputs_data of the TimeCell ...");
 
     // Read the passed timestamp from outputs_data of TimeCell
-    let data = high_level::load_cell_data(ret[0], Source::CellDep).map_err(|e| Error::from(e))?;
+    let data = load_cell_data(ret[0], Source::CellDep).map_err(|e| Error::from(e))?;
     let timestamp = match data.get(1..) {
         Some(bytes) => {
             if bytes.len() != 4 {
@@ -289,7 +297,7 @@ pub fn load_height() -> Result<u64, Error> {
     debug!("Reading outputs_data of the HeightCell ...");
 
     // Read the passed timestamp from outputs_data of TimeCell
-    let data = high_level::load_cell_data(ret[0], Source::CellDep).map_err(|e| Error::from(e))?;
+    let data = load_cell_data(ret[0], Source::CellDep).map_err(|e| Error::from(e))?;
     let height = match data.get(1..) {
         Some(bytes) => {
             if bytes.len() != 8 {
@@ -345,7 +353,7 @@ pub fn verify_cells_witness(
     index: usize,
     source: Source,
 ) -> Result<(), Error> {
-    let data = high_level::load_cell_data(index, source).map_err(|e| Error::from(e))?;
+    let data = load_cell_data(index, source).map_err(|e| Error::from(e))?;
     let hash = match data.get(..32) {
         Some(bytes) => bytes.to_vec(),
         _ => return Err(Error::InvalidCellData),
@@ -361,7 +369,7 @@ pub fn get_cell_witness(
     index: usize,
     source: Source,
 ) -> Result<(u32, u32, &das_packed::Bytes), Error> {
-    let data = high_level::load_cell_data(index, source).map_err(|e| Error::from(e))?;
+    let data = load_cell_data(index, source).map_err(|e| Error::from(e))?;
     let hash = match data.get(..32) {
         Some(bytes) => bytes.to_vec(),
         _ => return Err(Error::InvalidCellData),

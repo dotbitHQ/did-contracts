@@ -171,7 +171,7 @@ fn verify_apply_height(
     let passed_block_number = current_height - apply_height;
 
     debug!(
-        "Has passed {}s after apply.(min waiting: {}s, max waiting: {}s)",
+        "Has passed {} block after apply.(min waiting: {} block, max waiting: {} block)",
         passed_block_number, apply_min_waiting_time, apply_max_waiting_time
     );
 
@@ -189,12 +189,12 @@ fn verify_account_id(
     reader: PreAccountCellDataReader,
     account_id: BytesReader,
 ) -> Result<(), Error> {
-    let data_to_hash: Vec<u8> =
-        [reader.account().as_readable(), ".bit".as_bytes().to_vec()].concat();
-    let hash = util::blake2b_256(data_to_hash.as_slice());
+    let account: Vec<u8> = [reader.account().as_readable(), ".bit".as_bytes().to_vec()].concat();
+    let hash = util::blake2b_256(account.as_slice());
 
     debug!(
-        "Verify account ID in PreAccountCell: {:?} != {:?} {}",
+        "Verify account ID in PreAccountCell: hash_from({:?}){:?} != PreAccountCell.data.account_id{:?} {}",
+        account,
         &hash[..10],
         account_id.raw_data(),
         &hash[..10] != account_id.raw_data()
@@ -259,7 +259,8 @@ fn verify_quote(reader: PreAccountCellDataReader) -> Result<(), Error> {
     let expected_quote = data.get(..).unwrap();
 
     debug!(
-        "Verify if PreAccountCell.quote is the same as QuoteCell: {:?} != {:?} -> {}",
+        "Verify if PreAccountCell.quote is the same as QuoteCell: cell_deps[{}]({:?}) != PreAccountCell.quote({:?}) -> {}",
+        quote_cells[0],
         expected_quote,
         reader.quote().raw_data(),
         expected_quote != reader.quote().raw_data()

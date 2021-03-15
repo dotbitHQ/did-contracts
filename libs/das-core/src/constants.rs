@@ -19,7 +19,7 @@ pub enum ScriptType {
 pub const CKB_HASH_PERSONALIZATION: &[u8] = b"ckb-default-hash";
 
 pub const ACCOUNT_CELL_BASIC_CAPACITY: u64 = 14_600_000_000;
-pub const REF_CELL_BASIC_CAPACITY: u64 = 10_400_000_000;
+pub const REF_CELL_BASIC_CAPACITY: u64 = 10_500_000_000;
 
 pub const RATE_BASE: u64 = 10_000;
 
@@ -193,8 +193,8 @@ pub const CONFIG_CELL_TYPE: ScriptLiteral = ScriptLiteral {
 #[cfg(feature = "testnet")]
 pub const CONFIG_CELL_TYPE: ScriptLiteral = ScriptLiteral {
     code_hash: [
-        1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
-        1, 1,
+        72, 159, 242, 25, 94, 212, 26, 172, 154, 146, 101, 198, 83, 216, 202, 87, 200, 37, 178, 45,
+        183, 101, 185, 224, 141, 83, 117, 114, 255, 44, 188, 27,
     ],
     hash_type: ScriptHashType::Type,
     args: Vec::new(),
@@ -223,8 +223,8 @@ pub const ALWAYS_SUCCESS_LOCK: ScriptLiteral = ScriptLiteral {
 #[cfg(feature = "testnet")]
 pub const ALWAYS_SUCCESS_LOCK: ScriptLiteral = ScriptLiteral {
     code_hash: [
-        2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
-        1, 1,
+        241, 239, 97, 182, 151, 117, 8, 217, 236, 86, 254, 67, 57, 154, 1, 229, 118, 8, 106, 118,
+        207, 15, 124, 104, 125, 20, 24, 51, 94, 140, 64, 31,
     ],
     hash_type: ScriptHashType::Type,
     args: Vec::new(),
