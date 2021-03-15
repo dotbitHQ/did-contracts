@@ -19,7 +19,7 @@ pub enum ScriptType {
 pub const CKB_HASH_PERSONALIZATION: &[u8] = b"ckb-default-hash";
 
 pub const ACCOUNT_CELL_BASIC_CAPACITY: u64 = 14_600_000_000;
-pub const REF_CELL_BASIC_CAPACITY: u64 = 10_400_000_000;
+pub const REF_CELL_BASIC_CAPACITY: u64 = 10_500_000_000;
 
 pub const RATE_BASE: u64 = 10_000;
 
@@ -91,8 +91,8 @@ pub fn oracle_lock() -> Script {
         ],
         hash_type: ScriptHashType::Type,
         args: vec![
-            94, 176, 12, 14, 81, 175, 181, 55, 252, 128, 113, 129, 0, 52, 206, 146, 249, 140, 50,
-            89,
+            199, 95, 213, 248, 173, 210, 160, 77, 185, 255, 202, 248, 139, 67, 125, 118, 241, 129,
+            39, 151,
         ],
     };
 

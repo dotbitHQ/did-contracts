@@ -2,8 +2,8 @@ use super::constants::*;
 use super::debug;
 use super::error::Error;
 use super::types::Configs;
-use super::util::{blake2b_256, find_cells_by_script, script_literal_to_script};
-use ckb_std::{ckb_constants::Source, high_level};
+use super::util::{blake2b_256, find_cells_by_script, load_cell_data, script_literal_to_script};
+use ckb_std::ckb_constants::Source;
 use core::convert::{TryFrom, TryInto};
 use das_types::{
     constants::{ConfigID, DataType, WITNESS_HEADER},
@@ -89,8 +89,8 @@ impl WitnessesParser {
             }
             let expected_cell_index = ret[0];
 
-            let data = high_level::load_cell_data(expected_cell_index, Source::CellDep)
-                .map_err(|e| Error::from(e))?;
+            let data =
+                load_cell_data(expected_cell_index, Source::CellDep).map_err(|e| Error::from(e))?;
             let expected_entity_hash = match data.get(..32) {
                 Some(bytes) => bytes.to_owned(),
                 _ => return Err(Error::InvalidCellData),
@@ -120,7 +120,7 @@ impl WitnessesParser {
         debug!("  Load witnesses of the ConfigCells ...");
 
         let mut configs = Configs::new();
-        for (i, witness) in self.witnesses.iter().enumerate().skip(1) {
+        for (_i, witness) in self.witnesses.iter().enumerate().skip(1) {
             Self::verify_das_header(&witness)?;
 
             // Just handle required config witness.
@@ -130,7 +130,7 @@ impl WitnessesParser {
             }
 
             let entity = Self::verify_hash_and_get_entity(witness, &mut config_entity_hashes)?;
-            debug!("    Found matched ConfigCell witness at: witnesses[{}]", i);
+            debug!("    Found matched ConfigCell witness at: witnesses[{}]", _i);
             match data_type {
                 DataType::ConfigCellMain => {
                     configs.main = Some(
@@ -272,8 +272,8 @@ impl WitnessesParser {
             if let Some(raw) = witness.get(7..(7 + length)) {
                 let data = match Data::from_slice(raw) {
                     Ok(data) => data,
-                    Err(e) => {
-                        debug!("WitnessDataDecodingError: {:?}", e);
+                    Err(_e) => {
+                        debug!("WitnessDataDecodingError: {:?}", _e);
                         return Err(Error::WitnessDataDecodingError);
                     }
                 };
@@ -319,7 +319,7 @@ impl WitnessesParser {
         index: usize,
         source: Source,
     ) -> Result<(u32, u32, &Bytes), Error> {
-        let data = high_level::load_cell_data(index, source).map_err(|e| Error::from(e))?;
+        let data = load_cell_data(index, source).map_err(|e| Error::from(e))?;
         let hash = match data.get(..32) {
             Some(bytes) => bytes.to_vec(),
             _ => return Err(Error::InvalidCellData),
