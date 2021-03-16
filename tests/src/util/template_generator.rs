@@ -510,18 +510,32 @@ impl TemplateGenerator {
         self.push_cell(capacity, lock_script, type_script, Some(cell_data), source);
     }
 
-    pub fn push_ref_cell(&mut self, lock_args: &str, account: &str, capacity: u64, source: Source) {
-        let account_id = Bytes::from(util::account_to_id(account.as_bytes()));
+    pub fn push_ref_cell(
+        &mut self,
+        lock_args: &str,
+        account: &str,
+        is_owner: bool,
+        capacity: u64,
+        source: Source,
+    ) {
+        let mut account_id = util::account_to_id(account.as_bytes());
         let lock_script = json!({
           "code_hash": "{{always_success}}",
           "args": lock_args
         });
         let type_script = json!({
           "code_hash": "{{ref-cell-type}}",
-          "args": bytes_to_hex(account_id)
+          "args": ""
         });
 
-        self.push_cell(capacity, lock_script, type_script, None, source);
+        if is_owner {
+            account_id.push(0);
+        } else {
+            account_id.push(1);
+        }
+        let cell_data = Bytes::from(account_id);
+
+        self.push_cell(capacity, lock_script, type_script, Some(cell_data), source);
     }
 
     fn gen_config_cell_main(&mut self) -> (Bytes, ConfigCellMain) {
