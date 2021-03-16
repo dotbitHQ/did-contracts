@@ -1,12 +1,5 @@
 use super::{
-    constants::{
-        height_cell_type, time_cell_type, ScriptType, ACCOUNT_MAX_PRICED_LENGTH,
-        CKB_HASH_PERSONALIZATION,
-    },
-    debug,
-    error::Error,
-    types::ScriptLiteral,
-    witness_parser::WitnessesParser,
+    constants::*, debug, error::Error, types::ScriptLiteral, witness_parser::WitnessesParser,
 };
 use blake2b_ref::{Blake2b, Blake2bBuilder};
 use ckb_std::{
@@ -16,7 +9,10 @@ use ckb_std::{
     high_level, syscalls,
 };
 use core::convert::TryInto;
-use das_types::{constants::WITNESS_HEADER, packed as das_packed};
+use das_types::{
+    constants::{ConfigID, WITNESS_HEADER},
+    packed as das_packed,
+};
 #[cfg(test)]
 use hex::FromHexError;
 use std::prelude::v1::*;
@@ -249,8 +245,9 @@ pub fn load_data<F: Fn(&mut [u8], usize) -> Result<usize, SysError>>(
     }
 }
 
-pub fn load_cell_data(index: usize, source: Source) -> Result<Vec<u8>, SysError> {
+pub fn load_cell_data(index: usize, source: Source) -> Result<Vec<u8>, Error> {
     load_data(|buf, offset| syscalls::load_cell_data(buf, offset, index, source))
+        .map_err(|err| Error::from(err))
 }
 
 pub fn load_timestamp() -> Result<u64, Error> {
@@ -268,7 +265,7 @@ pub fn load_timestamp() -> Result<u64, Error> {
     debug!("Reading outputs_data of the TimeCell ...");
 
     // Read the passed timestamp from outputs_data of TimeCell
-    let data = load_cell_data(ret[0], Source::CellDep).map_err(|e| Error::from(e))?;
+    let data = load_cell_data(ret[0], Source::CellDep)?;
     let timestamp = match data.get(1..) {
         Some(bytes) => {
             if bytes.len() != 4 {
@@ -297,7 +294,7 @@ pub fn load_height() -> Result<u64, Error> {
     debug!("Reading outputs_data of the HeightCell ...");
 
     // Read the passed timestamp from outputs_data of TimeCell
-    let data = load_cell_data(ret[0], Source::CellDep).map_err(|e| Error::from(e))?;
+    let data = load_cell_data(ret[0], Source::CellDep)?;
     let height = match data.get(1..) {
         Some(bytes) => {
             if bytes.len() != 8 {
@@ -353,7 +350,7 @@ pub fn verify_cells_witness(
     index: usize,
     source: Source,
 ) -> Result<(), Error> {
-    let data = load_cell_data(index, source).map_err(|e| Error::from(e))?;
+    let data = load_cell_data(index, source)?;
     let hash = match data.get(..32) {
         Some(bytes) => bytes.to_vec(),
         _ => return Err(Error::InvalidCellData),
@@ -369,7 +366,7 @@ pub fn get_cell_witness(
     index: usize,
     source: Source,
 ) -> Result<(u32, u32, &das_packed::Bytes), Error> {
-    let data = load_cell_data(index, source).map_err(|e| Error::from(e))?;
+    let data = load_cell_data(index, source)?;
     let hash = match data.get(..32) {
         Some(bytes) => bytes.to_vec(),
         _ => return Err(Error::InvalidCellData),
@@ -532,6 +529,41 @@ pub fn get_length_in_price(account_length: u64) -> u8 {
     } else {
         account_length as u8
     }
+}
+
+pub fn get_account_storage_total(account_length: u64) -> u64 {
+    ACCOUNT_CELL_BASIC_CAPACITY + (account_length * 100_000_000) + REF_CELL_BASIC_CAPACITY * 2
+}
+
+pub fn require_type_script(
+    parser: &mut WitnessesParser,
+    type_script: TypeScript,
+    source: Source,
+    err: Error,
+) -> Result<(), Error> {
+    parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
+    let config = parser.configs().main()?;
+
+    let type_id = match type_script {
+        TypeScript::AccountCellType => config.type_id_table().account_cell(),
+        TypeScript::ApplyRegisterCellType => config.type_id_table().apply_register_cell(),
+        TypeScript::PreAccountCellType => config.type_id_table().pre_account_cell(),
+        TypeScript::ProposalCellType => config.type_id_table().proposal_cell(),
+        TypeScript::RefCellType => config.type_id_table().ref_cell(),
+        TypeScript::WalletCellType => config.type_id_table().wallet_cell(),
+    };
+
+    // Find out required cell in current transaction.
+    let required_cells = find_cells_by_type_id(ScriptType::Type, type_id, source)?;
+
+    // There must be some required cells in the transaction.
+    if required_cells.len() <= 0 {
+        return Err(err);
+    }
+
+    debug!("Require on: {:?}", type_script);
+
+    Ok(())
 }
 
 #[cfg(test)]

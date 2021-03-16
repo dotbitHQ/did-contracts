@@ -90,6 +90,7 @@ pub enum Error {
     ProposalRecycleRefundAmountError,
     WalletFoundInvalidTransaction = 110,
     WalletRequireAlwaysSuccess,
+    WalletRequireWalletMakerLock,
     WalletPermissionInvalid,
     PrevProposalItemNotFound,
     AccountCellFoundInvalidTransaction = -126,

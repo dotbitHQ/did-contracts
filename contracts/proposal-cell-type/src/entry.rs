@@ -504,8 +504,13 @@ fn verify_proposal_execution_result(
                 let new_cell_witness =
                     AccountCellData::new_unchecked(new_entity.as_reader().raw_data().into());
                 let new_cell_witness_reader = new_cell_witness.as_reader();
-                let income = load_cell_capacity(old_related_cells[i], Source::Input)
+
+                let account_length = get_account(&new_cell_data).len() as u64;
+                let total_capacity = load_cell_capacity(old_related_cells[i], Source::Input)
                     .map_err(|e| Error::from(e))?;
+                let storage_capacity = util::get_account_storage_total(account_length);
+                // Allocate the profits carried by PreAccountCell to the wallets for later verification.
+                let profit = total_capacity - storage_capacity;
 
                 // Check all fields in the data of new AccountCell.
                 is_id_correct(item_index, &new_cell_data, &old_cell_data)?;
@@ -513,7 +518,7 @@ fn verify_proposal_execution_result(
                 is_next_correct(item_index, &new_cell_data, item_next)?;
                 is_expired_at_correct(
                     item_index,
-                    income,
+                    profit,
                     timestamp,
                     &new_cell_data,
                     old_cell_witness_reader,
@@ -526,16 +531,7 @@ fn verify_proposal_execution_result(
                 verify_witness_status(item_index, new_cell_witness_reader)?;
                 verify_witness_records(item_index, new_cell_witness_reader)?;
 
-                // Allocate the profits carried by PreAccountCell to the wallets for later verification.
-                let account_capacity = ((new_cell_witness_reader.account().as_readable().len() + 4)
-                    * 100_000_000) as u64;
-                let total_capacity = load_cell_capacity(old_related_cells[i], Source::Input)
-                    .map_err(|e| Error::from(e))?;
-                let profit = total_capacity
-                    - ACCOUNT_CELL_BASIC_CAPACITY
-                    - REF_CELL_BASIC_CAPACITY
-                    - account_capacity;
-                // Only if inviter_wallet has 20 bytes, we will treat it as account ID and count profit.
+                // Only when inviter_wallet's length is equal to account ID it will be count in profit.
                 let mut inviter_profit = 0;
                 if old_cell_witness_reader.inviter_wallet().len() == ACCOUNT_ID_LENGTH {
                     inviter_profit = profit * inviter_profit_rate / RATE_BASE;
@@ -786,19 +782,25 @@ fn is_next_correct(
 
 fn is_expired_at_correct(
     item_index: usize,
-    income: u64,
+    profit: u64,
     current_timestamp: u64,
     new_cell_data: &Vec<u8>,
     pre_account_cell_witness: PreAccountCellDataReader,
 ) -> Result<(), Error> {
-    let account_size = get_account(new_cell_data).len() as u64;
-    let cell_storage = ACCOUNT_CELL_BASIC_CAPACITY + (account_size * 100_000_000);
     let price = u64::from(pre_account_cell_witness.price().new());
     let quote = u64::from(pre_account_cell_witness.quote());
-    let duration = (income - cell_storage) * 365 * 86400 / (price / quote * 100_000_000);
+    let duration = profit * 365 * 86400 / (price / quote * 100_000_000);
     let expired_at = get_expired_at(new_cell_data);
 
     if current_timestamp + duration != expired_at {
+        debug!(
+            "  [{}] duration({}) = profit({}) * 365 * 86400 / (price({}) / quote({}) * 100_000_000)",
+            item_index,
+            duration,
+            profit,
+            price,
+            quote
+        );
         debug!(
             "  [{}] Check if outputs[].AccountCell.expired_at: current({}) + duration({}) != expired_at({})",
             item_index,

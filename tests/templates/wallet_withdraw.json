@@ -35,22 +35,23 @@
     {
       "previous_output": {
         "tmp_type": "full",
-        "capacity": 19400000000,
+        "capacity": 10500000000,
         "lock": {
           "code_hash": "{{always_success}}",
           "args": "0x0000000000000000000000000000000000001111"
         },
         "type": {
           "code_hash": "{{ref-cell-type}}",
-          "args": "0xa2e06438859db0449574"
-        }
+          "args": ""
+        },
+        "tmp_data": "0xa2e06438859db044957400"
       },
       "since": "0x"
     },
     {
       "previous_output": {
         "tmp_type": "full",
-        "capacity": 19400000000,
+        "capacity": 15800000000,
         "lock": {
           "code_hash": "{{always_success}}"
         },
@@ -64,7 +65,7 @@
     {
       "previous_output": {
         "tmp_type": "full",
-        "capacity": 10094,
+        "capacity": 1009400000000,
         "lock": {
           "code_hash": "{{always_success}}"
         },
@@ -79,19 +80,20 @@
   "outputs": [
     {
       "tmp_type": "full",
-      "capacity": 19400000000,
+      "capacity": 10500000000,
       "lock": {
         "code_hash": "{{always_success}}",
         "args": "0x0000000000000000000000000000000000001111"
       },
       "type": {
         "code_hash": "{{ref-cell-type}}",
-        "args": "0xa2e06438859db0449574"
-      }
+        "args": ""
+      },
+      "tmp_data": "0xa2e06438859db044957400"
     },
     {
       "tmp_type": "full",
-      "capacity": 19400000000,
+      "capacity": 15800000000,
       "lock": {
         "code_hash": "{{always_success}}"
       },
@@ -102,7 +104,7 @@
     },
     {
       "tmp_type": "full",
-      "capacity": 5094,
+      "capacity": 509400000000,
       "lock": {
         "code_hash": "{{always_success}}"
       },
@@ -113,7 +115,7 @@
     },
     {
       "tmp_type": "full",
-      "capacity": 5000,
+      "capacity": 500000000000,
       "lock": {
         "code_hash": "{{always_success}}",
         "args": "0x9af92f5e690f4669ca543deb99af8385b12624cc"

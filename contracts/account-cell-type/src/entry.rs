@@ -11,7 +11,7 @@ use core::convert::TryInto;
 use das_core::account_cell_parser::get_expired_at;
 use das_core::constants::oracle_lock;
 use das_core::{
-    constants::{super_lock, ScriptType, ALWAYS_SUCCESS_LOCK},
+    constants::{super_lock, ScriptType, TypeScript, ALWAYS_SUCCESS_LOCK},
     error::Error,
     util,
     witness_parser::WitnessesParser,
@@ -63,22 +63,12 @@ pub fn main() -> Result<(), Error> {
         }
     } else if action == b"confirm_proposal" {
         debug!("Route to confirm_proposal action ...");
-
-        parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
-        let config = parser.configs().main()?;
-
-        debug!("The following logic depends on proposal-cell-type.");
-
-        // Find out ProposalCells in current transaction.
-        let proposal_cells = util::find_cells_by_type_id(
-            ScriptType::Type,
-            config.type_id_table().proposal_cell(),
+        util::require_type_script(
+            &mut parser,
+            TypeScript::ProposalCellType,
             Source::Input,
+            Error::ProposalFoundInvalidTransaction,
         )?;
-        // There must be a ProposalCell consumed in the transaction.
-        if proposal_cells.len() != 1 {
-            return Err(Error::ProposalFoundInvalidTransaction);
-        }
     } else if action == b"transfer_account" {
         debug!("Route to transfer_account action ...");
 

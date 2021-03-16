@@ -20,25 +20,12 @@ pub fn main() -> Result<(), Error> {
 
     if action == b"confirm_proposal" {
         debug!("Route to confirm_proposal action ...");
-
-        parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
-        let config = parser.configs().main()?;
-
-        debug!(
-            "The following logic depends on proposal-cell-type: {}",
-            config.type_id_table().proposal_cell()
-        );
-
-        // Find out PreAccountCells in current transaction.
-        let proposal_cells = util::find_cells_by_type_id(
-            ScriptType::Type,
-            config.type_id_table().proposal_cell(),
+        util::require_type_script(
+            &mut parser,
+            TypeScript::ProposalCellType,
             Source::Input,
+            Error::ProposalFoundInvalidTransaction,
         )?;
-        // There must be a PreAccountCell created in the transaction.
-        if proposal_cells.len() != 1 {
-            return Err(Error::PreRegisterFoundInvalidTransaction);
-        }
     } else if action == b"pre_register" {
         debug!("Route to pre_register action ...");
 

@@ -4,8 +4,9 @@ use ckb_std::{
     debug,
     high_level::{load_cell_lock, load_cell_lock_hash, load_cell_type, load_script},
 };
+use das_core::ref_cell_parser::get_id;
 use das_core::{
-    constants::{super_lock, ScriptType, ALWAYS_SUCCESS_LOCK},
+    constants::{wallet_maker_lock, ScriptType, ALWAYS_SUCCESS_LOCK},
     error::Error,
     util,
     witness_parser::WitnessesParser,
@@ -35,14 +36,15 @@ pub fn main() -> Result<(), Error> {
                 let always_success_script_hash =
                     util::blake2b_256(always_success_script.as_slice());
 
-                debug!("Check if super lock has been used in inputs ...");
+                debug!("Check if wallet maker lock has been used in inputs ...");
 
-                let super_lock = super_lock();
-                let has_super_lock =
-                    util::find_cells_by_script(ScriptType::Lock, &super_lock, Source::Input)?.len()
+                let expected_lock = wallet_maker_lock();
+                let has_expected_lock =
+                    util::find_cells_by_script(ScriptType::Lock, &expected_lock, Source::Input)?
+                        .len()
                         > 0;
-                if !has_super_lock {
-                    return Err(Error::SuperLockIsRequired);
+                if !has_expected_lock {
+                    return Err(Error::WalletRequireWalletMakerLock);
                 }
 
                 debug!("Check if any WalletCell be consumed ...");
@@ -52,27 +54,32 @@ pub fn main() -> Result<(), Error> {
                 }
 
                 debug!("Check if all WalletCells use always_success lock ...");
-                debug!("Check if all WalletCells has correct basic capacity ...");
 
                 for i in new_cells {
-                    let lock_script =
+                    let lock_script_hash =
                         load_cell_lock_hash(i, Source::Output).map_err(|e| Error::from(e))?;
-                    if lock_script != always_success_script_hash {
+                    if lock_script_hash != always_success_script_hash {
+                        let lock_script =
+                            load_cell_lock(i, Source::Output).map_err(|e| Error::from(e))?;
+                        debug!(
+                            "The lock script of WalletCell(outputs[{}]) is invalid: {:?} != {:?} => true",
+                            i, always_success_script, lock_script
+                        );
                         return Err(Error::WalletRequireAlwaysSuccess);
                     }
                 }
             } else if action == b"recycle_wallet" {
                 debug!("Route to recycle_wallet action ...");
 
-                debug!("Check if super lock has been used in inputs ...");
+                debug!("Check if wallet maker lock has been used in inputs ...");
 
-                // TODO Hardcode a lock to recycle WalletCells.
-                let super_lock = super_lock();
-                let has_super_lock =
-                    util::find_cells_by_script(ScriptType::Lock, &super_lock, Source::Input)?.len()
+                let expected_lock = wallet_maker_lock();
+                let has_expected_lock =
+                    util::find_cells_by_script(ScriptType::Lock, &expected_lock, Source::Input)?
+                        .len()
                         > 0;
-                if !has_super_lock {
-                    return Err(Error::SuperLockIsRequired);
+                if !has_expected_lock {
+                    return Err(Error::WalletRequireWalletMakerLock);
                 }
 
                 debug!("Check if any WalletCell still exists ...");
@@ -84,7 +91,7 @@ pub fn main() -> Result<(), Error> {
                     return Err(Error::WalletFoundInvalidTransaction);
                 }
             } else if action == b"withdraw_from_wallet" {
-                debug!("Route to recycle_wallet action ...");
+                debug!("Route to withdraw_from_wallet action ...");
 
                 parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
                 parser.parse_all_data()?;
@@ -104,10 +111,11 @@ pub fn main() -> Result<(), Error> {
                     (new_index, Source::Output),
                 )?;
 
-                let wallet_type = load_cell_type(old_index, Source::Input)
-                    .map_err(|err| Error::from(err))?
+                let wallet_cell_data = load_cell_type(old_index, Source::Input)
+                    .map_err(|e| Error::from(e))?
                     .unwrap();
-                let id_in_wallet = wallet_type.as_reader().args().raw_data();
+                let id_in_wallet = wallet_cell_data.as_reader().args().raw_data();
+                debug!("{:?}", id_in_wallet);
 
                 debug!("Check if OwnerCell and AccountCell exists ...");
 
@@ -154,10 +162,8 @@ pub fn main() -> Result<(), Error> {
                 debug!("Check if OwnerCell has permission to withdraw from WalletCell ...");
                 // User must have the owner permission to withdraw CKB from the WalletCell.
 
-                let ref_type = load_cell_type(old_ref_index, Source::Input)
-                    .map_err(|err| Error::from(err))?
-                    .unwrap();
-                let id_in_ref = ref_type.as_reader().args().raw_data();
+                let ref_data = util::load_cell_data(old_ref_index, Source::Input)?;
+                let id_in_ref = get_id(&ref_data);
                 let (_, _, entity) = parser.verify_and_get(old_account_index, Source::Input)?;
                 let account_cell_witness =
                     AccountCellData::from_slice(entity.as_reader().raw_data())
