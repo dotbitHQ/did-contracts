@@ -4,10 +4,10 @@ use ckb_std::{
     debug,
     high_level::{load_cell_lock, load_cell_lock_hash, load_cell_type, load_script},
 };
-use das_core::ref_cell_parser::get_id;
 use das_core::{
-    constants::{wallet_maker_lock, ScriptType, ALWAYS_SUCCESS_LOCK},
+    constants::{wallet_maker_lock, ScriptType, TypeScript, ALWAYS_SUCCESS_LOCK},
     error::Error,
+    ref_cell_parser::get_id,
     util,
     witness_parser::WitnessesParser,
 };
@@ -190,6 +190,14 @@ pub fn main() -> Result<(), Error> {
                 if expected_lock.as_slice() != lock.as_slice() {
                     return Err(Error::WalletPermissionInvalid);
                 }
+            } else if action == b"recycle_expired_account_by_keeper" {
+                debug!("Route to recycle_expired_account_by_keeper action ...");
+                util::require_type_script(
+                    &mut parser,
+                    TypeScript::AccountCellType,
+                    Source::Input,
+                    Error::AccountCellFoundInvalidTransaction,
+                )?;
             } else {
                 debug!("Route to other action ...");
 

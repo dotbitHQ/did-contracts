@@ -286,22 +286,22 @@ impl WitnessesParser {
     }
 
     fn parse_entity(
-        entity: DataEntity,
+        data_entity: DataEntity,
         entity_type: u32,
     ) -> Result<(u32, u32, u32, Vec<u8>, Bytes), Error> {
-        let index = u32::from(entity.index());
-        let version = u32::from(entity.version());
-        let data = entity.entity();
+        let index = u32::from(data_entity.index());
+        let version = u32::from(data_entity.version());
+        let entity = data_entity.entity();
 
-        let entity_data = data
+        let unwraped_entity = entity
             .as_slice()
             .get(4..)
             .ok_or(Error::WitnessEntityMissing)?;
-        let hash = blake2b_256(entity_data).to_vec();
+        let hash = blake2b_256(unwraped_entity).to_vec();
 
         // debug!(
         //     "entity: index = {} hash = {:?} entity = {:?}",
-        //     index, hash, data
+        //     index, hash, unwraped_entity
         // );
 
         Ok((
@@ -309,7 +309,7 @@ impl WitnessesParser {
             version,
             entity_type,
             hash,
-            Bytes::new_unchecked(data.as_bytes()),
+            Bytes::new_unchecked(entity.as_bytes()),
         ))
     }
 

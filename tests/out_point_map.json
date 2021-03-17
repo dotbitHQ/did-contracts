@@ -146,6 +146,6 @@
   {
     "cell_type": "built_in_normal",
     "type_id": "0x5f6a4cc2cd6369dbcf38ddfbc4323cf4695c2e8c20aed572b5db6adc2faf9d50",
-    "value": "TimeCell"
+    "value": "HeightCell"
   }
 ]

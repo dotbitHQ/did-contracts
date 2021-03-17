@@ -2,16 +2,17 @@ use alloc::vec::Vec;
 use ckb_std::{
     ckb_constants::Source,
     ckb_types::prelude::*,
-    debug,
+    debug, high_level,
     high_level::{
         load_cell_capacity, load_cell_data, load_cell_lock, load_cell_lock_hash, load_script,
     },
 };
 use core::convert::TryInto;
-use das_core::account_cell_parser::get_expired_at;
-use das_core::constants::oracle_lock;
 use das_core::{
-    constants::{super_lock, ScriptType, TypeScript, ALWAYS_SUCCESS_LOCK},
+    account_cell_parser::{get_expired_at, get_id},
+    constants::{
+        oracle_lock, super_lock, ScriptType, TypeScript, ALWAYS_SUCCESS_LOCK, DAS_WALLET_ID,
+    },
     error::Error,
     util,
     witness_parser::WitnessesParser,
@@ -362,16 +363,132 @@ pub fn main() -> Result<(), Error> {
             (new_wallet_capacity - old_wallet_capacity) * 86400 * 365 / renew_price;
         if duration > expected_duration {
             debug!("Verify is user payed enough capacity: {}[duration] > ({}[after_ckb] - {}[before_ckb]) * 86400 * 365 / {}[renew_price] -> true",
-                duration,
-                new_wallet_capacity,
-                old_wallet_capacity,
-                renew_price
+                   duration,
+                   new_wallet_capacity,
+                   old_wallet_capacity,
+                   renew_price
             );
 
             return Err(Error::AccountCellRenewDurationBiggerThanPaied);
         }
 
         // The AccountCell can be used as long as it is not modified.
+    } else if action == b"recycle_expired_account_by_keeper" {
+        debug!("Route to recycle_expired_account_by_keeper action ...");
+
+        let timestamp = util::load_timestamp()?;
+
+        parser.parse_all_data()?;
+        parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
+
+        let config_main = parser.configs().main()?;
+
+        // The AccountCell should be recycled in the transaction.
+        let (old_account_cells, new_account_cells) = load_account_cells()?;
+        if old_account_cells.len() != 1 || new_account_cells.len() != 0 {
+            return Err(Error::AccountCellFoundInvalidTransaction);
+        }
+
+        debug!("Check if account has reached the end off the expiration grace period.");
+
+        let expiration_grace_period =
+            u32::from(config_main.account_expiration_grace_period()) as u64;
+        let account_data = util::load_cell_data(old_account_cells[0], Source::Input)?;
+        let expired_at = get_expired_at(&account_data);
+        if expired_at + expiration_grace_period >= timestamp {
+            return Err(Error::AccountCellIsNotExpired);
+        }
+
+        let account_id = get_id(&account_data);
+
+        debug!("Check if the transaction has required WalletCells.");
+
+        let (old_wallet_cells, new_wallet_cells) = load_wallet_cells(config_main)?;
+
+        // There should be a WalletCell of the account and a WalletCell of DAS in inputs.
+        let mut account_wallet = None;
+        let mut old_das_wallet = None;
+        for index in old_wallet_cells {
+            let type_script = high_level::load_cell_type(index, Source::Input)
+                .map_err(|e| Error::from(e))?
+                .unwrap();
+            let id = type_script.as_reader().args().raw_data();
+            if id == account_id {
+                account_wallet = Some(index);
+            } else if id == &DAS_WALLET_ID {
+                old_das_wallet = Some(index);
+            } else {
+                return Err(Error::AccountCellFoundInvalidTransaction);
+            }
+        }
+
+        // The WalletCell of the account should be recycled either.
+        if new_wallet_cells.len() != 1 {
+            return Err(Error::AccountCellFoundInvalidTransaction);
+        }
+
+        let type_script = high_level::load_cell_type(new_wallet_cells[0], Source::Input)
+            .map_err(|e| Error::from(e))?
+            .unwrap();
+        let id = type_script.as_reader().args().raw_data();
+        if id == &DAS_WALLET_ID {
+            return Err(Error::AccountCellFoundInvalidTransaction);
+        }
+        let new_das_wallet = new_wallet_cells[0];
+
+        debug!("Check if the DAS WalletCell's balance has increased correctly.");
+
+        let account_wallet_occupied_capacity =
+            high_level::load_cell_occupied_capacity(account_wallet.unwrap(), Source::Input)
+                .map_err(|e| Error::from(e))?;
+        let old_capacity = high_level::load_cell_capacity(old_das_wallet.unwrap(), Source::Input)
+            .map_err(|e| Error::from(e))?;
+        let new_capacity = high_level::load_cell_capacity(new_das_wallet, Source::Output)
+            .map_err(|e| Error::from(e))?;
+        if new_capacity - old_capacity < account_wallet_occupied_capacity {
+            debug!(
+                "Compare recycle capacity: {}[new_capacity] - {}[old_capacity] < {}[account_wallet_occupied_capacity] => true",
+                new_capacity,
+                old_capacity,
+                account_wallet_occupied_capacity
+            );
+            return Err(Error::AccountCellRecycleCapacityError);
+        }
+
+        debug!("Check if the User's owner lock get correct change.");
+
+        let (_, _, entity) = parser.verify_and_get(old_account_cells[0], Source::Input)?;
+        let owner_lock = AccountCellData::from_slice(entity.as_reader().raw_data())
+            .map_err(|_| Error::WitnessEntityDecodingError)?
+            .owner_lock();
+        let cells =
+            util::find_cells_by_script(ScriptType::Lock, &owner_lock.into(), Source::Output)?;
+
+        if cells.len() != 1 {
+            return Err(Error::AccountCellFoundInvalidTransaction);
+        }
+
+        let account_cell_capacity =
+            high_level::load_cell_capacity(old_account_cells[0], Source::Input)
+                .map_err(|e| Error::from(e))?;
+        let account_wallet_capacity =
+            high_level::load_cell_capacity(account_wallet.unwrap(), Source::Input)
+                .map_err(|e| Error::from(e))?;
+        let expected_change =
+            account_cell_capacity + account_wallet_capacity - account_wallet_occupied_capacity;
+        let change_capacity =
+            high_level::load_cell_capacity(cells[0], Source::Output).map_err(|e| Error::from(e))?;
+
+        if expected_change > change_capacity {
+            debug!(
+                "Compare change capacity: {}[account_cell_capacity] + {}[account_wallet_capacity] - {}[account_wallet_occupied_capacity] > {}[change_capacity] => true",
+                account_cell_capacity,
+                account_wallet_capacity,
+                account_wallet_occupied_capacity,
+                change_capacity
+            );
+            return Err(Error::AccountCellChangeCapacityError);
+        }
     } else {
         debug!("Route to other action ...");
 

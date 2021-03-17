@@ -98,13 +98,16 @@ pub enum Error {
     AccountCellRefCellIsRequired,
     AccountCellOwnerCellIsRequired,
     AccountCellManagerCellIsRequired,
-    AccountCellUnrelatedRefCellFound, // 125
-    AccountCellRedundantRefCellNotAllowed,
+    AccountCellUnrelatedRefCellFound,
+    AccountCellRedundantRefCellNotAllowed, // -120
     AccountCellProtectFieldIsModified,
     AccountCellRenewDurationMustLongerThanYear,
     AccountCellRenewDurationBiggerThanPaied,
-    AccountCellInExpirationGracePeriod, // 130
-    AccountCellHasExpired,
+    AccountCellInExpirationGracePeriod,
+    AccountCellHasExpired, // -115
+    AccountCellIsNotExpired,
+    AccountCellRecycleCapacityError,
+    AccountCellChangeCapacityError,
 }
 
 impl From<SysError> for Error {
