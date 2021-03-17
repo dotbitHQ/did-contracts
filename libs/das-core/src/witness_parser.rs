@@ -128,7 +128,7 @@ impl WitnessesParser {
                 continue;
             }
 
-            let entity = Self::verify_hash_and_get_entity(witness, &mut config_entity_hashes)?;
+            let entity = Self::verify_hash_and_get_entity(_i, witness, &mut config_entity_hashes)?;
             debug!("    Found matched ConfigCell witness at: witnesses[{}]", _i);
             match data_type {
                 DataType::ConfigCellMain => {
@@ -168,16 +168,14 @@ impl WitnessesParser {
     }
 
     fn verify_hash_and_get_entity<'a>(
+        _i: usize,
         witness: &'a Vec<u8>,
         config_entity_hashes: &mut Vec<Vec<u8>>,
     ) -> Result<&'a [u8], Error> {
-        let raw = witness
-            .get(7..11)
-            .ok_or(Error::ConfigCellWitnessDecodingError)?;
-        let length = u32::from_le_bytes(raw.try_into().unwrap()) as usize;
+        debug!("Calculate and verify hash of witness[{}]", _i);
 
         let entity = witness
-            .get(7..(7 + length))
+            .get(7..)
             .ok_or(Error::ConfigCellWitnessDecodingError)?;
         let entity_hash = blake2b_256(entity).to_vec();
         let ret = config_entity_hashes

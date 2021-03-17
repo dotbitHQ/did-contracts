@@ -37,8 +37,8 @@ pub const ACCOUNT_ID_LENGTH: usize = 10;
 pub const ACCOUNT_SUFFIX: &str = ".bit";
 pub const ACCOUNT_MAX_PRICED_LENGTH: u8 = 8;
 
-pub const BLOOM_FILTER_M: u64 = 1438;
-pub const BLOOM_FILTER_K: u64 = 10;
+pub const BLOOM_FILTER_M: u64 = 1918;
+pub const BLOOM_FILTER_K: u64 = 14;
 
 pub const DAS_WALLET_ID: [u8; ACCOUNT_ID_LENGTH] = [183, 82, 104, 3, 246, 126, 190, 112, 171, 166];
 

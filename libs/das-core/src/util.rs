@@ -308,18 +308,61 @@ pub fn load_height() -> Result<u64, Error> {
     Ok(height)
 }
 
-// 1251831 cycles
 pub fn load_das_witnesses() -> Result<Vec<Vec<u8>>, Error> {
     let mut i = 0;
     let mut start_reading_das_witness = false;
     let mut witnesses = Vec::new();
+
+    fn trim_empty_bytes(buf: &mut [u8]) -> &[u8] {
+        let header = buf.get(..3);
+        let length = buf
+            .get(7..11)
+            .map(|bytes| u32::from_le_bytes(bytes.try_into().unwrap()) as usize);
+
+        if header.is_some() && header == Some(&WITNESS_HEADER) && length.is_some() {
+            debug!("Trim DAS witness with length: {}", 7 + length.unwrap());
+            buf.get(..(7 + length.unwrap())).unwrap()
+        } else {
+            buf
+        }
+    }
+
+    fn load_witness(buf: &mut [u8], i: usize) -> Result<Vec<u8>, Error> {
+        syscalls::load_witness(buf, 0, i, Source::Input).map_err(|e| Error::from(e))?;
+        Ok(trim_empty_bytes(buf).to_vec())
+    }
+
+    // The following logic is specifically optimized for reading large amounts of data, do not modify it except you know what you are doing.
     loop {
+        let mut buf = [0u8; 1000];
         let data;
-        let ret = load_data(|buf, offset| syscalls::load_witness(buf, offset, i, Source::Input));
+        let ret = syscalls::load_witness(&mut buf, 0, i, Source::Input);
         match ret {
-            Ok(_data) => {
+            Ok(_) => {
+                data = trim_empty_bytes(&mut buf).to_vec();
                 i += 1;
-                data = _data;
+            }
+            Err(SysError::LengthNotEnough(actual_size)) => {
+                debug!("Actual data size: {}", actual_size);
+                match actual_size {
+                    // Special handling of bloom filter witness data.
+                    x if x <= 4000 => {
+                        let mut buf = [0u8; 4000];
+                        data = load_witness(&mut buf, i)?;
+                    }
+                    x if x <= 8000 => {
+                        let mut buf = [0u8; 8000];
+                        data = load_witness(&mut buf, i)?;
+                    }
+                    x if x <= 16000 => {
+                        let mut buf = [0u8; 16000];
+                        data = load_witness(&mut buf, i)?;
+                    }
+                    _ => {
+                        return Err(Error::from(SysError::LengthNotEnough(actual_size)));
+                    }
+                }
+                i += 1;
             }
             Err(SysError::IndexOutOfBound) => break,
             Err(e) => return Err(Error::from(e)),
@@ -327,7 +370,7 @@ pub fn load_das_witnesses() -> Result<Vec<Vec<u8>>, Error> {
 
         // Check DAS header in witness until one witness with DAS header found.
         if !start_reading_das_witness {
-            if let Some(raw) = data.as_slice().get(..3) {
+            if let Some(raw) = data.get(..3) {
                 if raw != &WITNESS_HEADER {
                     continue;
                 } else {

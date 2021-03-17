@@ -38,17 +38,17 @@ fn gen_pre_register_test_data() {
 
     gen_cell_deps(&mut template, height, timestamp);
 
-    let account_chars = gen_account_chars("das00001".split("").collect());
+    let account = "das00001.bit";
     template.push_apply_register_cell(
         "0x9af92f5e690f4669ca543deb99af8385b12624cc",
-        &account_chars,
+        account,
         height - 4,
         100_000_000_000,
         Source::Input,
     );
 
     let (cell_data, entity) = template.gen_pre_account_cell_data(
-        &account_chars,
+        account,
         "0x0000000000000000000000000000000000002222",
         "0x000000000000000000000000000000000000FFFF",
         "inviter_01.bit",
@@ -93,17 +93,17 @@ fn gen_reserved_account_verification_test_data() {
 
     gen_cell_deps(&mut template, height, timestamp);
 
-    let account_chars = gen_account_chars("microsoft".split("").collect());
+    let account = "microsoft.bit";
     template.push_apply_register_cell(
         "0x9af92f5e690f4669ca543deb99af8385b12624cc",
-        &account_chars,
+        account,
         timestamp - 60,
         100_000_000_000,
         Source::Input,
     );
 
     let (cell_data, entity) = template.gen_pre_account_cell_data(
-        &account_chars,
+        account,
         "0x0000000000000000000000000000000000002222",
         "0x000000000000000000000000000000000000FFFF",
         "inviter_01.bit",
