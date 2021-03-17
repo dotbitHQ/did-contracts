@@ -3,7 +3,7 @@ use super::{
 };
 use blake2b_ref::{Blake2b, Blake2bBuilder};
 use ckb_std::{
-    ckb_constants::Source,
+    ckb_constants::{CellField, Source},
     ckb_types::{bytes, packed::*, prelude::*},
     error::SysError,
     high_level, syscalls,
@@ -63,7 +63,6 @@ pub fn source_to_str(source: Source) -> &'static str {
     }
 }
 
-// 68575 cycles
 pub fn script_literal_to_script(script: ScriptLiteral) -> Script {
     Script::new_builder()
         .code_hash(script.code_hash.pack())
@@ -84,33 +83,31 @@ pub fn find_cells_by_type_id(
     let mut i = 0;
     let mut cell_indexes = Vec::new();
     loop {
-        // TODO Need optimization, load_cell_type and load_cell_lock will cost lots of cycles.
+        let mut buf = [0u8; 1000];
         let ret = match script_type {
-            ScriptType::Lock => high_level::load_cell_lock(i, source),
-            _ => high_level::load_cell_type(i, source).map(|hash_opt| match hash_opt {
-                Some(hash) => hash,
-                None => Script::default(),
-            }),
+            ScriptType::Lock => {
+                syscalls::load_cell_by_field(&mut buf, 0, i, source, CellField::Lock)
+            }
+            ScriptType::Type => {
+                syscalls::load_cell_by_field(&mut buf, 0, i, source, CellField::Type)
+            }
         };
 
         if ret.is_err() {
+            if script_type == ScriptType::Type && ret == Err(SysError::ItemMissing) {
+                i += 1;
+                continue;
+            }
+
             match ret {
                 Err(SysError::IndexOutOfBound) => break,
                 _ => return Err(Error::from(ret.unwrap_err())),
             }
         } else {
-            let script = ret.unwrap();
-            // debug!(
-            //     "{} {}: {:x?} == {:x?}",
-            //     i,
-            //     is_entity_eq(&script.code_hash(), &type_id.to_entity().into()),
-            //     script.code_hash(),
-            //     type_id.to_entity()
-            // );
-            if is_entity_eq(&script.code_hash(), &type_id.to_entity().into()) {
+            let cell_code_hash = buf.get(16..(16 + 32)).unwrap();
+            if cell_code_hash == type_id.raw_data() {
                 cell_indexes.push(i);
             }
-
             i += 1;
         }
     }
@@ -131,7 +128,6 @@ pub fn find_only_cell_by_type_id(
     Ok(cells[0])
 }
 
-// 229893 cycles
 pub fn find_cells_by_script(
     script_type: ScriptType,
     script: &Script,
@@ -156,17 +152,9 @@ pub fn find_cells_by_script(
             }
         } else {
             let hash = ret.unwrap();
-            // debug!(
-            //     "{} {}: {:x?} == {:x?}",
-            //     i,
-            //     hash == expected_hash,
-            //     hash,
-            //     expected_hash
-            // );
             if hash == expected_hash {
                 cell_indexes.push(i);
             }
-
             i += 1;
         }
     }
