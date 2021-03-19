@@ -1,0 +1,151 @@
+[
+  {
+    "cell_type": "contract",
+    "out_point": {
+      "tx_hash": "0x7c60922ca7ff80d7d8f9f31fbb2ce25e7748ea47d8c4bcb73978375d2b9ea981",
+      "index": "0x0"
+    },
+    "value": "apply-register-cell-type"
+  },
+  {
+    "cell_type": "contract",
+    "out_point": {
+      "tx_hash": "0xe704f1ccad18d33c843fe02930c6598e9c4c22c6345ed2211cc2b04a4d8bfefb",
+      "index": "0x0"
+    },
+    "value": "pre-account-cell-type"
+  },
+  {
+    "cell_type": "contract",
+    "out_point": {
+      "tx_hash": "0x86610ae8e8185ee5efe1e7dba785984cbfe0d431855803ec3c8f9589b051f98f",
+      "index": "0x0"
+    },
+    "value": "account-cell-type"
+  },
+  {
+    "cell_type": "contract",
+    "out_point": {
+      "tx_hash": "0x7044220f6b9de6473473f0c548dc30a04564792192970786d6cc6d9b8ab742dd",
+      "index": "0x0"
+    },
+    "value": "proposal-cell-type"
+  },
+  {
+    "cell_type": "contract",
+    "out_point": {
+      "tx_hash": "0x1cbacf9b9221600d30793297e41566fcc09fc362fade48d19558535a5bf5b276",
+      "index": "0x0"
+    },
+    "value": "ref-cell-type"
+  },
+  {
+    "cell_type": "contract",
+    "out_point": {
+      "tx_hash": "0x88d1d4a5169860afbfba54965595898866133e117da54d300b74c03c7b2d839f",
+      "index": "0x0"
+    },
+    "value": "wallet-cell-type"
+  },
+  {
+    "cell_type": "contract",
+    "out_point": {
+      "tx_hash": "0x88462008b19c9ac86fb9fef7150c4f6ef7305d457d6b200c8852852012923bf1",
+      "index": "0x0"
+    },
+    "value": "always-success"
+  },
+  {
+    "cell_type": "contract",
+    "out_point": {
+      "tx_hash": "0xe940acf7dae23bd133d5ab2a1dd82fbea09c21bf11e152246be9a8c8d174da6b",
+      "index": "0x0"
+    },
+    "value": "config-cell-type"
+  },
+  {
+    "cell_type": "normal",
+    "out_point": {
+      "tx_hash": "0xa3aef535a27efc4af9345750f974c708e3bfbca9b2bfdf00f84a3f26d76120f7",
+      "index": "0x0"
+    },
+    "value": "AccountCell-Root"
+  },
+  {
+    "cell_type": "normal",
+    "out_point": {
+      "tx_hash": "0x3437505d50d56f0aa5399c45486d0303c3764f8f844bffd1504894618891e742",
+      "index": "0x0"
+    },
+    "value": "WalletCell-DAS"
+  },
+  {
+    "cell_type": "normal",
+    "type_id": "0x489ff2195ed41aac9a9265c653d8ca57c825b22db765b9e08d537572ff2cbc1b",
+    "value": "ConfigCell"
+  },
+  {
+    "cell_type": "normal",
+    "type_id": "0x274775e475c1252b5333c20e1512b7b1296c4c5b52a25aa2ebd6e41f5894c41f",
+    "value": "AccountCell"
+  },
+  {
+    "cell_type": "normal",
+    "type_id": "0x9878b226df9465c215fd3c94dc9f9bf6648d5bea48a24579cf83274fe13801d2",
+    "value": "WalletCell"
+  },
+  {
+    "cell_type": "normal",
+    "type_id": "0xa2c3a2b18da897bd24391a921956e45d245b46169d6acc9a0663316d15b51cb1",
+    "value": "ApplyRegisterCell"
+  },
+  {
+    "cell_type": "normal",
+    "type_id": "0x92d6a9525b9a054222982ab4740be6fe4281e65fff52ab252e7daf9306e12e3f",
+    "value": "PreAccountCell"
+  },
+  {
+    "cell_type": "normal",
+    "type_id": "0x4154b5f9114b8d2dd8323eead5d5e71d0959a2dc73f0672e829ae4dabffdb2d8",
+    "value": "ProposalCell"
+  },
+  {
+    "cell_type": "normal",
+    "type_id": "0xe79953f024552e6130220a03d2497dc7c2f784f4297c69ba21d0c423915350e5",
+    "value": "RefCell"
+  },
+  {
+    "cell_type": "built_in_normal",
+    "out_point": {
+      "tx_hash": "0xf8de3bb47d055cdf460d93a2a6e1b05f7432f9777c8c474abf4eec1d4aee5d37",
+      "index": "0x0"
+    },
+    "value": "sighash_all_group"
+  },
+  {
+    "cell_type": "built_in_contract",
+    "out_point": {
+      "tx_hash": "0x8f8c79eb6671709633fe6a46de93c0fedc9c1b8a6527a18d3983879542635c9f",
+      "index": "0x1"
+    },
+    "value": "secp256k1_blake160_sighash_all"
+  },
+  {
+    "cell_type": "built_in_contract",
+    "out_point": {
+      "tx_hash": "0x8f8c79eb6671709633fe6a46de93c0fedc9c1b8a6527a18d3983879542635c9f",
+      "index": "0x3"
+    },
+    "value": "secp256k1_data"
+  },
+  {
+    "cell_type": "built_in_normal",
+    "type_id": "0xe4fd6f46ab1fd3d5b377df9e2d4ea77e3b52f53ac3319595bb38d097ea051cfd",
+    "value": "TimeCell"
+  },
+  {
+    "cell_type": "built_in_normal",
+    "type_id": "0x5f6a4cc2cd6369dbcf38ddfbc4323cf4695c2e8c20aed572b5db6adc2faf9d50",
+    "value": "HeightCell"
+  }
+]

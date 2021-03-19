@@ -1,53 +1,35 @@
+use alloc::vec;
 use ckb_std::{ckb_constants::Source, debug, high_level::load_script};
-use das_core::{constants::ScriptType, error::Error, util, witness_parser::WitnessesParser};
-use das_types::constants::ConfigID;
+use das_core::{
+    constants::{ScriptType, TypeScript},
+    error::Error,
+    util,
+};
+use das_types::constants::DataType;
 
 pub fn main() -> Result<(), Error> {
     debug!("====== Running ref-cell-type ======");
 
-    // Loading and parsing DAS witnesses.
-    let witnesses = util::load_das_witnesses()?;
-    let mut parser = WitnessesParser::new(witnesses)?;
-    parser.parse_only_action()?;
-    let (action, _) = parser.action();
-
+    let action_data = util::load_das_action()?;
+    let action = action_data.as_reader().action().raw_data();
     if action == b"confirm_proposal" {
         debug!("Route to confirm_proposal action ...");
-
-        parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
-        let config = parser.configs().main()?;
-
-        debug!("The following logic depends on proposal-cell-type.");
-
-        // Find out ProposalCells in current transaction.
-        let proposal_cells = util::find_cells_by_type_id(
-            ScriptType::Type,
-            config.type_id_table().proposal_cell(),
+        let mut parser = util::load_das_witnesses(Some(vec![DataType::ConfigCellMain]))?;
+        util::require_type_script(
+            &mut parser,
+            TypeScript::ProposalCellType,
             Source::Input,
+            Error::ProposalFoundInvalidTransaction,
         )?;
-        // There must be a ProposalCell consumed in the transaction.
-        if proposal_cells.len() != 1 {
-            return Err(Error::ProposalFoundInvalidTransaction);
-        }
     } else if action == b"transfer_account" || action == b"edit_manager" {
         debug!("Route to transfer_account/edit_manager action ...");
-
-        parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
-        let config = parser.configs().main()?;
-
-        debug!("The following logic depends on account-cell-type.");
-
-        // Find out AccountCells in current transaction.
-        let account_cells = util::find_cells_by_type_id(
-            ScriptType::Type,
-            config.type_id_table().account_cell(),
+        let mut parser = util::load_das_witnesses(Some(vec![DataType::ConfigCellMain]))?;
+        util::require_type_script(
+            &mut parser,
+            TypeScript::AccountCellType,
             Source::Input,
+            Error::AccountCellFoundInvalidTransaction,
         )?;
-        // There must be a AccountCell consumed in the transaction.
-        if account_cells.len() != 1 {
-            return Err(Error::AccountCellFoundInvalidTransaction);
-        }
-
     // The RefCell can be used as long as it is not modified.
     } else {
         debug!("Route to other action ...");

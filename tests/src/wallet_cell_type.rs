@@ -10,9 +10,9 @@ fn gen_wallet_create_test_data() {
     let mut template = TemplateGenerator::new("create_wallet", None);
 
     let source = Source::Output;
-    template.push_wallet_cell("das00001.bit", 94, source);
-    template.push_wallet_cell("das00002.bit", 94, source);
-    template.push_wallet_cell("das00003.bit", 94, source);
+    template.push_wallet_cell("das00001.bit", 9_400_000_000, source);
+    template.push_wallet_cell("das00002.bit", 9_400_000_000, source);
+    template.push_wallet_cell("das00003.bit", 9_400_000_000, source);
 
     template.pretty_print();
 }
@@ -53,24 +53,21 @@ fn gen_wallet_withdraw_test_data() {
     template.push_ref_cell(
         "0x0000000000000000000000000000000000001111",
         account,
-        19_400_000_000,
+        true,
+        10_500_000_000,
         Source::Input,
     );
     template.push_ref_cell(
         "0x0000000000000000000000000000000000001111",
         account,
-        19_400_000_000,
+        true,
+        10_500_000_000,
         Source::Output,
     );
 
     // Generate AccountCells ...
-    let splited_account = account[..&account.len() - 4]
-        .split("")
-        .filter(|item| !item.is_empty())
-        .collect::<Vec<&str>>();
-    let account_chars = gen_account_chars(splited_account);
     let (cell_data, entity) = template.gen_account_cell_data(
-        &account_chars,
+        account,
         "0x0000000000000000000000000000000000001111",
         "0x0000000000000000000000000000000000001111",
         bytes::Bytes::from(account_to_id_bytes("das00014.bit")),
@@ -78,8 +75,8 @@ fn gen_wallet_withdraw_test_data() {
         1611200000u64 + 31536000,
         None,
     );
-    template.push_account_cell(cell_data.clone(), None, 19_400_000_000, Source::Input);
-    template.push_account_cell(cell_data.clone(), None, 19_400_000_000, Source::Output);
+    template.push_account_cell(cell_data.clone(), None, 15_800_000_000, Source::Input);
+    template.push_account_cell(cell_data.clone(), None, 15_800_000_000, Source::Output);
     template.push_witness(
         DataType::AccountCellData,
         Some((1, 1, entity.clone())),
@@ -88,13 +85,13 @@ fn gen_wallet_withdraw_test_data() {
     );
 
     // Generate WalletCells ...
-    template.push_wallet_cell(account, 10094, Source::Input);
-    template.push_wallet_cell(account, 5094, Source::Output);
+    template.push_wallet_cell(account, 1_009_400_000_000, Source::Input);
+    template.push_wallet_cell(account, 509_400_000_000, Source::Output);
 
     template.pretty_print();
 }
 
-// #[test]
+#[test]
 fn test_wallet_withdraw() {
     let mut context;
     let mut parser;
@@ -117,10 +114,10 @@ fn gen_wallet_recycle_test_data() {
 
     let mut template = TemplateGenerator::new("recycle_wallet", None);
 
-    let source = Source::Output;
-    template.push_wallet_cell("das00001.bit", 94, source);
-    template.push_wallet_cell("das00002.bit", 94, source);
-    template.push_wallet_cell("das00003.bit", 94, source);
+    let source = Source::Input;
+    template.push_wallet_cell("das00001.bit", 9_400_000_000, source);
+    template.push_wallet_cell("das00002.bit", 9_400_000_000, source);
+    template.push_wallet_cell("das00003.bit", 9_400_000_000, source);
 
     template.pretty_print();
 }

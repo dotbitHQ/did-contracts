@@ -21,11 +21,6 @@ use das_wallet::Wallet;
 pub fn main() -> Result<(), Error> {
     debug!("====== Running proposal-cell-type ======");
 
-    // Loading and parsing DAS witnesses.
-    let witnesses = util::load_das_witnesses()?;
-    let mut parser = WitnessesParser::new(witnesses)?;
-    parser.parse_only_action()?;
-
     debug!("Find out ProposalCell ...");
 
     // Find out PreAccountCells in current transaction.
@@ -36,11 +31,12 @@ pub fn main() -> Result<(), Error> {
     let dep_cells =
         util::find_cells_by_script(ScriptType::Type, &this_type_script, Source::CellDep)?;
 
-    // Routing by ActionData in witness.
-    let (action, _) = parser.action();
+    let action_data = util::load_das_action()?;
+    let action = action_data.as_reader().action().raw_data();
     if action == b"propose" {
         debug!("Route to propose action ...");
 
+        let mut parser = util::load_das_witnesses(None)?;
         parser.parse_all_data()?;
         parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
         let config = parser.configs().main()?;
@@ -67,6 +63,7 @@ pub fn main() -> Result<(), Error> {
     } else if action == b"extend_proposal" {
         debug!("Route to extend_proposal action ...");
 
+        let mut parser = util::load_das_witnesses(None)?;
         parser.parse_all_data()?;
         parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
         let config = parser.configs().main()?;
@@ -101,7 +98,9 @@ pub fn main() -> Result<(), Error> {
         debug!("Route to confirm_proposal action ...");
 
         let timestamp = util::load_timestamp()?;
+        // let height = util::load_height()?;
 
+        let mut parser = util::load_das_witnesses(None)?;
         parser.parse_all_data()?;
         parser.parse_only_config(&[ConfigID::ConfigCellMain, ConfigID::ConfigCellRegister])?;
         let config_main = parser.configs().main()?;
@@ -138,6 +137,7 @@ pub fn main() -> Result<(), Error> {
 
         let height = util::load_height()?;
 
+        let mut parser = util::load_das_witnesses(None)?;
         parser.parse_all_data()?;
         parser.parse_only_config(&[ConfigID::ConfigCellRegister])?;
         let config_register = parser.configs().register()?;
@@ -186,23 +186,21 @@ pub fn main() -> Result<(), Error> {
 fn verify_slices(slices_reader: SliceListReader) -> Result<(), Error> {
     debug!("Check the data structure of proposal slices.");
 
+    let mut required_cells_count: usize = 0;
     for (sl_index, sl_reader) in slices_reader.iter().enumerate() {
-        debug!("Check slice {} ...", sl_index);
+        debug!("Check Slice[{}] ...", sl_index);
         let mut account_id_list = Vec::new();
         for (index, item) in sl_reader.iter().enumerate() {
             // Check the continuity of the items in the slice.
             if let Some(next) = sl_reader.get(index + 1) {
-                debug!(
-                    "  Compare slice continuity: {} -> {}",
-                    item.account_id(),
-                    next.account_id()
-                );
+                debug!("  Check Item[{}]", index);
                 if !util::is_reader_eq(item.next(), next.account_id()) {
                     return Err(Error::ProposalSliceIsDiscontinuity);
                 }
             }
 
-            account_id_list.push(bytes::Bytes::from(item.account_id().raw_data()))
+            account_id_list.push(bytes::Bytes::from(item.account_id().raw_data()));
+            required_cells_count += 1;
         }
 
         // Check the order of items in the slice.
@@ -212,7 +210,7 @@ fn verify_slices(slices_reader: SliceListReader) -> Result<(), Error> {
         }
     }
 
-    Ok(())
+    Ok(required_cells_count)
 }
 
 fn find_proposal_related_cells(
@@ -302,7 +300,7 @@ fn verify_slices_relevant_cells(
     for (sl_index, sl_reader) in slices_reader.iter().enumerate() {
         debug!("Check slice {} ...", sl_index);
         let mut next_of_first_cell = AccountId::default();
-        for (index, item) in sl_reader.iter().enumerate() {
+        for (item_index, item) in sl_reader.iter().enumerate() {
             let item_account_id = item.account_id();
             let item_type = u8::from(item.item_type());
 
@@ -313,16 +311,22 @@ fn verify_slices_relevant_cells(
             } else {
                 config.type_id_table().pre_account_cell()
             };
-            verify_cell_type_id(cell_index, Source::CellDep, &expected_type_id)?;
+            verify_cell_type_id(item_index, cell_index, Source::CellDep, &expected_type_id)?;
 
             // Check if the relevant cells have the same account ID.
             let cell_data =
                 load_cell_data(cell_index, Source::CellDep).map_err(|e| Error::from(e))?;
-            verify_cell_account_id(&cell_data, cell_index, Source::CellDep, item_account_id)?;
+            verify_cell_account_id(
+                item_index,
+                &cell_data,
+                cell_index,
+                Source::CellDep,
+                item_account_id,
+            )?;
 
             // ⚠️ The first item is very very important, its "next" must be correct so that
             // AccountCells can form a linked list.
-            if index == 0 {
+            if item_index == 0 {
                 // If this is the first proposal in proposal chain, all slice must start with an AccountCell.
                 if prev_slices_reader_opt.is_none() {
                     if item_type != ProposalSliceItemType::Exist as u8 {
@@ -412,7 +416,7 @@ fn verify_proposal_execution_result(
 
     let mut i = 0;
     for (sl_index, sl_reader) in slices_reader.iter().enumerate() {
-        debug!("Check slice {} ...", sl_index);
+        debug!("Check Slice[{}] ...", sl_index);
         for (item_index, item) in sl_reader.iter().enumerate() {
             let item_account_id = item.account_id();
             let item_type = u8::from(item.item_type());
@@ -420,33 +424,43 @@ fn verify_proposal_execution_result(
 
             let old_cell_data =
                 load_cell_data(old_related_cells[i], Source::Input).map_err(|e| Error::from(e))?;
-            let (_, _, old_entity) =
-                util::get_cell_witness(&parser, old_related_cells[i], Source::Input)?;
+            let (_, _, old_entity) = parser.verify_and_get(old_related_cells[i], Source::Input)?;
             let new_cell_data =
                 load_cell_data(new_account_cells[i], Source::Output).map_err(|e| Error::from(e))?;
-            let (_, _, new_entity) =
-                util::get_cell_witness(&parser, new_account_cells[i], Source::Output)?;
+            let (_, _, new_entity) = parser.verify_and_get(new_account_cells[i], Source::Output)?;
 
             if item_type == ProposalSliceItemType::Exist as u8
                 || item_type == ProposalSliceItemType::Proposed as u8
             {
                 debug!(
-                    "  [{}] Check that the existing AccountCell({}) is updated correctly.",
+                    "  Item[{}] Check that the existing AccountCell({}) is updated correctly.",
                     item_index, old_related_cells[i]
                 );
 
                 // All cells' type is must be account-cell-type
-                verify_cell_type_id(old_related_cells[i], Source::Input, &account_cell_type_id)?;
-                verify_cell_type_id(new_account_cells[i], Source::Output, &account_cell_type_id)?;
+                verify_cell_type_id(
+                    item_index,
+                    old_related_cells[i],
+                    Source::Input,
+                    &account_cell_type_id,
+                )?;
+                verify_cell_type_id(
+                    item_index,
+                    new_account_cells[i],
+                    Source::Output,
+                    &account_cell_type_id,
+                )?;
 
                 // All cells' account_id in data must be the same as the account_id in proposal.
                 verify_cell_account_id(
+                    item_index,
                     &old_cell_data,
                     old_related_cells[i],
                     Source::Input,
                     item_account_id,
                 )?;
                 verify_cell_account_id(
+                    item_index,
                     &new_cell_data,
                     new_account_cells[i],
                     Source::Output,
@@ -478,20 +492,28 @@ fn verify_proposal_execution_result(
 
                 // All cells' type is must be account-cell-type
                 verify_cell_type_id(
+                    item_index,
                     old_related_cells[i],
                     Source::Input,
                     &pre_account_cell_type_id,
                 )?;
-                verify_cell_type_id(new_account_cells[i], Source::Output, &account_cell_type_id)?;
+                verify_cell_type_id(
+                    item_index,
+                    new_account_cells[i],
+                    Source::Output,
+                    &account_cell_type_id,
+                )?;
 
                 // All cells' account_id in data must be the same as the account_id in proposal.
                 verify_cell_account_id(
+                    item_index,
                     &old_cell_data,
                     old_related_cells[i],
                     Source::Input,
                     item_account_id,
                 )?;
                 verify_cell_account_id(
+                    item_index,
                     &new_cell_data,
                     new_account_cells[i],
                     Source::Output,
@@ -504,8 +526,13 @@ fn verify_proposal_execution_result(
                 let new_cell_witness =
                     AccountCellData::new_unchecked(new_entity.as_reader().raw_data().into());
                 let new_cell_witness_reader = new_cell_witness.as_reader();
-                let income = load_cell_capacity(old_related_cells[i], Source::Input)
+
+                let account_length = get_account(&new_cell_data).len() as u64;
+                let total_capacity = load_cell_capacity(old_related_cells[i], Source::Input)
                     .map_err(|e| Error::from(e))?;
+                let storage_capacity = util::get_account_storage_total(account_length);
+                // Allocate the profits carried by PreAccountCell to the wallets for later verification.
+                let profit = total_capacity - storage_capacity;
 
                 // Check all fields in the data of new AccountCell.
                 is_id_correct(item_index, &new_cell_data, &old_cell_data)?;
@@ -513,7 +540,7 @@ fn verify_proposal_execution_result(
                 is_next_correct(item_index, &new_cell_data, item_next)?;
                 is_expired_at_correct(
                     item_index,
-                    income,
+                    profit,
                     timestamp,
                     &new_cell_data,
                     old_cell_witness_reader,
@@ -526,16 +553,7 @@ fn verify_proposal_execution_result(
                 verify_witness_status(item_index, new_cell_witness_reader)?;
                 verify_witness_records(item_index, new_cell_witness_reader)?;
 
-                // Allocate the profits carried by PreAccountCell to the wallets for later verification.
-                let account_capacity = ((new_cell_witness_reader.account().as_readable().len() + 4)
-                    * 100_000_000) as u64;
-                let total_capacity = load_cell_capacity(old_related_cells[i], Source::Input)
-                    .map_err(|e| Error::from(e))?;
-                let profit = total_capacity
-                    - ACCOUNT_CELL_BASIC_CAPACITY
-                    - REF_CELL_BASIC_CAPACITY
-                    - account_capacity;
-                // Only if inviter_wallet has 20 bytes, we will treat it as account ID and count profit.
+                // Only when inviter_wallet's length is equal to account ID it will be count in profit.
                 let mut inviter_profit = 0;
                 if old_cell_witness_reader.inviter_wallet().len() == ACCOUNT_ID_LENGTH {
                     inviter_profit = profit * inviter_profit_rate / RATE_BASE;
@@ -567,6 +585,8 @@ fn verify_proposal_execution_result(
                     item_index, das_profit, profit, inviter_profit, channel_profit
                 );
                 wallet.add_balance(&DAS_WALLET_ID, das_profit);
+
+                // TODO Verify RefCell is correct
             }
 
             i += 1;
@@ -638,6 +658,7 @@ fn verify_proposal_execution_result(
 }
 
 fn verify_cell_type_id(
+    item_index: usize,
     cell_index: usize,
     source: Source,
     expected_type_id: &HashReader,
@@ -649,9 +670,10 @@ fn verify_cell_type_id(
 
     if !util::is_reader_eq(expected_type_id.to_owned(), cell_type_id.as_reader()) {
         debug!(
-            "  [{}] Verify type script at {}: {} != {} => {}",
+            "  Item[{}] Verify type script at {:?}[{}]: {} != {} => {}",
+            item_index,
+            source,
             cell_index,
-            util::source_to_str(source),
             cell_type_id,
             expected_type_id,
             !util::is_reader_eq(expected_type_id.to_owned(), cell_type_id.as_reader())
@@ -663,6 +685,7 @@ fn verify_cell_type_id(
 }
 
 fn verify_cell_account_id(
+    item_index: usize,
     cell_data: &Vec<u8>,
     cell_index: usize,
     source: Source,
@@ -672,9 +695,10 @@ fn verify_cell_account_id(
 
     if !util::is_reader_eq(account_id.as_reader(), expected_account_id) {
         debug!(
-            "  [{}] Verify account_id at {}: {} != {} => {}",
+            "  Item[{}] Verify account_id at {:?}[{}]: {} != {} => {}",
+            item_index,
+            source,
             cell_index,
-            util::source_to_str(source),
             account_id,
             expected_account_id,
             !util::is_reader_eq(account_id.as_reader(), expected_account_id)
@@ -694,7 +718,7 @@ fn is_bytes_eq(
 ) -> Result<(), Error> {
     if current_bytes != expected_bytes {
         debug!(
-            "  [{}] Check outputs[].AccountCell.{}: {:x?} != {:x?} => {}",
+            "  Item[{}] Check outputs[].AccountCell.{}: {:x?} != {:x?} => {}",
             item_index,
             field,
             current_bytes,
@@ -745,7 +769,7 @@ fn is_expired_at_same(
 
     if old_expired_at != new_expired_at {
         debug!(
-            "  [{}] Check outputs[].AccountCell.expired_at: {:x?} != {:x?} => true",
+            "  Item[{}] Check outputs[].AccountCell.expired_at: {:x?} != {:x?} => true",
             item_index, old_expired_at, new_expired_at
         );
         return Err(Error::ProposalFieldCanNotBeModified);
@@ -786,21 +810,27 @@ fn is_next_correct(
 
 fn is_expired_at_correct(
     item_index: usize,
-    income: u64,
+    profit: u64,
     current_timestamp: u64,
     new_cell_data: &Vec<u8>,
     pre_account_cell_witness: PreAccountCellDataReader,
 ) -> Result<(), Error> {
-    let account_size = get_account(new_cell_data).len() as u64;
-    let cell_storage = ACCOUNT_CELL_BASIC_CAPACITY + (account_size * 100_000_000);
     let price = u64::from(pre_account_cell_witness.price().new());
     let quote = u64::from(pre_account_cell_witness.quote());
-    let duration = (income - cell_storage) * 365 * 86400 / (price / quote * 100_000_000);
+    let duration = profit * 365 * 86400 / (price / quote * 100_000_000);
     let expired_at = get_expired_at(new_cell_data);
 
     if current_timestamp + duration != expired_at {
         debug!(
-            "  [{}] Check if outputs[].AccountCell.expired_at: current({}) + duration({}) != expired_at({})",
+            "  Item[{}] duration({}) = profit({}) * 365 * 86400 / (price({}) / quote({}) * 100_000_000)",
+            item_index,
+            duration,
+            profit,
+            price,
+            quote
+        );
+        debug!(
+            "  Item[{}] Check if outputs[].AccountCell.expired_at: current({}) + duration({}) != expired_at({})",
             item_index,
             current_timestamp,
             duration,
@@ -874,7 +904,7 @@ fn verify_witness_locks(
 
     if !util::is_reader_eq(owner_lock, expected_lock) {
         debug!(
-            "  [{}] Check outputs[].AccountCell.owner: {:x?} != {:x?} => {}",
+            "  Item[{}] Check outputs[].AccountCell.owner: {:x?} != {:x?} => {}",
             item_index,
             owner_lock,
             expected_lock,
@@ -885,7 +915,7 @@ fn verify_witness_locks(
 
     if !util::is_reader_eq(manager_lock, expected_lock) {
         debug!(
-            "  [{}] Check outputs[].AccountCell.owner: {:x?} != {:x?} => {}",
+            "  Item[{}] Check outputs[].AccountCell.owner: {:x?} != {:x?} => {}",
             item_index,
             manager_lock,
             expected_lock,
@@ -905,7 +935,7 @@ fn verify_witness_status(
 
     if status != AccountStatus::Normal as u8 {
         debug!(
-            "  [{}] Check if outputs[].AccountCell.status is normal. (Result: {}, expected: 0)",
+            "  Item[{}] Check if outputs[].AccountCell.status is normal. (Result: {}, expected: 0)",
             item_index, status
         );
         return Err(Error::ProposalConfirmWitnessManagerError);
@@ -922,7 +952,7 @@ fn verify_witness_records(
 
     if !records.is_empty() {
         debug!(
-            "  [{}] Check if outputs[].AccountCell.records is empty. (Result: {}, expected: true)",
+            "  Item[{}] Check if outputs[].AccountCell.records is empty. (Result: {}, expected: true)",
             item_index,
             records.is_empty()
         );

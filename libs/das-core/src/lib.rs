@@ -7,6 +7,7 @@ pub mod account_cell_parser;
 pub mod constants;
 pub mod error;
 pub mod macros;
+pub mod ref_cell_parser;
 pub mod types;
 pub mod util;
 pub mod witness_parser;

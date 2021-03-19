@@ -7,18 +7,6 @@
     {
       "tmp_type": "contract",
       "tmp_file_name": "wallet-cell-type"
-    },
-    {
-      "tmp_type": "full",
-      "capacity": 1000,
-      "lock": {
-        "code_hash": "{{always_success}}",
-        "args": "0x0000000000000000000000000000000000000000"
-      },
-      "type": {
-        "code_hash": "{{config-cell-type}}"
-      },
-      "tmp_data": "0x0e6cc65dd4e3d5df0f61cdfcfe29e7ea020afbaf0c37f710a66e20d15c6b48fa"
     }
   ],
   "header_deps": [],
@@ -26,10 +14,10 @@
     {
       "previous_output": {
         "tmp_type": "full",
-        "capacity": 10000,
+        "capacity": 1000000000000,
         "lock": {
           "code_hash": "{{always_success}}",
-          "args": "0x0000000000000000000000000000000000000000"
+          "args": "0x0200000000000000000000000000000000000000"
         },
         "type": null
       },
@@ -39,40 +27,40 @@
   "outputs": [
     {
       "tmp_type": "full",
-      "capacity": 94,
+      "capacity": 9400000000,
       "lock": {
         "code_hash": "{{always_success}}"
       },
       "type": {
         "code_hash": "{{wallet-cell-type}}",
-        "args": "0xa2e06438859db0449574d1443ade636a7e6bd09f"
+        "args": "0xa2e06438859db0449574"
       }
     },
     {
       "tmp_type": "full",
-      "capacity": 94,
+      "capacity": 9400000000,
       "lock": {
         "code_hash": "{{always_success}}"
       },
       "type": {
         "code_hash": "{{wallet-cell-type}}",
-        "args": "0x1710cbaf08cf1fa2dcad206a909c76705970a2ee"
+        "args": "0x1710cbaf08cf1fa2dcad"
       }
     },
     {
       "tmp_type": "full",
-      "capacity": 94,
+      "capacity": 9400000000,
       "lock": {
         "code_hash": "{{always_success}}"
       },
       "type": {
         "code_hash": "{{wallet-cell-type}}",
-        "args": "0xbfab64fccdb83b3316cf3b8faaf6bb5cedef7e4c"
+        "args": "0xbfab64fccdb83b3316cf"
       }
     },
     {
       "tmp_type": "full",
-      "capacity": 9000,
+      "capacity": 900000000000,
       "lock": {
         "code_hash": "{{always_success}}",
         "args": "0x0000000000000000000000000000000000000000"

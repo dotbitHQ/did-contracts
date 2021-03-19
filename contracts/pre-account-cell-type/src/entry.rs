@@ -6,45 +6,34 @@ use ckb_std::{
 use core::convert::TryInto;
 use core::result::Result;
 use das_bloom_filter::BloomFilter;
-use das_core::{constants::*, debug, error::Error, util, witness_parser::WitnessesParser};
-use das_types::{constants::ConfigID, packed::*, prelude::*};
+use das_core::{constants::*, debug, error::Error, util};
+use das_types::{
+    constants::{ConfigID, DataType},
+    packed::*,
+    prelude::*,
+};
 
 pub fn main() -> Result<(), Error> {
     debug!("====== Running pre-account-cell-type ======");
 
-    // Loading and parsing DAS witnesses.
-    let witnesses = util::load_das_witnesses()?;
-    let mut parser = WitnessesParser::new(witnesses)?;
-    parser.parse_only_action()?;
-    let (action, _) = parser.action();
-
+    let action_data = util::load_das_action()?;
+    let action = action_data.as_reader().action().raw_data();
     if action == b"confirm_proposal" {
         debug!("Route to confirm_proposal action ...");
-
-        parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
-        let config = parser.configs().main()?;
-
-        debug!(
-            "The following logic depends on proposal-cell-type: {}",
-            config.type_id_table().proposal_cell()
-        );
-
-        // Find out PreAccountCells in current transaction.
-        let proposal_cells = util::find_cells_by_type_id(
-            ScriptType::Type,
-            config.type_id_table().proposal_cell(),
+        let mut parser = util::load_das_witnesses(Some(vec![DataType::ConfigCellMain]))?;
+        util::require_type_script(
+            &mut parser,
+            TypeScript::ProposalCellType,
             Source::Input,
+            Error::ProposalFoundInvalidTransaction,
         )?;
-        // There must be a PreAccountCell created in the transaction.
-        if proposal_cells.len() != 1 {
-            return Err(Error::PreRegisterFoundInvalidTransaction);
-        }
     } else if action == b"pre_register" {
         debug!("Route to pre_register action ...");
 
         let height = util::load_height()?;
         let timestamp = util::load_timestamp()?;
 
+        let mut parser = util::load_das_witnesses(None)?;
         parser.parse_all_data()?;
         parser.parse_only_config(&[
             ConfigID::ConfigCellMain,

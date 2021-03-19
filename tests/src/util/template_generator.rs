@@ -199,9 +199,10 @@ pub fn gen_account_records() -> Records {
     records.build()
 }
 
-pub fn gen_account_chars(chars: Vec<&str>) -> AccountChars {
+pub fn gen_account_chars(chars: Vec<impl AsRef<str>>) -> AccountChars {
     let mut builder = AccountChars::new_builder();
     for char in chars {
+        let char = char.as_ref();
         // Filter empty chars come from str.split("").
         if char.is_empty() {
             continue;
@@ -472,18 +473,16 @@ impl TemplateGenerator {
     pub fn push_apply_register_cell(
         &mut self,
         lock_args: &str,
-        account: &AccountChars,
+        account: &str,
         height: u64,
         capacity: u64,
         source: Source,
     ) {
-        let mut account_bytes = account.as_readable();
-        account_bytes.append(&mut ".bit".as_bytes().to_vec());
         let hash_of_account = Hash::new_unchecked(
             blake2b_256(
                 [
-                    util::hex_to_bytes(lock_args).unwrap(),
-                    bytes::Bytes::from(account_bytes),
+                    util::hex_to_bytes(lock_args).unwrap().as_ref(),
+                    account.as_bytes(),
                 ]
                 .concat()
                 .as_slice(),
@@ -510,18 +509,32 @@ impl TemplateGenerator {
         self.push_cell(capacity, lock_script, type_script, Some(cell_data), source);
     }
 
-    pub fn push_ref_cell(&mut self, lock_args: &str, account: &str, capacity: u64, source: Source) {
-        let account_id = Bytes::from(util::account_to_id(account.as_bytes()));
+    pub fn push_ref_cell(
+        &mut self,
+        lock_args: &str,
+        account: &str,
+        is_owner: bool,
+        capacity: u64,
+        source: Source,
+    ) {
+        let mut account_id = util::account_to_id(account.as_bytes());
         let lock_script = json!({
           "code_hash": "{{always_success}}",
           "args": lock_args
         });
         let type_script = json!({
           "code_hash": "{{ref-cell-type}}",
-          "args": bytes_to_hex(account_id)
+          "args": ""
         });
 
-        self.push_cell(capacity, lock_script, type_script, None, source);
+        if is_owner {
+            account_id.push(0);
+        } else {
+            account_id.push(1);
+        }
+        let cell_data = Bytes::from(account_id);
+
+        self.push_cell(capacity, lock_script, type_script, Some(cell_data), source);
     }
 
     fn gen_config_cell_main(&mut self) -> (Bytes, ConfigCellMain) {
@@ -673,7 +686,7 @@ impl TemplateGenerator {
 
     pub fn gen_pre_account_cell_data(
         &mut self,
-        account_chars: &AccountChars,
+        account: &str,
         owner_lock_args: &str,
         refund_lock_args: &str,
         inviter_wallet: &str,
@@ -681,6 +694,12 @@ impl TemplateGenerator {
         quote: u64,
         created_at: u64,
     ) -> (Bytes, PreAccountCellData) {
+        let account_chars_raw = account
+            .chars()
+            .take(account.len() - 4)
+            .map(|c| c.to_string())
+            .collect::<Vec<String>>();
+        let account_chars = gen_account_chars(account_chars_raw);
         let account_length = if account_chars.len() > 8 {
             8u8
         } else {
@@ -699,9 +718,7 @@ impl TemplateGenerator {
             .created_at(Timestamp::from(created_at))
             .build();
 
-        let mut account = account_chars.as_readable();
-        account.append(&mut ".bit".as_bytes().to_vec());
-        let id = util::account_to_id(account.as_slice());
+        let id = util::account_to_id(account.as_bytes());
 
         let hash = Hash::try_from(blake2b_256(entity.as_slice()).to_vec()).unwrap();
         let raw = [hash.as_reader().raw_data(), id.as_slice()].concat();
@@ -733,7 +750,7 @@ impl TemplateGenerator {
 
     pub fn gen_account_cell_data(
         &mut self,
-        account_chars: &AccountChars,
+        account: &str,
         owner_lock_args: &str,
         manager_lock_args: &str,
         next: bytes::Bytes,
@@ -741,9 +758,13 @@ impl TemplateGenerator {
         expired_at: u64,
         records_opt: Option<Records>,
     ) -> (Bytes, AccountCellData) {
-        let mut account = account_chars.as_readable();
-        account.append(&mut ".bit".as_bytes().to_vec());
-        let id = util::account_to_id(account.as_slice());
+        let account_chars_raw = account
+            .chars()
+            .take(account.len() - 4)
+            .map(|c| c.to_string())
+            .collect::<Vec<String>>();
+        let account_chars = gen_account_chars(account_chars_raw);
+        let id = util::account_to_id(account.as_bytes());
 
         let records = match records_opt {
             Some(records) => records,
@@ -766,7 +787,7 @@ impl TemplateGenerator {
             id.as_slice(),
             &next[..],
             &expired_at.to_le_bytes()[..],
-            account.as_slice(),
+            account.as_bytes(),
         ]
         .concat();
         let cell_data = Bytes::from(raw);

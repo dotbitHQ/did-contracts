@@ -58,7 +58,6 @@ fn gen_transfer_account_test_data() {
     );
 
     let account = "das00001.bit";
-    let account_chars = gen_account_chars("das00001".split("").collect::<Vec<&str>>());
     let registered_at = timestamp - 86400;
     let expired_at = timestamp + 31536000 - 86400;
     let next = bytes::Bytes::from(account_to_id_bytes("das00014.bit"));
@@ -66,11 +65,12 @@ fn gen_transfer_account_test_data() {
     template.push_ref_cell(
         "0x0000000000000000000000000000000000001111",
         account,
+        true,
         10_400_000_000,
         Source::Input,
     );
     let (cell_data, old_entity) = template.gen_account_cell_data(
-        &account_chars,
+        account,
         "0x0000000000000000000000000000000000001111",
         "0x0000000000000000000000000000000000001111",
         next.clone(),
@@ -83,11 +83,12 @@ fn gen_transfer_account_test_data() {
     template.push_ref_cell(
         "0x0000000000000000000000000000000000002222",
         account,
+        true,
         10_400_000_000,
         Source::Output,
     );
     let (cell_data, new_entity) = template.gen_account_cell_data(
-        &account_chars,
+        account,
         "0x0000000000000000000000000000000000002222",
         "0x0000000000000000000000000000000000002222",
         next.clone(),
@@ -145,7 +146,6 @@ fn gen_edit_manager_test_data() {
     );
 
     let account = "das00001.bit";
-    let account_chars = gen_account_chars("das00001".split("").collect::<Vec<&str>>());
     let registered_at = timestamp - 86400;
     let expired_at = timestamp + 31536000 - 86400;
     let next = bytes::Bytes::from(account_to_id_bytes("das00014.bit"));
@@ -153,11 +153,12 @@ fn gen_edit_manager_test_data() {
     template.push_ref_cell(
         "0x0000000000000000000000000000000000001111",
         account,
+        true,
         10_400_000_000,
         Source::Input,
     );
     let (cell_data, old_entity) = template.gen_account_cell_data(
-        &account_chars,
+        account,
         "0x0000000000000000000000000000000000001111",
         "0x0000000000000000000000000000000000002222",
         next.clone(),
@@ -169,6 +170,7 @@ fn gen_edit_manager_test_data() {
     template.push_ref_cell(
         "0x0000000000000000000000000000000000002222",
         account,
+        false,
         10_400_000_000,
         Source::Input,
     );
@@ -176,11 +178,12 @@ fn gen_edit_manager_test_data() {
     template.push_ref_cell(
         "0x0000000000000000000000000000000000001111",
         account,
+        true,
         10_400_000_000,
         Source::Output,
     );
     let (cell_data, new_entity) = template.gen_account_cell_data(
-        &account_chars,
+        account,
         "0x0000000000000000000000000000000000001111",
         "0x0000000000000000000000000000000000003333",
         next.clone(),
@@ -192,6 +195,7 @@ fn gen_edit_manager_test_data() {
     template.push_ref_cell(
         "0x0000000000000000000000000000000000003333",
         account,
+        false,
         10_400_000_000,
         Source::Output,
     );
@@ -244,7 +248,6 @@ fn gen_edit_records_test_data() {
     );
 
     let account = "das00001.bit";
-    let account_chars = gen_account_chars("das00001".split("").collect::<Vec<&str>>());
     let registered_at = timestamp - 86400;
     let expired_at = timestamp + 31536000 - 86400;
     let next = bytes::Bytes::from(account_to_id_bytes("das00014.bit"));
@@ -252,11 +255,12 @@ fn gen_edit_records_test_data() {
     template.push_ref_cell(
         "0x0000000000000000000000000000000000002222",
         account,
+        false,
         10_400_000_000,
         Source::Input,
     );
     let (cell_data, old_entity) = template.gen_account_cell_data(
-        &account_chars,
+        account,
         "0x0000000000000000000000000000000000001111",
         "0x0000000000000000000000000000000000002222",
         next.clone(),
@@ -271,11 +275,12 @@ fn gen_edit_records_test_data() {
     template.push_ref_cell(
         "0x0000000000000000000000000000000000002222",
         account,
+        false,
         10_400_000_000,
         Source::Output,
     );
     let (cell_data, new_entity) = template.gen_account_cell_data(
-        &account_chars,
+        account,
         "0x0000000000000000000000000000000000001111",
         "0x0000000000000000000000000000000000002222",
         next.clone(),
@@ -340,13 +345,13 @@ fn gen_renew_account_test_data() {
         Source::CellDep,
     );
 
-    let account_chars = gen_account_chars("das00001".split("").collect::<Vec<&str>>());
+    let account = "das00001.bit";
     let registered_at = timestamp - 86400;
     let expired_at = timestamp + 31536000 - 86400;
     let next = bytes::Bytes::from(account_to_id_bytes("das00014.bit"));
 
     let (cell_data, old_entity) = template.gen_account_cell_data(
-        &account_chars,
+        account,
         "0x0000000000000000000000000000000000001111",
         "0x0000000000000000000000000000000000002222",
         next.clone(),
@@ -358,7 +363,7 @@ fn gen_renew_account_test_data() {
     template.push_wallet_cell("das.bit", 9_400_000_000, Source::Input);
 
     let (cell_data, new_entity) = template.gen_account_cell_data(
-        &account_chars,
+        account,
         "0x0000000000000000000000000000000000001111",
         "0x0000000000000000000000000000000000002222",
         next.clone(),
@@ -387,6 +392,73 @@ fn test_renew_account() {
         &mut context,
         &mut parser,
         "../templates/account_renew_account.json"
+    );
+
+    // build transaction
+    let tx = parser.build_tx();
+
+    // run in vm
+    let cycles = context
+        .verify_tx(&tx, MAX_CYCLES)
+        .expect("pass verification");
+
+    println!("test_always_success: {} cycles", cycles);
+}
+
+// #[test]
+fn gen_recycle_expired_account_by_keeper_test_data() {
+    println!("====== Print recycle_expired_account_by_keeper test data ======");
+
+    let mut template = TemplateGenerator::new("recycle_expired_account_by_keeper", None);
+    let timestamp = 1611200000u64;
+
+    template.push_time_cell(1, timestamp, 200_000_000_000, Source::CellDep);
+
+    template.push_config_cell(
+        ConfigID::ConfigCellMain,
+        true,
+        100_000_000_000,
+        Source::CellDep,
+    );
+
+    let account = "das00001.bit";
+    let registered_at = timestamp - 86400 * (365 + 30); // Register at 1 year and 1 month before
+    let expired_at = timestamp - 86400 * 30 - 1; // Expired at 1 month + 1 second before
+    let next = bytes::Bytes::from(account_to_id_bytes("das00014.bit"));
+
+    let (cell_data, old_entity) = template.gen_account_cell_data(
+        account,
+        "0x0000000000000000000000000000000000001111",
+        "0x0000000000000000000000000000000000002222",
+        next.clone(),
+        registered_at,
+        expired_at,
+        None,
+    );
+    template.push_account_cell(cell_data, None, 15_800_000_000, Source::Input);
+    template.push_wallet_cell(account, 8_400_000_000 + 2_000_000_000, Source::Input);
+    template.push_wallet_cell("das.bit", 8_400_000_000, Source::Input);
+
+    template.push_wallet_cell("das.bit", 16_800_000_000, Source::Output);
+
+    template.push_witness(
+        DataType::AccountCellData,
+        None,
+        Some((1, 0, old_entity)),
+        None,
+    );
+
+    template.pretty_print();
+}
+
+// #[test]
+fn test_recycle_expired_account_by_keeper() {
+    let mut context;
+    let mut parser;
+    load_template!(
+        &mut context,
+        &mut parser,
+        "../templates/account_recycle_expired_account_by_keeper.json"
     );
 
     // build transaction

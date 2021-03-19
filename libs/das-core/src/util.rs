@@ -1,22 +1,18 @@
 use super::{
-    constants::{
-        height_cell_type, time_cell_type, ScriptType, ACCOUNT_MAX_PRICED_LENGTH,
-        CKB_HASH_PERSONALIZATION,
-    },
-    debug,
-    error::Error,
-    types::ScriptLiteral,
-    witness_parser::WitnessesParser,
+    constants::*, debug, error::Error, types::ScriptLiteral, witness_parser::WitnessesParser,
 };
 use blake2b_ref::{Blake2b, Blake2bBuilder};
 use ckb_std::{
-    ckb_constants::Source,
+    ckb_constants::{CellField, Source},
     ckb_types::{bytes, packed::*, prelude::*},
     error::SysError,
     high_level, syscalls,
 };
-use core::convert::TryInto;
-use das_types::{constants::WITNESS_HEADER, packed as das_packed};
+use core::convert::{TryFrom, TryInto};
+use das_types::{
+    constants::{ConfigID, DataType, WITNESS_HEADER},
+    packed as das_packed,
+};
 #[cfg(test)]
 use hex::FromHexError;
 use std::prelude::v1::*;
@@ -67,7 +63,6 @@ pub fn source_to_str(source: Source) -> &'static str {
     }
 }
 
-// 68575 cycles
 pub fn script_literal_to_script(script: ScriptLiteral) -> Script {
     Script::new_builder()
         .code_hash(script.code_hash.pack())
@@ -88,33 +83,31 @@ pub fn find_cells_by_type_id(
     let mut i = 0;
     let mut cell_indexes = Vec::new();
     loop {
-        // TODO Need optimization, load_cell_type and load_cell_lock will cost lots of cycles.
+        let mut buf = [0u8; 1000];
         let ret = match script_type {
-            ScriptType::Lock => high_level::load_cell_lock(i, source),
-            _ => high_level::load_cell_type(i, source).map(|hash_opt| match hash_opt {
-                Some(hash) => hash,
-                None => Script::default(),
-            }),
+            ScriptType::Lock => {
+                syscalls::load_cell_by_field(&mut buf, 0, i, source, CellField::Lock)
+            }
+            ScriptType::Type => {
+                syscalls::load_cell_by_field(&mut buf, 0, i, source, CellField::Type)
+            }
         };
 
         if ret.is_err() {
+            if script_type == ScriptType::Type && ret == Err(SysError::ItemMissing) {
+                i += 1;
+                continue;
+            }
+
             match ret {
                 Err(SysError::IndexOutOfBound) => break,
                 _ => return Err(Error::from(ret.unwrap_err())),
             }
         } else {
-            let script = ret.unwrap();
-            // debug!(
-            //     "{} {}: {:x?} == {:x?}",
-            //     i,
-            //     is_entity_eq(&script.code_hash(), &type_id.to_entity().into()),
-            //     script.code_hash(),
-            //     type_id.to_entity()
-            // );
-            if is_entity_eq(&script.code_hash(), &type_id.to_entity().into()) {
+            let cell_code_hash = buf.get(16..(16 + 32)).unwrap();
+            if cell_code_hash == type_id.raw_data() {
                 cell_indexes.push(i);
             }
-
             i += 1;
         }
     }
@@ -135,7 +128,6 @@ pub fn find_only_cell_by_type_id(
     Ok(cells[0])
 }
 
-// 229893 cycles
 pub fn find_cells_by_script(
     script_type: ScriptType,
     script: &Script,
@@ -160,17 +152,9 @@ pub fn find_cells_by_script(
             }
         } else {
             let hash = ret.unwrap();
-            // debug!(
-            //     "{} {}: {:x?} == {:x?}",
-            //     i,
-            //     hash == expected_hash,
-            //     hash,
-            //     expected_hash
-            // );
             if hash == expected_hash {
                 cell_indexes.push(i);
             }
-
             i += 1;
         }
     }
@@ -249,8 +233,9 @@ pub fn load_data<F: Fn(&mut [u8], usize) -> Result<usize, SysError>>(
     }
 }
 
-pub fn load_cell_data(index: usize, source: Source) -> Result<Vec<u8>, SysError> {
+pub fn load_cell_data(index: usize, source: Source) -> Result<Vec<u8>, Error> {
     load_data(|buf, offset| syscalls::load_cell_data(buf, offset, index, source))
+        .map_err(|err| Error::from(err))
 }
 
 pub fn load_timestamp() -> Result<u64, Error> {
@@ -268,7 +253,7 @@ pub fn load_timestamp() -> Result<u64, Error> {
     debug!("Reading outputs_data of the TimeCell ...");
 
     // Read the passed timestamp from outputs_data of TimeCell
-    let data = load_cell_data(ret[0], Source::CellDep).map_err(|e| Error::from(e))?;
+    let data = load_cell_data(ret[0], Source::CellDep)?;
     let timestamp = match data.get(1..) {
         Some(bytes) => {
             if bytes.len() != 4 {
@@ -297,7 +282,7 @@ pub fn load_height() -> Result<u64, Error> {
     debug!("Reading outputs_data of the HeightCell ...");
 
     // Read the passed timestamp from outputs_data of TimeCell
-    let data = load_cell_data(ret[0], Source::CellDep).map_err(|e| Error::from(e))?;
+    let data = load_cell_data(ret[0], Source::CellDep)?;
     let height = match data.get(1..) {
         Some(bytes) => {
             if bytes.len() != 8 {
@@ -311,71 +296,153 @@ pub fn load_height() -> Result<u64, Error> {
     Ok(height)
 }
 
-// 1251831 cycles
-pub fn load_das_witnesses() -> Result<Vec<Vec<u8>>, Error> {
+fn trim_empty_bytes(buf: &mut [u8]) -> &[u8] {
+    let header = buf.get(..3);
+    let length = buf
+        .get(7..11)
+        .map(|bytes| u32::from_le_bytes(bytes.try_into().unwrap()) as usize);
+
+    if header.is_some() && header == Some(&WITNESS_HEADER) && length.is_some() {
+        // debug!("Trim DAS witness with length: {}", 7 + length.unwrap());
+        buf.get(..(7 + length.unwrap())).unwrap()
+    } else {
+        buf
+    }
+}
+
+pub fn load_das_action() -> Result<das_packed::ActionData, Error> {
     let mut i = 0;
-    let mut start_reading_das_witness = false;
-    let mut witnesses = Vec::new();
+    let mut action_data_opt = None;
+
     loop {
-        let data;
-        let ret = load_data(|buf, offset| syscalls::load_witness(buf, offset, i, Source::Input));
+        let mut buf = [0u8; 7];
+        let ret = syscalls::load_witness(&mut buf, 0, i, Source::Input);
+
         match ret {
-            Ok(_data) => {
+            // Data which length is too short to be DAS witnesses, so ignore it.
+            Ok(_) => i += 1,
+            Err(SysError::LengthNotEnough(_actual_size)) => {
+                if let Some(raw) = buf.get(..3) {
+                    if raw != &WITNESS_HEADER {
+                        i += 1;
+                        continue;
+                    }
+                }
+
+                let data_type = u32::from_le_bytes(buf.get(3..7).unwrap().try_into().unwrap());
+                if data_type == DataType::ActionData as u32 {
+                    debug!(
+                        "Load witnesses[{}]: {:?} {} Bytes",
+                        i,
+                        DataType::ActionData,
+                        _actual_size
+                    );
+
+                    let mut buf = [0u8; 1000];
+                    syscalls::load_witness(&mut buf, 0, i, Source::Input)
+                        .map_err(|e| Error::from(e))?;
+                    let action_data = das_packed::ActionData::from_slice(
+                        trim_empty_bytes(&mut buf).get(7..).unwrap(),
+                    )
+                    .map_err(|_| Error::WitnessActionDecodingError)?;
+
+                    action_data_opt = Some(action_data);
+                    break;
+                }
+
                 i += 1;
-                data = _data;
             }
             Err(SysError::IndexOutOfBound) => break,
             Err(e) => return Err(Error::from(e)),
         }
-
-        // Check DAS header in witness until one witness with DAS header found.
-        if !start_reading_das_witness {
-            if let Some(raw) = data.as_slice().get(..3) {
-                if raw != &WITNESS_HEADER {
-                    continue;
-                } else {
-                    start_reading_das_witness = true;
-                }
-            } else {
-                continue;
-            }
-        }
-
-        // Start reading DAS witnesses, it is a convention that all DAS witnesses stay together in the end of the witnesses vector.
-        witnesses.push(data);
     }
 
-    Ok(witnesses)
+    if action_data_opt.is_none() {
+        debug!("Can not found action in witnesses.");
+        return Err(Error::WitnessActionNotFound);
+    }
+
+    Ok(action_data_opt.unwrap())
 }
 
-pub fn verify_cells_witness(
-    parser: &WitnessesParser,
-    index: usize,
-    source: Source,
-) -> Result<(), Error> {
-    let data = load_cell_data(index, source).map_err(|e| Error::from(e))?;
-    let hash = match data.get(..32) {
-        Some(bytes) => bytes.to_vec(),
-        _ => return Err(Error::InvalidCellData),
-    };
-    parser.get(index as u32, &hash, source)?;
+pub fn load_das_witnesses(data_types_opt: Option<Vec<DataType>>) -> Result<WitnessesParser, Error> {
+    let mut i = 0;
+    let mut witnesses = Vec::new();
 
-    Ok(())
-}
+    fn load_witness(buf: &mut [u8], i: usize) -> Result<Vec<u8>, Error> {
+        syscalls::load_witness(buf, 0, i, Source::Input).map_err(|e| Error::from(e))?;
+        Ok(trim_empty_bytes(buf).to_vec())
+    }
 
-// 108040 cycles
-pub fn get_cell_witness(
-    parser: &WitnessesParser,
-    index: usize,
-    source: Source,
-) -> Result<(u32, u32, &das_packed::Bytes), Error> {
-    let data = load_cell_data(index, source).map_err(|e| Error::from(e))?;
-    let hash = match data.get(..32) {
-        Some(bytes) => bytes.to_vec(),
-        _ => return Err(Error::InvalidCellData),
-    };
+    // The following logic is specifically optimized for reading large amounts of data, do not modify it except you know what you are doing.
+    loop {
+        let mut buf = [0u8; 7];
+        let data;
+        let ret = syscalls::load_witness(&mut buf, 0, i, Source::Input);
 
-    Ok(parser.get(index as u32, &hash, source)?)
+        match ret {
+            // Data which length is too short to be DAS witnesses, so ignore it.
+            Ok(_) => i += 1,
+            Err(SysError::LengthNotEnough(actual_size)) => {
+                if let Some(raw) = buf.get(..3) {
+                    if raw != &WITNESS_HEADER {
+                        i += 1;
+                        continue;
+                    }
+                }
+
+                let data_type_in_int =
+                    u32::from_le_bytes(buf.get(3..7).unwrap().try_into().unwrap());
+                let data_type = DataType::try_from(data_type_in_int).unwrap();
+
+                // Only parse action with load_das_action function.
+                if data_type == DataType::ActionData {
+                    i += 1;
+                    continue;
+                }
+
+                if data_types_opt.is_none()
+                    || (data_types_opt.is_some()
+                        && data_types_opt.as_ref().unwrap().contains(&data_type))
+                {
+                    debug!(
+                        "Load witnesses[{}]: {:?} {} Bytes",
+                        i, data_type, actual_size
+                    );
+
+                    match actual_size {
+                        x if x <= 2000 => {
+                            let mut buf = [0u8; 2000];
+                            data = load_witness(&mut buf, i)?;
+                        }
+                        x if x <= 4000 => {
+                            let mut buf = [0u8; 4000];
+                            data = load_witness(&mut buf, i)?;
+                        }
+                        x if x <= 8000 => {
+                            let mut buf = [0u8; 8000];
+                            data = load_witness(&mut buf, i)?;
+                        }
+                        x if x <= 16000 => {
+                            let mut buf = [0u8; 16000];
+                            data = load_witness(&mut buf, i)?;
+                        }
+                        _ => {
+                            return Err(Error::from(SysError::LengthNotEnough(actual_size)));
+                        }
+                    }
+
+                    witnesses.push(data);
+                }
+
+                i += 1;
+            }
+            Err(SysError::IndexOutOfBound) => break,
+            Err(e) => return Err(Error::from(e)),
+        }
+    }
+
+    Ok(WitnessesParser::new(witnesses)?)
 }
 
 pub fn new_blake2b() -> Blake2b {
@@ -532,6 +599,41 @@ pub fn get_length_in_price(account_length: u64) -> u8 {
     } else {
         account_length as u8
     }
+}
+
+pub fn get_account_storage_total(account_length: u64) -> u64 {
+    ACCOUNT_CELL_BASIC_CAPACITY + (account_length * 100_000_000) + REF_CELL_BASIC_CAPACITY * 2
+}
+
+pub fn require_type_script(
+    parser: &mut WitnessesParser,
+    type_script: TypeScript,
+    source: Source,
+    err: Error,
+) -> Result<(), Error> {
+    parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
+    let config = parser.configs().main()?;
+
+    let type_id = match type_script {
+        TypeScript::AccountCellType => config.type_id_table().account_cell(),
+        TypeScript::ApplyRegisterCellType => config.type_id_table().apply_register_cell(),
+        TypeScript::PreAccountCellType => config.type_id_table().pre_account_cell(),
+        TypeScript::ProposalCellType => config.type_id_table().proposal_cell(),
+        TypeScript::RefCellType => config.type_id_table().ref_cell(),
+        TypeScript::WalletCellType => config.type_id_table().wallet_cell(),
+    };
+
+    // Find out required cell in current transaction.
+    let required_cells = find_cells_by_type_id(ScriptType::Type, type_id, source)?;
+
+    // There must be some required cells in the transaction.
+    if required_cells.len() <= 0 {
+        return Err(err);
+    }
+
+    debug!("Require on: {:?}", type_script);
+
+    Ok(())
 }
 
 #[cfg(test)]

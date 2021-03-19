@@ -1,9 +1,10 @@
-use super::constants::{MULTISIG_TYPE_HASH, SECP_SIGNATURE_SIZE, SIGHASH_TYPE_HASH};
-use super::util::{
-    build_signature, deploy_builtin_contract, deploy_dev_contract, get_privkey_signer,
-    hex_to_byte32, hex_to_bytes, hex_to_u64, mock_cell, mock_header_deps, mock_input,
+use super::{
+    constants::{MULTISIG_TYPE_HASH, SECP_SIGNATURE_SIZE, SIGHASH_TYPE_HASH, TYPE_ID_TABLE},
+    util::{
+        build_signature, deploy_builtin_contract, deploy_dev_contract, get_privkey_signer,
+        hex_to_byte32, hex_to_bytes, hex_to_u64, mock_cell, mock_header_deps, mock_input,
+    },
 };
-use crate::util::constants::TYPE_ID_TABLE;
 use ckb_testtool::context::Context;
 use ckb_tool::{
     ckb_jsonrpc_types as rpc_types,

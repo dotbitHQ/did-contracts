@@ -4,19 +4,19 @@ use ckb_std::{
 };
 use core::convert::{TryFrom, TryInto};
 use core::result::Result;
-use das_core::{constants::ScriptType, debug, error::Error, util, witness_parser::WitnessesParser};
-use das_types::constants::ConfigID;
-use das_types::{packed::*, prelude::*};
+use das_core::{
+    constants::{ScriptType, TypeScript},
+    debug,
+    error::Error,
+    util,
+};
+use das_types::{constants::DataType, packed::*, prelude::*};
 
 pub fn main() -> Result<(), Error> {
     debug!("====== Running apply-register-cell-type ======");
 
-    // Loading DAS witnesses and parsing the action.
-    let witnesses = util::load_das_witnesses()?;
-    let mut parser = WitnessesParser::new(witnesses)?;
-    parser.parse_only_action()?;
-    let (action, _) = parser.action();
-
+    let action_data = util::load_das_action()?;
+    let action = action_data.as_reader().action().raw_data();
     if action == b"apply_register" {
         debug!("Route to apply_register action ...");
 
@@ -73,25 +73,13 @@ pub fn main() -> Result<(), Error> {
         }
     } else if action == b"pre_register" {
         debug!("Route to pre_register action ...");
-
-        parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
-        let config = parser.configs().main()?;
-
-        debug!(
-            "The following logic depends on pre-account-cell-type: {}",
-            config.type_id_table().pre_account_cell()
-        );
-
-        // Find out PreAccountCells in current transaction.
-        let pre_account_cells = util::find_cells_by_type_id(
-            ScriptType::Type,
-            config.type_id_table().pre_account_cell(),
+        let mut parser = util::load_das_witnesses(Some(vec![DataType::ConfigCellMain]))?;
+        util::require_type_script(
+            &mut parser,
+            TypeScript::PreAccountCellType,
             Source::Output,
+            Error::PreRegisterFoundInvalidTransaction,
         )?;
-        // There must be a PreAccountCell created in the transaction.
-        if pre_account_cells.len() != 1 {
-            return Err(Error::ApplyRegisterFoundInvalidTransaction);
-        }
     } else {
         return Err(Error::ActionNotSupported);
     }

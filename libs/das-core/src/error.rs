@@ -37,14 +37,14 @@ pub enum Error {
     WitnessEmpty,
     WitnessDasHeaderDecodingError,
     WitnessTypeDecodingError,
-    WitnessActionIsNotTheFirst,
+    WitnessActionNotFound,
     WitnessActionDecodingError, // 35
     WitnessEntityMissing,
     WitnessDataParseLengthHeaderFailed,
     WitnessDataReadDataBodyFailed,
     WitnessDataDecodingError,
-    WitnessDataIsCorrupted,
-    WitnessDataMissing,
+    WitnessDataHashMissMatch,
+    WitnessDataIndexMissMatch,
     WitnessEntityDecodingError,
     ApplyRegisterFoundInvalidTransaction = 50,
     ApplyRegisterCellDataDecodingError,
@@ -67,12 +67,13 @@ pub enum Error {
     ProposalSliceIsNotSorted,
     ProposalSliceIsDiscontinuity,
     ProposalSliceRelatedCellNotFound,
+    ProposalSliceRelatedCellMissing,
     ProposalCellTypeError,
     ProposalCellAccountIdError,
     ProposalFieldCanNotBeModified,
     ProposalWitnessCanNotBeModified,
-    ProposalConfirmIdError,
-    ProposalConfirmNextError, // 90
+    ProposalConfirmIdError, // 90
+    ProposalConfirmNextError,
     ProposalConfirmExpiredAtError,
     ProposalConfirmAccountError,
     ProposalConfirmWitnessIDError,
@@ -81,8 +82,8 @@ pub enum Error {
     ProposalConfirmWitnessManagerError,
     ProposalConfirmWitnessStatusError,
     ProposalConfirmWitnessRecordsError,
-    ProposalConfirmWalletMissMatch,
-    ProposalConfirmWalletBalanceError, // 100
+    ProposalConfirmWalletMissMatch, // 100
+    ProposalConfirmWalletBalanceError,
     ProposalSliceNotEndCorrectly,
     ProposalSliceMustStartWithAccountCell,
     ProposalRecycleNeedWaitLonger,
@@ -90,6 +91,7 @@ pub enum Error {
     ProposalRecycleRefundAmountError,
     WalletFoundInvalidTransaction = 110,
     WalletRequireAlwaysSuccess,
+    WalletRequireWalletMakerLock,
     WalletPermissionInvalid,
     PrevProposalItemNotFound,
     AccountCellFoundInvalidTransaction = -126,
@@ -97,13 +99,16 @@ pub enum Error {
     AccountCellRefCellIsRequired,
     AccountCellOwnerCellIsRequired,
     AccountCellManagerCellIsRequired,
-    AccountCellUnrelatedRefCellFound, // 125
-    AccountCellRedundantRefCellNotAllowed,
+    AccountCellUnrelatedRefCellFound,
+    AccountCellRedundantRefCellNotAllowed, // -120
     AccountCellProtectFieldIsModified,
     AccountCellRenewDurationMustLongerThanYear,
     AccountCellRenewDurationBiggerThanPaied,
-    AccountCellInExpirationGracePeriod, // 130
-    AccountCellHasExpired,
+    AccountCellInExpirationGracePeriod,
+    AccountCellHasExpired, // -115
+    AccountCellIsNotExpired,
+    AccountCellRecycleCapacityError,
+    AccountCellChangeCapacityError,
 }
 
 impl From<SysError> for Error {
