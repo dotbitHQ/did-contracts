@@ -66,13 +66,8 @@ fn gen_wallet_withdraw_test_data() {
     );
 
     // Generate AccountCells ...
-    let splited_account = account[..&account.len() - 4]
-        .split("")
-        .filter(|item| !item.is_empty())
-        .collect::<Vec<&str>>();
-    let account_chars = gen_account_chars(splited_account);
     let (cell_data, entity) = template.gen_account_cell_data(
-        &account_chars,
+        account,
         "0x0000000000000000000000000000000000001111",
         "0x0000000000000000000000000000000000001111",
         bytes::Bytes::from(account_to_id_bytes("das00014.bit")),
@@ -96,7 +91,7 @@ fn gen_wallet_withdraw_test_data() {
     template.pretty_print();
 }
 
-// #[test]
+#[test]
 fn test_wallet_withdraw() {
     let mut context;
     let mut parser;

@@ -7,7 +7,7 @@ use ckb_std::{
 use core::convert::{TryFrom, TryInto};
 use core::result::Result;
 use das_core::util::blake2b_256;
-use das_core::{constants::*, error::Error, util, witness_parser::WitnessesParser};
+use das_core::{constants::*, error::Error, util};
 use das_types::{constants::ConfigID, prelude::Entity};
 
 pub fn main() -> Result<(), Error> {
@@ -25,13 +25,8 @@ pub fn main() -> Result<(), Error> {
         return Err(Error::SuperLockIsRequired);
     }
 
-    // Loading and parsing DAS witnesses.
-    let witnesses = util::load_das_witnesses()?;
-    let mut parser = WitnessesParser::new(witnesses)?;
-    parser.parse_only_action()?;
-    let (action, _) = parser.action();
-
-    // Routing by ActionData in witness.
+    let action_data = util::load_das_action()?;
+    let action = action_data.as_reader().action().raw_data();
     if action == b"config" {
         debug!("Route to config action ...");
 

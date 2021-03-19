@@ -1,4 +1,4 @@
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use ckb_std::{
     ckb_constants::Source,
     ckb_types::prelude::*,
@@ -17,17 +17,16 @@ use das_core::{
     util,
     witness_parser::WitnessesParser,
 };
-use das_types::{constants::ConfigID, packed::*};
+use das_types::{
+    constants::{ConfigID, DataType},
+    packed::*,
+};
 
 pub fn main() -> Result<(), Error> {
     debug!("====== Running account-cell-type ======");
 
-    // Loading DAS witnesses and parsing the action.
-    let witnesses = util::load_das_witnesses()?;
-    let mut parser = WitnessesParser::new(witnesses)?;
-    parser.parse_only_action()?;
-    let (action, _) = parser.action();
-
+    let action_data = util::load_das_action()?;
+    let action = action_data.as_reader().action().raw_data();
     if action == b"init_account_chain" {
         debug!("Route to init_account_chain action ...");
 
@@ -64,6 +63,8 @@ pub fn main() -> Result<(), Error> {
         }
     } else if action == b"confirm_proposal" {
         debug!("Route to confirm_proposal action ...");
+        // Loading DAS witnesses and parsing the action.
+        let mut parser = util::load_das_witnesses(Some(vec![DataType::ConfigCellMain]))?;
         util::require_type_script(
             &mut parser,
             TypeScript::ProposalCellType,
@@ -73,6 +74,7 @@ pub fn main() -> Result<(), Error> {
     } else if action == b"transfer_account" {
         debug!("Route to transfer_account action ...");
 
+        let mut parser = util::load_das_witnesses(None)?;
         parser.parse_all_data()?;
         parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
         let config = parser.configs().main()?;
@@ -143,6 +145,7 @@ pub fn main() -> Result<(), Error> {
     } else if action == b"edit_manager" {
         debug!("Route to transfer_account action ...");
 
+        let mut parser = util::load_das_witnesses(None)?;
         parser.parse_all_data()?;
         parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
         let timestamp = util::load_timestamp()?;
@@ -213,6 +216,7 @@ pub fn main() -> Result<(), Error> {
     } else if action == b"edit_records" {
         debug!("Route to transfer_account action ...");
 
+        let mut parser = util::load_das_witnesses(None)?;
         parser.parse_all_data()?;
         parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
 
@@ -278,6 +282,7 @@ pub fn main() -> Result<(), Error> {
     } else if action == b"renew_account" {
         debug!("Route to transfer_account action ...");
 
+        let mut parser = util::load_das_witnesses(None)?;
         parser.parse_all_data()?;
         parser.parse_only_config(&[ConfigID::ConfigCellMain, ConfigID::ConfigCellRegister])?;
 
@@ -378,6 +383,7 @@ pub fn main() -> Result<(), Error> {
 
         let timestamp = util::load_timestamp()?;
 
+        let mut parser = util::load_das_witnesses(None)?;
         parser.parse_all_data()?;
         parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
 

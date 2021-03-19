@@ -15,12 +15,11 @@ use std::prelude::v1::*;
 #[derive(Debug)]
 pub struct WitnessesParser {
     pub witnesses: Vec<Vec<u8>>,
-    action: Option<ActionData>,
     configs: Option<Configs>,
     // The Bytes is wrapped DataEntity.entity.
-    dep: Vec<(u32, u32, u32, Vec<u8>, Bytes)>,
-    old: Vec<(u32, u32, u32, Vec<u8>, Bytes)>,
-    new: Vec<(u32, u32, u32, Vec<u8>, Bytes)>,
+    dep: Vec<(u32, u32, DataType, Vec<u8>, Bytes)>,
+    old: Vec<(u32, u32, DataType, Vec<u8>, Bytes)>,
+    new: Vec<(u32, u32, DataType, Vec<u8>, Bytes)>,
 }
 
 impl WitnessesParser {
@@ -31,7 +30,6 @@ impl WitnessesParser {
 
         Ok(WitnessesParser {
             witnesses,
-            action: None,
             configs: None,
             dep: Vec::new(),
             old: Vec::new(),
@@ -39,32 +37,8 @@ impl WitnessesParser {
         })
     }
 
-    pub fn action(&self) -> (&[u8], &[u8]) {
-        let action_data = self.action.as_ref().unwrap().as_reader();
-
-        (
-            action_data.action().raw_data(),
-            action_data.params().raw_data(),
-        )
-    }
-
     pub fn configs(&self) -> &Configs {
         self.configs.as_ref().unwrap()
-    }
-
-    pub fn parse_only_action(&mut self) -> Result<(), Error> {
-        debug!("Parsing action witness only ...");
-
-        let witness = self.witnesses.get(0).ok_or(Error::WitnessEmpty)?;
-        Self::verify_das_header(witness.as_slice())?;
-        let type_ = Self::parse_data_type(&witness)?;
-        if type_ != DataType::ActionData as u32 {
-            return Err(Error::WitnessActionIsNotTheFirst);
-        }
-
-        self.action = Some(Self::parse_action_data(&witness)?);
-
-        Ok(())
     }
 
     pub fn parse_only_config(&mut self, config_ids: &[ConfigID]) -> Result<(), Error> {
@@ -95,10 +69,10 @@ impl WitnessesParser {
                 _ => return Err(Error::InvalidCellData),
             };
 
-            debug!(
-                "    Load ConfigCell ID: {:?} Hash: {:?}",
-                config_id, expected_entity_hash
-            );
+            // debug!(
+            //     "    Load ConfigCell ID: {:?} Hash: {:?}",
+            //     config_id, expected_entity_hash
+            // );
 
             // Store entity hash for later verification.
             config_entity_hashes.push(expected_entity_hash);
@@ -119,11 +93,11 @@ impl WitnessesParser {
         debug!("  Load witnesses of the ConfigCells ...");
 
         let mut configs = Configs::new();
-        for (_i, witness) in self.witnesses.iter().enumerate().skip(1) {
+        for (_i, witness) in self.witnesses.iter().enumerate() {
             Self::verify_das_header(&witness)?;
 
             // Just handle required config witness.
-            let data_type = DataType::try_from(Self::parse_data_type(&witness)?).unwrap();
+            let data_type = Self::parse_data_type(&witness)?;
             if !config_data_types.contains(&data_type) {
                 continue;
             }
@@ -172,7 +146,7 @@ impl WitnessesParser {
         witness: &'a Vec<u8>,
         config_entity_hashes: &mut Vec<Vec<u8>>,
     ) -> Result<&'a [u8], Error> {
-        debug!("Calculate and verify hash of witness[{}]", _i);
+        // debug!("Calculate and verify hash of witness[{}]", _i);
 
         let entity = witness
             .get(7..)
@@ -201,7 +175,7 @@ impl WitnessesParser {
     pub fn parse_all_data(&mut self) -> Result<(), Error> {
         debug!("Parsing witnesses of all other cells ...");
 
-        for witness in self.witnesses.iter().skip(1) {
+        for (_i, witness) in self.witnesses.iter().enumerate() {
             Self::verify_das_header(witness)?;
 
             let data_type = Self::parse_data_type(witness)?;
@@ -209,6 +183,8 @@ impl WitnessesParser {
             // Skip all config witnesses.
             if self.is_config_data_type(data_type) {
                 continue;
+            } else {
+                debug!("Parse witnesses[{}] in type: {:?}", _i, data_type);
             }
 
             let data = Self::parse_data(witness)?;
@@ -238,27 +214,13 @@ impl WitnessesParser {
         Ok(())
     }
 
-    fn parse_data_type(witness: &[u8]) -> Result<u32, Error> {
+    fn parse_data_type(witness: &[u8]) -> Result<DataType, Error> {
         if let Some(raw) = witness.get(3..7) {
-            let type_in_int = match Uint32Reader::verify(raw, false) {
-                Ok(()) => Uint32::new_unchecked(raw.to_vec().into()),
-                Err(_) => return Err(Error::WitnessTypeDecodingError),
-            };
-            Ok(u32::from(type_in_int))
+            let data_type = DataType::try_from(u32::from_le_bytes(raw.try_into().unwrap()))
+                .map_err(|_| Error::WitnessTypeDecodingError)?;
+            Ok(data_type)
         } else {
             Err(Error::WitnessTypeDecodingError)
-        }
-    }
-
-    fn parse_action_data(witness: &[u8]) -> Result<ActionData, Error> {
-        if let Some(raw) = witness.get(7..) {
-            let action_data = match ActionData::from_slice(raw) {
-                Ok(action_data) => action_data,
-                Err(_) => return Err(Error::WitnessActionDecodingError),
-            };
-            Ok(action_data)
-        } else {
-            Err(Error::WitnessActionDecodingError)
         }
     }
 
@@ -285,16 +247,13 @@ impl WitnessesParser {
 
     fn parse_entity(
         data_entity: DataEntity,
-        entity_type: u32,
-    ) -> Result<(u32, u32, u32, Vec<u8>, Bytes), Error> {
+        data_type: DataType,
+    ) -> Result<(u32, u32, DataType, Vec<u8>, Bytes), Error> {
         let index = u32::from(data_entity.index());
         let version = u32::from(data_entity.version());
         let entity = data_entity.entity();
 
-        let unwraped_entity = entity
-            .as_slice()
-            .get(4..)
-            .ok_or(Error::WitnessEntityMissing)?;
+        let unwraped_entity = entity.as_reader().raw_data();
         let hash = blake2b_256(unwraped_entity).to_vec();
 
         // debug!(
@@ -302,35 +261,20 @@ impl WitnessesParser {
         //     index, hash, unwraped_entity
         // );
 
-        Ok((
-            index,
-            version,
-            entity_type,
-            hash,
-            Bytes::new_unchecked(entity.as_bytes()),
-        ))
+        Ok((index, version, data_type, hash, entity))
     }
 
     pub fn verify_and_get(
         &self,
         index: usize,
         source: Source,
-    ) -> Result<(u32, u32, &Bytes), Error> {
+    ) -> Result<(u32, DataType, &Bytes), Error> {
         let data = load_cell_data(index, source)?;
         let hash = match data.get(..32) {
             Some(bytes) => bytes.to_vec(),
             _ => return Err(Error::InvalidCellData),
         };
 
-        Ok(self.get(index as u32, &hash, source)?)
-    }
-
-    pub fn get(
-        &self,
-        index: u32,
-        hash: &[u8],
-        source: Source,
-    ) -> Result<(u32, u32, &Bytes), Error> {
         let group = match source {
             Source::Input => &self.old,
             Source::Output => &self.new,
@@ -340,41 +284,42 @@ impl WitnessesParser {
             }
         };
 
-        let entity;
         let version;
-        let entity_type;
+        let data_type;
+        let entity;
         if let Some((_, _version, _entity_type, _hash, _entity)) =
-            group.iter().find(|&(i, _, _, _h, _)| i == &index)
+            group.iter().find(|&(i, _, _, _h, _)| *i as usize == index)
         {
             if hash == _hash.as_slice() {
                 version = _version.to_owned();
-                entity_type = _entity_type.to_owned();
+                data_type = _entity_type.to_owned();
                 entity = _entity;
             } else {
+                // This error means the there is no hash(witness.data.dep/old/new.entity) matches the leading 32 bytes of the cell.
                 debug!(
                     "Witness hash verify failed: {:?}[{}] {:?}",
                     source, index, hash
                 );
-                return Err(Error::WitnessDataIsCorrupted);
+                return Err(Error::WitnessDataHashMissMatch);
             }
         } else {
+            // This error means the there is no witness.data.dep/old/new.index matches the index of the cell.
             debug!(
                 "Can not find witness at: {:?}[{}] {:?}",
                 source, index, hash
             );
-            return Err(Error::WitnessDataMissing);
+            return Err(Error::WitnessDataIndexMissMatch);
         }
 
-        // This is DataEntity.entity wrapped in Bytes.
-        Ok((version, entity_type, entity))
+        Ok((version, data_type, entity))
     }
 
-    fn is_config_data_type(&self, data_type: u32) -> bool {
+    fn is_config_data_type(&self, data_type: DataType) -> bool {
         let config_data_types = [
-            DataType::ConfigCellMain as u32,
-            DataType::ConfigCellRegister as u32,
-            DataType::ConfigCellBloomFilter as u32,
-            DataType::ConfigCellMarket as u32,
+            DataType::ConfigCellMain,
+            DataType::ConfigCellRegister,
+            DataType::ConfigCellBloomFilter,
+            DataType::ConfigCellMarket,
         ];
 
         config_data_types.contains(&data_type)
@@ -405,29 +350,6 @@ mod test {
     }
 
     #[test]
-    fn test_parse_only_action() {
-        let mut parser = before_each();
-        parser.parse_only_action().unwrap();
-        let (action, params) = parser.action();
-
-        assert!(action == b"config", "Action should be \"config\".");
-        assert!(params == &[], "Params should be empty.");
-    }
-
-    // #[test]
-    fn test_parse_all_data() {
-        let mut parser = before_each();
-        parser.parse_all_data().unwrap();
-
-        let hash = restore_bytes_from_hex(
-            "0x000045a843802e1c0bb8f1e382ee23be1434c36693eac143f61bbaf04dc90000",
-        );
-        let (version, data_type, entity) = parser.get(0, hash.as_slice(), Source::Output).unwrap();
-
-        assert_eq!(1, version);
-    }
-
-    #[test]
     #[should_panic]
     fn test_verify_das_header() {
         let witnesses = vec![
@@ -438,34 +360,5 @@ mod test {
 
         let mut parser = WitnessesParser::new(witnesses).unwrap();
         parser.parse_all_data().unwrap();
-    }
-
-    // #[test]
-    // #[should_panic]
-    fn fn_get_should_check_hash_when_getting_data() {
-        let parser = before_each();
-
-        let hash = restore_bytes_from_hex(
-            "0x000045a843802e1c0bb8f1e382ee23be1434c36693eac143f61bbaf04dc90000",
-        );
-        parser.get(0, hash.as_slice(), Source::Output).unwrap();
-    }
-
-    // #[test]
-    fn fn_get_should_return_correctly() {
-        let parser = before_each();
-
-        let hash = restore_bytes_from_hex(
-            "0x04de45a843802e1c0bb8f1e382ee23be1434c36693eac143f61bbaf04dc901cb",
-        );
-        let (_, _, entity) = parser.get(0, &hash, Source::Output).unwrap();
-
-        let entity_data = entity.as_slice().get(4..).unwrap();
-        let result = blake2b_256(entity_data).to_vec();
-
-        assert!(
-            hash == result,
-            "The hash of the returned data should match."
-        )
     }
 }

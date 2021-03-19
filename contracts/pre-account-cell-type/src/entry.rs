@@ -6,20 +6,21 @@ use ckb_std::{
 use core::convert::TryInto;
 use core::result::Result;
 use das_bloom_filter::BloomFilter;
-use das_core::{constants::*, debug, error::Error, util, witness_parser::WitnessesParser};
-use das_types::{constants::ConfigID, packed::*, prelude::*};
+use das_core::{constants::*, debug, error::Error, util};
+use das_types::{
+    constants::{ConfigID, DataType},
+    packed::*,
+    prelude::*,
+};
 
 pub fn main() -> Result<(), Error> {
     debug!("====== Running pre-account-cell-type ======");
 
-    // Loading and parsing DAS witnesses.
-    let witnesses = util::load_das_witnesses()?;
-    let mut parser = WitnessesParser::new(witnesses)?;
-    parser.parse_only_action()?;
-    let (action, _) = parser.action();
-
+    let action_data = util::load_das_action()?;
+    let action = action_data.as_reader().action().raw_data();
     if action == b"confirm_proposal" {
         debug!("Route to confirm_proposal action ...");
+        let mut parser = util::load_das_witnesses(Some(vec![DataType::ConfigCellMain]))?;
         util::require_type_script(
             &mut parser,
             TypeScript::ProposalCellType,
@@ -32,6 +33,7 @@ pub fn main() -> Result<(), Error> {
         let height = util::load_height()?;
         let timestamp = util::load_timestamp()?;
 
+        let mut parser = util::load_das_witnesses(None)?;
         parser.parse_all_data()?;
         parser.parse_only_config(&[
             ConfigID::ConfigCellMain,

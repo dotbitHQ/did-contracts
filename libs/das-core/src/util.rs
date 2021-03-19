@@ -8,9 +8,9 @@ use ckb_std::{
     error::SysError,
     high_level, syscalls,
 };
-use core::convert::TryInto;
+use core::convert::{TryFrom, TryInto};
 use das_types::{
-    constants::{ConfigID, WITNESS_HEADER},
+    constants::{ConfigID, DataType, WITNESS_HEADER},
     packed as das_packed,
 };
 #[cfg(test)]
@@ -296,24 +296,78 @@ pub fn load_height() -> Result<u64, Error> {
     Ok(height)
 }
 
-pub fn load_das_witnesses() -> Result<Vec<Vec<u8>>, Error> {
+fn trim_empty_bytes(buf: &mut [u8]) -> &[u8] {
+    let header = buf.get(..3);
+    let length = buf
+        .get(7..11)
+        .map(|bytes| u32::from_le_bytes(bytes.try_into().unwrap()) as usize);
+
+    if header.is_some() && header == Some(&WITNESS_HEADER) && length.is_some() {
+        // debug!("Trim DAS witness with length: {}", 7 + length.unwrap());
+        buf.get(..(7 + length.unwrap())).unwrap()
+    } else {
+        buf
+    }
+}
+
+pub fn load_das_action() -> Result<das_packed::ActionData, Error> {
     let mut i = 0;
-    let mut start_reading_das_witness = false;
-    let mut witnesses = Vec::new();
+    let mut action_data_opt = None;
 
-    fn trim_empty_bytes(buf: &mut [u8]) -> &[u8] {
-        let header = buf.get(..3);
-        let length = buf
-            .get(7..11)
-            .map(|bytes| u32::from_le_bytes(bytes.try_into().unwrap()) as usize);
+    loop {
+        let mut buf = [0u8; 7];
+        let ret = syscalls::load_witness(&mut buf, 0, i, Source::Input);
 
-        if header.is_some() && header == Some(&WITNESS_HEADER) && length.is_some() {
-            debug!("Trim DAS witness with length: {}", 7 + length.unwrap());
-            buf.get(..(7 + length.unwrap())).unwrap()
-        } else {
-            buf
+        match ret {
+            // Data which length is too short to be DAS witnesses, so ignore it.
+            Ok(_) => i += 1,
+            Err(SysError::LengthNotEnough(_actual_size)) => {
+                if let Some(raw) = buf.get(..3) {
+                    if raw != &WITNESS_HEADER {
+                        i += 1;
+                        continue;
+                    }
+                }
+
+                let data_type = u32::from_le_bytes(buf.get(3..7).unwrap().try_into().unwrap());
+                if data_type == DataType::ActionData as u32 {
+                    debug!(
+                        "Load witnesses[{}]: {:?} {} Bytes",
+                        i,
+                        DataType::ActionData,
+                        _actual_size
+                    );
+
+                    let mut buf = [0u8; 1000];
+                    syscalls::load_witness(&mut buf, 0, i, Source::Input)
+                        .map_err(|e| Error::from(e))?;
+                    let action_data = das_packed::ActionData::from_slice(
+                        trim_empty_bytes(&mut buf).get(7..).unwrap(),
+                    )
+                    .map_err(|_| Error::WitnessActionDecodingError)?;
+
+                    action_data_opt = Some(action_data);
+                    break;
+                }
+
+                i += 1;
+            }
+            Err(SysError::IndexOutOfBound) => break,
+            Err(e) => return Err(Error::from(e)),
         }
     }
+
+    if action_data_opt.is_none() {
+        debug!("Can not found action in witnesses.");
+        return Err(Error::WitnessActionNotFound);
+    }
+
+    Ok(action_data_opt.unwrap())
+}
+
+pub fn load_das_witnesses(data_types_opt: Option<Vec<DataType>>) -> Result<WitnessesParser, Error> {
+    let mut i = 0;
+    let mut witnesses = Vec::new();
 
     fn load_witness(buf: &mut [u8], i: usize) -> Result<Vec<u8>, Error> {
         syscalls::load_witness(buf, 0, i, Source::Input).map_err(|e| Error::from(e))?;
@@ -322,88 +376,73 @@ pub fn load_das_witnesses() -> Result<Vec<Vec<u8>>, Error> {
 
     // The following logic is specifically optimized for reading large amounts of data, do not modify it except you know what you are doing.
     loop {
-        let mut buf = [0u8; 1000];
+        let mut buf = [0u8; 7];
         let data;
         let ret = syscalls::load_witness(&mut buf, 0, i, Source::Input);
+
         match ret {
-            Ok(_) => {
-                data = trim_empty_bytes(&mut buf).to_vec();
-                i += 1;
-            }
+            // Data which length is too short to be DAS witnesses, so ignore it.
+            Ok(_) => i += 1,
             Err(SysError::LengthNotEnough(actual_size)) => {
-                debug!("Actual data size: {}", actual_size);
-                match actual_size {
-                    // Special handling of bloom filter witness data.
-                    x if x <= 4000 => {
-                        let mut buf = [0u8; 4000];
-                        data = load_witness(&mut buf, i)?;
-                    }
-                    x if x <= 8000 => {
-                        let mut buf = [0u8; 8000];
-                        data = load_witness(&mut buf, i)?;
-                    }
-                    x if x <= 16000 => {
-                        let mut buf = [0u8; 16000];
-                        data = load_witness(&mut buf, i)?;
-                    }
-                    _ => {
-                        return Err(Error::from(SysError::LengthNotEnough(actual_size)));
+                if let Some(raw) = buf.get(..3) {
+                    if raw != &WITNESS_HEADER {
+                        i += 1;
+                        continue;
                     }
                 }
+
+                let data_type_in_int =
+                    u32::from_le_bytes(buf.get(3..7).unwrap().try_into().unwrap());
+                let data_type = DataType::try_from(data_type_in_int).unwrap();
+
+                // Only parse action with load_das_action function.
+                if data_type == DataType::ActionData {
+                    i += 1;
+                    continue;
+                }
+
+                if data_types_opt.is_none()
+                    || (data_types_opt.is_some()
+                        && data_types_opt.as_ref().unwrap().contains(&data_type))
+                {
+                    debug!(
+                        "Load witnesses[{}]: {:?} {} Bytes",
+                        i, data_type, actual_size
+                    );
+
+                    match actual_size {
+                        x if x <= 2000 => {
+                            let mut buf = [0u8; 2000];
+                            data = load_witness(&mut buf, i)?;
+                        }
+                        x if x <= 4000 => {
+                            let mut buf = [0u8; 4000];
+                            data = load_witness(&mut buf, i)?;
+                        }
+                        x if x <= 8000 => {
+                            let mut buf = [0u8; 8000];
+                            data = load_witness(&mut buf, i)?;
+                        }
+                        x if x <= 16000 => {
+                            let mut buf = [0u8; 16000];
+                            data = load_witness(&mut buf, i)?;
+                        }
+                        _ => {
+                            return Err(Error::from(SysError::LengthNotEnough(actual_size)));
+                        }
+                    }
+
+                    witnesses.push(data);
+                }
+
                 i += 1;
             }
             Err(SysError::IndexOutOfBound) => break,
             Err(e) => return Err(Error::from(e)),
         }
-
-        // Check DAS header in witness until one witness with DAS header found.
-        if !start_reading_das_witness {
-            if let Some(raw) = data.get(..3) {
-                if raw != &WITNESS_HEADER {
-                    continue;
-                } else {
-                    start_reading_das_witness = true;
-                }
-            } else {
-                continue;
-            }
-        }
-
-        // Start reading DAS witnesses, it is a convention that all DAS witnesses stay together in the end of the witnesses vector.
-        witnesses.push(data);
     }
 
-    Ok(witnesses)
-}
-
-pub fn verify_cells_witness(
-    parser: &WitnessesParser,
-    index: usize,
-    source: Source,
-) -> Result<(), Error> {
-    let data = load_cell_data(index, source)?;
-    let hash = match data.get(..32) {
-        Some(bytes) => bytes.to_vec(),
-        _ => return Err(Error::InvalidCellData),
-    };
-    parser.get(index as u32, &hash, source)?;
-
-    Ok(())
-}
-
-// 108040 cycles
-pub fn get_cell_witness(
-    parser: &WitnessesParser,
-    index: usize,
-    source: Source,
-) -> Result<(u32, u32, &das_packed::Bytes), Error> {
-    let data = load_cell_data(index, source)?;
-    let hash = match data.get(..32) {
-        Some(bytes) => bytes.to_vec(),
-        _ => return Err(Error::InvalidCellData),
-    };
-
-    Ok(parser.get(index as u32, &hash, source)?)
+    Ok(WitnessesParser::new(witnesses)?)
 }
 
 pub fn new_blake2b() -> Blake2b {

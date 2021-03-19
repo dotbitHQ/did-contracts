@@ -9,19 +9,14 @@ use das_core::{
     debug,
     error::Error,
     util,
-    witness_parser::WitnessesParser,
 };
-use das_types::{packed::*, prelude::*};
+use das_types::{constants::DataType, packed::*, prelude::*};
 
 pub fn main() -> Result<(), Error> {
     debug!("====== Running apply-register-cell-type ======");
 
-    // Loading DAS witnesses and parsing the action.
-    let witnesses = util::load_das_witnesses()?;
-    let mut parser = WitnessesParser::new(witnesses)?;
-    parser.parse_only_action()?;
-    let (action, _) = parser.action();
-
+    let action_data = util::load_das_action()?;
+    let action = action_data.as_reader().action().raw_data();
     if action == b"apply_register" {
         debug!("Route to apply_register action ...");
 
@@ -78,6 +73,7 @@ pub fn main() -> Result<(), Error> {
         }
     } else if action == b"pre_register" {
         debug!("Route to pre_register action ...");
+        let mut parser = util::load_das_witnesses(Some(vec![DataType::ConfigCellMain]))?;
         util::require_type_script(
             &mut parser,
             TypeScript::PreAccountCellType,

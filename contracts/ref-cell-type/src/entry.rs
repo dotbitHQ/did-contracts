@@ -1,22 +1,20 @@
+use alloc::vec;
 use ckb_std::{ckb_constants::Source, debug, high_level::load_script};
 use das_core::{
     constants::{ScriptType, TypeScript},
     error::Error,
     util,
-    witness_parser::WitnessesParser,
 };
+use das_types::constants::DataType;
 
 pub fn main() -> Result<(), Error> {
     debug!("====== Running ref-cell-type ======");
 
-    // Loading and parsing DAS witnesses.
-    let witnesses = util::load_das_witnesses()?;
-    let mut parser = WitnessesParser::new(witnesses)?;
-    parser.parse_only_action()?;
-    let (action, _) = parser.action();
-
+    let action_data = util::load_das_action()?;
+    let action = action_data.as_reader().action().raw_data();
     if action == b"confirm_proposal" {
         debug!("Route to confirm_proposal action ...");
+        let mut parser = util::load_das_witnesses(Some(vec![DataType::ConfigCellMain]))?;
         util::require_type_script(
             &mut parser,
             TypeScript::ProposalCellType,
@@ -25,6 +23,7 @@ pub fn main() -> Result<(), Error> {
         )?;
     } else if action == b"transfer_account" || action == b"edit_manager" {
         debug!("Route to transfer_account/edit_manager action ...");
+        let mut parser = util::load_das_witnesses(Some(vec![DataType::ConfigCellMain]))?;
         util::require_type_script(
             &mut parser,
             TypeScript::AccountCellType,

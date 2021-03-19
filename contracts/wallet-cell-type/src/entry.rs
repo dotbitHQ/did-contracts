@@ -1,4 +1,4 @@
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use ckb_std::{
     ckb_constants::Source,
     debug,
@@ -9,9 +9,12 @@ use das_core::{
     error::Error,
     ref_cell_parser::get_id,
     util,
-    witness_parser::WitnessesParser,
 };
-use das_types::{constants::ConfigID, packed::AccountCellData, prelude::Entity};
+use das_types::{
+    constants::{ConfigID, DataType},
+    packed::AccountCellData,
+    prelude::Entity,
+};
 
 pub fn main() -> Result<(), Error> {
     debug!("====== Running wallet-cell-type ======");
@@ -23,12 +26,9 @@ pub fn main() -> Result<(), Error> {
     let new_cells =
         util::find_cells_by_script(ScriptType::Type, &this_type_script, Source::Output)?;
 
-    match util::load_das_witnesses() {
-        Ok(witnesses) => {
-            let mut parser = WitnessesParser::new(witnesses)?;
-            parser.parse_only_action()?;
-
-            let (action, _) = parser.action();
+    match util::load_das_action() {
+        Ok(action_data) => {
+            let action = action_data.as_reader().action().raw_data();
             if action == b"create_wallet" {
                 debug!("Route to create_wallet action ...");
 
@@ -93,6 +93,7 @@ pub fn main() -> Result<(), Error> {
             } else if action == b"withdraw_from_wallet" {
                 debug!("Route to withdraw_from_wallet action ...");
 
+                let mut parser = util::load_das_witnesses(None)?;
                 parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
                 parser.parse_all_data()?;
                 let config = parser.configs().main()?;
@@ -192,6 +193,7 @@ pub fn main() -> Result<(), Error> {
                 }
             } else if action == b"recycle_expired_account_by_keeper" {
                 debug!("Route to recycle_expired_account_by_keeper action ...");
+                let mut parser = util::load_das_witnesses(Some(vec![DataType::ConfigCellMain]))?;
                 util::require_type_script(
                     &mut parser,
                     TypeScript::AccountCellType,
@@ -204,11 +206,13 @@ pub fn main() -> Result<(), Error> {
                 verify_if_only_capacity_increased(old_cells, new_cells)?;
             }
         }
-        _ => {
+        // WalletCell can be also used in any transactions without the ActionData of DAS.
+        Err(Error::WitnessActionNotFound) => {
             debug!("Route to non-action ...");
 
             verify_if_only_capacity_increased(old_cells, new_cells)?;
         }
+        Err(e) => return Err(e),
     }
 
     Ok(())
