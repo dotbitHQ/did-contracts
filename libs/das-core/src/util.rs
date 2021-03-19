@@ -17,7 +17,7 @@ use das_types::{
 use hex::FromHexError;
 use std::prelude::v1::*;
 
-pub use das_types::util::{is_entity_eq, is_reader_eq};
+pub use das_types::util::{hex_string, is_entity_eq, is_reader_eq};
 
 #[cfg(test)]
 pub fn hex_to_unpacked_bytes(input: &str) -> Result<bytes::Bytes, FromHexError> {

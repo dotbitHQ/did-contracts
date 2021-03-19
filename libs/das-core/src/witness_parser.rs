@@ -2,6 +2,7 @@ use super::constants::*;
 use super::debug;
 use super::error::Error;
 use super::types::Configs;
+use super::util;
 use super::util::{blake2b_256, find_cells_by_script, load_cell_data, script_literal_to_script};
 use ckb_std::ckb_constants::Source;
 use core::convert::{TryFrom, TryInto};
@@ -297,8 +298,10 @@ impl WitnessesParser {
             } else {
                 // This error means the there is no hash(witness.data.dep/old/new.entity) matches the leading 32 bytes of the cell.
                 debug!(
-                    "Witness hash verify failed: {:?}[{}] {:?}",
-                    source, index, hash
+                    "Witness hash verify failed: {:?}[{}] 0x{}",
+                    source,
+                    index,
+                    util::hex_string(hash.as_slice())
                 );
                 return Err(Error::WitnessDataHashMissMatch);
             }
