@@ -6,7 +6,7 @@ use ckb_std::{
 use core::convert::TryInto;
 use core::result::Result;
 use das_bloom_filter::BloomFilter;
-use das_core::{constants::*, debug, error::Error, util};
+use das_core::{constants::*, debug, error::Error, inspect, util};
 use das_types::{
     constants::{ConfigID, DataType},
     packed::*,
@@ -96,6 +96,9 @@ pub fn main() -> Result<(), Error> {
         let apply_register_lock =
             load_cell_lock(index.to_owned(), Source::Input).map_err(|e| Error::from(e))?;
 
+        #[cfg(not(feature = "mainnet"))]
+        inspect::apply_register_cell(Source::Input, index.to_owned(), &data);
+
         verify_apply_height(height, config_register_reader, &data)?;
 
         debug!("Read witness of PreAccountCell ...");
@@ -109,8 +112,11 @@ pub fn main() -> Result<(), Error> {
         };
         let capacity =
             load_cell_capacity(index.to_owned(), Source::Output).map_err(|e| Error::from(e))?;
-
         let (_, _, entity) = parser.verify_and_get(index.to_owned(), Source::Output)?;
+
+        #[cfg(not(feature = "mainnet"))]
+        inspect::pre_account_cell(Source::Output, index.to_owned(), &data, entity.to_owned());
+
         let pre_account_witness = PreAccountCellData::from_slice(entity.as_reader().raw_data())
             .map_err(|_| Error::WitnessEntityDecodingError)?;
         let reader = pre_account_witness.as_reader();
@@ -211,13 +217,17 @@ fn verify_apply_hash(
     let hash = util::blake2b_256(data_to_hash.as_slice());
 
     debug!(
-        "Verify hash in ApplyRegisterCell: {:?} != {:?} {}",
-        expected_hash,
-        hash,
-        expected_hash != hash
+        "Verify hash in ApplyRegisterCell: 0x{}(expected) != 0x{}(apply_register_cell.data)",
+        util::hex_string(expected_hash),
+        util::hex_string(&hash)
     );
 
     if expected_hash != hash {
+        debug!(
+            "Hash calculated from: arg: 0x{}, account: 0x{}",
+            util::hex_string(data_to_hash.get(..20).unwrap()),
+            util::hex_string(data_to_hash.get(20..).unwrap())
+        );
         return Err(Error::PreRegisterApplyHashIsInvalid);
     }
 
