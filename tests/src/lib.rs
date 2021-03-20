@@ -26,11 +26,14 @@ mod pre_account_cell_type;
 #[cfg(test)]
 mod proposal;
 #[cfg(test)]
-mod sandbox;
-#[cfg(test)]
 mod template_parser;
 #[cfg(test)]
 mod wallet_cell_type;
+
+#[cfg(test)]
+mod sandbox;
+#[cfg(test)]
+mod sandbox;
 
 const TEST_ENV_VAR: &str = "CAPSULE_TEST_ENV";
 

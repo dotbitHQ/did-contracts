@@ -1,4 +1,4 @@
-use super::account_cell_parser;
+use super::data_parser::{account_cell, pre_account_cell};
 use ckb_std::ckb_constants::Source;
 use ckb_std::debug;
 use core::convert::TryInto;
@@ -19,7 +19,7 @@ pub fn pre_account_cell(source: Source, index: usize, data: &Vec<u8>, witness: B
         "  {:?}[{}].data: {{ id: 0x{} }}",
         source,
         index,
-        hex_string(data.get(32..).unwrap())
+        hex_string(pre_account_cell::get_id(&data))
     );
     let witness_data = PreAccountCellData::new_unchecked(witness.raw_data());
     debug!("  {:?}[{}].witness: {}", source, index, witness_data);
@@ -30,10 +30,10 @@ pub fn account_cell(source: Source, index: usize, data: &Vec<u8>, witness: Bytes
         "  {:?}[{}].data: {{ id: 0x{}, next: 0x{}, expired_at: {}, account: 0x{} }}",
         source,
         index,
-        hex_string(account_cell_parser::get_id(&data)),
-        hex_string(account_cell_parser::get_next(&data)),
-        account_cell_parser::get_expired_at(&data),
-        hex_string(account_cell_parser::get_account(&data))
+        hex_string(account_cell::get_id(&data)),
+        hex_string(account_cell::get_next(&data)),
+        account_cell::get_expired_at(&data),
+        hex_string(account_cell::get_account(&data))
     );
     let witness_data = AccountCellData::new_unchecked(witness.raw_data());
     debug!("  {:?}[{}].witness: {}", source, index, witness_data);

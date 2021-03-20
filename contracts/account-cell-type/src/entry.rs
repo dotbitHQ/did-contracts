@@ -9,10 +9,10 @@ use ckb_std::{
 };
 use core::convert::TryInto;
 use das_core::{
-    account_cell_parser::{get_expired_at, get_id},
     constants::{
         oracle_lock, super_lock, ScriptType, TypeScript, ALWAYS_SUCCESS_LOCK, DAS_WALLET_ID,
     },
+    data_parser::account_cell,
     error::Error,
     util,
     witness_parser::WitnessesParser,
@@ -400,12 +400,12 @@ pub fn main() -> Result<(), Error> {
         let expiration_grace_period =
             u32::from(config_main.account_expiration_grace_period()) as u64;
         let account_data = util::load_cell_data(old_account_cells[0], Source::Input)?;
-        let expired_at = get_expired_at(&account_data);
+        let expired_at = account_cell::get_expired_at(&account_data);
         if expired_at + expiration_grace_period >= timestamp {
             return Err(Error::AccountCellIsNotExpired);
         }
 
-        let account_id = get_id(&account_data);
+        let account_id = account_cell::get_id(&account_data);
 
         debug!("Check if the transaction has required WalletCells.");
 
@@ -580,7 +580,7 @@ fn verify_account_expiration(account_cell_index: usize, current: u64) -> Result<
     debug!("Check if AccountCell is expired.");
 
     let data = load_cell_data(account_cell_index, Source::Input).map_err(|e| Error::from(e))?;
-    let expired_at = get_expired_at(data.as_slice());
+    let expired_at = account_cell::get_expired_at(data.as_slice());
 
     if current > expired_at {
         if current - expired_at > 86400 * 30 {

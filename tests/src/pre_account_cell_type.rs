@@ -59,7 +59,7 @@ fn gen_pre_register_test_data() {
     template.push_pre_account_cell(
         cell_data,
         Some((1, 0, entity)),
-        536_600_000_000,
+        535_600_000_000,
         Source::Output,
     );
 

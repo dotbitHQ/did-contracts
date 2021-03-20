@@ -41,16 +41,10 @@ fn gen_proposal_related_cell_at_create(
                 bytes::Bytes::from(account_to_id_bytes(account)).pack()
             );
 
-            let splited_account = account[..&account.len() - 4]
-                .split("")
-                .filter(|item| !item.is_empty())
-                .collect::<Vec<&str>>();
-            let account_chars = gen_account_chars(splited_account);
-
             if *item_type == ProposalSliceItemType::Exist {
                 let origin_next = bytes::Bytes::from(account_to_id_bytes(next));
                 let (cell_data, entity) = template.gen_account_cell_data(
-                    &account_chars,
+                    account,
                     "0x0000000000000000000000000000000000001111",
                     "0x0000000000000000000000000000000000001111",
                     origin_next.clone(),
@@ -61,12 +55,12 @@ fn gen_proposal_related_cell_at_create(
                 template.push_account_cell(
                     cell_data,
                     Some((1, dep_index, entity)),
-                    194,
+                    15_800_000_000,
                     Source::CellDep,
                 );
             } else {
                 let (cell_data, entity) = template.gen_pre_account_cell_data(
-                    &account_chars,
+                    account,
                     "0x0000000000000000000000000000000000002222",
                     "0x000000000000000000000000000000000000FFFF",
                     "inviter_01.bit",
@@ -77,7 +71,7 @@ fn gen_proposal_related_cell_at_create(
                 template.push_pre_account_cell(
                     cell_data,
                     Some((1, dep_index, entity)),
-                    5308,
+                    535_600_000_000,
                     Source::CellDep,
                 );
             }
@@ -117,7 +111,7 @@ fn gen_proposal_create_test_data() {
     );
     template.push_proposal_cell(cell_data, Some((1, 0, entity)), 1000, Source::Output);
 
-    gen_proposal_related_cell_at_create(&mut template, slices, timestamp, 4);
+    gen_proposal_related_cell_at_create(&mut template, slices, timestamp, 6);
 
     template.pretty_print();
 }
@@ -172,7 +166,7 @@ fn gen_extend_proposal_test_data() {
         height - 5,
         &slices,
     );
-    template.push_proposal_cell(cell_data, Some((1, 5, entity)), 1000, Source::CellDep);
+    template.push_proposal_cell(cell_data, Some((1, 6, entity)), 1000, Source::CellDep);
 
     // Generate extended proposal
     let slices = vec![
@@ -206,7 +200,7 @@ fn gen_extend_proposal_test_data() {
     );
     template.push_proposal_cell(cell_data, Some((1, 0, entity)), 1000, Source::Output);
 
-    gen_proposal_related_cell_at_create(&mut template, slices, timestamp, 4);
+    gen_proposal_related_cell_at_create(&mut template, slices, timestamp, 7);
 
     template.pretty_print();
 }
@@ -252,12 +246,6 @@ fn gen_proposal_related_cell_at_confirm(
                 bytes::Bytes::from(account_to_id_bytes(account)).pack()
             );
 
-            let splited_account = account[..&account.len() - 4]
-                .split("")
-                .filter(|item| !item.is_empty())
-                .collect::<Vec<&str>>();
-            let account_chars = gen_account_chars(splited_account);
-
             if *item_type == ProposalSliceItemType::Exist
                 || *item_type == ProposalSliceItemType::Proposed
             {
@@ -266,7 +254,7 @@ fn gen_proposal_related_cell_at_confirm(
                 println!("    📥 next_of_first_item: {}", origin_next.pack());
                 next_of_first_item = origin_next.clone();
                 let (cell_data, new_entity) = template.gen_account_cell_data(
-                    &account_chars,
+                    account,
                     "0x0000000000000000000000000000000000001111",
                     "0x0000000000000000000000000000000000001111",
                     origin_next.clone(),
@@ -280,7 +268,7 @@ fn gen_proposal_related_cell_at_confirm(
                 let (account, _, _) = slice.get(item_index + 1).unwrap();
                 let updated_next = bytes::Bytes::from(account_to_id_bytes(account));
                 let (cell_data, old_entity) = template.gen_account_cell_data(
-                    &account_chars,
+                    account,
                     "0x0000000000000000000000000000000000001111",
                     "0x0000000000000000000000000000000000001111",
                     updated_next.clone(),
@@ -307,7 +295,7 @@ fn gen_proposal_related_cell_at_confirm(
             } else {
                 // Generate old PreAccountCell in inputs.
                 let (cell_data, entity) = template.gen_pre_account_cell_data(
-                    &account_chars,
+                    account,
                     "0x0000000000000000000000000000000000002222",
                     "0x000000000000000000000000000000000000FFFF",
                     "inviter_01.bit",
@@ -331,7 +319,7 @@ fn gen_proposal_related_cell_at_confirm(
                     next_of_first_item.clone()
                 };
                 let (cell_data, entity) = template.gen_account_cell_data(
-                    &account_chars,
+                    account,
                     "0x0000000000000000000000000000000000002222",
                     "0x0000000000000000000000000000000000002222",
                     updated_next.clone(),
@@ -363,9 +351,17 @@ fn gen_proposal_related_cell_at_confirm(
 
     for account in accounts_to_gen_ref_cells {
         template.push_ref_cell(
-            "0x0000000000000000000000000000000000000011",
+            "0x0000000000000000000000000000000000002222",
             account,
-            9_400_000_000,
+            true,
+            10_500_000_000,
+            Source::Output,
+        );
+        template.push_ref_cell(
+            "0x0000000000000000000000000000000000002222",
+            account,
+            false,
+            10_500_000_000,
             Source::Output,
         );
     }
@@ -429,7 +425,7 @@ fn gen_confirm_proposal_test_data() {
     template.pretty_print();
 }
 
-// #[test]
+#[test]
 fn test_proposal_confirm() {
     let mut context;
     let mut parser;
@@ -506,7 +502,7 @@ fn gen_proposal_recycle_test_data() {
     template.pretty_print();
 }
 
-#[test]
+// #[test]
 fn test_proposal_recycle() {
     let mut context;
     let mut parser;

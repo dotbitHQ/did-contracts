@@ -123,7 +123,7 @@
   "outputs": [
     {
       "tmp_type": "full",
-      "capacity": 536800000000,
+      "capacity": 535600000000,
       "lock": {
         "code_hash": "{{always_success}}"
       },

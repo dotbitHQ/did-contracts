@@ -2,13 +2,13 @@ use alloc::borrow::ToOwned;
 use ckb_std::{
     ckb_constants::Source,
     ckb_types::bytes,
-    high_level::{load_cell_capacity, load_cell_data, load_cell_type, load_script},
+    high_level::{load_cell_capacity, load_cell_data, load_cell_lock, load_cell_type, load_script},
 };
 use core::convert::TryFrom;
 use core::result::Result;
 use das_core::{
-    account_cell_parser::{get_account, get_expired_at, get_id, get_next},
     constants::*,
+    data_parser::{account_cell, ref_cell},
     debug,
     error::Error,
     util,
@@ -467,7 +467,7 @@ fn verify_slices_relevant_cells(
                     }
 
                     // The correct "next" of first proposal is come from the cell's outputs_data.
-                    next_of_first_cell = AccountId::try_from(get_next(&cell_data))
+                    next_of_first_cell = AccountId::try_from(account_cell::get_next(&cell_data))
                         .map_err(|_| Error::InvalidCellData)?;
 
                 // If this is the extended proposal in proposal chain, slice may starting with an
@@ -486,7 +486,7 @@ fn verify_slices_relevant_cells(
                             // If the item is included in previous proposal, then we need to get its latest "next" from the proposal.
                             Ok(prev_item) => prev_item.next(),
                             // If the item is not included in previous proposal, then we get its latest "next" from the cell's outputs_data.
-                            Err(_) => AccountId::try_from(get_next(&cell_data))
+                            Err(_) => AccountId::try_from(account_cell::get_next(&cell_data))
                                 .map_err(|_| Error::InvalidCellData)?,
                         };
                 }
@@ -547,6 +547,10 @@ fn verify_proposal_execution_result(
     let inviter_profit_rate = u32::from(config_register.profit().profit_rate_of_inviter()) as u64;
     let channel_profit_rate = u32::from(config_register.profit().profit_rate_of_inviter()) as u64;
 
+    let mut output_ref_cells = load_ref_cells(config_main)?;
+
+    let mut new_account_ids = Vec::new();
+
     let mut i = 0;
     for (sl_index, sl_reader) in slices_reader.iter().enumerate() {
         debug!("Check Slice[{}] ...", sl_index);
@@ -555,16 +559,11 @@ fn verify_proposal_execution_result(
             let item_type = u8::from(item.item_type());
             let item_next = item.next();
 
-            let input_cell_data = load_cell_data(input_related_cells[i], Source::Input)
-                .map_err(|e| Error::from(e))?;
-            let (_, _, old_entity) =
-                parser.verify_and_get(input_related_cells[i], Source::Input)?;
-            let output_cell_data = load_cell_data(output_account_cells[i], Source::Output)
-                .map_err(|e| Error::from(e))?;
-            let (_, _, new_entity) =
-                parser.verify_and_get(output_account_cells[i], Source::Output)?;
+            let (input_cell_data, input_cell_entity) =
+                util::load_cell_data_and_entity(&parser, input_related_cells[i], Source::Input)?;
+            let (output_cell_data, output_cell_entity) =
+                util::load_cell_data_and_entity(&parser, output_account_cells[i], Source::Output)?;
 
-            let mut new_account_ids = Vec::new();
             if item_type == ProposalSliceItemType::Exist as u8
                 || item_type == ProposalSliceItemType::Proposed as u8
             {
@@ -603,21 +602,22 @@ fn verify_proposal_execution_result(
                     item_account_id,
                 )?;
 
-                let old_cell_witness =
-                    AccountCellData::new_unchecked(old_entity.as_reader().raw_data().into());
-                let old_cell_witness_reader = old_cell_witness.as_reader();
-                let new_cell_witness =
-                    AccountCellData::new_unchecked(new_entity.as_reader().raw_data().into());
-                let output_cell_witness_reader = new_cell_witness.as_reader();
-
                 // For the existing AccountCell, only the next field in data can be modified.
                 is_id_same(item_index, &output_cell_data, &input_cell_data)?;
                 is_account_same(item_index, &output_cell_data, &input_cell_data)?;
                 is_expired_at_same(item_index, &output_cell_data, &input_cell_data)?;
                 is_next_correct(item_index, &output_cell_data, item_next)?;
 
+                let input_account_witness =
+                    AccountCellData::new_unchecked(input_cell_entity.as_reader().raw_data().into());
+                let input_account_witness_reader = input_account_witness.as_reader();
+                let output_account_witness = AccountCellData::new_unchecked(
+                    output_cell_entity.as_reader().raw_data().into(),
+                );
+                let output_cell_witness_reader = output_account_witness.as_reader();
+
                 // For the existing AccountCell, witness can not be modified.
-                if !util::is_reader_eq(old_cell_witness_reader, output_cell_witness_reader) {
+                if !util::is_reader_eq(input_account_witness_reader, output_cell_witness_reader) {
                     return Err(Error::ProposalWitnessCanNotBeModified);
                 }
             } else {
@@ -626,7 +626,7 @@ fn verify_proposal_execution_result(
                     item_index, input_related_cells[i]
                 );
 
-                // All cells' type is must be account-cell-type
+                // All cells' type is must be pre-account-cell-type/account-cell-type
                 verify_cell_type_id(
                     item_index,
                     input_related_cells[i],
@@ -641,6 +641,7 @@ fn verify_proposal_execution_result(
                 )?;
 
                 // All cells' account_id in data must be the same as the account_id in proposal.
+                // TODO here is a PreAccountCell
                 verify_cell_account_id(
                     item_index,
                     &input_cell_data,
@@ -659,14 +660,16 @@ fn verify_proposal_execution_result(
                 // Store account IDs of all new accounts for later RefCell verification.
                 new_account_ids.push(item_account_id.raw_data().to_vec());
 
-                let old_cell_witness =
-                    PreAccountCellData::new_unchecked(old_entity.as_reader().raw_data().into());
-                let old_cell_witness_reader = old_cell_witness.as_reader();
-                let new_cell_witness =
-                    AccountCellData::new_unchecked(new_entity.as_reader().raw_data().into());
+                let input_cell_witness = PreAccountCellData::new_unchecked(
+                    input_cell_entity.as_reader().raw_data().into(),
+                );
+                let input_cell_witness_reader = input_cell_witness.as_reader();
+                let new_cell_witness = AccountCellData::new_unchecked(
+                    output_cell_entity.as_reader().raw_data().into(),
+                );
                 let output_cell_witness_reader = new_cell_witness.as_reader();
 
-                let account_length = get_account(&output_cell_data).len() as u64;
+                let account_length = account_cell::get_account(&output_cell_data).len() as u64;
                 let total_capacity = load_cell_capacity(input_related_cells[i], Source::Input)
                     .map_err(|e| Error::from(e))?;
                 let storage_capacity = util::get_account_storage_total(account_length);
@@ -682,7 +685,7 @@ fn verify_proposal_execution_result(
                     profit,
                     timestamp,
                     &output_cell_data,
-                    old_cell_witness_reader,
+                    input_cell_witness_reader,
                 )?;
 
                 // Check all fields in the witness of new AccountCell.
@@ -691,33 +694,39 @@ fn verify_proposal_execution_result(
                 verify_witness_locks(
                     item_index,
                     output_cell_witness_reader,
-                    old_cell_witness_reader,
+                    input_cell_witness_reader,
                 )?;
                 verify_witness_status(item_index, output_cell_witness_reader)?;
                 verify_witness_records(item_index, output_cell_witness_reader)?;
 
+                verify_ref_cells(
+                    item_index,
+                    output_cell_witness_reader,
+                    &mut output_ref_cells,
+                )?;
+
                 // Only when inviter_wallet's length is equal to account ID it will be count in profit.
                 let mut inviter_profit = 0;
-                if old_cell_witness_reader.inviter_wallet().len() == ACCOUNT_ID_LENGTH {
+                if input_cell_witness_reader.inviter_wallet().len() == ACCOUNT_ID_LENGTH {
                     inviter_profit = profit * inviter_profit_rate / RATE_BASE;
                     debug!(
                         "  Item[{}] {}(inviter_profit) = {}(profit) * {}(inviter_profit_rate) / {}(RATE_BASE)",
                         item_index, inviter_profit, profit, inviter_profit_rate, RATE_BASE
                     );
                     wallet.add_balance(
-                        old_cell_witness_reader.inviter_wallet().raw_data(),
+                        input_cell_witness_reader.inviter_wallet().raw_data(),
                         inviter_profit,
                     );
                 };
                 let mut channel_profit = 0;
-                if old_cell_witness_reader.channel_wallet().len() == ACCOUNT_ID_LENGTH {
+                if input_cell_witness_reader.channel_wallet().len() == ACCOUNT_ID_LENGTH {
                     channel_profit = profit * channel_profit_rate / RATE_BASE;
                     debug!(
                         "  Item[{}] {}(channel_profit) = {}(profit) * {}(channel_profit_rate) / {}(RATE_BASE)",
                         item_index, channel_profit, profit, channel_profit_rate, RATE_BASE
                     );
                     wallet.add_balance(
-                        old_cell_witness_reader.channel_wallet().raw_data(),
+                        input_cell_witness_reader.channel_wallet().raw_data(),
                         channel_profit,
                     );
                 };
@@ -734,19 +743,12 @@ fn verify_proposal_execution_result(
         }
     }
 
-    debug!("Check if RefCells have been created correctly.");
-
-    let ref_cell_type_id = config_main.type_id_table().ref_cell();
-    let input_ref_cells =
-        util::find_cells_by_type_id(ScriptType::Type, ref_cell_type_id, Source::Input)?;
-    let output_ref_cells =
-        util::find_cells_by_type_id(ScriptType::Type, ref_cell_type_id, Source::Output)?;
-
-    if input_ref_cells.len() != 0 || output_ref_cells.len() == 0 {
-        return Err(Error::ProposalFoundInvalidTransaction);
+    for item in output_ref_cells {
+        if item.is_some() {
+            debug!("Redundant RefCells is not allowed in this transaction.");
+            return Err(Error::ProposalFoundInvalidTransaction);
+        }
     }
-
-    // for ref_cell in new_ref_cells {}
 
     debug!("Check if the balance of all WalletCells have increased correctly.");
 
@@ -856,7 +858,8 @@ fn verify_cell_account_id(
     source: Source,
     expected_account_id: AccountIdReader,
 ) -> Result<(), Error> {
-    let account_id = AccountId::try_from(get_id(&cell_data)).map_err(|_| Error::InvalidCellData)?;
+    let account_id = AccountId::try_from(account_cell::get_id(&cell_data))
+        .map_err(|_| Error::InvalidCellData)?;
 
     if !util::is_reader_eq(account_id.as_reader(), expected_account_id) {
         debug!(
@@ -903,8 +906,8 @@ fn is_id_same(
     is_bytes_eq(
         item_index,
         "id",
-        get_id(output_cell_data),
-        get_id(input_cell_data),
+        account_cell::get_id(output_cell_data),
+        account_cell::get_id(input_cell_data),
         Error::ProposalFieldCanNotBeModified,
     )
 }
@@ -917,8 +920,8 @@ fn is_account_same(
     is_bytes_eq(
         item_index,
         "account",
-        get_account(output_cell_data),
-        get_account(input_cell_data),
+        account_cell::get_account(output_cell_data),
+        account_cell::get_account(input_cell_data),
         Error::ProposalFieldCanNotBeModified,
     )
 }
@@ -928,8 +931,8 @@ fn is_expired_at_same(
     output_cell_data: &Vec<u8>,
     input_cell_data: &Vec<u8>,
 ) -> Result<(), Error> {
-    let input_expired_at = get_expired_at(input_cell_data);
-    let output_expired_at = get_expired_at(output_cell_data);
+    let input_expired_at = account_cell::get_expired_at(input_cell_data);
+    let output_expired_at = account_cell::get_expired_at(output_cell_data);
 
     if input_expired_at != output_expired_at {
         debug!(
@@ -950,8 +953,8 @@ fn is_id_correct(
     is_bytes_eq(
         item_index,
         "id",
-        get_id(output_cell_data),
-        get_id(input_cell_data),
+        account_cell::get_id(output_cell_data),
+        account_cell::get_id(input_cell_data),
         Error::ProposalConfirmIdError,
     )
 }
@@ -966,7 +969,7 @@ fn is_next_correct(
     is_bytes_eq(
         item_index,
         "next",
-        get_next(output_cell_data),
+        account_cell::get_next(output_cell_data),
         expected_next,
         Error::ProposalConfirmNextError,
     )
@@ -982,7 +985,7 @@ fn is_expired_at_correct(
     let price = u64::from(pre_account_cell_witness.price().new());
     let quote = u64::from(pre_account_cell_witness.quote());
     let duration = profit * 365 * 86400 / (price / quote * 100_000_000);
-    let expired_at = get_expired_at(output_cell_data);
+    let expired_at = account_cell::get_expired_at(output_cell_data);
 
     debug!(
         "  Item[{}] Check if outputs[].AccountCell.expired_at: expired_at({}) != {} = current({}) + duration({})",
@@ -1009,8 +1012,8 @@ fn is_expired_at_correct(
 }
 
 fn is_account_correct(item_index: usize, output_cell_data: &Vec<u8>) -> Result<(), Error> {
-    let expected_account_id = get_id(output_cell_data);
-    let account = get_account(output_cell_data);
+    let expected_account_id = account_cell::get_id(output_cell_data);
+    let account = account_cell::get_account(output_cell_data);
 
     let hash = util::blake2b_256(account);
     let account_id = hash.get(..ACCOUNT_ID_LENGTH).unwrap();
@@ -1030,7 +1033,7 @@ fn verify_witness_id(
     output_cell_witness_reader: AccountCellDataReader,
 ) -> Result<(), Error> {
     let account_id = output_cell_witness_reader.id().raw_data();
-    let expected_account_id = get_id(output_cell_data);
+    let expected_account_id = account_cell::get_id(output_cell_data);
 
     is_bytes_eq(
         item_index,
@@ -1048,7 +1051,7 @@ fn verify_witness_account(
 ) -> Result<(), Error> {
     let mut account = output_cell_witness_reader.account().as_readable();
     account.append(&mut ACCOUNT_SUFFIX.as_bytes().to_vec());
-    let expected_account = get_account(output_cell_data);
+    let expected_account = account_cell::get_account(output_cell_data);
 
     is_bytes_eq(
         item_index,
@@ -1062,11 +1065,11 @@ fn verify_witness_account(
 fn verify_witness_locks(
     item_index: usize,
     output_cell_witness_reader: AccountCellDataReader,
-    old_cell_witness_reader: PreAccountCellDataReader,
+    input_cell_witness_reader: PreAccountCellDataReader,
 ) -> Result<(), Error> {
     let owner_lock = output_cell_witness_reader.owner_lock();
     let manager_lock = output_cell_witness_reader.manager_lock();
-    let expected_lock = old_cell_witness_reader.owner_lock();
+    let expected_lock = input_cell_witness_reader.owner_lock();
 
     if !util::is_reader_eq(owner_lock, expected_lock) {
         debug!(
@@ -1123,6 +1126,119 @@ fn verify_witness_records(
             records.is_empty()
         );
         return Err(Error::ProposalConfirmWitnessRecordsError);
+    }
+
+    Ok(())
+}
+
+struct RefCellItem {
+    item_index: usize,
+    id: Vec<u8>,
+    is_owner: bool,
+    lock: Script,
+}
+
+fn load_ref_cells(config_main: ConfigCellMainReader) -> Result<Vec<Option<RefCellItem>>, Error> {
+    let ref_cell_type_id = config_main.type_id_table().ref_cell();
+    let input_ref_cells =
+        util::find_cells_by_type_id(ScriptType::Type, ref_cell_type_id, Source::Input)?;
+    let output_ref_cells =
+        util::find_cells_by_type_id(ScriptType::Type, ref_cell_type_id, Source::Output)?;
+
+    if input_ref_cells.len() != 0 || output_ref_cells.len() == 0 {
+        debug!("The number of RefCells should be 0 in inputs and not 0 in outputs.");
+        return Err(Error::ProposalFoundInvalidTransaction);
+    }
+
+    let mut ret = Vec::new();
+    for i in output_ref_cells {
+        let data = util::load_cell_data(i, Source::Output)?;
+        ret.push(Some(RefCellItem {
+            item_index: i,
+            id: ref_cell::get_id(&data).to_vec(),
+            is_owner: ref_cell::get_is_owner(&data),
+            lock: Script::from(load_cell_lock(i, Source::Output).map_err(|err| Error::from(err))?),
+        }))
+    }
+
+    Ok(ret)
+}
+
+fn verify_ref_cells(
+    item_index: usize,
+    output_cell_witness_reader: AccountCellDataReader,
+    output_ref_cells: &mut Vec<Option<RefCellItem>>,
+) -> Result<(), Error> {
+    debug!(
+        "  Item[{}] Check if AccountCell's RefCells are created correctly.",
+        item_index
+    );
+
+    let account_id = output_cell_witness_reader.id().raw_data();
+    let owner_lock = output_cell_witness_reader.owner_lock();
+    let manager_lock = output_cell_witness_reader.manager_lock();
+
+    let mut index_to_purge = Vec::new();
+    let mut ref_cells_found = Vec::new();
+
+    // Find RefCells of the account, check if their lock script is matched with AccountCell, and if they are duplicated.
+    for (i, item) in output_ref_cells.into_iter().enumerate() {
+        if item.is_none() {
+            continue;
+        }
+
+        let item = item.as_mut().unwrap();
+        if account_id == item.id {
+            if item.is_owner {
+                if ref_cells_found.contains(&"owner") {
+                    debug!(
+                        "  AccountCell[{}]'s OwnerCell[{}] is duplicated.",
+                        item_index, item.item_index
+                    );
+                    return Err(Error::ProposalConfirmRefCellDuplicated);
+                }
+                if !util::is_reader_eq(owner_lock, item.lock.as_reader()) {
+                    debug!(
+                        "  The lock script of AccountCell[{}] and OwnerCell[{}] is not matched.",
+                        item_index, item.item_index
+                    );
+                    return Err(Error::ProposalConfirmRefCellMissMatch);
+                }
+                ref_cells_found.push("owner");
+            } else {
+                if ref_cells_found.contains(&"manager") {
+                    debug!(
+                        "  AccountCell[{}]'s ManagerCell[{}] is duplicated.",
+                        item_index, item.item_index
+                    );
+                    return Err(Error::ProposalConfirmRefCellDuplicated);
+                }
+                if !util::is_reader_eq(manager_lock, item.lock.as_reader()) {
+                    debug!(
+                        "  The lock script of AccountCell[{}] and ManagerCell[{}] is not matched.",
+                        item_index, item.item_index
+                    );
+                    return Err(Error::ProposalConfirmRefCellMissMatch);
+                }
+                ref_cells_found.push("manager");
+            }
+
+            index_to_purge.push(i);
+        }
+    }
+
+    // Check if the OwnerCell or ManagerCell is missing for the account.
+    if ref_cells_found.len() != 2 {
+        debug!(
+            "  The number of RefCells of AccountCell[{}] must equal to 2 .",
+            item_index
+        );
+        return Err(Error::ProposalConfirmRefCellMissing);
+    }
+
+    // Purge used items in output_ref_cells for later verification.
+    for i in index_to_purge {
+        output_ref_cells[i] = None;
     }
 
     Ok(())
