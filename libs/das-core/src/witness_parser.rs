@@ -3,7 +3,6 @@ use super::debug;
 use super::error::Error;
 use super::types::Configs;
 use super::util;
-use super::util::{blake2b_256, find_cells_by_script, load_cell_data, script_literal_to_script};
 use ckb_std::ckb_constants::Source;
 use core::convert::{TryFrom, TryInto};
 use das_types::{
@@ -47,7 +46,7 @@ impl WitnessesParser {
 
         debug!("  Load ConfigCells in cell_deps ...");
 
-        let config_cell_type = script_literal_to_script(CONFIG_CELL_TYPE);
+        let config_cell_type = util::script_literal_to_script(CONFIG_CELL_TYPE);
         let mut config_data_types = Vec::new();
         let mut config_entity_hashes = Vec::new();
         for config_id in config_ids {
@@ -58,13 +57,13 @@ impl WitnessesParser {
                 .args(args.into())
                 .build();
             // There must be one ConfigCell in the cell_deps, no more and no less.
-            let ret = find_cells_by_script(ScriptType::Type, &type_script, Source::CellDep)?;
+            let ret = util::find_cells_by_script(ScriptType::Type, &type_script, Source::CellDep)?;
             if ret.len() != 1 {
                 return Err(Error::ConfigCellIsRequired);
             }
             let expected_cell_index = ret[0];
 
-            let data = load_cell_data(expected_cell_index, Source::CellDep)?;
+            let data = util::load_cell_data(expected_cell_index, Source::CellDep)?;
             let expected_entity_hash = match data.get(..32) {
                 Some(bytes) => bytes.to_owned(),
                 _ => return Err(Error::InvalidCellData),
@@ -152,7 +151,7 @@ impl WitnessesParser {
         let entity = witness
             .get(7..)
             .ok_or(Error::ConfigCellWitnessDecodingError)?;
-        let entity_hash = blake2b_256(entity).to_vec();
+        let entity_hash = util::blake2b_256(entity).to_vec();
         let ret = config_entity_hashes
             .iter()
             .enumerate()
@@ -184,9 +183,9 @@ impl WitnessesParser {
             // Skip all config witnesses.
             if self.is_config_data_type(data_type) {
                 continue;
-            } else {
-                debug!("Parse witnesses[{}] in type: {:?}", _i, data_type);
             }
+
+            // debug!("Parse witnesses[{}] in type: {:?}", _i, data_type);
 
             let data = Self::parse_data(witness)?;
             if let Some(entity) = data.dep().to_opt() {
@@ -255,7 +254,7 @@ impl WitnessesParser {
         let entity = data_entity.entity();
 
         let unwraped_entity = entity.as_reader().raw_data();
-        let hash = blake2b_256(unwraped_entity).to_vec();
+        let hash = util::blake2b_256(unwraped_entity).to_vec();
 
         // debug!(
         //     "entity: index = {} hash = {:?} entity = {:?}",
@@ -270,7 +269,7 @@ impl WitnessesParser {
         index: usize,
         source: Source,
     ) -> Result<(u32, DataType, &Bytes), Error> {
-        let data = load_cell_data(index, source)?;
+        let data = util::load_cell_data(index, source)?;
         let hash = match data.get(..32) {
             Some(bytes) => bytes.to_vec(),
             _ => return Err(Error::InvalidCellData),
@@ -298,10 +297,13 @@ impl WitnessesParser {
             } else {
                 // This error means the there is no hash(witness.data.dep/old/new.entity) matches the leading 32 bytes of the cell.
                 debug!(
-                    "Witness hash verify failed: {:?}[{}] 0x{}",
+                    "  {:?}[{}] Witness hash verify failed: data_type: {:?}, hash_in_cell_data: 0x{} calculated_hash: 0x{} entity: 0x{}",
                     source,
                     index,
-                    util::hex_string(hash.as_slice())
+                    _entity_type,
+                    util::hex_string(hash.as_slice()),
+                    util::hex_string(_hash.as_slice()),
+                    util::hex_string(_entity.as_reader().raw_data())
                 );
                 return Err(Error::WitnessDataHashMissMatch);
             }
