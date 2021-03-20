@@ -82,7 +82,10 @@ pub enum Error {
     ProposalConfirmWitnessManagerError,
     ProposalConfirmWitnessStatusError,
     ProposalConfirmWitnessRecordsError,
-    ProposalConfirmWalletMissMatch, // 100
+    ProposalConfirmRefCellMissing, // 100
+    ProposalConfirmRefCellDuplicated,
+    ProposalConfirmRefCellMissMatch,
+    ProposalConfirmWalletMissMatch,
     ProposalConfirmWalletBalanceError,
     ProposalSliceNotEndCorrectly,
     ProposalSliceMustStartWithAccountCell,

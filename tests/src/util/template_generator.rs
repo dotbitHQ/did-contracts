@@ -861,8 +861,11 @@ impl TemplateGenerator {
             .created_at_height(Uint64::from(created_at_height))
             .slices(gen_slices(slices))
             .build();
+        // println!("entity = {:?}", entity);
 
-        let cell_data = Bytes::from(&blake2b_256(entity.as_slice())[..]);
+        let hash = blake2b_256(entity.as_slice());
+        // println!("hash = {:?}", hash);
+        let cell_data = Bytes::from(&hash[..]);
 
         (cell_data, entity)
     }

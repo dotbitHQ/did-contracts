@@ -2,7 +2,7 @@
   {
     "cell_type": "contract",
     "out_point": {
-      "tx_hash": "0x7c60922ca7ff80d7d8f9f31fbb2ce25e7748ea47d8c4bcb73978375d2b9ea981",
+      "tx_hash": "0x64dabae20372b1d268407de0aa85b554d78bfa8f073eaa96b40ce60533472a33",
       "index": "0x0"
     },
     "value": "apply-register-cell-type"
@@ -10,7 +10,7 @@
   {
     "cell_type": "contract",
     "out_point": {
-      "tx_hash": "0xe704f1ccad18d33c843fe02930c6598e9c4c22c6345ed2211cc2b04a4d8bfefb",
+      "tx_hash": "0xa6b852bfe6b9827c86a3d9d60f4f86374a15dbcb94f06147d33e5e330c1b8594",
       "index": "0x0"
     },
     "value": "pre-account-cell-type"
@@ -18,7 +18,7 @@
   {
     "cell_type": "contract",
     "out_point": {
-      "tx_hash": "0x86610ae8e8185ee5efe1e7dba785984cbfe0d431855803ec3c8f9589b051f98f",
+      "tx_hash": "0x1314148c5cd3e2a42978135f7f4d89ea11c052434636a2baf3b25c1993475d5c",
       "index": "0x0"
     },
     "value": "account-cell-type"
@@ -26,7 +26,7 @@
   {
     "cell_type": "contract",
     "out_point": {
-      "tx_hash": "0x7044220f6b9de6473473f0c548dc30a04564792192970786d6cc6d9b8ab742dd",
+      "tx_hash": "0x037b5820c05990e596170da0babb68f07b4e7b83ffa502919347ddcbd79eddf1",
       "index": "0x0"
     },
     "value": "proposal-cell-type"
@@ -34,7 +34,7 @@
   {
     "cell_type": "contract",
     "out_point": {
-      "tx_hash": "0x1cbacf9b9221600d30793297e41566fcc09fc362fade48d19558535a5bf5b276",
+      "tx_hash": "0xcefdb67cdda1d9d0f8ef990a17cc04fb06af5329f0f2fd784d0e476bab86e04d",
       "index": "0x0"
     },
     "value": "ref-cell-type"
@@ -42,7 +42,7 @@
   {
     "cell_type": "contract",
     "out_point": {
-      "tx_hash": "0x88d1d4a5169860afbfba54965595898866133e117da54d300b74c03c7b2d839f",
+      "tx_hash": "0x94cddbfa870ec330f27813c28804c53b6fe3333e13cde2f30d147da52a30fd3c",
       "index": "0x0"
     },
     "value": "wallet-cell-type"
@@ -58,7 +58,7 @@
   {
     "cell_type": "contract",
     "out_point": {
-      "tx_hash": "0xe940acf7dae23bd133d5ab2a1dd82fbea09c21bf11e152246be9a8c8d174da6b",
+      "tx_hash": "0x859517d8b42e1a154d92904d8c1ea5859b5a88d57704f76e6886aa9dd55c99cd",
       "index": "0x0"
     },
     "value": "config-cell-type"
@@ -66,7 +66,7 @@
   {
     "cell_type": "normal",
     "out_point": {
-      "tx_hash": "0xa3aef535a27efc4af9345750f974c708e3bfbca9b2bfdf00f84a3f26d76120f7",
+      "tx_hash": "0xc2e336efc2fde6d033a2f25e19468b1452e11c04b33356f4595e15916398b7c5",
       "index": "0x0"
     },
     "value": "AccountCell-Root"
@@ -74,7 +74,7 @@
   {
     "cell_type": "normal",
     "out_point": {
-      "tx_hash": "0x3437505d50d56f0aa5399c45486d0303c3764f8f844bffd1504894618891e742",
+      "tx_hash": "0xe59f60005e759417fb94860d82cb9cb5f03ec35029c78c4629de64be0059d0ff",
       "index": "0x0"
     },
     "value": "WalletCell-DAS"

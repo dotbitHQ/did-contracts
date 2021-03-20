@@ -238,6 +238,18 @@ pub fn load_cell_data(index: usize, source: Source) -> Result<Vec<u8>, Error> {
         .map_err(|err| Error::from(err))
 }
 
+pub fn load_cell_data_and_entity(
+    parser: &WitnessesParser,
+    index: usize,
+    source: Source,
+) -> Result<(Vec<u8>, &das_packed::Bytes), Error> {
+    let data = load_data(|buf, offset| syscalls::load_cell_data(buf, offset, index, source))
+        .map_err(|err| Error::from(err))?;
+    let (_, _, entity) = parser.verify_and_get(index, source)?;
+
+    Ok((data, entity))
+}
+
 pub fn load_timestamp() -> Result<u64, Error> {
     debug!("Reading TimeCell ...");
 
