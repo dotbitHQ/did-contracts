@@ -7,8 +7,8 @@ use ckb_std::{
 use core::convert::TryFrom;
 use core::result::Result;
 use das_core::{
-    account_cell_parser::{get_account, get_expired_at, get_id, get_next},
     constants::*,
+    data_parser::{account_cell, ref_cell},
     debug,
     error::Error,
     util,
@@ -467,7 +467,7 @@ fn verify_slices_relevant_cells(
                     }
 
                     // The correct "next" of first proposal is come from the cell's outputs_data.
-                    next_of_first_cell = AccountId::try_from(get_next(&cell_data))
+                    next_of_first_cell = AccountId::try_from(account_cell::get_next(&cell_data))
                         .map_err(|_| Error::InvalidCellData)?;
 
                 // If this is the extended proposal in proposal chain, slice may starting with an
@@ -486,7 +486,7 @@ fn verify_slices_relevant_cells(
                             // If the item is included in previous proposal, then we need to get its latest "next" from the proposal.
                             Ok(prev_item) => prev_item.next(),
                             // If the item is not included in previous proposal, then we get its latest "next" from the cell's outputs_data.
-                            Err(_) => AccountId::try_from(get_next(&cell_data))
+                            Err(_) => AccountId::try_from(account_cell::get_next(&cell_data))
                                 .map_err(|_| Error::InvalidCellData)?,
                         };
                 }
@@ -547,6 +547,8 @@ fn verify_proposal_execution_result(
     let inviter_profit_rate = u32::from(config_register.profit().profit_rate_of_inviter()) as u64;
     let channel_profit_rate = u32::from(config_register.profit().profit_rate_of_inviter()) as u64;
 
+    let mut new_account_ids = Vec::new();
+
     let mut i = 0;
     for (sl_index, sl_reader) in slices_reader.iter().enumerate() {
         debug!("Check Slice[{}] ...", sl_index);
@@ -564,7 +566,6 @@ fn verify_proposal_execution_result(
             let (_, _, new_entity) =
                 parser.verify_and_get(output_account_cells[i], Source::Output)?;
 
-            let mut new_account_ids = Vec::new();
             if item_type == ProposalSliceItemType::Exist as u8
                 || item_type == ProposalSliceItemType::Proposed as u8
             {
@@ -666,7 +667,7 @@ fn verify_proposal_execution_result(
                     AccountCellData::new_unchecked(new_entity.as_reader().raw_data().into());
                 let output_cell_witness_reader = new_cell_witness.as_reader();
 
-                let account_length = get_account(&output_cell_data).len() as u64;
+                let account_length = account_cell::get_account(&output_cell_data).len() as u64;
                 let total_capacity = load_cell_capacity(input_related_cells[i], Source::Input)
                     .map_err(|e| Error::from(e))?;
                 let storage_capacity = util::get_account_storage_total(account_length);
@@ -856,7 +857,8 @@ fn verify_cell_account_id(
     source: Source,
     expected_account_id: AccountIdReader,
 ) -> Result<(), Error> {
-    let account_id = AccountId::try_from(get_id(&cell_data)).map_err(|_| Error::InvalidCellData)?;
+    let account_id = AccountId::try_from(account_cell::get_id(&cell_data))
+        .map_err(|_| Error::InvalidCellData)?;
 
     if !util::is_reader_eq(account_id.as_reader(), expected_account_id) {
         debug!(
@@ -903,8 +905,8 @@ fn is_id_same(
     is_bytes_eq(
         item_index,
         "id",
-        get_id(output_cell_data),
-        get_id(input_cell_data),
+        account_cell::get_id(output_cell_data),
+        account_cell::get_id(input_cell_data),
         Error::ProposalFieldCanNotBeModified,
     )
 }
@@ -917,8 +919,8 @@ fn is_account_same(
     is_bytes_eq(
         item_index,
         "account",
-        get_account(output_cell_data),
-        get_account(input_cell_data),
+        account_cell::get_account(output_cell_data),
+        account_cell::get_account(input_cell_data),
         Error::ProposalFieldCanNotBeModified,
     )
 }
@@ -928,8 +930,8 @@ fn is_expired_at_same(
     output_cell_data: &Vec<u8>,
     input_cell_data: &Vec<u8>,
 ) -> Result<(), Error> {
-    let input_expired_at = get_expired_at(input_cell_data);
-    let output_expired_at = get_expired_at(output_cell_data);
+    let input_expired_at = account_cell::get_expired_at(input_cell_data);
+    let output_expired_at = account_cell::get_expired_at(output_cell_data);
 
     if input_expired_at != output_expired_at {
         debug!(
@@ -950,8 +952,8 @@ fn is_id_correct(
     is_bytes_eq(
         item_index,
         "id",
-        get_id(output_cell_data),
-        get_id(input_cell_data),
+        account_cell::get_id(output_cell_data),
+        account_cell::get_id(input_cell_data),
         Error::ProposalConfirmIdError,
     )
 }
@@ -966,7 +968,7 @@ fn is_next_correct(
     is_bytes_eq(
         item_index,
         "next",
-        get_next(output_cell_data),
+        account_cell::get_next(output_cell_data),
         expected_next,
         Error::ProposalConfirmNextError,
     )
@@ -982,7 +984,7 @@ fn is_expired_at_correct(
     let price = u64::from(pre_account_cell_witness.price().new());
     let quote = u64::from(pre_account_cell_witness.quote());
     let duration = profit * 365 * 86400 / (price / quote * 100_000_000);
-    let expired_at = get_expired_at(output_cell_data);
+    let expired_at = account_cell::get_expired_at(output_cell_data);
 
     debug!(
         "  Item[{}] Check if outputs[].AccountCell.expired_at: expired_at({}) != {} = current({}) + duration({})",
@@ -1009,8 +1011,8 @@ fn is_expired_at_correct(
 }
 
 fn is_account_correct(item_index: usize, output_cell_data: &Vec<u8>) -> Result<(), Error> {
-    let expected_account_id = get_id(output_cell_data);
-    let account = get_account(output_cell_data);
+    let expected_account_id = account_cell::get_id(output_cell_data);
+    let account = account_cell::get_account(output_cell_data);
 
     let hash = util::blake2b_256(account);
     let account_id = hash.get(..ACCOUNT_ID_LENGTH).unwrap();
@@ -1030,7 +1032,7 @@ fn verify_witness_id(
     output_cell_witness_reader: AccountCellDataReader,
 ) -> Result<(), Error> {
     let account_id = output_cell_witness_reader.id().raw_data();
-    let expected_account_id = get_id(output_cell_data);
+    let expected_account_id = account_cell::get_id(output_cell_data);
 
     is_bytes_eq(
         item_index,
@@ -1048,7 +1050,7 @@ fn verify_witness_account(
 ) -> Result<(), Error> {
     let mut account = output_cell_witness_reader.account().as_readable();
     account.append(&mut ACCOUNT_SUFFIX.as_bytes().to_vec());
-    let expected_account = get_account(output_cell_data);
+    let expected_account = account_cell::get_account(output_cell_data);
 
     is_bytes_eq(
         item_index,

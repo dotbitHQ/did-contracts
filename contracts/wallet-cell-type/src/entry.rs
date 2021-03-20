@@ -6,8 +6,8 @@ use ckb_std::{
 };
 use das_core::{
     constants::{wallet_maker_lock, ScriptType, TypeScript, ALWAYS_SUCCESS_LOCK},
+    data_parser::ref_cell,
     error::Error,
-    ref_cell_parser::get_id,
     util,
 };
 use das_types::{
@@ -164,7 +164,7 @@ pub fn main() -> Result<(), Error> {
                 // User must have the owner permission to withdraw CKB from the WalletCell.
 
                 let ref_data = util::load_cell_data(old_ref_index, Source::Input)?;
-                let id_in_ref = get_id(&ref_data);
+                let id_in_ref = ref_cell::get_id(&ref_data);
                 let (_, _, entity) = parser.verify_and_get(old_account_index, Source::Input)?;
                 let account_cell_witness =
                     AccountCellData::from_slice(entity.as_reader().raw_data())
