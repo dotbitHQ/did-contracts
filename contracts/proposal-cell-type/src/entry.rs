@@ -736,13 +736,13 @@ fn verify_proposal_execution_result(
 
     debug!("Check if RefCells have been created correctly.");
 
-    let ref_cell_type_id = config_main.type_id_table().wallet_cell();
-    let old_ref_cells =
+    let ref_cell_type_id = config_main.type_id_table().ref_cell();
+    let input_ref_cells =
         util::find_cells_by_type_id(ScriptType::Type, ref_cell_type_id, Source::Input)?;
-    let new_ref_cells =
+    let output_ref_cells =
         util::find_cells_by_type_id(ScriptType::Type, ref_cell_type_id, Source::Output)?;
 
-    if old_ref_cells.len() != 0 || new_ref_cells.len() == 0 {
+    if input_ref_cells.len() != 0 || output_ref_cells.len() == 0 {
         return Err(Error::ProposalFoundInvalidTransaction);
     }
 
