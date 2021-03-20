@@ -59,7 +59,13 @@ pub fn main() -> Result<(), Error> {
         #[cfg(not(feature = "mainnet"))]
         inspect_slices(proposal_cell_data_reader.slices())?;
         #[cfg(not(feature = "mainnet"))]
-        inspect_related_cells(&parser, config_main, dep_related_cells.clone(), None)?;
+        inspect_related_cells(
+            &parser,
+            config_main,
+            dep_related_cells.clone(),
+            Source::CellDep,
+            None,
+        )?;
 
         if required_cells_count != dep_related_cells.len() {
             return Err(Error::ProposalSliceRelatedCellMissing);
@@ -103,7 +109,13 @@ pub fn main() -> Result<(), Error> {
         #[cfg(not(feature = "mainnet"))]
         inspect_slices(proposal_cell_data_reader.slices())?;
         #[cfg(not(feature = "mainnet"))]
-        inspect_related_cells(&parser, config_main, dep_related_cells.clone(), None)?;
+        inspect_related_cells(
+            &parser,
+            config_main,
+            dep_related_cells.clone(),
+            Source::CellDep,
+            None,
+        )?;
 
         if required_cells_count != dep_related_cells.len() {
             return Err(Error::ProposalSliceRelatedCellMissing);
@@ -150,6 +162,7 @@ pub fn main() -> Result<(), Error> {
             &parser,
             config_main,
             input_related_cells.clone(),
+            Source::Input,
             Some(output_account_cells.clone()),
         )?;
 
@@ -217,8 +230,9 @@ pub fn main() -> Result<(), Error> {
 
 #[cfg(not(feature = "mainnet"))]
 fn inspect_slices(slices_reader: SliceListReader) -> Result<(), Error> {
+    debug!("Inspect Slices [");
     for (sl_index, sl_reader) in slices_reader.iter().enumerate() {
-        debug!("Inspect Slice[{}] [", sl_index);
+        debug!("  Slice[{}] [", sl_index);
         for (index, item) in sl_reader.iter().enumerate() {
             let type_ = item.item_type().raw_data()[0];
             let item_type = match type_ {
@@ -228,36 +242,38 @@ fn inspect_slices(slices_reader: SliceListReader) -> Result<(), Error> {
             };
 
             debug!(
-                "  Item[{}] {{ account_id: {:?}, item_type: {}, next: {:?} }}",
+                "    Item[{}] {{ account_id: {:?}, item_type: {}, next: {:?} }}",
                 index,
                 item.account_id(),
                 item_type,
                 item.next()
             );
         }
-        debug!("]");
+        debug!("  ]");
     }
+    debug!("]");
 
     Ok(())
 }
 
-// #[cfg(not(feature = "mainnet"))]
+#[cfg(not(feature = "mainnet"))]
 fn inspect_related_cells(
     parser: &WitnessesParser,
     config_main: ConfigCellMainReader,
-    intput_related_cells: Vec<usize>,
+    related_cells: Vec<usize>,
+    related_cells_source: Source,
     output_account_cells: Option<Vec<usize>>,
 ) -> Result<(), Error> {
     use das_core::inspect;
 
     debug!("Inspect inputs:");
-    for i in intput_related_cells {
-        let script = load_cell_type(i, Source::Input)
+    for i in related_cells {
+        let script = load_cell_type(i, related_cells_source)
             .map_err(|e| Error::from(e))?
             .unwrap();
         let code_hash = Hash::from(script.code_hash());
-        let (_, _, entity) = parser.verify_and_get(i, Source::Input)?;
-        let data = util::load_cell_data(i, Source::Input)?;
+        let (_, _, entity) = parser.verify_and_get(i, related_cells_source)?;
+        let data = util::load_cell_data(i, related_cells_source)?;
 
         debug!(" Input[{}].cell.type: {}", i, script);
 
@@ -379,7 +395,7 @@ fn find_proposal_related_cells(
     }
 
     debug!(
-        "AccountCell and PreAccountCell sorted index list: {:?}",
+        "Inputs cells(AccountCell/PreAccountCell) sorted index list: {:?}",
         sorted
     );
 
@@ -397,7 +413,10 @@ fn find_output_account_cells(config: ConfigCellMainReader) -> Result<Vec<usize>,
         return Err(Error::ProposalFoundInvalidTransaction);
     }
 
-    debug!("AccountCell sorted index list: {:?}", account_cells);
+    debug!(
+        "Outputs cells(AccountCell) sorted index list: {:?}",
+        account_cells
+    );
 
     Ok(account_cells)
 }
@@ -545,6 +564,7 @@ fn verify_proposal_execution_result(
             let (_, _, new_entity) =
                 parser.verify_and_get(output_account_cells[i], Source::Output)?;
 
+            let mut new_account_ids = Vec::new();
             if item_type == ProposalSliceItemType::Exist as u8
                 || item_type == ProposalSliceItemType::Proposed as u8
             {
@@ -636,6 +656,9 @@ fn verify_proposal_execution_result(
                     item_account_id,
                 )?;
 
+                // Store account IDs of all new accounts for later RefCell verification.
+                new_account_ids.push(item_account_id.raw_data().to_vec());
+
                 let old_cell_witness =
                     PreAccountCellData::new_unchecked(old_entity.as_reader().raw_data().into());
                 let old_cell_witness_reader = old_cell_witness.as_reader();
@@ -705,15 +728,28 @@ fn verify_proposal_execution_result(
                     item_index, das_profit, profit, inviter_profit, channel_profit
                 );
                 wallet.add_balance(&DAS_WALLET_ID, das_profit);
-
-                // TODO Verify RefCell is correct
             }
 
             i += 1;
         }
     }
 
-    // Verify if the balance of all WalletCells have increased correctly.
+    debug!("Check if RefCells have been created correctly.");
+
+    let ref_cell_type_id = config_main.type_id_table().wallet_cell();
+    let old_ref_cells =
+        util::find_cells_by_type_id(ScriptType::Type, ref_cell_type_id, Source::Input)?;
+    let new_ref_cells =
+        util::find_cells_by_type_id(ScriptType::Type, ref_cell_type_id, Source::Output)?;
+
+    if old_ref_cells.len() != 0 || new_ref_cells.len() == 0 {
+        return Err(Error::ProposalFoundInvalidTransaction);
+    }
+
+    // for ref_cell in new_ref_cells {}
+
+    debug!("Check if the balance of all WalletCells have increased correctly.");
+
     let wallet_cell_type_id = config_main.type_id_table().wallet_cell();
     let old_wallet_cells =
         util::find_cells_by_type_id(ScriptType::Type, wallet_cell_type_id, Source::Input)?;
@@ -744,7 +780,7 @@ fn verify_proposal_execution_result(
         // The WalletCells in inputs must have the same order as those in outputs.
         if old_wallet_id != new_wallet_id {
             debug!(
-                "Compare WalletCell account ID: inputs[{}] {:?} != outputs[{}] {:?}",
+                "Compare WalletCells order: inputs[{}] {:?} != outputs[{}] {:?}",
                 old_wallet_index, old_wallet_id, new_wallet_index, new_wallet_id
             );
             return Err(Error::ProposalConfirmWalletMissMatch);
@@ -761,16 +797,21 @@ fn verify_proposal_execution_result(
             util::hex_string(new_wallet_id)
         );
 
+        // Balance in wallet instance do not contains cell occupied capacities, so it is pure profit.
         let result = wallet
             .cmp_balance(new_wallet_id, current_profit)
             .map_err(|_| Error::ProposalConfirmWalletMissMatch)?;
         if !result {
             debug!(
-                "Wallet balance variation: [{}]{} - [{}]{} = {}",
-                new_wallet_index, new_balance, old_wallet_index, old_balance, current_profit
+                "Wallet balance variation: {}(current_profit) = {}(0x{}) - {}(0x{})",
+                current_profit,
+                new_balance,
+                util::hex_string(new_wallet_id),
+                old_balance,
+                util::hex_string(old_wallet_id)
             );
             debug!(
-                "Compare wallet balance with expected: {} != {} -> true",
+                "Compare profit with expected: {}(current_profit) != {} -> true",
                 current_profit,
                 wallet.get_balance(old_wallet_id).unwrap()
             );
@@ -944,11 +985,12 @@ fn is_expired_at_correct(
     let expired_at = get_expired_at(output_cell_data);
 
     debug!(
-        "  Item[{}] Check if outputs[].AccountCell.expired_at: expired_at({}) = current({}) + duration({})",
+        "  Item[{}] Check if outputs[].AccountCell.expired_at: expired_at({}) != {} = current({}) + duration({})",
         item_index,
+        expired_at,
+        current_timestamp + duration,
         current_timestamp,
-        duration,
-        expired_at
+        duration
     );
 
     if current_timestamp + duration != expired_at {
