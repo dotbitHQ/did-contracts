@@ -30,19 +30,6 @@ pub fn main() -> Result<(), Error> {
     } else if action == b"pre_register" {
         debug!("Route to pre_register action ...");
 
-        let height = util::load_height()?;
-        let timestamp = util::load_timestamp()?;
-
-        let mut parser = util::load_das_witnesses(None)?;
-        parser.parse_all_data()?;
-        parser.parse_only_config(&[
-            ConfigID::ConfigCellMain,
-            ConfigID::ConfigCellRegister,
-            ConfigID::ConfigCellBloomFilter,
-        ])?;
-        let configs = parser.configs();
-        let config_main_reader = configs.main()?;
-        let config_register_reader = configs.register()?;
 
         debug!("Find out PreAccountCell ...");
 
@@ -63,6 +50,16 @@ pub fn main() -> Result<(), Error> {
         }
 
         debug!("Find out ApplyRegisterCell ...");
+
+        let mut parser = util::load_das_witnesses(None)?;
+        parser.parse_all_data()?;
+        parser.parse_only_config(&[
+            ConfigID::ConfigCellMain,
+            ConfigID::ConfigCellRegister,
+            ConfigID::ConfigCellBloomFilter,
+        ])?;
+        let configs = parser.configs();
+        let config_main_reader = configs.main()?;
 
         let old_apply_register_cells = util::find_cells_by_type_id(
             ScriptType::Type,
@@ -99,6 +96,8 @@ pub fn main() -> Result<(), Error> {
         #[cfg(not(feature = "mainnet"))]
         inspect::apply_register_cell(Source::Input, index.to_owned(), &data);
 
+        let height = util::load_height()?;
+        let config_register_reader = configs.register()?;
         verify_apply_height(height, config_register_reader, &data)?;
 
         debug!("Read witness of PreAccountCell ...");
@@ -131,8 +130,11 @@ pub fn main() -> Result<(), Error> {
         verify_price_and_capacity(config_register_reader, reader, capacity)?;
 
         verify_account_id(reader, account_id.as_reader())?;
+
+        let timestamp = util::load_timestamp()?;
         verify_created_at(timestamp, reader)?;
         verify_account_length_and_years(timestamp, reader)?;
+
         verify_account_chars(config_register_reader, reader)?;
 
         let config_bloom_filter = configs.bloom_filter()?;

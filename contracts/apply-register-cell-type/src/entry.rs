@@ -20,7 +20,6 @@ pub fn main() -> Result<(), Error> {
     if action == b"apply_register" {
         debug!("Route to apply_register action ...");
 
-        let current = util::load_height()?;
 
         debug!("Reading ApplyRegisterCell ...");
 
@@ -67,6 +66,7 @@ pub fn main() -> Result<(), Error> {
             _ => return Err(Error::InvalidCellData),
         };
 
+        let current = util::load_height()?;
         // The timestamp in ApplyRegisterCell must be the same as the timestamp in TimeCell.
         if apply_height != current {
             return Err(Error::ApplyRegisterCellHeightInvalid);

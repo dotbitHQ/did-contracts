@@ -25,13 +25,13 @@ if [ $? -eq 0 ]; then
 	rest_args=$*
 	case $2 in
 	deploy|update-contract)
-		python3 ${DAS_TOOL}/main.py ${rest_args#* } ${c_args} ${N_args}
+		python3 ${DAS_TOOL}/main.py ${rest_args#* } ${c_args} ${N_args} 
 		;;
 	onelong)
 		python3 ${DAS_TOOL}/main.py ${rest_args#* } ${c_args} ${w_args} ${N_args}
 		;;
 	update-cell)
-		python3 ${DAS_TOOL}/main.py ${rest_args#* } ${w_args}
+		python3 ${DAS_TOOL}/main.py ${rest_args#* } ${w_args} ${N_args}
 		;;
 	*)
 		echo "check the command"

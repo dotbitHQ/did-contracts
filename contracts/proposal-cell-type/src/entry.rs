@@ -42,7 +42,7 @@ pub fn main() -> Result<(), Error> {
         parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
         let config_main = parser.configs().main()?;
 
-        if dep_cells.len() != 0 || input_cells.len() != 0 || output_cells.len() != 1 {
+        if !(dep_cells.len() == 0 && input_cells.len() == 0 && output_cells.len() == 1) {
             return Err(Error::ProposalFoundInvalidTransaction);
         }
 
@@ -139,7 +139,7 @@ pub fn main() -> Result<(), Error> {
         let config_main = parser.configs().main()?;
         let config_register = parser.configs().register()?;
 
-        if dep_cells.len() != 0 || input_cells.len() != 1 || output_cells.len() != 0 {
+        if !(dep_cells.len() == 0 && input_cells.len() == 1 && output_cells.len() == 0) {
             return Err(Error::ProposalFoundInvalidTransaction);
         }
 
@@ -178,16 +178,14 @@ pub fn main() -> Result<(), Error> {
 
         debug!("Check that all revenues are correctly allocated to each roles in DAS.");
     } else if action == b"recycle_proposal" {
-        debug!("Route to recycle_propose action ...");
-
-        let height = util::load_height()?;
+        debug!("Route to recycle_proposal action ...");
 
         let mut parser = util::load_das_witnesses(None)?;
         parser.parse_all_data()?;
         parser.parse_only_config(&[ConfigID::ConfigCellRegister])?;
         let config_register = parser.configs().register()?;
 
-        if dep_cells.len() != 0 || input_cells.len() != 1 || output_cells.len() != 0 {
+        if !(dep_cells.len() == 0 && input_cells.len() == 1 && output_cells.len() == 0) {
             return Err(Error::ProposalFoundInvalidTransaction);
         }
 
@@ -199,6 +197,8 @@ pub fn main() -> Result<(), Error> {
             .map_err(|_| Error::WitnessEntityDecodingError)?;
         let proposal_cell_data_reader = proposal_cell_data.as_reader();
 
+
+        let height = util::load_height()?;
         let proposal_min_recycle_interval =
             u8::from(config_register.proposal_min_recycle_interval()) as u64;
         let created_at_height = u64::from(proposal_cell_data_reader.created_at_height());
@@ -545,7 +545,7 @@ fn verify_proposal_execution_result(
 
     let mut wallet = Wallet::new();
     let inviter_profit_rate = u32::from(config_register.profit().profit_rate_of_inviter()) as u64;
-    let channel_profit_rate = u32::from(config_register.profit().profit_rate_of_inviter()) as u64;
+    let channel_profit_rate = u32::from(config_register.profit().profit_rate_of_channel()) as u64;
 
     let mut output_ref_cells = load_ref_cells(config_main)?;
 
@@ -1145,7 +1145,7 @@ fn load_ref_cells(config_main: ConfigCellMainReader) -> Result<Vec<Option<RefCel
     let output_ref_cells =
         util::find_cells_by_type_id(ScriptType::Type, ref_cell_type_id, Source::Output)?;
 
-    if input_ref_cells.len() != 0 || output_ref_cells.len() == 0 {
+    if !(input_ref_cells.len() == 0 && output_ref_cells.len() != 0) {
         debug!("The number of RefCells should be 0 in inputs and not 0 in outputs.");
         return Err(Error::ProposalFoundInvalidTransaction);
     }
