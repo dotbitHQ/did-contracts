@@ -708,22 +708,22 @@ fn verify_proposal_execution_result(
                 // Only when inviter_wallet's length is equal to account ID it will be count in profit.
                 let mut inviter_profit = 0;
                 if input_cell_witness_reader.inviter_wallet().len() == ACCOUNT_ID_LENGTH {
+                    let wallet_id = input_cell_witness_reader.inviter_wallet().raw_data();
                     inviter_profit = profit * inviter_profit_rate / RATE_BASE;
                     debug!(
-                        "  Item[{}] {}(inviter_profit) = {}(profit) * {}(inviter_profit_rate) / {}(RATE_BASE)",
-                        item_index, inviter_profit, profit, inviter_profit_rate, RATE_BASE
+                        "  Item[{}] Wallet[0x{}]: {}(inviter_profit) = {}(profit) * {}(inviter_profit_rate) / {}(RATE_BASE)",
+                        item_index, util::hex_string(wallet_id), inviter_profit, profit, inviter_profit_rate, RATE_BASE
                     );
-                    wallet.add_balance(
-                        input_cell_witness_reader.inviter_wallet().raw_data(),
-                        inviter_profit,
-                    );
+                    wallet.add_balance(wallet_id, inviter_profit);
                 };
+
                 let mut channel_profit = 0;
                 if input_cell_witness_reader.channel_wallet().len() == ACCOUNT_ID_LENGTH {
+                    let wallet_id = input_cell_witness_reader.channel_wallet().raw_data();
                     channel_profit = profit * channel_profit_rate / RATE_BASE;
                     debug!(
-                        "  Item[{}] {}(channel_profit) = {}(profit) * {}(channel_profit_rate) / {}(RATE_BASE)",
-                        item_index, channel_profit, profit, channel_profit_rate, RATE_BASE
+                        "  Item[{}] Wallet[0x{}]: {}(channel_profit) = {}(profit) * {}(channel_profit_rate) / {}(RATE_BASE)",
+                        item_index, util::hex_string(wallet_id), channel_profit, profit, channel_profit_rate, RATE_BASE
                     );
                     wallet.add_balance(
                         input_cell_witness_reader.channel_wallet().raw_data(),
@@ -733,8 +733,8 @@ fn verify_proposal_execution_result(
 
                 let das_profit = profit - inviter_profit - channel_profit;
                 debug!(
-                    "  Item[{}] {}(das_profit) = {}(profit) - {}(inviter_profit) - {}(channel_profit)",
-                    item_index, das_profit, profit, inviter_profit, channel_profit
+                    "  Item[{}] Wallet[0x{}]: {}(das_profit) = {}(profit) - {}(inviter_profit) - {}(channel_profit)",
+                    item_index, util::hex_string(&DAS_WALLET_ID), das_profit, profit, inviter_profit, channel_profit
                 );
                 wallet.add_balance(&DAS_WALLET_ID, das_profit);
             }
@@ -760,9 +760,18 @@ fn verify_proposal_execution_result(
 
     if old_wallet_cells.len() != new_wallet_cells.len() {
         debug!(
-            "Compare WalletCells number: inputs({}) != outputs({})",
+            "Inputs WalletCell number must equal to outputs WalletCell number: inputs({}) != outputs({})",
             old_wallet_cells.len(),
             new_wallet_cells.len()
+        );
+        return Err(Error::ProposalFoundInvalidTransaction);
+    }
+
+    if wallet.len() != new_wallet_cells.len() {
+        debug!(
+            "Outputs WalletCell number must equal to the number of wallets involved by PreAccountCell: {}(outputs) != {}(involved)",
+            new_wallet_cells.len(),
+            wallet.len()
         );
         return Err(Error::ProposalFoundInvalidTransaction);
     }
@@ -813,7 +822,8 @@ fn verify_proposal_execution_result(
                 util::hex_string(old_wallet_id)
             );
             debug!(
-                "Compare profit with expected: {}(current_profit) != {} -> true",
+                "Compare profit in WalletCell[0x{}] with expected: {}(current_profit) != {}(expected_profit) -> true",
+                util::hex_string(new_wallet_id),
                 current_profit,
                 wallet.get_balance(old_wallet_id).unwrap()
             );

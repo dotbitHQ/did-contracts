@@ -12,6 +12,10 @@ impl Wallet {
         Wallet { items: Vec::new() }
     }
 
+    pub fn len(&self) -> usize {
+        self.items.len()
+    }
+
     pub fn add_balance(&mut self, wallet_id: &[u8], balance: u64) {
         // If wallet exists, add balance to it.
         for item in self.items.iter_mut() {
