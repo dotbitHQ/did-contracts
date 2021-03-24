@@ -233,7 +233,7 @@ pub fn height_cell_type() -> Script {
 #[cfg(feature = "local")]
 pub const CONFIG_CELL_TYPE: ScriptLiteral = ScriptLiteral {
     code_hash: [
-140, 156, 17, 157, 141, 68, 128, 83, 96, 99, 142, 46, 142, 30, 191, 8, 3, 174, 111, 123, 180, 160, 26, 2, 136, 66, 53, 90, 203, 70, 104, 115
+228, 211, 239, 135, 78, 141, 98, 140, 101, 79, 184, 80, 81, 32, 235, 206, 205, 65, 87, 48, 111, 174, 11, 234, 97, 164, 243, 23, 248, 121, 73, 202
 ],
     hash_type: ScriptHashType::Type,
     args: Vec::new(),

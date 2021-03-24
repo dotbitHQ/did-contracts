@@ -85,7 +85,7 @@ pub fn main() -> Result<(), Error> {
         parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
         let config_main = parser.configs().main()?;
 
-        if dep_cells.len() != 1 || input_cells.len() != 0 || output_cells.len() != 1 {
+        if !(dep_cells.len() == 1 && input_cells.len() == 0 && output_cells.len() == 1) {
             return Err(Error::ProposalFoundInvalidTransaction);
         }
 
