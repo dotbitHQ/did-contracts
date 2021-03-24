@@ -12,6 +12,7 @@ use das_core::{
     constants::{
         oracle_lock, super_lock, ScriptType, TypeScript, ALWAYS_SUCCESS_LOCK, DAS_WALLET_ID,
     },
+    data_parser,
     data_parser::account_cell,
     error::Error,
     util,
@@ -706,32 +707,42 @@ fn distinguish_owner_and_manager(
     for index in ref_cells {
         let lock_script = load_cell_lock(index, source).map_err(|e| Error::from(e))?;
 
-        if util::is_entity_eq(&lock_script, &expected_owner_lock) {
-            if owner_cell.is_some() {
-                debug!(
-                    "Found AccountCell({})'s OwnerCell({}) is redundant in ({:?}) .",
-                    account_cell, index, source
-                );
-                return Err(Error::AccountCellRedundantRefCellNotAllowed);
+        // If owner lock and manager lock is the same, then distinguish owner and manager by cell data.
+        if util::is_entity_eq(&expected_owner_lock, &expected_manager_lock) {
+            let data = util::load_cell_data(index, source)?;
+            if data_parser::ref_cell::get_is_owner(data) {
+                owner_cell = Some(index);
+            } else {
+                manager_cell = Some(index);
             }
-
-            owner_cell = Some(index);
-        } else if util::is_entity_eq(&lock_script, &expected_manager_lock) {
-            if manager_cell.is_some() {
-                debug!(
-                    "Found AccountCell({})'s ManagerCell({}) is redundant in ({:?}) .",
-                    account_cell, index, source
-                );
-                return Err(Error::AccountCellRedundantRefCellNotAllowed);
-            }
-
-            manager_cell = Some(index);
         } else {
-            debug!(
-                "Found AccountCell({}) and RefCell({}) is unrelated in source({:?}) .",
-                account_cell, index, source
-            );
-            return Err(Error::AccountCellUnrelatedRefCellFound);
+            if util::is_entity_eq(&lock_script, &expected_owner_lock) {
+                if owner_cell.is_some() {
+                    debug!(
+                        "Found AccountCell({})'s OwnerCell({}) is redundant in ({:?}) .",
+                        account_cell, index, source
+                    );
+                    return Err(Error::AccountCellRedundantRefCellNotAllowed);
+                }
+
+                owner_cell = Some(index);
+            } else if util::is_entity_eq(&lock_script, &expected_manager_lock) {
+                if manager_cell.is_some() {
+                    debug!(
+                        "Found AccountCell({})'s ManagerCell({}) is redundant in ({:?}) .",
+                        account_cell, index, source
+                    );
+                    return Err(Error::AccountCellRedundantRefCellNotAllowed);
+                }
+
+                manager_cell = Some(index);
+            } else {
+                debug!(
+                    "Found AccountCell({}) and RefCell({}) is unrelated in source({:?}) .",
+                    account_cell, index, source
+                );
+                return Err(Error::AccountCellUnrelatedRefCellFound);
+            }
         }
     }
 
