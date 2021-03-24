@@ -617,6 +617,12 @@ pub fn get_account_storage_total(account_length: u64) -> u64 {
     ACCOUNT_CELL_BASIC_CAPACITY + (account_length * 100_000_000) + REF_CELL_BASIC_CAPACITY * 2
 }
 
+pub fn calc_duration_from_paid(paid: u64, yearly_price: u64, quote: u64) -> u64 {
+    // Original formula: duration = (paid / (yearly_price / quote * 100_000_000)) * 365 * 86400
+    // But CKB VM can only handle uint, so we put division to the last for higher precision.
+    paid * 365 * 86400 * quote / yearly_price * 100_000_000
+}
+
 pub fn require_type_script(
     parser: &mut WitnessesParser,
     type_script: TypeScript,

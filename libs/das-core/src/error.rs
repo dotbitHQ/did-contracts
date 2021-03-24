@@ -72,7 +72,7 @@ pub enum Error {
     ProposalCellAccountIdError,
     ProposalFieldCanNotBeModified,
     ProposalWitnessCanNotBeModified,
-    ProposalConfirmIdError, // 90
+    ProposalConfirmIdError = 90,
     ProposalConfirmNextError,
     ProposalConfirmExpiredAtError,
     ProposalConfirmAccountError,
@@ -82,7 +82,7 @@ pub enum Error {
     ProposalConfirmWitnessManagerError,
     ProposalConfirmWitnessStatusError,
     ProposalConfirmWitnessRecordsError,
-    ProposalConfirmRefCellMissing, // 100
+    ProposalConfirmRefCellMissing = 100,
     ProposalConfirmRefCellDuplicated,
     ProposalConfirmRefCellMissMatch,
     ProposalConfirmWalletMissMatch,
