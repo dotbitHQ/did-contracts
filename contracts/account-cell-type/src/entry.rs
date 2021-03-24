@@ -567,7 +567,7 @@ fn verify_account_consistent(
     debug!("Check if the data of AccountCell only changed leading 32 bytes.");
 
     let old_data = load_cell_data(old_account_index, Source::Input).map_err(|e| Error::from(e))?;
-    let new_data = load_cell_data(new_account_index, Source::Input).map_err(|e| Error::from(e))?;
+    let new_data = load_cell_data(new_account_index, Source::Output).map_err(|e| Error::from(e))?;
 
     if old_data.get(32..).unwrap() != new_data.get(32..).unwrap() {
         return Err(Error::AccountCellDataNotConsistent);
