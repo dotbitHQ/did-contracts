@@ -310,8 +310,10 @@ impl WitnessesParser {
         } else {
             // This error means the there is no witness.data.dep/old/new.index matches the index of the cell.
             debug!(
-                "Can not find witness at: {:?}[{}] {:?}",
-                source, index, hash
+                "Can not find witness at: {:?}[{}] 0x{}",
+                source,
+                index,
+                util::hex_string(hash.as_slice())
             );
             return Err(Error::WitnessDataIndexMissMatch);
         }

@@ -143,7 +143,7 @@ pub fn main() -> Result<(), Error> {
         verify_if_status_consistent(old_witness_reader, new_witness_reader)?;
         verify_if_records_consistent(old_witness_reader, new_witness_reader)?;
     } else if action == b"edit_manager" {
-        debug!("Route to transfer_account action ...");
+        debug!("Route to edit_manager action ...");
 
         let mut parser = util::load_das_witnesses(None)?;
         parser.parse_all_data()?;
@@ -214,7 +214,7 @@ pub fn main() -> Result<(), Error> {
         verify_if_status_consistent(old_witness_reader, new_witness_reader)?;
         verify_if_records_consistent(old_witness_reader, new_witness_reader)?;
     } else if action == b"edit_records" {
-        debug!("Route to transfer_account action ...");
+        debug!("Route to edit_records action ...");
 
         let mut parser = util::load_das_witnesses(None)?;
         parser.parse_all_data()?;
@@ -280,7 +280,7 @@ pub fn main() -> Result<(), Error> {
         verify_if_registered_at_consistent(old_witness_reader, new_witness_reader)?;
         verify_if_status_consistent(old_witness_reader, new_witness_reader)?;
     } else if action == b"renew_account" {
-        debug!("Route to transfer_account action ...");
+        debug!("Route to renew_account action ...");
 
         let mut parser = util::load_das_witnesses(None)?;
         parser.parse_all_data()?;
@@ -567,7 +567,7 @@ fn verify_account_consistent(
     debug!("Check if the data of AccountCell only changed leading 32 bytes.");
 
     let old_data = load_cell_data(old_account_index, Source::Input).map_err(|e| Error::from(e))?;
-    let new_data = load_cell_data(new_account_index, Source::Input).map_err(|e| Error::from(e))?;
+    let new_data = load_cell_data(new_account_index, Source::Output).map_err(|e| Error::from(e))?;
 
     if old_data.get(32..).unwrap() != new_data.get(32..).unwrap() {
         return Err(Error::AccountCellDataNotConsistent);

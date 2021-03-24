@@ -197,7 +197,6 @@ pub fn main() -> Result<(), Error> {
             .map_err(|_| Error::WitnessEntityDecodingError)?;
         let proposal_cell_data_reader = proposal_cell_data.as_reader();
 
-
         let height = util::load_height()?;
         let proposal_min_recycle_interval =
             u8::from(config_register.proposal_min_recycle_interval()) as u64;
@@ -256,7 +255,7 @@ fn inspect_slices(slices_reader: SliceListReader) -> Result<(), Error> {
     Ok(())
 }
 
-#[cfg(not(feature = "mainnet"))]
+// #[cfg(not(feature = "mainnet"))]
 fn inspect_related_cells(
     parser: &WitnessesParser,
     config_main: ConfigCellMainReader,
@@ -275,7 +274,7 @@ fn inspect_related_cells(
         let (_, _, entity) = parser.verify_and_get(i, related_cells_source)?;
         let data = util::load_cell_data(i, related_cells_source)?;
 
-        debug!(" Input[{}].cell.type: {}", i, script);
+        debug!("  Input[{}].cell.type: {}", i, script);
 
         if util::is_reader_eq(
             config_main.type_id_table().account_cell(),
@@ -299,7 +298,7 @@ fn inspect_related_cells(
             let (_, _, entity) = parser.verify_and_get(i, Source::Output)?;
             let data = util::load_cell_data(i, Source::Output)?;
 
-            debug!(" Output[{}].cell.type: {}", i, script);
+            debug!("  Output[{}].cell.type: {}", i, script);
 
             if util::is_reader_eq(
                 config_main.type_id_table().account_cell(),
@@ -994,7 +993,7 @@ fn is_expired_at_correct(
 ) -> Result<(), Error> {
     let price = u64::from(pre_account_cell_witness.price().new());
     let quote = u64::from(pre_account_cell_witness.quote());
-    let duration = profit * 365 * 86400 / (price / quote * 100_000_000);
+    let duration = util::calc_duration_from_paid(profit, price, quote);
     let expired_at = account_cell::get_expired_at(output_cell_data);
 
     debug!(
@@ -1006,9 +1005,9 @@ fn is_expired_at_correct(
         duration
     );
 
-    if current_timestamp + duration != expired_at {
+    if !(current_timestamp + duration == expired_at) {
         debug!(
-            "  Item[{}] duration({}) = profit({}) * 365 * 86400 / (price({}) / quote({}) * 100_000_000)",
+            "  Item[{}] duration({}) = (profit({}) / (price({}) / quote({}) * 100_000_000)) * 365 * 86400",
             item_index,
             duration,
             profit,
