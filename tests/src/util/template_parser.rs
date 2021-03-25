@@ -96,7 +96,7 @@ impl<'a> TemplateParser<'a> {
 
     pub fn parse(&mut self) -> () {
         if let Err(e) = self.try_parse() {
-            panic!(format!("{}", e.to_string()));
+            panic!("{}", e.to_string());
         }
     }
 
