@@ -20,7 +20,7 @@ fn gen_init_account_chain_test_data() {
     template.pretty_print();
 }
 
-// #[test]
+#[test]
 fn test_init_account_chain() {
     let mut context;
     let mut parser;
@@ -108,7 +108,7 @@ fn gen_transfer_account_test_data() {
     template.pretty_print();
 }
 
-// #[test]
+#[test]
 fn test_transfer_account() {
     let mut context;
     let mut parser;
@@ -210,7 +210,7 @@ fn gen_edit_manager_test_data() {
     template.pretty_print();
 }
 
-// #[test]
+#[test]
 fn test_edit_manager() {
     let mut context;
     let mut parser;
@@ -300,7 +300,7 @@ fn gen_edit_records_test_data() {
     template.pretty_print();
 }
 
-// #[test]
+#[test]
 fn test_edit_records() {
     let mut context;
     let mut parser;
@@ -367,8 +367,8 @@ fn gen_renew_account_test_data() {
         "0x0000000000000000000000000000000000001111",
         "0x0000000000000000000000000000000000002222",
         next.clone(),
-        registered_at + 86400 * 365,
-        expired_at,
+        registered_at,
+        expired_at + 86400 * 365,
         None,
     );
     template.push_account_cell(cell_data, None, 19_400_000_000, Source::Output);
@@ -384,7 +384,7 @@ fn gen_renew_account_test_data() {
     template.pretty_print();
 }
 
-// #[test]
+#[test]
 fn test_renew_account() {
     let mut context;
     let mut parser;
@@ -451,7 +451,7 @@ fn gen_recycle_expired_account_by_keeper_test_data() {
     template.pretty_print();
 }
 
-// #[test]
+#[test]
 fn test_recycle_expired_account_by_keeper() {
     let mut context;
     let mut parser;

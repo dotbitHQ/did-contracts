@@ -338,6 +338,22 @@ pub fn load_height() -> Result<u64, Error> {
     Ok(height)
 }
 
+pub fn load_quote() -> Result<u64, Error> {
+    let quote_lock = oracle_lock();
+    let quote_cells = find_cells_by_script(ScriptType::Lock, &quote_lock, Source::CellDep)?;
+
+    assert!(
+        quote_cells.len() == 1,
+        Error::QuoteCellIsRequired,
+        "There should be one QuoteCell in cell_deps, no more and no less."
+    );
+
+    let quote_cell_data = load_cell_data(quote_cells[0], Source::CellDep)?;
+    let quote = u64::from_le_bytes(quote_cell_data.try_into().unwrap()); // y CKB/USD
+
+    Ok(quote)
+}
+
 fn trim_empty_bytes(buf: &mut [u8]) -> &[u8] {
     let header = buf.get(..3);
     let length = buf
@@ -720,15 +736,23 @@ pub fn require_type_script(
         TypeScript::WalletCellType => config.type_id_table().wallet_cell(),
     };
 
+    debug!(
+        "Require on: 0x{}({:?})",
+        hex_string(type_id.raw_data()),
+        TypeScript::AccountCellType
+    );
+
     // Find out required cell in current transaction.
     let required_cells = find_cells_by_type_id(ScriptType::Type, type_id, source)?;
 
-    // There must be some required cells in the transaction.
-    if required_cells.len() <= 0 {
-        return Err(err);
-    }
-
-    debug!("Require on: {:?}", type_script);
+    assert!(
+        required_cells.len() > 0,
+        err,
+        "The cells in {:?} which has type script 0x{}({:?}) is required in this transaction.",
+        source,
+        hex_string(type_id.raw_data()),
+        TypeScript::AccountCellType
+    );
 
     Ok(())
 }

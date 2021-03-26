@@ -30,7 +30,6 @@ pub fn main() -> Result<(), Error> {
     } else if action == b"pre_register" {
         debug!("Route to pre_register action ...");
 
-
         debug!("Find out PreAccountCell ...");
 
         // Find out PreAccountCells in current transaction.
@@ -249,25 +248,9 @@ fn verify_created_at(
 }
 
 fn verify_quote(reader: PreAccountCellDataReader) -> Result<(), Error> {
-    let quote_lock = oracle_lock();
-    let quote_cells = util::find_cells_by_script(ScriptType::Lock, &quote_lock, Source::CellDep)?;
+    let expected_quote = util::load_quote()?.to_le_bytes();
 
-    if quote_cells.len() != 1 {
-        return Err(Error::QuoteCellIsRequired);
-    }
-
-    let data = load_cell_data(quote_cells[0], Source::CellDep).map_err(|e| Error::from(e))?;
-    let expected_quote = data.get(..).unwrap();
-
-    debug!(
-        "Verify if PreAccountCell.quote is the same as QuoteCell: cell_deps[{}]({:?}) != PreAccountCell.quote({:?}) -> {}",
-        quote_cells[0],
-        expected_quote,
-        reader.quote().raw_data(),
-        expected_quote != reader.quote().raw_data()
-    );
-
-    if expected_quote != reader.quote().raw_data() {
+    if &expected_quote != reader.quote().raw_data() {
         return Err(Error::PreRegisterQuoteIsInvalid);
     }
 
