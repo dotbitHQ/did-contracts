@@ -107,7 +107,7 @@ pub fn main() -> Result<(), Error> {
                 let old_index = old_cells[0];
                 let new_index = new_cells[0];
                 util::is_cell_consistent((old_index, Source::Input), (new_index, Source::Output))?;
-                util::is_cell_capacity_lte(
+                util::is_cell_capacity_gte(
                     (old_index, Source::Input),
                     (new_index, Source::Output),
                 )?;

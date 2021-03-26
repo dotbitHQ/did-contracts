@@ -1,7 +1,9 @@
 use alloc::vec;
-use ckb_std::{ckb_constants::Source, debug, high_level::load_script};
+use ckb_std::{ckb_constants::Source, high_level::load_script};
 use das_core::{
+    assert,
     constants::{ScriptType, TypeScript},
+    debug,
     error::Error,
     util,
 };
@@ -35,22 +37,16 @@ pub fn main() -> Result<(), Error> {
         debug!("Route to other action ...");
 
         let this_type_script = load_script().map_err(|e| Error::from(e))?;
-        let old_cells =
-            util::find_cells_by_script(ScriptType::Type, &this_type_script, Source::Input)?;
-        let new_cells =
-            util::find_cells_by_script(ScriptType::Type, &this_type_script, Source::Output)?;
+        let (input_cells, output_cells) =
+            util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, &this_type_script)?;
 
-        debug!("Check if RefCell is consistent.");
+        assert!(
+            input_cells.len() == output_cells.len(),
+            Error::CellsMustHaveSameOrderAndNumber,
+            "The RefCells in inputs should have the same number and order as those in outputs."
+        );
 
-        if old_cells.len() != new_cells.len() {
-            return Err(Error::CellsMustHaveSameOrderAndNumber);
-        }
-
-        for (i, old_index) in old_cells.into_iter().enumerate() {
-            let new_index = new_cells[i];
-            util::is_cell_capacity_equal((old_index, Source::Input), (new_index, Source::Output))?;
-            util::is_cell_consistent((old_index, Source::Input), (new_index, Source::Output))?;
-        }
+        util::is_inputs_and_outputs_consistent(input_cells, output_cells)?;
     }
 
     Ok(())

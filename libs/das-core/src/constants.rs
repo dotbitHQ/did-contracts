@@ -10,7 +10,7 @@ pub enum ScriptHashType {
     Type = 1,
 }
 
-#[derive(Debug, PartialEq, Copy)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum ScriptType {
     Lock,
     Type,

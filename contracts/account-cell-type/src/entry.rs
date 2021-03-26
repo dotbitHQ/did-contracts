@@ -9,6 +9,7 @@ use ckb_std::{
 };
 use core::convert::TryInto;
 use das_core::{
+    assert,
     constants::{
         oracle_lock, super_lock, ScriptType, TypeScript, ALWAYS_SUCCESS_LOCK, DAS_WALLET_ID,
     },
@@ -95,6 +96,7 @@ pub fn main() -> Result<(), Error> {
 
         verify_account_expiration(old_account_cells[0], timestamp)?;
         verify_account_consistent(old_account_cells[0], new_account_cells[0])?;
+        verify_account_data_consistent(old_account_cells[0], new_account_cells[0])?;
 
         debug!("Check the relationship between RefCells and AccountCell is correct.");
 
@@ -167,6 +169,7 @@ pub fn main() -> Result<(), Error> {
 
         verify_account_expiration(old_account_cells[0], timestamp)?;
         verify_account_consistent(old_account_cells[0], new_account_cells[0])?;
+        verify_account_data_consistent(old_account_cells[0], new_account_cells[0])?;
 
         debug!("Check the relationship between RefCells and AccountCell is correct.");
 
@@ -238,6 +241,7 @@ pub fn main() -> Result<(), Error> {
 
         verify_account_expiration(old_account_cells[0], timestamp)?;
         verify_account_consistent(old_account_cells[0], new_account_cells[0])?;
+        verify_account_data_consistent(old_account_cells[0], new_account_cells[0])?;
 
         debug!("Check the relationship between RefCells and AccountCell is correct.");
 
@@ -293,36 +297,29 @@ pub fn main() -> Result<(), Error> {
         let (old_account_cells, new_account_cells) = load_account_cells()?;
 
         verify_account_consistent(old_account_cells[0], new_account_cells[0])?;
-
-        debug!("Check if every fields except registered_at in witness are consistent.");
-
-        let (_, _, entity) = parser.verify_and_get(old_account_cells[0], Source::Input)?;
-        let old_account_witness = AccountCellData::from_slice(entity.as_reader().raw_data())
-            .map_err(|_| Error::WitnessEntityDecodingError)?;
-        let old_witness_reader = old_account_witness.as_reader();
-        let (_, _, entity) = parser.verify_and_get(new_account_cells[0], Source::Output)?;
-        let new_account_witness = AccountCellData::from_slice(entity.as_reader().raw_data())
-            .map_err(|_| Error::WitnessEntityDecodingError)?;
-        let new_witness_reader = new_account_witness.as_reader();
-
-        verify_if_id_consistent(old_witness_reader, new_witness_reader)?;
-        verify_if_account_consistent(old_witness_reader, new_witness_reader)?;
-        verify_if_owner_lock_consistent(old_witness_reader, new_witness_reader)?;
-        verify_if_manager_lock_consistent(old_witness_reader, new_witness_reader)?;
-        verify_if_status_consistent(old_witness_reader, new_witness_reader)?;
-        verify_if_records_consistent(old_witness_reader, new_witness_reader)?;
+        verify_account_data_except_expired_at_consistent(
+            old_account_cells[0],
+            new_account_cells[0],
+        )?;
 
         debug!("Check if the renewal duration is longer than or equal to one year.");
 
-        let old_registered_at = u64::from(old_witness_reader.registered_at());
-        let new_registered_at = u64::from(new_witness_reader.registered_at());
-        let duration = new_registered_at - old_registered_at;
+        let input_data = util::load_cell_data(old_account_cells[0], Source::Input)?;
+        let output_data = util::load_cell_data(new_account_cells[0], Source::Output)?;
+        let input_expired_at = account_cell::get_expired_at(&input_data);
+        let output_expired_at = account_cell::get_expired_at(&output_data);
+        let duration = output_expired_at - input_expired_at;
 
         if duration < 86400 * 365 {
             return Err(Error::AccountCellRenewDurationMustLongerThanYear);
         }
 
         debug!("Check if the registered_at field has been updated correctly based on the capacity paid by the user.");
+
+        let (_, _, entity) = parser.verify_and_get(old_account_cells[0], Source::Input)?;
+        let old_account_witness = AccountCellData::from_slice(entity.as_reader().raw_data())
+            .map_err(|_| Error::WitnessEntityDecodingError)?;
+        let old_witness_reader = old_account_witness.as_reader();
 
         let length_in_price = util::get_length_in_price(old_witness_reader.account().len() as u64);
         let prices = config_register.price_configs();
@@ -500,22 +497,16 @@ pub fn main() -> Result<(), Error> {
         debug!("Route to other action ...");
 
         let this_type_script = load_script().map_err(|e| Error::from(e))?;
-        let old_cells =
-            util::find_cells_by_script(ScriptType::Type, &this_type_script, Source::Input)?;
-        let new_cells =
-            util::find_cells_by_script(ScriptType::Type, &this_type_script, Source::Output)?;
+        let (input_cells, output_cells) =
+            util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, &this_type_script)?;
 
-        debug!("Check if AccountCell is consistent.");
+        assert!(
+            input_cells.len() == output_cells.len(),
+            Error::CellsMustHaveSameOrderAndNumber,
+            "The AccountCells in inputs should have the same number and order as those in outputs."
+        );
 
-        if old_cells.len() != new_cells.len() {
-            return Err(Error::CellsMustHaveSameOrderAndNumber);
-        }
-
-        for (i, old_index) in old_cells.into_iter().enumerate() {
-            let new_index = new_cells[i];
-            util::is_cell_capacity_equal((old_index, Source::Input), (new_index, Source::Output))?;
-            util::is_cell_consistent((old_index, Source::Input), (new_index, Source::Output))?;
-        }
+        util::is_inputs_and_outputs_consistent(input_cells, output_cells)?;
     }
 
     Ok(())
@@ -547,32 +538,105 @@ fn load_wallet_cells(config: ConfigCellMainReader) -> Result<(Vec<usize>, Vec<us
 }
 
 fn verify_account_consistent(
-    old_account_index: usize,
-    new_account_index: usize,
+    input_account_index: usize,
+    output_account_index: usize,
 ) -> Result<(), Error> {
     debug!("Check if everything consistent except data in the AccountCell.");
 
     util::is_cell_capacity_equal(
-        (old_account_index, Source::Input),
-        (new_account_index, Source::Output),
+        (input_account_index, Source::Input),
+        (output_account_index, Source::Output),
     )?;
     util::is_cell_lock_equal(
-        (old_account_index, Source::Input),
-        (new_account_index, Source::Output),
+        (input_account_index, Source::Input),
+        (output_account_index, Source::Output),
     )?;
     util::is_cell_type_equal(
-        (old_account_index, Source::Input),
-        (new_account_index, Source::Output),
+        (input_account_index, Source::Input),
+        (output_account_index, Source::Output),
     )?;
 
-    debug!("Check if the data of AccountCell only changed leading 32 bytes.");
+    Ok(())
+}
 
-    let old_data = load_cell_data(old_account_index, Source::Input).map_err(|e| Error::from(e))?;
-    let new_data = load_cell_data(new_account_index, Source::Output).map_err(|e| Error::from(e))?;
+fn verify_account_data_consistent(
+    input_account_index: usize,
+    output_account_index: usize,
+) -> Result<(), Error> {
+    debug!("Check if data consistent in the AccountCell.");
 
-    if old_data.get(32..).unwrap() != new_data.get(32..).unwrap() {
-        return Err(Error::AccountCellDataNotConsistent);
-    }
+    let input_data = util::load_cell_data(input_account_index, Source::Input)?;
+    let output_data = util::load_cell_data(output_account_index, Source::Output)?;
+
+    assert!(
+        account_cell::get_id(&input_data) == account_cell::get_id(&output_data),
+        Error::AccountCellDataNotConsistent,
+        "The data.id of inputs[{}] and outputs[{}] should be the same.",
+        input_account_index,
+        output_account_index
+    );
+    assert!(
+        account_cell::get_next(&input_data) == account_cell::get_next(&output_data),
+        Error::AccountCellDataNotConsistent,
+        "The data.next of inputs[{}] and outputs[{}] should be the same.",
+        input_account_index,
+        output_account_index
+    );
+    assert!(
+        account_cell::get_account(&input_data) == account_cell::get_account(&output_data),
+        Error::AccountCellDataNotConsistent,
+        "The data.account of inputs[{}] and outputs[{}] should be the same.",
+        input_account_index,
+        output_account_index
+    );
+    assert!(
+        account_cell::get_expired_at(&input_data) == account_cell::get_expired_at(&output_data),
+        Error::AccountCellDataNotConsistent,
+        "The data.expired_at of inputs[{}] and outputs[{}] should be the same.",
+        input_account_index,
+        output_account_index
+    );
+
+    Ok(())
+}
+
+fn verify_account_data_except_expired_at_consistent(
+    input_account_index: usize,
+    output_account_index: usize,
+) -> Result<(), Error> {
+    debug!("Check if data consistent in the AccountCell.");
+
+    let input_data = util::load_cell_data(input_account_index, Source::Input)?;
+    let output_data = util::load_cell_data(output_account_index, Source::Output)?;
+
+    assert!(
+        account_cell::get_id(&input_data) == account_cell::get_id(&output_data),
+        Error::AccountCellDataNotConsistent,
+        "The data.id of inputs[{}] and outputs[{}] should be the same.",
+        input_account_index,
+        output_account_index
+    );
+    assert!(
+        account_cell::get_next(&input_data) == account_cell::get_next(&output_data),
+        Error::AccountCellDataNotConsistent,
+        "The data.next of inputs[{}] and outputs[{}] should be the same.",
+        input_account_index,
+        output_account_index
+    );
+    assert!(
+        account_cell::get_account(&input_data) == account_cell::get_account(&output_data),
+        Error::AccountCellDataNotConsistent,
+        "The data.account of inputs[{}] and outputs[{}] should be the same.",
+        input_account_index,
+        output_account_index
+    );
+    assert!(
+        input_data.get(..32) == output_data.get(..32),
+        Error::AccountCellDataNotConsistent,
+        "The data.hash of inputs[{}] and outputs[{}] should be the same.",
+        input_account_index,
+        output_account_index
+    );
 
     Ok(())
 }
