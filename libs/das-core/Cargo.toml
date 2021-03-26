@@ -6,6 +6,7 @@ edition = "2018"
 [features]
 default = ["mainnet"]
 std = ["no-std-compat/std"]
+dev = []
 local = []
 testnet = []
 mainnet = []
