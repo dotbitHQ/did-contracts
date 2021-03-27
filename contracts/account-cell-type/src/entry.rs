@@ -408,16 +408,15 @@ pub fn main() -> Result<(), Error> {
             .map_err(|e| Error::from(e))?;
 
         // Renew price for 1 year in CKB = x ÷ y .
-        let renew_price = renew_price_in_usd / quote * 100_000_000;
-
-        let expected_duration =
-            (output_wallet_capacity - input_wallet_capacity) * 86400 * 365 / renew_price;
+        let paid = output_wallet_capacity - input_wallet_capacity;
+        let expected_duration = util::calc_duration_from_paid(paid, renew_price_in_usd, quote);
         if duration > expected_duration {
-            debug!("Verify is user payed enough capacity: {}[duration] > ({}[after_ckb] - {}[before_ckb]) * 86400 * 365 / {}[renew_price] -> true",
-                   duration,
-                   output_wallet_capacity,
-                   input_wallet_capacity,
-                   renew_price
+            debug!(
+                "Verify is user payed enough capacity: duration({}) > (paid({}) / (renew_price({}) / quote({}) * 100_000_000) ) * 86400 * 365 -> true",
+                duration,
+                paid,
+                renew_price_in_usd,
+                quote
             );
 
             return Err(Error::AccountCellRenewDurationBiggerThanPaied);
