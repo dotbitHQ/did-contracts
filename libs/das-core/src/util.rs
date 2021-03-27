@@ -330,7 +330,7 @@ pub fn load_height() -> Result<u64, Error> {
             u64::from_be_bytes(bytes.try_into().unwrap())
         }
         _ => {
-            warn!("Decoding timestamp from TimeCell failed, data is missing.");
+            warn!("Decoding block number from HeightCell failed, data is missing.");
             return Err(Error::HeightCellDataDecodingError);
         }
     };
@@ -520,7 +520,7 @@ pub fn blake2b_256(s: &[u8]) -> [u8; 32] {
 
 pub fn is_cell_consistent(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
     debug!(
-        "Compare if the cells' are consistent: {:?}[{}] & {:?}[{}]",
+        "Compare if {:?}[{}] and {:?}[{}] are equal in every fields except capacity.",
         cell_a.1, cell_a.0, cell_b.1, cell_b.0
     );
 
@@ -616,14 +616,6 @@ pub fn is_cell_capacity_lt(cell_a: (usize, Source), cell_b: (usize, Source)) -> 
     let b_capacity =
         high_level::load_cell_capacity(cell_b.0, cell_b.1).map_err(|e| Error::from(e))?;
 
-    if a_capacity <= b_capacity {
-        debug!(
-            "Compare cell capacity: {:?}[{}] {:?} <= {:?}[{}] {:?} => true",
-            cell_a.1, cell_a.0, a_capacity, cell_b.1, cell_b.0, b_capacity
-        );
-        return Err(Error::CellCapacityMustIncreased);
-    }
-
     // ⚠️ Equal is not allowed here because we want to avoid abuse cell.
     assert!(
         a_capacity < b_capacity,
@@ -640,19 +632,24 @@ pub fn is_cell_capacity_lt(cell_a: (usize, Source), cell_b: (usize, Source)) -> 
     Ok(())
 }
 
-pub fn is_cell_capacity_gte(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
+pub fn is_cell_capacity_gt(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
     let a_capacity =
         high_level::load_cell_capacity(cell_a.0, cell_a.1).map_err(|e| Error::from(e))?;
     let b_capacity =
         high_level::load_cell_capacity(cell_b.0, cell_b.1).map_err(|e| Error::from(e))?;
 
-    if a_capacity >= b_capacity {
-        debug!(
-            "Compare cell capacity: {:?}[{}] {:?} >= {:?}[{}] {:?} => true",
-            cell_a.1, cell_a.0, a_capacity, cell_b.1, cell_b.0, b_capacity
-        );
-        return Err(Error::CellCapacityMustIncreased);
-    }
+    // ⚠️ Equal is not allowed here because we want to avoid abuse cell.
+    assert!(
+        a_capacity > b_capacity,
+        Error::CellLockCanNotBeModified,
+        "The capacity of {:?}[{}]({}) should be greater than {:?}[{}]({}).",
+        cell_a.1,
+        cell_a.0,
+        a_capacity,
+        cell_b.1,
+        cell_b.0,
+        b_capacity
+    );
 
     Ok(())
 }
@@ -666,13 +663,17 @@ pub fn is_cell_capacity_equal(
     let b_capacity =
         high_level::load_cell_capacity(cell_b.0, cell_b.1).map_err(|e| Error::from(e))?;
 
-    if a_capacity != b_capacity {
-        warn!(
-            "The two cells' capacity should be equal: {:?}[{}].capacity({:?}) != {:?}[{}].capacity({:?})",
-            cell_a.1, cell_a.0, a_capacity, cell_b.1, cell_b.0, b_capacity
-        );
-        return Err(Error::CellCapacityMustConsistent);
-    }
+    assert!(
+        a_capacity == b_capacity,
+        Error::CellCapacityMustConsistent,
+        "The capacity of {:?}[{}]({}) should be equal to {:?}[{}]({}).",
+        cell_a.1,
+        cell_a.0,
+        a_capacity,
+        cell_b.1,
+        cell_b.0,
+        b_capacity
+    );
 
     Ok(())
 }
