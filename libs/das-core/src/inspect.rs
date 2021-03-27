@@ -1,3 +1,6 @@
+#![allow(unused_imports)]
+#![allow(unused_variables)]
+
 use super::data_parser::{account_cell, pre_account_cell};
 use ckb_std::ckb_constants::Source;
 use ckb_std::debug;

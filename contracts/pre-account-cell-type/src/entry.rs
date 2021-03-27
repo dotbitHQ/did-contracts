@@ -6,7 +6,7 @@ use ckb_std::{
 use core::convert::TryInto;
 use core::result::Result;
 use das_bloom_filter::BloomFilter;
-use das_core::{constants::*, debug, error::Error, inspect, util};
+use das_core::{constants::*, debug, error::Error, util};
 use das_types::{
     constants::{ConfigID, DataType},
     packed::*,
@@ -93,7 +93,7 @@ pub fn main() -> Result<(), Error> {
             load_cell_lock(index.to_owned(), Source::Input).map_err(|e| Error::from(e))?;
 
         #[cfg(not(feature = "mainnet"))]
-        inspect::apply_register_cell(Source::Input, index.to_owned(), &data);
+        das_core::inspect::apply_register_cell(Source::Input, index.to_owned(), &data);
 
         let height = util::load_height()?;
         let config_register_reader = configs.register()?;
@@ -113,7 +113,12 @@ pub fn main() -> Result<(), Error> {
         let (_, _, entity) = parser.verify_and_get(index.to_owned(), Source::Output)?;
 
         #[cfg(not(feature = "mainnet"))]
-        inspect::pre_account_cell(Source::Output, index.to_owned(), &data, entity.to_owned());
+        das_core::inspect::pre_account_cell(
+            Source::Output,
+            index.to_owned(),
+            &data,
+            entity.to_owned(),
+        );
 
         let pre_account_witness = PreAccountCellData::from_slice(entity.as_reader().raw_data())
             .map_err(|_| Error::WitnessEntityDecodingError)?;
