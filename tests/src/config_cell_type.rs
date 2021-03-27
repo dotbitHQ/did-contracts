@@ -36,7 +36,7 @@ fn gen_config_create_test_data() {
     template.pretty_print();
 }
 
-// #[test]
+#[test]
 fn test_config_create() {
     let mut context;
     let mut parser;
