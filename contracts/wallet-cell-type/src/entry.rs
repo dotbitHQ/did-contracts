@@ -1,13 +1,16 @@
+use alloc::borrow::ToOwned;
 use alloc::{vec, vec::Vec};
+use ckb_std::high_level::{load_cell_capacity, load_cell_occupied_capacity};
 use ckb_std::{
     ckb_constants::Source,
     debug,
-    high_level::{load_cell_lock, load_cell_lock_hash, load_cell_type, load_script},
+    high_level::{load_cell_lock, load_cell_lock_hash, load_script},
 };
+use das_core::constants::CELL_BASIC_CAPACITY;
 use das_core::{
     assert,
     constants::{wallet_maker_lock, ScriptType, TypeScript, ALWAYS_SUCCESS_LOCK},
-    data_parser::ref_cell,
+    data_parser,
     error::Error,
     util,
 };
@@ -73,6 +76,11 @@ pub fn main() -> Result<(), Error> {
             } else if action == b"recycle_wallet" {
                 debug!("Route to recycle_wallet action ...");
 
+                let mut parser = util::load_das_witnesses(None)?;
+                parser.parse_all_data()?;
+                parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
+                let config_main_reader = parser.configs().main()?;
+
                 debug!("Check if wallet maker lock has been used in inputs ...");
 
                 let expected_lock = wallet_maker_lock();
@@ -91,6 +99,89 @@ pub fn main() -> Result<(), Error> {
                     Error::WalletFoundInvalidTransaction,
                     "There should be 1 or more WalletCells in inputs and none WalletCell in outputs."
                 );
+
+                // Create an account_id->refund map for later verification.
+                let mut refunds_list: Vec<(Vec<u8>, u64)> = Vec::new();
+                for input_index in input_cells {
+                    let wallet_cell_data = util::load_cell_data(input_index, Source::Input)?;
+                    let account_id = data_parser::wallet_cell::get_id(&wallet_cell_data).to_vec();
+
+                    debug!(
+                        "Calculate total refund of the WalletCell[0x{}] ...",
+                        util::hex_string(account_id.as_ref())
+                    );
+
+                    // A user may have more than one WalletCells.
+                    let ret = refunds_list.iter().position(|item| item.0 == account_id);
+                    let total_capacity = load_cell_capacity(input_index, Source::Input)
+                        .map_err(|e| Error::from(e))?;
+                    let occupied_capacity = load_cell_occupied_capacity(input_index, Source::Input)
+                        .map_err(|e| Error::from(e))?;
+                    if let Some(i) = ret {
+                        refunds_list[i].1 += total_capacity - occupied_capacity;
+                    } else {
+                        refunds_list.push((account_id, total_capacity - occupied_capacity));
+                    }
+                }
+
+                // Create an account_id->account_cell_index map for later verification.
+                let mut account_indexs_grouped_by_id: Vec<(Vec<u8>, usize)> = Vec::new();
+                let account_cells = util::find_cells_by_type_id(
+                    ScriptType::Type,
+                    config_main_reader.type_id_table().account_cell(),
+                    Source::Input,
+                )?;
+                for index in account_cells {
+                    let data = util::load_cell_data(index, Source::Input)?;
+                    let id = data_parser::account_cell::get_id(&data).to_vec();
+                    account_indexs_grouped_by_id.push((id, index));
+                }
+
+                for (account_id, expected_refund) in refunds_list.into_iter() {
+                    if expected_refund >= CELL_BASIC_CAPACITY {
+                        debug!("Check if the major capacity of the WalletCell[0x{}] has been refund to owner lock.", util::hex_string(account_id.as_ref()));
+
+                        // Find out the AccountCell which has the same account ID with the WalletCell.
+                        let ret = account_indexs_grouped_by_id
+                            .iter()
+                            .find(|item| item.0 == account_id);
+                        assert!(
+                            ret.is_some(),
+                            Error::WalletFoundInvalidTransaction,
+                            "There should be 1 AccountCell in the inputs which has the same account ID as the WalletCell."
+                        );
+
+                        let (_, account_cell_index) = ret.unwrap();
+                        let (_, _, entity) =
+                            parser.verify_and_get(account_cell_index.to_owned(), Source::Input)?;
+                        let account_witness =
+                            AccountCellData::from_slice(entity.as_reader().raw_data())
+                                .map_err(|_| Error::WitnessEntityDecodingError)?;
+                        let expected_lock = account_witness.owner_lock().into();
+                        let refund_cells = util::find_cells_by_script(
+                            ScriptType::Lock,
+                            &expected_lock,
+                            Source::Output,
+                        )?;
+
+                        assert!(
+                            refund_cells.len() == 1,
+                            Error::WalletFoundInvalidTransaction,
+                            "All refunds of the same lock script should be stored in the same cell."
+                        );
+
+                        let refund = load_cell_capacity(refund_cells[0], Source::Output)
+                            .map_err(|e| Error::from(e))?;
+
+                        assert!(
+                            expected_refund == refund,
+                            Error::WalletRefundError,
+                            "The refund should be calculated correctly. ( expected: {}, current: {} )",
+                            expected_refund,
+                            refund
+                        );
+                    }
+                }
             } else if action == b"withdraw_from_wallet" {
                 debug!("Route to withdraw_from_wallet action ...");
 
@@ -118,10 +209,9 @@ pub fn main() -> Result<(), Error> {
                     (output_cell_index, Source::Output),
                 )?;
 
-                let wallet_cell_data = load_cell_type(input_cell_index, Source::Input)
-                    .map_err(|e| Error::from(e))?
-                    .unwrap();
-                let id_in_wallet = wallet_cell_data.as_reader().args().raw_data();
+                let wallet_cell_data = util::load_cell_data(input_cell_index, Source::Input)?;
+                let account_id = data_parser::wallet_cell::get_id(&wallet_cell_data).to_vec();
+                let id_in_wallet = account_id.as_slice();
 
                 debug!("Check if OwnerCell and AccountCell exists ...");
 
@@ -169,7 +259,7 @@ pub fn main() -> Result<(), Error> {
                 // User must have the owner permission to withdraw CKB from the WalletCell.
 
                 let ref_data = util::load_cell_data(input_ref_index, Source::Input)?;
-                let id_in_ref = ref_cell::get_id(&ref_data);
+                let id_in_ref = data_parser::ref_cell::get_id(&ref_data);
                 let (_, _, entity) = parser.verify_and_get(input_account_index, Source::Input)?;
                 let account_cell_witness =
                     AccountCellData::from_slice(entity.as_reader().raw_data())

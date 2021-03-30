@@ -28,6 +28,7 @@ pub enum TypeScript {
 
 pub const CKB_HASH_PERSONALIZATION: &[u8] = b"ckb-default-hash";
 
+pub const CELL_BASIC_CAPACITY: u64 = 6_100_000_000;
 pub const ACCOUNT_CELL_BASIC_CAPACITY: u64 = 13_400_000_000;
 pub const REF_CELL_BASIC_CAPACITY: u64 = 10_500_000_000;
 

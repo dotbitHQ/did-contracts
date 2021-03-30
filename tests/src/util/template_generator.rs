@@ -897,11 +897,12 @@ impl TemplateGenerator {
           "code_hash": "{{always_success}}"
         });
         let type_script = json!({
-          "code_hash": "{{wallet-cell-type}}",
-          "args": bytes_to_hex(account_id)
+          "code_hash": "{{wallet-cell-type}}"
         });
 
-        self.push_cell(capacity, lock_script, type_script, None, source);
+        let cell_data = account_id;
+
+        self.push_cell(capacity, lock_script, type_script, Some(cell_data), source);
     }
 
     pub fn gen_header() {}

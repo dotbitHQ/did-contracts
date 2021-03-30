@@ -108,16 +108,84 @@ fn test_wallet_withdraw() {
     println!("test_propose: {} cycles", cycles);
 }
 
+fn gen_account_cell(
+    template: &mut TemplateGenerator,
+    account: &str,
+    owner_lock_args: &str,
+    manager_lock_args: &str,
+    input_index: u32,
+    output_index: u32,
+) {
+    // These fields will not be used by wallet-cell-type script.
+    let timestamp = 1611200000u64;
+    let registered_at = timestamp - 86400;
+    let expired_at = timestamp + 31536000 - 86400;
+    let next = bytes::Bytes::from(vec![
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    ]);
+
+    let (cell_data, entity) = template.gen_account_cell_data(
+        account,
+        owner_lock_args,
+        manager_lock_args,
+        next.clone(),
+        registered_at,
+        expired_at,
+        None,
+    );
+    template.push_account_cell(cell_data.clone(), None, 19_400_000_000, Source::Input);
+    template.push_account_cell(cell_data, None, 19_400_000_000, Source::Output);
+    template.push_witness(
+        DataType::AccountCellData,
+        Some((1, output_index, entity.clone())),
+        Some((1, input_index, entity)),
+        None,
+    );
+}
+
 // #[test]
 fn gen_wallet_recycle_test_data() {
     println!("====== Print wallet_recycle transaction data ======");
 
     let mut template = TemplateGenerator::new("recycle_wallet", None);
 
+    template.push_config_cell(
+        ConfigID::ConfigCellMain,
+        true,
+        100_000_000_000,
+        Source::CellDep,
+    );
+
+    gen_account_cell(
+        &mut template,
+        "das00001.bit",
+        "0x0000000000000000000000000000000000001111",
+        "0x0000000000000000000000000000000000001111",
+        0,
+        0,
+    );
+    gen_account_cell(
+        &mut template,
+        "das00002.bit",
+        "0x0000000000000000000000000000000000002222",
+        "0x0000000000000000000000000000000000002222",
+        1,
+        1,
+    );
+    gen_account_cell(
+        &mut template,
+        "das00003.bit",
+        "0x0000000000000000000000000000000000003333",
+        "0x0000000000000000000000000000000000003333",
+        2,
+        2,
+    );
+
     let source = Source::Input;
-    template.push_wallet_cell("das00001.bit", 9_400_000_000, source);
-    template.push_wallet_cell("das00002.bit", 9_400_000_000, source);
-    template.push_wallet_cell("das00003.bit", 9_400_000_000, source);
+    template.push_wallet_cell("das00001.bit", 8_400_000_000, source);
+    template.push_wallet_cell("das00002.bit", 14_500_000_000, source);
+    template.push_wallet_cell("das00003.bit", 14_400_000_000, source);
+    template.push_wallet_cell("das00003.bit", 10_400_000_000, source);
 
     template.pretty_print();
 }

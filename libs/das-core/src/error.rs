@@ -32,86 +32,87 @@ pub enum Error {
     CellCapacityMustConsistent,
     CellsMustHaveSameOrderAndNumber,
     ActionNotSupported,
-    AccountIsReserved,
-    WitnessReadingError = 30,
+    AccountIsReserved, // 28
+    WitnessReadingError = 40,
     WitnessEmpty,
     WitnessDasHeaderDecodingError,
     WitnessTypeDecodingError,
     WitnessActionNotFound,
-    WitnessActionDecodingError, // 35
+    WitnessActionDecodingError, // 45
     WitnessEntityMissing,
     WitnessDataParseLengthHeaderFailed,
     WitnessDataReadDataBodyFailed,
     WitnessDataDecodingError,
-    WitnessDataHashMissMatch,
+    WitnessDataHashMissMatch, // 50
     WitnessDataIndexMissMatch,
     WitnessEntityDecodingError,
-    ApplyRegisterFoundInvalidTransaction = 50,
+    ApplyRegisterFoundInvalidTransaction = 60,
     ApplyRegisterCellDataDecodingError,
     ApplyRegisterCellHeightInvalid,
     ApplyRegisterNeedWaitLonger,
     ApplyRegisterHasTimeout,
-    PreRegisterFoundInvalidTransaction = 60,
+    PreRegisterFoundInvalidTransaction = 70,
     PreRegisterAccountIdIsInvalid,
     PreRegisterApplyHashIsInvalid,
     PreRegisterCreateAtIsInvalid,
     PreRegisterPriceInvalid,
-    PreRegisterFoundUndefinedCharSet,
+    PreRegisterFoundUndefinedCharSet, // 75
     PreRegisterCKBInsufficient,
     PreRegisterAccountCanNotRegisterNow,
     PreRegisterAccountCharSetConflict,
     PreRegisterAccountCharIsInvalid,
-    PreRegisterQuoteIsInvalid, // 70
-    ProposalFoundInvalidTransaction = 80,
+    PreRegisterQuoteIsInvalid, // 80
+    ProposalFoundInvalidTransaction = 90,
     ProposalMustIncludeSomePreAccountCell,
     ProposalSliceIsNotSorted,
     ProposalSliceIsDiscontinuity,
     ProposalSliceRelatedCellNotFound,
-    ProposalSliceRelatedCellMissing,
+    ProposalSliceRelatedCellMissing, // 95
     ProposalCellTypeError,
     ProposalCellAccountIdError,
     ProposalFieldCanNotBeModified,
     ProposalWitnessCanNotBeModified,
-    ProposalConfirmIdError = 90,
+    ProposalConfirmIdError, // 100
     ProposalConfirmNextError,
     ProposalConfirmExpiredAtError,
     ProposalConfirmAccountError,
     ProposalConfirmWitnessIDError,
-    ProposalConfirmWitnessAccountError,
+    ProposalConfirmWitnessAccountError, // 105
     ProposalConfirmWitnessOwnerError,
     ProposalConfirmWitnessManagerError,
     ProposalConfirmWitnessStatusError,
     ProposalConfirmWitnessRecordsError,
-    ProposalConfirmRefCellMissing = 100,
+    ProposalConfirmRefCellMissing, // 110
     ProposalConfirmRefCellDuplicated,
     ProposalConfirmRefCellMissMatch,
     ProposalConfirmWalletMissMatch,
     ProposalConfirmWalletBalanceError,
-    ProposalSliceNotEndCorrectly,
+    ProposalSliceNotEndCorrectly, // 115
     ProposalSliceMustStartWithAccountCell,
     ProposalRecycleNeedWaitLonger,
     ProposalRecycleCanNotFoundRefundCell,
     ProposalRecycleRefundAmountError,
-    WalletFoundInvalidTransaction = 110,
+    PrevProposalItemNotFound,
+    WalletFoundInvalidTransaction = -126,
     WalletRequireAlwaysSuccess,
     WalletRequireWalletMakerLock,
     WalletPermissionInvalid,
-    PrevProposalItemNotFound,
-    AccountCellFoundInvalidTransaction = -126,
+    WalletRefundError, // -120
+    AccountCellFoundInvalidTransaction = -110,
     AccountCellDataNotConsistent,
     AccountCellRefCellIsRequired,
     AccountCellOwnerCellIsRequired,
     AccountCellManagerCellIsRequired,
-    AccountCellUnrelatedRefCellFound,
-    AccountCellRedundantRefCellNotAllowed, // -120
+    AccountCellUnrelatedRefCellFound, // -105
+    AccountCellRedundantRefCellNotAllowed,
     AccountCellProtectFieldIsModified,
     AccountCellRenewDurationMustLongerThanYear,
     AccountCellRenewDurationBiggerThanPaied,
-    AccountCellInExpirationGracePeriod,
-    AccountCellHasExpired, // -115
+    AccountCellInExpirationGracePeriod, // -100
+    AccountCellHasExpired,
     AccountCellIsNotExpired,
     AccountCellRecycleCapacityError,
-    AccountCellChangeCapacityError,
+    AccountCellChangeCapacityError, // -96
 }
 
 impl From<SysError> for Error {
