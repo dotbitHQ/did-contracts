@@ -1,0 +1,55 @@
+{
+  "cell_deps": [
+    {
+      "tmp_type": "deployed_contract",
+      "tmp_file_name": "always_success"
+    },
+    {
+      "tmp_type": "contract",
+      "tmp_file_name": "wallet-cell-type"
+    }
+  ],
+  "header_deps": [],
+  "inputs": [
+    {
+      "previous_output": {
+        "tmp_type": "full",
+        "capacity": 509400000000,
+        "lock": {
+          "code_hash": "{{always_success}}"
+        },
+        "type": {
+          "code_hash": "{{wallet-cell-type}}",
+          "args": "0xa2e06438859db0449574"
+        }
+      },
+      "since": "0x"
+    },
+    {
+      "previous_output": {
+        "tmp_type": "full",
+        "capacity": 500000000000,
+        "lock": {
+          "code_hash": "{{always_success}}",
+          "args": "0x9af92f5e690f4669ca543deb99af8385b12624cc"
+        },
+        "type": null
+      },
+      "since": "0x"
+    }
+  ],
+  "outputs": [
+    {
+      "tmp_type": "full",
+      "capacity": 1009400000000,
+      "lock": {
+        "code_hash": "{{always_success}}"
+      },
+      "type": {
+        "code_hash": "{{wallet-cell-type}}",
+        "args": "0xa2e06438859db0449574"
+      }
+    }
+  ],
+  "witnesses": []
+}

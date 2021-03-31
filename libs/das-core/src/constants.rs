@@ -10,7 +10,7 @@ pub enum ScriptHashType {
     Type = 1,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum ScriptType {
     Lock,
     Type,
@@ -41,8 +41,19 @@ pub const BLOOM_FILTER_M: u64 = 1918;
 pub const BLOOM_FILTER_K: u64 = 14;
 
 pub const DAS_WALLET_ID: [u8; ACCOUNT_ID_LENGTH] = [183, 82, 104, 3, 246, 126, 190, 112, 171, 166];
+pub const ROOT_WALLET_ID: [u8; ACCOUNT_ID_LENGTH] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
 pub fn super_lock() -> Script {
+    #[cfg(feature = "dev")]
+    let super_lock = ScriptLiteral {
+        code_hash: [
+            157, 111, 41, 25, 227, 40, 243, 33, 125, 125, 211, 218, 181, 247, 206, 233, 216, 224,
+            98, 190, 230, 168, 13, 93, 5, 205, 73, 92, 163, 65, 99, 120,
+        ],
+        hash_type: ScriptHashType::Type,
+        args: vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    };
+
     #[cfg(feature = "local")]
     let super_lock = ScriptLiteral {
         code_hash: [
@@ -83,6 +94,16 @@ pub fn super_lock() -> Script {
 }
 
 pub fn oracle_lock() -> Script {
+    #[cfg(feature = "dev")]
+    let oracle_lock = ScriptLiteral {
+        code_hash: [
+            157, 111, 41, 25, 227, 40, 243, 33, 125, 125, 211, 218, 181, 247, 206, 233, 216, 224,
+            98, 190, 230, 168, 13, 93, 5, 205, 73, 92, 163, 65, 99, 120,
+        ],
+        hash_type: ScriptHashType::Type,
+        args: vec![1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    };
+
     #[cfg(feature = "local")]
     let oracle_lock = ScriptLiteral {
         code_hash: [
@@ -120,6 +141,16 @@ pub fn oracle_lock() -> Script {
 }
 
 pub fn wallet_maker_lock() -> Script {
+    #[cfg(feature = "dev")]
+    let wallet_maker_lock = ScriptLiteral {
+        code_hash: [
+            157, 111, 41, 25, 227, 40, 243, 33, 125, 125, 211, 218, 181, 247, 206, 233, 216, 224,
+            98, 190, 230, 168, 13, 93, 5, 205, 73, 92, 163, 65, 99, 120,
+        ],
+        hash_type: ScriptHashType::Type,
+        args: vec![2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    };
+
     #[cfg(feature = "local")]
     let wallet_maker_lock = ScriptLiteral {
         code_hash: [
@@ -157,6 +188,16 @@ pub fn wallet_maker_lock() -> Script {
 }
 
 pub fn time_cell_type() -> Script {
+    #[cfg(feature = "dev")]
+    let time_cell_type = ScriptLiteral {
+        code_hash: [
+            1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0,
+        ],
+        hash_type: ScriptHashType::Type,
+        args: Vec::new(),
+    };
+
     #[cfg(feature = "local")]
     let time_cell_type = ScriptLiteral {
         code_hash: [
@@ -194,6 +235,16 @@ pub fn time_cell_type() -> Script {
 }
 
 pub fn height_cell_type() -> Script {
+    #[cfg(feature = "dev")]
+    let height_cell_type = ScriptLiteral {
+        code_hash: [
+            2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0,
+        ],
+        hash_type: ScriptHashType::Type,
+        args: Vec::new(),
+    };
+
     #[cfg(feature = "local")]
     let height_cell_type = ScriptLiteral {
         code_hash: [
@@ -230,11 +281,22 @@ pub fn height_cell_type() -> Script {
     util::script_literal_to_script(height_cell_type)
 }
 
+#[cfg(feature = "dev")]
+pub const CONFIG_CELL_TYPE: ScriptLiteral = ScriptLiteral {
+    code_hash: [
+        8, 107, 220, 190, 240, 171, 98, 141, 49, 174, 209, 231, 186, 162, 100, 22, 211, 189, 225,
+        226, 66, 165, 164, 125, 221, 174, 192, 110, 135, 229, 149, 208,
+    ],
+    hash_type: ScriptHashType::Type,
+    args: Vec::new(),
+};
+
 #[cfg(feature = "local")]
 pub const CONFIG_CELL_TYPE: ScriptLiteral = ScriptLiteral {
     code_hash: [
-228, 211, 239, 135, 78, 141, 98, 140, 101, 79, 184, 80, 81, 32, 235, 206, 205, 65, 87, 48, 111, 174, 11, 234, 97, 164, 243, 23, 248, 121, 73, 202
-],
+        228, 211, 239, 135, 78, 141, 98, 140, 101, 79, 184, 80, 81, 32, 235, 206, 205, 65, 87, 48,
+        111, 174, 11, 234, 97, 164, 243, 23, 248, 121, 73, 202,
+    ],
     hash_type: ScriptHashType::Type,
     args: Vec::new(),
 };
@@ -242,8 +304,9 @@ pub const CONFIG_CELL_TYPE: ScriptLiteral = ScriptLiteral {
 #[cfg(feature = "testnet")]
 pub const CONFIG_CELL_TYPE: ScriptLiteral = ScriptLiteral {
     code_hash: [
-72, 159, 242, 25, 94, 212, 26, 172, 154, 146, 101, 198, 83, 216, 202, 87, 200, 37, 178, 45, 183, 101, 185, 224, 141, 83, 117, 114, 255, 44, 188, 27
-],
+        72, 159, 242, 25, 94, 212, 26, 172, 154, 146, 101, 198, 83, 216, 202, 87, 200, 37, 178, 45,
+        183, 101, 185, 224, 141, 83, 117, 114, 255, 44, 188, 27,
+    ],
     hash_type: ScriptHashType::Type,
     args: Vec::new(),
 };
@@ -258,11 +321,22 @@ pub const CONFIG_CELL_TYPE: ScriptLiteral = ScriptLiteral {
     args: Vec::new(),
 };
 
+#[cfg(feature = "dev")]
+pub const ALWAYS_SUCCESS_LOCK: ScriptLiteral = ScriptLiteral {
+    code_hash: [
+        157, 111, 41, 25, 227, 40, 243, 33, 125, 125, 211, 218, 181, 247, 206, 233, 216, 224, 98,
+        190, 230, 168, 13, 93, 5, 205, 73, 92, 163, 65, 99, 120,
+    ],
+    hash_type: ScriptHashType::Type,
+    args: Vec::new(),
+};
+
 #[cfg(feature = "local")]
 pub const ALWAYS_SUCCESS_LOCK: ScriptLiteral = ScriptLiteral {
     code_hash: [
-184, 243, 231, 77, 189, 72, 86, 149, 58, 151, 112, 104, 42, 255, 194, 137, 221, 0, 152, 153, 45, 17, 214, 103, 205, 243, 84, 151, 226, 103, 190, 50
-],
+        184, 243, 231, 77, 189, 72, 86, 149, 58, 151, 112, 104, 42, 255, 194, 137, 221, 0, 152,
+        153, 45, 17, 214, 103, 205, 243, 84, 151, 226, 103, 190, 50,
+    ],
     hash_type: ScriptHashType::Type,
     args: Vec::new(),
 };
@@ -270,8 +344,9 @@ pub const ALWAYS_SUCCESS_LOCK: ScriptLiteral = ScriptLiteral {
 #[cfg(feature = "testnet")]
 pub const ALWAYS_SUCCESS_LOCK: ScriptLiteral = ScriptLiteral {
     code_hash: [
-241, 239, 97, 182, 151, 117, 8, 217, 236, 86, 254, 67, 57, 154, 1, 229, 118, 8, 106, 118, 207, 15, 124, 104, 125, 20, 24, 51, 94, 140, 64, 31
-],
+        241, 239, 97, 182, 151, 117, 8, 217, 236, 86, 254, 67, 57, 154, 1, 229, 118, 8, 106, 118,
+        207, 15, 124, 104, 125, 20, 24, 51, 94, 140, 64, 31,
+    ],
     hash_type: ScriptHashType::Type,
     args: Vec::new(),
 };

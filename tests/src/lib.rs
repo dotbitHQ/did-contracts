@@ -11,29 +11,24 @@ use ckb_tool::ckb_types::bytes;
 #[macro_use]
 mod util;
 
-#[cfg(test)]
-mod account_cell_type;
-#[cfg(test)]
-mod always_success;
-#[cfg(test)]
-mod apply_register_cell_type;
-#[cfg(test)]
-mod config_cell_type;
-#[cfg(test)]
-mod hash_printer;
-#[cfg(test)]
-mod pre_account_cell_type;
-#[cfg(test)]
-mod proposal;
-#[cfg(test)]
-mod template_parser;
-#[cfg(test)]
-mod wallet_cell_type;
-
-#[cfg(test)]
-mod sandbox;
-#[cfg(test)]
-mod sandbox;
+// #[cfg(test)]
+// mod account_cell_type;
+// #[cfg(test)]
+// mod always_success;
+// #[cfg(test)]
+// mod apply_register_cell_type;
+// #[cfg(test)]
+// mod config_cell_type;
+// #[cfg(test)]
+// mod hash_printer;
+// #[cfg(test)]
+// mod pre_account_cell_type;
+// #[cfg(test)]
+// mod proposal;
+// #[cfg(test)]
+// mod template_parser;
+// #[cfg(test)]
+// mod wallet_cell_type;
 
 const TEST_ENV_VAR: &str = "CAPSULE_TEST_ENV";
 

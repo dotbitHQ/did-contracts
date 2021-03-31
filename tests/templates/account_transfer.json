@@ -22,7 +22,7 @@
         "code_hash": "0x0100000000000000000000000000000000000000000000000000000000000000",
         "hash_type": "type"
       },
-      "tmp_data": "0x0100f60860"
+      "tmp_data": "0x016008f600"
     },
     {
       "tmp_type": "full",
@@ -49,8 +49,9 @@
         },
         "type": {
           "code_hash": "{{ref-cell-type}}",
-          "args": "0xa2e06438859db0449574"
-        }
+          "args": ""
+        },
+        "tmp_data": "0xa2e06438859db044957400"
       },
       "since": "0x"
     },
@@ -79,8 +80,9 @@
       },
       "type": {
         "code_hash": "{{ref-cell-type}}",
-        "args": "0xa2e06438859db0449574"
-      }
+        "args": ""
+      },
+      "tmp_data": "0xa2e06438859db044957400"
     },
     {
       "tmp_type": "full",

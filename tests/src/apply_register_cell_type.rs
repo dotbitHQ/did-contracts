@@ -10,10 +10,9 @@ fn gen_apply_register_test_data() {
     let height = 1000u64;
     template.push_height_cell(1, height, 1000, Source::CellDep);
 
-    let account_chars = gen_account_chars("das00001".split("").collect());
     template.push_apply_register_cell(
         "0x9af92f5e690f4669ca543deb99af8385b12624cc",
-        &account_chars,
+        "das00001.bit",
         height,
         1000,
         Source::Output,

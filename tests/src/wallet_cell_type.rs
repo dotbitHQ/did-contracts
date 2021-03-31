@@ -17,7 +17,7 @@ fn gen_wallet_create_test_data() {
     template.pretty_print();
 }
 
-// #[test]
+#[test]
 fn test_wallet_create() {
     let mut context;
     let mut parser;
@@ -122,11 +122,43 @@ fn gen_wallet_recycle_test_data() {
     template.pretty_print();
 }
 
-// #[test]
+#[test]
 fn test_wallet_recycle() {
     let mut context;
     let mut parser;
     load_template!(&mut context, &mut parser, "wallet_recycle.json");
+
+    // build transaction
+    let tx = parser.build_tx();
+
+    // run in vm
+    let cycles = context
+        .verify_tx(&tx, MAX_CYCLES)
+        .expect("pass verification");
+
+    println!("test_propose: {} cycles", cycles);
+}
+
+// #[test]
+fn gen_wallet_deposit_test_data() {
+    println!("====== Print wallet deposit transaction data ======");
+
+    let mut template = TemplateGenerator::new("xxx", None);
+
+    let account = "das00001.bit";
+
+    // Generate WalletCells ...
+    template.push_wallet_cell(account, 509_400_000_000, Source::Input);
+    template.push_wallet_cell(account, 1_009_400_000_000, Source::Output);
+
+    template.pretty_print();
+}
+
+#[test]
+fn test_wallet_deposit() {
+    let mut context;
+    let mut parser;
+    load_template!(&mut context, &mut parser, "wallet_deposit.json");
 
     // build transaction
     let tx = parser.build_tx();

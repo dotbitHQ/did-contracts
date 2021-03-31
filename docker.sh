@@ -9,16 +9,16 @@ CACHE_VOLUME="capsule-cache"
 
 function is_feature_available() {
     case $1 in
-    local | testnet | mainnet) ;;
+    dev | local | testnet | mainnet) ;;
 
     *)
-        echo "Feature $1 is invalid, please choose one of local|testnet|mainnet ."
+        echo "Feature $1 is invalid, please choose one of dev|local|testnet|mainnet ."
         exit 1
         ;;
     esac
 }
 
-# Support `--release --local/testnet/mainnet` or just `--local/testnet/mainnet`
+# Support `--release --dev/local/testnet/mainnet` or just `--dev/local/testnet/mainnet`
 is_release=false
 feature="mainnet"
 function parse_args() {

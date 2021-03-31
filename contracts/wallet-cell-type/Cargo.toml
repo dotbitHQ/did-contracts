@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2018"
 
 [features]
+dev = ["das-core/dev"]
 local = ["das-core/local"]
 testnet = ["das-core/testnet"]
 mainnet = ["das-core/mainnet"]

@@ -11,7 +11,7 @@ use das_core::{
     data_parser::{account_cell, ref_cell},
     debug,
     error::Error,
-    util,
+    util, warn,
     witness_parser::WitnessesParser,
 };
 use das_sorted_list::DasSortedList;
@@ -567,8 +567,8 @@ fn verify_proposal_execution_result(
                 || item_type == ProposalSliceItemType::Proposed as u8
             {
                 debug!(
-                    "  Item[{}] Check that the existing AccountCell({}) is updated correctly.",
-                    item_index, input_related_cells[i]
+                    "  Item[{}] Check that the existing inputs[{}].AccountCell and outputs[{}].AccountCell is updated correctly.",
+                    item_index, input_related_cells[i], output_account_cells[i]
                 );
 
                 // All cells' type is must be account-cell-type
@@ -621,8 +621,8 @@ fn verify_proposal_execution_result(
                 }
             } else {
                 debug!(
-                    "  Item[{}] Check that the PreAccountCell({}) is converted correctly.",
-                    item_index, input_related_cells[i]
+                    "  Item[{}] Check that the inputs[{}].PreAccountCell and outputs[{}].AccountCell is converted correctly.",
+                    item_index, input_related_cells[i], output_account_cells[i]
                 );
 
                 // All cells' type is must be pre-account-cell-type/account-cell-type
@@ -713,7 +713,12 @@ fn verify_proposal_execution_result(
                         "  Item[{}] Wallet[0x{}]: {}(inviter_profit) = {}(profit) * {}(inviter_profit_rate) / {}(RATE_BASE)",
                         item_index, util::hex_string(wallet_id), inviter_profit, profit, inviter_profit_rate, RATE_BASE
                     );
-                    wallet.add_balance(wallet_id, inviter_profit);
+                    // It is hard to recycle testing cells, so here we count root account's wallet as das wallet.
+                    if wallet_id == &ROOT_WALLET_ID {
+                        wallet.add_balance(&DAS_WALLET_ID, inviter_profit);
+                    } else {
+                        wallet.add_balance(wallet_id, inviter_profit);
+                    }
                 };
 
                 let mut channel_profit = 0;
@@ -724,10 +729,12 @@ fn verify_proposal_execution_result(
                         "  Item[{}] Wallet[0x{}]: {}(channel_profit) = {}(profit) * {}(channel_profit_rate) / {}(RATE_BASE)",
                         item_index, util::hex_string(wallet_id), channel_profit, profit, channel_profit_rate, RATE_BASE
                     );
-                    wallet.add_balance(
-                        input_cell_witness_reader.channel_wallet().raw_data(),
-                        channel_profit,
-                    );
+                    // It is hard to recycle testing cells, so here we count root account's wallet as das wallet.
+                    if wallet_id == &ROOT_WALLET_ID {
+                        wallet.add_balance(&DAS_WALLET_ID, channel_profit);
+                    } else {
+                        wallet.add_balance(wallet_id, channel_profit);
+                    }
                 };
 
                 let das_profit = profit - inviter_profit - channel_profit;
@@ -995,21 +1002,25 @@ fn is_expired_at_correct(
     let quote = u64::from(pre_account_cell_witness.quote());
     let duration = util::calc_duration_from_paid(profit, price, quote);
     let expired_at = account_cell::get_expired_at(output_cell_data);
+    let calculated_expired_at = current_timestamp + duration;
 
     debug!(
-        "  Item[{}] Check if outputs[].AccountCell.expired_at: expired_at({}) != {} = current({}) + duration({})",
+        "  Item[{}] Check if AccountCell.expired_at correct: cell.expired_at({}) <-> calculated_expired_at({})",
         item_index,
         expired_at,
-        current_timestamp + duration,
-        current_timestamp,
-        duration
+        calculated_expired_at
     );
 
     if !(current_timestamp + duration == expired_at) {
-        debug!(
-            "  Item[{}] duration({}) = (profit({}) / (price({}) / quote({}) * 100_000_000)) * 365 * 86400",
+        warn!(
+            "  Item[{}] Check failed: cell.expired_at({}) != calculated_expired_at({})",
+            item_index, expired_at, calculated_expired_at
+        );
+        warn!(
+            "  Item[{}] calculated_expired_at({}) = current({}) + (profit({}) / (price({}) / quote({}) * 100_000_000)) * 365 * 86400",
             item_index,
-            duration,
+            calculated_expired_at,
+            current_timestamp,
             profit,
             price,
             quote

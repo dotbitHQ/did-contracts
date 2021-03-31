@@ -1,5 +1,6 @@
 use super::{
-    constants::*, debug, error::Error, types::ScriptLiteral, witness_parser::WitnessesParser,
+    assert, constants::*, debug, error::Error, types::ScriptLiteral, warn,
+    witness_parser::WitnessesParser,
 };
 use blake2b_ref::{Blake2b, Blake2bBuilder};
 use ckb_std::{
@@ -121,9 +122,14 @@ pub fn find_only_cell_by_type_id(
     source: Source,
 ) -> Result<usize, Error> {
     let cells = find_cells_by_type_id(script_type, type_id, source)?;
-    if cells.len() != 1 {
-        return Err(Error::InvalidTransactionStructure);
-    }
+
+    assert!(
+        cells.len() == 1,
+        Error::InvalidTransactionStructure,
+        "Only one cell expected existing in this transaction, but found more: {:?}: {:?}",
+        source,
+        cells
+    );
 
     Ok(cells[0])
 }
@@ -188,6 +194,16 @@ where
     }
 
     Ok(cells)
+}
+
+pub fn find_cells_by_script_in_inputs_and_outputs(
+    script_type: ScriptType,
+    script: &Script,
+) -> Result<(Vec<usize>, Vec<usize>), Error> {
+    let input_cells = find_cells_by_script(script_type, script, Source::Input)?;
+    let output_cells = find_cells_by_script(script_type, script, Source::Output)?;
+
+    Ok((input_cells, output_cells))
 }
 
 pub fn load_data<F: Fn(&mut [u8], usize) -> Result<usize, SysError>>(
@@ -258,9 +274,11 @@ pub fn load_timestamp() -> Result<u64, Error> {
 
     // There must be one TimeCell in the cell_deps, no more and no less.
     let ret = find_cells_by_script(ScriptType::Type, &type_script, Source::CellDep)?;
-    if ret.len() != 1 {
-        return Err(Error::TimeCellIsRequired);
-    }
+    assert!(
+        ret.len() == 1,
+        Error::TimeCellIsRequired,
+        "There should be one TimeCell in cell_deps, no more and no less."
+    );
 
     debug!("Reading outputs_data of the TimeCell ...");
 
@@ -268,12 +286,17 @@ pub fn load_timestamp() -> Result<u64, Error> {
     let data = load_cell_data(ret[0], Source::CellDep)?;
     let timestamp = match data.get(1..) {
         Some(bytes) => {
-            if bytes.len() != 4 {
-                return Err(Error::TimeCellDataDecodingError);
-            }
+            assert!(
+                bytes.len() == 4,
+                Error::TimeCellDataDecodingError,
+                "Decoding timestamp from TimeCell failed, uint32 with big-endian expected."
+            );
             u32::from_be_bytes(bytes.try_into().unwrap())
         }
-        _ => return Err(Error::TimeCellDataDecodingError),
+        _ => {
+            warn!("Decoding timestamp from TimeCell failed, data is missing.");
+            return Err(Error::TimeCellDataDecodingError);
+        }
     };
 
     Ok(timestamp as u64)
@@ -287,9 +310,11 @@ pub fn load_height() -> Result<u64, Error> {
 
     // There must be one TimeCell in the cell_deps, no more and no less.
     let ret = find_cells_by_script(ScriptType::Type, &type_script, Source::CellDep)?;
-    if ret.len() != 1 {
-        return Err(Error::HeightCellIsRequired);
-    }
+    assert!(
+        ret.len() == 1,
+        Error::HeightCellIsRequired,
+        "There should be one HeightCell in cell_deps, no more and no less."
+    );
 
     debug!("Reading outputs_data of the HeightCell ...");
 
@@ -297,15 +322,36 @@ pub fn load_height() -> Result<u64, Error> {
     let data = load_cell_data(ret[0], Source::CellDep)?;
     let height = match data.get(1..) {
         Some(bytes) => {
-            if bytes.len() != 8 {
-                return Err(Error::HeightCellDataDecodingError);
-            }
+            assert!(
+                bytes.len() == 8,
+                Error::HeightCellDataDecodingError,
+                "Decoding block number from HeightCell failed, uint64 with big-endian expected."
+            );
             u64::from_be_bytes(bytes.try_into().unwrap())
         }
-        _ => return Err(Error::HeightCellDataDecodingError),
+        _ => {
+            warn!("Decoding block number from HeightCell failed, data is missing.");
+            return Err(Error::HeightCellDataDecodingError);
+        }
     };
 
     Ok(height)
+}
+
+pub fn load_quote() -> Result<u64, Error> {
+    let quote_lock = oracle_lock();
+    let quote_cells = find_cells_by_script(ScriptType::Lock, &quote_lock, Source::CellDep)?;
+
+    assert!(
+        quote_cells.len() == 1,
+        Error::QuoteCellIsRequired,
+        "There should be one QuoteCell in cell_deps, no more and no less."
+    );
+
+    let quote_cell_data = load_cell_data(quote_cells[0], Source::CellDep)?;
+    let quote = u64::from_le_bytes(quote_cell_data.try_into().unwrap()); // y CKB/USD
+
+    Ok(quote)
 }
 
 fn trim_empty_bytes(buf: &mut [u8]) -> &[u8] {
@@ -369,10 +415,11 @@ pub fn load_das_action() -> Result<das_packed::ActionData, Error> {
         }
     }
 
-    if action_data_opt.is_none() {
-        debug!("Can not found action in witnesses.");
-        return Err(Error::WitnessActionNotFound);
-    }
+    assert!(
+        action_data_opt.is_some(),
+        Error::WitnessActionNotFound,
+        "There should be on ActionData in witnesses."
+    );
 
     Ok(action_data_opt.unwrap())
 }
@@ -473,7 +520,7 @@ pub fn blake2b_256(s: &[u8]) -> [u8; 32] {
 
 pub fn is_cell_consistent(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
     debug!(
-        "Compare if the cells' are consistent: {:?}[{}] & {:?}[{}]",
+        "Compare if {:?}[{}] and {:?}[{}] are equal in every fields except capacity.",
         cell_a.1, cell_a.0, cell_b.1, cell_b.0
     );
 
@@ -506,13 +553,17 @@ pub fn is_cell_lock_equal(cell_a: (usize, Source), cell_b: (usize, Source)) -> R
     let b_lock_script =
         high_level::load_cell_lock_hash(cell_b.0, cell_b.1).map_err(|e| Error::from(e))?;
 
-    if a_lock_script != b_lock_script {
-        debug!(
-            "Compare cell lock script: {:?}[{}] {:?} != {:?}[{}] {:?} => true",
-            cell_a.1, cell_a.0, a_lock_script, cell_b.1, cell_b.0, b_lock_script
-        );
-        return Err(Error::CellLockCanNotBeModified);
-    }
+    assert!(
+        a_lock_script == b_lock_script,
+        Error::CellLockCanNotBeModified,
+        "The lock script of {:?}[{}]({}) and {:?}[{}]({}) should be the same.",
+        cell_a.1,
+        cell_a.0,
+        hex_string(&a_lock_script),
+        cell_b.1,
+        cell_b.0,
+        hex_string(&b_lock_script)
+    );
 
     Ok(())
 }
@@ -525,13 +576,17 @@ pub fn is_cell_type_equal(cell_a: (usize, Source), cell_b: (usize, Source)) -> R
         .map_err(|e| Error::from(e))?
         .unwrap();
 
-    if a_type_script != b_type_script {
-        debug!(
-            "Compare cell type script: {:?}[{}] {:?} != {:?}[{}] {:?} => true",
-            cell_a.1, cell_a.0, a_type_script, cell_b.1, cell_b.0, b_type_script
-        );
-        return Err(Error::CellTypeCanNotBeModified);
-    }
+    assert!(
+        a_type_script == b_type_script,
+        Error::CellLockCanNotBeModified,
+        "The type script of {:?}[{}]({}) and {:?}[{}]({}) should be the same.",
+        cell_a.1,
+        cell_a.0,
+        hex_string(&a_type_script),
+        cell_b.1,
+        cell_b.0,
+        hex_string(&b_type_script)
+    );
 
     Ok(())
 }
@@ -540,47 +595,61 @@ pub fn is_cell_data_equal(cell_a: (usize, Source), cell_b: (usize, Source)) -> R
     let a_data = high_level::load_cell_data(cell_a.0, cell_a.1).map_err(|e| Error::from(e))?;
     let b_data = high_level::load_cell_data(cell_b.0, cell_b.1).map_err(|e| Error::from(e))?;
 
-    if a_data != b_data {
-        debug!(
-            "Compare cell data: {:?}[{}] {:?} != {:?}[{}] {:?} => true",
-            cell_a.1, cell_a.0, a_data, cell_b.1, cell_b.0, b_data
-        );
-        return Err(Error::CellDataCanNotBeModified);
-    }
+    assert!(
+        a_data == b_data,
+        Error::CellLockCanNotBeModified,
+        "The data of {:?}[{}]({}) and {:?}[{}]({}) should be the same.",
+        cell_a.1,
+        cell_a.0,
+        hex_string(&a_data),
+        cell_b.1,
+        cell_b.0,
+        hex_string(&b_data)
+    );
 
     Ok(())
 }
 
-pub fn is_cell_capacity_lte(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
+pub fn is_cell_capacity_lt(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
     let a_capacity =
         high_level::load_cell_capacity(cell_a.0, cell_a.1).map_err(|e| Error::from(e))?;
     let b_capacity =
         high_level::load_cell_capacity(cell_b.0, cell_b.1).map_err(|e| Error::from(e))?;
 
-    if a_capacity <= b_capacity {
-        debug!(
-            "Compare cell capacity: {:?}[{}] {:?} <= {:?}[{}] {:?} => true",
-            cell_a.1, cell_a.0, a_capacity, cell_b.1, cell_b.0, b_capacity
-        );
-        return Err(Error::CellCapacityMustReduced);
-    }
+    // ⚠️ Equal is not allowed here because we want to avoid abuse cell.
+    assert!(
+        a_capacity < b_capacity,
+        Error::CellLockCanNotBeModified,
+        "The capacity of {:?}[{}]({}) should be less than {:?}[{}]({}).",
+        cell_a.1,
+        cell_a.0,
+        a_capacity,
+        cell_b.1,
+        cell_b.0,
+        b_capacity
+    );
 
     Ok(())
 }
 
-pub fn is_cell_capacity_gte(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
+pub fn is_cell_capacity_gt(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
     let a_capacity =
         high_level::load_cell_capacity(cell_a.0, cell_a.1).map_err(|e| Error::from(e))?;
     let b_capacity =
         high_level::load_cell_capacity(cell_b.0, cell_b.1).map_err(|e| Error::from(e))?;
 
-    if a_capacity >= b_capacity {
-        debug!(
-            "Compare cell capacity: {:?}[{}] {:?} >= {:?}[{}] {:?} => true",
-            cell_a.1, cell_a.0, a_capacity, cell_b.1, cell_b.0, b_capacity
-        );
-        return Err(Error::CellCapacityMustIncreased);
-    }
+    // ⚠️ Equal is not allowed here because we want to avoid abuse cell.
+    assert!(
+        a_capacity > b_capacity,
+        Error::CellLockCanNotBeModified,
+        "The capacity of {:?}[{}]({}) should be greater than {:?}[{}]({}).",
+        cell_a.1,
+        cell_a.0,
+        a_capacity,
+        cell_b.1,
+        cell_b.0,
+        b_capacity
+    );
 
     Ok(())
 }
@@ -594,12 +663,35 @@ pub fn is_cell_capacity_equal(
     let b_capacity =
         high_level::load_cell_capacity(cell_b.0, cell_b.1).map_err(|e| Error::from(e))?;
 
-    if a_capacity != b_capacity {
-        debug!(
-            "Compare cell capacity: {:?}[{}] {:?} != {:?}[{}] {:?} => true",
-            cell_a.1, cell_a.0, a_capacity, cell_b.1, cell_b.0, b_capacity
-        );
-        return Err(Error::CellCapacityMustConsistent);
+    assert!(
+        a_capacity == b_capacity,
+        Error::CellCapacityMustConsistent,
+        "The capacity of {:?}[{}]({}) should be equal to {:?}[{}]({}).",
+        cell_a.1,
+        cell_a.0,
+        a_capacity,
+        cell_b.1,
+        cell_b.0,
+        b_capacity
+    );
+
+    Ok(())
+}
+
+pub fn is_inputs_and_outputs_consistent(
+    inputs_cells: Vec<usize>,
+    outputs_cells: Vec<usize>,
+) -> Result<(), Error> {
+    for (i, input_cell_index) in inputs_cells.into_iter().enumerate() {
+        let output_cell_index = outputs_cells[i];
+        is_cell_capacity_equal(
+            (input_cell_index, Source::Input),
+            (output_cell_index, Source::Output),
+        )?;
+        is_cell_consistent(
+            (input_cell_index, Source::Input),
+            (output_cell_index, Source::Output),
+        )?;
     }
 
     Ok(())
@@ -619,8 +711,12 @@ pub fn get_account_storage_total(account_length: u64) -> u64 {
 
 pub fn calc_duration_from_paid(paid: u64, yearly_price: u64, quote: u64) -> u64 {
     // Original formula: duration = (paid / (yearly_price / quote * 100_000_000)) * 365 * 86400
-    // But CKB VM can only handle uint, so we put division to the last for higher precision.
-    paid * 365 * 86400 * quote / yearly_price * 100_000_000
+    // But CKB VM can only handle uint, so we put division to later for higher precision.
+    if yearly_price < quote {
+        (paid * 365 * quote / (yearly_price * 100_000_000)) * 86400
+    } else {
+        (paid * 365 / (yearly_price / quote * 100_000_000)) * 86400
+    }
 }
 
 pub fn require_type_script(
@@ -641,15 +737,23 @@ pub fn require_type_script(
         TypeScript::WalletCellType => config.type_id_table().wallet_cell(),
     };
 
+    debug!(
+        "Require on: 0x{}({:?})",
+        hex_string(type_id.raw_data()),
+        TypeScript::AccountCellType
+    );
+
     // Find out required cell in current transaction.
     let required_cells = find_cells_by_type_id(ScriptType::Type, type_id, source)?;
 
-    // There must be some required cells in the transaction.
-    if required_cells.len() <= 0 {
-        return Err(err);
-    }
-
-    debug!("Require on: {:?}", type_script);
+    assert!(
+        required_cells.len() > 0,
+        err,
+        "The cells in {:?} which has type script 0x{}({:?}) is required in this transaction.",
+        source,
+        hex_string(type_id.raw_data()),
+        TypeScript::AccountCellType
+    );
 
     Ok(())
 }
