@@ -5,12 +5,17 @@ use super::{
         hex_to_byte32, hex_to_bytes, hex_to_u64, mock_cell, mock_header_deps, mock_input,
     },
 };
+use crate::util::constants::MAX_CYCLES;
 use ckb_testtool::context::Context;
 use ckb_tool::{
-    ckb_jsonrpc_types as rpc_types,
+    ckb_error, ckb_jsonrpc_types as rpc_types,
     ckb_types::{
-        bytes::Bytes, core::ScriptHashType, core::TransactionBuilder, core::TransactionView, h256,
-        packed, packed::*, prelude::*, H160, H256,
+        bytes::Bytes,
+        core::{Cycle, ScriptHashType, TransactionBuilder, TransactionView},
+        h256, packed,
+        packed::*,
+        prelude::*,
+        H160, H256,
     },
 };
 use lazy_static::lazy_static;
@@ -26,8 +31,8 @@ lazy_static! {
     static ref VARIABLE_REG: Regex = Regex::new(r"\{\{([\w-]+)\}\}").unwrap();
 }
 
-pub struct TemplateParser<'a> {
-    pub context: &'a mut Context,
+pub struct TemplateParser {
+    pub context: Context,
     pub data: Value,
     pub header_deps: Vec<Byte32>,
     pub contracts: HashMap<String, Byte32>,
@@ -38,8 +43,8 @@ pub struct TemplateParser<'a> {
     pub witnesses: Vec<packed::Bytes>,
 }
 
-impl std::fmt::Debug for TemplateParser<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl std::fmt::Debug for TemplateParser {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("TemplateParser")
             .field("contracts", &self.contracts)
             .field("inputs", &self.inputs)
@@ -49,8 +54,8 @@ impl std::fmt::Debug for TemplateParser<'_> {
     }
 }
 
-impl<'a> TemplateParser<'a> {
-    pub fn new(context: &'a mut Context, raw_json: &str) -> Result<Self, Box<dyn Error>> {
+impl TemplateParser {
+    pub fn new(context: Context, raw_json: &str) -> Result<Self, Box<dyn Error>> {
         let data: Value = serde_json::from_str(raw_json)?;
 
         Ok(TemplateParser {
@@ -66,7 +71,7 @@ impl<'a> TemplateParser<'a> {
         })
     }
 
-    pub fn from_file(context: &'a mut Context, filepath: String) -> Result<Self, Box<dyn Error>> {
+    pub fn from_file(context: Context, filepath: String) -> Result<Self, Box<dyn Error>> {
         let mut raw_json = String::new();
         File::open(filepath)?.read_to_string(&mut raw_json)?;
         let data: Value = serde_json::from_str(&raw_json)?;
@@ -120,6 +125,26 @@ impl<'a> TemplateParser<'a> {
         }
 
         Ok(())
+    }
+
+    pub fn build_tx(&mut self) -> TransactionView {
+        TransactionBuilder::default()
+            .header_deps(self.header_deps.clone())
+            .cell_deps(self.deps.clone())
+            .inputs(self.inputs.clone())
+            .outputs(self.outputs.clone())
+            .outputs_data(self.outputs_data.clone())
+            .set_witnesses(self.witnesses.clone())
+            .build()
+    }
+
+    pub fn execute_tx_directly(&mut self) -> Result<Cycle, ckb_error::Error> {
+        let tx = self.build_tx();
+        self.context.verify_tx(&tx, MAX_CYCLES)
+    }
+
+    pub fn execute_tx(&mut self, tx: TransactionView) -> Result<Cycle, ckb_error::Error> {
+        self.context.verify_tx(&tx, MAX_CYCLES)
     }
 
     pub fn set_outputs_data(&mut self, i: usize, data: packed::Bytes) {
@@ -230,17 +255,6 @@ impl<'a> TemplateParser<'a> {
         Ok(groups)
     }
 
-    pub fn build_tx(&mut self) -> TransactionView {
-        TransactionBuilder::default()
-            .header_deps(self.header_deps.clone())
-            .cell_deps(self.deps.clone())
-            .inputs(self.inputs.clone())
-            .outputs(self.outputs.clone())
-            .outputs_data(self.outputs_data.clone())
-            .set_witnesses(self.witnesses.clone())
-            .build()
-    }
-
     fn parse_header_deps(&mut self, header_deps: Vec<Value>) -> Result<(), Box<dyn Error>> {
         for (i, item) in header_deps.iter().enumerate() {
             let header_hash = item["tmp_hash"]
@@ -277,7 +291,12 @@ impl<'a> TemplateParser<'a> {
                 ));
             }
 
-            mock_header_deps(self.context, hex_to_byte32(header_hash)?, number, timestamp);
+            mock_header_deps(
+                &mut self.context,
+                hex_to_byte32(header_hash)?,
+                number,
+                timestamp,
+            );
         }
 
         Ok(())
@@ -288,14 +307,14 @@ impl<'a> TemplateParser<'a> {
             match item["tmp_type"].as_str() {
                 Some("contract") => {
                     let name = item["tmp_file_name"].as_str().unwrap();
-                    let (type_id, _, cell_dep) = deploy_dev_contract(self.context, name);
+                    let (type_id, _, cell_dep) = deploy_dev_contract(&mut self.context, name);
                     // println!("{:>30}: {}", name, type_id);
                     self.deps.push(cell_dep);
                     self.contracts.insert(name.to_string(), type_id);
                 }
                 Some("deployed_contract") => {
                     let name = item["tmp_file_name"].as_str().unwrap();
-                    let (type_id, _, cell_dep) = deploy_builtin_contract(self.context, name);
+                    let (type_id, _, cell_dep) = deploy_builtin_contract(&mut self.context, name);
                     // println!("{:>30}: {}", name, type_id);
                     self.deps.push(cell_dep);
                     self.contracts.insert(name.to_string(), type_id);
@@ -309,7 +328,7 @@ impl<'a> TemplateParser<'a> {
                             format!("Field `cell_deps[]` parse failed: {}", err.to_string())
                         })?;
                     let out_point =
-                        mock_cell(self.context, capacity, lock_script, type_script, data);
+                        mock_cell(&mut self.context, capacity, lock_script, type_script, data);
                     let cell_dep = CellDep::new_builder().out_point(out_point).build();
                     self.deps.push(cell_dep);
                 }
@@ -337,7 +356,7 @@ impl<'a> TemplateParser<'a> {
                             )
                         })?;
                     let out_point =
-                        mock_cell(self.context, capacity, lock_script, type_script, data);
+                        mock_cell(&mut self.context, capacity, lock_script, type_script, data);
 
                     // parse input.since
                     let since;

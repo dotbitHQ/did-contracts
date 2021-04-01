@@ -1,6 +1,8 @@
 use super::util::{constants::*, template_generator::*, template_parser::TemplateParser};
+use crate::util::contains_error;
 use ckb_testtool::context::Context;
-use ckb_tool::ckb_types::bytes;
+use ckb_tool::ckb_types::{bytes, packed};
+use das_core::error::Error;
 use das_types::constants::{ConfigID, DataType};
 
 // #[test]
@@ -17,21 +19,25 @@ fn gen_wallet_create_test_data() {
     template.pretty_print();
 }
 
+test_with_template!(test_wallet_create, "wallet_create.json");
+
 #[test]
-fn test_wallet_create() {
-    let mut context;
-    let mut parser;
-    load_template!(&mut context, &mut parser, "wallet_create.json");
+fn test_wallet_create_failures() {
+    let mut parser = parse_template!("wallet_create.json");
+    let _original_outputs_data = parser.outputs_data.clone();
+    parser.outputs_data[0] = packed::Bytes::default();
 
-    // build transaction
-    let tx = parser.build_tx();
+    let ret = parser.execute_tx_directly();
 
-    // run in vm
-    let cycles = context
-        .verify_tx(&tx, MAX_CYCLES)
-        .expect("pass verification");
-
-    println!("test_propose: {} cycles", cycles);
+    assert!(
+        ret.is_err(),
+        "Transaction should failed when account ID is not exist in WalletCell.data ."
+    );
+    let err_msg = ret.unwrap_err().to_string();
+    assert!(
+        contains_error(&err_msg, Error::WalletRequireAccountId),
+        "Transaction should failed with Error::WalletRequireAccountId ."
+    );
 }
 
 // #[test]
@@ -91,22 +97,7 @@ fn gen_wallet_withdraw_test_data() {
     template.pretty_print();
 }
 
-#[test]
-fn test_wallet_withdraw() {
-    let mut context;
-    let mut parser;
-    load_template!(&mut context, &mut parser, "wallet_withdraw.json");
-
-    // build transaction
-    let tx = parser.build_tx();
-
-    // run in vm
-    let cycles = context
-        .verify_tx(&tx, MAX_CYCLES)
-        .expect("pass verification");
-
-    println!("test_propose: {} cycles", cycles);
-}
+test_with_template!(test_wallet_withdraw, "wallet_withdraw.json");
 
 fn gen_account_cell(
     template: &mut TemplateGenerator,
@@ -190,22 +181,7 @@ fn gen_wallet_recycle_test_data() {
     template.pretty_print();
 }
 
-#[test]
-fn test_wallet_recycle() {
-    let mut context;
-    let mut parser;
-    load_template!(&mut context, &mut parser, "wallet_recycle.json");
-
-    // build transaction
-    let tx = parser.build_tx();
-
-    // run in vm
-    let cycles = context
-        .verify_tx(&tx, MAX_CYCLES)
-        .expect("pass verification");
-
-    println!("test_propose: {} cycles", cycles);
-}
+test_with_template!(test_wallet_recycle, "wallet_recycle.json");
 
 // #[test]
 fn gen_wallet_deposit_test_data() {
@@ -222,19 +198,4 @@ fn gen_wallet_deposit_test_data() {
     template.pretty_print();
 }
 
-#[test]
-fn test_wallet_deposit() {
-    let mut context;
-    let mut parser;
-    load_template!(&mut context, &mut parser, "wallet_deposit.json");
-
-    // build transaction
-    let tx = parser.build_tx();
-
-    // run in vm
-    let cycles = context
-        .verify_tx(&tx, MAX_CYCLES)
-        .expect("pass verification");
-
-    println!("test_propose: {} cycles", cycles);
-}
+test_with_template!(test_wallet_deposit, "wallet_deposit.json");
