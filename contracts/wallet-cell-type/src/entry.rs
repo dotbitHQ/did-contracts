@@ -6,10 +6,12 @@ use ckb_std::{
     debug,
     high_level::{load_cell_lock, load_cell_lock_hash, load_script},
 };
-use das_core::constants::CELL_BASIC_CAPACITY;
 use das_core::{
     assert,
-    constants::{wallet_maker_lock, ScriptType, TypeScript, ALWAYS_SUCCESS_LOCK},
+    constants::{
+        wallet_maker_lock, ScriptType, TypeScript, ACCOUNT_ID_LENGTH, ALWAYS_SUCCESS_LOCK,
+        CELL_BASIC_CAPACITY,
+    },
     data_parser,
     error::Error,
     util,
@@ -60,7 +62,7 @@ pub fn main() -> Result<(), Error> {
                     "There should be none WalletCell in inputs and 1 or more WalletCells in outputs."
                 );
 
-                debug!("Check if all WalletCells use always_success lock ...");
+                debug!("Check if all WalletCell structure ...");
 
                 for i in output_cells {
                     let lock_script_hash =
@@ -71,6 +73,14 @@ pub fn main() -> Result<(), Error> {
                         Error::WalletRequireAlwaysSuccess,
                         "WalletCell can be only created with always-success lock script: {}",
                         always_success_script.code_hash()
+                    );
+
+                    let data = util::load_cell_data(i, Source::Output)?;
+                    assert!(
+                        data.len() == ACCOUNT_ID_LENGTH,
+                        Error::WalletRequireAccountId,
+                        "The data of WalletCell should contains {} bytes long account ID.",
+                        ACCOUNT_ID_LENGTH
                     );
                 }
             } else if action == b"recycle_wallet" {
