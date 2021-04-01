@@ -66,6 +66,7 @@ fn gen_proposal_related_cell_at_create(
                     "inviter_01.bit",
                     "channel_01.bit",
                     1000,
+                    500,
                     timestamp - 60,
                 );
                 template.push_pre_account_cell(
@@ -116,22 +117,7 @@ fn gen_proposal_create_test_data() {
     template.pretty_print();
 }
 
-// #[test]
-fn test_proposal_create() {
-    let mut context;
-    let mut parser;
-    load_template!(&mut context, &mut parser, "proposal_create.json");
-
-    // build transaction
-    let tx = parser.build_tx();
-
-    // run in vm
-    let cycles = context
-        .verify_tx(&tx, MAX_CYCLES)
-        .expect("pass verification");
-
-    println!("test_propose: {} cycles", cycles);
-}
+test_with_template!(test_proposal_create, "proposal_create.json");
 
 // #[test]
 fn gen_extend_proposal_test_data() {
@@ -205,22 +191,7 @@ fn gen_extend_proposal_test_data() {
     template.pretty_print();
 }
 
-// #[test]
-fn test_extend_proposal() {
-    let mut context;
-    let mut parser;
-    load_template!(&mut context, &mut parser, "proposal_extend.json");
-
-    // build transaction
-    let tx = parser.build_tx();
-
-    // run in vm
-    let cycles = context
-        .verify_tx(&tx, MAX_CYCLES)
-        .expect("pass verification");
-
-    println!("test_extend_proposal: {} cycles", cycles);
-}
+test_with_template!(test_proposal_extend, "proposal_extend.json");
 
 fn gen_proposal_related_cell_at_confirm(
     template: &mut TemplateGenerator,
@@ -253,7 +224,7 @@ fn gen_proposal_related_cell_at_confirm(
                 let origin_next = bytes::Bytes::from(account_to_id_bytes(next));
                 println!("    📥 next_of_first_item: {}", origin_next.pack());
                 next_of_first_item = origin_next.clone();
-                let (cell_data, new_entity) = template.gen_account_cell_data(
+                let (cell_data, old_entity) = template.gen_account_cell_data(
                     account,
                     "0x0000000000000000000000000000000000001111",
                     "0x0000000000000000000000000000000000001111",
@@ -262,12 +233,12 @@ fn gen_proposal_related_cell_at_confirm(
                     old_expired_at,
                     None,
                 );
-                template.push_account_cell(cell_data, None, 15_800_000_000, Source::Input);
+                template.push_account_cell(cell_data, None, 14_600_000_000, Source::Input);
 
                 // Generate new AccountCell in outputs.
-                let (account, _, _) = slice.get(item_index + 1).unwrap();
-                let updated_next = bytes::Bytes::from(account_to_id_bytes(account));
-                let (cell_data, old_entity) = template.gen_account_cell_data(
+                let (next_account, _, _) = slice.get(item_index + 1).unwrap();
+                let updated_next = bytes::Bytes::from(account_to_id_bytes(next_account));
+                let (cell_data, new_entity) = template.gen_account_cell_data(
                     account,
                     "0x0000000000000000000000000000000000001111",
                     "0x0000000000000000000000000000000000001111",
@@ -276,7 +247,7 @@ fn gen_proposal_related_cell_at_confirm(
                     old_expired_at,
                     None,
                 );
-                template.push_account_cell(cell_data, None, 15_800_000_000, Source::Output);
+                template.push_account_cell(cell_data, None, 14_600_000_000, Source::Output);
 
                 println!(
                     "    Item {} next: {} -> {}",
@@ -301,12 +272,13 @@ fn gen_proposal_related_cell_at_confirm(
                     "inviter_01.bit",
                     "channel_01.bit",
                     1000,
+                    500,
                     timestamp - 60,
                 );
                 template.push_pre_account_cell(
                     cell_data,
                     Some((1, input_index, entity)),
-                    524_200_000_000,
+                    535_600_000_000,
                     Source::Input,
                 );
 
@@ -330,7 +302,7 @@ fn gen_proposal_related_cell_at_confirm(
                 template.push_account_cell(
                     cell_data,
                     Some((1, output_index, entity)),
-                    15_800_000_000,
+                    14_600_000_000,
                     Source::Output,
                 );
 
@@ -415,34 +387,22 @@ fn gen_confirm_proposal_test_data() {
 
     gen_proposal_related_cell_at_confirm(&mut template, slices, timestamp);
 
-    template.push_wallet_cell("inviter_01.bit", 9_400_000_000, Source::Input);
-    template.push_wallet_cell("channel_01.bit", 9_400_000_000, Source::Input);
-    template.push_wallet_cell("das.bit", 9_400_000_000, Source::Input);
-    template.push_wallet_cell("inviter_01.bit", 209_400_000_000, Source::Output);
-    template.push_wallet_cell("channel_01.bit", 209_400_000_000, Source::Output);
-    template.push_wallet_cell("das.bit", 1609_400_000_000, Source::Output);
+    template.push_wallet_cell("inviter_01.bit", 8_400_000_000, Source::Input);
+    template.push_wallet_cell("channel_01.bit", 8_400_000_000, Source::Input);
+    template.push_wallet_cell("inviter_01.bit", 208_400_000_000, Source::Output);
+    template.push_wallet_cell("channel_01.bit", 208_400_000_000, Source::Output);
+    template.push_signall_cell(
+        "0x0300000000000000000000000000000000000000",
+        1_600_000_000_000,
+        Source::Output,
+    );
 
     template.pretty_print();
 }
 
+test_with_template!(test_proposal_confirm, "proposal_confirm.json");
+
 #[test]
-fn test_proposal_confirm() {
-    let mut context;
-    let mut parser;
-    load_template!(&mut context, &mut parser, "proposal_confirm.json");
-
-    // build transaction
-    let tx = parser.build_tx();
-
-    // run in vm
-    let cycles = context
-        .verify_tx(&tx, MAX_CYCLES)
-        .expect("pass verification");
-
-    println!("test_confirm_proposal: {} cycles", cycles);
-}
-
-// #[test]
 fn gen_proposal_recycle_test_data() {
     println!("====== Print recycle proposal transaction data ======");
 
@@ -502,19 +462,4 @@ fn gen_proposal_recycle_test_data() {
     template.pretty_print();
 }
 
-// #[test]
-fn test_proposal_recycle() {
-    let mut context;
-    let mut parser;
-    load_template!(&mut context, &mut parser, "proposal_recycle.json");
-
-    // build transaction
-    let tx = parser.build_tx();
-
-    // run in vm
-    let cycles = context
-        .verify_tx(&tx, MAX_CYCLES)
-        .expect("pass verification");
-
-    println!("test_recycle_proposal: {} cycles", cycles);
-}
+test_with_template!(test_proposal_recycle, "proposal_recycle.json");

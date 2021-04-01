@@ -188,6 +188,53 @@ pub fn wallet_maker_lock() -> Script {
     util::script_literal_to_script(wallet_maker_lock)
 }
 
+pub fn das_wallet_lock() -> Script {
+    #[cfg(feature = "dev")]
+    let das_wallet_lock = ScriptLiteral {
+        code_hash: [
+            157, 111, 41, 25, 227, 40, 243, 33, 125, 125, 211, 218, 181, 247, 206, 233, 216, 224,
+            98, 190, 230, 168, 13, 93, 5, 205, 73, 92, 163, 65, 99, 120,
+        ],
+        hash_type: ScriptHashType::Type,
+        args: vec![3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    };
+
+    #[cfg(feature = "local")]
+    let das_wallet_lock = ScriptLiteral {
+        code_hash: [
+            157, 111, 41, 25, 227, 40, 243, 33, 125, 125, 211, 218, 181, 247, 206, 233, 216, 224,
+            98, 190, 230, 168, 13, 93, 5, 205, 73, 92, 163, 65, 99, 120,
+        ],
+        hash_type: ScriptHashType::Type,
+        args: vec![3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    };
+
+    #[cfg(feature = "testnet")]
+    let das_wallet_lock = ScriptLiteral {
+        code_hash: [
+            155, 215, 224, 111, 62, 207, 75, 224, 242, 252, 210, 24, 139, 35, 241, 185, 252, 200,
+            142, 93, 75, 101, 168, 99, 123, 23, 114, 59, 189, 163, 204, 232,
+        ],
+        hash_type: ScriptHashType::Type,
+        args: vec![
+            103, 213, 24, 190, 199, 26, 243, 84, 140, 55, 233, 186, 144, 219, 118, 197, 249, 89,
+            154, 252,
+        ],
+    };
+
+    #[cfg(feature = "mainnet")]
+    let das_wallet_lock = ScriptLiteral {
+        code_hash: [
+            155, 215, 224, 111, 62, 207, 75, 224, 242, 252, 210, 24, 139, 35, 241, 185, 252, 200,
+            142, 93, 75, 101, 168, 99, 123, 23, 114, 59, 189, 163, 204, 232,
+        ],
+        hash_type: ScriptHashType::Type,
+        args: vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
+    };
+
+    util::script_literal_to_script(das_wallet_lock)
+}
+
 pub fn time_cell_type() -> Script {
     #[cfg(feature = "dev")]
     let time_cell_type = ScriptLiteral {

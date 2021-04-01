@@ -62,6 +62,7 @@ pub enum Error {
     PreRegisterAccountCharSetConflict,
     PreRegisterAccountCharIsInvalid,
     PreRegisterQuoteIsInvalid, // 80
+    PreRegisterDiscountIsInvalid,
     ProposalFoundInvalidTransaction = 90,
     ProposalMustIncludeSomePreAccountCell,
     ProposalSliceIsNotSorted,
@@ -96,8 +97,9 @@ pub enum Error {
     WalletFoundInvalidTransaction = -126,
     WalletRequireAlwaysSuccess,
     WalletRequireWalletMakerLock,
+    WalletRequireAccountId,
     WalletPermissionInvalid,
-    WalletRefundError, // -120
+    WalletRefundError,
     AccountCellFoundInvalidTransaction = -110,
     AccountCellDataNotConsistent,
     AccountCellRefCellIsRequired,

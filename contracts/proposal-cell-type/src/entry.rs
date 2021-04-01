@@ -7,6 +7,7 @@ use ckb_std::{
 use core::convert::TryFrom;
 use core::result::Result;
 use das_core::{
+    assert,
     constants::*,
     data_parser::{account_cell, ref_cell},
     debug,
@@ -615,10 +616,11 @@ fn verify_proposal_execution_result(
                 );
                 let output_cell_witness_reader = output_account_witness.as_reader();
 
-                // For the existing AccountCell, witness can not be modified.
-                if !util::is_reader_eq(input_account_witness_reader, output_cell_witness_reader) {
-                    return Err(Error::ProposalWitnessCanNotBeModified);
-                }
+                assert!(
+                    util::is_reader_eq(input_account_witness_reader, output_cell_witness_reader),
+                    Error::ProposalWitnessCanNotBeModified,
+                    "The witness of exist AccountCell should not be modified."
+                );
             } else {
                 debug!(
                     "  Item[{}] Check that the inputs[{}].PreAccountCell and outputs[{}].AccountCell is converted correctly.",
@@ -764,44 +766,38 @@ fn verify_proposal_execution_result(
     let new_wallet_cells =
         util::find_cells_by_type_id(ScriptType::Type, wallet_cell_type_id, Source::Output)?;
 
-    if old_wallet_cells.len() != new_wallet_cells.len() {
-        debug!(
-            "Inputs WalletCell number must equal to outputs WalletCell number: inputs({}) != outputs({})",
-            old_wallet_cells.len(),
-            new_wallet_cells.len()
-        );
-        return Err(Error::ProposalFoundInvalidTransaction);
-    }
+    assert!(
+        old_wallet_cells.len() == new_wallet_cells.len(),
+        Error::ProposalFoundInvalidTransaction,
+        "The number of WalletCells in inputs should equal to outputs. (inputs: {}, outputs{})",
+        old_wallet_cells.len(),
+        new_wallet_cells.len()
+    );
 
-    if wallet.len() != new_wallet_cells.len() {
-        debug!(
-            "Outputs WalletCell number must equal to the number of wallets involved by PreAccountCell: {}(outputs) != {}(involved)",
-            new_wallet_cells.len(),
-            wallet.len()
-        );
-        return Err(Error::ProposalFoundInvalidTransaction);
-    }
+    // The DAS wallet do not count.
+    assert!(
+        wallet.len() - 1 == new_wallet_cells.len(),
+        Error::ProposalFoundInvalidTransaction,
+        "The number of WalletCells in outputs should equal to the number of wallets involved by PreAccountCell. (involved: {}, outputs: {})",
+        wallet.len() - 1,
+        new_wallet_cells.len()
+    );
 
     for (i, old_wallet_index) in old_wallet_cells.into_iter().enumerate() {
         let new_wallet_index = new_wallet_cells.get(i).unwrap().to_owned();
 
-        let type_of_old_wallet = load_cell_type(old_wallet_index, Source::Input)
-            .map_err(|e| Error::from(e))?
-            .unwrap();
-        let old_wallet_id = type_of_old_wallet.as_reader().args().raw_data();
-        let type_of_new_wallet = load_cell_type(new_wallet_index, Source::Output)
-            .map_err(|e| Error::from(e))?
-            .unwrap();
-        let new_wallet_id = type_of_new_wallet.as_reader().args().raw_data();
+        let old_wallet_id = util::load_cell_data(old_wallet_index, Source::Input)?;
+        let new_wallet_id = util::load_cell_data(new_wallet_index, Source::Output)?;
 
-        // The WalletCells in inputs must have the same order as those in outputs.
-        if old_wallet_id != new_wallet_id {
-            debug!(
-                "Compare WalletCells order: inputs[{}] {:?} != outputs[{}] {:?}",
-                old_wallet_index, old_wallet_id, new_wallet_index, new_wallet_id
-            );
-            return Err(Error::ProposalConfirmWalletMissMatch);
-        }
+        assert!(
+            old_wallet_id == new_wallet_id,
+            Error::ProposalConfirmWalletMissMatch,
+            "The WalletCells should have the same order in both inputs and outputs. (inputs[{}]: 0x{}, outputs[{}]: 0x{})",
+            old_wallet_index,
+            util::hex_string(old_wallet_id.as_slice()),
+            new_wallet_index,
+            util::hex_string(new_wallet_id.as_slice())
+        );
 
         let old_balance =
             load_cell_capacity(old_wallet_index, Source::Input).map_err(|e| Error::from(e))?;
@@ -811,31 +807,58 @@ fn verify_proposal_execution_result(
 
         debug!(
             "Check if WalletCell[0x{}] has updated balance correctly.",
-            util::hex_string(new_wallet_id)
+            util::hex_string(new_wallet_id.as_slice())
         );
 
         // Balance in wallet instance do not contains cell occupied capacities, so it is pure profit.
         let result = wallet
-            .cmp_balance(new_wallet_id, current_profit)
+            .cmp_balance(new_wallet_id.as_slice(), current_profit)
             .map_err(|_| Error::ProposalConfirmWalletMissMatch)?;
         if !result {
             debug!(
                 "Wallet balance variation: {}(current_profit) = {}(0x{}) - {}(0x{})",
                 current_profit,
                 new_balance,
-                util::hex_string(new_wallet_id),
+                util::hex_string(new_wallet_id.as_slice()),
                 old_balance,
-                util::hex_string(old_wallet_id)
+                util::hex_string(old_wallet_id.as_slice())
             );
             debug!(
                 "Compare profit in WalletCell[0x{}] with expected: {}(current_profit) != {}(expected_profit) -> true",
-                util::hex_string(new_wallet_id),
+                util::hex_string(new_wallet_id.as_slice()),
                 current_profit,
-                wallet.get_balance(old_wallet_id).unwrap()
+                wallet.get_balance(old_wallet_id.as_slice()).unwrap()
             );
             return Err(Error::ProposalConfirmWalletBalanceError);
         }
     }
+
+    debug!("Check if the profit of DAS has been transfered correctly.");
+
+    let expected_profit = wallet.get_balance(&DAS_WALLET_ID).unwrap();
+    let das_wallet_lock = das_wallet_lock();
+
+    let das_wallet_cells =
+        util::find_cells_by_script(ScriptType::Lock, &das_wallet_lock, Source::Output)?;
+
+    assert!(
+        das_wallet_cells.len() == 1,
+        Error::ProposalConfirmWalletBalanceError,
+        "There should be 1 output with DAS wallet lock, but {} found.",
+        das_wallet_cells.len()
+    );
+
+    let current_profit =
+        load_cell_capacity(das_wallet_cells[0], Source::Output).map_err(|e| Error::from(e))?;
+
+    assert!(
+        expected_profit >= current_profit,
+        Error::ProposalConfirmWalletBalanceError,
+        "Outputs[{}] should has greater than or equal to expected capacity. (expected: {}, current: {})",
+        das_wallet_cells[0],
+        expected_profit,
+        current_profit
+    );
 
     Ok(())
 }
