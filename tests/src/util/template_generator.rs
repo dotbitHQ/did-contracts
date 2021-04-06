@@ -914,6 +914,15 @@ impl TemplateGenerator {
         self.push_cell(capacity, lock_script, type_script, Some(cell_data), source);
     }
 
+    pub fn push_signall_cell(&mut self, lock_args: &str, capacity: u64, source: Source) {
+        let lock_script = json!({
+          "code_hash": "{{always_success}}",
+          "args": lock_args
+        });
+
+        self.push_cell(capacity, lock_script, json!(null), None, source);
+    }
+
     pub fn gen_header() {}
 
     pub fn pretty_print(&self) {

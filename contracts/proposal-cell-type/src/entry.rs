@@ -715,12 +715,7 @@ fn verify_proposal_execution_result(
                         "  Item[{}] Wallet[0x{}]: {}(inviter_profit) = {}(profit) * {}(inviter_profit_rate) / {}(RATE_BASE)",
                         item_index, util::hex_string(wallet_id), inviter_profit, profit, inviter_profit_rate, RATE_BASE
                     );
-                    // It is hard to recycle testing cells, so here we count root account's wallet as das wallet.
-                    if wallet_id == &ROOT_WALLET_ID {
-                        wallet.add_balance(&DAS_WALLET_ID, inviter_profit);
-                    } else {
-                        wallet.add_balance(wallet_id, inviter_profit);
-                    }
+                    wallet.add_balance(wallet_id, inviter_profit);
                 };
 
                 let mut channel_profit = 0;
@@ -731,20 +726,15 @@ fn verify_proposal_execution_result(
                         "  Item[{}] Wallet[0x{}]: {}(channel_profit) = {}(profit) * {}(channel_profit_rate) / {}(RATE_BASE)",
                         item_index, util::hex_string(wallet_id), channel_profit, profit, channel_profit_rate, RATE_BASE
                     );
-                    // It is hard to recycle testing cells, so here we count root account's wallet as das wallet.
-                    if wallet_id == &ROOT_WALLET_ID {
-                        wallet.add_balance(&DAS_WALLET_ID, channel_profit);
-                    } else {
-                        wallet.add_balance(wallet_id, channel_profit);
-                    }
+                    wallet.add_balance(wallet_id, channel_profit);
                 };
 
                 let das_profit = profit - inviter_profit - channel_profit;
                 debug!(
                     "  Item[{}] Wallet[0x{}]: {}(das_profit) = {}(profit) - {}(inviter_profit) - {}(channel_profit)",
-                    item_index, util::hex_string(&DAS_WALLET_ID), das_profit, profit, inviter_profit, channel_profit
+                    item_index, util::hex_string(&ROOT_WALLET_ID), das_profit, profit, inviter_profit, channel_profit
                 );
-                wallet.add_balance(&DAS_WALLET_ID, das_profit);
+                wallet.add_balance(&ROOT_WALLET_ID, das_profit);
             }
 
             i += 1;
@@ -835,7 +825,7 @@ fn verify_proposal_execution_result(
 
     debug!("Check if the profit of DAS has been transfered correctly.");
 
-    let expected_profit = wallet.get_balance(&DAS_WALLET_ID).unwrap();
+    let expected_profit = wallet.get_balance(&ROOT_WALLET_ID).unwrap();
     let das_wallet_lock = das_wallet_lock();
 
     let das_wallet_cells =
