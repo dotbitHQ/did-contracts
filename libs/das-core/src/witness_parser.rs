@@ -163,8 +163,8 @@ impl WitnessesParser {
             // ⚠️ Do not print the whole entity, otherwise memory may be not enough.
             debug!(
                 "Corrupted witness found! hash: {:?} entity: {:?}",
-                entity_hash,
-                entity.get(..10)
+                util::hex_string(entity_hash.as_slice()),
+                entity.get(..10).map(|item| util::hex_string(item) + "...")
             );
             return Err(Error::ConfigCellWitnessIsCorrupted);
         }

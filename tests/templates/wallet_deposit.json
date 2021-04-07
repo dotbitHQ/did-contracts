@@ -19,9 +19,9 @@
           "code_hash": "{{always_success}}"
         },
         "type": {
-          "code_hash": "{{wallet-cell-type}}",
-          "args": "0xa2e06438859db0449574"
-        }
+          "code_hash": "{{wallet-cell-type}}"
+        },
+        "tmp_data": "0xa2e06438859db0449574"
       },
       "since": "0x"
     },
@@ -46,9 +46,9 @@
         "code_hash": "{{always_success}}"
       },
       "type": {
-        "code_hash": "{{wallet-cell-type}}",
-        "args": "0xa2e06438859db0449574"
-      }
+        "code_hash": "{{wallet-cell-type}}"
+      },
+      "tmp_data": "0xa2e06438859db0449574"
     }
   ],
   "witnesses": []

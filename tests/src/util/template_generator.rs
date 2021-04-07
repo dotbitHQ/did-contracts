@@ -560,6 +560,12 @@ impl TemplateGenerator {
             .profit_rate_of_channel(Uint32::from(1000))
             .profit_rate_of_inviter(Uint32::from(1000))
             .profit_rate_of_das(Uint32::from(8000))
+            .profit_rate_of_proposal_create(Uint32::from(400))
+            .profit_rate_of_proposal_confirm(Uint32::from(100))
+            .build();
+
+        let discount_config = DiscountConfig::new_builder()
+            .invited_discount(Uint32::from(500))
             .build();
 
         let entity = ConfigCellRegister::new_builder()
@@ -574,6 +580,7 @@ impl TemplateGenerator {
             .proposal_max_account_affect(Uint32::from(50))
             .proposal_max_pre_account_contain(Uint32::from(50))
             .profit(profit_config)
+            .discount(discount_config)
             .build();
 
         // Generate the cell structure of ConfigCell.
@@ -692,6 +699,7 @@ impl TemplateGenerator {
         inviter_wallet: &str,
         channel_wallet: &str,
         quote: u64,
+        invited_discount: u32,
         created_at: u64,
     ) -> (Bytes, PreAccountCellData) {
         let account_chars_raw = account
@@ -715,6 +723,7 @@ impl TemplateGenerator {
             .channel_wallet(Bytes::from(account_to_id_bytes(channel_wallet)))
             .price(price.to_owned())
             .quote(Uint64::from(quote))
+            .invited_discount(Uint32::from(invited_discount))
             .created_at(Timestamp::from(created_at))
             .build();
 
@@ -897,11 +906,12 @@ impl TemplateGenerator {
           "code_hash": "{{always_success}}"
         });
         let type_script = json!({
-          "code_hash": "{{wallet-cell-type}}",
-          "args": bytes_to_hex(account_id)
+          "code_hash": "{{wallet-cell-type}}"
         });
 
-        self.push_cell(capacity, lock_script, type_script, None, source);
+        let cell_data = account_id;
+
+        self.push_cell(capacity, lock_script, type_script, Some(cell_data), source);
     }
 
     pub fn gen_header() {}

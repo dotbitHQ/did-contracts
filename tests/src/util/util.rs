@@ -15,6 +15,7 @@ use ckb_tool::{
         H160, H256,
     },
 };
+use das_core::error;
 use das_types::packed as das_packed;
 use lazy_static::lazy_static;
 use std::collections::HashSet;
@@ -23,6 +24,11 @@ use std::str::FromStr;
 
 lazy_static! {
     pub static ref SECP256K1: secp256k1::Secp256k1<secp256k1::All> = secp256k1::Secp256k1::new();
+}
+
+pub fn contains_error(message: &str, err_code: error::Error) -> bool {
+    let err_str = format!("ValidationFailure({})", (err_code as i8).to_string());
+    message.contains(&err_str)
 }
 
 pub fn hex_to_bytes(input: &str) -> Result<bytes::Bytes, Box<dyn Error>> {
