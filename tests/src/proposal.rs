@@ -278,7 +278,7 @@ fn gen_proposal_related_cell_at_confirm(
                 template.push_pre_account_cell(
                     cell_data,
                     Some((1, input_index, entity)),
-                    535_600_000_000,
+                    510_600_000_000,
                     Source::Input,
                 );
 
@@ -339,7 +339,7 @@ fn gen_proposal_related_cell_at_confirm(
     }
 }
 
-// #[test]
+#[test]
 fn gen_confirm_proposal_test_data() {
     println!("====== Print confirm proposal transaction data ======");
 
@@ -389,11 +389,11 @@ fn gen_confirm_proposal_test_data() {
 
     template.push_wallet_cell("inviter_01.bit", 8_400_000_000, Source::Input);
     template.push_wallet_cell("channel_01.bit", 8_400_000_000, Source::Input);
-    template.push_wallet_cell("inviter_01.bit", 208_400_000_000, Source::Output);
-    template.push_wallet_cell("channel_01.bit", 208_400_000_000, Source::Output);
+    template.push_wallet_cell("inviter_01.bit", 198_400_000_000, Source::Output);
+    template.push_wallet_cell("channel_01.bit", 198_400_000_000, Source::Output);
     template.push_signall_cell(
         "0x0300000000000000000000000000000000000000",
-        1_600_000_000_000,
+        1_520_000_000_000,
         Source::Output,
     );
 

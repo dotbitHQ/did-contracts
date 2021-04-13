@@ -673,7 +673,7 @@ fn verify_proposal_execution_result(
                 let account_length = account_cell::get_account(&output_cell_data).len() as u64;
                 let total_capacity = load_cell_capacity(input_related_cells[i], Source::Input)
                     .map_err(|e| Error::from(e))?;
-                let storage_capacity = util::get_account_storage_total(account_length);
+                let storage_capacity = util::calc_account_storage_capacity(account_length);
                 // Allocate the profits carried by PreAccountCell to the wallets for later verification.
                 let profit = total_capacity - storage_capacity;
 
@@ -1013,7 +1013,8 @@ fn is_expired_at_correct(
 ) -> Result<(), Error> {
     let price = u64::from(pre_account_cell_witness.price().new());
     let quote = u64::from(pre_account_cell_witness.quote());
-    let duration = util::calc_duration_from_paid(profit, price, quote);
+    let discount = u32::from(pre_account_cell_witness.invited_discount());
+    let duration = util::calc_duration_from_paid(profit, price, quote, discount);
     let expired_at = account_cell::get_expired_at(output_cell_data);
     let calculated_expired_at = current_timestamp + duration;
 
@@ -1024,22 +1025,14 @@ fn is_expired_at_correct(
         calculated_expired_at
     );
 
-    if !(current_timestamp + duration == expired_at) {
-        warn!(
-            "  Item[{}] Check failed: cell.expired_at({}) != calculated_expired_at({})",
-            item_index, expired_at, calculated_expired_at
-        );
-        warn!(
-            "  Item[{}] calculated_expired_at({}) = current({}) + (profit({}) / (price({}) / quote({}) * 100_000_000)) * 365 * 86400",
-            item_index,
-            calculated_expired_at,
-            current_timestamp,
-            profit,
-            price,
-            quote
-        );
-        return Err(Error::ProposalConfirmExpiredAtError);
-    }
+    assert!(
+        current_timestamp + duration == expired_at,
+        Error::ProposalConfirmExpiredAtError,
+        "  Item[{}] The AccountCell.expired_at should be {}, but {} found.",
+        item_index,
+        calculated_expired_at,
+        expired_at
+    );
 
     Ok(())
 }

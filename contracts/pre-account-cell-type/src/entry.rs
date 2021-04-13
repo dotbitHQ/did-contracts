@@ -6,7 +6,7 @@ use ckb_std::{
 use core::convert::TryInto;
 use core::result::Result;
 use das_bloom_filter::BloomFilter;
-use das_core::{constants::*, debug, error::Error, util};
+use das_core::{assert, constants::*, debug, error::Error, util};
 use das_types::{
     constants::{ConfigID, DataType},
     packed::*,
@@ -131,6 +131,7 @@ pub fn main() -> Result<(), Error> {
         )?;
 
         verify_quote(reader)?;
+        verify_invited_discount(config_register_reader, reader)?;
         verify_price_and_capacity(config_register_reader, reader, capacity)?;
 
         verify_account_id(reader, account_id.as_reader())?;
@@ -262,6 +263,35 @@ fn verify_quote(reader: PreAccountCellDataReader) -> Result<(), Error> {
     Ok(())
 }
 
+fn verify_invited_discount(
+    config: ConfigCellRegisterReader,
+    reader: PreAccountCellDataReader,
+) -> Result<(), Error> {
+    debug!("Check if PreAccountCell.witness.invited_discount is 0 or the same as configuration.");
+
+    let zero = Uint32::from(0);
+    let expected_discount;
+    if reader.inviter_wallet().is_empty() {
+        expected_discount = zero.as_reader();
+        assert!(
+            util::is_reader_eq(expected_discount, reader.invited_discount()),
+            Error::PreRegisterDiscountIsInvalid,
+            "The invited_discount should be 0 when inviter do not exist."
+        );
+    } else {
+        expected_discount = config.discount().invited_discount();
+        assert!(
+            util::is_reader_eq(expected_discount, reader.invited_discount()),
+            Error::PreRegisterDiscountIsInvalid,
+            "The invited_discount should greater than 0 when inviter exist. (expected: {}, current: {})",
+            u32::from(expected_discount),
+            u32::from(reader.invited_discount())
+        );
+    }
+
+    Ok(())
+}
+
 fn verify_price_and_capacity(
     config: ConfigCellRegisterReader,
     reader: PreAccountCellDataReader,
@@ -293,25 +323,27 @@ fn verify_price_and_capacity(
     }
 
     let new_account_price_in_usd = u64::from(reader.price().new()); // x USD
+    let discount = u32::from(reader.invited_discount());
     let quote = u64::from(reader.quote()); // y CKB/USD
 
     // Register price for 1 year in CKB = x ÷ y.
-    let register_capacity = new_account_price_in_usd / quote * 100_000_000;
+    let register_capacity = util::calc_yearly_capacity(new_account_price_in_usd, quote, discount);
     // Storage price in CKB = AccountCell base capacity + RefCell base capacity + account.length
-    let storage_capacity = ACCOUNT_CELL_BASIC_CAPACITY
-        + REF_CELL_BASIC_CAPACITY * 2
-        + (reader.account().len() as u64 + 4) * 100_000_000;
+    let storage_capacity = util::calc_account_storage_capacity(reader.account().len() as u64 + 4);
 
-    debug!("Verify if PreAccountCell.capacity is enough for registration: {}(paied) < {}(minimal register fee) + {}(storage fee) -> {}",
+    debug!("Check if PreAccountCell.capacity is enough for registration: {}(paid) < {}(1 year registeration fee) + {}(storage fee)",
         capacity,
         register_capacity,
         storage_capacity,
-       capacity < register_capacity + storage_capacity
     );
 
-    if capacity < register_capacity + storage_capacity {
-        return Err(Error::PreRegisterCKBInsufficient);
-    }
+    assert!(
+        capacity >= register_capacity + storage_capacity,
+        Error::PreRegisterCKBInsufficient,
+        "PreAccountCell.capacity should contains more than 1 year of registeration fee. (expected: {}, current: {})",
+        register_capacity + storage_capacity,
+        capacity
+    );
 
     Ok(())
 }

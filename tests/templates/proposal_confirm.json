@@ -108,7 +108,7 @@
     {
       "previous_output": {
         "tmp_type": "full",
-        "capacity": 535600000000,
+        "capacity": 510600000000,
         "lock": {
           "code_hash": "{{always_success}}"
         },
@@ -136,7 +136,7 @@
     {
       "previous_output": {
         "tmp_type": "full",
-        "capacity": 535600000000,
+        "capacity": 510600000000,
         "lock": {
           "code_hash": "{{always_success}}"
         },
@@ -150,7 +150,7 @@
     {
       "previous_output": {
         "tmp_type": "full",
-        "capacity": 535600000000,
+        "capacity": 510600000000,
         "lock": {
           "code_hash": "{{always_success}}"
         },
@@ -178,7 +178,7 @@
     {
       "previous_output": {
         "tmp_type": "full",
-        "capacity": 535600000000,
+        "capacity": 510600000000,
         "lock": {
           "code_hash": "{{always_success}}"
         },
@@ -402,7 +402,7 @@
     },
     {
       "tmp_type": "full",
-      "capacity": 208400000000,
+      "capacity": 198400000000,
       "lock": {
         "code_hash": "{{always_success}}"
       },
@@ -413,7 +413,7 @@
     },
     {
       "tmp_type": "full",
-      "capacity": 208400000000,
+      "capacity": 198400000000,
       "lock": {
         "code_hash": "{{always_success}}"
       },
@@ -424,7 +424,7 @@
     },
     {
       "tmp_type": "full",
-      "capacity": 1600000000000,
+      "capacity": 1520000000000,
       "lock": {
         "code_hash": "{{always_success}}",
         "args": "0x0300000000000000000000000000000000000000"

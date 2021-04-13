@@ -705,18 +705,27 @@ pub fn get_length_in_price(account_length: u64) -> u8 {
     }
 }
 
-pub fn get_account_storage_total(account_length: u64) -> u64 {
+pub fn calc_account_storage_capacity(account_length: u64) -> u64 {
     ACCOUNT_CELL_BASIC_CAPACITY + (account_length * 100_000_000) + REF_CELL_BASIC_CAPACITY * 2
 }
 
-pub fn calc_duration_from_paid(paid: u64, yearly_price: u64, quote: u64) -> u64 {
-    // Original formula: duration = (paid / (yearly_price / quote * 100_000_000)) * 365 * 86400
-    // But CKB VM can only handle uint, so we put division to later for higher precision.
+pub fn calc_yearly_capacity(yearly_price: u64, quote: u64, discount: u32) -> u64 {
+    let total;
     if yearly_price < quote {
-        (paid * 365 * quote / (yearly_price * 100_000_000)) * 86400
+        total = yearly_price * 100_000_000 / quote;
     } else {
-        (paid * 365 / (yearly_price / quote * 100_000_000)) * 86400
+        total = yearly_price / quote * 100_000_000;
     }
+
+    total - (total * discount as u64 / 10000)
+}
+
+pub fn calc_duration_from_paid(paid: u64, yearly_price: u64, quote: u64, discount: u32) -> u64 {
+    let yearly_capacity = calc_yearly_capacity(yearly_price, quote, discount);
+
+    // Original formula: duration = (paid / yearly_capacity) * 365 * 86400
+    // But CKB VM can only handle uint, so we put division to later for higher precision.
+    paid * 365 / yearly_capacity * 86400
 }
 
 pub fn require_type_script(

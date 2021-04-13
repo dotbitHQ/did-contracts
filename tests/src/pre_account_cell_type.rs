@@ -54,6 +54,7 @@ fn gen_pre_register_test_data() {
         "inviter_01.bit",
         "channel_01.bit",
         1000,
+        500,
         timestamp,
     );
     template.push_pre_account_cell(
@@ -66,22 +67,7 @@ fn gen_pre_register_test_data() {
     template.pretty_print();
 }
 
-#[test]
-fn test_pre_register() {
-    let mut context;
-    let mut parser;
-    load_template!(&mut context, &mut parser, "pre_register.json");
-
-    // build transaction
-    let tx = parser.build_tx();
-
-    // run in vm
-    let cycles = context
-        .verify_tx(&tx, MAX_CYCLES)
-        .expect("pass verification");
-
-    println!("test_pre_register: {} cycles", cycles);
-}
+test_with_template!(test_pre_register, "pre_register.json");
 
 // #[test]
 fn gen_reserved_account_verification_test_data() {
@@ -109,6 +95,7 @@ fn gen_reserved_account_verification_test_data() {
         "inviter_01.bit",
         "channel_01.bit",
         1000,
+        500,
         timestamp,
     );
     template.push_pre_account_cell(
@@ -121,24 +108,16 @@ fn gen_reserved_account_verification_test_data() {
     template.pretty_print();
 }
 
-// #[test]
+#[test]
 #[should_panic]
 fn test_reserved_account_verification() {
-    let mut context;
-    let mut parser;
-    load_template!(
-        &mut context,
-        &mut parser,
-        "pre_register_reserved_account.json"
+    let mut parser = parse_template!("pre_register_reserved_account.json");
+    let cycles = parser
+        .execute_tx_directly()
+        .expect("Transaction verification should pass.");
+
+    println!(
+        "test_reserved_account_verification costs: {} cycles",
+        cycles
     );
-
-    // build transaction
-    let tx = parser.build_tx();
-
-    // run in vm
-    let cycles = context
-        .verify_tx(&tx, MAX_CYCLES)
-        .expect("pass verification");
-
-    println!("test_pre_register: {} cycles", cycles);
 }
