@@ -90,6 +90,8 @@ pub enum Error {
     ProposalConfirmWalletBalanceError,
     ProposalSliceNotEndCorrectly, // 115
     ProposalSliceMustStartWithAccountCell,
+    ProposalSliceMustContainMoreThanOneElement,
+    ProposalSliceItemMustBeUniqueAccount,
     ProposalRecycleNeedWaitLonger,
     ProposalRecycleCanNotFoundRefundCell,
     ProposalRecycleRefundAmountError,
