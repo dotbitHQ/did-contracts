@@ -2,7 +2,7 @@ use alloc::borrow::ToOwned;
 use ckb_std::{
     ckb_constants::Source,
     ckb_types::bytes,
-    high_level::{load_cell_capacity, load_cell_data, load_cell_lock, load_cell_type, load_script},
+    high_level::{load_cell_capacity, load_cell_lock, load_cell_type, load_script},
 };
 use core::convert::TryFrom;
 use core::result::Result;
@@ -266,7 +266,7 @@ fn inspect_related_cells(
 ) -> Result<(), Error> {
     use das_core::inspect;
 
-    debug!("Inspect inputs:");
+    debug!("Inspect {:?}:", related_cells_source);
     for i in related_cells {
         let script = load_cell_type(i, related_cells_source)
             .map_err(|e| Error::from(e))?
@@ -317,27 +317,65 @@ fn verify_slices(slices_reader: SliceListReader) -> Result<usize, Error> {
     debug!("Check the data structure of proposal slices.");
 
     let mut required_cells_count: usize = 0;
+    let mut exists_account_ids: Vec<bytes::Bytes> = Vec::new();
     for (sl_index, sl_reader) in slices_reader.iter().enumerate() {
         debug!("Check Slice[{}] ...", sl_index);
         let mut account_id_list = Vec::new();
+
+        assert!(
+            sl_reader.len() > 1,
+            Error::ProposalSliceMustContainMoreThanOneElement,
+            "Slice[{}] must contain more than one element, but {} found.",
+            sl_index,
+            sl_reader.len()
+        );
+
         for (index, item) in sl_reader.iter().enumerate() {
-            // Check the continuity of the items in the slice.
-            if let Some(next) = sl_reader.get(index + 1) {
-                debug!("  Check Item[{}]", index);
-                if !util::is_reader_eq(item.next(), next.account_id()) {
-                    return Err(Error::ProposalSliceIsDiscontinuity);
-                }
+            debug!("  Check if Item[{}] refer to correct next.", index);
+
+            // Check the uniqueness of current account.
+            let account_id_bytes = bytes::Bytes::from(item.account_id().raw_data());
+            for account_id in exists_account_ids.iter() {
+                assert!(
+                    account_id.eq(account_id_bytes.as_ref()),
+                    Error::ProposalSliceItemMustBeUniqueAccount,
+                    "  Item[{}] is an exists account.",
+                    index
+                );
             }
 
-            account_id_list.push(bytes::Bytes::from(item.account_id().raw_data()));
+            // Check the continuity of the items in the slice.
+            if let Some(next) = sl_reader.get(index + 1) {
+                assert!(
+                    util::is_reader_eq(item.next(), next.account_id()),
+                    Error::ProposalSliceIsDiscontinuity,
+                    "  Item[{}].next should be {}, but it is {} now.",
+                    index,
+                    next.account_id(),
+                    item.next()
+                );
+            }
+
+            // Store exists account IDs for uniqueness verification.
+            if index == 0 {
+                exists_account_ids.push(account_id_bytes.clone());
+                exists_account_ids.push(bytes::Bytes::from(item.next().raw_data()));
+            } else {
+                exists_account_ids.push(account_id_bytes.clone());
+            }
+
+            account_id_list.push(account_id_bytes);
             required_cells_count += 1;
         }
 
         // Check the order of items in the slice.
         let sorted_account_id_list = DasSortedList::new(account_id_list.clone());
-        if !sorted_account_id_list.cmp_order_with(account_id_list) {
-            return Err(Error::ProposalSliceIsNotSorted);
-        }
+        assert!(
+            sorted_account_id_list.cmp_order_with(account_id_list),
+            Error::ProposalSliceIsNotSorted,
+            "The order of items in Slice[{}] is incorrect.",
+            sl_index
+        );
     }
 
     Ok(required_cells_count)
@@ -438,6 +476,7 @@ fn verify_slices_relevant_cells(
             let item_type = u8::from(item.item_type());
 
             let cell_index = relevant_cells[i];
+
             // Check if the relevant cells has the same type as in the proposal.
             let expected_type_id = if item_type == ProposalSliceItemType::Exist as u8 {
                 config.type_id_table().account_cell()
@@ -446,9 +485,8 @@ fn verify_slices_relevant_cells(
             };
             verify_cell_type_id(item_index, cell_index, Source::CellDep, &expected_type_id)?;
 
-            // Check if the relevant cells have the same account ID.
-            let cell_data =
-                load_cell_data(cell_index, Source::CellDep).map_err(|e| Error::from(e))?;
+            let cell_data = util::load_cell_data(cell_index, Source::CellDep)?;
+            // Check if the relevant cells have the same account ID as in the proposal.
             verify_cell_account_id(
                 item_index,
                 &cell_data,
@@ -462,9 +500,11 @@ fn verify_slices_relevant_cells(
             if item_index == 0 {
                 // If this is the first proposal in proposal chain, all slice must start with an AccountCell.
                 if prev_slices_reader_opt.is_none() {
-                    if item_type != ProposalSliceItemType::Exist as u8 {
-                        return Err(Error::ProposalSliceMustStartWithAccountCell);
-                    }
+                    assert!(
+                        item_type == ProposalSliceItemType::Exist as u8,
+                        Error::ProposalSliceMustStartWithAccountCell,
+                        "  In the first proposal of a proposal chain, all slice should start with an AccountCell."
+                    );
 
                     // The correct "next" of first proposal is come from the cell's outputs_data.
                     next_of_first_cell = AccountId::try_from(account_cell::get_next(&cell_data))
@@ -474,11 +514,11 @@ fn verify_slices_relevant_cells(
                 // AccountCell/PreAccountCell included in previous proposal, or it may starting with
                 // an AccountCell not included in previous proposal.
                 } else {
-                    if item_type != ProposalSliceItemType::Exist as u8
-                        && item_type != ProposalSliceItemType::Proposed as u8
-                    {
-                        return Err(Error::ProposalSliceMustStartWithAccountCell);
-                    }
+                    assert!(
+                        item_type == ProposalSliceItemType::Exist as u8 || item_type == ProposalSliceItemType::Proposed as u8,
+                        Error::ProposalSliceMustStartWithAccountCell,
+                        "  In the extended proposal of a proposal chain, slices should start with an AccountCell or a PreAccountCell which included in previous proposal."
+                    );
 
                     let prev_slices_reader = prev_slices_reader_opt.as_ref().unwrap();
                     next_of_first_cell =
@@ -864,18 +904,15 @@ fn verify_cell_type_id(
         .map(|script| Hash::from(script.code_hash()))
         .ok_or(Error::ProposalSliceRelatedCellNotFound)?;
 
-    if !util::is_reader_eq(expected_type_id.to_owned(), cell_type_id.as_reader()) {
-        debug!(
-            "  Item[{}] Verify type script at {:?}[{}]: {} != {} => {}",
-            item_index,
-            source,
-            cell_index,
-            cell_type_id,
-            expected_type_id,
-            !util::is_reader_eq(expected_type_id.to_owned(), cell_type_id.as_reader())
-        );
-        return Err(Error::ProposalCellTypeError);
-    }
+    assert!(
+        util::is_reader_eq(expected_type_id.to_owned(), cell_type_id.as_reader()),
+        Error::ProposalCellTypeError,
+        "  The type ID of Item[{}] should be {}. (related_cell: {:?}[{}])",
+        item_index,
+        expected_type_id,
+        source,
+        cell_index
+    );
 
     Ok(())
 }
@@ -890,18 +927,15 @@ fn verify_cell_account_id(
     let account_id = AccountId::try_from(account_cell::get_id(&cell_data))
         .map_err(|_| Error::InvalidCellData)?;
 
-    if !util::is_reader_eq(account_id.as_reader(), expected_account_id) {
-        debug!(
-            "  Item[{}] Verify account_id at {:?}[{}]: {} != {} => {}",
-            item_index,
-            source,
-            cell_index,
-            account_id,
-            expected_account_id,
-            !util::is_reader_eq(account_id.as_reader(), expected_account_id)
-        );
-        return Err(Error::ProposalCellAccountIdError);
-    }
+    assert!(
+        util::is_reader_eq(account_id.as_reader(), expected_account_id),
+        Error::ProposalCellAccountIdError,
+        "  The account ID of Item[{}] should be {}. (related_cell: {:?}[{}])",
+        item_index,
+        expected_account_id,
+        source,
+        cell_index
+    );
 
     Ok(())
 }

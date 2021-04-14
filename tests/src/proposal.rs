@@ -120,6 +120,39 @@ fn gen_proposal_create_test_data() {
 test_with_template!(test_proposal_create, "proposal_create.json");
 
 // #[test]
+fn gen_proposal_create_challenge_1_test_data() {
+    println!("====== Print propose transaction data ======");
+
+    let mut template = TemplateGenerator::new("propose", None);
+    let height = 1000u64;
+    let timestamp = 1611200090u64;
+
+    gen_cell_deps(&mut template, height, timestamp);
+
+    let slices = vec![vec![
+        ("das00012.bit", ProposalSliceItemType::Exist, "das00013.bit"),
+        ("das00013.bit", ProposalSliceItemType::New, "das00013.bit"),
+    ]];
+
+    let (cell_data, entity) = template.gen_proposal_cell_data(
+        "0x0100000000000000000000000000000000000000",
+        "proposer_01.bit",
+        height,
+        &slices,
+    );
+    template.push_proposal_cell(cell_data, Some((1, 0, entity)), 0, Source::Output);
+
+    gen_proposal_related_cell_at_create(&mut template, slices, timestamp, 6);
+
+    template.pretty_print();
+}
+
+test_with_template!(
+    test_proposal_create_challenge_1,
+    "proposal_create_challenge_1.json"
+);
+
+// #[test]
 fn gen_extend_proposal_test_data() {
     println!("====== Print extend proposal transaction data ======");
 
@@ -402,7 +435,7 @@ fn gen_confirm_proposal_test_data() {
 
 test_with_template!(test_proposal_confirm, "proposal_confirm.json");
 
-#[test]
+// #[test]
 fn gen_proposal_recycle_test_data() {
     println!("====== Print recycle proposal transaction data ======");
 
