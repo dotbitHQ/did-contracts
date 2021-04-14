@@ -1,4 +1,3 @@
-use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use ckb_std::{
     ckb_constants::Source,
     high_level::{load_cell_capacity, load_cell_data, load_cell_lock, load_script},
@@ -138,7 +137,7 @@ pub fn main() -> Result<(), Error> {
 
         let timestamp = util::load_timestamp()?;
         verify_created_at(timestamp, reader)?;
-        verify_account_length_and_years(timestamp, reader)?;
+        util::verify_account_length_and_years(reader.account().len(), timestamp, None)?;
 
         verify_account_chars(config_register_reader, reader)?;
 
@@ -334,7 +333,7 @@ fn verify_price_and_capacity(
     debug!("Check if PreAccountCell.capacity is enough for registration: {}(paid) < {}(1 year registeration fee) + {}(storage fee)",
         capacity,
         register_capacity,
-        storage_capacity,
+        storage_capacity
     );
 
     assert!(
@@ -344,42 +343,6 @@ fn verify_price_and_capacity(
         register_capacity + storage_capacity,
         capacity
     );
-
-    Ok(())
-}
-
-fn verify_account_length_and_years(
-    current_timestamp: u64,
-    reader: PreAccountCellDataReader,
-) -> Result<(), Error> {
-    let account = reader.account();
-    let current = DateTime::<Utc>::from_utc(
-        NaiveDateTime::from_timestamp(current_timestamp as i64, 0),
-        Utc,
-    );
-
-    debug!(
-        "Verify account is currently available for registration. Current datetime: {:#?}",
-        current
-    );
-
-    let start_from = 2021;
-    let year_2 = Utc.ymd(start_from + 1, 1, 1).and_hms(0, 0, 0);
-    let year_3 = Utc.ymd(start_from + 2, 1, 1).and_hms(0, 0, 0);
-    let year_4 = Utc.ymd(start_from + 3, 1, 1).and_hms(0, 0, 0);
-    if current < year_2 {
-        if account.len() <= 7 {
-            return Err(Error::PreRegisterAccountCanNotRegisterNow);
-        }
-    } else if current < year_3 {
-        if account.len() <= 6 {
-            return Err(Error::PreRegisterAccountCanNotRegisterNow);
-        }
-    } else if current < year_4 {
-        if account.len() <= 5 {
-            return Err(Error::PreRegisterAccountCanNotRegisterNow);
-        }
-    }
 
     Ok(())
 }

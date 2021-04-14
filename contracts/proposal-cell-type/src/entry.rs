@@ -12,7 +12,7 @@ use das_core::{
     data_parser::{account_cell, ref_cell},
     debug,
     error::Error,
-    util, warn,
+    util,
     witness_parser::WitnessesParser,
 };
 use das_sorted_list::DasSortedList;
@@ -676,6 +676,12 @@ fn verify_proposal_execution_result(
                 let storage_capacity = util::calc_account_storage_capacity(account_length);
                 // Allocate the profits carried by PreAccountCell to the wallets for later verification.
                 let profit = total_capacity - storage_capacity;
+
+                util::verify_account_length_and_years(
+                    account_length as usize,
+                    timestamp,
+                    Some(item_index),
+                )?;
 
                 // Check all fields in the data of new AccountCell.
                 is_id_correct(item_index, &output_cell_data, &input_cell_data)?;

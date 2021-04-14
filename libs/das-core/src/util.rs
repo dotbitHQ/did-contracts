@@ -705,6 +705,51 @@ pub fn get_length_in_price(account_length: u64) -> u8 {
     }
 }
 
+pub fn verify_account_length_and_years(
+    account_length: usize,
+    current_timestamp: u64,
+    item_index: Option<usize>,
+) -> Result<(), Error> {
+    use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
+
+    let current = DateTime::<Utc>::from_utc(
+        NaiveDateTime::from_timestamp(current_timestamp as i64, 0),
+        Utc,
+    );
+
+    if item_index.is_some() {
+        debug!(
+            "  Item[{}] Check if account is available for registration now. (length: {}, datetime: {:#?})",
+            item_index.unwrap(), account_length, current
+        );
+    } else {
+        debug!(
+            "Check if account is available for registration now. (length: {}, datetime: {:#?})",
+            account_length, current
+        );
+    }
+
+    let start_from = 2021;
+    let year_2 = Utc.ymd(start_from + 1, 1, 1).and_hms(0, 0, 0);
+    let year_3 = Utc.ymd(start_from + 2, 1, 1).and_hms(0, 0, 0);
+    let year_4 = Utc.ymd(start_from + 3, 1, 1).and_hms(0, 0, 0);
+    if current < year_2 {
+        if account_length <= 7 {
+            return Err(Error::AccountStillCanNotBeRegister);
+        }
+    } else if current < year_3 {
+        if account_length <= 6 {
+            return Err(Error::AccountStillCanNotBeRegister);
+        }
+    } else if current < year_4 {
+        if account_length <= 5 {
+            return Err(Error::AccountStillCanNotBeRegister);
+        }
+    }
+
+    Ok(())
+}
+
 pub fn calc_account_storage_capacity(account_length: u64) -> u64 {
     ACCOUNT_CELL_BASIC_CAPACITY + (account_length * 100_000_000) + REF_CELL_BASIC_CAPACITY * 2
 }

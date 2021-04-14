@@ -16,6 +16,7 @@ ckb-std = "0.7.1"
 blake2b-ref = "0.3"
 das-types = { path = "../../../das-types/rust", default-features = false }
 no-std-compat = { version = "0.4", features = [ "alloc", "compat_macros" ] }
+chrono = { version = "0.4", default-features = false }
 
 [dev-dependencies]
 hex = { version = "0.4", default-features = false }
