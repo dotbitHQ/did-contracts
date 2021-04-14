@@ -89,6 +89,20 @@ impl TemplateParser {
         })
     }
 
+    pub fn from_data(context: Context, data: serde_json::Value) -> Self {
+        TemplateParser {
+            context,
+            data,
+            header_deps: Vec::new(),
+            contracts: TemplateParser::init_contracts(),
+            deps: Vec::new(),
+            inputs: Vec::new(),
+            outputs: Vec::new(),
+            outputs_data: Vec::new(),
+            witnesses: Vec::new(),
+        }
+    }
+
     fn init_contracts() -> HashMap<String, Byte32, RandomState> {
         // The type IDs here are testing only.
         let mut contracts = HashMap::new();

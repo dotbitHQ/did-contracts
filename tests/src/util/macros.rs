@@ -23,3 +23,28 @@ macro_rules! test_with_template {
         }
     };
 }
+
+macro_rules! challenge_with_generator {
+    ($test_name:ident, $error_code:expr, $generator_fn:expr) => {
+        #[test]
+        fn $test_name() {
+            let generator = $generator_fn;
+            let mut parser = TemplateParser::from_data(Context::default(), generator());
+            parser.parse();
+
+            let err = parser.execute_tx_directly().expect_err(
+                format!("The test should failed with error code: {} | ", $error_code).as_str(),
+            );
+
+            let msg = err.to_string();
+            println!("Error message: {}", msg);
+
+            let search = format!("ValidationFailure({})", $error_code);
+            assert!(
+                msg.contains(search.as_str()),
+                "The test should failed with error code: {}",
+                $error_code
+            );
+        }
+    };
+}

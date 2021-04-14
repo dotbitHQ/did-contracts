@@ -56,9 +56,7 @@ fn gen_char_sets() -> CharSetList {
             0,
             vec![
                 "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p",
-                "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "A", "B", "C", "D", "E", "F",
-                "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V",
-                "W", "X", "Y", "Z",
+                "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
             ],
         ))
         .build()
@@ -421,6 +419,23 @@ impl TemplateGenerator {
             Source::Input => self.inputs.push(value),
             Source::Output => self.outputs.push(value),
         }
+    }
+
+    pub fn push_contract_cell(&mut self, contract_filename: &str, deployed: bool) {
+        let value;
+        if deployed {
+            value = json!({
+                "tmp_type": "deployed_contract",
+                "tmp_file_name": contract_filename
+            });
+        } else {
+            value = json!({
+                "tmp_type": "contract",
+                "tmp_file_name": contract_filename
+            });
+        }
+
+        self.cell_deps.push(value)
     }
 
     pub fn push_time_cell(&mut self, index: u8, timestamp: u64, capacity: u64, source: Source) {
@@ -925,14 +940,17 @@ impl TemplateGenerator {
 
     pub fn gen_header() {}
 
-    pub fn pretty_print(&self) {
-        let data = json!({
+    pub fn as_json(&self) -> serde_json::Value {
+        json!({
             "cell_deps": self.cell_deps,
             "inputs": self.inputs,
             "outputs": self.outputs,
             "witnesses": self.witnesses,
-        });
+        })
+    }
 
+    pub fn pretty_print(&self) {
+        let data = self.as_json();
         println!("{}", serde_json::to_string_pretty(&data).unwrap());
     }
 }
