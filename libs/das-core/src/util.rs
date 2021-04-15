@@ -729,20 +729,28 @@ pub fn verify_account_length_and_years(
         );
     }
 
-    let start_from = 2021;
-    let year_2 = Utc.ymd(start_from + 1, 1, 1).and_hms(0, 0, 0);
-    let year_3 = Utc.ymd(start_from + 2, 1, 1).and_hms(0, 0, 0);
-    let year_4 = Utc.ymd(start_from + 3, 1, 1).and_hms(0, 0, 0);
-    if current < year_2 {
-        if account_length <= 7 {
-            return Err(Error::AccountStillCanNotBeRegister);
+    // On CKB main net, AKA Lina, accounts of less lengths can be registered only after a specific number of years.
+    if cfg!(feature = "mainnet") {
+        let start_from = 2021;
+        let year_2 = Utc.ymd(start_from + 1, 1, 1).and_hms(0, 0, 0);
+        let year_3 = Utc.ymd(start_from + 2, 1, 1).and_hms(0, 0, 0);
+        let year_4 = Utc.ymd(start_from + 3, 1, 1).and_hms(0, 0, 0);
+        if current < year_2 {
+            if account_length <= 7 {
+                return Err(Error::AccountStillCanNotBeRegister);
+            }
+        } else if current < year_3 {
+            if account_length <= 6 {
+                return Err(Error::AccountStillCanNotBeRegister);
+            }
+        } else if current < year_4 {
+            if account_length <= 5 {
+                return Err(Error::AccountStillCanNotBeRegister);
+            }
         }
-    } else if current < year_3 {
-        if account_length <= 6 {
-            return Err(Error::AccountStillCanNotBeRegister);
-        }
-    } else if current < year_4 {
-        if account_length <= 5 {
+    // Otherwise, any account longer than two chars in length can be registered.
+    } else {
+        if account_length <= 1 {
             return Err(Error::AccountStillCanNotBeRegister);
         }
     }

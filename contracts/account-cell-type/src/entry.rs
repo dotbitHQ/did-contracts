@@ -405,7 +405,7 @@ pub fn main() -> Result<(), Error> {
         // Renew price for 1 year in CKB = x ÷ y .
         let paid =
             load_cell_capacity(das_wallet_cells[0], Source::Output).map_err(|e| Error::from(e))?;
-        let expected_duration = util::calc_duration_from_paid(paid, renew_price_in_usd, quote);
+        let expected_duration = util::calc_duration_from_paid(paid, renew_price_in_usd, quote, 0);
         if duration > expected_duration {
             debug!(
                 "Verify is user payed enough capacity: duration({}) > (paid({}) / (renew_price({}) / quote({}) * 100_000_000) ) * 86400 * 365 -> true",
