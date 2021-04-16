@@ -29,22 +29,31 @@ macro_rules! challenge_with_generator {
         #[test]
         fn $test_name() {
             let generator = $generator_fn;
-            let mut parser = TemplateParser::from_data(Context::default(), generator());
+            let template = generator();
+            let mut parser = TemplateParser::from_data(Context::default(), template.clone());
             parser.parse();
 
-            let err = parser.execute_tx_directly().expect_err(
-                format!("The test should failed with error code: {} | ", $error_code).as_str(),
-            );
+            let ret = parser.execute_tx_directly();
+            match ret {
+                Ok(_) => {
+                    println!("{}", serde_json::to_string_pretty(&template).unwrap());
+                    panic!(
+                        "The test should failed with error code: {}, but it returns Ok.",
+                        $error_code
+                    )
+                }
+                Err(err) => {
+                    let msg = err.to_string();
+                    println!("Error message: {}", msg);
 
-            let msg = err.to_string();
-            println!("Error message: {}", msg);
-
-            let search = format!("ValidationFailure({})", $error_code);
-            assert!(
-                msg.contains(search.as_str()),
-                "The test should failed with error code: {}",
-                $error_code
-            );
+                    let search = format!("ValidationFailure({})", $error_code);
+                    assert!(
+                        msg.contains(search.as_str()),
+                        "The test should failed with error code: {}",
+                        $error_code
+                    );
+                }
+            }
         }
     };
 }

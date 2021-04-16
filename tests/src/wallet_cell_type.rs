@@ -1,15 +1,22 @@
 use super::util::{constants::*, template_generator::*, template_parser::TemplateParser};
-use crate::util::contains_error;
 use ckb_testtool::context::Context;
-use ckb_tool::ckb_types::{bytes, packed};
+use ckb_tool::ckb_types::bytes;
 use das_core::error::Error;
 use das_types::constants::{ConfigID, DataType};
+use serde_json::json;
+
+fn init(action: &str) -> TemplateGenerator {
+    let mut template = TemplateGenerator::new(action, None);
+
+    template.push_contract_cell("always_success", true);
+    template.push_contract_cell("wallet-cell-type", false);
+
+    template
+}
 
 // #[test]
 fn gen_wallet_create_test_data() {
-    println!("====== Print wallet_create transaction data ======");
-
-    let mut template = TemplateGenerator::new("create_wallet", None);
+    let mut template = init("create_wallet");
 
     let source = Source::Output;
     template.push_wallet_cell("das00001.bit", 9_400_000_000, source);
@@ -21,30 +28,35 @@ fn gen_wallet_create_test_data() {
 
 test_with_template!(test_wallet_create, "wallet_create.json");
 
-#[test]
-fn test_wallet_create_failures() {
-    let mut parser = parse_template!("wallet_create.json");
-    let _original_outputs_data = parser.outputs_data.clone();
-    parser.outputs_data[0] = packed::Bytes::default();
+challenge_with_generator!(
+    challenge_wallet_create_without_data,
+    Error::WalletRequireAccountId as i8,
+    || {
+        let mut template = init("create_wallet");
 
-    let ret = parser.execute_tx_directly();
+        template.push_signall_cell(WALLET_MAKER_LOCK_ARGS, 9_400_000_000, Source::Input);
 
-    assert!(
-        ret.is_err(),
-        "Transaction should failed when account ID is not exist in WalletCell.data ."
-    );
-    let err_msg = ret.unwrap_err().to_string();
-    assert!(
-        contains_error(&err_msg, Error::WalletRequireAccountId),
-        "Transaction should failed with Error::WalletRequireAccountId ."
-    );
-}
+        let lock_script = json!({
+            "code_hash": "{{always_success}}"
+        });
+        let type_script = json!({
+            "code_hash": "{{wallet-cell-type}}"
+        });
+        template.push_cell(
+            9_400_000_000,
+            lock_script,
+            type_script,
+            None,
+            Source::Output,
+        );
+
+        template.as_json()
+    }
+);
 
 // #[test]
 fn gen_wallet_withdraw_test_data() {
-    println!("====== Print wallet_withdraw transaction data ======");
-
-    let mut template = TemplateGenerator::new("withdraw_from_wallet", None);
+    let mut template = init("withdraw_from_wallet");
 
     template.push_config_cell(
         ConfigID::ConfigCellMain,
@@ -136,9 +148,7 @@ fn gen_account_cell(
 
 // #[test]
 fn gen_wallet_recycle_test_data() {
-    println!("====== Print wallet_recycle transaction data ======");
-
-    let mut template = TemplateGenerator::new("recycle_wallet", None);
+    let mut template = init("recycle_wallet");
 
     template.push_config_cell(
         ConfigID::ConfigCellMain,
@@ -185,9 +195,7 @@ test_with_template!(test_wallet_recycle, "wallet_recycle.json");
 
 // #[test]
 fn gen_wallet_deposit_test_data() {
-    println!("====== Print wallet deposit transaction data ======");
-
-    let mut template = TemplateGenerator::new("xxx", None);
+    let mut template = init("xxx");
 
     let account = "das00001.bit";
 

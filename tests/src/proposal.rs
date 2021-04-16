@@ -3,7 +3,11 @@ use ckb_testtool::context::Context;
 use ckb_tool::ckb_types::{bytes, prelude::Pack};
 use das_types::constants::*;
 
-fn gen_cell_deps(template: &mut TemplateGenerator, height: u64, timestamp: u64) {
+fn init(action: &str) -> (TemplateGenerator, u64, u64) {
+    let height = 1000u64;
+    let timestamp = 1611200090u64;
+    let mut template = TemplateGenerator::new(action, None);
+
     template.push_time_cell(1, timestamp, 200_000_000_000, Source::CellDep);
     template.push_height_cell(1, height, 200_000_000_000, Source::CellDep);
 
@@ -19,6 +23,8 @@ fn gen_cell_deps(template: &mut TemplateGenerator, height: u64, timestamp: u64) 
         100_000_000_000,
         Source::CellDep,
     );
+
+    (template, height, timestamp)
 }
 
 fn gen_proposal_related_cell_at_create(
@@ -82,15 +88,9 @@ fn gen_proposal_related_cell_at_create(
     }
 }
 
-// #[test]
+#[test]
 fn gen_proposal_create_test_data() {
-    println!("====== Print propose transaction data ======");
-
-    let mut template = TemplateGenerator::new("propose", None);
-    let height = 1000u64;
-    let timestamp = 1611200090u64;
-
-    gen_cell_deps(&mut template, height, timestamp);
+    let (mut template, height, timestamp) = init("propose");
 
     let slices = vec![
         vec![
@@ -121,13 +121,7 @@ test_with_template!(test_proposal_create, "proposal_create.json");
 
 // #[test]
 fn gen_proposal_create_challenge_1_test_data() {
-    println!("====== Print propose transaction data ======");
-
-    let mut template = TemplateGenerator::new("propose", None);
-    let height = 1000u64;
-    let timestamp = 1611200090u64;
-
-    gen_cell_deps(&mut template, height, timestamp);
+    let (mut template, height, timestamp) = init("propose");
 
     let slices = vec![vec![
         ("das00012.bit", ProposalSliceItemType::Exist, "das00013.bit"),
@@ -154,13 +148,7 @@ test_with_template!(
 
 // #[test]
 fn gen_extend_proposal_test_data() {
-    println!("====== Print extend proposal transaction data ======");
-
-    let mut template = TemplateGenerator::new("extend_proposal", None);
-    let height = 1000u64;
-    let timestamp = 1611200090u64;
-
-    gen_cell_deps(&mut template, height, timestamp);
+    let (mut template, height, timestamp) = init("extend_proposal");
 
     // Generate previous proposal
     let slices = vec![
@@ -374,13 +362,7 @@ fn gen_proposal_related_cell_at_confirm(
 
 #[test]
 fn gen_confirm_proposal_test_data() {
-    println!("====== Print confirm proposal transaction data ======");
-
-    let mut template = TemplateGenerator::new("confirm_proposal", None);
-    let height = 1000u64;
-    let timestamp = 1611200090u64;
-
-    gen_cell_deps(&mut template, height, timestamp);
+    let (mut template, height, timestamp) = init("confirm_proposal");
 
     let slices = vec![
         // A slice base on previous modified AccountCell
@@ -435,10 +417,7 @@ fn gen_confirm_proposal_test_data() {
 
 test_with_template!(test_proposal_confirm, "proposal_confirm.json");
 
-// #[test]
-fn gen_proposal_recycle_test_data() {
-    println!("====== Print recycle proposal transaction data ======");
-
+fn init_recycle() -> (TemplateGenerator, u64) {
     let mut template = TemplateGenerator::new("recycle_proposal", None);
     let height = 1000u64;
 
@@ -455,6 +434,13 @@ fn gen_proposal_recycle_test_data() {
         100_000_000_000,
         Source::CellDep,
     );
+
+    (template, height)
+}
+
+// #[test]
+fn gen_proposal_recycle_test_data() {
+    let (mut template, height) = init_recycle();
 
     let slices = vec![
         // A slice base on previous modified AccountCell
