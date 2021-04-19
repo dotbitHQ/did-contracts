@@ -8,6 +8,13 @@ fn init(action: &str) -> (TemplateGenerator, u64, u64) {
     let timestamp = 1611200090u64;
     let mut template = TemplateGenerator::new(action, None);
 
+    template.push_contract_cell("always_success", true);
+    template.push_contract_cell("proposal-cell-type", false);
+    template.push_contract_cell("ref-cell-type", false);
+    template.push_contract_cell("account-cell-type", false);
+    template.push_contract_cell("pre-account-cell-type", false);
+    template.push_contract_cell("wallet-cell-type", false);
+
     template.push_time_cell(1, timestamp, 200_000_000_000, Source::CellDep);
     template.push_height_cell(1, height, 200_000_000_000, Source::CellDep);
 
@@ -88,7 +95,7 @@ fn gen_proposal_related_cell_at_create(
     }
 }
 
-#[test]
+// #[test]
 fn gen_proposal_create_test_data() {
     let (mut template, height, timestamp) = init("propose");
 
@@ -106,7 +113,6 @@ fn gen_proposal_create_test_data() {
 
     let (cell_data, entity) = template.gen_proposal_cell_data(
         "0x0100000000000000000000000000000000000000",
-        "proposer_01.bit",
         height,
         &slices,
     );
@@ -130,7 +136,6 @@ fn gen_proposal_create_challenge_1_test_data() {
 
     let (cell_data, entity) = template.gen_proposal_cell_data(
         "0x0100000000000000000000000000000000000000",
-        "proposer_01.bit",
         height,
         &slices,
     );
@@ -169,7 +174,6 @@ fn gen_extend_proposal_test_data() {
 
     let (cell_data, entity) = template.gen_proposal_cell_data(
         "0x0100000000000000000000000000000000000000",
-        "proposer_01.bit",
         height - 5,
         &slices,
     );
@@ -201,7 +205,6 @@ fn gen_extend_proposal_test_data() {
 
     let (cell_data, entity) = template.gen_proposal_cell_data(
         "0x0200000000000000000000000000000000000000",
-        "proposer_02.bit",
         height,
         &slices,
     );
@@ -388,8 +391,7 @@ fn gen_confirm_proposal_test_data() {
     ];
 
     let (cell_data, entity) = template.gen_proposal_cell_data(
-        "0x0100000000000000000000000000000000000000",
-        "proposer_01.bit",
+        "0x0000000000000000000000000000000000002233",
         height,
         &slices,
     );
@@ -404,8 +406,13 @@ fn gen_confirm_proposal_test_data() {
 
     template.push_wallet_cell("inviter_01.bit", 8_400_000_000, Source::Input);
     template.push_wallet_cell("channel_01.bit", 8_400_000_000, Source::Input);
-    template.push_wallet_cell("inviter_01.bit", 198_400_000_000, Source::Output);
-    template.push_wallet_cell("channel_01.bit", 198_400_000_000, Source::Output);
+    template.push_wallet_cell("inviter_01.bit", 160_400_000_000, Source::Output);
+    template.push_wallet_cell("channel_01.bit", 160_400_000_000, Source::Output);
+    template.push_signall_cell(
+        "0x0000000000000000000000000000000000002233",
+        76_000_000_000,
+        Source::Output,
+    );
     template.push_signall_cell(
         "0x0300000000000000000000000000000000000000",
         1_520_000_000_000,
@@ -421,13 +428,10 @@ fn init_recycle() -> (TemplateGenerator, u64) {
     let mut template = TemplateGenerator::new("recycle_proposal", None);
     let height = 1000u64;
 
+    template.push_contract_cell("always_success", true);
+    template.push_contract_cell("proposal-cell-type", false);
+
     template.push_height_cell(1, height, 200_000_000_000, Source::CellDep);
-    template.push_config_cell(
-        ConfigID::ConfigCellMain,
-        true,
-        100_000_000_000,
-        Source::CellDep,
-    );
     template.push_config_cell(
         ConfigID::ConfigCellRegister,
         true,
@@ -467,7 +471,6 @@ fn gen_proposal_recycle_test_data() {
 
     let (cell_data, entity) = template.gen_proposal_cell_data(
         "0x0100000000000000000000000000000000000000",
-        "proposer_01.bit",
         height - 10,
         &slices,
     );
@@ -476,6 +479,12 @@ fn gen_proposal_recycle_test_data() {
         Some((1, 0, entity)),
         100_000_000_000,
         Source::Input,
+    );
+
+    template.push_signall_cell(
+        "0x0100000000000000000000000000000000000000",
+        100_000_000_000,
+        Source::Output,
     );
 
     template.pretty_print();

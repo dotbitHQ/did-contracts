@@ -133,6 +133,9 @@ pub fn main() -> Result<(), Error> {
                     }
                 }
 
+                // TODO If balance is too low, there is no need to include AccountCell in transaction.
+                // TODO WalletCell should be able to recycle after AccountCell is recycled.
+
                 // Create an account_id->account_cell_index map for later verification.
                 let mut account_indexs_grouped_by_id: Vec<(Vec<u8>, usize)> = Vec::new();
                 let account_cells = util::find_cells_by_type_id(

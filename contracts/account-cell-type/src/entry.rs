@@ -24,6 +24,8 @@ use das_types::{
 pub fn main() -> Result<(), Error> {
     debug!("====== Running account-cell-type ======");
 
+    // TODO Need a new action to support recycling ManagerCell.
+
     let action_data = util::load_das_action()?;
     let action = action_data.as_reader().action().raw_data();
     if action == b"init_account_chain" {

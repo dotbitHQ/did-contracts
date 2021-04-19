@@ -2,6 +2,7 @@ use alloc::borrow::ToOwned;
 use ckb_std::{
     ckb_constants::Source,
     ckb_types::bytes,
+    ckb_types::packed as ckb_packed,
     high_level::{load_cell_capacity, load_cell_lock, load_cell_type, load_script},
 };
 use core::convert::TryFrom;
@@ -172,7 +173,7 @@ pub fn main() -> Result<(), Error> {
             config_main,
             config_register,
             timestamp,
-            proposal_cell_data_reader.slices(),
+            proposal_cell_data_reader,
             input_related_cells,
             output_account_cells,
         )?;
@@ -574,18 +575,23 @@ fn verify_proposal_execution_result(
     config_main: ConfigCellMainReader,
     config_register: ConfigCellRegisterReader,
     timestamp: u64,
-    slices_reader: SliceListReader,
+    proposal_cell_data_reader: ProposalCellDataReader,
     input_related_cells: Vec<usize>,
     output_account_cells: Vec<usize>,
 ) -> Result<(), Error> {
     debug!("Check that all AccountCells/PreAccountCells have been converted according to the proposal.");
 
+    let slices_reader = proposal_cell_data_reader.slices();
     let account_cell_type_id = config_main.type_id_table().account_cell();
     let pre_account_cell_type_id = config_main.type_id_table().pre_account_cell();
 
     let mut wallet = Wallet::new();
     let inviter_profit_rate = u32::from(config_register.profit().profit_rate_of_inviter()) as u64;
     let channel_profit_rate = u32::from(config_register.profit().profit_rate_of_channel()) as u64;
+    let proposal_create_profit_rate =
+        u32::from(config_register.profit().profit_rate_of_proposal_create()) as u64;
+    let proposal_confirm_profit_rate =
+        u32::from(config_register.profit().profit_rate_of_proposal_confirm()) as u64;
 
     let mut output_ref_cells = load_ref_cells(config_main)?;
 
@@ -775,12 +781,23 @@ fn verify_proposal_execution_result(
                     wallet.add_balance(wallet_id, channel_profit);
                 };
 
-                let das_profit = profit - inviter_profit - channel_profit;
-                debug!(
-                    "  Item[{}] Wallet[0x{}]: {}(das_profit) = {}(profit) - {}(inviter_profit) - {}(channel_profit)",
-                    item_index, util::hex_string(&ROOT_WALLET_ID), das_profit, profit, inviter_profit, channel_profit
-                );
+                let proposal_create_profit = profit * proposal_create_profit_rate / RATE_BASE;
+                wallet.add_balance(&PROPOSAL_CREATOR_WALLET_ID, proposal_create_profit);
+
+                let proposal_confirm_profit = profit * proposal_confirm_profit_rate / RATE_BASE;
+                wallet.add_balance(&PROPOSAL_CONFIRMOR_WALLET_ID, proposal_confirm_profit);
+
+                let das_profit = profit
+                    - inviter_profit
+                    - channel_profit
+                    - proposal_create_profit
+                    - proposal_confirm_profit;
                 wallet.add_balance(&ROOT_WALLET_ID, das_profit);
+
+                debug!(
+                    "  Item[{}] Wallet[0x{}]: {}(das_profit) = {}(profit) - {}(inviter_profit) - {}(channel_profit) - {}(proposal_create_profit) - {}(proposal_confirm_profit)",
+                    item_index, util::hex_string(&ROOT_WALLET_ID), das_profit, profit, inviter_profit, channel_profit, proposal_create_profit, proposal_confirm_profit
+                );
             }
 
             i += 1;
@@ -812,10 +829,10 @@ fn verify_proposal_execution_result(
 
     // The DAS wallet do not count.
     assert!(
-        wallet.len() - 1 == new_wallet_cells.len(),
+        wallet.len() - 3 == new_wallet_cells.len(),
         Error::ProposalFoundInvalidTransaction,
         "The number of WalletCells in outputs should equal to the number of wallets involved by PreAccountCell. (involved: {}, outputs: {})",
-        wallet.len() - 1,
+        wallet.len() - 3,
         new_wallet_cells.len()
     );
 
@@ -869,11 +886,37 @@ fn verify_proposal_execution_result(
         }
     }
 
+    debug!("Check if the profit of proposer has been transfered correctly.");
+
+    let expected_profit = wallet.get_balance(&PROPOSAL_CREATOR_WALLET_ID).unwrap();
+    let proposer_lock: ckb_packed::Script =
+        proposal_cell_data_reader.proposer_lock().to_entity().into();
+    let proposer_wallet_cells =
+        util::find_cells_by_script(ScriptType::Lock, &proposer_lock, Source::Output)?;
+
+    assert!(
+        proposer_wallet_cells.len() == 1,
+        Error::ProposalConfirmWalletBalanceError,
+        "There should be 1 output with proposer lock, but {} found.",
+        proposer_wallet_cells.len()
+    );
+
+    let proposer_current_profit =
+        load_cell_capacity(proposer_wallet_cells[0], Source::Output).map_err(|e| Error::from(e))?;
+
+    assert!(
+        expected_profit == proposer_current_profit,
+        Error::ProposalConfirmWalletBalanceError,
+        "Outputs[{}] should has greater than or equal to expected capacity. (expected: {}, current: {})",
+        proposer_wallet_cells[0],
+        expected_profit,
+        proposer_current_profit
+    );
+
     debug!("Check if the profit of DAS has been transfered correctly.");
 
     let expected_profit = wallet.get_balance(&ROOT_WALLET_ID).unwrap();
     let das_wallet_lock = das_wallet_lock();
-
     let das_wallet_cells =
         util::find_cells_by_script(ScriptType::Lock, &das_wallet_lock, Source::Output)?;
 
@@ -888,7 +931,7 @@ fn verify_proposal_execution_result(
         load_cell_capacity(das_wallet_cells[0], Source::Output).map_err(|e| Error::from(e))?;
 
     assert!(
-        expected_profit >= current_profit,
+        expected_profit == current_profit,
         Error::ProposalConfirmWalletBalanceError,
         "Outputs[{}] should has greater than or equal to expected capacity. (expected: {}, current: {})",
         das_wallet_cells[0],
