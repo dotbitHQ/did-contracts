@@ -319,6 +319,9 @@ fn verify_slices(slices_reader: SliceListReader) -> Result<usize, Error> {
 
     let mut required_cells_count: usize = 0;
     let mut exists_account_ids: Vec<bytes::Bytes> = Vec::new();
+
+    // debug!("slices_reader = {}", slices_reader);
+
     for (sl_index, sl_reader) in slices_reader.iter().enumerate() {
         debug!("Check Slice[{}] ...", sl_index);
         let mut account_id_list = Vec::new();
@@ -331,6 +334,10 @@ fn verify_slices(slices_reader: SliceListReader) -> Result<usize, Error> {
             sl_reader.len()
         );
 
+        // The "next" of last item is refer to an existing account, so we put it into the vector.
+        let last_item = sl_reader.get(sl_reader.len() - 1).unwrap();
+        exists_account_ids.push(bytes::Bytes::from(last_item.next().raw_data()));
+
         for (index, item) in sl_reader.iter().enumerate() {
             debug!("  Check if Item[{}] refer to correct next.", index);
 
@@ -338,7 +345,7 @@ fn verify_slices(slices_reader: SliceListReader) -> Result<usize, Error> {
             let account_id_bytes = bytes::Bytes::from(item.account_id().raw_data());
             for account_id in exists_account_ids.iter() {
                 assert!(
-                    account_id.eq(account_id_bytes.as_ref()),
+                    account_id.ne(account_id_bytes.as_ref()),
                     Error::ProposalSliceItemMustBeUniqueAccount,
                     "  Item[{}] is an exists account.",
                     index
@@ -358,13 +365,8 @@ fn verify_slices(slices_reader: SliceListReader) -> Result<usize, Error> {
             }
 
             // Store exists account IDs for uniqueness verification.
-            if index == 0 {
-                exists_account_ids.push(account_id_bytes.clone());
-                exists_account_ids.push(bytes::Bytes::from(item.next().raw_data()));
-            } else {
-                exists_account_ids.push(account_id_bytes.clone());
-            }
-
+            exists_account_ids.push(account_id_bytes.clone());
+            // Store account IDs for order verification.
             account_id_list.push(account_id_bytes);
             required_cells_count += 1;
         }
