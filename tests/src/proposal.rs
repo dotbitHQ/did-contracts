@@ -1,35 +1,19 @@
 use super::util::{constants::*, template_generator::*, template_parser::TemplateParser};
 use ckb_testtool::context::Context;
 use ckb_tool::ckb_types::{bytes, prelude::Pack};
+use das_core::error::Error;
 use das_types::constants::*;
 
 fn init(action: &str) -> (TemplateGenerator, u64, u64) {
+    let mut template = TemplateGenerator::new(action, None);
     let height = 1000u64;
     let timestamp = 1611200090u64;
-    let mut template = TemplateGenerator::new(action, None);
 
     template.push_contract_cell("always_success", true);
     template.push_contract_cell("proposal-cell-type", false);
-    template.push_contract_cell("ref-cell-type", false);
-    template.push_contract_cell("account-cell-type", false);
-    template.push_contract_cell("pre-account-cell-type", false);
-    template.push_contract_cell("wallet-cell-type", false);
 
-    template.push_time_cell(1, timestamp, 200_000_000_000, Source::CellDep);
-    template.push_height_cell(1, height, 200_000_000_000, Source::CellDep);
-
-    template.push_config_cell(
-        ConfigID::ConfigCellMain,
-        true,
-        100_000_000_000,
-        Source::CellDep,
-    );
-    template.push_config_cell(
-        ConfigID::ConfigCellRegister,
-        true,
-        100_000_000_000,
-        Source::CellDep,
-    );
+    template.push_height_cell(1, height, 0, Source::CellDep);
+    template.push_config_cell(ConfigID::ConfigCellMain, true, 0, Source::CellDep);
 
     (template, height, timestamp)
 }
@@ -38,12 +22,11 @@ fn gen_proposal_related_cell_at_create(
     template: &mut TemplateGenerator,
     slices: Vec<Vec<(&str, ProposalSliceItemType, &str)>>,
     timestamp: u64,
-    start_from: u32,
 ) {
     let old_registered_at = timestamp - 86400;
     let old_expired_at = timestamp + 31536000 - 86400;
 
-    let mut dep_index = start_from;
+    let mut dep_index = template.cell_deps.len() as u32;
     for (slice_index, slice) in slices.into_iter().enumerate() {
         println!("Generate slice {} ...", slice_index);
 
@@ -95,8 +78,8 @@ fn gen_proposal_related_cell_at_create(
     }
 }
 
-// #[test]
-fn gen_proposal_create_test_data() {
+#[test]
+fn gen_proposal_create() {
     let (mut template, height, timestamp) = init("propose");
 
     let slices = vec![
@@ -118,41 +101,39 @@ fn gen_proposal_create_test_data() {
     );
     template.push_proposal_cell(cell_data, Some((1, 0, entity)), 1000, Source::Output);
 
-    gen_proposal_related_cell_at_create(&mut template, slices, timestamp, 6);
+    gen_proposal_related_cell_at_create(&mut template, slices, timestamp);
 
     template.pretty_print();
 }
 
 test_with_template!(test_proposal_create, "proposal_create.json");
 
-// #[test]
-fn gen_proposal_create_challenge_1_test_data() {
-    let (mut template, height, timestamp) = init("propose");
+challenge_with_generator!(
+    challenge_proposal_create_duplicate_account,
+    Error::ProposalSliceItemMustBeUniqueAccount,
+    || {
+        let (mut template, height, timestamp) = init("propose");
 
-    let slices = vec![vec![
-        ("das00012.bit", ProposalSliceItemType::Exist, "das00013.bit"),
-        ("das00013.bit", ProposalSliceItemType::New, "das00013.bit"),
-    ]];
+        let slices = vec![vec![
+            ("das00012.bit", ProposalSliceItemType::Exist, "das00013.bit"),
+            ("das00013.bit", ProposalSliceItemType::New, "das00013.bit"),
+        ]];
 
-    let (cell_data, entity) = template.gen_proposal_cell_data(
-        "0x0100000000000000000000000000000000000000",
-        height,
-        &slices,
-    );
-    template.push_proposal_cell(cell_data, Some((1, 0, entity)), 0, Source::Output);
+        let (cell_data, entity) = template.gen_proposal_cell_data(
+            "0x0100000000000000000000000000000000000000",
+            height,
+            &slices,
+        );
+        template.push_proposal_cell(cell_data, Some((1, 0, entity)), 0, Source::Output);
 
-    gen_proposal_related_cell_at_create(&mut template, slices, timestamp, 6);
+        gen_proposal_related_cell_at_create(&mut template, slices, timestamp);
 
-    template.pretty_print();
-}
-
-test_with_template!(
-    test_proposal_create_challenge_1,
-    "proposal_create_challenge_1.json"
+        template.as_json()
+    }
 );
 
-// #[test]
-fn gen_extend_proposal_test_data() {
+#[test]
+fn gen_extend_proposal() {
     let (mut template, height, timestamp) = init("extend_proposal");
 
     // Generate previous proposal
@@ -177,7 +158,12 @@ fn gen_extend_proposal_test_data() {
         height - 5,
         &slices,
     );
-    template.push_proposal_cell(cell_data, Some((1, 6, entity)), 1000, Source::CellDep);
+    template.push_proposal_cell(
+        cell_data,
+        Some((1, template.cell_deps.len() as u32, entity)),
+        1000,
+        Source::CellDep,
+    );
 
     // Generate extended proposal
     let slices = vec![
@@ -210,7 +196,7 @@ fn gen_extend_proposal_test_data() {
     );
     template.push_proposal_cell(cell_data, Some((1, 0, entity)), 1000, Source::Output);
 
-    gen_proposal_related_cell_at_create(&mut template, slices, timestamp, 7);
+    gen_proposal_related_cell_at_create(&mut template, slices, timestamp);
 
     template.pretty_print();
 }
@@ -363,9 +349,30 @@ fn gen_proposal_related_cell_at_confirm(
     }
 }
 
-#[test]
-fn gen_confirm_proposal_test_data() {
-    let (mut template, height, timestamp) = init("confirm_proposal");
+fn init_confirm(action: &str) -> (TemplateGenerator, u64, u64) {
+    let height = 1000u64;
+    let timestamp = 1611200090u64;
+    let mut template = TemplateGenerator::new(action, None);
+
+    template.push_contract_cell("always_success", true);
+    template.push_contract_cell("proposal-cell-type", false);
+    template.push_contract_cell("ref-cell-type", false);
+    template.push_contract_cell("account-cell-type", false);
+    template.push_contract_cell("pre-account-cell-type", false);
+    template.push_contract_cell("wallet-cell-type", false);
+
+    template.push_time_cell(1, timestamp, 0, Source::CellDep);
+    template.push_height_cell(1, height, 0, Source::CellDep);
+
+    template.push_config_cell(ConfigID::ConfigCellMain, true, 0, Source::CellDep);
+    template.push_config_cell(ConfigID::ConfigCellRegister, true, 0, Source::CellDep);
+
+    (template, height, timestamp)
+}
+
+// #[test]
+fn gen_confirm_proposal() {
+    let (mut template, height, timestamp) = init_confirm("confirm_proposal");
 
     let slices = vec![
         // A slice base on previous modified AccountCell
@@ -431,19 +438,14 @@ fn init_recycle() -> (TemplateGenerator, u64) {
     template.push_contract_cell("always_success", true);
     template.push_contract_cell("proposal-cell-type", false);
 
-    template.push_height_cell(1, height, 200_000_000_000, Source::CellDep);
-    template.push_config_cell(
-        ConfigID::ConfigCellRegister,
-        true,
-        100_000_000_000,
-        Source::CellDep,
-    );
+    template.push_height_cell(1, height, 0, Source::CellDep);
+    template.push_config_cell(ConfigID::ConfigCellRegister, true, 0, Source::CellDep);
 
     (template, height)
 }
 
 // #[test]
-fn gen_proposal_recycle_test_data() {
+fn gen_proposal_recycle() {
     let (mut template, height) = init_recycle();
 
     let slices = vec![

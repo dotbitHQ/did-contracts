@@ -572,11 +572,11 @@ impl TemplateGenerator {
         }
 
         let profit_config = ProfitConfig::new_builder()
-            .profit_rate_of_channel(Uint32::from(1000))
-            .profit_rate_of_inviter(Uint32::from(1000))
+            .profit_rate_of_channel(Uint32::from(800))
+            .profit_rate_of_inviter(Uint32::from(800))
             .profit_rate_of_das(Uint32::from(8000))
             .profit_rate_of_proposal_create(Uint32::from(400))
-            .profit_rate_of_proposal_confirm(Uint32::from(100))
+            .profit_rate_of_proposal_confirm(Uint32::from(0))
             .build();
 
         let discount_config = DiscountConfig::new_builder()
@@ -670,6 +670,13 @@ impl TemplateGenerator {
                 (
                     cell_data,
                     das_util::wrap_entity_witness(DataType::ConfigCellRegister, entity),
+                )
+            }
+            ConfigID::ConfigCellRecord => {
+                let (cell_data, entity) = self.gen_config_cell_record();
+                (
+                    cell_data,
+                    das_util::wrap_entity_witness(DataType::ConfigCellRecord, entity),
                 )
             }
             ConfigID::ConfigCellMarket => {
@@ -875,13 +882,11 @@ impl TemplateGenerator {
     pub fn gen_proposal_cell_data(
         &mut self,
         proposer_lock_args: &str,
-        proposer_wallet: &str,
         created_at_height: u64,
         slices: &Vec<Vec<(&str, ProposalSliceItemType, &str)>>,
     ) -> (Bytes, ProposalCellData) {
         let entity = ProposalCellData::new_builder()
             .proposer_lock(gen_always_success_lock(proposer_lock_args))
-            .proposer_wallet(Bytes::from(account_to_id_bytes(proposer_wallet)))
             .created_at_height(Uint64::from(created_at_height))
             .slices(gen_slices(slices))
             .build();

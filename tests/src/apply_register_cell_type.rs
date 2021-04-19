@@ -17,7 +17,7 @@ fn init() -> (TemplateGenerator, u64) {
 }
 
 #[test]
-fn gen_apply_register_test_data() {
+fn gen_apply_register() {
     let (mut template, height) = init();
 
     template.push_apply_register_cell(
@@ -35,7 +35,7 @@ test_with_template!(test_apply_register, "apply_register.json");
 
 challenge_with_generator!(
     challenge_apply_register_consuming_cell,
-    Error::ApplyRegisterFoundInvalidTransaction as i8,
+    Error::ApplyRegisterFoundInvalidTransaction,
     || {
         let (mut template, height) = init();
 
@@ -60,7 +60,7 @@ challenge_with_generator!(
 
 challenge_with_generator!(
     challenge_apply_register_invalid_hash_data,
-    Error::InvalidCellData as i8,
+    Error::InvalidCellData,
     || {
         let (mut template, _) = init();
 
@@ -83,7 +83,7 @@ challenge_with_generator!(
 
 challenge_with_generator!(
     challenge_apply_register_invalid_height_data,
-    Error::InvalidCellData as i8,
+    Error::InvalidCellData,
     || {
         let (mut template, _) = init();
 
@@ -109,7 +109,7 @@ challenge_with_generator!(
 
 challenge_with_generator!(
     challenge_apply_register_invalid_height_data_2,
-    Error::InvalidCellData as i8,
+    Error::InvalidCellData,
     || {
         let (mut template, _) = init();
 
@@ -135,7 +135,7 @@ challenge_with_generator!(
 
 challenge_with_generator!(
     challenge_apply_register_height_equal_to_height_cell,
-    Error::ApplyRegisterCellHeightInvalid as i8,
+    Error::ApplyRegisterCellHeightInvalid,
     || {
         let (mut template, height) = init();
 
@@ -153,7 +153,7 @@ challenge_with_generator!(
 
 challenge_with_generator!(
     challenge_apply_register_height_equal_to_height_cell_2,
-    Error::ApplyRegisterCellHeightInvalid as i8,
+    Error::ApplyRegisterCellHeightInvalid,
     || {
         let (mut template, height) = init();
 

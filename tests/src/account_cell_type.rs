@@ -4,7 +4,7 @@ use ckb_tool::ckb_types::bytes;
 use das_types::constants::{ConfigID, DataType};
 
 // #[test]
-fn gen_init_account_chain_test_data() {
+fn gen_init_account_chain() {
     println!("====== Print init_account_chain test data ======");
 
     let mut template = TemplateGenerator::new("init_account_chain", None);
@@ -23,7 +23,7 @@ fn gen_init_account_chain_test_data() {
 test_with_template!(test_init_account_chain, "account_init_account_chain.json");
 
 // #[test]
-fn gen_transfer_account_test_data() {
+fn gen_transfer_account() {
     println!("====== Print transfer_account test data ======");
 
     let mut template = TemplateGenerator::new("transfer_account", None);
@@ -92,7 +92,7 @@ fn gen_transfer_account_test_data() {
 test_with_template!(test_transfer_account, "account_transfer.json");
 
 // #[test]
-fn gen_edit_manager_test_data() {
+fn gen_edit_manager() {
     println!("====== Print edit_manager test data ======");
 
     let mut template = TemplateGenerator::new("edit_manager", None);
@@ -175,7 +175,7 @@ fn gen_edit_manager_test_data() {
 test_with_template!(test_edit_manager, "account_edit_manager.json");
 
 // #[test]
-fn gen_edit_records_test_data() {
+fn gen_edit_records() {
     println!("====== Print edit_records test data ======");
 
     let mut template = TemplateGenerator::new("edit_records", None);
@@ -245,8 +245,8 @@ fn gen_edit_records_test_data() {
 
 test_with_template!(test_edit_records, "account_edit_records.json");
 
-#[test]
-fn gen_renew_account_test_data() {
+// #[test]
+fn gen_renew_account() {
     println!("====== Print renew_account test data ======");
 
     let mut template = TemplateGenerator::new("renew_account", None);
@@ -305,7 +305,7 @@ fn gen_renew_account_test_data() {
 test_with_template!(test_renew_account, "account_renew_account.json");
 
 // #[test]
-fn gen_recycle_expired_account_by_keeper_test_data() {
+fn gen_recycle_expired_account_by_keeper() {
     println!("====== Print recycle_expired_account_by_keeper test data ======");
 
     let mut template = TemplateGenerator::new("recycle_expired_account_by_keeper", None);

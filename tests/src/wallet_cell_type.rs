@@ -15,7 +15,7 @@ fn init(action: &str) -> TemplateGenerator {
 }
 
 // #[test]
-fn gen_wallet_create_test_data() {
+fn gen_wallet_create() {
     let mut template = init("create_wallet");
 
     let source = Source::Output;
@@ -30,7 +30,7 @@ test_with_template!(test_wallet_create, "wallet_create.json");
 
 challenge_with_generator!(
     challenge_wallet_create_without_data,
-    Error::WalletRequireAccountId as i8,
+    Error::WalletRequireAccountId,
     || {
         let mut template = init("create_wallet");
 
@@ -55,7 +55,7 @@ challenge_with_generator!(
 );
 
 // #[test]
-fn gen_wallet_withdraw_test_data() {
+fn gen_wallet_withdraw() {
     let mut template = init("withdraw_from_wallet");
 
     template.push_config_cell(
@@ -147,7 +147,7 @@ fn gen_account_cell(
 }
 
 // #[test]
-fn gen_wallet_recycle_test_data() {
+fn gen_wallet_recycle() {
     let mut template = init("recycle_wallet");
 
     template.push_config_cell(
@@ -194,7 +194,7 @@ fn gen_wallet_recycle_test_data() {
 test_with_template!(test_wallet_recycle, "wallet_recycle.json");
 
 // #[test]
-fn gen_wallet_deposit_test_data() {
+fn gen_wallet_deposit() {
     let mut template = init("xxx");
 
     let account = "das00001.bit";

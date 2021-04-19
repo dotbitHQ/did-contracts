@@ -3,7 +3,7 @@ use ckb_testtool::context::Context;
 use das_types::constants::*;
 
 // #[test]
-fn gen_config_create_test_data() {
+fn gen_config_create() {
     println!("====== Print config cell creation transaction ======");
 
     let mut template = TemplateGenerator::new("config", None);
@@ -39,7 +39,7 @@ fn gen_config_create_test_data() {
 test_with_template!(test_config_create, "config_create.json");
 
 // #[test]
-fn gen_config_edit_test_data() {
+fn gen_config_edit() {
     println!("====== Print config cell editing transaction ======");
 
     let mut template = TemplateGenerator::new("config", None);

@@ -52,8 +52,8 @@ fn init(account: &str) -> (TemplateGenerator, &str, u64) {
     (template, account, timestamp)
 }
 
-// #[test]
-fn gen_pre_register_test_data() {
+#[test]
+fn gen_pre_register() {
     let (mut template, account, timestamp) = init("das00001.bit");
 
     let (cell_data, entity) = template.gen_pre_account_cell_data(
@@ -80,7 +80,7 @@ test_with_template!(test_pre_register, "pre_register.json");
 
 challenge_with_generator!(
     challenge_pre_register_reserved_account,
-    Error::AccountIsReserved as i8,
+    Error::AccountIsReserved,
     || {
         let (mut template, account, timestamp) = init("microsoft.bit");
 
@@ -107,7 +107,7 @@ challenge_with_generator!(
 
 challenge_with_generator!(
     challenge_pre_register_account_length,
-    Error::AccountStillCanNotBeRegister as i8,
+    Error::AccountStillCanNotBeRegister,
     || {
         let (mut template, account, timestamp) = init("a.bit");
 

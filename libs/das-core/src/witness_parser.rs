@@ -83,10 +83,11 @@ impl WitnessesParser {
                 ConfigID::ConfigCellRegister => {
                     config_data_types.push(DataType::ConfigCellRegister)
                 }
+                ConfigID::ConfigCellRecord => config_data_types.push(DataType::ConfigCellRecord),
+                ConfigID::ConfigCellMarket => config_data_types.push(DataType::ConfigCellMarket),
                 ConfigID::ConfigCellBloomFilter => {
                     config_data_types.push(DataType::ConfigCellBloomFilter)
                 }
-                ConfigID::ConfigCellMarket => config_data_types.push(DataType::ConfigCellMarket),
             }
         }
 

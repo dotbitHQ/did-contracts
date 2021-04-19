@@ -39,18 +39,18 @@ macro_rules! challenge_with_generator {
                     println!("{}", serde_json::to_string_pretty(&template).unwrap());
                     panic!(
                         "The test should failed with error code: {}, but it returns Ok.",
-                        $error_code
+                        $error_code as i8
                     )
                 }
                 Err(err) => {
                     let msg = err.to_string();
                     println!("Error message: {}", msg);
 
-                    let search = format!("ValidationFailure({})", $error_code);
+                    let search = format!("ValidationFailure({})", $error_code as i8);
                     assert!(
                         msg.contains(search.as_str()),
                         "The test should failed with error code: {}",
-                        $error_code
+                        $error_code as i8
                     );
                 }
             }
