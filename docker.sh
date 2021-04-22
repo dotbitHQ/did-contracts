@@ -82,9 +82,7 @@ function build() {
             "cp /code/target/riscv64imac-unknown-none-elf/debug/${contract} /code/build/debug/"
     fi
 
-    if [ $? -ne 0 ]; then
-        exit $?
-    fi
+    exit $?
 }
 
 function build_all() {
@@ -148,4 +146,9 @@ test)
     ;;
 esac
 
-echo "Done ✔"
+if [ $? -ne 0 ]; then
+    echo "Build contracts failed. ❌"
+    exit $?
+else
+    echo "Done ✔"
+fi
