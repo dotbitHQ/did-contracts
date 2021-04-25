@@ -890,37 +890,49 @@ fn verify_proposal_execution_result(
 
     debug!("Check if the profit of proposer has been transfered correctly.");
 
-    let expected_profit = wallet.get_balance(&PROPOSAL_CREATOR_WALLET_ID).unwrap();
+    let mut expected_proposer_profit = wallet.get_balance(&PROPOSAL_CREATOR_WALLET_ID).unwrap();
+    let original_expected_proposer_profit = expected_proposer_profit;
     let proposer_lock: ckb_packed::Script =
         proposal_cell_data_reader.proposer_lock().to_entity().into();
     let proposer_wallet_cells =
         util::find_cells_by_script(ScriptType::Lock, &proposer_lock, Source::Output)?;
 
+    if expected_proposer_profit < 6_100_000_000 {
+        expected_proposer_profit += 6_100_000_000;
+    }
+
+    // The keeper who create proposal and confirm proposal maybe the same one, so more than one outputs is allowed.
     assert!(
-        proposer_wallet_cells.len() == 1,
+        proposer_wallet_cells.len() >= 1,
         Error::ProposalConfirmWalletBalanceError,
-        "There should be 1 output with proposer lock, but {} found.",
+        "There should be more than 1 output with proposer lock, but {} found.",
         proposer_wallet_cells.len()
     );
 
-    let proposer_current_profit =
-        load_cell_capacity(proposer_wallet_cells[0], Source::Output).map_err(|e| Error::from(e))?;
+    let mut proposer_current_profit = 0;
+    for index in proposer_wallet_cells {
+        proposer_current_profit +=
+            load_cell_capacity(index, Source::Output).map_err(|e| Error::from(e))?;
+    }
 
     assert!(
-        expected_profit == proposer_current_profit,
+        expected_proposer_profit <= proposer_current_profit,
         Error::ProposalConfirmWalletBalanceError,
-        "Outputs[{}] should has greater than or equal to expected capacity. (expected: {}, current: {})",
-        proposer_wallet_cells[0],
-        expected_profit,
+        "Outputs should has greater than or equal to expected capacity. (expected: {}, current: {})",
+        expected_proposer_profit,
         proposer_current_profit
     );
 
     debug!("Check if the profit of DAS has been transfered correctly.");
 
-    let expected_profit = wallet.get_balance(&ROOT_WALLET_ID).unwrap();
+    let mut expected_profit = wallet.get_balance(&ROOT_WALLET_ID).unwrap();
     let das_wallet_lock = das_wallet_lock();
     let das_wallet_cells =
         util::find_cells_by_script(ScriptType::Lock, &das_wallet_lock, Source::Output)?;
+
+    if original_expected_proposer_profit < 6_100_000_000 {
+        expected_profit -= 6_100_000_000;
+    }
 
     assert!(
         das_wallet_cells.len() == 1,
@@ -933,7 +945,7 @@ fn verify_proposal_execution_result(
         load_cell_capacity(das_wallet_cells[0], Source::Output).map_err(|e| Error::from(e))?;
 
     assert!(
-        expected_profit == current_profit,
+        expected_profit <= current_profit,
         Error::ProposalConfirmWalletBalanceError,
         "Outputs[{}] should has greater than or equal to expected capacity. (expected: {}, current: {})",
         das_wallet_cells[0],

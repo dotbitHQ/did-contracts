@@ -42,7 +42,7 @@ function parse_args() {
 }
 
 function create_output_dir() {
-    if [[ $is_release ]]; then
+    if [[ $is_release == true ]]; then
         if [[ ! -d ./build/release ]]; then
             mkdir -p ./build/release
         fi
@@ -82,7 +82,9 @@ function build() {
             "cp /code/target/riscv64imac-unknown-none-elf/debug/${contract} /code/build/debug/"
     fi
 
-    exit $?
+    if [ $? -ne 0 ]; then
+        exit $?
+    fi
 }
 
 function build_all() {
