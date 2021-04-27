@@ -328,21 +328,45 @@ fn verify_slices(slices_reader: SliceListReader) -> Result<usize, Error> {
         );
 
         // The "next" of last item is refer to an existing account, so we put it into the vector.
+        let first_item = sl_reader.get(0).unwrap();
+        exists_account_ids.push(bytes::Bytes::from(first_item.account_id().raw_data()));
         let last_item = sl_reader.get(sl_reader.len() - 1).unwrap();
         exists_account_ids.push(bytes::Bytes::from(last_item.next().raw_data()));
 
         for (index, item) in sl_reader.iter().enumerate() {
             debug!("  Check if Item[{}] refer to correct next.", index);
 
+            if index == 0 {
+                assert!(
+                    u8::from(item.item_type()) != ProposalSliceItemType::New as u8,
+                    Error::ProposalCellTypeError,
+                    "  Item[{}] The item_type of item[{}] should not be {:?}.",
+                    index,
+                    index,
+                    ProposalSliceItemType::New
+                )
+            } else {
+                assert!(
+                    u8::from(item.item_type()) == ProposalSliceItemType::New as u8,
+                    Error::ProposalCellTypeError,
+                    "  Item[{}] The item_type of item[{}] should be {:?}.",
+                    index,
+                    index,
+                    ProposalSliceItemType::New
+                )
+            }
+
             // Check the uniqueness of current account.
             let account_id_bytes = bytes::Bytes::from(item.account_id().raw_data());
-            for account_id in exists_account_ids.iter() {
-                assert!(
-                    account_id.ne(account_id_bytes.as_ref()),
-                    Error::ProposalSliceItemMustBeUniqueAccount,
-                    "  Item[{}] is an exists account.",
-                    index
-                );
+            if index != 0 {
+                for account_id in exists_account_ids.iter() {
+                    assert!(
+                        account_id.ne(account_id_bytes.as_ref()),
+                        Error::ProposalSliceItemMustBeUniqueAccount,
+                        "  Item[{}] is an exists account.",
+                        index
+                    );
+                }
             }
 
             // Check the continuity of the items in the slice.
