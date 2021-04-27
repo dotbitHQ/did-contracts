@@ -3,18 +3,14 @@ use ckb_std::{
     ckb_constants::Source,
     ckb_types::prelude::*,
     debug,
-    high_level::{
-        load_cell_capacity, load_cell_data, load_cell_lock, load_cell_lock_hash, load_script,
-    },
+    high_level::{load_cell_capacity, load_cell_data, load_cell_lock_hash, load_script},
 };
 use das_core::{
     assert,
     constants::{das_wallet_lock, super_lock, ScriptType, TypeScript, ALWAYS_SUCCESS_LOCK},
     data_parser,
-    data_parser::account_cell,
     error::Error,
     util, warn,
-    witness_parser::WitnessesParser,
 };
 use das_types::{
     constants::{ConfigID, DataType},
@@ -89,20 +85,8 @@ pub fn main() -> Result<(), Error> {
 
         let mut parser = util::load_das_witnesses(None)?;
         parser.parse_all_data()?;
-        parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
-        let config = parser.configs().main()?;
         let timestamp = util::load_timestamp()?;
 
-        let input_ref_cells = util::find_cells_by_type_id(
-            ScriptType::Type,
-            config.type_id_table().ref_cell(),
-            Source::Input,
-        )?;
-        let output_ref_cells = util::find_cells_by_type_id(
-            ScriptType::Type,
-            config.type_id_table().ref_cell(),
-            Source::Output,
-        )?;
         let (input_account_cells, output_account_cells) = load_account_cells()?;
 
         verify_account_expiration(input_account_cells[0], timestamp)?;
@@ -111,39 +95,13 @@ pub fn main() -> Result<(), Error> {
 
         debug!("Check the relationship between RefCells and AccountCell is correct.");
 
-        // This will ensure that RefCells in inputs and outputs is unique and referenced by AccountCell.
-        let (input_owner_cell, input_manager_cell) = distinguish_owner_and_manager(
-            &parser,
-            input_account_cells[0],
-            input_ref_cells,
-            Source::Input,
-        )?;
-        let (output_owner_cell, output_manager_cell) = distinguish_owner_and_manager(
-            &parser,
-            output_account_cells[0],
-            output_ref_cells,
-            Source::Output,
-        )?;
+        // TODO check if AccountCell is unlocked by owner's signature.
 
-        assert!(
-            input_owner_cell.is_some() && output_owner_cell.is_some(),
-            Error::AccountCellOwnerCellIsRequired,
-            "The OwnerCell should exist in both inputs and outputs."
-        );
-
-        assert!(
-            input_manager_cell.is_none() && output_manager_cell.is_none(),
-            Error::AccountCellRedundantRefCellNotAllowed,
-            "The ManagerCell should not exist in either inputs or outputs."
-        );
-
-        util::is_cell_only_lock_changed(
-            (input_owner_cell.unwrap(), Source::Input),
-            (output_owner_cell.unwrap(), Source::Output),
-        )?;
+        // TODO check if AccountCell's lock script is changed.
 
         debug!(
-            "Check if every fields except owner_lock and manager_lock in witness are consistent."
+            // TODO:
+            "Check if every fields in witness are consistent."
         );
 
         let (_, _, entity) = parser.verify_and_get(input_account_cells[0], Source::Input)?;
@@ -165,85 +123,22 @@ pub fn main() -> Result<(), Error> {
 
         let mut parser = util::load_das_witnesses(None)?;
         parser.parse_all_data()?;
-        parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
         let timestamp = util::load_timestamp()?;
 
-        let config = parser.configs().main()?;
-
-        let input_ref_cells = util::find_cells_by_type_id(
-            ScriptType::Type,
-            config.type_id_table().ref_cell(),
-            Source::Input,
-        )?;
-        let output_ref_cells = util::find_cells_by_type_id(
-            ScriptType::Type,
-            config.type_id_table().ref_cell(),
-            Source::Output,
-        )?;
         let (input_account_cells, output_account_cells) = load_account_cells()?;
 
         verify_account_expiration(input_account_cells[0], timestamp)?;
         verify_account_consistent(input_account_cells[0], output_account_cells[0])?;
         verify_account_data_consistent(input_account_cells[0], output_account_cells[0])?;
 
-        debug!("Check the relationship between RefCells and AccountCell is correct.");
+        // TODO check if AccountCell is unlocked by owner's signature.
 
-        // This will ensure that RefCells in inputs and outputs is unique and referenced by AccountCell.
-        let (input_owner_cell, input_manager_cell) = distinguish_owner_and_manager(
-            &parser,
-            input_account_cells[0],
-            input_ref_cells,
-            Source::Input,
-        )?;
-        let (output_owner_cell, output_manager_cell) = distinguish_owner_and_manager(
-            &parser,
-            output_account_cells[0],
-            output_ref_cells,
-            Source::Output,
-        )?;
+        // TODO check if AccountCell's lock script is changed.
 
-        assert!(
-            input_owner_cell.is_some() && output_owner_cell.is_some(),
-            Error::AccountCellManagerCellIsRequired,
-            "The OwnerCell is required in both inputs and outputs."
+        debug!(
+            // TODO:
+            "Check if every fields in witness are consistent."
         );
-
-        assert!(
-            output_manager_cell.is_some(),
-            Error::AccountCellManagerCellIsRequired,
-            "The ManagerCell is required in outputs."
-        );
-
-        if input_manager_cell.is_some() {
-            util::is_cell_only_lock_changed(
-                (input_manager_cell.unwrap(), Source::Input),
-                (output_manager_cell.unwrap(), Source::Output),
-            )?;
-        } else {
-            let account_cell_data =
-                util::load_cell_data(output_owner_cell.unwrap(), Source::Output)?;
-            let manager_cell_data =
-                util::load_cell_data(output_manager_cell.unwrap(), Source::Output)?;
-
-            let account_cell_data_id = data_parser::ref_cell::get_id(&account_cell_data);
-            let manager_cell_data_id = data_parser::ref_cell::get_id(&manager_cell_data);
-
-            assert!(
-                account_cell_data_id == manager_cell_data_id,
-                Error::AccountCellFoundInvalidTransaction,
-                "The data.id of new ManagerCell should be the same as the AccountCell."
-            );
-
-            let manager_cell_data_is_owner =
-                data_parser::ref_cell::get_is_owner(&manager_cell_data);
-            assert!(
-                !manager_cell_data_is_owner,
-                Error::AccountCellFoundInvalidTransaction,
-                "The data.is_owner of new ManagerCell should be 0x01."
-            );
-        }
-
-        debug!("Check if every fields except manager_lock in witness are consistent.");
 
         let (_, _, entity) = parser.verify_and_get(input_account_cells[0], Source::Input)?;
         let input_account_witness = AccountCellData::from_slice(entity.as_reader().raw_data())
@@ -256,7 +151,6 @@ pub fn main() -> Result<(), Error> {
 
         verify_if_id_consistent(input_witness_reader, output_witness_reader)?;
         verify_if_account_consistent(input_witness_reader, output_witness_reader)?;
-        verify_if_owner_lock_consistent(input_witness_reader, output_witness_reader)?;
         verify_if_registered_at_consistent(input_witness_reader, output_witness_reader)?;
         verify_if_status_consistent(input_witness_reader, output_witness_reader)?;
         verify_if_records_consistent(input_witness_reader, output_witness_reader)?;
@@ -265,21 +159,9 @@ pub fn main() -> Result<(), Error> {
 
         let mut parser = util::load_das_witnesses(None)?;
         parser.parse_all_data()?;
-        parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
 
-        let config = parser.configs().main()?;
         let timestamp = util::load_timestamp()?;
 
-        let input_ref_cells = util::find_cells_by_type_id(
-            ScriptType::Type,
-            config.type_id_table().ref_cell(),
-            Source::Input,
-        )?;
-        let output_ref_cells = util::find_cells_by_type_id(
-            ScriptType::Type,
-            config.type_id_table().ref_cell(),
-            Source::Output,
-        )?;
         let (input_account_cells, output_account_cells) = load_account_cells()?;
 
         verify_account_expiration(input_account_cells[0], timestamp)?;
@@ -288,41 +170,14 @@ pub fn main() -> Result<(), Error> {
 
         debug!("Check the relationship between RefCells and AccountCell is correct.");
 
-        // This will ensure that RefCells in inputs and outputs is unique and referenced by AccountCell.
-        let (input_owner_cell, input_manager_cell) = distinguish_owner_and_manager(
-            &parser,
-            input_account_cells[0],
-            input_ref_cells,
-            Source::Input,
-        )?;
-        let (output_owner_cell, output_manager_cell) = distinguish_owner_and_manager(
-            &parser,
-            output_account_cells[0],
-            output_ref_cells,
-            Source::Output,
-        )?;
-        // Check if OwnerCell exists in inputs and outputs.
-        if input_owner_cell.is_some() || output_owner_cell.is_some() {
-            return Err(Error::AccountCellRedundantRefCellNotAllowed);
-        }
-        // Check if ManagerCell not exists in inputs and outputs.
-        if input_manager_cell.is_none() || output_manager_cell.is_none() {
-            return Err(Error::AccountCellManagerCellIsRequired);
-        }
+        // TODO check if AccountCell is unlocked by manager's signature.
 
-        assert!(
-            input_owner_cell.is_none() && output_owner_cell.is_none(),
-            Error::AccountCellRedundantRefCellNotAllowed,
-            "The OwnerCell should not exist in either inputs or outputs."
+        // TODO check if AccountCell's lock script is changed.
+
+        debug!(
+            // TODO:
+            "Check if every fields in witness are consistent."
         );
-
-        assert!(
-            input_manager_cell.is_some() && output_manager_cell.is_some(),
-            Error::AccountCellManagerCellIsRequired,
-            "The ManagerCell should exist in both inputs and outputs."
-        );
-
-        debug!("Check if every fields except records in witness are consistent.");
 
         let (_, _, entity) = parser.verify_and_get(input_account_cells[0], Source::Input)?;
         let input_account_witness = AccountCellData::from_slice(entity.as_reader().raw_data())
@@ -335,8 +190,6 @@ pub fn main() -> Result<(), Error> {
 
         verify_if_id_consistent(input_witness_reader, output_witness_reader)?;
         verify_if_account_consistent(input_witness_reader, output_witness_reader)?;
-        verify_if_owner_lock_consistent(input_witness_reader, output_witness_reader)?;
-        verify_if_manager_lock_consistent(input_witness_reader, output_witness_reader)?;
         verify_if_registered_at_consistent(input_witness_reader, output_witness_reader)?;
         verify_if_status_consistent(input_witness_reader, output_witness_reader)?;
     } else if action == b"renew_account" {
@@ -360,8 +213,8 @@ pub fn main() -> Result<(), Error> {
 
         let input_data = util::load_cell_data(input_account_cells[0], Source::Input)?;
         let output_data = util::load_cell_data(output_account_cells[0], Source::Output)?;
-        let input_expired_at = account_cell::get_expired_at(&input_data);
-        let output_expired_at = account_cell::get_expired_at(&output_data);
+        let input_expired_at = data_parser::account_cell::get_expired_at(&input_data);
+        let output_expired_at = data_parser::account_cell::get_expired_at(&output_data);
         let duration = output_expired_at - input_expired_at;
 
         assert!(
@@ -445,7 +298,7 @@ pub fn main() -> Result<(), Error> {
         let expiration_grace_period =
             u32::from(config_main.account_expiration_grace_period()) as u64;
         let account_data = util::load_cell_data(input_account_cells[0], Source::Input)?;
-        let expired_at = account_cell::get_expired_at(&account_data);
+        let expired_at = data_parser::account_cell::get_expired_at(&account_data);
         if expired_at + expiration_grace_period >= timestamp {
             return Err(Error::AccountCellIsNotExpired);
         }
@@ -518,28 +371,32 @@ fn verify_account_data_consistent(
     let output_data = util::load_cell_data(output_account_index, Source::Output)?;
 
     assert!(
-        account_cell::get_id(&input_data) == account_cell::get_id(&output_data),
+        data_parser::account_cell::get_id(&input_data)
+            == data_parser::account_cell::get_id(&output_data),
         Error::AccountCellDataNotConsistent,
         "The data.id of inputs[{}] and outputs[{}] should be the same.",
         input_account_index,
         output_account_index
     );
     assert!(
-        account_cell::get_next(&input_data) == account_cell::get_next(&output_data),
+        data_parser::account_cell::get_next(&input_data)
+            == data_parser::account_cell::get_next(&output_data),
         Error::AccountCellDataNotConsistent,
         "The data.next of inputs[{}] and outputs[{}] should be the same.",
         input_account_index,
         output_account_index
     );
     assert!(
-        account_cell::get_account(&input_data) == account_cell::get_account(&output_data),
+        data_parser::account_cell::get_account(&input_data)
+            == data_parser::account_cell::get_account(&output_data),
         Error::AccountCellDataNotConsistent,
         "The data.account of inputs[{}] and outputs[{}] should be the same.",
         input_account_index,
         output_account_index
     );
     assert!(
-        account_cell::get_expired_at(&input_data) == account_cell::get_expired_at(&output_data),
+        data_parser::account_cell::get_expired_at(&input_data)
+            == data_parser::account_cell::get_expired_at(&output_data),
         Error::AccountCellDataNotConsistent,
         "The data.expired_at of inputs[{}] and outputs[{}] should be the same.",
         input_account_index,
@@ -559,21 +416,24 @@ fn verify_account_data_except_expired_at_consistent(
     let output_data = util::load_cell_data(output_account_index, Source::Output)?;
 
     assert!(
-        account_cell::get_id(&input_data) == account_cell::get_id(&output_data),
+        data_parser::account_cell::get_id(&input_data)
+            == data_parser::account_cell::get_id(&output_data),
         Error::AccountCellDataNotConsistent,
         "The data.id of inputs[{}] and outputs[{}] should be the same.",
         input_account_index,
         output_account_index
     );
     assert!(
-        account_cell::get_next(&input_data) == account_cell::get_next(&output_data),
+        data_parser::account_cell::get_next(&input_data)
+            == data_parser::account_cell::get_next(&output_data),
         Error::AccountCellDataNotConsistent,
         "The data.next of inputs[{}] and outputs[{}] should be the same.",
         input_account_index,
         output_account_index
     );
     assert!(
-        account_cell::get_account(&input_data) == account_cell::get_account(&output_data),
+        data_parser::account_cell::get_account(&input_data)
+            == data_parser::account_cell::get_account(&output_data),
         Error::AccountCellDataNotConsistent,
         "The data.account of inputs[{}] and outputs[{}] should be the same.",
         input_account_index,
@@ -594,7 +454,7 @@ fn verify_account_expiration(account_cell_index: usize, current: u64) -> Result<
     debug!("Check if AccountCell is expired.");
 
     let data = load_cell_data(account_cell_index, Source::Input).map_err(|e| Error::from(e))?;
-    let expired_at = account_cell::get_expired_at(data.as_slice());
+    let expired_at = data_parser::account_cell::get_expired_at(data.as_slice());
 
     if current > expired_at {
         if current - expired_at > 86400 * 30 {
@@ -614,34 +474,6 @@ fn verify_if_id_consistent(
     output_witness_reader: AccountCellDataReader,
 ) -> Result<(), Error> {
     if !util::is_reader_eq(input_witness_reader.id(), output_witness_reader.id()) {
-        return Err(Error::AccountCellProtectFieldIsModified);
-    }
-
-    Ok(())
-}
-
-fn verify_if_owner_lock_consistent(
-    input_witness_reader: AccountCellDataReader,
-    output_witness_reader: AccountCellDataReader,
-) -> Result<(), Error> {
-    if !util::is_reader_eq(
-        input_witness_reader.owner_lock(),
-        output_witness_reader.owner_lock(),
-    ) {
-        return Err(Error::AccountCellProtectFieldIsModified);
-    }
-
-    Ok(())
-}
-
-fn verify_if_manager_lock_consistent(
-    input_witness_reader: AccountCellDataReader,
-    output_witness_reader: AccountCellDataReader,
-) -> Result<(), Error> {
-    if !util::is_reader_eq(
-        input_witness_reader.manager_lock(),
-        output_witness_reader.manager_lock(),
-    ) {
         return Err(Error::AccountCellProtectFieldIsModified);
     }
 
@@ -702,73 +534,4 @@ fn verify_if_records_consistent(
     }
 
     Ok(())
-}
-
-fn distinguish_owner_and_manager(
-    parser: &WitnessesParser,
-    account_cell: usize,
-    ref_cells: Vec<usize>,
-    source: Source,
-) -> Result<(Option<usize>, Option<usize>), Error> {
-    debug!("Distinguish RefCells to OwnerCell and ManagerCell by AccountCell.witness, and panic if found unrelated RefCells.");
-
-    if ref_cells.len() <= 0 {
-        debug!(
-            "Found AccountCell({})'s RefCells is empty in ({:?}).",
-            account_cell, source
-        );
-        return Err(Error::AccountCellRefCellIsRequired);
-    }
-
-    let (_, _, entity) = parser.verify_and_get(account_cell, source)?;
-    let input_account_witness = AccountCellData::from_slice(entity.as_reader().raw_data())
-        .map_err(|_| Error::WitnessEntityDecodingError)?;
-    let expected_owner_lock = input_account_witness.owner_lock().into();
-    let expected_manager_lock = input_account_witness.manager_lock().into();
-
-    let mut owner_cell = None;
-    let mut manager_cell = None;
-    for index in ref_cells {
-        let lock_script = load_cell_lock(index, source).map_err(|e| Error::from(e))?;
-
-        // If owner lock and manager lock is the same, then distinguish owner and manager by cell data.
-        if util::is_entity_eq(&expected_owner_lock, &expected_manager_lock) {
-            let data = util::load_cell_data(index, source)?;
-            if data_parser::ref_cell::get_is_owner(data) {
-                owner_cell = Some(index);
-            } else {
-                manager_cell = Some(index);
-            }
-        } else {
-            if util::is_entity_eq(&lock_script, &expected_owner_lock) {
-                if owner_cell.is_some() {
-                    debug!(
-                        "Found AccountCell({})'s OwnerCell({}) is redundant in ({:?}) .",
-                        account_cell, index, source
-                    );
-                    return Err(Error::AccountCellRedundantRefCellNotAllowed);
-                }
-
-                owner_cell = Some(index);
-            } else if util::is_entity_eq(&lock_script, &expected_manager_lock) {
-                if manager_cell.is_some() {
-                    debug!(
-                        "Found AccountCell({})'s ManagerCell({}) is redundant in ({:?}) .",
-                        account_cell, index, source
-                    );
-                    return Err(Error::AccountCellRedundantRefCellNotAllowed);
-                }
-
-                manager_cell = Some(index);
-            } else {
-                debug!(
-                    "Found AccountCell({}) and RefCell({}) is unrelated in source({:?}) .",
-                    account_cell, index, source
-                );
-                return Err(Error::AccountCellUnrelatedRefCellFound);
-            }
-        }
-    }
-
-    Ok((owner_cell, manager_cell))
 }

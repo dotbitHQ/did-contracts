@@ -795,7 +795,6 @@ pub fn require_type_script(
         TypeScript::ApplyRegisterCellType => config.type_id_table().apply_register_cell(),
         TypeScript::PreAccountCellType => config.type_id_table().pre_account_cell(),
         TypeScript::ProposalCellType => config.type_id_table().proposal_cell(),
-        TypeScript::RefCellType => config.type_id_table().ref_cell(),
         TypeScript::WalletCellType => config.type_id_table().wallet_cell(),
     };
 
