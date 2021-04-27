@@ -83,7 +83,7 @@ pub enum Error {
     ProposalConfirmWitnessManagerError,
     ProposalConfirmWitnessStatusError,
     ProposalConfirmWitnessRecordsError,
-    ProposalConfirmRefCellMissing, // 110
+    ProposalConfirmAccountLockArgsIsInvalid, // 110
     ProposalConfirmRefCellDuplicated,
     ProposalConfirmRefCellMissMatch,
     ProposalConfirmWalletMissMatch,

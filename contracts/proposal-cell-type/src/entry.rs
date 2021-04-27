@@ -3,7 +3,7 @@ use ckb_std::{
     ckb_constants::Source,
     ckb_types::bytes,
     ckb_types::packed as ckb_packed,
-    high_level::{load_cell_capacity, load_cell_type, load_script},
+    high_level::{load_cell_capacity, load_cell_lock, load_cell_type, load_script},
 };
 use core::convert::TryFrom;
 use core::result::Result;
@@ -717,7 +717,12 @@ fn verify_proposal_execution_result(
                     Some(item_index),
                 )?;
 
-                is_lock_correct()?;
+                is_lock_correct(
+                    item_index,
+                    input_related_cells[i],
+                    input_cell_witness_reader,
+                    output_account_cells[i],
+                )?;
 
                 // Check all fields in the data of new AccountCell.
                 is_id_correct(item_index, &output_cell_data, &input_cell_data)?;
@@ -968,6 +973,52 @@ fn verify_cell_account_id(
         expected_account_id,
         source,
         cell_index
+    );
+
+    Ok(())
+}
+
+fn is_lock_correct(
+    item_index: usize,
+    input_cell_index: usize,
+    input_cell_witness_reader: PreAccountCellDataReader,
+    output_cell_index: usize,
+) -> Result<(), Error> {
+    debug!(
+        "  Item[{}] Check if the lock script of new AccountCells is das-lock.",
+        item_index
+    );
+
+    let mut das_lock = util::script_literal_to_script(DAS_LOCK);
+    let mut owner_lock_args = input_cell_witness_reader
+        .owner_lock_args()
+        .raw_data()
+        .to_owned();
+    let output_cell_lock =
+        load_cell_lock(output_cell_index, Source::Output).map_err(|e| Error::from(e))?;
+
+    assert!(
+        owner_lock_args.len() == 21 && owner_lock_args[0] == 0,
+        Error::ProposalConfirmAccountLockArgsIsInvalid,
+        "  Item[{}] The inputs[{}].witness.owner_lock_args should be the length of 21 bytes, and its first byte should be 0x00.",
+        item_index,
+        input_cell_index
+    );
+
+    owner_lock_args.extend(owner_lock_args.clone().iter());
+    das_lock = das_lock
+        .as_builder()
+        .args(Bytes::from(owner_lock_args).into())
+        .build();
+
+    assert!(
+        util::is_entity_eq(&das_lock, &output_cell_lock),
+        Error::ProposalConfirmAccountLockArgsIsInvalid,
+        "  Item[{}] The outputs[{}].lock is invalid. (expected: {}, current: {})",
+        item_index,
+        output_cell_index,
+        das_lock,
+        output_cell_lock
     );
 
     Ok(())
