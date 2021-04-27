@@ -33,6 +33,7 @@ pub enum Error {
     CellsMustHaveSameOrderAndNumber,
     ActionNotSupported,
     AccountIsReserved, // 28
+    AccountStillCanNotBeRegister,
     WitnessReadingError = 40,
     WitnessEmpty,
     WitnessDasHeaderDecodingError,
@@ -58,7 +59,6 @@ pub enum Error {
     PreRegisterPriceInvalid,
     PreRegisterFoundUndefinedCharSet, // 75
     PreRegisterCKBInsufficient,
-    PreRegisterAccountCanNotRegisterNow,
     PreRegisterAccountCharSetConflict,
     PreRegisterAccountCharIsInvalid,
     PreRegisterQuoteIsInvalid, // 80
@@ -90,6 +90,8 @@ pub enum Error {
     ProposalConfirmWalletBalanceError,
     ProposalSliceNotEndCorrectly, // 115
     ProposalSliceMustStartWithAccountCell,
+    ProposalSliceMustContainMoreThanOneElement,
+    ProposalSliceItemMustBeUniqueAccount,
     ProposalRecycleNeedWaitLonger,
     ProposalRecycleCanNotFoundRefundCell,
     ProposalRecycleRefundAmountError,

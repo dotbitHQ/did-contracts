@@ -1000,6 +1000,7 @@ name = "das-core"
 version = "0.1.0"
 dependencies = [
  "blake2b-ref 0.3.0",
+ "chrono",
  "ckb-std",
  "das-types",
  "hex",
@@ -2070,7 +2071,6 @@ checksum = "ac74c624d6b2d21f425f752262f42188365d7b8ff1aff74c82e45136510a4857"
 name = "pre-account-cell-type"
 version = "0.1.0"
 dependencies = [
- "chrono",
  "ckb-std",
  "das-bloom-filter",
  "das-core",

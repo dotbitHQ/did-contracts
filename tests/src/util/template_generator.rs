@@ -56,9 +56,7 @@ fn gen_char_sets() -> CharSetList {
             0,
             vec![
                 "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p",
-                "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "A", "B", "C", "D", "E", "F",
-                "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V",
-                "W", "X", "Y", "Z",
+                "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
             ],
         ))
         .build()
@@ -423,6 +421,23 @@ impl TemplateGenerator {
         }
     }
 
+    pub fn push_contract_cell(&mut self, contract_filename: &str, deployed: bool) {
+        let value;
+        if deployed {
+            value = json!({
+                "tmp_type": "deployed_contract",
+                "tmp_file_name": contract_filename
+            });
+        } else {
+            value = json!({
+                "tmp_type": "contract",
+                "tmp_file_name": contract_filename
+            });
+        }
+
+        self.cell_deps.push(value)
+    }
+
     pub fn push_time_cell(&mut self, index: u8, timestamp: u64, capacity: u64, source: Source) {
         let mut cell_raw_data = Vec::new();
         cell_raw_data.extend(index.to_be_bytes().iter());
@@ -557,11 +572,11 @@ impl TemplateGenerator {
         }
 
         let profit_config = ProfitConfig::new_builder()
-            .profit_rate_of_channel(Uint32::from(1000))
-            .profit_rate_of_inviter(Uint32::from(1000))
+            .profit_rate_of_channel(Uint32::from(800))
+            .profit_rate_of_inviter(Uint32::from(800))
             .profit_rate_of_das(Uint32::from(8000))
             .profit_rate_of_proposal_create(Uint32::from(400))
-            .profit_rate_of_proposal_confirm(Uint32::from(100))
+            .profit_rate_of_proposal_confirm(Uint32::from(0))
             .build();
 
         let discount_config = DiscountConfig::new_builder()
@@ -655,6 +670,13 @@ impl TemplateGenerator {
                 (
                     cell_data,
                     das_util::wrap_entity_witness(DataType::ConfigCellRegister, entity),
+                )
+            }
+            ConfigID::ConfigCellRecord => {
+                let (cell_data, entity) = self.gen_config_cell_record();
+                (
+                    cell_data,
+                    das_util::wrap_entity_witness(DataType::ConfigCellRecord, entity),
                 )
             }
             ConfigID::ConfigCellMarket => {
@@ -860,13 +882,11 @@ impl TemplateGenerator {
     pub fn gen_proposal_cell_data(
         &mut self,
         proposer_lock_args: &str,
-        proposer_wallet: &str,
         created_at_height: u64,
         slices: &Vec<Vec<(&str, ProposalSliceItemType, &str)>>,
     ) -> (Bytes, ProposalCellData) {
         let entity = ProposalCellData::new_builder()
             .proposer_lock(gen_always_success_lock(proposer_lock_args))
-            .proposer_wallet(Bytes::from(account_to_id_bytes(proposer_wallet)))
             .created_at_height(Uint64::from(created_at_height))
             .slices(gen_slices(slices))
             .build();
@@ -914,16 +934,28 @@ impl TemplateGenerator {
         self.push_cell(capacity, lock_script, type_script, Some(cell_data), source);
     }
 
+    pub fn push_signall_cell(&mut self, lock_args: &str, capacity: u64, source: Source) {
+        let lock_script = json!({
+          "code_hash": "{{always_success}}",
+          "args": lock_args
+        });
+
+        self.push_cell(capacity, lock_script, json!(null), None, source);
+    }
+
     pub fn gen_header() {}
 
-    pub fn pretty_print(&self) {
-        let data = json!({
+    pub fn as_json(&self) -> serde_json::Value {
+        json!({
             "cell_deps": self.cell_deps,
             "inputs": self.inputs,
             "outputs": self.outputs,
             "witnesses": self.witnesses,
-        });
+        })
+    }
 
+    pub fn pretty_print(&self) {
+        let data = self.as_json();
         println!("{}", serde_json::to_string_pretty(&data).unwrap());
     }
 }

@@ -6,10 +6,6 @@
     },
     {
       "tmp_type": "contract",
-      "tmp_file_name": "config-cell-type"
-    },
-    {
-      "tmp_type": "contract",
       "tmp_file_name": "apply-register-cell-type"
     },
     {
@@ -25,25 +21,11 @@
       "tmp_data": "0x0100000000000003e8"
     }
   ],
-  "header_deps": [],
-  "inputs": [
-    {
-      "previous_output": {
-        "tmp_type": "full",
-        "capacity": 10000,
-        "lock": {
-          "code_hash": "{{always_success}}",
-          "args": "0x9af92f5e690f4669ca543deb99af8385b12624cc"
-        },
-        "type": null
-      },
-      "since": "0x"
-    }
-  ],
+  "inputs": [],
   "outputs": [
     {
       "tmp_type": "full",
-      "capacity": 1000,
+      "capacity": 0,
       "lock": {
         "code_hash": "{{always_success}}",
         "args": "0x9af92f5e690f4669ca543deb99af8385b12624cc"
@@ -52,15 +34,6 @@
         "code_hash": "{{apply-register-cell-type}}"
       },
       "tmp_data": "0xaf6b40559e6b71f68646dc140f6c20d9a7c3eb44a22c38f48b8821ec65dc816fe803000000000000"
-    },
-    {
-      "tmp_type": "full",
-      "capacity": 9000,
-      "lock": {
-        "code_hash": "{{always_success}}",
-        "args": "0x9af92f5e690f4669ca543deb99af8385b12624cc"
-      },
-      "type": null
     }
   ],
   "witnesses": [

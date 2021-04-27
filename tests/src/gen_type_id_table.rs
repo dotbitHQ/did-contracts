@@ -8,7 +8,7 @@ use std::env;
 use walkdir::WalkDir;
 
 #[test]
-fn print_hash_of_all_scripts() {
+fn gen_type_id_table() {
     let mut hash_list = Vec::new();
 
     for path in ["../deployed-scripts", "../build/debug"].iter() {
@@ -47,6 +47,6 @@ fn print_hash_of_all_scripts() {
         env::current_dir().unwrap().to_str().unwrap()
     );
     for (filename, hash) in hash_list {
-        println!("{:>30}: {}", filename, hash);
+        println!("{:>32}: {}", filename, hash);
     }
 }

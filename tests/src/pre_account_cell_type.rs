@@ -1,8 +1,14 @@
 use super::util::{constants::*, template_generator::*, template_parser::TemplateParser};
 use ckb_testtool::context::Context;
+use das_core::error::Error;
 use das_types::constants::*;
 
 fn gen_cell_deps(template: &mut TemplateGenerator, height: u64, timestamp: u64) {
+    template.push_contract_cell("always_success", true);
+    template.push_contract_cell("config-cell-type", false);
+    template.push_contract_cell("apply-register-cell-type", false);
+    template.push_contract_cell("pre-account-cell-type", false);
+
     template.push_height_cell(1, height, 200_000_000_000, Source::CellDep);
     template.push_time_cell(1, timestamp, 200_000_000_000, Source::CellDep);
 
@@ -28,24 +34,27 @@ fn gen_cell_deps(template: &mut TemplateGenerator, height: u64, timestamp: u64) 
     );
 }
 
-// #[test]
-fn gen_pre_register_test_data() {
-    println!("====== Print pre_register test data ======");
-
+fn init(account: &str) -> (TemplateGenerator, &str, u64) {
     let mut template = TemplateGenerator::new("pre_register", None);
     let timestamp = 1611200060u64;
     let height = 1000u64;
 
     gen_cell_deps(&mut template, height, timestamp);
 
-    let account = "das00001.bit";
     template.push_apply_register_cell(
         "0x9af92f5e690f4669ca543deb99af8385b12624cc",
         account,
         height - 4,
-        100_000_000_000,
+        0,
         Source::Input,
     );
+
+    (template, account, timestamp)
+}
+
+#[test]
+fn gen_pre_register() {
+    let (mut template, account, timestamp) = init("das00001.bit");
 
     let (cell_data, entity) = template.gen_pre_account_cell_data(
         account,
@@ -54,6 +63,7 @@ fn gen_pre_register_test_data() {
         "inviter_01.bit",
         "channel_01.bit",
         1000,
+        500,
         timestamp,
     );
     template.push_pre_account_cell(
@@ -66,79 +76,58 @@ fn gen_pre_register_test_data() {
     template.pretty_print();
 }
 
-#[test]
-fn test_pre_register() {
-    let mut context;
-    let mut parser;
-    load_template!(&mut context, &mut parser, "pre_register.json");
+test_with_template!(test_pre_register, "pre_register.json");
 
-    // build transaction
-    let tx = parser.build_tx();
+challenge_with_generator!(
+    challenge_pre_register_reserved_account,
+    Error::AccountIsReserved,
+    || {
+        let (mut template, account, timestamp) = init("microsoft.bit");
 
-    // run in vm
-    let cycles = context
-        .verify_tx(&tx, MAX_CYCLES)
-        .expect("pass verification");
+        let (cell_data, entity) = template.gen_pre_account_cell_data(
+            account,
+            "0x0000000000000000000000000000000000002222",
+            "0x000000000000000000000000000000000000FFFF",
+            "inviter_01.bit",
+            "channel_01.bit",
+            1000,
+            500,
+            timestamp,
+        );
+        template.push_pre_account_cell(
+            cell_data,
+            Some((1, 0, entity)),
+            535_600_000_000,
+            Source::Output,
+        );
 
-    println!("test_pre_register: {} cycles", cycles);
-}
+        template.as_json()
+    }
+);
 
-// #[test]
-fn gen_reserved_account_verification_test_data() {
-    println!("====== Print pre_register test data ======");
+challenge_with_generator!(
+    challenge_pre_register_account_length,
+    Error::AccountStillCanNotBeRegister,
+    || {
+        let (mut template, account, timestamp) = init("a.bit");
 
-    let mut template = TemplateGenerator::new("pre_register", None);
-    let timestamp = 1611200060u64;
-    let height = 1000u64;
+        let (cell_data, entity) = template.gen_pre_account_cell_data(
+            account,
+            "0x0000000000000000000000000000000000002222",
+            "0x000000000000000000000000000000000000FFFF",
+            "inviter_01.bit",
+            "channel_01.bit",
+            1000,
+            500,
+            timestamp,
+        );
+        template.push_pre_account_cell(
+            cell_data,
+            Some((1, 0, entity)),
+            1174900000000,
+            Source::Output,
+        );
 
-    gen_cell_deps(&mut template, height, timestamp);
-
-    let account = "microsoft.bit";
-    template.push_apply_register_cell(
-        "0x9af92f5e690f4669ca543deb99af8385b12624cc",
-        account,
-        timestamp - 60,
-        100_000_000_000,
-        Source::Input,
-    );
-
-    let (cell_data, entity) = template.gen_pre_account_cell_data(
-        account,
-        "0x0000000000000000000000000000000000002222",
-        "0x000000000000000000000000000000000000FFFF",
-        "inviter_01.bit",
-        "channel_01.bit",
-        1000,
-        timestamp,
-    );
-    template.push_pre_account_cell(
-        cell_data,
-        Some((1, 0, entity)),
-        528_800_000_000,
-        Source::Output,
-    );
-
-    template.pretty_print();
-}
-
-// #[test]
-#[should_panic]
-fn test_reserved_account_verification() {
-    let mut context;
-    let mut parser;
-    load_template!(
-        &mut context,
-        &mut parser,
-        "pre_register_reserved_account.json"
-    );
-
-    // build transaction
-    let tx = parser.build_tx();
-
-    // run in vm
-    let cycles = context
-        .verify_tx(&tx, MAX_CYCLES)
-        .expect("pass verification");
-
-    println!("test_pre_register: {} cycles", cycles);
-}
+        template.as_json()
+    }
+);

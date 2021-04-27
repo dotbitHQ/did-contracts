@@ -2,7 +2,8 @@ use alloc::borrow::ToOwned;
 use ckb_std::{
     ckb_constants::Source,
     ckb_types::bytes,
-    high_level::{load_cell_capacity, load_cell_data, load_cell_lock, load_cell_type, load_script},
+    ckb_types::packed as ckb_packed,
+    high_level::{load_cell_capacity, load_cell_lock, load_cell_type, load_script},
 };
 use core::convert::TryFrom;
 use core::result::Result;
@@ -12,7 +13,7 @@ use das_core::{
     data_parser::{account_cell, ref_cell},
     debug,
     error::Error,
-    util, warn,
+    util,
     witness_parser::WitnessesParser,
 };
 use das_sorted_list::DasSortedList;
@@ -172,7 +173,7 @@ pub fn main() -> Result<(), Error> {
             config_main,
             config_register,
             timestamp,
-            proposal_cell_data_reader.slices(),
+            proposal_cell_data_reader,
             input_related_cells,
             output_account_cells,
         )?;
@@ -266,7 +267,7 @@ fn inspect_related_cells(
 ) -> Result<(), Error> {
     use das_core::inspect;
 
-    debug!("Inspect inputs:");
+    debug!("Inspect {:?}:", related_cells_source);
     for i in related_cells {
         let script = load_cell_type(i, related_cells_source)
             .map_err(|e| Error::from(e))?
@@ -317,27 +318,67 @@ fn verify_slices(slices_reader: SliceListReader) -> Result<usize, Error> {
     debug!("Check the data structure of proposal slices.");
 
     let mut required_cells_count: usize = 0;
+    let mut exists_account_ids: Vec<bytes::Bytes> = Vec::new();
+
+    // debug!("slices_reader = {}", slices_reader);
+
     for (sl_index, sl_reader) in slices_reader.iter().enumerate() {
         debug!("Check Slice[{}] ...", sl_index);
         let mut account_id_list = Vec::new();
+
+        assert!(
+            sl_reader.len() > 1,
+            Error::ProposalSliceMustContainMoreThanOneElement,
+            "Slice[{}] must contain more than one element, but {} found.",
+            sl_index,
+            sl_reader.len()
+        );
+
+        // The "next" of last item is refer to an existing account, so we put it into the vector.
+        let last_item = sl_reader.get(sl_reader.len() - 1).unwrap();
+        exists_account_ids.push(bytes::Bytes::from(last_item.next().raw_data()));
+
         for (index, item) in sl_reader.iter().enumerate() {
-            // Check the continuity of the items in the slice.
-            if let Some(next) = sl_reader.get(index + 1) {
-                debug!("  Check Item[{}]", index);
-                if !util::is_reader_eq(item.next(), next.account_id()) {
-                    return Err(Error::ProposalSliceIsDiscontinuity);
-                }
+            debug!("  Check if Item[{}] refer to correct next.", index);
+
+            // Check the uniqueness of current account.
+            let account_id_bytes = bytes::Bytes::from(item.account_id().raw_data());
+            for account_id in exists_account_ids.iter() {
+                assert!(
+                    account_id.ne(account_id_bytes.as_ref()),
+                    Error::ProposalSliceItemMustBeUniqueAccount,
+                    "  Item[{}] is an exists account.",
+                    index
+                );
             }
 
-            account_id_list.push(bytes::Bytes::from(item.account_id().raw_data()));
+            // Check the continuity of the items in the slice.
+            if let Some(next) = sl_reader.get(index + 1) {
+                assert!(
+                    util::is_reader_eq(item.next(), next.account_id()),
+                    Error::ProposalSliceIsDiscontinuity,
+                    "  Item[{}].next should be {}, but it is {} now.",
+                    index,
+                    next.account_id(),
+                    item.next()
+                );
+            }
+
+            // Store exists account IDs for uniqueness verification.
+            exists_account_ids.push(account_id_bytes.clone());
+            // Store account IDs for order verification.
+            account_id_list.push(account_id_bytes);
             required_cells_count += 1;
         }
 
         // Check the order of items in the slice.
         let sorted_account_id_list = DasSortedList::new(account_id_list.clone());
-        if !sorted_account_id_list.cmp_order_with(account_id_list) {
-            return Err(Error::ProposalSliceIsNotSorted);
-        }
+        assert!(
+            sorted_account_id_list.cmp_order_with(account_id_list),
+            Error::ProposalSliceIsNotSorted,
+            "The order of items in Slice[{}] is incorrect.",
+            sl_index
+        );
     }
 
     Ok(required_cells_count)
@@ -438,6 +479,7 @@ fn verify_slices_relevant_cells(
             let item_type = u8::from(item.item_type());
 
             let cell_index = relevant_cells[i];
+
             // Check if the relevant cells has the same type as in the proposal.
             let expected_type_id = if item_type == ProposalSliceItemType::Exist as u8 {
                 config.type_id_table().account_cell()
@@ -446,9 +488,8 @@ fn verify_slices_relevant_cells(
             };
             verify_cell_type_id(item_index, cell_index, Source::CellDep, &expected_type_id)?;
 
-            // Check if the relevant cells have the same account ID.
-            let cell_data =
-                load_cell_data(cell_index, Source::CellDep).map_err(|e| Error::from(e))?;
+            let cell_data = util::load_cell_data(cell_index, Source::CellDep)?;
+            // Check if the relevant cells have the same account ID as in the proposal.
             verify_cell_account_id(
                 item_index,
                 &cell_data,
@@ -462,9 +503,11 @@ fn verify_slices_relevant_cells(
             if item_index == 0 {
                 // If this is the first proposal in proposal chain, all slice must start with an AccountCell.
                 if prev_slices_reader_opt.is_none() {
-                    if item_type != ProposalSliceItemType::Exist as u8 {
-                        return Err(Error::ProposalSliceMustStartWithAccountCell);
-                    }
+                    assert!(
+                        item_type == ProposalSliceItemType::Exist as u8,
+                        Error::ProposalSliceMustStartWithAccountCell,
+                        "  In the first proposal of a proposal chain, all slice should start with an AccountCell."
+                    );
 
                     // The correct "next" of first proposal is come from the cell's outputs_data.
                     next_of_first_cell = AccountId::try_from(account_cell::get_next(&cell_data))
@@ -474,11 +517,11 @@ fn verify_slices_relevant_cells(
                 // AccountCell/PreAccountCell included in previous proposal, or it may starting with
                 // an AccountCell not included in previous proposal.
                 } else {
-                    if item_type != ProposalSliceItemType::Exist as u8
-                        && item_type != ProposalSliceItemType::Proposed as u8
-                    {
-                        return Err(Error::ProposalSliceMustStartWithAccountCell);
-                    }
+                    assert!(
+                        item_type == ProposalSliceItemType::Exist as u8 || item_type == ProposalSliceItemType::Proposed as u8,
+                        Error::ProposalSliceMustStartWithAccountCell,
+                        "  In the extended proposal of a proposal chain, slices should start with an AccountCell or a PreAccountCell which included in previous proposal."
+                    );
 
                     let prev_slices_reader = prev_slices_reader_opt.as_ref().unwrap();
                     next_of_first_cell =
@@ -534,18 +577,23 @@ fn verify_proposal_execution_result(
     config_main: ConfigCellMainReader,
     config_register: ConfigCellRegisterReader,
     timestamp: u64,
-    slices_reader: SliceListReader,
+    proposal_cell_data_reader: ProposalCellDataReader,
     input_related_cells: Vec<usize>,
     output_account_cells: Vec<usize>,
 ) -> Result<(), Error> {
     debug!("Check that all AccountCells/PreAccountCells have been converted according to the proposal.");
 
+    let slices_reader = proposal_cell_data_reader.slices();
     let account_cell_type_id = config_main.type_id_table().account_cell();
     let pre_account_cell_type_id = config_main.type_id_table().pre_account_cell();
 
     let mut wallet = Wallet::new();
     let inviter_profit_rate = u32::from(config_register.profit().profit_rate_of_inviter()) as u64;
     let channel_profit_rate = u32::from(config_register.profit().profit_rate_of_channel()) as u64;
+    let proposal_create_profit_rate =
+        u32::from(config_register.profit().profit_rate_of_proposal_create()) as u64;
+    let proposal_confirm_profit_rate =
+        u32::from(config_register.profit().profit_rate_of_proposal_confirm()) as u64;
 
     let mut output_ref_cells = load_ref_cells(config_main)?;
 
@@ -673,9 +721,15 @@ fn verify_proposal_execution_result(
                 let account_length = account_cell::get_account(&output_cell_data).len() as u64;
                 let total_capacity = load_cell_capacity(input_related_cells[i], Source::Input)
                     .map_err(|e| Error::from(e))?;
-                let storage_capacity = util::get_account_storage_total(account_length);
+                let storage_capacity = util::calc_account_storage_capacity(account_length);
                 // Allocate the profits carried by PreAccountCell to the wallets for later verification.
                 let profit = total_capacity - storage_capacity;
+
+                util::verify_account_length_and_years(
+                    account_length as usize,
+                    timestamp,
+                    Some(item_index),
+                )?;
 
                 // Check all fields in the data of new AccountCell.
                 is_id_correct(item_index, &output_cell_data, &input_cell_data)?;
@@ -715,12 +769,7 @@ fn verify_proposal_execution_result(
                         "  Item[{}] Wallet[0x{}]: {}(inviter_profit) = {}(profit) * {}(inviter_profit_rate) / {}(RATE_BASE)",
                         item_index, util::hex_string(wallet_id), inviter_profit, profit, inviter_profit_rate, RATE_BASE
                     );
-                    // It is hard to recycle testing cells, so here we count root account's wallet as das wallet.
-                    if wallet_id == &ROOT_WALLET_ID {
-                        wallet.add_balance(&DAS_WALLET_ID, inviter_profit);
-                    } else {
-                        wallet.add_balance(wallet_id, inviter_profit);
-                    }
+                    wallet.add_balance(wallet_id, inviter_profit);
                 };
 
                 let mut channel_profit = 0;
@@ -731,20 +780,26 @@ fn verify_proposal_execution_result(
                         "  Item[{}] Wallet[0x{}]: {}(channel_profit) = {}(profit) * {}(channel_profit_rate) / {}(RATE_BASE)",
                         item_index, util::hex_string(wallet_id), channel_profit, profit, channel_profit_rate, RATE_BASE
                     );
-                    // It is hard to recycle testing cells, so here we count root account's wallet as das wallet.
-                    if wallet_id == &ROOT_WALLET_ID {
-                        wallet.add_balance(&DAS_WALLET_ID, channel_profit);
-                    } else {
-                        wallet.add_balance(wallet_id, channel_profit);
-                    }
+                    wallet.add_balance(wallet_id, channel_profit);
                 };
 
-                let das_profit = profit - inviter_profit - channel_profit;
+                let proposal_create_profit = profit * proposal_create_profit_rate / RATE_BASE;
+                wallet.add_balance(&PROPOSAL_CREATOR_WALLET_ID, proposal_create_profit);
+
+                let proposal_confirm_profit = profit * proposal_confirm_profit_rate / RATE_BASE;
+                wallet.add_balance(&PROPOSAL_CONFIRMOR_WALLET_ID, proposal_confirm_profit);
+
+                let das_profit = profit
+                    - inviter_profit
+                    - channel_profit
+                    - proposal_create_profit
+                    - proposal_confirm_profit;
+                wallet.add_balance(&ROOT_WALLET_ID, das_profit);
+
                 debug!(
-                    "  Item[{}] Wallet[0x{}]: {}(das_profit) = {}(profit) - {}(inviter_profit) - {}(channel_profit)",
-                    item_index, util::hex_string(&DAS_WALLET_ID), das_profit, profit, inviter_profit, channel_profit
+                    "  Item[{}] Wallet[0x{}]: {}(das_profit) = {}(profit) - {}(inviter_profit) - {}(channel_profit) - {}(proposal_create_profit) - {}(proposal_confirm_profit)",
+                    item_index, util::hex_string(&ROOT_WALLET_ID), das_profit, profit, inviter_profit, channel_profit, proposal_create_profit, proposal_confirm_profit
                 );
-                wallet.add_balance(&DAS_WALLET_ID, das_profit);
             }
 
             i += 1;
@@ -776,10 +831,10 @@ fn verify_proposal_execution_result(
 
     // The DAS wallet do not count.
     assert!(
-        wallet.len() - 1 == new_wallet_cells.len(),
+        wallet.len() - 3 == new_wallet_cells.len(),
         Error::ProposalFoundInvalidTransaction,
         "The number of WalletCells in outputs should equal to the number of wallets involved by PreAccountCell. (involved: {}, outputs: {})",
-        wallet.len() - 1,
+        wallet.len() - 3,
         new_wallet_cells.len()
     );
 
@@ -833,11 +888,37 @@ fn verify_proposal_execution_result(
         }
     }
 
+    debug!("Check if the profit of proposer has been transfered correctly.");
+
+    let expected_profit = wallet.get_balance(&PROPOSAL_CREATOR_WALLET_ID).unwrap();
+    let proposer_lock: ckb_packed::Script =
+        proposal_cell_data_reader.proposer_lock().to_entity().into();
+    let proposer_wallet_cells =
+        util::find_cells_by_script(ScriptType::Lock, &proposer_lock, Source::Output)?;
+
+    assert!(
+        proposer_wallet_cells.len() == 1,
+        Error::ProposalConfirmWalletBalanceError,
+        "There should be 1 output with proposer lock, but {} found.",
+        proposer_wallet_cells.len()
+    );
+
+    let proposer_current_profit =
+        load_cell_capacity(proposer_wallet_cells[0], Source::Output).map_err(|e| Error::from(e))?;
+
+    assert!(
+        expected_profit == proposer_current_profit,
+        Error::ProposalConfirmWalletBalanceError,
+        "Outputs[{}] should has greater than or equal to expected capacity. (expected: {}, current: {})",
+        proposer_wallet_cells[0],
+        expected_profit,
+        proposer_current_profit
+    );
+
     debug!("Check if the profit of DAS has been transfered correctly.");
 
-    let expected_profit = wallet.get_balance(&DAS_WALLET_ID).unwrap();
+    let expected_profit = wallet.get_balance(&ROOT_WALLET_ID).unwrap();
     let das_wallet_lock = das_wallet_lock();
-
     let das_wallet_cells =
         util::find_cells_by_script(ScriptType::Lock, &das_wallet_lock, Source::Output)?;
 
@@ -852,7 +933,7 @@ fn verify_proposal_execution_result(
         load_cell_capacity(das_wallet_cells[0], Source::Output).map_err(|e| Error::from(e))?;
 
     assert!(
-        expected_profit >= current_profit,
+        expected_profit == current_profit,
         Error::ProposalConfirmWalletBalanceError,
         "Outputs[{}] should has greater than or equal to expected capacity. (expected: {}, current: {})",
         das_wallet_cells[0],
@@ -874,18 +955,15 @@ fn verify_cell_type_id(
         .map(|script| Hash::from(script.code_hash()))
         .ok_or(Error::ProposalSliceRelatedCellNotFound)?;
 
-    if !util::is_reader_eq(expected_type_id.to_owned(), cell_type_id.as_reader()) {
-        debug!(
-            "  Item[{}] Verify type script at {:?}[{}]: {} != {} => {}",
-            item_index,
-            source,
-            cell_index,
-            cell_type_id,
-            expected_type_id,
-            !util::is_reader_eq(expected_type_id.to_owned(), cell_type_id.as_reader())
-        );
-        return Err(Error::ProposalCellTypeError);
-    }
+    assert!(
+        util::is_reader_eq(expected_type_id.to_owned(), cell_type_id.as_reader()),
+        Error::ProposalCellTypeError,
+        "  The type ID of Item[{}] should be {}. (related_cell: {:?}[{}])",
+        item_index,
+        expected_type_id,
+        source,
+        cell_index
+    );
 
     Ok(())
 }
@@ -900,18 +978,15 @@ fn verify_cell_account_id(
     let account_id = AccountId::try_from(account_cell::get_id(&cell_data))
         .map_err(|_| Error::InvalidCellData)?;
 
-    if !util::is_reader_eq(account_id.as_reader(), expected_account_id) {
-        debug!(
-            "  Item[{}] Verify account_id at {:?}[{}]: {} != {} => {}",
-            item_index,
-            source,
-            cell_index,
-            account_id,
-            expected_account_id,
-            !util::is_reader_eq(account_id.as_reader(), expected_account_id)
-        );
-        return Err(Error::ProposalCellAccountIdError);
-    }
+    assert!(
+        util::is_reader_eq(account_id.as_reader(), expected_account_id),
+        Error::ProposalCellAccountIdError,
+        "  The account ID of Item[{}] should be {}. (related_cell: {:?}[{}])",
+        item_index,
+        expected_account_id,
+        source,
+        cell_index
+    );
 
     Ok(())
 }
@@ -1023,7 +1098,8 @@ fn is_expired_at_correct(
 ) -> Result<(), Error> {
     let price = u64::from(pre_account_cell_witness.price().new());
     let quote = u64::from(pre_account_cell_witness.quote());
-    let duration = util::calc_duration_from_paid(profit, price, quote);
+    let discount = u32::from(pre_account_cell_witness.invited_discount());
+    let duration = util::calc_duration_from_paid(profit, price, quote, discount);
     let expired_at = account_cell::get_expired_at(output_cell_data);
     let calculated_expired_at = current_timestamp + duration;
 
@@ -1034,22 +1110,14 @@ fn is_expired_at_correct(
         calculated_expired_at
     );
 
-    if !(current_timestamp + duration == expired_at) {
-        warn!(
-            "  Item[{}] Check failed: cell.expired_at({}) != calculated_expired_at({})",
-            item_index, expired_at, calculated_expired_at
-        );
-        warn!(
-            "  Item[{}] calculated_expired_at({}) = current({}) + (profit({}) / (price({}) / quote({}) * 100_000_000)) * 365 * 86400",
-            item_index,
-            calculated_expired_at,
-            current_timestamp,
-            profit,
-            price,
-            quote
-        );
-        return Err(Error::ProposalConfirmExpiredAtError);
-    }
+    assert!(
+        current_timestamp + duration == expired_at,
+        Error::ProposalConfirmExpiredAtError,
+        "  Item[{}] The AccountCell.expired_at should be {}, but {} found.",
+        item_index,
+        calculated_expired_at,
+        expired_at
+    );
 
     Ok(())
 }

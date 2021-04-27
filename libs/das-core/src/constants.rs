@@ -41,8 +41,11 @@ pub const ACCOUNT_MAX_PRICED_LENGTH: u8 = 8;
 pub const BLOOM_FILTER_M: u64 = 1918;
 pub const BLOOM_FILTER_K: u64 = 14;
 
-pub const DAS_WALLET_ID: [u8; ACCOUNT_ID_LENGTH] = [183, 82, 104, 3, 246, 126, 190, 112, 171, 166];
 pub const ROOT_WALLET_ID: [u8; ACCOUNT_ID_LENGTH] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+pub const PROPOSAL_CREATOR_WALLET_ID: [u8; ACCOUNT_ID_LENGTH] =
+    [255, 255, 255, 255, 255, 255, 255, 255, 255, 254];
+pub const PROPOSAL_CONFIRMOR_WALLET_ID: [u8; ACCOUNT_ID_LENGTH] =
+    [255, 255, 255, 255, 255, 255, 255, 255, 255, 253];
 
 pub fn super_lock() -> Script {
     #[cfg(feature = "dev")]

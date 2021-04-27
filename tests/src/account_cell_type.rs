@@ -4,7 +4,7 @@ use ckb_tool::ckb_types::bytes;
 use das_types::constants::{ConfigID, DataType};
 
 // #[test]
-fn gen_init_account_chain_test_data() {
+fn gen_init_account_chain() {
     println!("====== Print init_account_chain test data ======");
 
     let mut template = TemplateGenerator::new("init_account_chain", None);
@@ -20,29 +20,10 @@ fn gen_init_account_chain_test_data() {
     template.pretty_print();
 }
 
-#[test]
-fn test_init_account_chain() {
-    let mut context;
-    let mut parser;
-    load_template!(
-        &mut context,
-        &mut parser,
-        "../templates/account_init_account_chain.json"
-    );
-
-    // build transaction
-    let tx = parser.build_tx();
-
-    // run in vm
-    let cycles = context
-        .verify_tx(&tx, MAX_CYCLES)
-        .expect("pass verification");
-
-    println!("test_always_success: {} cycles", cycles);
-}
+test_with_template!(test_init_account_chain, "account_init_account_chain.json");
 
 // #[test]
-fn gen_transfer_account_test_data() {
+fn gen_transfer_account() {
     println!("====== Print transfer_account test data ======");
 
     let mut template = TemplateGenerator::new("transfer_account", None);
@@ -108,29 +89,10 @@ fn gen_transfer_account_test_data() {
     template.pretty_print();
 }
 
-#[test]
-fn test_transfer_account() {
-    let mut context;
-    let mut parser;
-    load_template!(
-        &mut context,
-        &mut parser,
-        "../templates/account_transfer.json"
-    );
-
-    // build transaction
-    let tx = parser.build_tx();
-
-    // run in vm
-    let cycles = context
-        .verify_tx(&tx, MAX_CYCLES)
-        .expect("pass verification");
-
-    println!("test_always_success: {} cycles", cycles);
-}
+test_with_template!(test_transfer_account, "account_transfer.json");
 
 // #[test]
-fn gen_edit_manager_test_data() {
+fn gen_edit_manager() {
     println!("====== Print edit_manager test data ======");
 
     let mut template = TemplateGenerator::new("edit_manager", None);
@@ -210,29 +172,10 @@ fn gen_edit_manager_test_data() {
     template.pretty_print();
 }
 
-#[test]
-fn test_edit_manager() {
-    let mut context;
-    let mut parser;
-    load_template!(
-        &mut context,
-        &mut parser,
-        "../templates/account_edit_manager.json"
-    );
-
-    // build transaction
-    let tx = parser.build_tx();
-
-    // run in vm
-    let cycles = context
-        .verify_tx(&tx, MAX_CYCLES)
-        .expect("pass verification");
-
-    println!("test_always_success: {} cycles", cycles);
-}
+test_with_template!(test_edit_manager, "account_edit_manager.json");
 
 // #[test]
-fn gen_edit_records_test_data() {
+fn gen_edit_records() {
     println!("====== Print edit_records test data ======");
 
     let mut template = TemplateGenerator::new("edit_records", None);
@@ -300,44 +243,17 @@ fn gen_edit_records_test_data() {
     template.pretty_print();
 }
 
-#[test]
-fn test_edit_records() {
-    let mut context;
-    let mut parser;
-    load_template!(
-        &mut context,
-        &mut parser,
-        "../templates/account_edit_records.json"
-    );
-
-    // build transaction
-    let tx = parser.build_tx();
-
-    // run in vm
-    let cycles = context
-        .verify_tx(&tx, MAX_CYCLES)
-        .expect("pass verification");
-
-    println!("test_always_success: {} cycles", cycles);
-}
+test_with_template!(test_edit_records, "account_edit_records.json");
 
 // #[test]
-fn gen_renew_account_test_data() {
+fn gen_renew_account() {
     println!("====== Print renew_account test data ======");
 
     let mut template = TemplateGenerator::new("renew_account", None);
     let timestamp = 1611200000u64;
 
     template.push_time_cell(1, timestamp, 200_000_000_000, Source::CellDep);
-
     template.push_quote_cell(1000, 200_000_000_000, Source::CellDep);
-
-    template.push_config_cell(
-        ConfigID::ConfigCellMain,
-        true,
-        100_000_000_000,
-        Source::CellDep,
-    );
     template.push_config_cell(
         ConfigID::ConfigCellRegister,
         true,
@@ -360,8 +276,6 @@ fn gen_renew_account_test_data() {
         None,
     );
     template.push_account_cell(cell_data, None, 19_400_000_000, Source::Input);
-    template.push_wallet_cell("das.bit", 9_400_000_000, Source::Input);
-
     let (cell_data, new_entity) = template.gen_account_cell_data(
         account,
         "0x0000000000000000000000000000000000001111",
@@ -372,8 +286,6 @@ fn gen_renew_account_test_data() {
         None,
     );
     template.push_account_cell(cell_data, None, 19_400_000_000, Source::Output);
-    template.push_wallet_cell("das.bit", 509_400_000_000, Source::Output);
-
     template.push_witness(
         DataType::AccountCellData,
         Some((1, 0, new_entity)),
@@ -381,32 +293,19 @@ fn gen_renew_account_test_data() {
         None,
     );
 
+    template.push_signall_cell(
+        "0x0300000000000000000000000000000000000000",
+        500_000_000_000,
+        Source::Output,
+    );
+
     template.pretty_print();
 }
 
-#[test]
-fn test_renew_account() {
-    let mut context;
-    let mut parser;
-    load_template!(
-        &mut context,
-        &mut parser,
-        "../templates/account_renew_account.json"
-    );
-
-    // build transaction
-    let tx = parser.build_tx();
-
-    // run in vm
-    let cycles = context
-        .verify_tx(&tx, MAX_CYCLES)
-        .expect("pass verification");
-
-    println!("test_always_success: {} cycles", cycles);
-}
+test_with_template!(test_renew_account, "account_renew_account.json");
 
 // #[test]
-fn gen_recycle_expired_account_by_keeper_test_data() {
+fn gen_recycle_expired_account_by_keeper() {
     println!("====== Print recycle_expired_account_by_keeper test data ======");
 
     let mut template = TemplateGenerator::new("recycle_expired_account_by_keeper", None);
@@ -451,23 +350,7 @@ fn gen_recycle_expired_account_by_keeper_test_data() {
     template.pretty_print();
 }
 
-#[test]
-fn test_recycle_expired_account_by_keeper() {
-    let mut context;
-    let mut parser;
-    load_template!(
-        &mut context,
-        &mut parser,
-        "../templates/account_recycle_expired_account_by_keeper.json"
-    );
-
-    // build transaction
-    let tx = parser.build_tx();
-
-    // run in vm
-    let cycles = context
-        .verify_tx(&tx, MAX_CYCLES)
-        .expect("pass verification");
-
-    println!("test_always_success: {} cycles", cycles);
-}
+test_with_template!(
+    test_recycle_expired_account_by_keeper,
+    "account_recycle_expired_account_by_keeper.json"
+);

@@ -69,7 +69,7 @@ function build() {
         echo "Run build command: "$command
 
         # Build release version
-        docker exec -it -w /code/contracts/$contract $DOCKER_CONTAINER bash -c "${command}"
+        docker exec -it -w /code/contracts/$contract $DOCKER_CONTAINER bash -c "${command}"  &&\
         docker exec -it -w /code $DOCKER_CONTAINER bash -c \
             "cp /code/target/riscv64imac-unknown-none-elf/release/${contract} /code/build/release/"
     else
@@ -77,9 +77,13 @@ function build() {
         echo "Run build command: "$command
 
         # Build debug version
-        docker exec -it -w /code/contracts/$contract $DOCKER_CONTAINER bash -c "${command}"
+        docker exec -it -w /code/contracts/$contract $DOCKER_CONTAINER bash -c "${command}" &&\
         docker exec -it -w /code $DOCKER_CONTAINER bash -c \
             "cp /code/target/riscv64imac-unknown-none-elf/debug/${contract} /code/build/debug/"
+    fi
+
+    if [ $? -ne 0 ]; then
+        exit $?
     fi
 }
 

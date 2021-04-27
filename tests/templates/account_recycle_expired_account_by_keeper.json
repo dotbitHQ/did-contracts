@@ -52,48 +52,9 @@
         "tmp_data": "0x301c90aff3e3e50c126dd0ee77a6c29e8d4e9484792d22c0c4c531c736e1222ea2e06438859db0449574b209ac25bd48f00b9ae6ff68e15f0000000064617330303030312e626974"
       },
       "since": "0x"
-    },
-    {
-      "previous_output": {
-        "tmp_type": "full",
-        "capacity": 10400000000,
-        "lock": {
-          "code_hash": "{{always_success}}"
-        },
-        "type": {
-          "code_hash": "{{wallet-cell-type}}",
-          "args": "0xa2e06438859db0449574"
-        }
-      },
-      "since": "0x"
-    },
-    {
-      "previous_output": {
-        "tmp_type": "full",
-        "capacity": 8400000000,
-        "lock": {
-          "code_hash": "{{always_success}}"
-        },
-        "type": {
-          "code_hash": "{{wallet-cell-type}}",
-          "args": "0xb7526803f67ebe70aba6"
-        }
-      },
-      "since": "0x"
     }
   ],
   "outputs": [
-    {
-      "tmp_type": "full",
-      "capacity": 16800000000,
-      "lock": {
-        "code_hash": "{{always_success}}"
-      },
-      "type": {
-        "code_hash": "{{wallet-cell-type}}",
-        "args": "0xb7526803f67ebe70aba6"
-      }
-    },
     {
       "tmp_type": "full",
       "capacity": 17800000000,

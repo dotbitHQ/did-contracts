@@ -1,5 +1,5 @@
 use alloc::borrow::ToOwned;
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use ckb_std::high_level::{load_cell_capacity, load_cell_occupied_capacity};
 use ckb_std::{
     ckb_constants::Source,
@@ -9,15 +9,14 @@ use ckb_std::{
 use das_core::{
     assert,
     constants::{
-        wallet_maker_lock, ScriptType, TypeScript, ACCOUNT_ID_LENGTH, ALWAYS_SUCCESS_LOCK,
-        CELL_BASIC_CAPACITY,
+        wallet_maker_lock, ScriptType, ACCOUNT_ID_LENGTH, ALWAYS_SUCCESS_LOCK, CELL_BASIC_CAPACITY,
     },
     data_parser,
     error::Error,
     util,
 };
 use das_types::{
-    constants::{ConfigID, DataType},
+    constants::ConfigID,
     packed::{AccountCellData, Script},
     prelude::Entity,
 };
@@ -133,6 +132,9 @@ pub fn main() -> Result<(), Error> {
                         refunds_list.push((account_id, total_capacity - occupied_capacity));
                     }
                 }
+
+                // TODO If balance is too low, there is no need to include AccountCell in transaction.
+                // TODO WalletCell should be able to recycle after AccountCell is recycled.
 
                 // Create an account_id->account_cell_index map for later verification.
                 let mut account_indexs_grouped_by_id: Vec<(Vec<u8>, usize)> = Vec::new();
@@ -312,15 +314,6 @@ pub fn main() -> Result<(), Error> {
                     expected_lock,
                     lock
                 );
-            } else if action == b"recycle_expired_account_by_keeper" {
-                debug!("Route to recycle_expired_account_by_keeper action ...");
-                let mut parser = util::load_das_witnesses(Some(vec![DataType::ConfigCellMain]))?;
-                util::require_type_script(
-                    &mut parser,
-                    TypeScript::AccountCellType,
-                    Source::Input,
-                    Error::AccountCellFoundInvalidTransaction,
-                )?;
             } else {
                 debug!("Route to other action ...");
 

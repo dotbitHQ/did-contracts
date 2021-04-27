@@ -3,7 +3,7 @@ use ckb_testtool::context::Context;
 use das_types::constants::*;
 
 // #[test]
-fn gen_config_create_test_data() {
+fn gen_config_create() {
     println!("====== Print config cell creation transaction ======");
 
     let mut template = TemplateGenerator::new("config", None);
@@ -36,25 +36,10 @@ fn gen_config_create_test_data() {
     template.pretty_print();
 }
 
-#[test]
-fn test_config_create() {
-    let mut context;
-    let mut parser;
-    load_template!(&mut context, &mut parser, "config_create.json");
-
-    // build transaction
-    let tx = parser.build_tx();
-
-    // run in vm
-    let cycles = context
-        .verify_tx(&tx, MAX_CYCLES)
-        .expect("pass verification");
-
-    println!("test_config_cell_create: {} cycles", cycles);
-}
+test_with_template!(test_config_create, "config_create.json");
 
 // #[test]
-fn gen_config_edit_test_data() {
+fn gen_config_edit() {
     println!("====== Print config cell editing transaction ======");
 
     let mut template = TemplateGenerator::new("config", None);
@@ -111,19 +96,4 @@ fn gen_config_edit_test_data() {
     template.pretty_print();
 }
 
-#[test]
-fn test_config_edit() {
-    let mut context;
-    let mut parser;
-    load_template!(&mut context, &mut parser, "config_edit.json");
-
-    // build transaction
-    let tx = parser.build_tx();
-
-    // run in vm
-    let cycles = context
-        .verify_tx(&tx, MAX_CYCLES)
-        .expect("pass verification");
-
-    println!("test_config_cell_edit: {} cycles", cycles);
-}
+test_with_template!(test_config_edit, "config_edit.json");
