@@ -129,6 +129,7 @@ pub fn main() -> Result<(), Error> {
             apply_register_hash,
         )?;
 
+        verify_owner_lock_args(reader)?;
         verify_quote(reader)?;
         verify_invited_discount(config_register_reader, reader)?;
         verify_price_and_capacity(config_register_reader, reader, capacity)?;
@@ -252,7 +253,34 @@ fn verify_created_at(
     Ok(())
 }
 
+fn verify_owner_lock_args(reader: PreAccountCellDataReader) -> Result<(), Error> {
+    debug!(
+        "Check if PreAccountCell.witness.owner_lock_args is 21 bytes and the first byte is 0x00."
+    );
+
+    let owner_lock_args = reader.owner_lock_args();
+
+    assert!(
+        owner_lock_args.len() == 21,
+        Error::PreRegisterOwnerLockArgsIsInvalid,
+        "The length of owner_lock_args should be 21 bytes, but {} found.",
+        owner_lock_args.len()
+    );
+
+    let first_byte = owner_lock_args.get(0).unwrap().as_slice();
+
+    assert!(
+        first_byte == &[0],
+        Error::PreRegisterOwnerLockArgsIsInvalid,
+        "The first byte of owner_lock_args should be 0x00."
+    );
+
+    Ok(())
+}
+
 fn verify_quote(reader: PreAccountCellDataReader) -> Result<(), Error> {
+    debug!("Check if PreAccountCell.witness.quote is the same as QuoteCell.");
+
     let expected_quote = util::load_quote()?.to_le_bytes();
 
     if &expected_quote != reader.quote().raw_data() {

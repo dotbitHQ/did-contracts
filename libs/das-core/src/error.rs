@@ -63,6 +63,7 @@ pub enum Error {
     PreRegisterAccountCharIsInvalid,
     PreRegisterQuoteIsInvalid, // 80
     PreRegisterDiscountIsInvalid,
+    PreRegisterOwnerLockArgsIsInvalid,
     ProposalFoundInvalidTransaction = 90,
     ProposalMustIncludeSomePreAccountCell,
     ProposalSliceIsNotSorted,
