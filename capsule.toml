@@ -35,9 +35,5 @@ name = "proposal-cell-type"
 template_type = "Rust"
 
 [[contracts]]
-name = "ref-cell-type"
-template_type = "Rust"
-
-[[contracts]]
 name = "wallet-cell-type"
 template_type = "Rust"

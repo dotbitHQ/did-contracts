@@ -8,12 +8,7 @@ use ckb_std::{
 use core::convert::TryFrom;
 use core::result::Result;
 use das_core::{
-    assert,
-    constants::*,
-    data_parser::{account_cell, ref_cell},
-    debug,
-    error::Error,
-    util,
+    assert, constants::*, data_parser::account_cell, debug, error::Error, util,
     witness_parser::WitnessesParser,
 };
 use das_sorted_list::DasSortedList;
@@ -177,8 +172,6 @@ pub fn main() -> Result<(), Error> {
             input_related_cells,
             output_account_cells,
         )?;
-
-        debug!("Check that all revenues are correctly allocated to each roles in DAS.");
     } else if action == b"recycle_proposal" {
         debug!("Route to recycle_proposal action ...");
 
@@ -335,21 +328,45 @@ fn verify_slices(slices_reader: SliceListReader) -> Result<usize, Error> {
         );
 
         // The "next" of last item is refer to an existing account, so we put it into the vector.
+        let first_item = sl_reader.get(0).unwrap();
+        exists_account_ids.push(bytes::Bytes::from(first_item.account_id().raw_data()));
         let last_item = sl_reader.get(sl_reader.len() - 1).unwrap();
         exists_account_ids.push(bytes::Bytes::from(last_item.next().raw_data()));
 
         for (index, item) in sl_reader.iter().enumerate() {
             debug!("  Check if Item[{}] refer to correct next.", index);
 
+            if index == 0 {
+                assert!(
+                    u8::from(item.item_type()) != ProposalSliceItemType::New as u8,
+                    Error::ProposalCellTypeError,
+                    "  Item[{}] The item_type of item[{}] should not be {:?}.",
+                    index,
+                    index,
+                    ProposalSliceItemType::New
+                )
+            } else {
+                assert!(
+                    u8::from(item.item_type()) == ProposalSliceItemType::New as u8,
+                    Error::ProposalCellTypeError,
+                    "  Item[{}] The item_type of item[{}] should be {:?}.",
+                    index,
+                    index,
+                    ProposalSliceItemType::New
+                )
+            }
+
             // Check the uniqueness of current account.
             let account_id_bytes = bytes::Bytes::from(item.account_id().raw_data());
-            for account_id in exists_account_ids.iter() {
-                assert!(
-                    account_id.ne(account_id_bytes.as_ref()),
-                    Error::ProposalSliceItemMustBeUniqueAccount,
-                    "  Item[{}] is an exists account.",
-                    index
-                );
+            if index != 0 {
+                for account_id in exists_account_ids.iter() {
+                    assert!(
+                        account_id.ne(account_id_bytes.as_ref()),
+                        Error::ProposalSliceItemMustBeUniqueAccount,
+                        "  Item[{}] is an exists account.",
+                        index
+                    );
+                }
             }
 
             // Check the continuity of the items in the slice.
@@ -595,10 +612,6 @@ fn verify_proposal_execution_result(
     let proposal_confirm_profit_rate =
         u32::from(config_register.profit().profit_rate_of_proposal_confirm()) as u64;
 
-    let mut output_ref_cells = load_ref_cells(config_main)?;
-
-    let mut new_account_ids = Vec::new();
-
     let mut i = 0;
     for (sl_index, sl_reader) in slices_reader.iter().enumerate() {
         debug!("Check Slice[{}] ...", sl_index);
@@ -706,9 +719,6 @@ fn verify_proposal_execution_result(
                     item_account_id,
                 )?;
 
-                // Store account IDs of all new accounts for later RefCell verification.
-                new_account_ids.push(item_account_id.raw_data().to_vec());
-
                 let input_cell_witness = PreAccountCellData::new_unchecked(
                     input_cell_entity.as_reader().raw_data().into(),
                 );
@@ -731,6 +741,13 @@ fn verify_proposal_execution_result(
                     Some(item_index),
                 )?;
 
+                is_lock_correct(
+                    item_index,
+                    input_related_cells[i],
+                    input_cell_witness_reader,
+                    output_account_cells[i],
+                )?;
+
                 // Check all fields in the data of new AccountCell.
                 is_id_correct(item_index, &output_cell_data, &input_cell_data)?;
                 is_account_correct(item_index, &output_cell_data)?;
@@ -746,19 +763,8 @@ fn verify_proposal_execution_result(
                 // Check all fields in the witness of new AccountCell.
                 verify_witness_id(item_index, &output_cell_data, output_cell_witness_reader)?;
                 verify_witness_account(item_index, &output_cell_data, output_cell_witness_reader)?;
-                verify_witness_locks(
-                    item_index,
-                    output_cell_witness_reader,
-                    input_cell_witness_reader,
-                )?;
                 verify_witness_status(item_index, output_cell_witness_reader)?;
                 verify_witness_records(item_index, output_cell_witness_reader)?;
-
-                verify_ref_cells(
-                    item_index,
-                    output_cell_witness_reader,
-                    &mut output_ref_cells,
-                )?;
 
                 // Only when inviter_wallet's length is equal to account ID it will be count in profit.
                 let mut inviter_profit = 0;
@@ -803,13 +809,6 @@ fn verify_proposal_execution_result(
             }
 
             i += 1;
-        }
-    }
-
-    for item in output_ref_cells {
-        if item.is_some() {
-            debug!("Redundant RefCells is not allowed in this transaction.");
-            return Err(Error::ProposalFoundInvalidTransaction);
         }
     }
 
@@ -890,37 +889,49 @@ fn verify_proposal_execution_result(
 
     debug!("Check if the profit of proposer has been transfered correctly.");
 
-    let expected_profit = wallet.get_balance(&PROPOSAL_CREATOR_WALLET_ID).unwrap();
+    let mut expected_proposer_profit = wallet.get_balance(&PROPOSAL_CREATOR_WALLET_ID).unwrap();
+    let original_expected_proposer_profit = expected_proposer_profit;
     let proposer_lock: ckb_packed::Script =
         proposal_cell_data_reader.proposer_lock().to_entity().into();
     let proposer_wallet_cells =
         util::find_cells_by_script(ScriptType::Lock, &proposer_lock, Source::Output)?;
 
+    if expected_proposer_profit < 6_100_000_000 {
+        expected_proposer_profit += 6_100_000_000;
+    }
+
+    // The keeper who create proposal and confirm proposal maybe the same one, so more than one outputs is allowed.
     assert!(
-        proposer_wallet_cells.len() == 1,
+        proposer_wallet_cells.len() >= 1,
         Error::ProposalConfirmWalletBalanceError,
-        "There should be 1 output with proposer lock, but {} found.",
+        "There should be more than 1 output with proposer lock, but {} found.",
         proposer_wallet_cells.len()
     );
 
-    let proposer_current_profit =
-        load_cell_capacity(proposer_wallet_cells[0], Source::Output).map_err(|e| Error::from(e))?;
+    let mut proposer_current_profit = 0;
+    for index in proposer_wallet_cells {
+        proposer_current_profit +=
+            load_cell_capacity(index, Source::Output).map_err(|e| Error::from(e))?;
+    }
 
     assert!(
-        expected_profit == proposer_current_profit,
+        expected_proposer_profit <= proposer_current_profit,
         Error::ProposalConfirmWalletBalanceError,
-        "Outputs[{}] should has greater than or equal to expected capacity. (expected: {}, current: {})",
-        proposer_wallet_cells[0],
-        expected_profit,
+        "Outputs should has greater than or equal to expected capacity. (expected: {}, current: {})",
+        expected_proposer_profit,
         proposer_current_profit
     );
 
     debug!("Check if the profit of DAS has been transfered correctly.");
 
-    let expected_profit = wallet.get_balance(&ROOT_WALLET_ID).unwrap();
+    let mut expected_profit = wallet.get_balance(&ROOT_WALLET_ID).unwrap();
     let das_wallet_lock = das_wallet_lock();
     let das_wallet_cells =
         util::find_cells_by_script(ScriptType::Lock, &das_wallet_lock, Source::Output)?;
+
+    if original_expected_proposer_profit < 6_100_000_000 {
+        expected_profit -= 6_100_000_000;
+    }
 
     assert!(
         das_wallet_cells.len() == 1,
@@ -933,7 +944,7 @@ fn verify_proposal_execution_result(
         load_cell_capacity(das_wallet_cells[0], Source::Output).map_err(|e| Error::from(e))?;
 
     assert!(
-        expected_profit == current_profit,
+        expected_profit <= current_profit,
         Error::ProposalConfirmWalletBalanceError,
         "Outputs[{}] should has greater than or equal to expected capacity. (expected: {}, current: {})",
         das_wallet_cells[0],
@@ -986,6 +997,52 @@ fn verify_cell_account_id(
         expected_account_id,
         source,
         cell_index
+    );
+
+    Ok(())
+}
+
+fn is_lock_correct(
+    item_index: usize,
+    input_cell_index: usize,
+    input_cell_witness_reader: PreAccountCellDataReader,
+    output_cell_index: usize,
+) -> Result<(), Error> {
+    debug!(
+        "  Item[{}] Check if the lock script of new AccountCells is das-lock.",
+        item_index
+    );
+
+    let mut das_lock = das_lock();
+    let mut owner_lock_args = input_cell_witness_reader
+        .owner_lock_args()
+        .raw_data()
+        .to_owned();
+    let output_cell_lock =
+        load_cell_lock(output_cell_index, Source::Output).map_err(|e| Error::from(e))?;
+
+    assert!(
+        owner_lock_args.len() == 21 && owner_lock_args[0] == 0,
+        Error::ProposalConfirmAccountLockArgsIsInvalid,
+        "  Item[{}] The inputs[{}].witness.owner_lock_args should be the length of 21 bytes, and its first byte should be 0x00.",
+        item_index,
+        input_cell_index
+    );
+
+    owner_lock_args.extend(owner_lock_args.clone().iter());
+    das_lock = das_lock
+        .as_builder()
+        .args(Bytes::from(owner_lock_args).into())
+        .build();
+
+    assert!(
+        util::is_entity_eq(&das_lock, &output_cell_lock),
+        Error::ProposalConfirmAccountLockArgsIsInvalid,
+        "  Item[{}] The outputs[{}].lock is invalid. (expected: {}, current: {})",
+        item_index,
+        output_cell_index,
+        das_lock,
+        output_cell_lock
     );
 
     Ok(())
@@ -1173,40 +1230,6 @@ fn verify_witness_account(
     )
 }
 
-fn verify_witness_locks(
-    item_index: usize,
-    output_cell_witness_reader: AccountCellDataReader,
-    input_cell_witness_reader: PreAccountCellDataReader,
-) -> Result<(), Error> {
-    let owner_lock = output_cell_witness_reader.owner_lock();
-    let manager_lock = output_cell_witness_reader.manager_lock();
-    let expected_lock = input_cell_witness_reader.owner_lock();
-
-    if !util::is_reader_eq(owner_lock, expected_lock) {
-        debug!(
-            "  Item[{}] Check outputs[].AccountCell.owner: {:x?} != {:x?} => {}",
-            item_index,
-            owner_lock,
-            expected_lock,
-            !util::is_reader_eq(owner_lock, expected_lock)
-        );
-        return Err(Error::ProposalConfirmWitnessOwnerError);
-    }
-
-    if !util::is_reader_eq(manager_lock, expected_lock) {
-        debug!(
-            "  Item[{}] Check outputs[].AccountCell.owner: {:x?} != {:x?} => {}",
-            item_index,
-            manager_lock,
-            expected_lock,
-            !util::is_reader_eq(manager_lock, expected_lock)
-        );
-        return Err(Error::ProposalConfirmWitnessManagerError);
-    }
-
-    Ok(())
-}
-
 fn verify_witness_status(
     item_index: usize,
     output_cell_witness_reader: AccountCellDataReader,
@@ -1237,119 +1260,6 @@ fn verify_witness_records(
             records.is_empty()
         );
         return Err(Error::ProposalConfirmWitnessRecordsError);
-    }
-
-    Ok(())
-}
-
-struct RefCellItem {
-    item_index: usize,
-    id: Vec<u8>,
-    is_owner: bool,
-    lock: Script,
-}
-
-fn load_ref_cells(config_main: ConfigCellMainReader) -> Result<Vec<Option<RefCellItem>>, Error> {
-    let ref_cell_type_id = config_main.type_id_table().ref_cell();
-    let input_ref_cells =
-        util::find_cells_by_type_id(ScriptType::Type, ref_cell_type_id, Source::Input)?;
-    let output_ref_cells =
-        util::find_cells_by_type_id(ScriptType::Type, ref_cell_type_id, Source::Output)?;
-
-    if !(input_ref_cells.len() == 0 && output_ref_cells.len() != 0) {
-        debug!("The number of RefCells should be 0 in inputs and not 0 in outputs.");
-        return Err(Error::ProposalFoundInvalidTransaction);
-    }
-
-    let mut ret = Vec::new();
-    for i in output_ref_cells {
-        let data = util::load_cell_data(i, Source::Output)?;
-        ret.push(Some(RefCellItem {
-            item_index: i,
-            id: ref_cell::get_id(&data).to_vec(),
-            is_owner: ref_cell::get_is_owner(&data),
-            lock: Script::from(load_cell_lock(i, Source::Output).map_err(|err| Error::from(err))?),
-        }))
-    }
-
-    Ok(ret)
-}
-
-fn verify_ref_cells(
-    item_index: usize,
-    output_cell_witness_reader: AccountCellDataReader,
-    output_ref_cells: &mut Vec<Option<RefCellItem>>,
-) -> Result<(), Error> {
-    debug!(
-        "  Item[{}] Check if AccountCell's RefCells are created correctly.",
-        item_index
-    );
-
-    let account_id = output_cell_witness_reader.id().raw_data();
-    let owner_lock = output_cell_witness_reader.owner_lock();
-    let manager_lock = output_cell_witness_reader.manager_lock();
-
-    let mut index_to_purge = Vec::new();
-    let mut ref_cells_found = Vec::new();
-
-    // Find RefCells of the account, check if their lock script is matched with AccountCell, and if they are duplicated.
-    for (i, item) in output_ref_cells.into_iter().enumerate() {
-        if item.is_none() {
-            continue;
-        }
-
-        let item = item.as_mut().unwrap();
-        if account_id == item.id {
-            if item.is_owner {
-                if ref_cells_found.contains(&"owner") {
-                    debug!(
-                        "  AccountCell[{}]'s OwnerCell[{}] is duplicated.",
-                        item_index, item.item_index
-                    );
-                    return Err(Error::ProposalConfirmRefCellDuplicated);
-                }
-                if !util::is_reader_eq(owner_lock, item.lock.as_reader()) {
-                    debug!(
-                        "  The lock script of AccountCell[{}] and OwnerCell[{}] is not matched.",
-                        item_index, item.item_index
-                    );
-                    return Err(Error::ProposalConfirmRefCellMissMatch);
-                }
-                ref_cells_found.push("owner");
-            } else {
-                if ref_cells_found.contains(&"manager") {
-                    debug!(
-                        "  AccountCell[{}]'s ManagerCell[{}] is duplicated.",
-                        item_index, item.item_index
-                    );
-                    return Err(Error::ProposalConfirmRefCellDuplicated);
-                }
-                if !util::is_reader_eq(manager_lock, item.lock.as_reader()) {
-                    debug!(
-                        "  The lock script of AccountCell[{}] and ManagerCell[{}] is not matched.",
-                        item_index, item.item_index
-                    );
-                    return Err(Error::ProposalConfirmRefCellMissMatch);
-                }
-                ref_cells_found.push("manager");
-            }
-
-            index_to_purge.push(i);
-        }
-    }
-
-    // Check if the OwnerCell or ManagerCell is missing for the account.
-    if ref_cells_found.len() != 2 {
-        debug!(
-            "  The number of RefCells of AccountCell[{}] must equal to 2 .",
-            item_index
-        );
-        return Err(Error::ProposalConfirmRefCellMissing);
-    }
-
-    // Purge used items in output_ref_cells for later verification.
-    for i in index_to_purge {
-        output_ref_cells[i] = None;
     }
 
     Ok(())

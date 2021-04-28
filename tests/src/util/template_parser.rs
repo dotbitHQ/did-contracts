@@ -6,6 +6,7 @@ use super::{
     },
 };
 use crate::util::constants::MAX_CYCLES;
+use crate::util::deploy_shared_lib;
 use ckb_testtool::context::Context;
 use ckb_tool::{
     ckb_error, ckb_jsonrpc_types as rpc_types,
@@ -28,7 +29,7 @@ use std::fs::File;
 use std::io::Read;
 
 lazy_static! {
-    static ref VARIABLE_REG: Regex = Regex::new(r"\{\{([\w-]+)\}\}").unwrap();
+    static ref VARIABLE_REG: Regex = Regex::new(r"\{\{([\w\-\.]+)\}\}").unwrap();
 }
 
 pub struct TemplateParser {
@@ -333,6 +334,13 @@ impl TemplateParser {
                     self.deps.push(cell_dep);
                     self.contracts.insert(name.to_string(), type_id);
                 }
+                Some("shared_lib") => {
+                    let name = item["tmp_file_name"].as_str().unwrap();
+                    let (code_hash, _, cell_dep) = deploy_shared_lib(&mut self.context, name);
+                    // println!("{:>30}: {}", name, type_id);
+                    self.deps.push(cell_dep);
+                    self.contracts.insert(name.to_string(), code_hash);
+                }
                 Some("full") => {
                     // If we use {{...}} variable in cell_deps, then the contract need to be put in the cell_deps either.
                     // This is because variable is not a real code_hash, but everything needs code_hash here, so the
@@ -357,7 +365,7 @@ impl TemplateParser {
     }
 
     fn parse_inputs(&mut self, inputs: Vec<Value>) -> Result<(), Box<dyn Error>> {
-        for item in inputs {
+        for (_i, item) in inputs.into_iter().enumerate() {
             match item["previous_output"]["tmp_type"].as_str() {
                 Some("full") => {
                     // parse inputs[].previous_output as a mock cell
@@ -475,43 +483,50 @@ impl TemplateParser {
         let script: Option<Script>;
         if let Some(code_hash) = script_val["code_hash"].as_str() {
             // If code_hash is variable like {{xxx}}, then parse script field as deployed contract,
+            let real_code_hash;
             if let Some(caps) = VARIABLE_REG.captures(code_hash) {
                 let script_name = caps.get(1).map(|m| m.as_str()).unwrap();
-                let real_code_hash = match self.contracts.get(script_name) {
+                real_code_hash = match self.contracts.get(script_name) {
                     Some(code_hash) => code_hash.to_owned(),
                     _ => return Err(format!("not found script {}", script_name).into()),
                 };
-                let args = script_val["args"].as_str().unwrap_or("");
-                let hash_type = match script_val["hash_type"].as_str() {
-                    Some("data") => ScriptHashType::Data,
-                    _ => ScriptHashType::Type,
-                };
-                script = Some(
-                    Script::new_builder()
-                        .code_hash(real_code_hash)
-                        .hash_type(hash_type.into())
-                        .args(hex_to_bytes(args)?.pack())
-                        .build(),
-                );
             // else parse script field by field.
             } else {
-                let code_hash = script_val["code_hash"]
+                let code_hash_str: &str = script_val["code_hash"]
                     .as_str()
                     .expect("The code_hash field is required.");
-                let args = script_val["args"].as_str().unwrap_or("");
-                let hash_type = match script_val["hash_type"].as_str() {
-                    Some("type") => ScriptHashType::Type,
-                    _ => ScriptHashType::Data,
-                };
-
-                script = Some(
-                    Script::new_builder()
-                        .code_hash(hex_to_byte32(code_hash)?)
-                        .hash_type(hash_type.into())
-                        .args(hex_to_bytes(args)?.pack())
-                        .build(),
-                );
+                real_code_hash = hex_to_byte32(code_hash_str)?;
             }
+
+            let mut args: String = script_val["args"].as_str().unwrap_or("").to_string();
+            if !args.is_empty() {
+                // If args is not empty, try to find and replace variables in args.
+                if let Some(caps) = VARIABLE_REG.captures(&args) {
+                    let script_name = caps.get(1).map(|m| m.as_str()).unwrap();
+                    let code_hash = match self.contracts.get(script_name) {
+                        Some(code_hash) => code_hash.to_owned(),
+                        _ => return Err(format!("not found script {}", script_name).into()),
+                    };
+
+                    args = args.replace(
+                        &format!("{{{{{}}}}}", script_name),
+                        &hex_string(code_hash.as_reader().raw_data()),
+                    );
+                }
+            }
+
+            let hash_type = match script_val["hash_type"].as_str() {
+                Some("data") => ScriptHashType::Data,
+                _ => ScriptHashType::Type,
+            };
+
+            script = Some(
+                Script::new_builder()
+                    .code_hash(real_code_hash)
+                    .hash_type(hash_type.into())
+                    .args(hex_to_bytes(&args)?.pack())
+                    .build(),
+            );
         } else {
             return Err("The code_hash field is required.".into());
         }

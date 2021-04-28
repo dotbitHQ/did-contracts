@@ -125,6 +125,25 @@ fn deploy_contract(
     (type_id, out_point, cell_dep)
 }
 
+pub fn deploy_shared_lib(context: &mut Context, binary_name: &str) -> (Byte32, OutPoint, CellDep) {
+    let file: bytes::Bytes = Loader::default().load_binary(binary_name);
+
+    let hash = blake2b_256(file.clone());
+    let mut inner = [Byte::new(0); 32];
+    for (i, item) in hash.iter().enumerate() {
+        inner[i] = Byte::new(*item);
+    }
+    let code_hash = Byte32::new_builder().set(inner).build();
+
+    let cell = CellOutput::new_builder()
+        .capacity(Capacity::bytes(file.len()).unwrap().pack())
+        .build();
+    let out_point = context.create_cell(cell, file);
+    let cell_dep = CellDep::new_builder().out_point(out_point.clone()).build();
+
+    (code_hash, out_point, cell_dep)
+}
+
 pub fn mock_script(context: &mut Context, out_point: OutPoint, args: bytes::Bytes) -> Script {
     context
         .build_script(&out_point, args)
@@ -156,14 +175,18 @@ pub fn mock_cell(
         data = bytes::Bytes::new();
     }
 
-    context.create_cell(
-        CellOutput::new_builder()
-            .capacity(capacity.pack())
-            .lock(lock_script)
-            .type_(ScriptOpt::new_builder().set(type_script).build())
-            .build(),
-        data,
-    )
+    let cell = CellOutput::new_builder()
+        .capacity(capacity.pack())
+        .lock(lock_script)
+        .type_(ScriptOpt::new_builder().set(type_script).build())
+        .build();
+
+    println!(
+        "cell: {}",
+        serde_json::to_string_pretty(&rpc_types::CellOutput::from(cell.clone())).unwrap()
+    );
+
+    context.create_cell(cell, data)
 }
 
 pub fn mock_cell_with_outpoint(

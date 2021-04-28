@@ -63,6 +63,7 @@ pub enum Error {
     PreRegisterAccountCharIsInvalid,
     PreRegisterQuoteIsInvalid, // 80
     PreRegisterDiscountIsInvalid,
+    PreRegisterOwnerLockArgsIsInvalid,
     ProposalFoundInvalidTransaction = 90,
     ProposalMustIncludeSomePreAccountCell,
     ProposalSliceIsNotSorted,
@@ -83,7 +84,7 @@ pub enum Error {
     ProposalConfirmWitnessManagerError,
     ProposalConfirmWitnessStatusError,
     ProposalConfirmWitnessRecordsError,
-    ProposalConfirmRefCellMissing, // 110
+    ProposalConfirmAccountLockArgsIsInvalid, // 110
     ProposalConfirmRefCellDuplicated,
     ProposalConfirmRefCellMissMatch,
     ProposalConfirmWalletMissMatch,

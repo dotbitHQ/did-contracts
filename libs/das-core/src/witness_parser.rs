@@ -104,7 +104,10 @@ impl WitnessesParser {
             }
 
             let entity = Self::verify_hash_and_get_entity(_i, witness, &mut config_entity_hashes)?;
-            debug!("    Found matched ConfigCell witness at: witnesses[{}]", _i);
+            debug!(
+                "    Found matched ConfigCell witness at: witnesses[{}] data_type: {:?}",
+                _i, data_type
+            );
             match data_type {
                 DataType::ConfigCellMain => {
                     configs.main = Some(

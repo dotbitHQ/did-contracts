@@ -24,6 +24,24 @@ macro_rules! test_with_template {
     };
 }
 
+macro_rules! test_with_generator {
+    ($test_name:ident, $generator_fn:expr) => {
+        #[test]
+        fn $test_name() {
+            let generator = $generator_fn;
+            let template = generator();
+            let mut parser = TemplateParser::from_data(Context::default(), template.clone());
+            parser.parse();
+
+            let cycles = parser
+                .execute_tx_directly()
+                .expect("Transaction verification should pass.");
+
+            println!("{} costs: {} cycles", stringify!($test_name), cycles);
+        }
+    };
+}
+
 macro_rules! challenge_with_generator {
     ($test_name:ident, $error_code:expr, $generator_fn:expr) => {
         #[test]

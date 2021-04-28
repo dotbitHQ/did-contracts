@@ -42,7 +42,7 @@ function parse_args() {
 }
 
 function create_output_dir() {
-    if [[ $is_release ]]; then
+    if [[ $is_release == true ]]; then
         if [[ ! -d ./build/release ]]; then
             mkdir -p ./build/release
         fi
@@ -148,4 +148,9 @@ test)
     ;;
 esac
 
-echo "Done ✔"
+if [ $? -ne 0 ]; then
+    echo "Build contracts failed. ❌"
+    exit $?
+else
+    echo "Done ✔"
+fi

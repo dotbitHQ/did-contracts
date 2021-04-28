@@ -22,7 +22,6 @@ pub enum TypeScript {
     ApplyRegisterCellType,
     PreAccountCellType,
     ProposalCellType,
-    RefCellType,
     WalletCellType,
 }
 
@@ -79,8 +78,8 @@ pub fn super_lock() -> Script {
         ],
         hash_type: ScriptHashType::Type,
         args: vec![
-            94, 176, 12, 14, 81, 175, 181, 55, 252, 128, 113, 129, 0, 52, 206, 146, 249, 140, 50,
-            89,
+            188, 80, 42, 52, 164, 48, 227, 225, 103, 200, 42, 36, 219, 111, 146, 55, 177, 94, 191,
+            53,
         ],
     };
 
@@ -126,8 +125,7 @@ pub fn oracle_lock() -> Script {
         ],
         hash_type: ScriptHashType::Type,
         args: vec![
-            199, 95, 213, 248, 173, 210, 160, 77, 185, 255, 202, 248, 139, 67, 125, 118, 241, 129,
-            39, 151,
+            236, 23, 170, 82, 25, 170, 33, 14, 115, 96, 92, 6, 197, 65, 72, 96, 224, 197, 232, 228,
         ],
     };
 
@@ -173,8 +171,8 @@ pub fn wallet_maker_lock() -> Script {
         ],
         hash_type: ScriptHashType::Type,
         args: vec![
-            231, 14, 55, 173, 211, 245, 169, 210, 67, 251, 214, 88, 159, 92, 49, 124, 73, 4, 141,
-            202,
+            15, 159, 232, 190, 83, 187, 167, 160, 61, 190, 69, 33, 71, 237, 34, 126, 246, 68, 175,
+            67,
         ],
     };
 
@@ -220,8 +218,8 @@ pub fn das_wallet_lock() -> Script {
         ],
         hash_type: ScriptHashType::Type,
         args: vec![
-            103, 213, 24, 190, 199, 26, 243, 84, 140, 55, 233, 186, 144, 219, 118, 197, 249, 89,
-            154, 252,
+            239, 191, 73, 127, 117, 47, 247, 166, 85, 168, 236, 111, 60, 143, 63, 234, 174, 214,
+            228, 16,
         ],
     };
 
@@ -236,6 +234,50 @@ pub fn das_wallet_lock() -> Script {
     };
 
     util::script_literal_to_script(das_wallet_lock)
+}
+
+pub fn das_lock() -> Script {
+    #[cfg(feature = "dev")]
+    let das_lock: ScriptLiteral = ScriptLiteral {
+        code_hash: [
+            157, 111, 41, 25, 227, 40, 243, 33, 125, 125, 211, 218, 181, 247, 206, 233, 216, 224,
+            98, 190, 230, 168, 13, 93, 5, 205, 73, 92, 163, 65, 99, 120,
+        ],
+        hash_type: ScriptHashType::Type,
+        args: Vec::new(),
+    };
+
+    #[cfg(feature = "local")]
+    let das_lock: ScriptLiteral = ScriptLiteral {
+        code_hash: [
+            184, 243, 231, 77, 189, 72, 86, 149, 58, 151, 112, 104, 42, 255, 194, 137, 221, 0, 152,
+            153, 45, 17, 214, 103, 205, 243, 84, 151, 226, 103, 190, 50,
+        ],
+        hash_type: ScriptHashType::Type,
+        args: Vec::new(),
+    };
+
+    #[cfg(feature = "testnet")]
+    let das_lock: ScriptLiteral = ScriptLiteral {
+        code_hash: [
+            150, 11, 203, 225, 89, 146, 91, 120, 38, 35, 145, 78, 81, 240, 179, 219, 235, 234, 167,
+            195, 144, 60, 217, 210, 94, 231, 201, 241, 215, 215, 192, 134,
+        ],
+        hash_type: ScriptHashType::Type,
+        args: Vec::new(),
+    };
+
+    #[cfg(feature = "mainnet")]
+    let das_lock: ScriptLiteral = ScriptLiteral {
+        code_hash: [
+            2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2,
+            2, 2, 2,
+        ],
+        hash_type: ScriptHashType::Type,
+        args: Vec::new(),
+    };
+
+    util::script_literal_to_script(das_lock)
 }
 
 pub fn time_cell_type() -> Script {
@@ -355,8 +397,8 @@ pub const CONFIG_CELL_TYPE: ScriptLiteral = ScriptLiteral {
 #[cfg(feature = "testnet")]
 pub const CONFIG_CELL_TYPE: ScriptLiteral = ScriptLiteral {
     code_hash: [
-        72, 159, 242, 25, 94, 212, 26, 172, 154, 146, 101, 198, 83, 216, 202, 87, 200, 37, 178, 45,
-        183, 101, 185, 224, 141, 83, 117, 114, 255, 44, 188, 27,
+        121, 191, 11, 192, 249, 17, 193, 28, 184, 94, 81, 222, 158, 202, 246, 99, 12, 229, 187, 28,
+        172, 38, 234, 156, 21, 221, 125, 8, 185, 28, 148, 58,
     ],
     hash_type: ScriptHashType::Type,
     args: Vec::new(),
