@@ -1013,7 +1013,7 @@ fn is_lock_correct(
         item_index
     );
 
-    let mut das_lock = util::script_literal_to_script(DAS_LOCK);
+    let mut das_lock = das_lock();
     let mut owner_lock_args = input_cell_witness_reader
         .owner_lock_args()
         .raw_data()

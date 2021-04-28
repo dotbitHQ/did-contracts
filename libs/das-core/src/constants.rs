@@ -236,6 +236,50 @@ pub fn das_wallet_lock() -> Script {
     util::script_literal_to_script(das_wallet_lock)
 }
 
+pub fn das_lock() -> Script {
+    #[cfg(feature = "dev")]
+    let das_lock: ScriptLiteral = ScriptLiteral {
+        code_hash: [
+            157, 111, 41, 25, 227, 40, 243, 33, 125, 125, 211, 218, 181, 247, 206, 233, 216, 224,
+            98, 190, 230, 168, 13, 93, 5, 205, 73, 92, 163, 65, 99, 120,
+        ],
+        hash_type: ScriptHashType::Type,
+        args: Vec::new(),
+    };
+
+    #[cfg(feature = "local")]
+    let das_lock: ScriptLiteral = ScriptLiteral {
+        code_hash: [
+            184, 243, 231, 77, 189, 72, 86, 149, 58, 151, 112, 104, 42, 255, 194, 137, 221, 0, 152,
+            153, 45, 17, 214, 103, 205, 243, 84, 151, 226, 103, 190, 50,
+        ],
+        hash_type: ScriptHashType::Type,
+        args: Vec::new(),
+    };
+
+    #[cfg(feature = "testnet")]
+    let das_lock: ScriptLiteral = ScriptLiteral {
+        code_hash: [
+            150, 11, 203, 225, 89, 146, 91, 120, 38, 35, 145, 78, 81, 240, 179, 219, 235, 234, 167,
+            195, 144, 60, 217, 210, 94, 231, 201, 241, 215, 215, 192, 134,
+        ],
+        hash_type: ScriptHashType::Type,
+        args: Vec::new(),
+    };
+
+    #[cfg(feature = "mainnet")]
+    let das_lock: ScriptLiteral = ScriptLiteral {
+        code_hash: [
+            2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2,
+            2, 2, 2,
+        ],
+        hash_type: ScriptHashType::Type,
+        args: Vec::new(),
+    };
+
+    util::script_literal_to_script(das_lock)
+}
+
 pub fn time_cell_type() -> Script {
     #[cfg(feature = "dev")]
     let time_cell_type = ScriptLiteral {
@@ -402,46 +446,6 @@ pub const ALWAYS_SUCCESS_LOCK: ScriptLiteral = ScriptLiteral {
 
 #[cfg(feature = "mainnet")]
 pub const ALWAYS_SUCCESS_LOCK: ScriptLiteral = ScriptLiteral {
-    code_hash: [
-        2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2,
-        2, 2,
-    ],
-    hash_type: ScriptHashType::Type,
-    args: Vec::new(),
-};
-
-#[cfg(feature = "dev")]
-pub const DAS_LOCK: ScriptLiteral = ScriptLiteral {
-    code_hash: [
-        157, 111, 41, 25, 227, 40, 243, 33, 125, 125, 211, 218, 181, 247, 206, 233, 216, 224, 98,
-        190, 230, 168, 13, 93, 5, 205, 73, 92, 163, 65, 99, 120,
-    ],
-    hash_type: ScriptHashType::Type,
-    args: Vec::new(),
-};
-
-#[cfg(feature = "local")]
-pub const DAS_LOCK: ScriptLiteral = ScriptLiteral {
-    code_hash: [
-        184, 243, 231, 77, 189, 72, 86, 149, 58, 151, 112, 104, 42, 255, 194, 137, 221, 0, 152,
-        153, 45, 17, 214, 103, 205, 243, 84, 151, 226, 103, 190, 50,
-    ],
-    hash_type: ScriptHashType::Type,
-    args: Vec::new(),
-};
-
-#[cfg(feature = "testnet")]
-pub const DAS_LOCK: ScriptLiteral = ScriptLiteral {
-    code_hash: [
-        150, 11, 203, 225, 89, 146, 91, 120, 38, 35, 145, 78, 81, 240, 179, 219, 235, 234, 167,
-        195, 144, 60, 217, 210, 94, 231, 201, 241, 215, 215, 192, 134,
-    ],
-    hash_type: ScriptHashType::Type,
-    args: Vec::new(),
-};
-
-#[cfg(feature = "mainnet")]
-pub const DAS_LOCK: ScriptLiteral = ScriptLiteral {
     code_hash: [
         2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2,
         2, 2,
