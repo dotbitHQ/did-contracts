@@ -3,17 +3,15 @@ use ckb_std::{
     ckb_constants::Source,
     ckb_types::prelude::*,
     debug,
-    high_level::{
-        load_cell_capacity, load_cell_data, load_cell_lock, load_cell_lock_hash, load_script,
-    },
+    high_level::{load_cell_capacity, load_cell_data, load_cell_lock, load_script},
 };
-use das_core::witness_parser::WitnessesParser;
 use das_core::{
     assert,
-    constants::{das_wallet_lock, super_lock, ScriptType, TypeScript, ALWAYS_SUCCESS_LOCK},
+    constants::{das_lock, das_wallet_lock, super_lock, ScriptType, TypeScript},
     data_parser,
     error::Error,
     util, warn,
+    witness_parser::WitnessesParser,
 };
 use das_types::{
     constants::{ConfigID, DataType, LockRole},
@@ -58,19 +56,16 @@ pub fn main() -> Result<(), Error> {
             "The super lock is required."
         );
 
-        debug!("Check if root AccountCell uses always_success lock ...");
+        debug!("Check if root AccountCell uses das-lock ...");
 
         let index = output_cells[0];
-        let always_success_script = util::script_literal_to_script(ALWAYS_SUCCESS_LOCK);
-        let always_success_script_hash = util::blake2b_256(always_success_script.as_slice());
-        let lock_script = load_cell_lock_hash(index, Source::Output).map_err(|e| Error::from(e))?;
-        if lock_script != always_success_script_hash {
-            return Err(Error::WalletRequireAlwaysSuccess);
-        }
+        let expected_lock = das_lock();
+        let lock_script = load_cell_lock(index, Source::Output).map_err(|e| Error::from(e))?;
         assert!(
-            lock_script == always_success_script_hash,
+            expected_lock.as_reader().code_hash().raw_data()
+                == lock_script.as_reader().code_hash().raw_data(),
             Error::AccountCellFoundInvalidTransaction,
-            "The lock script of AccountCell should be always-success script."
+            "The lock script of AccountCell should be das-lock script."
         );
     } else if action == b"confirm_proposal" {
         debug!("Route to confirm_proposal action ...");
