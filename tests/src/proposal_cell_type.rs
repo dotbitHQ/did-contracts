@@ -41,14 +41,14 @@ fn gen_proposal_related_cell_at_create(
                 let origin_next = bytes::Bytes::from(account_to_id_bytes(next));
                 let (cell_data, entity) = template.gen_account_cell_data(
                     account,
-                    "0x0000000000000000000000000000000000001111",
-                    "0x0000000000000000000000000000000000001111",
                     origin_next.clone(),
                     old_registered_at,
                     old_expired_at,
                     None,
                 );
                 template.push_account_cell(
+                    "0x0000000000000000000000000000000000001111",
+                    "0x0000000000000000000000000000000000001111",
                     cell_data,
                     Some((1, dep_index, entity)),
                     15_800_000_000,
@@ -241,7 +241,6 @@ fn gen_proposal_related_cell_at_confirm(
 
     let mut input_index = 1;
     let mut output_index = 0;
-    let mut accounts_to_gen_ref_cells = Vec::new();
     for (slice_index, slice) in slices.into_iter().enumerate() {
         println!("Generate slice {} ...", slice_index);
 
@@ -262,28 +261,38 @@ fn gen_proposal_related_cell_at_confirm(
                 next_of_first_item = origin_next.clone();
                 let (cell_data, old_entity) = template.gen_account_cell_data(
                     account,
-                    "0x0000000000000000000000000000000000001111",
-                    "0x0000000000000000000000000000000000001111",
                     origin_next.clone(),
                     old_registered_at,
                     old_expired_at,
                     None,
                 );
-                template.push_account_cell(cell_data, None, 14_600_000_000, Source::Input);
+                template.push_account_cell(
+                    "0x0000000000000000000000000000000000001111",
+                    "0x0000000000000000000000000000000000001111",
+                    cell_data,
+                    None,
+                    14_600_000_000,
+                    Source::Input,
+                );
 
                 // Generate new AccountCell in outputs.
                 let (next_account, _, _) = slice.get(item_index + 1).unwrap();
                 let updated_next = bytes::Bytes::from(account_to_id_bytes(next_account));
                 let (cell_data, new_entity) = template.gen_account_cell_data(
                     account,
-                    "0x0000000000000000000000000000000000001111",
-                    "0x0000000000000000000000000000000000001111",
                     updated_next.clone(),
                     old_registered_at,
                     old_expired_at,
                     None,
                 );
-                template.push_account_cell(cell_data, None, 14_600_000_000, Source::Output);
+                template.push_account_cell(
+                    "0x0000000000000000000000000000000000001111",
+                    "0x0000000000000000000000000000000000001111",
+                    cell_data,
+                    None,
+                    14_600_000_000,
+                    Source::Output,
+                );
 
                 println!(
                     "    Item {} next: {} -> {}",
@@ -328,14 +337,14 @@ fn gen_proposal_related_cell_at_confirm(
                 };
                 let (cell_data, entity) = template.gen_account_cell_data(
                     account,
-                    "0x0000000000000000000000000000000000002222",
-                    "0x0000000000000000000000000000000000002222",
                     updated_next.clone(),
                     new_registered_at,
                     new_expired_at,
                     None,
                 );
                 template.push_account_cell(
+                    "0x0000000000000000000000000000000000002222",
+                    "0x0000000000000000000000000000000000002222",
                     cell_data,
                     Some((1, output_index, entity)),
                     14_600_000_000,
@@ -347,31 +356,11 @@ fn gen_proposal_related_cell_at_confirm(
                     item_index,
                     updated_next.pack()
                 );
-
-                // Generate new RefCell in outputs.
-                accounts_to_gen_ref_cells.push(*account)
             }
 
             input_index += 1;
             output_index += 1;
         }
-    }
-
-    for account in accounts_to_gen_ref_cells {
-        template.push_ref_cell(
-            "0x0000000000000000000000000000000000002222",
-            account,
-            true,
-            10_500_000_000,
-            Source::Output,
-        );
-        template.push_ref_cell(
-            "0x0000000000000000000000000000000000002222",
-            account,
-            false,
-            10_500_000_000,
-            Source::Output,
-        );
     }
 }
 
@@ -382,7 +371,6 @@ fn init_confirm(action: &str) -> (TemplateGenerator, u64, u64) {
 
     template.push_contract_cell("always_success", true);
     template.push_contract_cell("proposal-cell-type", false);
-    template.push_contract_cell("ref-cell-type", false);
     template.push_contract_cell("account-cell-type", false);
     template.push_contract_cell("pre-account-cell-type", false);
     template.push_contract_cell("wallet-cell-type", false);
@@ -396,7 +384,7 @@ fn init_confirm(action: &str) -> (TemplateGenerator, u64, u64) {
     (template, height, timestamp)
 }
 
-// #[test]
+#[test]
 fn gen_confirm_proposal() {
     let (mut template, height, timestamp) = init_confirm("confirm_proposal");
 

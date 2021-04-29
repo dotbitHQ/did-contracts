@@ -14,7 +14,7 @@ fn init(action: &str) -> TemplateGenerator {
     template
 }
 
-// #[test]
+#[test]
 fn gen_wallet_create() {
     let mut template = init("create_wallet");
 
@@ -54,7 +54,7 @@ challenge_with_generator!(
     }
 );
 
-// #[test]
+#[test]
 fn gen_wallet_withdraw() {
     let mut template = init("withdraw_from_wallet");
 
@@ -67,34 +67,30 @@ fn gen_wallet_withdraw() {
 
     let account = "das00001.bit";
 
-    // Generate RefCells ...
-    template.push_ref_cell(
-        "0x0000000000000000000000000000000000001111",
-        account,
-        true,
-        10_500_000_000,
-        Source::Input,
-    );
-    template.push_ref_cell(
-        "0x0000000000000000000000000000000000001111",
-        account,
-        true,
-        10_500_000_000,
-        Source::Output,
-    );
-
     // Generate AccountCells ...
     let (cell_data, entity) = template.gen_account_cell_data(
         account,
-        "0x0000000000000000000000000000000000001111",
-        "0x0000000000000000000000000000000000001111",
         bytes::Bytes::from(account_to_id_bytes("das00014.bit")),
         1611200000u64,
         1611200000u64 + 31536000,
         None,
     );
-    template.push_account_cell(cell_data.clone(), None, 15_800_000_000, Source::Input);
-    template.push_account_cell(cell_data.clone(), None, 15_800_000_000, Source::Output);
+    template.push_account_cell(
+        "0x0000000000000000000000000000000000001111",
+        "0x0000000000000000000000000000000000001111",
+        cell_data.clone(),
+        None,
+        15_800_000_000,
+        Source::Input,
+    );
+    template.push_account_cell(
+        "0x0000000000000000000000000000000000001111",
+        "0x0000000000000000000000000000000000001111",
+        cell_data.clone(),
+        None,
+        15_800_000_000,
+        Source::Output,
+    );
     template.push_witness(
         DataType::AccountCellData,
         Some((1, 1, entity.clone())),
@@ -127,17 +123,24 @@ fn gen_account_cell(
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     ]);
 
-    let (cell_data, entity) = template.gen_account_cell_data(
-        account,
+    let (cell_data, entity) =
+        template.gen_account_cell_data(account, next.clone(), registered_at, expired_at, None);
+    template.push_account_cell(
         owner_lock_args,
         manager_lock_args,
-        next.clone(),
-        registered_at,
-        expired_at,
+        cell_data.clone(),
         None,
+        19_400_000_000,
+        Source::Input,
     );
-    template.push_account_cell(cell_data.clone(), None, 19_400_000_000, Source::Input);
-    template.push_account_cell(cell_data, None, 19_400_000_000, Source::Output);
+    template.push_account_cell(
+        owner_lock_args,
+        manager_lock_args,
+        cell_data,
+        None,
+        19_400_000_000,
+        Source::Output,
+    );
     template.push_witness(
         DataType::AccountCellData,
         Some((1, output_index, entity.clone())),
@@ -146,7 +149,7 @@ fn gen_account_cell(
     );
 }
 
-// #[test]
+#[test]
 fn gen_wallet_recycle() {
     let mut template = init("recycle_wallet");
 
@@ -193,7 +196,7 @@ fn gen_wallet_recycle() {
 
 test_with_template!(test_wallet_recycle, "wallet_recycle.json");
 
-// #[test]
+#[test]
 fn gen_wallet_deposit() {
     let mut template = init("xxx");
 
