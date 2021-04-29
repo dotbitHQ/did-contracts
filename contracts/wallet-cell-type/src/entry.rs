@@ -245,6 +245,12 @@ pub fn main() -> Result<(), Error> {
                 )?;
 
                 // TODO check if AccountCell is unlocked by owner's signature.
+            } else if action == b"recycle_expired_account_by_keeper" {
+                debug!("Route to recycle_expired_account_by_keeper action ...");
+
+                // TODO Not implemented yet.
+
+                return Ok(());
             } else {
                 debug!("Route to other action ...");
 

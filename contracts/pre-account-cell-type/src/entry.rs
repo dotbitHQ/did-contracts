@@ -255,15 +255,15 @@ fn verify_created_at(
 
 fn verify_owner_lock_args(reader: PreAccountCellDataReader) -> Result<(), Error> {
     debug!(
-        "Check if PreAccountCell.witness.owner_lock_args is 21 bytes and the first byte is 0x00."
+        "Check if PreAccountCell.witness.owner_lock_args is more than 1 byte and the first byte is 0x00."
     );
 
     let owner_lock_args = reader.owner_lock_args();
 
     assert!(
-        owner_lock_args.len() == 21,
+        owner_lock_args.len() > 1,
         Error::PreRegisterOwnerLockArgsIsInvalid,
-        "The length of owner_lock_args should be 21 bytes, but {} found.",
+        "The length of owner_lock_args should be more 1 byte, but {} found.",
         owner_lock_args.len()
     );
 
