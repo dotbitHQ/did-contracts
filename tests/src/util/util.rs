@@ -181,10 +181,10 @@ pub fn mock_cell(
         .type_(ScriptOpt::new_builder().set(type_script).build())
         .build();
 
-    println!(
-        "cell: {}",
-        serde_json::to_string_pretty(&rpc_types::CellOutput::from(cell.clone())).unwrap()
-    );
+    // println!(
+    //     "cell: {}",
+    //     serde_json::to_string_pretty(&rpc_types::CellOutput::from(cell.clone())).unwrap()
+    // );
 
     context.create_cell(cell, data)
 }

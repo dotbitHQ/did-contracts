@@ -104,20 +104,19 @@ pub enum Error {
     WalletPermissionInvalid,
     WalletRefundError,
     AccountCellFoundInvalidTransaction = -110,
+    AccountCellPermissionDenied,
+    AccountCellOwnerLockShouldNotBeModified,
+    AccountCellOwnerLockShouldBeModified,
+    AccountCellManagerLockShouldBeModified,
     AccountCellDataNotConsistent,
-    AccountCellRefCellIsRequired,
-    AccountCellOwnerCellIsRequired,
-    AccountCellManagerCellIsRequired,
-    AccountCellUnrelatedRefCellFound, // -105
-    AccountCellRedundantRefCellNotAllowed,
     AccountCellProtectFieldIsModified,
     AccountCellRenewDurationMustLongerThanYear,
     AccountCellRenewDurationBiggerThanPaied,
-    AccountCellInExpirationGracePeriod, // -100
-    AccountCellHasExpired,
+    AccountCellInExpirationGracePeriod,
+    AccountCellHasExpired, // -100
     AccountCellIsNotExpired,
     AccountCellRecycleCapacityError,
-    AccountCellChangeCapacityError, // -96
+    AccountCellChangeCapacityError, // -97
 }
 
 impl From<SysError> for Error {

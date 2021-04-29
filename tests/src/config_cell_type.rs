@@ -8,30 +8,10 @@ fn gen_config_create() {
 
     let mut template = TemplateGenerator::new("config", None);
 
-    template.push_config_cell(
-        ConfigID::ConfigCellMain,
-        true,
-        100_000_000_000,
-        Source::Output,
-    );
-    template.push_config_cell(
-        ConfigID::ConfigCellRegister,
-        true,
-        100_000_000_000,
-        Source::Output,
-    );
-    template.push_config_cell(
-        ConfigID::ConfigCellBloomFilter,
-        true,
-        100_000_000_000,
-        Source::Output,
-    );
-    template.push_config_cell(
-        ConfigID::ConfigCellMarket,
-        true,
-        100_000_000_000,
-        Source::Output,
-    );
+    template.push_config_cell(ConfigID::ConfigCellMain, true, 0, Source::Output);
+    template.push_config_cell(ConfigID::ConfigCellRegister, true, 0, Source::Output);
+    template.push_config_cell(ConfigID::ConfigCellBloomFilter, true, 0, Source::Output);
+    template.push_config_cell(ConfigID::ConfigCellMarket, true, 0, Source::Output);
 
     template.pretty_print();
 }
@@ -44,54 +24,15 @@ fn gen_config_edit() {
 
     let mut template = TemplateGenerator::new("config", None);
 
-    template.push_config_cell(
-        ConfigID::ConfigCellMain,
-        false,
-        100_000_000_000,
-        Source::Input,
-    );
-    template.push_config_cell(
-        ConfigID::ConfigCellRegister,
-        false,
-        100_000_000_000,
-        Source::Input,
-    );
-    template.push_config_cell(
-        ConfigID::ConfigCellBloomFilter,
-        false,
-        100_000_000_000,
-        Source::Input,
-    );
-    template.push_config_cell(
-        ConfigID::ConfigCellMarket,
-        false,
-        100_000_000_000,
-        Source::Input,
-    );
-    template.push_config_cell(
-        ConfigID::ConfigCellMain,
-        true,
-        100_000_000_000,
-        Source::Output,
-    );
-    template.push_config_cell(
-        ConfigID::ConfigCellRegister,
-        true,
-        100_000_000_000,
-        Source::Output,
-    );
-    template.push_config_cell(
-        ConfigID::ConfigCellBloomFilter,
-        true,
-        100_000_000_000,
-        Source::Output,
-    );
-    template.push_config_cell(
-        ConfigID::ConfigCellMarket,
-        true,
-        100_000_000_000,
-        Source::Output,
-    );
+    template.push_config_cell(ConfigID::ConfigCellMain, false, 0, Source::Input);
+    template.push_config_cell(ConfigID::ConfigCellRegister, false, 0, Source::Input);
+    template.push_config_cell(ConfigID::ConfigCellBloomFilter, false, 0, Source::Input);
+    template.push_config_cell(ConfigID::ConfigCellMarket, false, 0, Source::Input);
+
+    template.push_config_cell(ConfigID::ConfigCellMain, true, 0, Source::Output);
+    template.push_config_cell(ConfigID::ConfigCellRegister, true, 0, Source::Output);
+    template.push_config_cell(ConfigID::ConfigCellBloomFilter, true, 0, Source::Output);
+    template.push_config_cell(ConfigID::ConfigCellMarket, true, 0, Source::Output);
 
     template.pretty_print();
 }
