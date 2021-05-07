@@ -61,8 +61,8 @@ pub enum Error {
     PreRegisterCKBInsufficient,
     PreRegisterAccountCharSetConflict,
     PreRegisterAccountCharIsInvalid,
-    PreRegisterQuoteIsInvalid, // 80
-    PreRegisterDiscountIsInvalid,
+    PreRegisterQuoteIsInvalid,
+    PreRegisterDiscountIsInvalid = 80,
     PreRegisterOwnerLockArgsIsInvalid,
     ProposalFoundInvalidTransaction = 90,
     ProposalMustIncludeSomePreAccountCell,
@@ -74,7 +74,7 @@ pub enum Error {
     ProposalCellAccountIdError,
     ProposalFieldCanNotBeModified,
     ProposalWitnessCanNotBeModified,
-    ProposalConfirmIdError, // 100
+    ProposalConfirmIdError = 100,
     ProposalConfirmNextError,
     ProposalConfirmExpiredAtError,
     ProposalConfirmAccountError,
@@ -84,19 +84,17 @@ pub enum Error {
     ProposalConfirmWitnessManagerError,
     ProposalConfirmWitnessStatusError,
     ProposalConfirmWitnessRecordsError,
-    ProposalConfirmAccountLockArgsIsInvalid, // 110
-    ProposalConfirmRefCellDuplicated,
-    ProposalConfirmRefCellMissMatch,
+    ProposalConfirmAccountLockArgsIsInvalid = 110,
     ProposalConfirmWalletMissMatch,
     ProposalConfirmWalletBalanceError,
-    ProposalSliceNotEndCorrectly, // 115
+    ProposalSliceNotEndCorrectly,
     ProposalSliceMustStartWithAccountCell,
-    ProposalSliceMustContainMoreThanOneElement,
+    ProposalSliceMustContainMoreThanOneElement, // 115
     ProposalSliceItemMustBeUniqueAccount,
     ProposalRecycleNeedWaitLonger,
     ProposalRecycleCanNotFoundRefundCell,
     ProposalRecycleRefundAmountError,
-    PrevProposalItemNotFound,
+    PrevProposalItemNotFound, // 120
     WalletFoundInvalidTransaction = -126,
     WalletRequireAlwaysSuccess,
     WalletRequireWalletMakerLock,

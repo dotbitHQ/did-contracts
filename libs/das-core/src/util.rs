@@ -486,6 +486,14 @@ pub fn load_das_witnesses(data_types_opt: Option<Vec<DataType>>) -> Result<Witne
                             let mut buf = [0u8; 16000];
                             data = load_witness(&mut buf, i)?;
                         }
+                        x if x <= 32000 => {
+                            let mut buf = [0u8; 32000];
+                            data = load_witness(&mut buf, i)?;
+                        }
+                        x if x <= 64000 => {
+                            let mut buf = [0u8; 64000];
+                            data = load_witness(&mut buf, i)?;
+                        }
                         _ => {
                             return Err(Error::from(SysError::LengthNotEnough(actual_size)));
                         }
@@ -758,8 +766,8 @@ pub fn verify_account_length_and_years(
     Ok(())
 }
 
-pub fn calc_account_storage_capacity(account_length: u64) -> u64 {
-    ACCOUNT_CELL_BASIC_CAPACITY + (account_length * 100_000_000) + REF_CELL_BASIC_CAPACITY * 2
+pub fn calc_account_storage_capacity(account_name_storage: u64) -> u64 {
+    ACCOUNT_CELL_BASIC_CAPACITY + (account_name_storage * 100_000_000)
 }
 
 pub fn calc_yearly_capacity(yearly_price: u64, quote: u64, discount: u32) -> u64 {

@@ -727,16 +727,16 @@ fn verify_proposal_execution_result(
                     output_cell_entity.as_reader().raw_data().into(),
                 );
                 let output_cell_witness_reader = new_cell_witness.as_reader();
-
-                let account_length = account_cell::get_account(&output_cell_data).len() as u64;
+                let account_name_storage =
+                    account_cell::get_account(&output_cell_data).len() as u64;
                 let total_capacity = load_cell_capacity(input_related_cells[i], Source::Input)
                     .map_err(|e| Error::from(e))?;
-                let storage_capacity = util::calc_account_storage_capacity(account_length);
+                let storage_capacity = util::calc_account_storage_capacity(account_name_storage);
                 // Allocate the profits carried by PreAccountCell to the wallets for later verification.
                 let profit = total_capacity - storage_capacity;
 
                 util::verify_account_length_and_years(
-                    account_length as usize,
+                    input_cell_witness_reader.account().len(),
                     timestamp,
                     Some(item_index),
                 )?;
