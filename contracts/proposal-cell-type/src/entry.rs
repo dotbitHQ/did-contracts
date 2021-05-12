@@ -1022,9 +1022,9 @@ fn is_lock_correct(
         load_cell_lock(output_cell_index, Source::Output).map_err(|e| Error::from(e))?;
 
     assert!(
-        owner_lock_args.len() > 1 && owner_lock_args[0] == 0,
+        owner_lock_args.len() > 1,
         Error::ProposalConfirmAccountLockArgsIsInvalid,
-        "  Item[{}] The inputs[{}].witness.owner_lock_args should be more than 1 byte, and its first byte should be 0x00.",
+        "  Item[{}] The inputs[{}].witness.owner_lock_args should be more than 1 byte.",
         item_index,
         input_cell_index
     );

@@ -267,14 +267,6 @@ fn verify_owner_lock_args(reader: PreAccountCellDataReader) -> Result<(), Error>
         owner_lock_args.len()
     );
 
-    let first_byte = owner_lock_args.get(0).unwrap().as_slice();
-
-    assert!(
-        first_byte == &[0],
-        Error::PreRegisterOwnerLockArgsIsInvalid,
-        "The first byte of owner_lock_args should be 0x00."
-    );
-
     Ok(())
 }
 
