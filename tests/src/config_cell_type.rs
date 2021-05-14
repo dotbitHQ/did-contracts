@@ -2,37 +2,72 @@ use super::util::{constants::*, template_generator::*, template_parser::Template
 use ckb_testtool::context::Context;
 use das_types::constants::*;
 
-// #[test]
-fn gen_config_create() {
-    println!("====== Print config cell creation transaction ======");
-
+fn init() -> TemplateGenerator {
     let mut template = TemplateGenerator::new("config", None);
 
-    template.push_config_cell(ConfigID::ConfigCellMain, true, 0, Source::Output);
-    template.push_config_cell(ConfigID::ConfigCellRegister, true, 0, Source::Output);
-    template.push_config_cell(ConfigID::ConfigCellBloomFilter, true, 0, Source::Output);
-    template.push_config_cell(ConfigID::ConfigCellMarket, true, 0, Source::Output);
+    template.push_contract_cell("always_success", true);
+    template.push_contract_cell("config-cell-type", false);
+
+    template
+}
+
+#[test]
+fn gen_config_create() {
+    let mut template = init();
+
+    template.push_signall_cell(
+        "0x0000000000000000000000000000000000000000",
+        0,
+        Source::Input,
+    );
+
+    template.push_config_cell(DataType::ConfigCellAccount, true, 0, Source::Output);
+    template.push_config_cell(DataType::ConfigCellApply, true, 0, Source::Output);
+    template.push_config_cell(DataType::ConfigCellCharSet, true, 0, Source::Output);
+    template.push_config_cell(DataType::ConfigCellIncome, true, 0, Source::Output);
+    template.push_config_cell(DataType::ConfigCellMain, true, 0, Source::Output);
+    template.push_config_cell(DataType::ConfigCellPrice, true, 0, Source::Output);
+    template.push_config_cell(DataType::ConfigCellProposal, true, 0, Source::Output);
+    template.push_config_cell(DataType::ConfigCellProfitRate, true, 0, Source::Output);
+    // template.push_config_cell(
+    //     DataType::ConfigCellPreservedAccount00,
+    //     true,
+    //     0,
+    //     Source::Output,
+    // );
 
     template.pretty_print();
 }
 
 test_with_template!(test_config_create, "config_create.json");
 
-// #[test]
+#[test]
 fn gen_config_edit() {
-    println!("====== Print config cell editing transaction ======");
+    let mut template = init();
 
-    let mut template = TemplateGenerator::new("config", None);
+    template.push_signall_cell(
+        "0x0000000000000000000000000000000000000000",
+        0,
+        Source::Input,
+    );
 
-    template.push_config_cell(ConfigID::ConfigCellMain, false, 0, Source::Input);
-    template.push_config_cell(ConfigID::ConfigCellRegister, false, 0, Source::Input);
-    template.push_config_cell(ConfigID::ConfigCellBloomFilter, false, 0, Source::Input);
-    template.push_config_cell(ConfigID::ConfigCellMarket, false, 0, Source::Input);
+    template.push_config_cell(DataType::ConfigCellAccount, true, 0, Source::Input);
+    template.push_config_cell(DataType::ConfigCellApply, true, 0, Source::Input);
+    template.push_config_cell(DataType::ConfigCellCharSet, true, 0, Source::Input);
+    template.push_config_cell(DataType::ConfigCellIncome, true, 0, Source::Input);
+    template.push_config_cell(DataType::ConfigCellMain, true, 0, Source::Input);
+    template.push_config_cell(DataType::ConfigCellPrice, true, 0, Source::Input);
+    template.push_config_cell(DataType::ConfigCellProposal, true, 0, Source::Input);
+    template.push_config_cell(DataType::ConfigCellProfitRate, true, 0, Source::Input);
 
-    template.push_config_cell(ConfigID::ConfigCellMain, true, 0, Source::Output);
-    template.push_config_cell(ConfigID::ConfigCellRegister, true, 0, Source::Output);
-    template.push_config_cell(ConfigID::ConfigCellBloomFilter, true, 0, Source::Output);
-    template.push_config_cell(ConfigID::ConfigCellMarket, true, 0, Source::Output);
+    template.push_config_cell(DataType::ConfigCellAccount, true, 0, Source::Output);
+    template.push_config_cell(DataType::ConfigCellApply, true, 0, Source::Output);
+    template.push_config_cell(DataType::ConfigCellCharSet, true, 0, Source::Output);
+    template.push_config_cell(DataType::ConfigCellIncome, true, 0, Source::Output);
+    template.push_config_cell(DataType::ConfigCellMain, true, 0, Source::Output);
+    template.push_config_cell(DataType::ConfigCellPrice, true, 0, Source::Output);
+    template.push_config_cell(DataType::ConfigCellProposal, true, 0, Source::Output);
+    template.push_config_cell(DataType::ConfigCellProfitRate, true, 0, Source::Output);
 
     template.pretty_print();
 }

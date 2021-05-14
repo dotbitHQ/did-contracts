@@ -19,7 +19,7 @@ pub enum Error {
     HeightCellIsRequired,
     HeightCellDataDecodingError,
     QuoteCellIsRequired,
-    ConfigIDIsUndefined,
+    ConfigTypeIsUndefined,
     ConfigIsPartialMissing,
     ConfigCellIsRequired,
     ConfigCellWitnessIsCorrupted,

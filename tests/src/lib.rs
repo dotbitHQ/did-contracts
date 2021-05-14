@@ -23,8 +23,6 @@ mod config_cell_type;
 mod pre_account_cell_type;
 #[cfg(test)]
 mod proposal_cell_type;
-// #[cfg(test)]
-// mod wallet_cell_type;
 
 // #[cfg(test)]
 // mod gen_type_id_table;

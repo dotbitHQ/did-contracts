@@ -6,7 +6,7 @@ use ckb_std::{
 use core::convert::{TryFrom, TryInto};
 use core::result::Result;
 use das_core::{assert, constants::*, error::Error, util, warn};
-use das_types::{constants::ConfigID, prelude::Entity};
+use das_types::{constants::DataType, prelude::Entity};
 
 pub fn main() -> Result<(), Error> {
     debug!("====== Running config-cell-type ======");
@@ -86,7 +86,7 @@ pub fn main() -> Result<(), Error> {
     Ok(())
 }
 
-fn get_config_id(cell_index: usize, source: Source) -> Result<ConfigID, Error> {
+fn get_config_id(cell_index: usize, source: Source) -> Result<DataType, Error> {
     let cell_type = load_cell_type(cell_index, source)
         .map_err(|e| Error::from(e))?
         .unwrap();
@@ -96,8 +96,8 @@ fn get_config_id(cell_index: usize, source: Source) -> Result<ConfigID, Error> {
         .raw_data()
         .try_into()
         .map_err(|_| Error::Encoding)?;
-    let config_id =
-        ConfigID::try_from(u32::from_le_bytes(args)).map_err(|_| Error::ConfigIDIsUndefined)?;
+    let config_type =
+        DataType::try_from(u32::from_le_bytes(args)).map_err(|_| Error::ConfigTypeIsUndefined)?;
 
-    Ok(config_id)
+    Ok(config_type)
 }
