@@ -7,16 +7,16 @@ mod util;
 struct Options {
     #[clap(
         long = "capacity",
-        required = true,
-        about = "The capacity of PreAccountCell."
+        about = "The capacity of PreAccountCell. Required if --profit is not provided."
     )]
-    capacity: u64,
+    capacity: Option<u64>,
     #[clap(
         long = "account-name-storage",
-        required = true,
-        about = "The length of account, do not count its suffix."
+        about = "The length of account, do not count its suffix. Required if --profit is not provided."
     )]
-    account_name_storage: u64,
+    account_name_storage: Option<u64>,
+    #[clap(long = "profit", about = "The profit of proposal confirmation.")]
+    profit: Option<u64>,
     #[clap(
         long = "price",
         required = true,
@@ -44,19 +44,34 @@ fn main() {
     let options: Options = Options::parse();
     // println!("{:?}", options);
 
-    let storage_capacity = util::calc_account_storage_capacity(options.account_name_storage);
-    println!(
-        "storage_capacity({}) = ACCOUNT_CELL_BASIC_CAPACITY({}) + (account_name_storage({}) * 100_000_000)",
-        storage_capacity,
-        util::ACCOUNT_CELL_BASIC_CAPACITY,
-        options.account_name_storage
-    );
+    let profit;
+    if options.profit.is_none() {
+        if options.account_name_storage.is_none() {
+            panic!("Params --account-name-storage is required when --profit is not provided.");
+        }
+        if options.capacity.is_none() {
+            panic!("Params --capacity is required when --profit is not provided.");
+        }
 
-    let profit = options.capacity - storage_capacity;
-    println!(
-        "total_profit({}) = capacity({}) - storage_capacity({})",
-        profit, options.capacity, storage_capacity
-    );
+        let storage_capacity =
+            util::calc_account_storage_capacity(options.account_name_storage.unwrap());
+        println!(
+            "storage_capacity({}) = ACCOUNT_CELL_BASIC_CAPACITY({}) + (account_name_storage({}) * 100_000_000)",
+            storage_capacity,
+            util::ACCOUNT_CELL_BASIC_CAPACITY,
+            options.account_name_storage.unwrap()
+        );
+
+        profit = options.capacity.unwrap() - storage_capacity;
+        println!(
+            "total_profit({}) = capacity({}) - storage_capacity({})",
+            profit,
+            options.capacity.unwrap(),
+            storage_capacity
+        );
+    } else {
+        profit = options.profit.unwrap();
+    }
 
     let duration =
         util::calc_duration_from_paid(profit, options.price, options.quote, options.discount);
