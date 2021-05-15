@@ -696,7 +696,8 @@ impl TemplateGenerator {
     }
 
     fn gen_config_cell_record_key_namespace(&mut self) -> (Bytes, Vec<u8>) {
-        let raw = gen_record_key_namespace();
+        let mut raw = gen_record_key_namespace();
+        raw = util::prepend_molecule_like_length(raw);
 
         // Generate the cell structure of ConfigCell.
         let cell_data = Bytes::from(blake2b_256(raw.as_slice()).to_vec());
@@ -724,11 +725,7 @@ impl TemplateGenerator {
         account_hashes.sort();
 
         let mut raw = account_hashes.into_iter().flatten().collect::<Vec<u8>>();
-
-        // Prepend length of bytes to bloom filter data, 4 bytes is the length of first u32.
-        let mut length = (raw.len() as u32 + 4).to_le_bytes().to_vec();
-        length.extend(raw);
-        raw = length;
+        raw = util::prepend_molecule_like_length(raw);
 
         // Generate the cell structure of ConfigCell.
         let cell_data = Bytes::from(blake2b_256(raw.as_slice()).to_vec());
