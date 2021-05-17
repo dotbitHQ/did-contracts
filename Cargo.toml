@@ -9,9 +9,9 @@ members = [
     "contracts/apply-register-cell-type",
     "contracts/account-cell-type",
     "contracts/config-cell-type",
+    "contracts/income-cell-type",
     "contracts/pre-account-cell-type",
     "contracts/proposal-cell-type",
-    "contracts/wallet-cell-type",
     "tools/calculator",
 ]
 

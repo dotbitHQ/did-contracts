@@ -381,6 +381,12 @@ fn bytes_to_hex(input: Bytes) -> String {
     "0x".to_string() + &hex_string(input.as_reader().raw_data()).unwrap()
 }
 
+#[derive(Debug, Clone)]
+pub struct IncomeRecordParam {
+    pub belong_to: &'static str,
+    pub capacity: u64,
+}
+
 pub struct TemplateGenerator {
     pub header_deps: Vec<Value>,
     pub cell_deps: Vec<Value>,
@@ -591,7 +597,6 @@ impl TemplateGenerator {
             .record_min_ttl(Uint32::from(300))
             .build();
 
-        // Generate the cell structure of ConfigCell.
         let cell_data = Bytes::from(blake2b_256(entity.as_slice()).to_vec());
 
         (cell_data, entity)
@@ -603,7 +608,6 @@ impl TemplateGenerator {
             .apply_max_waiting_block_number(Uint32::from(5760))
             .build();
 
-        // Generate the cell structure of ConfigCell.
         let cell_data = Bytes::from(blake2b_256(entity.as_slice()).to_vec());
 
         (cell_data, entity)
@@ -614,7 +618,6 @@ impl TemplateGenerator {
             .char_sets(gen_char_sets())
             .build();
 
-        // Generate the cell structure of ConfigCell.
         let cell_data = Bytes::from(blake2b_256(entity.as_slice()).to_vec());
 
         (cell_data, entity)
@@ -626,7 +629,6 @@ impl TemplateGenerator {
             .max_records(Uint32::from(100))
             .build();
 
-        // Generate the cell structure of ConfigCell.
         let cell_data = Bytes::from(blake2b_256(entity.as_slice()).to_vec());
 
         (cell_data, entity)
@@ -637,7 +639,6 @@ impl TemplateGenerator {
             .type_id_table(gen_type_id_table())
             .build();
 
-        // Generate the cell structure of ConfigCell.
         let cell_data = Bytes::from(blake2b_256(entity.as_slice()).to_vec());
 
         (cell_data, entity)
@@ -658,7 +659,6 @@ impl TemplateGenerator {
             .prices(prices.build())
             .build();
 
-        // Generate the cell structure of ConfigCell.
         let cell_data = Bytes::from(blake2b_256(entity.as_slice()).to_vec());
 
         (cell_data, entity)
@@ -673,7 +673,6 @@ impl TemplateGenerator {
             .proposal_max_pre_account_contain(Uint32::from(50))
             .build();
 
-        // Generate the cell structure of ConfigCell.
         let cell_data = Bytes::from(blake2b_256(entity.as_slice()).to_vec());
 
         (cell_data, entity)
@@ -686,10 +685,9 @@ impl TemplateGenerator {
             .das(Uint32::from(8000))
             .proposal_create(Uint32::from(400))
             .proposal_confirm(Uint32::from(0))
-            .income_consolidate(Uint32::from(0))
+            .income_consolidate(Uint32::from(100))
             .build();
 
-        // Generate the cell structure of ConfigCell.
         let cell_data = Bytes::from(blake2b_256(entity.as_slice()).to_vec());
 
         (cell_data, entity)
@@ -699,7 +697,6 @@ impl TemplateGenerator {
         let mut raw = gen_record_key_namespace();
         raw = util::prepend_molecule_like_length(raw);
 
-        // Generate the cell structure of ConfigCell.
         let cell_data = Bytes::from(blake2b_256(raw.as_slice()).to_vec());
 
         (cell_data, raw)
@@ -727,7 +724,6 @@ impl TemplateGenerator {
         let mut raw = account_hashes.into_iter().flatten().collect::<Vec<u8>>();
         raw = util::prepend_molecule_like_length(raw);
 
-        // Generate the cell structure of ConfigCell.
         let cell_data = Bytes::from(blake2b_256(raw.as_slice()).to_vec());
 
         (cell_data, raw)
@@ -831,7 +827,7 @@ impl TemplateGenerator {
         });
         let type_script = json!({
           "code_hash": "{{config-cell-type}}",
-          "args": config_id_hex,
+          "args": format!("0x{}", config_id_hex),
         });
         self.push_cell(capacity, lock_script, type_script, Some(cell_data), source);
 
@@ -1046,18 +1042,52 @@ impl TemplateGenerator {
         }
     }
 
-    pub fn push_wallet_cell(&mut self, account: &str, capacity: u64, source: Source) {
-        let account_id = Bytes::from(account_to_id_bytes(account));
+    pub fn gen_income_cell_data(
+        &mut self,
+        creator: &str,
+        records_param: Vec<IncomeRecordParam>,
+    ) -> (Bytes, IncomeCellData) {
+        let creator = gen_always_success_lock(creator);
+
+        let mut records = IncomeRecords::new_builder();
+        for record_param in records_param.into_iter() {
+            records = records.push(
+                IncomeRecord::new_builder()
+                    .belong_to(gen_always_success_lock(record_param.belong_to))
+                    .capacity(Uint64::from(record_param.capacity))
+                    .build(),
+            );
+        }
+
+        let entity = IncomeCellData::new_builder()
+            .creator(creator)
+            .records(records.build())
+            .build();
+
+        let cell_data = Bytes::from(blake2b_256(entity.as_slice()).to_vec());
+
+        (cell_data, entity)
+    }
+
+    pub fn push_income_cell(
+        &mut self,
+        cell_data: Bytes,
+        entity_opt: Option<(u32, u32, IncomeCellData)>,
+        capacity: u64,
+        source: Source,
+    ) {
         let lock_script = json!({
           "code_hash": "{{always_success}}"
         });
         let type_script = json!({
-          "code_hash": "{{wallet-cell-type}}"
+          "code_hash": "{{income-cell-type}}"
         });
 
-        let cell_data = account_id;
-
         self.push_cell(capacity, lock_script, type_script, Some(cell_data), source);
+
+        if let Some(entity) = entity_opt {
+            self.push_witness_with_group(DataType::IncomeCellData, source, entity);
+        }
     }
 
     pub fn push_signall_cell(&mut self, lock_args: &str, capacity: u64, source: Source) {

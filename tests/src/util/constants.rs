@@ -26,6 +26,14 @@ pub const WALLET_MAKER_LOCK_ARGS: &str = "0x020000000000000000000000000000000000
 // The type IDs here are testing only.
 pub const TYPE_ID_TABLE: [(&str, &str); 7] = [
     (
+        "account-cell-type",
+        "0x3d216e5bfb54b9e2ec0f0fbb1cdf23703f550a7ec7c35264742fce69308482e1",
+    ),
+    (
+        "always-success",
+        "0x3f67f5b5761db78ce746f0b140e0e63783fa84598e7e19a02ae8d417c0dfb882",
+    ),
+    (
         "apply-register-cell-type",
         "0xcac501b0a5826bffa485ccac13c2195fcdf3aa86b113203f620ddd34d3decd70",
     ),
@@ -34,24 +42,16 @@ pub const TYPE_ID_TABLE: [(&str, &str); 7] = [
         "0x086BDCBEF0AB628D31AED1E7BAA26416D3BDE1E242A5A47DDDAEC06E87E595D0",
     ),
     (
+        "income-cell-type",
+        "0x3ff05cd948339d6b841487a288fbfa137e0f66c9eda15b62e71f3d3676d6395e",
+    ),
+    (
         "pre-account-cell-type",
         "0x431a3af2d4bbcd69ab732d37be794ac0ab172c151545dfdbae1f578a7083bc84",
     ),
     (
-        "account-cell-type",
-        "0x3d216e5bfb54b9e2ec0f0fbb1cdf23703f550a7ec7c35264742fce69308482e1",
-    ),
-    (
         "proposal-cell-type",
         "0x071ee1a005b5bc1a619aed290c39bbb613ac93991eabab8418d6b0a9bdd220eb",
-    ),
-    (
-        "ref-cell-type",
-        "0x15f69a14cfafac4e21516e7076e135492c4b20fe4fb5af9e1942577a46985a13",
-    ),
-    (
-        "wallet-cell-type",
-        "0xcf2f19e19c13d4ccfeae96634f6be6cdb2e4cd68f810ce3b865ee34030374524",
     ),
 ];
 

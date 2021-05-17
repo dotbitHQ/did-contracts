@@ -1,0 +1,57 @@
+{
+  "cell_deps": [
+    {
+      "tmp_type": "deployed_contract",
+      "tmp_file_name": "always_success"
+    },
+    {
+      "tmp_type": "contract",
+      "tmp_file_name": "income-cell-type"
+    },
+    {
+      "tmp_type": "full",
+      "capacity": 0,
+      "lock": {
+        "code_hash": "{{always_success}}",
+        "args": "0x0000000000000000000000000000000000000000"
+      },
+      "type": {
+        "code_hash": "{{config-cell-type}}",
+        "args": "67000000"
+      },
+      "tmp_data": "0x08e152865dac45d5e05f85eef872d6e831215d040f8918a087ff80303b3fe82a"
+    }
+  ],
+  "inputs": [
+    {
+      "previous_output": {
+        "tmp_type": "full",
+        "capacity": 20000000000,
+        "lock": {
+          "code_hash": "{{always_success}}",
+          "args": "0x0000000000000000000000000000000000000000"
+        },
+        "type": null
+      },
+      "since": "0x"
+    }
+  ],
+  "outputs": [
+    {
+      "tmp_type": "full",
+      "capacity": 20000000000,
+      "lock": {
+        "code_hash": "{{always_success}}"
+      },
+      "type": {
+        "code_hash": "{{income-cell-type}}"
+      },
+      "tmp_data": "0x6fa03cc46f2f10c7c0eac23ea2880fbc85650da03e1a8f3fda2ebc4be5e51e89"
+    }
+  ],
+  "witnesses": [
+    "0x64617300000000210000000c0000001d0000000d0000006372656174655f696e636f6d6500000000",
+    "0x64617367000000180000000c0000001400000000c817a80400000064000000",
+    "0x64617306000000e6000000100000001000000010000000d60000001000000014000000180000000000000001000000ba000000ba0000000c00000055000000490000001000000030000000310000009d6f2919e328f3217d7dd3dab5f7cee9d8e062bee6a80d5d05cd495ca34163780114000000000000000000000000000000000000000000000065000000080000005d0000000c00000055000000490000001000000030000000310000009d6f2919e328f3217d7dd3dab5f7cee9d8e062bee6a80d5d05cd495ca34163780114000000000000000000000000000000000000000000000000c817a804000000"
+  ]
+}

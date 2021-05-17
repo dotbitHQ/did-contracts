@@ -1527,6 +1527,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "income-cell-type"
+version = "0.1.0"
+dependencies = [
+ "ckb-std",
+ "das-core",
+ "das-types",
+ "hex",
+]
+
+[[package]]
 name = "indexmap"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3182,15 +3192,6 @@ dependencies = [
  "same-file",
  "winapi 0.3.9",
  "winapi-util",
-]
-
-[[package]]
-name = "wallet-cell-type"
-version = "0.1.0"
-dependencies = [
- "ckb-std",
- "das-core",
- "das-types",
 ]
 
 [[package]]
