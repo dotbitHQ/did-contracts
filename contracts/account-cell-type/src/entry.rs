@@ -14,7 +14,7 @@ use das_core::{
     witness_parser::WitnessesParser,
 };
 use das_types::{
-    constants::{ConfigID, DataType, LockRole},
+    constants::{DataType, LockRole},
     packed::*,
 };
 
@@ -148,9 +148,9 @@ pub fn main() -> Result<(), Error> {
 
         let mut parser = util::load_das_witnesses(None)?;
         parser.parse_all_data()?;
-        parser.parse_only_config(&[ConfigID::ConfigCellRegister])?;
+        parser.parse_only_config(&[DataType::ConfigCellPrice])?;
 
-        let config_register = parser.configs().register()?;
+        let prices = parser.configs.price()?.prices();
 
         let (input_account_cells, output_account_cells) = load_account_cells()?;
 
@@ -191,7 +191,6 @@ pub fn main() -> Result<(), Error> {
 
         let length_in_price =
             util::get_length_in_price(input_witness_reader.account().len() as u64);
-        let prices = config_register.price_configs();
 
         // Find out renew price in USD.
         let mut price_opt = Some(prices.get(prices.len() - 1).unwrap());
@@ -239,9 +238,9 @@ pub fn main() -> Result<(), Error> {
 
         let mut parser = util::load_das_witnesses(None)?;
         parser.parse_all_data()?;
-        parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
+        parser.parse_only_config(&[DataType::ConfigCellAccount])?;
 
-        let config_main = parser.configs().main()?;
+        let config_account = parser.configs.account()?;
 
         // The AccountCell should be recycled in the transaction.
         let (input_account_cells, output_account_cells) = load_account_cells()?;
@@ -253,8 +252,7 @@ pub fn main() -> Result<(), Error> {
 
         debug!("Check if account has reached the end off the expiration grace period.");
 
-        let expiration_grace_period =
-            u32::from(config_main.account_expiration_grace_period()) as u64;
+        let expiration_grace_period = u32::from(config_account.expiration_grace_period()) as u64;
         let account_data = util::load_cell_data(input_account_cells[0], Source::Input)?;
         let expired_at = data_parser::account_cell::get_expired_at(&account_data);
         if expired_at + expiration_grace_period >= timestamp {
@@ -422,6 +420,8 @@ fn verify_account_expiration(account_cell_index: usize, current: u64) -> Result<
     let expired_at = data_parser::account_cell::get_expired_at(data.as_slice());
 
     if current > expired_at {
+        // TODO replace with
+        // let expiration_grace_period = u32::from(config_main.account_expiration_grace_period()) as u64;
         if current - expired_at > 86400 * 30 {
             warn!("The AccountCell has been expired. Will be recycled soon.");
             return Err(Error::AccountCellHasExpired);

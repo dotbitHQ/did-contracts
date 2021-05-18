@@ -36,8 +36,11 @@ pub fn main() -> Result<(), Error> {
 
         let mut parser = util::load_das_witnesses(None)?;
         parser.parse_all_data()?;
-        parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
-        let config_main = parser.configs().main()?;
+        parser.parse_only_config(&[DataType::ConfigCellMain, DataType::ConfigCellProposal])?;
+        let config_main = parser.configs.main()?;
+        let config_proposal = parser.configs.proposal()?;
+
+        // TODO Verify if proposal reached the maximum limit
 
         if !(dep_cells.len() == 0 && input_cells.len() == 0 && output_cells.len() == 1) {
             return Err(Error::ProposalFoundInvalidTransaction);
@@ -79,8 +82,11 @@ pub fn main() -> Result<(), Error> {
 
         let mut parser = util::load_das_witnesses(None)?;
         parser.parse_all_data()?;
-        parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
-        let config_main = parser.configs().main()?;
+        parser.parse_only_config(&[DataType::ConfigCellMain, DataType::ConfigCellProposal])?;
+        let config_main = parser.configs.main()?;
+        let config_proposal = parser.configs.proposal()?;
+
+        // TODO Verify if proposal reached the maximum limit
 
         if !(dep_cells.len() == 1 && input_cells.len() == 0 && output_cells.len() == 1) {
             return Err(Error::ProposalFoundInvalidTransaction);
@@ -132,9 +138,14 @@ pub fn main() -> Result<(), Error> {
 
         let mut parser = util::load_das_witnesses(None)?;
         parser.parse_all_data()?;
-        parser.parse_only_config(&[ConfigID::ConfigCellMain, ConfigID::ConfigCellRegister])?;
-        let config_main = parser.configs().main()?;
-        let config_register = parser.configs().register()?;
+        parser.parse_only_config(&[
+            DataType::ConfigCellAccount,
+            DataType::ConfigCellMain,
+            DataType::ConfigCellProfitRate,
+        ])?;
+        let config_account = parser.configs.account()?;
+        let config_main = parser.configs.main()?;
+        let config_profit_rate = parser.configs.profit_rate()?;
 
         if !(dep_cells.len() == 0 && input_cells.len() == 1 && output_cells.len() == 0) {
             return Err(Error::ProposalFoundInvalidTransaction);
@@ -165,8 +176,9 @@ pub fn main() -> Result<(), Error> {
 
         verify_proposal_execution_result(
             &parser,
+            config_account,
             config_main,
-            config_register,
+            config_profit_rate,
             timestamp,
             proposal_cell_data_reader,
             input_related_cells,
@@ -177,8 +189,8 @@ pub fn main() -> Result<(), Error> {
 
         let mut parser = util::load_das_witnesses(None)?;
         parser.parse_all_data()?;
-        parser.parse_only_config(&[ConfigID::ConfigCellRegister])?;
-        let config_register = parser.configs().register()?;
+        parser.parse_only_config(&[DataType::ConfigCellProposal])?;
+        let config_proposal_reader = parser.configs.proposal()?;
 
         if !(dep_cells.len() == 0 && input_cells.len() == 1 && output_cells.len() == 0) {
             return Err(Error::ProposalFoundInvalidTransaction);
@@ -194,7 +206,7 @@ pub fn main() -> Result<(), Error> {
 
         let height = util::load_height()?;
         let proposal_min_recycle_interval =
-            u8::from(config_register.proposal_min_recycle_interval()) as u64;
+            u8::from(config_proposal_reader.proposal_min_recycle_interval()) as u64;
         let created_at_height = u64::from(proposal_cell_data_reader.created_at_height());
         if height - created_at_height < proposal_min_recycle_interval {
             return Err(Error::ProposalRecycleNeedWaitLonger);
@@ -591,8 +603,9 @@ fn find_item_contains_account_id(
 
 fn verify_proposal_execution_result(
     parser: &WitnessesParser,
+    config_account: ConfigCellAccountReader,
     config_main: ConfigCellMainReader,
-    config_register: ConfigCellRegisterReader,
+    config_profit_rate: ConfigCellProfitRateReader,
     timestamp: u64,
     proposal_cell_data_reader: ProposalCellDataReader,
     input_related_cells: Vec<usize>,
@@ -605,12 +618,10 @@ fn verify_proposal_execution_result(
     let pre_account_cell_type_id = config_main.type_id_table().pre_account_cell();
 
     let mut wallet = Wallet::new();
-    let inviter_profit_rate = u32::from(config_register.profit().profit_rate_of_inviter()) as u64;
-    let channel_profit_rate = u32::from(config_register.profit().profit_rate_of_channel()) as u64;
-    let proposal_create_profit_rate =
-        u32::from(config_register.profit().profit_rate_of_proposal_create()) as u64;
-    let proposal_confirm_profit_rate =
-        u32::from(config_register.profit().profit_rate_of_proposal_confirm()) as u64;
+    let inviter_profit_rate = u32::from(config_profit_rate.inviter()) as u64;
+    let channel_profit_rate = u32::from(config_profit_rate.channel()) as u64;
+    let proposal_create_profit_rate = u32::from(config_profit_rate.proposal_create()) as u64;
+    let proposal_confirm_profit_rate = u32::from(config_profit_rate.proposal_confirm()) as u64;
 
     let mut i = 0;
     for (sl_index, sl_reader) in slices_reader.iter().enumerate() {
@@ -727,16 +738,21 @@ fn verify_proposal_execution_result(
                     output_cell_entity.as_reader().raw_data().into(),
                 );
                 let output_cell_witness_reader = new_cell_witness.as_reader();
-
-                let account_length = account_cell::get_account(&output_cell_data).len() as u64;
+                let account_name_storage =
+                    account_cell::get_account(&output_cell_data).len() as u64;
                 let total_capacity = load_cell_capacity(input_related_cells[i], Source::Input)
                     .map_err(|e| Error::from(e))?;
-                let storage_capacity = util::calc_account_storage_capacity(account_length);
+                let storage_capacity =
+                    util::calc_account_storage_capacity(config_account, account_name_storage);
                 // Allocate the profits carried by PreAccountCell to the wallets for later verification.
                 let profit = total_capacity - storage_capacity;
+                // debug!(
+                //     "total_capacity: {:?} storage_capacity: {:?}",
+                //     total_capacity, storage_capacity
+                // );
 
                 util::verify_account_length_and_years(
-                    account_length as usize,
+                    input_cell_witness_reader.account().len(),
                     timestamp,
                     Some(item_index),
                 )?;
@@ -1022,9 +1038,9 @@ fn is_lock_correct(
         load_cell_lock(output_cell_index, Source::Output).map_err(|e| Error::from(e))?;
 
     assert!(
-        owner_lock_args.len() > 1 && owner_lock_args[0] == 0,
+        owner_lock_args.len() > 1,
         Error::ProposalConfirmAccountLockArgsIsInvalid,
-        "  Item[{}] The inputs[{}].witness.owner_lock_args should be more than 1 byte, and its first byte should be 0x00.",
+        "  Item[{}] The inputs[{}].witness.owner_lock_args should be more than 1 byte.",
         item_index,
         input_cell_index
     );
@@ -1161,14 +1177,16 @@ fn is_expired_at_correct(
     let calculated_expired_at = current_timestamp + duration;
 
     debug!(
-        "  Item[{}] Check if AccountCell.expired_at correct: cell.expired_at({}) <-> calculated_expired_at({})",
-        item_index,
-        expired_at,
-        calculated_expired_at
+        "  Item[{}] Params of expired_at calculation: --profit={} --price={} --quote={} --discount={} --current={}",
+        item_index, profit, price, quote, discount, current_timestamp
+    );
+    debug!(
+        "  Item[{}] Critical value of expired_at calculation process: duration={}, calculated_expired_at={}",
+        item_index, duration, calculated_expired_at
     );
 
     assert!(
-        current_timestamp + duration == expired_at,
+        calculated_expired_at == expired_at,
         Error::ProposalConfirmExpiredAtError,
         "  Item[{}] The AccountCell.expired_at should be {}, but {} found.",
         item_index,

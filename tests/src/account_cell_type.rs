@@ -3,10 +3,7 @@ use super::util::{
 };
 use ckb_testtool::context::Context;
 use ckb_tool::ckb_types::bytes;
-use das_types::{
-    constants::{ConfigID, DataType},
-    packed::*,
-};
+use das_types::{constants::DataType, packed::*};
 
 fn init(action: &str, params_opt: Option<&str>) -> (TemplateGenerator, u64) {
     let mut template = TemplateGenerator::new(
@@ -183,7 +180,7 @@ fn gen_renew_account() {
     let (mut template, timestamp) = init("renew_account", None);
 
     template.push_quote_cell(1000, 0, Source::CellDep);
-    template.push_config_cell(ConfigID::ConfigCellRegister, true, 0, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellPrice, true, 0, Source::CellDep);
 
     let account = "das00001.bit";
     let registered_at = timestamp - 86400;
@@ -240,7 +237,7 @@ fn gen_recycle_expired_account_by_keeper() {
     template.push_contract_cell("wallet-cell-type", false);
 
     template.push_config_cell(
-        ConfigID::ConfigCellMain,
+        DataType::ConfigCellMain,
         true,
         100_000_000_000,
         Source::CellDep,

@@ -11,7 +11,7 @@ use ckb_std::{
 };
 use core::convert::{TryFrom, TryInto};
 use das_types::{
-    constants::{ConfigID, DataType, WITNESS_HEADER},
+    constants::{DataType, WITNESS_HEADER},
     packed as das_packed,
 };
 #[cfg(test)]
@@ -486,6 +486,14 @@ pub fn load_das_witnesses(data_types_opt: Option<Vec<DataType>>) -> Result<Witne
                             let mut buf = [0u8; 16000];
                             data = load_witness(&mut buf, i)?;
                         }
+                        x if x <= 32000 => {
+                            let mut buf = [0u8; 32000];
+                            data = load_witness(&mut buf, i)?;
+                        }
+                        x if x <= 64000 => {
+                            let mut buf = [0u8; 64000];
+                            data = load_witness(&mut buf, i)?;
+                        }
                         _ => {
                             return Err(Error::from(SysError::LengthNotEnough(actual_size)));
                         }
@@ -758,8 +766,12 @@ pub fn verify_account_length_and_years(
     Ok(())
 }
 
-pub fn calc_account_storage_capacity(account_length: u64) -> u64 {
-    ACCOUNT_CELL_BASIC_CAPACITY + (account_length * 100_000_000) + REF_CELL_BASIC_CAPACITY * 2
+pub fn calc_account_storage_capacity(
+    config_account: das_packed::ConfigCellAccountReader,
+    account_name_storage: u64,
+) -> u64 {
+    let basic_capacity = u64::from(config_account.basic_capacity());
+    basic_capacity + (account_name_storage * 100_000_000)
 }
 
 pub fn calc_yearly_capacity(yearly_price: u64, quote: u64, discount: u32) -> u64 {
@@ -787,8 +799,8 @@ pub fn require_type_script(
     source: Source,
     err: Error,
 ) -> Result<(), Error> {
-    parser.parse_only_config(&[ConfigID::ConfigCellMain])?;
-    let config = parser.configs().main()?;
+    parser.parse_only_config(&[DataType::ConfigCellMain])?;
+    let config = parser.configs.main()?;
 
     let type_id = match type_script {
         TypeScript::AccountCellType => config.type_id_table().account_cell(),

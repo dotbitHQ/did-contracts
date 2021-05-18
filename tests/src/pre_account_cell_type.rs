@@ -14,22 +14,15 @@ fn gen_cell_deps(template: &mut TemplateGenerator, height: u64, timestamp: u64) 
 
     template.push_quote_cell(1000, 500_000_000_000, Source::CellDep);
 
+    template.push_config_cell(DataType::ConfigCellAccount, true, 0, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellApply, true, 0, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellCharSet, true, 0, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellMain, true, 0, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellPrice, true, 0, Source::CellDep);
     template.push_config_cell(
-        ConfigID::ConfigCellMain,
+        DataType::ConfigCellPreservedAccount00,
         true,
-        100_000_000_000,
-        Source::CellDep,
-    );
-    template.push_config_cell(
-        ConfigID::ConfigCellRegister,
-        true,
-        100_000_000_000,
-        Source::CellDep,
-    );
-    template.push_config_cell(
-        ConfigID::ConfigCellBloomFilter,
-        true,
-        100_000_000_000,
+        0,
         Source::CellDep,
     );
 }

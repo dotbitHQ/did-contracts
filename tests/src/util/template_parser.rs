@@ -490,7 +490,7 @@ impl TemplateParser {
                     Some(code_hash) => code_hash.to_owned(),
                     _ => return Err(format!("not found script {}", script_name).into()),
                 };
-            // else parse script field by field.
+                // else parse script field by field.
             } else {
                 let code_hash_str: &str = script_val["code_hash"]
                     .as_str()

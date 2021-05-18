@@ -6,11 +6,7 @@ use core::convert::TryInto;
 use core::result::Result;
 use das_bloom_filter::BloomFilter;
 use das_core::{assert, constants::*, debug, error::Error, util};
-use das_types::{
-    constants::{ConfigID, DataType},
-    packed::*,
-    prelude::*,
-};
+use das_types::{constants::DataType, packed::*, prelude::*};
 
 pub fn main() -> Result<(), Error> {
     debug!("====== Running pre-account-cell-type ======");
@@ -52,12 +48,14 @@ pub fn main() -> Result<(), Error> {
         let mut parser = util::load_das_witnesses(None)?;
         parser.parse_all_data()?;
         parser.parse_only_config(&[
-            ConfigID::ConfigCellMain,
-            ConfigID::ConfigCellRegister,
-            ConfigID::ConfigCellBloomFilter,
+            DataType::ConfigCellAccount,
+            DataType::ConfigCellApply,
+            DataType::ConfigCellCharSet,
+            DataType::ConfigCellMain,
+            DataType::ConfigCellPrice,
+            DataType::ConfigCellPreservedAccount00,
         ])?;
-        let configs = parser.configs();
-        let config_main_reader = configs.main()?;
+        let config_main_reader = parser.configs.main()?;
 
         let old_apply_register_cells = util::find_cells_by_type_id(
             ScriptType::Type,
@@ -95,8 +93,8 @@ pub fn main() -> Result<(), Error> {
         das_core::inspect::apply_register_cell(Source::Input, index.to_owned(), &data);
 
         let height = util::load_height()?;
-        let config_register_reader = configs.register()?;
-        verify_apply_height(height, config_register_reader, &data)?;
+        let config_apply_reader = parser.configs.apply()?;
+        verify_apply_height(height, config_apply_reader, &data)?;
 
         debug!("Read witness of PreAccountCell ...");
 
@@ -131,8 +129,10 @@ pub fn main() -> Result<(), Error> {
 
         verify_owner_lock_args(reader)?;
         verify_quote(reader)?;
-        verify_invited_discount(config_register_reader, reader)?;
-        verify_price_and_capacity(config_register_reader, reader, capacity)?;
+        let config_price = parser.configs.price()?;
+        let config_account = parser.configs.account()?;
+        verify_invited_discount(config_price, reader)?;
+        verify_price_and_capacity(config_account, config_price, reader, capacity)?;
 
         verify_account_id(reader, account_id.as_reader())?;
 
@@ -140,10 +140,11 @@ pub fn main() -> Result<(), Error> {
         verify_created_at(timestamp, reader)?;
         util::verify_account_length_and_years(reader.account().len(), timestamp, None)?;
 
-        verify_account_chars(config_register_reader, reader)?;
+        let config_char_set_reader = parser.configs.char_set()?;
+        verify_account_chars(config_char_set_reader, reader)?;
 
-        let config_bloom_filter = configs.bloom_filter()?;
-        verify_preserved_accounts(config_bloom_filter, reader)?;
+        let config_reserved_account = parser.configs.reserved_account()?;
+        verify_preserved_accounts(config_reserved_account, reader)?;
     } else {
         return Err(Error::ActionNotSupported);
     }
@@ -153,7 +154,7 @@ pub fn main() -> Result<(), Error> {
 
 fn verify_apply_height(
     current_height: u64,
-    config_reader: ConfigCellRegisterReader,
+    config_reader: ConfigCellApplyReader,
     data: &[u8],
 ) -> Result<(), Error> {
     // Read the apply timestamp from outputs_data of ApplyRegisterCell.
@@ -267,14 +268,6 @@ fn verify_owner_lock_args(reader: PreAccountCellDataReader) -> Result<(), Error>
         owner_lock_args.len()
     );
 
-    let first_byte = owner_lock_args.get(0).unwrap().as_slice();
-
-    assert!(
-        first_byte == &[0],
-        Error::PreRegisterOwnerLockArgsIsInvalid,
-        "The first byte of owner_lock_args should be 0x00."
-    );
-
     Ok(())
 }
 
@@ -291,7 +284,7 @@ fn verify_quote(reader: PreAccountCellDataReader) -> Result<(), Error> {
 }
 
 fn verify_invited_discount(
-    config: ConfigCellRegisterReader,
+    config: ConfigCellPriceReader,
     reader: PreAccountCellDataReader,
 ) -> Result<(), Error> {
     debug!("Check if PreAccountCell.witness.invited_discount is 0 or the same as configuration.");
@@ -320,13 +313,14 @@ fn verify_invited_discount(
 }
 
 fn verify_price_and_capacity(
-    config: ConfigCellRegisterReader,
+    config_account: ConfigCellAccountReader,
+    config_price: ConfigCellPriceReader,
     reader: PreAccountCellDataReader,
     capacity: u64,
 ) -> Result<(), Error> {
     let length_in_price = util::get_length_in_price(reader.account().len() as u64);
     let price = reader.price();
-    let prices = config.price_configs();
+    let prices = config_price.prices();
 
     // Find out register price in from ConfigCellRegister.
     let mut price_opt = Some(prices.get(prices.len() - 1).unwrap());
@@ -356,7 +350,8 @@ fn verify_price_and_capacity(
     // Register price for 1 year in CKB = x ÷ y.
     let register_capacity = util::calc_yearly_capacity(new_account_price_in_usd, quote, discount);
     // Storage price in CKB = AccountCell base capacity + RefCell base capacity + account.length
-    let storage_capacity = util::calc_account_storage_capacity(reader.account().len() as u64 + 4);
+    let storage_capacity =
+        util::calc_account_storage_capacity(config_account, reader.account().len() as u64 + 4);
 
     debug!("Check if PreAccountCell.capacity is enough for registration: {}(paid) < {}(1 year registeration fee) + {}(storage fee)",
         capacity,
@@ -376,7 +371,7 @@ fn verify_price_and_capacity(
 }
 
 fn verify_account_chars(
-    config: ConfigCellRegisterReader,
+    config: ConfigCellCharSetReader,
     reader: PreAccountCellDataReader,
 ) -> Result<(), Error> {
     debug!("Verify if account chars is available.");
@@ -423,19 +418,13 @@ fn verify_account_chars(
 }
 
 fn verify_preserved_accounts(
-    bloom_filter: &[u8],
-    reader: PreAccountCellDataReader,
+    config_reserved_account: &Vec<Vec<u8>>,
+    pre_account_reader: PreAccountCellDataReader,
 ) -> Result<(), Error> {
     debug!("Verify if account is preserved.");
 
-    let account = reader.account().as_readable();
-    // debug!("account :{:?}", account);
-    // debug!("filter :{:?}", bloom_filter.get(..10));
-    let bf = BloomFilter::new_with_data(BLOOM_FILTER_M, BLOOM_FILTER_K, bloom_filter);
-    if bf.contains(account.as_slice()) {
-        debug!("Account {:?} is reserved.", account);
-        return Err(Error::AccountIsReserved);
-    }
+    // TODO implement reserved account verification
+    // let account = reader.account().as_readable();
 
     Ok(())
 }

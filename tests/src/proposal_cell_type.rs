@@ -13,7 +13,7 @@ fn init(action: &str) -> (TemplateGenerator, u64, u64) {
     template.push_contract_cell("proposal-cell-type", false);
 
     template.push_height_cell(1, height, 0, Source::CellDep);
-    template.push_config_cell(ConfigID::ConfigCellMain, true, 0, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellMain, true, 0, Source::CellDep);
 
     (template, height, timestamp)
 }
@@ -323,7 +323,7 @@ fn gen_proposal_related_cell_at_confirm(
                 template.push_pre_account_cell(
                     cell_data,
                     Some((1, input_index, entity)),
-                    510_600_000_000,
+                    496_200_000_000,
                     Source::Input,
                 );
 
@@ -378,8 +378,9 @@ fn init_confirm(action: &str) -> (TemplateGenerator, u64, u64) {
     template.push_time_cell(1, timestamp, 0, Source::CellDep);
     template.push_height_cell(1, height, 0, Source::CellDep);
 
-    template.push_config_cell(ConfigID::ConfigCellMain, true, 0, Source::CellDep);
-    template.push_config_cell(ConfigID::ConfigCellRegister, true, 0, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellAccount, true, 0, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellMain, true, 0, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellProfitRate, true, 0, Source::CellDep);
 
     (template, height, timestamp)
 }
@@ -453,7 +454,7 @@ fn init_recycle() -> (TemplateGenerator, u64) {
     template.push_contract_cell("proposal-cell-type", false);
 
     template.push_height_cell(1, height, 0, Source::CellDep);
-    template.push_config_cell(ConfigID::ConfigCellRegister, true, 0, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellProposal, true, 0, Source::CellDep);
 
     (template, height)
 }

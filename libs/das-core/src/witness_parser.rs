@@ -1,12 +1,12 @@
 use super::constants::*;
-use super::debug;
 use super::error::Error;
 use super::types::Configs;
 use super::util;
+use super::{assert, debug};
 use ckb_std::ckb_constants::Source;
 use core::convert::{TryFrom, TryInto};
 use das_types::{
-    constants::{ConfigID, DataType, WITNESS_HEADER},
+    constants::{DataType, WITNESS_HEADER},
     packed::*,
     prelude::*,
 };
@@ -15,7 +15,7 @@ use std::prelude::v1::*;
 #[derive(Debug)]
 pub struct WitnessesParser {
     pub witnesses: Vec<Vec<u8>>,
-    configs: Option<Configs>,
+    pub configs: Configs,
     // The Bytes is wrapped DataEntity.entity.
     dep: Vec<(u32, u32, DataType, Vec<u8>, Bytes)>,
     old: Vec<(u32, u32, DataType, Vec<u8>, Bytes)>,
@@ -30,18 +30,14 @@ impl WitnessesParser {
 
         Ok(WitnessesParser {
             witnesses,
-            configs: None,
+            configs: Configs::new(),
             dep: Vec::new(),
             old: Vec::new(),
             new: Vec::new(),
         })
     }
 
-    pub fn configs(&self) -> &Configs {
-        self.configs.as_ref().unwrap()
-    }
-
-    pub fn parse_only_config(&mut self, config_ids: &[ConfigID]) -> Result<(), Error> {
+    pub fn parse_only_config(&mut self, config_types: &[DataType]) -> Result<(), Error> {
         debug!("Parsing config witnesses only ...");
 
         debug!("  Load ConfigCells in cell_deps ...");
@@ -49,8 +45,8 @@ impl WitnessesParser {
         let config_cell_type = util::script_literal_to_script(CONFIG_CELL_TYPE);
         let mut config_data_types = Vec::new();
         let mut config_entity_hashes = Vec::new();
-        for config_id in config_ids {
-            let args = Bytes::from((config_id.to_owned() as u32).to_le_bytes().to_vec());
+        for config_type in config_types {
+            let args = Bytes::from((config_type.to_owned() as u32).to_le_bytes().to_vec());
             let type_script = config_cell_type
                 .clone()
                 .as_builder()
@@ -58,11 +54,15 @@ impl WitnessesParser {
                 .build();
             // There must be one ConfigCell in the cell_deps, no more and no less.
             let ret = util::find_cells_by_script(ScriptType::Type, &type_script, Source::CellDep)?;
-            if ret.len() != 1 {
-                return Err(Error::ConfigCellIsRequired);
-            }
-            let expected_cell_index = ret[0];
+            assert!(
+                ret.len() == 1,
+                Error::ConfigCellIsRequired,
+                "  Can not find {:?} in cell_deps. (find_condition: {})",
+                config_type,
+                type_script
+            );
 
+            let expected_cell_index = ret[0];
             let data = util::load_cell_data(expected_cell_index, Source::CellDep)?;
             let expected_entity_hash = match data.get(..32) {
                 Some(bytes) => bytes.to_owned(),
@@ -70,30 +70,44 @@ impl WitnessesParser {
             };
 
             // debug!(
-            //     "    Load ConfigCell ID: {:?} Hash: {:?}",
-            //     config_id, expected_entity_hash
+            //     "    Load ConfigCell with DataType: {:?} Witness Hash: {:?}",
+            //     config_type, expected_entity_hash
             // );
 
             // Store entity hash for later verification.
             config_entity_hashes.push(expected_entity_hash);
 
             // Store data type for loading data on demand.
-            match config_id {
-                ConfigID::ConfigCellMain => config_data_types.push(DataType::ConfigCellMain),
-                ConfigID::ConfigCellRegister => {
-                    config_data_types.push(DataType::ConfigCellRegister)
-                }
-                ConfigID::ConfigCellRecord => config_data_types.push(DataType::ConfigCellRecord),
-                ConfigID::ConfigCellMarket => config_data_types.push(DataType::ConfigCellMarket),
-                ConfigID::ConfigCellBloomFilter => {
-                    config_data_types.push(DataType::ConfigCellBloomFilter)
-                }
-            }
+            config_data_types.push(config_type.to_owned())
         }
 
         debug!("  Load witnesses of the ConfigCells ...");
 
         let mut configs = Configs::new();
+
+        macro_rules! assign_config_witness {
+            ( $property:expr, $witness_type:ty, $entity:expr ) => {
+                $property = Some(
+                    <$witness_type>::from_slice($entity)
+                        .map_err(|_| Error::ConfigCellWitnessDecodingError)?,
+                );
+            };
+        }
+
+        macro_rules! assign_config_reserved_account_witness {
+            ( $index:expr, $entity:expr ) => {
+                if configs.reserved_account.is_some() {
+                    configs.reserved_account.as_mut().map(|account_lists| {
+                        account_lists[$index] = $entity.get(4..).unwrap().to_vec()
+                    });
+                } else {
+                    let mut account_lists = vec![Vec::new(); 8];
+                    account_lists[$index] = $entity.get(4..).unwrap().to_vec();
+                    configs.reserved_account = Some(account_lists)
+                }
+            };
+        }
+
         for (_i, witness) in self.witnesses.iter().enumerate() {
             Self::verify_das_header(&witness)?;
 
@@ -109,28 +123,37 @@ impl WitnessesParser {
                 _i, data_type
             );
             match data_type {
+                DataType::ConfigCellAccount => {
+                    assign_config_witness!(configs.account, ConfigCellAccount, entity)
+                }
+                DataType::ConfigCellApply => {
+                    assign_config_witness!(configs.apply, ConfigCellApply, entity)
+                }
+                DataType::ConfigCellCharSet => {
+                    assign_config_witness!(configs.char_set, ConfigCellCharSet, entity)
+                }
+                DataType::ConfigCellIncome => {
+                    assign_config_witness!(configs.income, ConfigCellIncome, entity)
+                }
                 DataType::ConfigCellMain => {
-                    configs.main = Some(
-                        ConfigCellMain::from_slice(entity)
-                            .map_err(|_| Error::ConfigCellWitnessDecodingError)?,
-                    );
+                    assign_config_witness!(configs.main, ConfigCellMain, entity)
                 }
-                DataType::ConfigCellRegister => {
-                    configs.register = Some(
-                        ConfigCellRegister::from_slice(entity)
-                            .map_err(|_| Error::ConfigCellWitnessDecodingError)?,
-                    );
+                DataType::ConfigCellPrice => {
+                    assign_config_witness!(configs.price, ConfigCellPrice, entity)
                 }
-                DataType::ConfigCellBloomFilter => {
-                    configs.bloom_filter = Some(entity.get(4..).unwrap().to_vec());
+                DataType::ConfigCellProposal => {
+                    assign_config_witness!(configs.proposal, ConfigCellProposal, entity)
                 }
-                DataType::ConfigCellMarket => {
-                    configs.market = Some(
-                        ConfigCellMarket::from_slice(entity)
-                            .map_err(|_| Error::ConfigCellWitnessDecodingError)?,
-                    );
+                DataType::ConfigCellProfitRate => {
+                    assign_config_witness!(configs.profit_rate, ConfigCellProfitRate, entity)
                 }
-                _ => return Err(Error::ConfigIDIsUndefined),
+                DataType::ConfigCellRecordKeyNamespace => {
+                    configs.record_key_namespace = Some(entity.get(4..).unwrap().to_vec());
+                }
+                DataType::ConfigCellPreservedAccount00 => {
+                    assign_config_reserved_account_witness!(0, entity)
+                }
+                _ => return Err(Error::ConfigTypeIsUndefined),
             }
         }
 
@@ -140,7 +163,7 @@ impl WitnessesParser {
             return Err(Error::ConfigIsPartialMissing);
         }
 
-        self.configs = Some(configs);
+        self.configs = configs;
 
         Ok(())
     }
@@ -327,10 +350,16 @@ impl WitnessesParser {
 
     fn is_config_data_type(&self, data_type: DataType) -> bool {
         let config_data_types = [
+            DataType::ConfigCellAccount,
+            DataType::ConfigCellApply,
+            DataType::ConfigCellCharSet,
+            DataType::ConfigCellIncome,
             DataType::ConfigCellMain,
-            DataType::ConfigCellRegister,
-            DataType::ConfigCellBloomFilter,
-            DataType::ConfigCellMarket,
+            DataType::ConfigCellPrice,
+            DataType::ConfigCellProposal,
+            DataType::ConfigCellProfitRate,
+            DataType::ConfigCellRecordKeyNamespace,
+            DataType::ConfigCellPreservedAccount00,
         ];
 
         config_data_types.contains(&data_type)
