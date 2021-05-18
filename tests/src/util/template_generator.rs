@@ -8,11 +8,7 @@ use ckb_tool::{
 use das_sorted_list::DasSortedList;
 use das_types::{constants::*, packed::*, prelude::*, util as das_util};
 use serde_json::{json, Value};
-use std::collections::HashMap;
-use std::convert::TryFrom;
-use std::io::BufRead;
-use std::path::PathBuf;
-use std::{env, fs, io, str};
+use std::{collections::HashMap, convert::TryFrom, env, fs, io, io::BufRead, path::PathBuf, str};
 
 fn gen_always_success_lock(lock_args: &str) -> Script {
     Script::new_builder()
@@ -68,13 +64,15 @@ fn gen_type_id_table() -> TypeIdTable {
     let mut builder = TypeIdTable::new_builder();
     for (key, val) in TYPE_ID_TABLE.iter() {
         builder = match *key {
+            "account-cell-type" => builder.account_cell(util::hex_to_hash(val).unwrap()),
             "apply-register-cell-type" => {
                 builder.apply_register_cell(util::hex_to_hash(val).unwrap())
             }
+            "bidding-cell-type" => builder.pre_account_cell(util::hex_to_hash(val).unwrap()),
+            "income-cell-type" => builder.pre_account_cell(util::hex_to_hash(val).unwrap()),
+            "on-sale-cell-type" => builder.pre_account_cell(util::hex_to_hash(val).unwrap()),
             "pre-account-cell-type" => builder.pre_account_cell(util::hex_to_hash(val).unwrap()),
-            "account-cell-type" => builder.account_cell(util::hex_to_hash(val).unwrap()),
             "proposal-cell-type" => builder.proposal_cell(util::hex_to_hash(val).unwrap()),
-            "wallet-cell-type" => builder.wallet_cell(util::hex_to_hash(val).unwrap()),
             _ => builder,
         }
     }
@@ -840,10 +838,10 @@ impl TemplateGenerator {
     pub fn gen_pre_account_cell_data(
         &mut self,
         account: &str,
-        owner_lock_args: &str,
         refund_lock_args: &str,
-        inviter_wallet: &str,
-        channel_wallet: &str,
+        owner_lock_args: &str,
+        inviter_lock_args: &str,
+        channel_lock_args: &str,
         quote: u64,
         invited_discount: u32,
         created_at: u64,
@@ -867,8 +865,8 @@ impl TemplateGenerator {
             .account(account_chars.to_owned())
             .owner_lock_args(owner_lock_args)
             .refund_lock(gen_always_success_lock(refund_lock_args))
-            .inviter_wallet(Bytes::from(account_to_id_bytes(inviter_wallet)))
-            .channel_wallet(Bytes::from(account_to_id_bytes(channel_wallet)))
+            .inviter_lock(ScriptOpt::from(gen_always_success_lock(inviter_lock_args)))
+            .channel_lock(ScriptOpt::from(gen_always_success_lock(channel_lock_args)))
             .price(price.to_owned())
             .quote(Uint64::from(quote))
             .invited_discount(Uint32::from(invited_discount))

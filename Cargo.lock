@@ -1024,17 +1024,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "das-bloom-filter"
-version = "0.1.0"
-dependencies = [
- "blake2b-ref 0.3.0",
- "ckb-std",
- "hex",
- "no-std-compat",
- "rand 0.8.3",
-]
-
-[[package]]
 name = "das-core"
 version = "0.1.0"
 dependencies = [
@@ -2136,7 +2125,6 @@ name = "pre-account-cell-type"
 version = "0.1.0"
 dependencies = [
  "ckb-std",
- "das-bloom-filter",
  "das-core",
  "das-types",
  "hex",
@@ -2893,7 +2881,6 @@ version = "0.1.0"
 dependencies = [
  "ckb-testtool",
  "ckb-tool",
- "das-bloom-filter",
  "das-core",
  "das-sorted-list",
  "das-types",

@@ -20,9 +20,11 @@ pub enum ScriptType {
 pub enum TypeScript {
     AccountCellType,
     ApplyRegisterCellType,
+    BiddingCellType,
+    IncomeCellType,
+    OnSaleCellType,
     PreAccountCellType,
     ProposalCellType,
-    WalletCellType,
 }
 
 pub const CKB_HASH_PERSONALIZATION: &[u8] = b"ckb-default-hash";
@@ -35,10 +37,6 @@ pub const ACCOUNT_ID_LENGTH: usize = 10;
 pub const ACCOUNT_SUFFIX: &str = ".bit";
 pub const ACCOUNT_MAX_PRICED_LENGTH: u8 = 8;
 
-pub const BLOOM_FILTER_M: u64 = 1918;
-pub const BLOOM_FILTER_K: u64 = 14;
-
-pub const ROOT_WALLET_ID: [u8; ACCOUNT_ID_LENGTH] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 pub const PROPOSAL_CREATOR_WALLET_ID: [u8; ACCOUNT_ID_LENGTH] =
     [255, 255, 255, 255, 255, 255, 255, 255, 255, 254];
 pub const PROPOSAL_CONFIRMOR_WALLET_ID: [u8; ACCOUNT_ID_LENGTH] =
@@ -138,53 +136,6 @@ pub fn oracle_lock() -> Script {
     };
 
     util::script_literal_to_script(oracle_lock)
-}
-
-pub fn wallet_maker_lock() -> Script {
-    #[cfg(feature = "dev")]
-    let wallet_maker_lock = ScriptLiteral {
-        code_hash: [
-            157, 111, 41, 25, 227, 40, 243, 33, 125, 125, 211, 218, 181, 247, 206, 233, 216, 224,
-            98, 190, 230, 168, 13, 93, 5, 205, 73, 92, 163, 65, 99, 120,
-        ],
-        hash_type: ScriptHashType::Type,
-        args: vec![2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    };
-
-    #[cfg(feature = "local")]
-    let wallet_maker_lock = ScriptLiteral {
-        code_hash: [
-            157, 111, 41, 25, 227, 40, 243, 33, 125, 125, 211, 218, 181, 247, 206, 233, 216, 224,
-            98, 190, 230, 168, 13, 93, 5, 205, 73, 92, 163, 65, 99, 120,
-        ],
-        hash_type: ScriptHashType::Type,
-        args: vec![2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    };
-
-    #[cfg(feature = "testnet")]
-    let wallet_maker_lock = ScriptLiteral {
-        code_hash: [
-            155, 215, 224, 111, 62, 207, 75, 224, 242, 252, 210, 24, 139, 35, 241, 185, 252, 200,
-            142, 93, 75, 101, 168, 99, 123, 23, 114, 59, 189, 163, 204, 232,
-        ],
-        hash_type: ScriptHashType::Type,
-        args: vec![
-            15, 159, 232, 190, 83, 187, 167, 160, 61, 190, 69, 33, 71, 237, 34, 126, 246, 68, 175,
-            67,
-        ],
-    };
-
-    #[cfg(feature = "mainnet")]
-    let wallet_maker_lock = ScriptLiteral {
-        code_hash: [
-            155, 215, 224, 111, 62, 207, 75, 224, 242, 252, 210, 24, 139, 35, 241, 185, 252, 200,
-            142, 93, 75, 101, 168, 99, 123, 23, 114, 59, 189, 163, 204, 232,
-        ],
-        hash_type: ScriptHashType::Type,
-        args: vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
-    };
-
-    util::script_literal_to_script(wallet_maker_lock)
 }
 
 pub fn das_wallet_lock() -> Script {

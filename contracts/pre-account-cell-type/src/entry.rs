@@ -4,7 +4,6 @@ use ckb_std::{
 };
 use core::convert::TryInto;
 use core::result::Result;
-use das_bloom_filter::BloomFilter;
 use das_core::{assert, constants::*, debug, error::Error, util};
 use das_types::{constants::DataType, packed::*, prelude::*};
 
@@ -291,7 +290,7 @@ fn verify_invited_discount(
 
     let zero = Uint32::from(0);
     let expected_discount;
-    if reader.inviter_wallet().is_empty() {
+    if reader.inviter_lock().is_none() {
         expected_discount = zero.as_reader();
         assert!(
             util::is_reader_eq(expected_discount, reader.invited_discount()),

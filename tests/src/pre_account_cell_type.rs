@@ -3,7 +3,11 @@ use ckb_testtool::context::Context;
 use das_core::error::Error;
 use das_types::constants::*;
 
-fn gen_cell_deps(template: &mut TemplateGenerator, height: u64, timestamp: u64) {
+fn init(account: &str) -> (TemplateGenerator, &str, u64) {
+    let mut template = TemplateGenerator::new("pre_register", None);
+    let timestamp = 1611200060u64;
+    let height = 1000u64;
+
     template.push_contract_cell("always_success", true);
     template.push_contract_cell("config-cell-type", false);
     template.push_contract_cell("apply-register-cell-type", false);
@@ -25,14 +29,6 @@ fn gen_cell_deps(template: &mut TemplateGenerator, height: u64, timestamp: u64) 
         0,
         Source::CellDep,
     );
-}
-
-fn init(account: &str) -> (TemplateGenerator, &str, u64) {
-    let mut template = TemplateGenerator::new("pre_register", None);
-    let timestamp = 1611200060u64;
-    let height = 1000u64;
-
-    gen_cell_deps(&mut template, height, timestamp);
 
     template.push_apply_register_cell(
         "0x9af92f5e690f4669ca543deb99af8385b12624cc",
@@ -51,10 +47,10 @@ fn gen_pre_register() {
 
     let (cell_data, entity) = template.gen_pre_account_cell_data(
         account,
-        "0x0000000000000000000000000000000000002222",
         "0x000000000000000000000000000000000000FFFF",
-        "inviter_01.bit",
-        "channel_01.bit",
+        "0x0000000000000000000000000000000000001100",
+        "0x0000000000000000000000000000000000001111",
+        "0x0000000000000000000000000000000000002222",
         1000,
         500,
         timestamp,
@@ -81,8 +77,8 @@ challenge_with_generator!(
             account,
             "0x0000000000000000000000000000000000002222",
             "0x000000000000000000000000000000000000FFFF",
-            "inviter_01.bit",
-            "channel_01.bit",
+            "0x0000000000000000000000000000000000001111",
+            "0x0000000000000000000000000000000000002222",
             1000,
             500,
             timestamp,
@@ -108,8 +104,8 @@ challenge_with_generator!(
             account,
             "0x0000000000000000000000000000000000002222",
             "0x000000000000000000000000000000000000FFFF",
-            "inviter_01.bit",
-            "channel_01.bit",
+            "0x0000000000000000000000000000000000001111",
+            "0x0000000000000000000000000000000000002222",
             1000,
             500,
             timestamp,

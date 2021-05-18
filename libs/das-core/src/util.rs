@@ -805,9 +805,11 @@ pub fn require_type_script(
     let type_id = match type_script {
         TypeScript::AccountCellType => config.type_id_table().account_cell(),
         TypeScript::ApplyRegisterCellType => config.type_id_table().apply_register_cell(),
+        TypeScript::BiddingCellType => config.type_id_table().bidding_cell(),
+        TypeScript::IncomeCellType => config.type_id_table().income_cell(),
+        TypeScript::OnSaleCellType => config.type_id_table().on_sale_cell(),
         TypeScript::PreAccountCellType => config.type_id_table().pre_account_cell(),
         TypeScript::ProposalCellType => config.type_id_table().proposal_cell(),
-        TypeScript::WalletCellType => config.type_id_table().wallet_cell(),
     };
 
     debug!(
