@@ -11,9 +11,9 @@ use das_core::{
     assert, constants::*, data_parser::account_cell, debug, error::Error, util,
     witness_parser::WitnessesParser,
 };
+use das_map::{map::Map, util as map_util};
 use das_sorted_list::DasSortedList;
 use das_types::{constants::*, packed::*, prelude::*};
-use das_wallet::Wallet;
 
 pub fn main() -> Result<(), Error> {
     debug!("====== Running proposal-cell-type ======");
@@ -184,6 +184,21 @@ pub fn main() -> Result<(), Error> {
             input_related_cells,
             output_account_cells,
         )?;
+
+        // TODO check if proposer get all cell capacity back
+        // let refund_lock = proposal_cell_data_reader.proposer_lock().to_entity();
+        // let refund_cells =
+        //     util::find_cells_by_script(ScriptType::Lock, &refund_lock.into(), Source::Output)?;
+        // if refund_cells.len() != 1 {
+        //     return Err(Error::ProposalRecycleCanNotFoundRefundCell);
+        // }
+        // let proposal_capacity =
+        //     load_cell_capacity(index.to_owned(), Source::Input).map_err(|e| Error::from(e))?;
+        // let refund_capacity =
+        //     load_cell_capacity(refund_cells[0], Source::Output).map_err(|e| Error::from(e))?;
+        // if proposal_capacity > refund_capacity {
+        //     return Err(Error::ProposalRecycleRefundAmountError);
+        // }
     } else if action == b"recycle_proposal" {
         debug!("Route to recycle_proposal action ...");
 
@@ -262,7 +277,7 @@ fn inspect_slices(slices_reader: SliceListReader) -> Result<(), Error> {
     Ok(())
 }
 
-// #[cfg(not(feature = "mainnet"))]
+#[cfg(not(feature = "mainnet"))]
 fn inspect_related_cells(
     parser: &WitnessesParser,
     config_main: ConfigCellMainReader,
@@ -613,11 +628,13 @@ fn verify_proposal_execution_result(
 ) -> Result<(), Error> {
     debug!("Check that all AccountCells/PreAccountCells have been converted according to the proposal.");
 
+    let das_wallet_lock = das_wallet_lock();
+    let proposer_lock_reader = proposal_cell_data_reader.proposer_lock();
     let slices_reader = proposal_cell_data_reader.slices();
     let account_cell_type_id = config_main.type_id_table().account_cell();
     let pre_account_cell_type_id = config_main.type_id_table().pre_account_cell();
 
-    let mut wallet = Wallet::new();
+    let mut profit_map = Map::new();
     let inviter_profit_rate = u32::from(config_profit_rate.inviter()) as u64;
     let channel_profit_rate = u32::from(config_profit_rate.channel()) as u64;
     let proposal_create_profit_rate = u32::from(config_profit_rate.proposal_create()) as u64;
@@ -784,43 +801,61 @@ fn verify_proposal_execution_result(
 
                 // Only when inviter_wallet's length is equal to account ID it will be count in profit.
                 let mut inviter_profit = 0;
-                if input_cell_witness_reader.inviter_wallet().len() == ACCOUNT_ID_LENGTH {
-                    let wallet_id = input_cell_witness_reader.inviter_wallet().raw_data();
+                if input_cell_witness_reader.inviter_lock().is_some() {
+                    let inviter_lock_reader =
+                        input_cell_witness_reader.inviter_lock().to_opt().unwrap();
                     inviter_profit = profit * inviter_profit_rate / RATE_BASE;
                     debug!(
-                        "  Item[{}] Wallet[0x{}]: {}(inviter_profit) = {}(profit) * {}(inviter_profit_rate) / {}(RATE_BASE)",
-                        item_index, util::hex_string(wallet_id), inviter_profit, profit, inviter_profit_rate, RATE_BASE
+                        "  Item[{}] lock_script[{}]: {}(inviter_profit) = {}(profit) * {}(inviter_profit_rate) / {}(RATE_BASE)",
+                        item_index, inviter_lock_reader, inviter_profit, profit, inviter_profit_rate, RATE_BASE
                     );
-                    wallet.add_balance(wallet_id, inviter_profit);
+                    map_util::add(
+                        &mut profit_map,
+                        inviter_lock_reader.as_slice().to_vec(),
+                        inviter_profit,
+                    );
                 };
 
                 let mut channel_profit = 0;
-                if input_cell_witness_reader.channel_wallet().len() == ACCOUNT_ID_LENGTH {
-                    let wallet_id = input_cell_witness_reader.channel_wallet().raw_data();
+                if input_cell_witness_reader.channel_lock().is_some() {
+                    let channel_lock_reader =
+                        input_cell_witness_reader.channel_lock().to_opt().unwrap();
                     channel_profit = profit * channel_profit_rate / RATE_BASE;
                     debug!(
-                        "  Item[{}] Wallet[0x{}]: {}(channel_profit) = {}(profit) * {}(channel_profit_rate) / {}(RATE_BASE)",
-                        item_index, util::hex_string(wallet_id), channel_profit, profit, channel_profit_rate, RATE_BASE
+                        "  Item[{}] lock_script[{}]: {}(channel_profit) = {}(profit) * {}(channel_profit_rate) / {}(RATE_BASE)",
+                        item_index, channel_lock_reader, channel_profit, profit, channel_profit_rate, RATE_BASE
                     );
-                    wallet.add_balance(wallet_id, channel_profit);
+                    map_util::add(
+                        &mut profit_map,
+                        channel_lock_reader.as_slice().to_vec(),
+                        channel_profit,
+                    );
                 };
 
                 let proposal_create_profit = profit * proposal_create_profit_rate / RATE_BASE;
-                wallet.add_balance(&PROPOSAL_CREATOR_WALLET_ID, proposal_create_profit);
+                map_util::add(
+                    &mut profit_map,
+                    proposer_lock_reader.as_slice().to_vec(),
+                    proposal_create_profit,
+                );
 
                 let proposal_confirm_profit = profit * proposal_confirm_profit_rate / RATE_BASE;
-                wallet.add_balance(&PROPOSAL_CONFIRMOR_WALLET_ID, proposal_confirm_profit);
+                // No need to record proposal confirm profit, bacause the transaction creator can take its profit freely and this script do not know which lock script the transaction creator will use.
 
                 let das_profit = profit
                     - inviter_profit
                     - channel_profit
                     - proposal_create_profit
                     - proposal_confirm_profit;
-                wallet.add_balance(&ROOT_WALLET_ID, das_profit);
+                map_util::add(
+                    &mut profit_map,
+                    das_wallet_lock.as_reader().as_slice().to_vec(),
+                    das_profit,
+                );
 
                 debug!(
-                    "  Item[{}] Wallet[0x{}]: {}(das_profit) = {}(profit) - {}(inviter_profit) - {}(channel_profit) - {}(proposal_create_profit) - {}(proposal_confirm_profit)",
-                    item_index, util::hex_string(&ROOT_WALLET_ID), das_profit, profit, inviter_profit, channel_profit, proposal_create_profit, proposal_confirm_profit
+                    "  Item[{}] lock_script[{}]: {}(das_profit) = {}(profit) - {}(inviter_profit) - {}(channel_profit) - {}(proposal_create_profit) - {}(proposal_confirm_profit)",
+                    item_index, das_wallet_lock.as_reader(), das_profit, profit, inviter_profit, channel_profit, proposal_create_profit, proposal_confirm_profit
                 );
             }
 
@@ -828,144 +863,88 @@ fn verify_proposal_execution_result(
         }
     }
 
-    debug!("Check if the balance of all WalletCells have increased correctly.");
+    debug!("Check if the IncomeCell in inputs is a newly created IncomeCell with only one record.");
 
-    let wallet_cell_type_id = config_main.type_id_table().wallet_cell();
-    let old_wallet_cells =
-        util::find_cells_by_type_id(ScriptType::Type, wallet_cell_type_id, Source::Input)?;
-    let new_wallet_cells =
-        util::find_cells_by_type_id(ScriptType::Type, wallet_cell_type_id, Source::Output)?;
+    let income_cell_type_id = config_main.type_id_table().income_cell();
+    let input_income_cells =
+        util::find_cells_by_type_id(ScriptType::Type, income_cell_type_id, Source::Input)?;
+    let output_income_cells =
+        util::find_cells_by_type_id(ScriptType::Type, income_cell_type_id, Source::Output)?;
 
     assert!(
-        old_wallet_cells.len() == new_wallet_cells.len(),
+        input_income_cells.len() <= 1,
         Error::ProposalFoundInvalidTransaction,
-        "The number of WalletCells in inputs should equal to outputs. (inputs: {}, outputs{})",
-        old_wallet_cells.len(),
-        new_wallet_cells.len()
+        "The number of IncomeCells in inputs should be less than or equal to 1. (expected: <= 1, current: {})",
+        input_income_cells.len()
     );
 
-    // The DAS wallet do not count.
+    if input_income_cells.len() == 1 {
+        let (_, _, entity) = parser.verify_and_get(input_income_cells[0], Source::Input)?;
+        let income_cell_witness = IncomeCellData::from_slice(entity.as_reader().raw_data())
+            .map_err(|_| Error::WitnessEntityDecodingError)?;
+        let income_cell_witness_reader = income_cell_witness.as_reader();
+
+        // The IncomeCell should be a newly created cell with only one record which is belong to the creator, but we do not need to check everything here, so we only check the length.
+        assert!(
+            income_cell_witness_reader.records().len() == 1,
+            Error::ProposalFoundInvalidTransaction,
+            "The IncomeCell in inputs should be a newly created cell with only one record which is belong to the creator."
+        );
+
+        // Add the original record into profit_map to bypass later verification.
+        let first_record = income_cell_witness_reader.records().get(0).unwrap();
+        profit_map.insert(
+            first_record.belong_to().as_slice().to_vec(),
+            u64::from(first_record.capacity()),
+        );
+    }
+
+    debug!("Check if the IncomeCell in outputs records everyone's profit correctly.");
+
     assert!(
-        wallet.len() - 3 == new_wallet_cells.len(),
+        output_income_cells.len() == 1,
         Error::ProposalFoundInvalidTransaction,
-        "The number of WalletCells in outputs should equal to the number of wallets involved by PreAccountCell. (involved: {}, outputs: {})",
-        wallet.len() - 3,
-        new_wallet_cells.len()
+        "The number of IncomeCells in outputs should be exactly 1 . (expected: == 1, current: {})",
+        output_income_cells.len()
     );
 
-    for (i, old_wallet_index) in old_wallet_cells.into_iter().enumerate() {
-        let new_wallet_index = new_wallet_cells.get(i).unwrap().to_owned();
+    let (_, _, entity) = parser.verify_and_get(output_income_cells[0], Source::Output)?;
+    let output_cell_witness = IncomeCellData::from_slice(entity.as_reader().raw_data())
+        .map_err(|_| Error::WitnessEntityDecodingError)?;
+    let output_cell_witness_reader = output_cell_witness.as_reader();
 
-        let old_wallet_id = util::load_cell_data(old_wallet_index, Source::Input)?;
-        let new_wallet_id = util::load_cell_data(new_wallet_index, Source::Output)?;
+    for (i, record) in output_cell_witness_reader.records().iter().enumerate() {
+        let key = record.belong_to().as_slice().to_vec();
+        let recorded_profit = u64::from(record.capacity());
+        let result = profit_map.get(&key);
 
         assert!(
-            old_wallet_id == new_wallet_id,
+            result.is_some(),
             Error::ProposalConfirmWalletMissMatch,
-            "The WalletCells should have the same order in both inputs and outputs. (inputs[{}]: 0x{}, outputs[{}]: 0x{})",
-            old_wallet_index,
-            util::hex_string(old_wallet_id.as_slice()),
-            new_wallet_index,
-            util::hex_string(new_wallet_id.as_slice())
+            "The profit record which belong to lock_script[{}] should not be in the IncomeCell.",
+            record.belong_to()
         );
 
-        let old_balance =
-            load_cell_capacity(old_wallet_index, Source::Input).map_err(|e| Error::from(e))?;
-        let new_balance =
-            load_cell_capacity(new_wallet_index, Source::Output).map_err(|e| Error::from(e))?;
-        let current_profit = new_balance - old_balance;
-
-        debug!(
-            "Check if WalletCell[0x{}] has updated balance correctly.",
-            util::hex_string(new_wallet_id.as_slice())
+        let expected_profit = result.unwrap();
+        assert!(
+            &recorded_profit == expected_profit,
+            Error::ProposalConfirmWalletBalanceError,
+            "The profit record which belong to lock_script[{}] is incorrect. (expected: {}, current: {})",
+            record.belong_to(),
+            expected_profit,
+            recorded_profit
         );
 
-        // Balance in wallet instance do not contains cell occupied capacities, so it is pure profit.
-        let result = wallet
-            .cmp_balance(new_wallet_id.as_slice(), current_profit)
-            .map_err(|_| Error::ProposalConfirmWalletMissMatch)?;
-        if !result {
-            debug!(
-                "Wallet balance variation: {}(current_profit) = {}(0x{}) - {}(0x{})",
-                current_profit,
-                new_balance,
-                util::hex_string(new_wallet_id.as_slice()),
-                old_balance,
-                util::hex_string(old_wallet_id.as_slice())
-            );
-            debug!(
-                "Compare profit in WalletCell[0x{}] with expected: {}(current_profit) != {}(expected_profit) -> true",
-                util::hex_string(new_wallet_id.as_slice()),
-                current_profit,
-                wallet.get_balance(old_wallet_id.as_slice()).unwrap()
-            );
-            return Err(Error::ProposalConfirmWalletBalanceError);
-        }
+        profit_map.remove(&key);
     }
 
-    debug!("Check if the profit of proposer has been transfered correctly.");
-
-    let mut expected_proposer_profit = wallet.get_balance(&PROPOSAL_CREATOR_WALLET_ID).unwrap();
-    let original_expected_proposer_profit = expected_proposer_profit;
-    let proposer_lock: ckb_packed::Script =
-        proposal_cell_data_reader.proposer_lock().to_entity().into();
-    let proposer_wallet_cells =
-        util::find_cells_by_script(ScriptType::Lock, &proposer_lock, Source::Output)?;
-
-    if expected_proposer_profit < 6_100_000_000 {
-        expected_proposer_profit += 6_100_000_000;
-    }
-
-    // The keeper who create proposal and confirm proposal maybe the same one, so more than one outputs is allowed.
-    assert!(
-        proposer_wallet_cells.len() >= 1,
-        Error::ProposalConfirmWalletBalanceError,
-        "There should be more than 1 output with proposer lock, but {} found.",
-        proposer_wallet_cells.len()
-    );
-
-    let mut proposer_current_profit = 0;
-    for index in proposer_wallet_cells {
-        proposer_current_profit +=
-            load_cell_capacity(index, Source::Output).map_err(|e| Error::from(e))?;
-    }
+    debug!("profit_map = {:?}", profit_map);
 
     assert!(
-        expected_proposer_profit <= proposer_current_profit,
-        Error::ProposalConfirmWalletBalanceError,
-        "Outputs should has greater than or equal to expected capacity. (expected: {}, current: {})",
-        expected_proposer_profit,
-        proposer_current_profit
-    );
-
-    debug!("Check if the profit of DAS has been transfered correctly.");
-
-    let mut expected_profit = wallet.get_balance(&ROOT_WALLET_ID).unwrap();
-    let das_wallet_lock = das_wallet_lock();
-    let das_wallet_cells =
-        util::find_cells_by_script(ScriptType::Lock, &das_wallet_lock, Source::Output)?;
-
-    if original_expected_proposer_profit < 6_100_000_000 {
-        expected_profit -= 6_100_000_000;
-    }
-
-    assert!(
-        das_wallet_cells.len() == 1,
-        Error::ProposalConfirmWalletBalanceError,
-        "There should be 1 output with DAS wallet lock, but {} found.",
-        das_wallet_cells.len()
-    );
-
-    let current_profit =
-        load_cell_capacity(das_wallet_cells[0], Source::Output).map_err(|e| Error::from(e))?;
-
-    assert!(
-        expected_profit <= current_profit,
-        Error::ProposalConfirmWalletBalanceError,
-        "Outputs[{}] should has greater than or equal to expected capacity. (expected: {}, current: {})",
-        das_wallet_cells[0],
-        expected_profit,
-        current_profit
+        profit_map.is_empty(),
+        Error::ProposalConfirmWalletMissMatch,
+        "The IncomeCell in outputs should contains everyone's profit. (missing: {})",
+        profit_map.len()
     );
 
     Ok(())

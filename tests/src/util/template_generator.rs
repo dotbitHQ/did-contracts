@@ -69,8 +69,8 @@ fn gen_type_id_table() -> TypeIdTable {
                 builder.apply_register_cell(util::hex_to_hash(val).unwrap())
             }
             "bidding-cell-type" => builder.pre_account_cell(util::hex_to_hash(val).unwrap()),
-            "income-cell-type" => builder.pre_account_cell(util::hex_to_hash(val).unwrap()),
-            "on-sale-cell-type" => builder.pre_account_cell(util::hex_to_hash(val).unwrap()),
+            "income-cell-type" => builder.income_cell(util::hex_to_hash(val).unwrap()),
+            "on-sale-cell-type" => builder.on_sale_cell(util::hex_to_hash(val).unwrap()),
             "pre-account-cell-type" => builder.pre_account_cell(util::hex_to_hash(val).unwrap()),
             "proposal-cell-type" => builder.proposal_cell(util::hex_to_hash(val).unwrap()),
             _ => builder,

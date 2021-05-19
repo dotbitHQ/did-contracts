@@ -1036,6 +1036,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "das-map"
+version = "0.1.0"
+dependencies = [
+ "ckb-std",
+ "hex",
+ "no-std-compat",
+]
+
+[[package]]
 name = "das-sorted-list"
 version = "0.1.0"
 dependencies = [
@@ -1050,15 +1059,6 @@ version = "0.1.0"
 dependencies = [
  "ckb-std",
  "molecule",
- "no-std-compat",
-]
-
-[[package]]
-name = "das-wallet"
-version = "0.1.0"
-dependencies = [
- "ckb-std",
- "hex",
  "no-std-compat",
 ]
 
@@ -2182,9 +2182,9 @@ dependencies = [
  "chrono",
  "ckb-std",
  "das-core",
+ "das-map",
  "das-sorted-list",
  "das-types",
- "das-wallet",
 ]
 
 [[package]]
