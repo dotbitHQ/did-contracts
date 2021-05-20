@@ -27,13 +27,13 @@ name = "config-cell-type"
 template_type = "Rust"
 
 [[contracts]]
+name = "income-cell-type"
+template_type = "Rust"
+
+[[contracts]]
 name = "pre-account-cell-type"
 template_type = "Rust"
 
 [[contracts]]
 name = "proposal-cell-type"
-template_type = "Rust"
-
-[[contracts]]
-name = "wallet-cell-type"
 template_type = "Rust"

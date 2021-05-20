@@ -12,7 +12,7 @@ struct Options {
     capacity: Option<u64>,
     #[clap(
         long = "account-name-storage",
-        about = "The length of account, do not count its suffix. Required if --profit is not provided."
+        about = "The length of account, must count its suffix. Required if --profit is not provided."
     )]
     account_name_storage: Option<u64>,
     #[clap(long = "profit", about = "The profit of proposal confirmation.")]

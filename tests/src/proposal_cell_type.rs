@@ -57,10 +57,10 @@ fn gen_proposal_related_cell_at_create(
             } else {
                 let (cell_data, entity) = template.gen_pre_account_cell_data(
                     account,
-                    "0x0000000000000000000000000000000000002222",
                     "0x000000000000000000000000000000000000FFFF",
-                    "inviter_01.bit",
-                    "channel_01.bit",
+                    "0x0000000000000000000000000000000000001100",
+                    "0x0000000000000000000000000000000000001111",
+                    "0x0000000000000000000000000000000000002222",
                     1000,
                     500,
                     timestamp - 60,
@@ -233,14 +233,14 @@ fn gen_proposal_related_cell_at_confirm(
     template: &mut TemplateGenerator,
     slices: Vec<Vec<(&str, ProposalSliceItemType, &str)>>,
     timestamp: u64,
-) {
+) -> (u32, u32) {
     let old_registered_at = timestamp - 86400;
     let old_expired_at = timestamp + 31536000 - 86400;
     let new_registered_at = timestamp;
     let new_expired_at = timestamp + 31536000;
 
-    let mut input_index = 1;
-    let mut output_index = 0;
+    let mut input_index: u32 = 1;
+    let mut output_index: u32 = 0;
     for (slice_index, slice) in slices.into_iter().enumerate() {
         println!("Generate slice {} ...", slice_index);
 
@@ -271,7 +271,7 @@ fn gen_proposal_related_cell_at_confirm(
                     "0x0000000000000000000000000000000000001111",
                     cell_data,
                     None,
-                    14_600_000_000,
+                    20_000_000_000,
                     Source::Input,
                 );
 
@@ -290,7 +290,7 @@ fn gen_proposal_related_cell_at_confirm(
                     "0x0000000000000000000000000000000000001111",
                     cell_data,
                     None,
-                    14_600_000_000,
+                    20_000_000_000,
                     Source::Output,
                 );
 
@@ -312,10 +312,10 @@ fn gen_proposal_related_cell_at_confirm(
                 // Generate old PreAccountCell in inputs.
                 let (cell_data, entity) = template.gen_pre_account_cell_data(
                     account,
-                    "0x0000000000000000000000000000000000002222",
                     "0x000000000000000000000000000000000000FFFF",
-                    "inviter_01.bit",
-                    "channel_01.bit",
+                    "0x0000000000000000000000000000000000001100",
+                    "0x0000000000000000000000000000000000001111",
+                    "0x0000000000000000000000000000000000002222",
                     1000,
                     500,
                     timestamp - 60,
@@ -343,11 +343,11 @@ fn gen_proposal_related_cell_at_confirm(
                     None,
                 );
                 template.push_account_cell(
-                    "0x0000000000000000000000000000000000002222",
-                    "0x0000000000000000000000000000000000002222",
+                    "0x0000000000000000000000000000000000001100",
+                    "0x0000000000000000000000000000000000001100",
                     cell_data,
                     Some((1, output_index, entity)),
-                    14_600_000_000,
+                    20_000_000_000,
                     Source::Output,
                 );
 
@@ -362,6 +362,8 @@ fn gen_proposal_related_cell_at_confirm(
             output_index += 1;
         }
     }
+
+    (input_index, output_index)
 }
 
 fn init_confirm(action: &str) -> (TemplateGenerator, u64, u64) {
@@ -373,7 +375,7 @@ fn init_confirm(action: &str) -> (TemplateGenerator, u64, u64) {
     template.push_contract_cell("proposal-cell-type", false);
     template.push_contract_cell("account-cell-type", false);
     template.push_contract_cell("pre-account-cell-type", false);
-    template.push_contract_cell("wallet-cell-type", false);
+    template.push_contract_cell("income-cell-type", false);
 
     template.push_time_cell(1, timestamp, 0, Source::CellDep);
     template.push_height_cell(1, height, 0, Source::CellDep);
@@ -424,20 +426,60 @@ fn gen_confirm_proposal() {
         Source::Input,
     );
 
-    gen_proposal_related_cell_at_confirm(&mut template, slices, timestamp);
+    let (input_index, output_index) =
+        gen_proposal_related_cell_at_confirm(&mut template, slices, timestamp);
 
-    template.push_wallet_cell("inviter_01.bit", 8_400_000_000, Source::Input);
-    template.push_wallet_cell("channel_01.bit", 8_400_000_000, Source::Input);
-    template.push_wallet_cell("inviter_01.bit", 160_400_000_000, Source::Output);
-    template.push_wallet_cell("channel_01.bit", 160_400_000_000, Source::Output);
-    template.push_signall_cell(
-        "0x0000000000000000000000000000000000002233",
-        76_000_000_000,
+    let income_records = vec![IncomeRecordParam {
+        belong_to: "0x0000000000000000000000000000000000000000",
+        capacity: 20_000_000_000,
+    }];
+    let (cell_data, entity) =
+        template.gen_income_cell_data("0x0000000000000000000000000000000000000000", income_records);
+    template.push_income_cell(
+        cell_data,
+        Some((1, input_index, entity)),
+        20_000_000_000,
+        Source::Input,
+    );
+
+    let income_records = vec![
+        IncomeRecordParam {
+            belong_to: "0x0000000000000000000000000000000000000000",
+            capacity: 20_000_000_000,
+        },
+        // Profit to inviter
+        IncomeRecordParam {
+            belong_to: "0x0000000000000000000000000000000000001111",
+            capacity: 152_000_000_000,
+        },
+        // Profit to channel
+        IncomeRecordParam {
+            belong_to: "0x0000000000000000000000000000000000002222",
+            capacity: 152_000_000_000,
+        },
+        // Profit to proposer
+        IncomeRecordParam {
+            belong_to: "0x0000000000000000000000000000000000002233",
+            capacity: 76_000_000_000,
+        },
+        // Profit to DAS
+        IncomeRecordParam {
+            belong_to: "0x0300000000000000000000000000000000000000",
+            capacity: 1_520_000_000_000,
+        },
+    ];
+    let (cell_data, entity) =
+        template.gen_income_cell_data("0x0000000000000000000000000000000000000000", income_records);
+    template.push_income_cell(
+        cell_data,
+        Some((1, output_index, entity)),
+        20_000_000_000,
         Source::Output,
     );
+
     template.push_signall_cell(
-        "0x0300000000000000000000000000000000000000",
-        1_520_000_000_000,
+        "0x0000000000000000000000000000000000002233",
+        100_000_000_000,
         Source::Output,
     );
 
