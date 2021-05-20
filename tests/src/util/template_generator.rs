@@ -865,6 +865,7 @@ impl TemplateGenerator {
             .account(account_chars.to_owned())
             .owner_lock_args(owner_lock_args)
             .refund_lock(gen_always_success_lock(refund_lock_args))
+            .inviter_id(Bytes::from(vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0]))
             .inviter_lock(ScriptOpt::from(gen_always_success_lock(inviter_lock_args)))
             .channel_lock(ScriptOpt::from(gen_always_success_lock(channel_lock_args)))
             .price(price.to_owned())

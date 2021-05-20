@@ -9,7 +9,6 @@ fn init(account: &str) -> (TemplateGenerator, &str, u64) {
     let height = 1000u64;
 
     template.push_contract_cell("always_success", true);
-    template.push_contract_cell("config-cell-type", false);
     template.push_contract_cell("apply-register-cell-type", false);
     template.push_contract_cell("pre-account-cell-type", false);
 

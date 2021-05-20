@@ -298,6 +298,15 @@ pub fn main() -> Result<(), Error> {
             Source::Input,
             Error::ProposalFoundInvalidTransaction,
         )?;
+    } else if action == b"renew_account" {
+        debug!("Route to renew_account action ...");
+        let mut parser = util::load_das_witnesses(Some(vec![DataType::ConfigCellMain]))?;
+        util::require_type_script(
+            &mut parser,
+            TypeScript::AccountCellType,
+            Source::Input,
+            Error::AccountCellFoundInvalidTransaction,
+        )?;
     } else {
         warn!("The ActionData in witness has an undefine action.");
         return Err(Error::ActionNotSupported);

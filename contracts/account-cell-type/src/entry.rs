@@ -148,9 +148,16 @@ pub fn main() -> Result<(), Error> {
 
         let mut parser = util::load_das_witnesses(None)?;
         parser.parse_all_data()?;
-        parser.parse_only_config(&[DataType::ConfigCellPrice])?;
+        parser.parse_only_config(&[
+            DataType::ConfigCellAccount,
+            DataType::ConfigCellMain,
+            DataType::ConfigCellPrice,
+        ])?;
 
+        // let expiration_grace_period =
+        //     u32::from(parser.configs.account()?.expiration_grace_period());
         let prices = parser.configs.price()?.prices();
+        let income_cell_type_id = parser.configs.main()?.type_id_table().income_cell();
 
         let (input_account_cells, output_account_cells) = load_account_cells()?;
 
@@ -167,6 +174,116 @@ pub fn main() -> Result<(), Error> {
             vec![],
         )?;
 
+        debug!("Check if IncomeCells in this transaction is correct.");
+
+        let input_income_cells =
+            util::find_cells_by_type_id(ScriptType::Type, income_cell_type_id, Source::Input)?;
+        let output_income_cells =
+            util::find_cells_by_type_id(ScriptType::Type, income_cell_type_id, Source::Output)?;
+
+        assert!(
+            input_income_cells.len() <= 1,
+            Error::ProposalFoundInvalidTransaction,
+            "The number of IncomeCells in inputs should be less than or equal to 1. (expected: <= 1, current: {})",
+            input_income_cells.len()
+        );
+
+        let mut expected_first_record = None;
+        if input_income_cells.len() == 1 {
+            let (_, _, entity) = parser.verify_and_get(input_income_cells[0], Source::Input)?;
+            let income_cell_witness = IncomeCellData::from_slice(entity.as_reader().raw_data())
+                .map_err(|_| Error::WitnessEntityDecodingError)?;
+            let income_cell_witness_reader = income_cell_witness.as_reader();
+
+            // The IncomeCell should be a newly created cell with only one record which is belong to the creator, but we do not need to check everything here, so we only check the length.
+            assert!(
+                income_cell_witness_reader.records().len() == 1,
+                Error::ProposalFoundInvalidTransaction,
+                "The IncomeCell in inputs should be a newly created cell with only one record which is belong to the creator."
+            );
+
+            expected_first_record = income_cell_witness.records().get(0);
+        }
+
+        assert!(
+            output_income_cells.len() == 1,
+            Error::ProposalFoundInvalidTransaction,
+            "The number of IncomeCells in outputs should be exactly 1. (expected: == 1, current: {})",
+            output_income_cells.len()
+        );
+
+        let income_cell_capacity = load_cell_capacity(output_income_cells[0], Source::Output)
+            .map_err(|e| Error::from(e))?;
+        let (_, _, entity) = parser.verify_and_get(output_income_cells[0], Source::Output)?;
+        let income_cell_witness = IncomeCellData::from_slice(entity.as_reader().raw_data())
+            .map_err(|_| Error::WitnessEntityDecodingError)?;
+        let income_cell_witness_reader = income_cell_witness.as_reader();
+
+        let paid;
+        let das_wallet_lock = Script::from(das_wallet_lock());
+        if let Some(expected_first_record) = expected_first_record {
+            // IncomeCell is created before this transaction, so it is include the creator's income record.
+            assert!(
+                income_cell_witness_reader.records().len() == 2,
+                Error::ProposalFoundInvalidTransaction,
+                "The number of records of IncomeCells in outputs should be exactly 2. (expected: == 2, current: {})",
+                income_cell_witness_reader.records().len()
+            );
+
+            let first_record = income_cell_witness_reader.records().get(0).unwrap();
+            let storage_capacity = u64::from(first_record.capacity());
+
+            assert!(
+                util::is_reader_eq(expected_first_record.as_reader(), first_record),
+                Error::ProposalFoundInvalidTransaction,
+                "The first record of IncomeCell should keep the same as in inputs."
+            );
+
+            let second_record = income_cell_witness_reader.records().get(1).unwrap();
+            paid = u64::from(second_record.capacity());
+
+            assert!(
+                util::is_reader_eq(second_record.belong_to(), das_wallet_lock.as_reader()),
+                Error::ProposalFoundInvalidTransaction,
+                "The second record in IncomeCell should belong to DAS[{}].",
+                das_wallet_lock.as_reader()
+            );
+
+            assert!(
+                income_cell_capacity == storage_capacity + paid,
+                Error::ProposalFoundInvalidTransaction,
+                "The capacity of IncomeCell in outputs is incorrect. (expected: {}, current: {})",
+                storage_capacity + paid,
+                income_cell_capacity
+            );
+        } else {
+            // IncomeCell is created with only profit.
+            assert!(
+                income_cell_witness_reader.records().len() == 1,
+                Error::ProposalFoundInvalidTransaction,
+                "The number of records of IncomeCells in outputs should be exactly 2. (expected: == 2, current: {})",
+                income_cell_witness_reader.records().len()
+            );
+
+            let first_record = income_cell_witness_reader.records().get(0).unwrap();
+            paid = u64::from(first_record.capacity());
+
+            assert!(
+                util::is_reader_eq(first_record.belong_to(), das_wallet_lock.as_reader()),
+                Error::ProposalFoundInvalidTransaction,
+                "The only record in IncomeCell should belong to DAS[{}].",
+                das_wallet_lock.as_reader()
+            );
+
+            assert!(
+                income_cell_capacity == paid,
+                Error::ProposalFoundInvalidTransaction,
+                "The capacity of IncomeCell in outputs is incorrect. (expected: {}, current: {})",
+                paid,
+                income_cell_capacity
+            );
+        }
+
         debug!("Check if the renewal duration is longer than or equal to one year.");
 
         let input_data = util::load_cell_data(input_account_cells[0], Source::Input)?;
@@ -182,7 +299,7 @@ pub fn main() -> Result<(), Error> {
             duration
         );
 
-        debug!("Check if the registered_at field has been updated correctly based on the capacity paid by the user.");
+        debug!("Check if the expired_at field has been updated correctly based on the capacity paid by the user.");
 
         let (_, _, entity) = parser.verify_and_get(input_account_cells[0], Source::Input)?;
         let input_account_witness = AccountCellData::from_slice(entity.as_reader().raw_data())
@@ -203,20 +320,7 @@ pub fn main() -> Result<(), Error> {
         let renew_price_in_usd = u64::from(price_opt.unwrap().renew()); // x USD
         let quote = util::load_quote()?;
 
-        let das_wallet_lock = das_wallet_lock();
-        let das_wallet_cells =
-            util::find_cells_by_script(ScriptType::Lock, &das_wallet_lock, Source::Output)?;
-
-        assert!(
-            das_wallet_cells.len() == 1,
-            Error::ProposalConfirmWalletBalanceError,
-            "There should be 1 output with DAS wallet lock, but {} found.",
-            das_wallet_cells.len()
-        );
-
         // Renew price for 1 year in CKB = x ÷ y .
-        let paid =
-            load_cell_capacity(das_wallet_cells[0], Source::Output).map_err(|e| Error::from(e))?;
         let expected_duration = util::calc_duration_from_paid(paid, renew_price_in_usd, quote, 0);
         if duration > expected_duration {
             debug!(

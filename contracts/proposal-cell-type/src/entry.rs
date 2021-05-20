@@ -938,8 +938,6 @@ fn verify_proposal_execution_result(
         profit_map.remove(&key);
     }
 
-    debug!("profit_map = {:?}", profit_map);
-
     assert!(
         profit_map.is_empty(),
         Error::ProposalConfirmWalletMissMatch,

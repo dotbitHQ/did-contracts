@@ -291,13 +291,25 @@ fn verify_invited_discount(
     let zero = Uint32::from(0);
     let expected_discount;
     if reader.inviter_lock().is_none() {
+        assert!(
+            reader.inviter_id().is_empty(),
+            Error::PreRegisterFoundInvalidTransaction,
+            "The inviter_id should be empty when inviter do not exist."
+        );
+
         expected_discount = zero.as_reader();
         assert!(
             util::is_reader_eq(expected_discount, reader.invited_discount()),
             Error::PreRegisterDiscountIsInvalid,
-            "The invited_discount should be 0 when inviter do not exist."
+            "The invited_discount should be 0 when inviter does not exist."
         );
     } else {
+        assert!(
+            reader.inviter_id().len() == ACCOUNT_ID_LENGTH,
+            Error::PreRegisterFoundInvalidTransaction,
+            "The inviter_id should be 10 bytes when inviter exists."
+        );
+
         expected_discount = config.discount().invited_discount();
         assert!(
             util::is_reader_eq(expected_discount, reader.invited_discount()),
