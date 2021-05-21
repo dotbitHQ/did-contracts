@@ -126,10 +126,13 @@ pub fn main() -> Result<(), Error> {
     } else if action == b"edit_records" {
         debug!("Route to edit_records action ...");
 
+        let timestamp = util::load_timestamp()?;
+
         let mut parser = util::load_das_witnesses(None)?;
         parser.parse_all_data()?;
+        parser.parse_only_config(&[DataType::ConfigCellRecordKeyNamespace])?;
 
-        let timestamp = util::load_timestamp()?;
+        let record_key_namespace = parser.configs.record_key_namespace()?;
 
         let (input_account_cells, output_account_cells) = load_account_cells()?;
 
@@ -143,6 +146,7 @@ pub fn main() -> Result<(), Error> {
             output_account_cells[0],
             vec!["records"],
         )?;
+        verify_records_keys(&parser, record_key_namespace, output_account_cells[0])?;
     } else if action == b"renew_account" {
         debug!("Route to renew_account action ...");
 
@@ -605,6 +609,19 @@ fn verify_account_witness_consistent(
             output_account_index
         );
     }
+
+    Ok(())
+}
+
+fn verify_records_keys(
+    parser: &WitnessesParser,
+    record_key_namespace: &Vec<u8>,
+    output_account_index: usize,
+) -> Result<(), Error> {
+    let (_, _, entity) = parser.verify_and_get(output_account_index, Source::Output)?;
+    let output_account_witness = AccountCellData::from_slice(entity.as_reader().raw_data())
+        .map_err(|_| Error::WitnessEntityDecodingError)?;
+    let records = output_account_witness.as_reader().records();
 
     Ok(())
 }

@@ -17,6 +17,8 @@ fn init(action: &str, params_opt: Option<&str>) -> (TemplateGenerator, u64) {
 
     template.push_time_cell(1, timestamp, 0, Source::CellDep);
 
+    template.push_config_cell(DataType::ConfigCellAccount, true, 0, Source::CellDep);
+
     (template, timestamp)
 }
 
@@ -152,14 +154,51 @@ fn gen_edit_records() {
         Source::Input,
     );
 
-    let records = gen_account_records();
+    let records = vec![
+        AccountRecordParam {
+            type_: "address",
+            key: "eth",
+            label: "Personal",
+            value: hex_to_bytes("0x00000000000000000000").unwrap(),
+        },
+        AccountRecordParam {
+            type_: "address",
+            key: "eth",
+            label: "Company",
+            value: hex_to_bytes("0x00000000000000000000").unwrap(),
+        },
+        AccountRecordParam {
+            type_: "address",
+            key: "btc",
+            label: "Personal",
+            value: hex_to_bytes("0x00000000000000000000").unwrap(),
+        },
+        AccountRecordParam {
+            type_: "address",
+            key: "xxxx",
+            label: "Test",
+            value: hex_to_bytes("0x00000000000000000000").unwrap(),
+        },
+        AccountRecordParam {
+            type_: "profile",
+            key: "id",
+            label: "Mars",
+            value: bytes::Bytes::from("120981203982901389398390".as_bytes()),
+        },
+        AccountRecordParam {
+            type_: "profile",
+            key: "email",
+            label: "Company",
+            value: bytes::Bytes::from("xxxxx@mars.bit".as_bytes()),
+        },
+    ];
 
     let (cell_data, new_entity) = template.gen_account_cell_data(
         account,
         next.clone(),
         registered_at,
         expired_at,
-        Some(records),
+        Some(gen_account_records(records)),
     );
     template.push_account_cell(
         "0x0000000000000000000000000000000000001111",
