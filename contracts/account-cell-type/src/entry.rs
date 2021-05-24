@@ -643,7 +643,6 @@ fn verify_records_keys(
     }
 
     // check if all the record.{type+key} are valid
-    let mut is_all_valid = true;
     for record in records.iter() {
         let mut is_valid = false;
 
@@ -660,16 +659,16 @@ fn verify_records_keys(
         }
 
         if !is_valid {
-            is_all_valid = false;
-            debug!("Record key {:?} is invalid", record_type);
+            assert!(
+                false,
+                Error::AccountCellRecordKeyInvalid,
+                "Account cell record key is invalid: {:?}",
+                record_type
+            );
 
             break;
         }
     }
 
-    return if is_all_valid {
-        Ok(())
-    } else {
-        Err(Error::AccountCellRecordKeyInvalid)
-    }
+    Ok(())
 }
