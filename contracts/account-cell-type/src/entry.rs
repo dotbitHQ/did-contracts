@@ -619,9 +619,57 @@ fn verify_records_keys(
     output_account_index: usize,
 ) -> Result<(), Error> {
     let (_, _, entity) = parser.verify_and_get(output_account_index, Source::Output)?;
-    let output_account_witness = AccountCellData::from_slice(entity.as_reader().raw_data())
-        .map_err(|_| Error::WitnessEntityDecodingError)?;
+    let output_account_witness = AccountCellData::from_slice(entity.as_reader().raw_data()).map_err(|_| Error::WitnessEntityDecodingError)?;
     let records = output_account_witness.as_reader().records();
 
-    Ok(())
+    // extract all the keys, which are split by 0
+    let mut key_start_at = 0;
+    let mut key_list = Vec::new();
+    for (index, item) in record_key_namespace.iter().enumerate() {
+        if *item == 0 {
+            let key_vec = &record_key_namespace[key_start_at..index];
+            key_start_at = index + 1;
+
+            key_list.push(key_vec);
+        }
+    }
+
+    fn vec_compare(va: &[u8], vb: &[u8]) -> bool {
+        // zip stops at the shortest
+        (va.len() == vb.len()) &&
+            va.iter()
+                .zip(vb)
+                .all(|(a,b)| a == b)
+    }
+
+    // check if all the record.{type+key} are valid
+    let mut is_all_valid = true;
+    for record in records.iter() {
+        let mut is_valid = false;
+
+        let mut record_type = Vec::from(record.record_type().raw_data());
+        let mut record_key = Vec::from(record.record_key().raw_data());
+        record_type.push(46);
+        record_type.append(&mut record_key);
+
+        for key in &key_list {
+            if vec_compare(record_type.as_slice(), *key) {
+                is_valid = true;
+                break
+            }
+        }
+
+        if !is_valid {
+            is_all_valid = false;
+            debug!("Record key {:?} is invalid", record_type);
+
+            break;
+        }
+    }
+
+    return if is_all_valid {
+        Ok(())
+    } else {
+        Err(Error::AccountCellRecordKeyInvalid)
+    }
 }

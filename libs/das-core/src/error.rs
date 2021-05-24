@@ -112,6 +112,7 @@ pub enum Error {
     AccountCellIsNotExpired,
     AccountCellRecycleCapacityError,
     AccountCellChangeCapacityError, // -97
+    AccountCellRecordKeyInvalid,
 }
 
 impl From<SysError> for Error {

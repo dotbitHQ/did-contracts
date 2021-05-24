@@ -293,6 +293,7 @@ pub fn gen_record_key_namespace() -> Vec<u8> {
         "profile.avatar",
         "profile.email",
         "profile.phone",
+
         "address.btc",
         "address.eth",
         "address.ckb",
