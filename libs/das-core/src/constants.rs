@@ -346,8 +346,8 @@ pub const CONFIG_CELL_TYPE: ScriptLiteral = ScriptLiteral {
 #[cfg(feature = "testnet")]
 pub const CONFIG_CELL_TYPE: ScriptLiteral = ScriptLiteral {
     code_hash: [
-        121, 191, 11, 192, 249, 17, 193, 28, 184, 94, 81, 222, 158, 202, 246, 99, 12, 229, 187, 28,
-        172, 38, 234, 156, 21, 221, 125, 8, 185, 28, 148, 58,
+        3, 10, 194, 172, 217, 192, 22, 249, 164, 171, 19, 213, 44, 36, 77, 35, 170, 234, 99, 110,
+        12, 189, 56, 110, 198, 96, 183, 153, 116, 148, 101, 23,
     ],
     hash_type: ScriptHashType::Type,
     args: Vec::new(),

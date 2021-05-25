@@ -4,7 +4,7 @@ use core::fmt::Debug;
 pub fn add<K, V>(map: &mut Map<K, V>, key: K, value: V)
 where
     K: Clone + Debug + PartialEq,
-    V: Clone + Debug + core::ops::Add<Output = V>,
+    V: Clone + Debug + PartialEq + core::ops::Add<Output = V>,
 {
     let exist_value = map.get(&key);
     if exist_value.is_some() {
