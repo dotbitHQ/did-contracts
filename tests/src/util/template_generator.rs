@@ -683,13 +683,21 @@ impl TemplateGenerator {
         let lines = io::BufReader::new(file).lines();
 
         let mut account_hashes = Vec::new();
+        let mut _account_map = Vec::new();
         for line in lines {
             if let Ok(account) = line {
                 let account_hash = blake2b_256(account.as_bytes());
                 account_hashes.push(account_hash.get(..10).unwrap().to_vec());
+                _account_map.push((account_hash.get(..10).unwrap().to_vec(), account));
             }
         }
         account_hashes.sort();
+
+        // _account_map.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        // println!("Hash => Account:");
+        // for item in _account_map {
+        //     println!("{:?} => {}", item.0, item.1);
+        // }
 
         let mut raw = account_hashes.into_iter().flatten().collect::<Vec<u8>>();
         raw = util::prepend_molecule_like_length(raw);
