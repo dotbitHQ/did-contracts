@@ -155,4 +155,60 @@ fn gen_income_consolidate() {
     template.pretty_print();
 }
 
-test_with_template!(test_income_consolidate, "income_consolidate.json");
+test_with_template!(test_income_consolidate_need_pad, "income_consolidate.json");
+
+test_with_generator!(test_income_consolidate_no_pad, || {
+    let mut template = init("consolidate_income");
+
+    // inputs
+    let records_param = vec![
+        IncomeRecordParam {
+            belong_to: "0x0000000000000000000000000000000000000000",
+            capacity: 20_000_000_000,
+        },
+        IncomeRecordParam {
+            belong_to: "0x0000000000000000000000000000000000000010",
+            capacity: 6_100_000_000,
+        },
+    ];
+    push_income_cell!(template, records_param, 0, Source::Input);
+
+    let records_param = vec![
+        IncomeRecordParam {
+            belong_to: "0x0000000000000000000000000000000000000000",
+            capacity: 20_000_000_000,
+        },
+        IncomeRecordParam {
+            belong_to: "0x0000000000000000000000000000000000000010",
+            capacity: 61_000_000,
+        },
+    ];
+    push_income_cell!(template, records_param, 1, Source::Input);
+
+    // 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF is the keeper who pushed the consolidate_income transaction.
+    template.push_signall_cell(
+        "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+        6_100_000_000,
+        Source::Input,
+    );
+
+    // outputs
+    template.push_signall_cell(
+        "0x0000000000000000000000000000000000000000",
+        20_000_000_000,
+        Source::Output,
+    );
+    template.push_signall_cell(
+        "0x0000000000000000000000000000000000000010",
+        6_100_000_000,
+        Source::Output,
+    );
+    // 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF can take some from user as their profit.
+    template.push_signall_cell(
+        "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+        6_300_000_000,
+        Source::Output,
+    );
+
+    template.as_json()
+});
