@@ -489,6 +489,74 @@ fn gen_confirm_proposal() {
 
 test_with_template!(test_proposal_confirm, "proposal_confirm.json");
 
+challenge_with_generator!(
+    chanllenge_proposal_confirm_no_refund,
+    Error::ProposalConfirmRefundError,
+    || {
+        let (mut template, height, timestamp) = init_confirm("confirm_proposal");
+
+        let slices = vec![vec![
+            ("das00012.bit", ProposalSliceItemType::Exist, "das00009.bit"),
+            ("das00005.bit", ProposalSliceItemType::New, ""),
+        ]];
+
+        let (cell_data, entity) = template.gen_proposal_cell_data(
+            "0x0000000000000000000000000000000000002233",
+            height,
+            &slices,
+        );
+        template.push_proposal_cell(
+            cell_data,
+            Some((1, 0, entity)),
+            100_000_000_000,
+            Source::Input,
+        );
+
+        let (input_index, output_index) =
+            gen_proposal_related_cell_at_confirm(&mut template, slices, timestamp);
+
+        let income_records = vec![
+            // Profit to inviter
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000001111",
+                capacity: 38_000_000_000,
+            },
+            // Profit to channel
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000002222",
+                capacity: 38_000_000_000,
+            },
+            // Profit to proposer
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000002233",
+                capacity: 19_000_000_000,
+            },
+            // Profit to DAS
+            IncomeRecordParam {
+                belong_to: "0x0300000000000000000000000000000000000000",
+                capacity: 380_000_000_000,
+            },
+        ];
+        let (cell_data, entity) = template
+            .gen_income_cell_data("0x0000000000000000000000000000000000000000", income_records);
+        template.push_income_cell(
+            cell_data,
+            Some((1, output_index, entity)),
+            20_000_000_000,
+            Source::Output,
+        );
+
+        // No refund
+        // template.push_signall_cell(
+        //     "0x0000000000000000000000000000000000002233",
+        //     100_000_000_000,
+        //     Source::Output,
+        // );
+
+        template.as_json()
+    }
+);
+
 fn init_recycle() -> (TemplateGenerator, u64) {
     let mut template = TemplateGenerator::new("recycle_proposal", None);
     let height = 1000u64;

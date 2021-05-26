@@ -153,8 +153,9 @@ pub fn main() -> Result<(), Error> {
         }
 
         // Read outputs_data and witness of ProposalCell.
-        let index = &input_cells[0];
-        let (_, _, entity) = parser.verify_and_get(index.to_owned(), Source::Input)?;
+        let proposal_cell_index = &input_cells[0];
+        let (_, _, entity) =
+            parser.verify_and_get(proposal_cell_index.to_owned(), Source::Input)?;
         let proposal_cell_data = ProposalCellData::from_slice(entity.as_reader().raw_data())
             .map_err(|_| Error::WitnessEntityDecodingError)?;
         let proposal_cell_data_reader = proposal_cell_data.as_reader();
@@ -186,20 +187,30 @@ pub fn main() -> Result<(), Error> {
             output_account_cells,
         )?;
 
-        // TODO check if proposer get all cell capacity back
-        // let refund_lock = proposal_cell_data_reader.proposer_lock().to_entity();
-        // let refund_cells =
-        //     util::find_cells_by_script(ScriptType::Lock, &refund_lock.into(), Source::Output)?;
-        // if refund_cells.len() != 1 {
-        //     return Err(Error::ProposalRecycleCanNotFoundRefundCell);
-        // }
-        // let proposal_capacity =
-        //     load_cell_capacity(index.to_owned(), Source::Input).map_err(|e| Error::from(e))?;
-        // let refund_capacity =
-        //     load_cell_capacity(refund_cells[0], Source::Output).map_err(|e| Error::from(e))?;
-        // if proposal_capacity > refund_capacity {
-        //     return Err(Error::ProposalRecycleRefundAmountError);
-        // }
+        let refund_lock: Script = proposal_cell_data_reader.proposer_lock().to_entity();
+        let refund_cells = util::find_cells_by_script(
+            ScriptType::Lock,
+            refund_lock.as_reader().into(),
+            Source::Output,
+        )?;
+        assert!(
+            refund_cells.len() == 1,
+            Error::ProposalConfirmRefundError,
+            "There should be 1 cell in outputs with the lock of the proposer. (expected_lock: {})",
+            refund_lock
+        );
+
+        let proposal_capacity = load_cell_capacity(proposal_cell_index.to_owned(), Source::Input)
+            .map_err(|e| Error::from(e))?;
+        let refund_capacity =
+            load_cell_capacity(refund_cells[0], Source::Output).map_err(|e| Error::from(e))?;
+        assert!(
+            proposal_capacity == refund_capacity,
+            Error::ProposalConfirmRefundError,
+            "There refund of proposer should be {}, but {} found.",
+            proposal_capacity,
+            refund_capacity
+        );
     } else if action == b"recycle_proposal" {
         debug!("Route to recycle_proposal action ...");
 
@@ -231,8 +242,11 @@ pub fn main() -> Result<(), Error> {
         debug!("Check if refund lock and amount is correct.");
 
         let refund_lock = proposal_cell_data_reader.proposer_lock().to_entity();
-        let refund_cells =
-            util::find_cells_by_script(ScriptType::Lock, &refund_lock.into(), Source::Output)?;
+        let refund_cells = util::find_cells_by_script(
+            ScriptType::Lock,
+            refund_lock.as_reader().into(),
+            Source::Output,
+        )?;
         if refund_cells.len() != 1 {
             return Err(Error::ProposalRecycleCanNotFoundRefundCell);
         }

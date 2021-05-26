@@ -87,14 +87,15 @@ pub enum Error {
     ProposalConfirmAccountLockArgsIsInvalid = 110,
     ProposalConfirmWalletMissMatch,
     ProposalConfirmWalletBalanceError,
+    ProposalConfirmRefundError,
     ProposalSliceNotEndCorrectly,
-    ProposalSliceMustStartWithAccountCell,
-    ProposalSliceMustContainMoreThanOneElement, // 115
+    ProposalSliceMustStartWithAccountCell, // 115
+    ProposalSliceMustContainMoreThanOneElement,
     ProposalSliceItemMustBeUniqueAccount,
     ProposalRecycleNeedWaitLonger,
     ProposalRecycleCanNotFoundRefundCell,
-    ProposalRecycleRefundAmountError,
-    PrevProposalItemNotFound, // 120
+    ProposalRecycleRefundAmountError, // 120
+    PrevProposalItemNotFound,
     IncomeCellInvalidTransaction = -126,
     IncomeCellConsolidateError,
     IncomeCellTransferError,
@@ -112,6 +113,7 @@ pub enum Error {
     AccountCellIsNotExpired,
     AccountCellRecycleCapacityError,
     AccountCellChangeCapacityError, // -97
+    SystemOff = -1,
 }
 
 impl From<SysError> for Error {
