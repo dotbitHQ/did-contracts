@@ -551,7 +551,129 @@ challenge_with_generator!(
 );
 
 challenge_with_generator!(
-    chanllenge_proposal_confirm_income_capacity_not_match,
+    chanllenge_proposal_confirm_income_record_belong_to_mismatch,
+    Error::ProposalConfirmIncomeError,
+    || {
+        let (mut template, height, timestamp) = init_confirm("confirm_proposal");
+
+        let slices = vec![vec![
+            ("das00012.bit", ProposalSliceItemType::Exist, "das00009.bit"),
+            ("das00005.bit", ProposalSliceItemType::New, ""),
+        ]];
+
+        let (cell_data, entity) = template.gen_proposal_cell_data(
+            "0x0000000000000000000000000000000000002233",
+            height,
+            &slices,
+        );
+        template.push_proposal_cell(
+            cell_data,
+            Some((1, 0, entity)),
+            100_000_000_000,
+            Source::Input,
+        );
+
+        let (_, output_index) =
+            gen_proposal_related_cell_at_confirm(&mut template, slices, timestamp);
+
+        let income_records = vec![
+            // Profit to inviter
+            IncomeRecordParam {
+                belong_to: "0x000000000000000000000000000000000000FFFF",
+                capacity: 38_000_000_000,
+            },
+            // Profit to channel
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000002222",
+                capacity: 38_000_000_000,
+            },
+            // Profit to proposer
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000002233",
+                capacity: 19_000_000_000,
+            },
+            // Profit to DAS
+            IncomeRecordParam {
+                belong_to: "0x0300000000000000000000000000000000000000",
+                capacity: 380_000_000_000,
+            },
+        ];
+        let (cell_data, entity) = template
+            .gen_income_cell_data("0x0000000000000000000000000000000000000000", income_records);
+        template.push_income_cell(
+            cell_data,
+            Some((1, output_index, entity)),
+            475_000_000_000,
+            Source::Output,
+        );
+
+        template.as_json()
+    }
+);
+
+challenge_with_generator!(
+    chanllenge_proposal_confirm_income_record_capacity_mismatch,
+    Error::ProposalConfirmIncomeError,
+    || {
+        let (mut template, height, timestamp) = init_confirm("confirm_proposal");
+
+        let slices = vec![vec![
+            ("das00012.bit", ProposalSliceItemType::Exist, "das00009.bit"),
+            ("das00005.bit", ProposalSliceItemType::New, ""),
+        ]];
+
+        let (cell_data, entity) = template.gen_proposal_cell_data(
+            "0x0000000000000000000000000000000000002233",
+            height,
+            &slices,
+        );
+        template.push_proposal_cell(
+            cell_data,
+            Some((1, 0, entity)),
+            100_000_000_000,
+            Source::Input,
+        );
+
+        let (_, output_index) =
+            gen_proposal_related_cell_at_confirm(&mut template, slices, timestamp);
+
+        let income_records = vec![
+            // Profit to inviter
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000001111",
+                capacity: 99_000_000_000,
+            },
+            // Profit to channel
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000002222",
+                capacity: 38_000_000_000,
+            },
+            // Profit to proposer
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000002233",
+                capacity: 19_000_000_000,
+            },
+            // Profit to DAS
+            IncomeRecordParam {
+                belong_to: "0x0300000000000000000000000000000000000000",
+                capacity: 380_000_000_000,
+            },
+        ];
+        let (cell_data, entity) = template
+            .gen_income_cell_data("0x0000000000000000000000000000000000000000", income_records);
+        template.push_income_cell(
+            cell_data,
+            Some((1, output_index, entity)),
+            475_000_000_000,
+            Source::Output,
+        );
+
+        template.as_json()
+    }
+);
+
+challenge_with_generator!(
+    chanllenge_proposal_confirm_income_capacity_mismatch,
     Error::ProposalConfirmIncomeError,
     || {
         let (mut template, height, timestamp) = init_confirm("confirm_proposal");

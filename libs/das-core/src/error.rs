@@ -65,12 +65,11 @@ pub enum Error {
     PreRegisterDiscountIsInvalid = 80,
     PreRegisterOwnerLockArgsIsInvalid,
     ProposalFoundInvalidTransaction = 90,
-    ProposalMustIncludeSomePreAccountCell,
     ProposalSliceIsNotSorted,
     ProposalSliceIsDiscontinuity,
     ProposalSliceRelatedCellNotFound,
-    ProposalSliceRelatedCellMissing, // 95
-    ProposalCellTypeError,
+    ProposalSliceRelatedCellMissing,
+    ProposalCellTypeError, // 95
     ProposalCellAccountIdError,
     ProposalFieldCanNotBeModified,
     ProposalWitnessCanNotBeModified,
