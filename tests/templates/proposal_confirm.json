@@ -302,7 +302,7 @@
     },
     {
       "tmp_type": "full",
-      "capacity": 20000000000,
+      "capacity": 1920000000000,
       "lock": {
         "code_hash": "{{always_success}}"
       },

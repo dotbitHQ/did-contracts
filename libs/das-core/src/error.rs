@@ -85,17 +85,16 @@ pub enum Error {
     ProposalConfirmWitnessStatusError,
     ProposalConfirmWitnessRecordsError,
     ProposalConfirmAccountLockArgsIsInvalid = 110,
-    ProposalConfirmWalletMissMatch,
-    ProposalConfirmWalletBalanceError,
+    ProposalConfirmIncomeError,
     ProposalConfirmRefundError,
     ProposalSliceNotEndCorrectly,
-    ProposalSliceMustStartWithAccountCell, // 115
-    ProposalSliceMustContainMoreThanOneElement,
+    ProposalSliceMustStartWithAccountCell,
+    ProposalSliceMustContainMoreThanOneElement, // 115
     ProposalSliceItemMustBeUniqueAccount,
     ProposalRecycleNeedWaitLonger,
     ProposalRecycleCanNotFoundRefundCell,
-    ProposalRecycleRefundAmountError, // 120
-    PrevProposalItemNotFound,
+    ProposalRecycleRefundAmountError,
+    PrevProposalItemNotFound, // 120
     IncomeCellInvalidTransaction = -126,
     IncomeCellConsolidateError,
     IncomeCellTransferError,

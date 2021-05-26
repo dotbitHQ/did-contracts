@@ -832,8 +832,8 @@ fn verify_proposal_execution_result(
                         input_cell_witness_reader.inviter_lock().to_opt().unwrap();
                     inviter_profit = profit * inviter_profit_rate / RATE_BASE;
                     debug!(
-                        "  Item[{}] lock_script[{}]: {}(inviter_profit) = {}(profit) * {}(inviter_profit_rate) / {}(RATE_BASE)",
-                        item_index, inviter_lock_reader, inviter_profit, profit, inviter_profit_rate, RATE_BASE
+                        "  Item[{}] lock.args[{}]: {}(inviter_profit) = {}(profit) * {}(inviter_profit_rate) / {}(RATE_BASE)",
+                        item_index, inviter_lock_reader.args(), inviter_profit, profit, inviter_profit_rate, RATE_BASE
                     );
                     map_util::add(
                         &mut profit_map,
@@ -848,8 +848,8 @@ fn verify_proposal_execution_result(
                         input_cell_witness_reader.channel_lock().to_opt().unwrap();
                     channel_profit = profit * channel_profit_rate / RATE_BASE;
                     debug!(
-                        "  Item[{}] lock_script[{}]: {}(channel_profit) = {}(profit) * {}(channel_profit_rate) / {}(RATE_BASE)",
-                        item_index, channel_lock_reader, channel_profit, profit, channel_profit_rate, RATE_BASE
+                        "  Item[{}] lock.args[{}]: {}(channel_profit) = {}(profit) * {}(channel_profit_rate) / {}(RATE_BASE)",
+                        item_index, channel_lock_reader.args(), channel_profit, profit, channel_profit_rate, RATE_BASE
                     );
                     map_util::add(
                         &mut profit_map,
@@ -859,6 +859,10 @@ fn verify_proposal_execution_result(
                 };
 
                 let proposal_create_profit = profit * proposal_create_profit_rate / RATE_BASE;
+                debug!(
+                    "  Item[{}] lock.args[{}]: {}(proposal_create_profit) = {}(profit) * {}(proposal_create_profit_rate) / {}(RATE_BASE)",
+                    item_index, proposer_lock_reader.args(), proposal_create_profit, profit, proposal_create_profit_rate, RATE_BASE
+                );
                 map_util::add(
                     &mut profit_map,
                     proposer_lock_reader.as_slice().to_vec(),
@@ -866,6 +870,10 @@ fn verify_proposal_execution_result(
                 );
 
                 let proposal_confirm_profit = profit * proposal_confirm_profit_rate / RATE_BASE;
+                debug!(
+                    "  Item[{}] {}(proposal_confirm_profit) = {}(profit) * {}(proposal_confirm_profit_rate) / {}(RATE_BASE) (! not included in IncomeCell)",
+                    item_index, proposal_confirm_profit, profit, proposal_confirm_profit_rate, RATE_BASE
+                );
                 // No need to record proposal confirm profit, bacause the transaction creator can take its profit freely and this script do not know which lock script the transaction creator will use.
 
                 let das_profit = profit
@@ -880,8 +888,8 @@ fn verify_proposal_execution_result(
                 );
 
                 debug!(
-                    "  Item[{}] lock_script[{}]: {}(das_profit) = {}(profit) - {}(inviter_profit) - {}(channel_profit) - {}(proposal_create_profit) - {}(proposal_confirm_profit)",
-                    item_index, das_wallet_lock.as_reader(), das_profit, profit, inviter_profit, channel_profit, proposal_create_profit, proposal_confirm_profit
+                    "  Item[{}] lock.args[{}]: {}(das_profit) = {}(profit) - {}(inviter_profit) - {}(channel_profit) - {}(proposal_create_profit) - {}(proposal_confirm_profit)",
+                    item_index, das_wallet_lock.as_reader().args(), das_profit, profit, inviter_profit, channel_profit, proposal_create_profit, proposal_confirm_profit
                 );
             }
 
@@ -938,6 +946,7 @@ fn verify_proposal_execution_result(
     let output_cell_witness = IncomeCellData::from_slice(entity.as_reader().raw_data())
         .map_err(|_| Error::WitnessEntityDecodingError)?;
     let output_cell_witness_reader = output_cell_witness.as_reader();
+    let mut expected_capacity = 0;
 
     for (i, record) in output_cell_witness_reader.records().iter().enumerate() {
         let key = record.belong_to().as_slice().to_vec();
@@ -946,15 +955,15 @@ fn verify_proposal_execution_result(
 
         assert!(
             result.is_some(),
-            Error::ProposalConfirmWalletMissMatch,
-            "The profit record which belong to lock_script[{}] should not be in the IncomeCell.",
+            Error::ProposalConfirmIncomeError,
+            "Found a profit record which should not be in the IncomeCell.records, please compare the locks in PreAccountCells and ProposalCells with the belong_to field. (belong_to: {})",
             record.belong_to()
         );
 
         let expected_profit = result.unwrap();
         assert!(
             &recorded_profit == expected_profit,
-            Error::ProposalConfirmWalletBalanceError,
+            Error::ProposalConfirmIncomeError,
             "The profit record which belong to lock_script[{}] is incorrect. (expected: {}, current: {})",
             record.belong_to(),
             expected_profit,
@@ -962,13 +971,24 @@ fn verify_proposal_execution_result(
         );
 
         profit_map.remove(&key);
+        expected_capacity += recorded_profit;
     }
 
     assert!(
         profit_map.is_empty(),
-        Error::ProposalConfirmWalletMissMatch,
+        Error::ProposalConfirmIncomeError,
         "The IncomeCell in outputs should contains everyone's profit. (missing: {})",
         profit_map.len()
+    );
+
+    let current_capacity =
+        load_cell_capacity(output_income_cells[0], Source::Output).map_err(|e| Error::from(e))?;
+    assert!(
+        expected_capacity == current_capacity,
+        Error::ProposalConfirmIncomeError,
+        "The capacity of the IncomeCell shoulde be {}, but {} found.",
+        expected_capacity,
+        current_capacity
     );
 
     Ok(())
