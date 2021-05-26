@@ -235,9 +235,12 @@ pub fn main() -> Result<(), Error> {
         let proposal_min_recycle_interval =
             u8::from(config_proposal_reader.proposal_min_recycle_interval()) as u64;
         let created_at_height = u64::from(proposal_cell_data_reader.created_at_height());
-        if height - created_at_height < proposal_min_recycle_interval {
-            return Err(Error::ProposalRecycleNeedWaitLonger);
-        }
+        assert!(
+            height - created_at_height >= proposal_min_recycle_interval,
+            Error::ProposalRecycleNeedWaitLonger,
+            "ProposalCell should be recycled later, about {} block to wait.",
+            created_at_height + proposal_min_recycle_interval - height
+        );
 
         debug!("Check if refund lock and amount is correct.");
 
@@ -247,16 +250,24 @@ pub fn main() -> Result<(), Error> {
             refund_lock.as_reader().into(),
             Source::Output,
         )?;
-        if refund_cells.len() != 1 {
-            return Err(Error::ProposalRecycleCanNotFoundRefundCell);
-        }
+        assert!(
+            refund_cells.len() == 1,
+            Error::ProposalRecycleCanNotFoundRefundCell,
+            "There should be 1 cell in outputs with the lock of the proposer. (expected_lock: {})",
+            refund_lock
+        );
+
         let proposal_capacity =
             load_cell_capacity(index.to_owned(), Source::Input).map_err(|e| Error::from(e))?;
         let refund_capacity =
             load_cell_capacity(refund_cells[0], Source::Output).map_err(|e| Error::from(e))?;
-        if proposal_capacity > refund_capacity {
-            return Err(Error::ProposalRecycleRefundAmountError);
-        }
+        assert!(
+            proposal_capacity == refund_capacity,
+            Error::ProposalConfirmRefundError,
+            "There refund of proposer should be {}, but {} found.",
+            proposal_capacity,
+            refund_capacity
+        );
     } else {
         return Err(Error::ActionNotSupported);
     }
