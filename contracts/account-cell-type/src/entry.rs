@@ -82,14 +82,17 @@ pub fn main() -> Result<(), Error> {
     } else if action == b"transfer_account" {
         debug!("Route to transfer_account action ...");
 
-        let mut parser = util::load_das_witnesses(None)?;
-        parser.parse_all_data()?;
         let timestamp = util::load_timestamp()?;
 
+        let mut parser = util::load_das_witnesses(None)?;
+        parser.parse_only_config(&[DataType::ConfigCellAccount])?;
+        parser.parse_all_data()?;
+
+        let config_account = parser.configs.account()?;
         let (input_account_cells, output_account_cells) = load_account_cells()?;
 
         verify_unlock_role(params, LockRole::Owner)?;
-        verify_account_expiration(input_account_cells[0], timestamp)?;
+        verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
         verify_account_consistent(
             input_account_cells[0],
             output_account_cells[0],
@@ -105,14 +108,17 @@ pub fn main() -> Result<(), Error> {
     } else if action == b"edit_manager" {
         debug!("Route to edit_manager action ...");
 
-        let mut parser = util::load_das_witnesses(None)?;
-        parser.parse_all_data()?;
         let timestamp = util::load_timestamp()?;
 
+        let mut parser = util::load_das_witnesses(None)?;
+        parser.parse_only_config(&[DataType::ConfigCellAccount])?;
+        parser.parse_all_data()?;
+
+        let config_account = parser.configs.account()?;
         let (input_account_cells, output_account_cells) = load_account_cells()?;
 
         verify_unlock_role(params, LockRole::Owner)?;
-        verify_account_expiration(input_account_cells[0], timestamp)?;
+        verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
         verify_account_consistent(
             input_account_cells[0],
             output_account_cells[0],
@@ -132,14 +138,18 @@ pub fn main() -> Result<(), Error> {
 
         let mut parser = util::load_das_witnesses(None)?;
         parser.parse_all_data()?;
-        parser.parse_only_config(&[DataType::ConfigCellRecordKeyNamespace])?;
+        parser.parse_only_config(&[
+            DataType::ConfigCellAccount,
+            DataType::ConfigCellMain,
+            DataType::ConfigCellRecordKeyNamespace,
+        ])?;
 
+        let config_account = parser.configs.account()?;
         let record_key_namespace = parser.configs.record_key_namespace()?;
-
         let (input_account_cells, output_account_cells) = load_account_cells()?;
 
         verify_unlock_role(params, LockRole::Manager)?;
-        verify_account_expiration(input_account_cells[0], timestamp)?;
+        verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
         verify_account_consistent(input_account_cells[0], output_account_cells[0], None)?;
         verify_account_data_consistent(input_account_cells[0], output_account_cells[0], vec![])?;
         verify_account_witness_consistent(
@@ -526,16 +536,19 @@ fn verify_account_data_consistent(
     Ok(())
 }
 
-fn verify_account_expiration(account_cell_index: usize, current: u64) -> Result<(), Error> {
+fn verify_account_expiration(
+    config: ConfigCellAccountReader,
+    account_cell_index: usize,
+    current: u64,
+) -> Result<(), Error> {
     debug!("Check if AccountCell is expired.");
 
     let data = load_cell_data(account_cell_index, Source::Input).map_err(|e| Error::from(e))?;
     let expired_at = data_parser::account_cell::get_expired_at(data.as_slice());
+    let expiration_grace_period = u32::from(config.expiration_grace_period()) as u64;
 
     if current > expired_at {
-        // TODO replace with
-        // let expiration_grace_period = u32::from(config_main.account_expiration_grace_period()) as u64;
-        if current - expired_at > 86400 * 30 {
+        if current - expired_at > expiration_grace_period {
             warn!("The AccountCell has been expired. Will be recycled soon.");
             return Err(Error::AccountCellHasExpired);
         } else {
