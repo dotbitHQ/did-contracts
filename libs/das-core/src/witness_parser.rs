@@ -59,7 +59,11 @@ impl WitnessesParser {
                 .args(args.into())
                 .build();
             // There must be one ConfigCell in the cell_deps, no more and no less.
-            let ret = util::find_cells_by_script(ScriptType::Type, &type_script, Source::CellDep)?;
+            let ret = util::find_cells_by_script(
+                ScriptType::Type,
+                type_script.as_reader(),
+                Source::CellDep,
+            )?;
             assert!(
                 ret.len() == 1,
                 Error::ConfigCellIsRequired,

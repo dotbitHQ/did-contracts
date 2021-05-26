@@ -28,10 +28,10 @@ pub fn main() -> Result<(), Error> {
         debug!("Route to init_account_chain action ...");
 
         let this_type_script = load_script().map_err(|e| Error::from(e))?;
-        let input_cells =
-            util::find_cells_by_script(ScriptType::Type, &this_type_script, Source::Input)?;
-        let output_cells =
-            util::find_cells_by_script(ScriptType::Type, &this_type_script, Source::Output)?;
+        let (input_cells, output_cells) = util::find_cells_by_script_in_inputs_and_outputs(
+            ScriptType::Type,
+            this_type_script.as_reader(),
+        )?;
 
         assert!(
             input_cells.len() == 0,
@@ -48,7 +48,9 @@ pub fn main() -> Result<(), Error> {
 
         let super_lock = super_lock();
         let has_super_lock =
-            util::find_cells_by_script(ScriptType::Lock, &super_lock, Source::Input)?.len() > 0;
+            util::find_cells_by_script(ScriptType::Lock, super_lock.as_reader(), Source::Input)?
+                .len()
+                > 0;
 
         assert!(
             has_super_lock,
@@ -379,8 +381,10 @@ pub fn main() -> Result<(), Error> {
         debug!("Route to other action ...");
 
         let this_type_script = load_script().map_err(|e| Error::from(e))?;
-        let (input_cells, output_cells) =
-            util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, &this_type_script)?;
+        let (input_cells, output_cells) = util::find_cells_by_script_in_inputs_and_outputs(
+            ScriptType::Type,
+            this_type_script.as_reader(),
+        )?;
 
         assert!(
             input_cells.len() == output_cells.len(),
@@ -396,10 +400,11 @@ pub fn main() -> Result<(), Error> {
 
 fn load_account_cells() -> Result<(Vec<usize>, Vec<usize>), Error> {
     let this_type_script = load_script().map_err(|e| Error::from(e))?;
-    let input_account_cells =
-        util::find_cells_by_script(ScriptType::Type, &this_type_script, Source::Input)?;
-    let output_account_cells =
-        util::find_cells_by_script(ScriptType::Type, &this_type_script, Source::Output)?;
+    let (input_account_cells, output_account_cells) =
+        util::find_cells_by_script_in_inputs_and_outputs(
+            ScriptType::Type,
+            this_type_script.as_reader(),
+        )?;
 
     Ok((input_account_cells, output_account_cells))
 }

@@ -21,10 +21,10 @@ pub fn main() -> Result<(), Error> {
         debug!("Find out IncomeCells ...");
 
         let this_type_script = load_script().map_err(|e| Error::from(e))?;
-        let input_cells =
-            util::find_cells_by_script(ScriptType::Type, &this_type_script, Source::Input)?;
-        let output_cells =
-            util::find_cells_by_script(ScriptType::Type, &this_type_script, Source::Output)?;
+        let (input_cells, output_cells) = util::find_cells_by_script_in_inputs_and_outputs(
+            ScriptType::Type,
+            this_type_script.as_reader(),
+        )?;
 
         assert!(
             input_cells.len() == 0,
@@ -75,10 +75,10 @@ pub fn main() -> Result<(), Error> {
         debug!("Find out IncomeCells ...");
 
         let this_type_script = load_script().map_err(|e| Error::from(e))?;
-        let input_cells =
-            util::find_cells_by_script(ScriptType::Type, &this_type_script, Source::Input)?;
-        let output_cells =
-            util::find_cells_by_script(ScriptType::Type, &this_type_script, Source::Output)?;
+        let (input_cells, output_cells) = util::find_cells_by_script_in_inputs_and_outputs(
+            ScriptType::Type,
+            this_type_script.as_reader(),
+        )?;
 
         assert!(
             input_cells.len() >= 2,
@@ -192,8 +192,9 @@ pub fn main() -> Result<(), Error> {
 
         let mut records_used_for_pad = Vec::new();
         for item in records_should_transfer {
-            let lock_script = item.0.clone().into();
-            let cells = util::find_cells_by_script(ScriptType::Lock, &lock_script, Source::Output)?;
+            let lock_script = item.0.as_reader();
+            let cells =
+                util::find_cells_by_script(ScriptType::Lock, lock_script.into(), Source::Output)?;
             if cells.len() != 1 {
                 if need_pad {
                     records_used_for_pad.push(item);

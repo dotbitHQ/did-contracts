@@ -652,7 +652,6 @@ impl TemplateGenerator {
         let entity = ConfigCellProfitRate::new_builder()
             .channel(Uint32::from(800))
             .inviter(Uint32::from(800))
-            .das(Uint32::from(8000))
             .proposal_create(Uint32::from(400))
             .proposal_confirm(Uint32::from(0))
             .income_consolidate(Uint32::from(100))

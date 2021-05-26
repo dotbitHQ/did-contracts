@@ -22,12 +22,13 @@ pub fn main() -> Result<(), Error> {
 
     // Find out PreAccountCells in current transaction.
     let this_type_script = load_script().map_err(|e| Error::from(e))?;
-    let input_cells =
-        util::find_cells_by_script(ScriptType::Type, &this_type_script, Source::Input)?;
-    let output_cells =
-        util::find_cells_by_script(ScriptType::Type, &this_type_script, Source::Output)?;
+    let this_type_script_reader = this_type_script.as_reader();
+    let (input_cells, output_cells) = util::find_cells_by_script_in_inputs_and_outputs(
+        ScriptType::Type,
+        this_type_script_reader,
+    )?;
     let dep_cells =
-        util::find_cells_by_script(ScriptType::Type, &this_type_script, Source::CellDep)?;
+        util::find_cells_by_script(ScriptType::Type, this_type_script_reader, Source::CellDep)?;
 
     let action_data = util::load_das_action()?;
     let action = action_data.as_reader().action().raw_data();

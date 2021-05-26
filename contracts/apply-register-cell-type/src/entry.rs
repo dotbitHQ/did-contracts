@@ -25,10 +25,10 @@ pub fn main() -> Result<(), Error> {
 
         // Find out ApplyRegisterCells in current transaction.
         let this_type_script = load_script().map_err(|e| Error::from(e))?;
-        let input_cells =
-            util::find_cells_by_script(ScriptType::Type, &this_type_script, Source::Input)?;
-        let output_cells =
-            util::find_cells_by_script(ScriptType::Type, &this_type_script, Source::Output)?;
+        let (input_cells, output_cells) = util::find_cells_by_script_in_inputs_and_outputs(
+            ScriptType::Type,
+            this_type_script.as_reader(),
+        )?;
 
         assert!(
             input_cells.len() == 0 && output_cells.len() == 1,
