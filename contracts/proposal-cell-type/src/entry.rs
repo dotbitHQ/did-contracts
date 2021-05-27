@@ -1336,21 +1336,25 @@ fn verify_refund_correct(
         proposer_lock.as_reader().into(),
         Source::Output,
     )?;
+
     assert!(
-        refund_cells.len() == 1,
+        refund_cells.len() >= 1,
         Error::ProposalConfirmRefundError,
-        "There should be 1 cell in outputs with the lock of the proposer. (expected_lock: {})",
+        "There should be at least 1 cell in outputs with the lock of the proposer. (expected_lock: {})",
         proposer_lock
     );
 
+    let mut refund_capacity = 0;
+    for index in refund_cells {
+        refund_capacity += load_cell_capacity(index, Source::Output).map_err(|e| Error::from(e))?;
+    }
+
     let proposal_capacity = load_cell_capacity(proposal_cell_index.to_owned(), Source::Input)
         .map_err(|e| Error::from(e))?;
-    let refund_capacity =
-        load_cell_capacity(refund_cells[0], Source::Output).map_err(|e| Error::from(e))?;
     assert!(
-        proposal_capacity == refund_capacity,
+        proposal_capacity <= refund_capacity,
         Error::ProposalConfirmRefundError,
-        "There refund of proposer should be {}, but {} found.",
+        "There refund of proposer should be at least {}, but {} found.",
         proposal_capacity,
         refund_capacity
     );
