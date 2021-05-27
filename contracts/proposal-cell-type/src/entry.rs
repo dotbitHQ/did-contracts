@@ -782,10 +782,11 @@ fn verify_proposal_execution_result(
                     util::calc_account_storage_capacity(config_account, account_name_storage);
                 // Allocate the profits carried by PreAccountCell to the wallets for later verification.
                 let profit = total_capacity - storage_capacity;
-                // debug!(
-                //     "total_capacity: {:?} storage_capacity: {:?}",
-                //     total_capacity, storage_capacity
-                // );
+
+                debug!(
+                    "  Item[{}] The profit in PreAccountCell is: {}(profit) = {}(total_capacity) - {}(storage_capacity)",
+                    item_index, profit, total_capacity, storage_capacity
+                );
 
                 util::verify_account_length_and_years(
                     input_cell_witness_reader.account().len(),
