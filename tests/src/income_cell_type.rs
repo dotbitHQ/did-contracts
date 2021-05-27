@@ -180,7 +180,7 @@ test_with_generator!(test_income_consolidate_no_pad, || {
         },
         IncomeRecordParam {
             belong_to: "0x0000000000000000000000000000000000000010",
-            capacity: 61_000_000,
+            capacity: 100_000_000,
         },
     ];
     push_income_cell!(template, records_param, 1, Source::Input);
@@ -195,18 +195,18 @@ test_with_generator!(test_income_consolidate_no_pad, || {
     // outputs
     template.push_signall_cell(
         "0x0000000000000000000000000000000000000000",
-        20_000_000_000,
+        40_000_000_000,
         Source::Output,
     );
     template.push_signall_cell(
         "0x0000000000000000000000000000000000000010",
-        6_100_000_000,
+        6_138_000_000,
         Source::Output,
     );
     // 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF can take some from user as their profit.
     template.push_signall_cell(
         "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
-        6_300_000_000,
+        6_162_000_000,
         Source::Output,
     );
 
