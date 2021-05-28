@@ -1,5 +1,69 @@
-
-running 0 tests
-
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 38 filtered out; finished in 0.00s
-
+{
+  "cell_deps": [
+    {
+      "tmp_type": "deployed_contract",
+      "tmp_file_name": "always_success"
+    },
+    {
+      "tmp_type": "contract",
+      "tmp_file_name": "proposal-cell-type"
+    },
+    {
+      "tmp_type": "full",
+      "capacity": 0,
+      "lock": {
+        "code_hash": "{{always_success}}"
+      },
+      "type": {
+        "code_hash": "0x0200000000000000000000000000000000000000000000000000000000000000",
+        "hash_type": "type"
+      },
+      "tmp_data": "0x0100000000000003e8"
+    },
+    {
+      "tmp_type": "full",
+      "capacity": 0,
+      "lock": {
+        "code_hash": "{{always_success}}",
+        "args": "0x0000000000000000000000000000000000000000"
+      },
+      "type": {
+        "code_hash": "{{config-cell-type}}",
+        "args": "0x6a000000"
+      },
+      "tmp_data": "0x3b74daad2c44a234e67db1b7791e33e8f3d9eb1a9e9a2aacd1b44efea5731394"
+    }
+  ],
+  "inputs": [
+    {
+      "previous_output": {
+        "tmp_type": "full",
+        "capacity": 100000000000,
+        "lock": {
+          "code_hash": "{{always_success}}"
+        },
+        "type": {
+          "code_hash": "{{proposal-cell-type}}"
+        },
+        "tmp_data": "0xcff6aae5ee64a8b27ddce1186f0b09d7989faec46d0b3183704f1dca266e77bf"
+      },
+      "since": "0x"
+    }
+  ],
+  "outputs": [
+    {
+      "tmp_type": "full",
+      "capacity": 100000000000,
+      "lock": {
+        "code_hash": "{{always_success}}",
+        "args": "0x0000000000000000000000000000000000002233"
+      },
+      "type": null
+    }
+  ],
+  "witnesses": [
+    "0x64617300000000240000000c000000200000001000000072656379636c655f70726f706f73616c00000000",
+    "0x6461736a0000002300000018000000190000001a0000001b0000001f0000000402063200000032000000",
+    "0x64617304000000eb0000001000000010000000eb000000db0000001000000014000000180000000000000001000000bf000000bf000000100000005900000061000000490000001000000030000000310000009d6f2919e328f3217d7dd3dab5f7cee9d8e062bee6a80d5d05cd495ca341637801140000000000000000000000000000000000000000002233de030000000000005e00000008000000560000000c0000003100000025000000100000001a0000001b00000005d2771e6c0366846677000eb54a48689ce16b1fe825000000100000001a0000001b0000000eb54a48689ce16b1fe802100871e1ff8a4cbde1d4"
+  ]
+}

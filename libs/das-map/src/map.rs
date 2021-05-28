@@ -3,11 +3,11 @@ use core::fmt::Debug;
 use std::prelude::v1::*;
 
 #[derive(Clone, Debug, Default)]
-pub struct Map<K: Debug + PartialEq, V: Clone + Debug> {
+pub struct Map<K: Debug + PartialEq, V: Clone + Debug + PartialEq> {
     pub items: Vec<(K, V)>,
 }
 
-impl<K: Debug + PartialEq, V: Clone + Debug> Map<K, V> {
+impl<K: Debug + PartialEq, V: Clone + Debug + PartialEq> Map<K, V> {
     pub fn new() -> Self {
         Map { items: Vec::new() }
     }
@@ -56,6 +56,16 @@ impl<K: Debug + PartialEq, V: Clone + Debug> Map<K, V> {
         for item in self.items.iter() {
             if &item.0 == key {
                 return Some(&item.1);
+            }
+        }
+
+        None
+    }
+
+    pub fn find(&self, value: &V) -> Option<&K> {
+        for item in self.items.iter() {
+            if &item.1 == value {
+                return Some(&item.0);
             }
         }
 

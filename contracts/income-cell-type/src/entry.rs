@@ -21,10 +21,10 @@ pub fn main() -> Result<(), Error> {
         debug!("Find out IncomeCells ...");
 
         let this_type_script = load_script().map_err(|e| Error::from(e))?;
-        let input_cells =
-            util::find_cells_by_script(ScriptType::Type, &this_type_script, Source::Input)?;
-        let output_cells =
-            util::find_cells_by_script(ScriptType::Type, &this_type_script, Source::Output)?;
+        let (input_cells, output_cells) = util::find_cells_by_script_in_inputs_and_outputs(
+            ScriptType::Type,
+            this_type_script.as_reader(),
+        )?;
 
         assert!(
             input_cells.len() == 0,
@@ -75,10 +75,10 @@ pub fn main() -> Result<(), Error> {
         debug!("Find out IncomeCells ...");
 
         let this_type_script = load_script().map_err(|e| Error::from(e))?;
-        let input_cells =
-            util::find_cells_by_script(ScriptType::Type, &this_type_script, Source::Input)?;
-        let output_cells =
-            util::find_cells_by_script(ScriptType::Type, &this_type_script, Source::Output)?;
+        let (input_cells, output_cells) = util::find_cells_by_script_in_inputs_and_outputs(
+            ScriptType::Type,
+            this_type_script.as_reader(),
+        )?;
 
         assert!(
             input_cells.len() >= 2,
@@ -99,7 +99,7 @@ pub fn main() -> Result<(), Error> {
         let income_cell_basic_capacity = u64::from(config_income.basic_capacity());
         let income_cell_max_records = u32::from(config_income.max_records()) as usize;
         let income_consolidate_profit_rate =
-            u32::from(parser.configs.profit_rate()?.income_consolidate());
+            u32::from(parser.configs.profit_rate()?.income_consolidate()) as u64;
 
         debug!(
             "Find all income records in inputs and merge them into unique script to capacity pair."
@@ -129,8 +129,11 @@ pub fn main() -> Result<(), Error> {
 
         debug!("Classify all income records in inputs for comparing them with outputs later.");
 
-        let (records_should_transfer, records_should_keep, need_pad) =
-            classify_income_records(income_cell_basic_capacity, input_records);
+        let (records_should_transfer, records_should_keep, need_pad) = classify_income_records(
+            income_consolidate_profit_rate,
+            income_cell_basic_capacity,
+            input_records,
+        );
 
         #[cfg(not(feature = "mainnet"))]
         inspect_records("Records should be kept:", &records_should_keep);
@@ -188,12 +191,22 @@ pub fn main() -> Result<(), Error> {
             )
         }
 
+        if records_should_keep.len() > 0 {
+            assert!(
+                output_records.len() > 0,
+                Error::IncomeCellInvalidTransaction,
+                "There should be some IncomeCell in the outputs, because the count of records_should_keep is {}",
+                records_should_keep.len()
+            );
+        }
+
         debug!("Check if transfer as expected.");
 
         let mut records_used_for_pad = Vec::new();
         for item in records_should_transfer {
-            let lock_script = item.0.clone().into();
-            let cells = util::find_cells_by_script(ScriptType::Lock, &lock_script, Source::Output)?;
+            let lock_script = item.0.as_reader();
+            let cells =
+                util::find_cells_by_script(ScriptType::Lock, lock_script.into(), Source::Output)?;
             if cells.len() != 1 {
                 if need_pad {
                     records_used_for_pad.push(item);
@@ -212,7 +225,7 @@ pub fn main() -> Result<(), Error> {
             let capacity_transferred =
                 load_cell_capacity(cells[0], Source::Output).map_err(|e| Error::from(e))?;
             let capacity_should_be_transferred =
-                item.1 * income_consolidate_profit_rate as u64 / RATE_BASE;
+                item.1 * income_consolidate_profit_rate / RATE_BASE;
             if capacity_transferred < capacity_should_be_transferred {
                 if need_pad {
                     let new_item = (
@@ -338,14 +351,26 @@ fn calc_total_records_capacity(records: Iter<(Script, u64)>) -> u64 {
 }
 
 fn classify_income_records(
+    income_consolidate_profit_rate: u64,
     income_cell_basic_capacity: u64,
     input_records: Vec<(Script, u64)>,
 ) -> (Vec<(Script, u64)>, Vec<(Script, u64)>, bool) {
     let mut records_should_transfer = Vec::new();
     let mut records_should_keep = Vec::new();
+    let threshold =
+        CELL_BASIC_CAPACITY + CELL_BASIC_CAPACITY * income_consolidate_profit_rate / RATE_BASE;
+
+    debug!(
+        "{}(Transfer threshold) = {}(CELL_BASIC_CAPACITY) + {}(CELL_BASIC_CAPACITY) * {}(income_consolidate_profit_rate) / {}(RATE_BASE)",
+        threshold,
+        CELL_BASIC_CAPACITY,
+        CELL_BASIC_CAPACITY,
+        income_consolidate_profit_rate,
+        RATE_BASE
+    );
 
     for record in input_records.into_iter() {
-        if record.1 > CELL_BASIC_CAPACITY {
+        if record.1 >= threshold {
             records_should_transfer.push(record);
         } else {
             records_should_keep.push(record);

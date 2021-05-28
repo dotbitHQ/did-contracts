@@ -474,7 +474,7 @@ fn gen_confirm_proposal() {
     template.push_income_cell(
         cell_data,
         Some((1, output_index, entity)),
-        20_000_000_000,
+        1_920_000_000_000,
         Source::Output,
     );
 
@@ -489,6 +489,250 @@ fn gen_confirm_proposal() {
 
 test_with_template!(test_proposal_confirm, "proposal_confirm.json");
 
+challenge_with_generator!(
+    chanllenge_proposal_confirm_no_refund,
+    Error::ProposalConfirmRefundError,
+    || {
+        let (mut template, height, timestamp) = init_confirm("confirm_proposal");
+
+        let slices = vec![vec![
+            ("das00012.bit", ProposalSliceItemType::Exist, "das00009.bit"),
+            ("das00005.bit", ProposalSliceItemType::New, ""),
+        ]];
+
+        let (cell_data, entity) = template.gen_proposal_cell_data(
+            "0x0000000000000000000000000000000000002233",
+            height,
+            &slices,
+        );
+        template.push_proposal_cell(
+            cell_data,
+            Some((1, 0, entity)),
+            100_000_000_000,
+            Source::Input,
+        );
+
+        let (_, output_index) =
+            gen_proposal_related_cell_at_confirm(&mut template, slices, timestamp);
+
+        let income_records = vec![
+            // Profit to inviter
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000001111",
+                capacity: 38_000_000_000,
+            },
+            // Profit to channel
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000002222",
+                capacity: 38_000_000_000,
+            },
+            // Profit to proposer
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000002233",
+                capacity: 19_000_000_000,
+            },
+            // Profit to DAS
+            IncomeRecordParam {
+                belong_to: "0x0300000000000000000000000000000000000000",
+                capacity: 380_000_000_000,
+            },
+        ];
+        let (cell_data, entity) = template
+            .gen_income_cell_data("0x0000000000000000000000000000000000000000", income_records);
+        template.push_income_cell(
+            cell_data,
+            Some((1, output_index, entity)),
+            475_000_000_000,
+            Source::Output,
+        );
+
+        template.as_json()
+    }
+);
+
+challenge_with_generator!(
+    chanllenge_proposal_confirm_income_record_belong_to_mismatch,
+    Error::ProposalConfirmIncomeError,
+    || {
+        let (mut template, height, timestamp) = init_confirm("confirm_proposal");
+
+        let slices = vec![vec![
+            ("das00012.bit", ProposalSliceItemType::Exist, "das00009.bit"),
+            ("das00005.bit", ProposalSliceItemType::New, ""),
+        ]];
+
+        let (cell_data, entity) = template.gen_proposal_cell_data(
+            "0x0000000000000000000000000000000000002233",
+            height,
+            &slices,
+        );
+        template.push_proposal_cell(
+            cell_data,
+            Some((1, 0, entity)),
+            100_000_000_000,
+            Source::Input,
+        );
+
+        let (_, output_index) =
+            gen_proposal_related_cell_at_confirm(&mut template, slices, timestamp);
+
+        let income_records = vec![
+            // Profit to inviter
+            IncomeRecordParam {
+                belong_to: "0x000000000000000000000000000000000000FFFF",
+                capacity: 38_000_000_000,
+            },
+            // Profit to channel
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000002222",
+                capacity: 38_000_000_000,
+            },
+            // Profit to proposer
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000002233",
+                capacity: 19_000_000_000,
+            },
+            // Profit to DAS
+            IncomeRecordParam {
+                belong_to: "0x0300000000000000000000000000000000000000",
+                capacity: 380_000_000_000,
+            },
+        ];
+        let (cell_data, entity) = template
+            .gen_income_cell_data("0x0000000000000000000000000000000000000000", income_records);
+        template.push_income_cell(
+            cell_data,
+            Some((1, output_index, entity)),
+            475_000_000_000,
+            Source::Output,
+        );
+
+        template.as_json()
+    }
+);
+
+challenge_with_generator!(
+    chanllenge_proposal_confirm_income_record_capacity_mismatch,
+    Error::ProposalConfirmIncomeError,
+    || {
+        let (mut template, height, timestamp) = init_confirm("confirm_proposal");
+
+        let slices = vec![vec![
+            ("das00012.bit", ProposalSliceItemType::Exist, "das00009.bit"),
+            ("das00005.bit", ProposalSliceItemType::New, ""),
+        ]];
+
+        let (cell_data, entity) = template.gen_proposal_cell_data(
+            "0x0000000000000000000000000000000000002233",
+            height,
+            &slices,
+        );
+        template.push_proposal_cell(
+            cell_data,
+            Some((1, 0, entity)),
+            100_000_000_000,
+            Source::Input,
+        );
+
+        let (_, output_index) =
+            gen_proposal_related_cell_at_confirm(&mut template, slices, timestamp);
+
+        let income_records = vec![
+            // Profit to inviter
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000001111",
+                capacity: 99_000_000_000,
+            },
+            // Profit to channel
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000002222",
+                capacity: 38_000_000_000,
+            },
+            // Profit to proposer
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000002233",
+                capacity: 19_000_000_000,
+            },
+            // Profit to DAS
+            IncomeRecordParam {
+                belong_to: "0x0300000000000000000000000000000000000000",
+                capacity: 380_000_000_000,
+            },
+        ];
+        let (cell_data, entity) = template
+            .gen_income_cell_data("0x0000000000000000000000000000000000000000", income_records);
+        template.push_income_cell(
+            cell_data,
+            Some((1, output_index, entity)),
+            475_000_000_000,
+            Source::Output,
+        );
+
+        template.as_json()
+    }
+);
+
+challenge_with_generator!(
+    chanllenge_proposal_confirm_income_capacity_mismatch,
+    Error::ProposalConfirmIncomeError,
+    || {
+        let (mut template, height, timestamp) = init_confirm("confirm_proposal");
+
+        let slices = vec![vec![
+            ("das00012.bit", ProposalSliceItemType::Exist, "das00009.bit"),
+            ("das00005.bit", ProposalSliceItemType::New, ""),
+        ]];
+
+        let (cell_data, entity) = template.gen_proposal_cell_data(
+            "0x0000000000000000000000000000000000002233",
+            height,
+            &slices,
+        );
+        template.push_proposal_cell(
+            cell_data,
+            Some((1, 0, entity)),
+            100_000_000_000,
+            Source::Input,
+        );
+
+        let (_, output_index) =
+            gen_proposal_related_cell_at_confirm(&mut template, slices, timestamp);
+
+        let income_records = vec![
+            // Profit to inviter
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000001111",
+                capacity: 38_000_000_000,
+            },
+            // Profit to channel
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000002222",
+                capacity: 38_000_000_000,
+            },
+            // Profit to proposer
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000002233",
+                capacity: 19_000_000_000,
+            },
+            // Profit to DAS
+            IncomeRecordParam {
+                belong_to: "0x0300000000000000000000000000000000000000",
+                capacity: 380_000_000_000,
+            },
+        ];
+        let (cell_data, entity) = template
+            .gen_income_cell_data("0x0000000000000000000000000000000000000000", income_records);
+        template.push_income_cell(
+            cell_data,
+            Some((1, output_index, entity)),
+            20_000_000_000,
+            Source::Output,
+        );
+
+        template.as_json()
+    }
+);
+
 fn init_recycle() -> (TemplateGenerator, u64) {
     let mut template = TemplateGenerator::new("recycle_proposal", None);
     let height = 1000u64;
@@ -502,7 +746,7 @@ fn init_recycle() -> (TemplateGenerator, u64) {
     (template, height)
 }
 
-// #[test]
+#[test]
 fn gen_proposal_recycle() {
     let (mut template, height) = init_recycle();
 
@@ -512,25 +756,10 @@ fn gen_proposal_recycle() {
             ("das00012.bit", ProposalSliceItemType::Exist, "das00009.bit"),
             ("das00005.bit", ProposalSliceItemType::New, ""),
         ],
-        // A slice base on previous modified PreAccountCell
-        vec![
-            (
-                "das00004.bit",
-                ProposalSliceItemType::Proposed,
-                "das00011.bit",
-            ),
-            ("das00018.bit", ProposalSliceItemType::New, ""),
-            ("das00008.bit", ProposalSliceItemType::New, ""),
-        ],
-        // A whole new slice
-        vec![
-            ("das00006.bit", ProposalSliceItemType::Exist, "das00001.bit"),
-            ("das00019.bit", ProposalSliceItemType::New, ""),
-        ],
     ];
 
     let (cell_data, entity) = template.gen_proposal_cell_data(
-        "0x0100000000000000000000000000000000000000",
+        "0x0000000000000000000000000000000000002233",
         height - 10,
         &slices,
     );
@@ -542,7 +771,7 @@ fn gen_proposal_recycle() {
     );
 
     template.push_signall_cell(
-        "0x0100000000000000000000000000000000000000",
+        "0x0000000000000000000000000000000000002233",
         100_000_000_000,
         Source::Output,
     );
@@ -551,3 +780,33 @@ fn gen_proposal_recycle() {
 }
 
 test_with_template!(test_proposal_recycle, "proposal_recycle.json");
+
+challenge_with_generator!(
+    chanllenge_proposal_recycle_no_refund,
+    Error::ProposalRecycleCanNotFoundRefundCell,
+    || {
+        let (mut template, height) = init_recycle();
+
+        let slices = vec![
+            // A slice base on previous modified AccountCell
+            vec![
+                ("das00012.bit", ProposalSliceItemType::Exist, "das00009.bit"),
+                ("das00005.bit", ProposalSliceItemType::New, ""),
+            ],
+        ];
+
+        let (cell_data, entity) = template.gen_proposal_cell_data(
+            "0x0000000000000000000000000000000000002233",
+            height - 10,
+            &slices,
+        );
+        template.push_proposal_cell(
+            cell_data,
+            Some((1, 0, entity)),
+            100_000_000_000,
+            Source::Input,
+        );
+
+        template.as_json()
+    }
+);
