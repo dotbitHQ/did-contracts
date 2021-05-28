@@ -182,7 +182,7 @@ fn gen_edit_records() {
         },
         AccountRecordParam {
             type_: "profile",
-            key: "id",
+            key: "phone",
             label: "Mars",
             value: bytes::Bytes::from("120981203982901389398390".as_bytes()),
         },
