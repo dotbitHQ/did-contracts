@@ -34,19 +34,17 @@ pub enum Error {
     ActionNotSupported,
     AccountIsReserved, // 28
     AccountStillCanNotBeRegister,
-    WitnessReadingError = 40,
+    WitnessStructureError = 40,
     WitnessEmpty,
-    WitnessDasHeaderDecodingError,
-    WitnessTypeDecodingError,
-    WitnessActionNotFound,
-    WitnessActionDecodingError, // 45
-    WitnessEntityMissing,
-    WitnessDataParseLengthHeaderFailed,
+    WitnessDataTypeDecodingError,
+    WitnessReadingError,
+    WitnessActionDecodingError,
+    WitnessDataParseLengthHeaderFailed, // 45
     WitnessDataReadDataBodyFailed,
     WitnessDataDecodingError,
-    WitnessDataHashMissMatch, // 50
+    WitnessDataHashMissMatch,
     WitnessDataIndexMissMatch,
-    WitnessEntityDecodingError,
+    WitnessEntityDecodingError, // 50
     ApplyRegisterFoundInvalidTransaction = 60,
     ApplyRegisterCellDataDecodingError,
     ApplyRegisterCellHeightInvalid,

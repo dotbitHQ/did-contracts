@@ -5,7 +5,7 @@ use ckb_std::{
 };
 use core::convert::{TryFrom, TryInto};
 use core::result::Result;
-use das_core::{assert, constants::*, error::Error, util, warn};
+use das_core::{assert, constants::*, error::Error, util, warn, witness_parser::WitnessesParser};
 use das_types::{constants::DataType, prelude::Entity};
 
 pub fn main() -> Result<(), Error> {
@@ -24,7 +24,9 @@ pub fn main() -> Result<(), Error> {
         return Err(Error::SuperLockIsRequired);
     }
 
-    let action_data = util::load_das_action()?;
+    let mut parser = WitnessesParser::new()?;
+
+    let action_data = parser.parse_action()?;
     let action = action_data.as_reader().action().raw_data();
     if action == b"config" {
         debug!("Route to config action ...");

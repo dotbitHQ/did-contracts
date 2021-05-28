@@ -34,14 +34,15 @@ pub fn main() -> Result<(), Error> {
     let dep_cells =
         util::find_cells_by_script(ScriptType::Type, this_type_script_reader, Source::CellDep)?;
 
-    let action_data = util::load_das_action()?;
+    let mut parser = WitnessesParser::new()?;
+
+    let action_data = parser.parse_action()?;
     let action = action_data.as_reader().action().raw_data();
     if action == b"propose" {
         debug!("Route to propose action ...");
 
-        let mut parser = util::load_das_witnesses(None)?;
-        parser.parse_all_data()?;
-        parser.parse_only_config(&[DataType::ConfigCellMain, DataType::ConfigCellProposal])?;
+        parser.parse_cell()?;
+        parser.parse_config(&[DataType::ConfigCellMain, DataType::ConfigCellProposal])?;
         let config_main = parser.configs.main()?;
         let config_proposal = parser.configs.proposal()?;
 
@@ -90,9 +91,8 @@ pub fn main() -> Result<(), Error> {
     } else if action == b"extend_proposal" {
         debug!("Route to extend_proposal action ...");
 
-        let mut parser = util::load_das_witnesses(None)?;
-        parser.parse_all_data()?;
-        parser.parse_only_config(&[DataType::ConfigCellMain, DataType::ConfigCellProposal])?;
+        parser.parse_cell()?;
+        parser.parse_config(&[DataType::ConfigCellMain, DataType::ConfigCellProposal])?;
         let config_main = parser.configs.main()?;
         let config_proposal = parser.configs.proposal()?;
 
@@ -151,9 +151,8 @@ pub fn main() -> Result<(), Error> {
         let timestamp = util::load_timestamp()?;
         // let height = util::load_height()?;
 
-        let mut parser = util::load_das_witnesses(None)?;
-        parser.parse_all_data()?;
-        parser.parse_only_config(&[
+        parser.parse_cell()?;
+        parser.parse_config(&[
             DataType::ConfigCellAccount,
             DataType::ConfigCellMain,
             DataType::ConfigCellProfitRate,
@@ -206,9 +205,8 @@ pub fn main() -> Result<(), Error> {
     } else if action == b"recycle_proposal" {
         debug!("Route to recycle_proposal action ...");
 
-        let mut parser = util::load_das_witnesses(None)?;
-        parser.parse_all_data()?;
-        parser.parse_only_config(&[DataType::ConfigCellProposal])?;
+        parser.parse_cell()?;
+        parser.parse_config(&[DataType::ConfigCellProposal])?;
         let config_proposal_reader = parser.configs.proposal()?;
 
         assert!(

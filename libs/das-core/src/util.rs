@@ -358,148 +358,88 @@ fn trim_empty_bytes(buf: &mut [u8]) -> &[u8] {
     }
 }
 
-pub fn load_das_action() -> Result<das_packed::ActionData, Error> {
-    let mut i = 0;
-    let mut action_data_opt = None;
-
-    loop {
-        let mut buf = [0u8; 7];
-        let ret = syscalls::load_witness(&mut buf, 0, i, Source::Input);
-
-        match ret {
-            // Data which length is too short to be DAS witnesses, so ignore it.
-            Ok(_) => i += 1,
-            Err(SysError::LengthNotEnough(_actual_size)) => {
-                if let Some(raw) = buf.get(..3) {
-                    if raw != &WITNESS_HEADER {
-                        i += 1;
-                        continue;
-                    }
-                }
-
-                let data_type = u32::from_le_bytes(buf.get(3..7).unwrap().try_into().unwrap());
-                if data_type == DataType::ActionData as u32 {
-                    debug!(
-                        "Load witnesses[{}]: {:?} {} Bytes",
-                        i,
-                        DataType::ActionData,
-                        _actual_size
-                    );
-
-                    let mut buf = [0u8; 1000];
-                    syscalls::load_witness(&mut buf, 0, i, Source::Input)
-                        .map_err(|e| Error::from(e))?;
-                    let action_data = das_packed::ActionData::from_slice(
-                        trim_empty_bytes(&mut buf).get(7..).unwrap(),
-                    )
-                    .map_err(|_| Error::WitnessActionDecodingError)?;
-
-                    action_data_opt = Some(action_data);
-                    break;
-                }
-
-                i += 1;
-            }
-            Err(SysError::IndexOutOfBound) => break,
-            Err(e) => return Err(Error::from(e)),
-        }
-    }
-
-    assert!(
-        action_data_opt.is_some(),
-        Error::WitnessActionNotFound,
-        "There should be on ActionData in witnesses."
-    );
-
-    Ok(action_data_opt.unwrap())
-}
-
-pub fn load_das_witnesses(data_types_opt: Option<Vec<DataType>>) -> Result<WitnessesParser, Error> {
-    let mut i = 0;
-    let mut witnesses = Vec::new();
-
+pub fn load_das_witnesses(index: usize, data_type: DataType) -> Result<Vec<u8>, Error> {
     fn load_witness(buf: &mut [u8], i: usize) -> Result<Vec<u8>, Error> {
         syscalls::load_witness(buf, 0, i, Source::Input).map_err(|e| Error::from(e))?;
         Ok(trim_empty_bytes(buf).to_vec())
     }
 
-    // The following logic is specifically optimized for reading large amounts of data, do not modify it except you know what you are doing.
-    loop {
-        let mut buf = [0u8; 7];
-        let data;
-        let ret = syscalls::load_witness(&mut buf, 0, i, Source::Input);
+    let mut buf = [0u8; 7];
+    let mut data = Vec::new();
+    let ret = syscalls::load_witness(&mut buf, 0, index, Source::Input);
 
-        match ret {
-            // Data which length is too short to be DAS witnesses, so ignore it.
-            Ok(_) => i += 1,
-            Err(SysError::LengthNotEnough(actual_size)) => {
-                if let Some(raw) = buf.get(..3) {
-                    if raw != &WITNESS_HEADER {
-                        i += 1;
-                        continue;
-                    }
-                }
-
-                let data_type_in_int =
-                    u32::from_le_bytes(buf.get(3..7).unwrap().try_into().unwrap());
-                let data_type = DataType::try_from(data_type_in_int).unwrap();
-
-                // Only parse action with load_das_action function.
-                if data_type == DataType::ActionData {
-                    i += 1;
-                    continue;
-                }
-
-                if data_types_opt.is_none()
-                    || (data_types_opt.is_some()
-                        && data_types_opt.as_ref().unwrap().contains(&data_type))
-                {
-                    debug!(
-                        "Load witnesses[{}]: {:?} {} Bytes",
-                        i, data_type, actual_size
-                    );
-
-                    match actual_size {
-                        x if x <= 2000 => {
-                            let mut buf = [0u8; 2000];
-                            data = load_witness(&mut buf, i)?;
-                        }
-                        x if x <= 4000 => {
-                            let mut buf = [0u8; 4000];
-                            data = load_witness(&mut buf, i)?;
-                        }
-                        x if x <= 8000 => {
-                            let mut buf = [0u8; 8000];
-                            data = load_witness(&mut buf, i)?;
-                        }
-                        x if x <= 16000 => {
-                            let mut buf = [0u8; 16000];
-                            data = load_witness(&mut buf, i)?;
-                        }
-                        x if x <= 32000 => {
-                            let mut buf = [0u8; 32000];
-                            data = load_witness(&mut buf, i)?;
-                        }
-                        x if x <= 64000 => {
-                            let mut buf = [0u8; 64000];
-                            data = load_witness(&mut buf, i)?;
-                        }
-                        _ => {
-                            return Err(Error::from(SysError::LengthNotEnough(actual_size)));
-                        }
-                    }
-
-                    witnesses.push(data);
-                }
-
-                i += 1;
+    match ret {
+        // Data which length is too short to be DAS witnesses, so ignore it.
+        Ok(_) => {
+            assert!(
+                false,
+                Error::WitnessReadingError,
+                "The witnesses[{}] is too short to be DAS witness.", index
+            );
+        }
+        Err(SysError::LengthNotEnough(actual_size)) => {
+            if let Some(raw) = buf.get(..3) {
+                assert!(
+                    raw == &WITNESS_HEADER,
+                    Error::WitnessReadingError,
+                    "The witness should start with \"das\" 3 bytes."
+                );
             }
-            Err(SysError::IndexOutOfBound) => break,
-            Err(e) => return Err(Error::from(e)),
+
+            let data_type_in_int = u32::from_le_bytes(buf.get(3..7).unwrap().try_into().unwrap());
+            let parsed_data_type = DataType::try_from(data_type_in_int).unwrap();
+
+            assert!(
+                data_type == parsed_data_type,
+                Error::WitnessReadingError,
+                "The witnesses[{}] should be the {:?}, but {:?} found.",
+                index,
+                data_type,
+                parsed_data_type
+            );
+
+            debug!(
+                "Load witnesses[{}]: {:?} size: {} Bytes",
+                index, data_type, actual_size
+            );
+
+            match actual_size {
+                x if x <= 2000 => {
+                    let mut buf = [0u8; 2000];
+                    data = load_witness(&mut buf, index)?;
+                }
+                x if x <= 4000 => {
+                    let mut buf = [0u8; 4000];
+                    data = load_witness(&mut buf, index)?;
+                }
+                x if x <= 8000 => {
+                    let mut buf = [0u8; 8000];
+                    data = load_witness(&mut buf, index)?;
+                }
+                x if x <= 16000 => {
+                    let mut buf = [0u8; 16000];
+                    data = load_witness(&mut buf, index)?;
+                }
+                x if x <= 32000 => {
+                    let mut buf = [0u8; 32000];
+                    data = load_witness(&mut buf, index)?;
+                }
+                x if x <= 64000 => {
+                    let mut buf = [0u8; 64000];
+                    data = load_witness(&mut buf, index)?;
+                }
+                _ => {
+                    return Err(Error::from(SysError::LengthNotEnough(actual_size)));
+                }
+            }
+        }
+        Err(e) => {
+            warn!("Load witness[{}] failed: {:?}", index, e);
+            return Err(Error::from(e));
         }
     }
 
-    Ok(WitnessesParser::new(witnesses)?)
+    Ok(data)
 }
 
 pub fn new_blake2b() -> Blake2b {
@@ -798,7 +738,7 @@ pub fn require_type_script(
     source: Source,
     err: Error,
 ) -> Result<(), Error> {
-    parser.parse_only_config(&[DataType::ConfigCellMain])?;
+    parser.parse_config(&[DataType::ConfigCellMain])?;
     let config = parser.configs.main()?;
 
     let type_id = match type_script {

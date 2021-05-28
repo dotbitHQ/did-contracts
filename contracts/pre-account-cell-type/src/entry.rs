@@ -4,17 +4,20 @@ use ckb_std::{
 };
 use core::convert::TryInto;
 use core::result::Result;
-use das_core::{assert, constants::*, debug, error::Error, util, warn};
+use das_core::{
+    assert, constants::*, debug, error::Error, util, warn, witness_parser::WitnessesParser,
+};
 use das_types::{constants::DataType, packed::*, prelude::*};
 
 pub fn main() -> Result<(), Error> {
     debug!("====== Running pre-account-cell-type ======");
 
-    let action_data = util::load_das_action()?;
+    let mut parser = WitnessesParser::new()?;
+
+    let action_data = parser.parse_action()?;
     let action = action_data.as_reader().action().raw_data();
     if action == b"confirm_proposal" {
         debug!("Route to confirm_proposal action ...");
-        let mut parser = util::load_das_witnesses(Some(vec![DataType::ConfigCellMain]))?;
         util::require_type_script(
             &mut parser,
             TypeScript::ProposalCellType,
@@ -44,9 +47,8 @@ pub fn main() -> Result<(), Error> {
 
         debug!("Find out ApplyRegisterCell ...");
 
-        let mut parser = util::load_das_witnesses(None)?;
-        parser.parse_all_data()?;
-        parser.parse_only_config(&[
+        parser.parse_cell()?;
+        parser.parse_config(&[
             DataType::ConfigCellAccount,
             DataType::ConfigCellApply,
             DataType::ConfigCellCharSet,
