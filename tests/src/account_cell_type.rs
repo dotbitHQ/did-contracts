@@ -17,6 +17,7 @@ fn init(action: &str, params_opt: Option<&str>) -> (TemplateGenerator, u64) {
 
     template.push_time_cell(1, timestamp, 0, Source::CellDep);
 
+    template.push_config_cell(DataType::ConfigCellMain, true, 0, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellAccount, true, 0, Source::CellDep);
 
     (template, timestamp)
@@ -25,6 +26,12 @@ fn init(action: &str, params_opt: Option<&str>) -> (TemplateGenerator, u64) {
 #[test]
 fn gen_init_account_chain() {
     let (mut template, _) = init("init_account_chain", None);
+
+    template.push_signall_cell(
+        "0x0000000000000000000000000000000000000000",
+        0,
+        Source::Input,
+    );
 
     let (cell_data, entity) = template.gen_root_account_cell_data();
     template.push_account_cell(
@@ -174,12 +181,6 @@ fn gen_edit_records() {
             value: hex_to_bytes("0x00000000000000000000").unwrap(),
         },
         AccountRecordParam {
-            type_: "address",
-            key: "xxxx",
-            label: "Test",
-            value: hex_to_bytes("0x00000000000000000000").unwrap(),
-        },
-        AccountRecordParam {
             type_: "profile",
             key: "id",
             label: "Mars",
@@ -228,8 +229,6 @@ fn gen_renew_account() {
     template.push_contract_cell("income-cell-type", false);
 
     template.push_quote_cell(1000, 0, Source::CellDep);
-    template.push_config_cell(DataType::ConfigCellAccount, true, 0, Source::CellDep);
-    template.push_config_cell(DataType::ConfigCellMain, true, 0, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellPrice, true, 0, Source::CellDep);
 
     let account = "das00001.bit";
@@ -311,15 +310,6 @@ test_with_template!(test_renew_account, "account_renew_account.json");
 fn gen_recycle_expired_account_by_keeper() {
     let (mut template, timestamp) = init("recycle_expired_account_by_keeper", None);
 
-    template.push_contract_cell("wallet-cell-type", false);
-
-    template.push_config_cell(
-        DataType::ConfigCellMain,
-        true,
-        100_000_000_000,
-        Source::CellDep,
-    );
-
     let account = "das00001.bit";
     let registered_at = timestamp - 86400 * (365 + 30); // Register at 1 year and 1 month before
     let expired_at = timestamp - 86400 * 30 - 1; // Expired at 1 month + 1 second before
@@ -331,18 +321,15 @@ fn gen_recycle_expired_account_by_keeper() {
         "0x0000000000000000000000000000000000001111",
         "0x0000000000000000000000000000000000002222",
         cell_data,
-        None,
-        15_800_000_000,
+        Some((1, 0, old_entity)),
+        21_200_000_000,
         Source::Input,
     );
 
-    // TODO check if everything is OK.
-
-    template.push_witness(
-        DataType::AccountCellData,
-        None,
-        Some((1, 0, old_entity)),
-        None,
+    template.push_signall_cell(
+        "0x0000000000000000000000000000000000001111",
+        21_200_000_000,
+        Source::Output,
     );
 
     template.pretty_print();

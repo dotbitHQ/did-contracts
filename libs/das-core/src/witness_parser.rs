@@ -98,6 +98,14 @@ impl WitnessesParser {
     pub fn parse_config(&mut self, config_types: &[DataType]) -> Result<(), Error> {
         debug!("Parsing config witnesses only ...");
 
+        // If ConfigCellMain is already parsed and we want to parse just it again, skip.
+        if config_types.len() == 1
+            && config_types[0] == DataType::ConfigCellMain
+            && self.configs.main().is_ok()
+        {
+            return Ok(());
+        }
+
         debug!("  Load ConfigCells in cell_deps ...");
 
         let config_cell_type = util::script_literal_to_script(CONFIG_CELL_TYPE);

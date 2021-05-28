@@ -607,6 +607,7 @@ impl TemplateGenerator {
 
     fn gen_config_cell_main(&mut self) -> (Bytes, ConfigCellMain) {
         let entity = ConfigCellMain::new_builder()
+            .status(Uint8::from(1))
             .type_id_table(gen_type_id_table())
             .build();
 

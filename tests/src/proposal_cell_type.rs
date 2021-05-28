@@ -741,6 +741,7 @@ fn init_recycle() -> (TemplateGenerator, u64) {
     template.push_contract_cell("proposal-cell-type", false);
 
     template.push_height_cell(1, height, 0, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellMain, true, 0, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellProposal, true, 0, Source::CellDep);
 
     (template, height)

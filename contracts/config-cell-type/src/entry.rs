@@ -25,6 +25,7 @@ pub fn main() -> Result<(), Error> {
     }
 
     let mut parser = WitnessesParser::new()?;
+    // ⚠️ NEVER use util::is_system_off here! That will make it impossible to turn the system back on by updating the ConfigCellMain. ⚠️
 
     let action_data = parser.parse_action()?;
     let action = action_data.as_reader().action().raw_data();

@@ -28,6 +28,7 @@ fn init(action: &str) -> TemplateGenerator {
     template.push_contract_cell("always_success", true);
     template.push_contract_cell("income-cell-type", false);
 
+    template.push_config_cell(DataType::ConfigCellMain, true, 0, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellIncome, true, 0, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellProfitRate, true, 0, Source::CellDep);
 

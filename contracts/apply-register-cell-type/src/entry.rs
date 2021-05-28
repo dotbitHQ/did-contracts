@@ -12,12 +12,15 @@ use das_core::{
     util,
     witness_parser::WitnessesParser,
 };
-use das_types::prelude::*;
+use das_types::{constants::*, prelude::*};
 
 pub fn main() -> Result<(), Error> {
     debug!("====== Running apply-register-cell-type ======");
 
     let mut parser = WitnessesParser::new()?;
+    parser.parse_config(&[DataType::ConfigCellMain])?;
+    let config_main = parser.configs.main()?;
+    util::is_system_off(config_main)?;
 
     let action_data = parser.parse_action()?;
     let action = action_data.as_reader().action().raw_data();

@@ -22,6 +22,11 @@ use das_types::{constants::*, packed::*, prelude::*};
 pub fn main() -> Result<(), Error> {
     debug!("====== Running proposal-cell-type ======");
 
+    let mut parser = WitnessesParser::new()?;
+    parser.parse_config(&[DataType::ConfigCellMain])?;
+    let config_main = parser.configs.main()?;
+    util::is_system_off(config_main)?;
+
     debug!("Find out ProposalCell ...");
 
     // Find out PreAccountCells in current transaction.
@@ -34,15 +39,13 @@ pub fn main() -> Result<(), Error> {
     let dep_cells =
         util::find_cells_by_script(ScriptType::Type, this_type_script_reader, Source::CellDep)?;
 
-    let mut parser = WitnessesParser::new()?;
-
     let action_data = parser.parse_action()?;
     let action = action_data.as_reader().action().raw_data();
     if action == b"propose" {
         debug!("Route to propose action ...");
 
         parser.parse_cell()?;
-        parser.parse_config(&[DataType::ConfigCellMain, DataType::ConfigCellProposal])?;
+        parser.parse_config(&[DataType::ConfigCellProposal])?;
         let config_main = parser.configs.main()?;
         let config_proposal = parser.configs.proposal()?;
 
@@ -92,7 +95,7 @@ pub fn main() -> Result<(), Error> {
         debug!("Route to extend_proposal action ...");
 
         parser.parse_cell()?;
-        parser.parse_config(&[DataType::ConfigCellMain, DataType::ConfigCellProposal])?;
+        parser.parse_config(&[DataType::ConfigCellProposal])?;
         let config_main = parser.configs.main()?;
         let config_proposal = parser.configs.proposal()?;
 
@@ -152,11 +155,7 @@ pub fn main() -> Result<(), Error> {
         // let height = util::load_height()?;
 
         parser.parse_cell()?;
-        parser.parse_config(&[
-            DataType::ConfigCellAccount,
-            DataType::ConfigCellMain,
-            DataType::ConfigCellProfitRate,
-        ])?;
+        parser.parse_config(&[DataType::ConfigCellAccount, DataType::ConfigCellProfitRate])?;
         let config_account = parser.configs.account()?;
         let config_main = parser.configs.main()?;
         let config_profit_rate = parser.configs.profit_rate()?;

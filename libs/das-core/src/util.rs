@@ -638,6 +638,7 @@ pub fn is_inputs_and_outputs_consistent(
 pub fn is_system_off(config: das_packed::ConfigCellMainReader) -> Result<(), Error> {
     let status = u8::from(config.status());
     if status == 0 {
+        warn!("The DAS system is currently off.");
         return Err(Error::SystemOff);
     }
 
