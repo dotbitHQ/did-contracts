@@ -53,17 +53,6 @@ pub fn hex_to_byte32(input: &str) -> Result<Byte32, FromHexError> {
     Ok(Byte32::new_builder().set(inner).build())
 }
 
-pub fn source_to_str(source: Source) -> &'static str {
-    match source {
-        Source::HeaderDep => "header_deps",
-        Source::CellDep => "cell_deps",
-        Source::Input => "inputs",
-        Source::Output => "outputs",
-        Source::GroupInput => "inputs",
-        Source::GroupOutput => "outputs",
-    }
-}
-
 pub fn script_literal_to_script(script: ScriptLiteral) -> Script {
     Script::new_builder()
         .code_hash(script.code_hash.pack())
@@ -136,12 +125,12 @@ pub fn find_only_cell_by_type_id(
 
 pub fn find_cells_by_script(
     script_type: ScriptType,
-    script: &Script,
+    script: ScriptReader,
     source: Source,
 ) -> Result<Vec<usize>, Error> {
     let mut i = 0;
     let mut cell_indexes = Vec::new();
-    let expected_hash = blake2b_256(script.as_reader().as_slice());
+    let expected_hash = blake2b_256(script.as_slice());
     loop {
         let ret = match script_type {
             ScriptType::Lock => high_level::load_cell_lock_hash(i, source),
@@ -198,7 +187,7 @@ where
 
 pub fn find_cells_by_script_in_inputs_and_outputs(
     script_type: ScriptType,
-    script: &Script,
+    script: ScriptReader,
 ) -> Result<(Vec<usize>, Vec<usize>), Error> {
     let input_cells = find_cells_by_script(script_type, script, Source::Input)?;
     let output_cells = find_cells_by_script(script_type, script, Source::Output)?;
@@ -273,7 +262,7 @@ pub fn load_timestamp() -> Result<u64, Error> {
     let type_script = time_cell_type();
 
     // There must be one TimeCell in the cell_deps, no more and no less.
-    let ret = find_cells_by_script(ScriptType::Type, &type_script, Source::CellDep)?;
+    let ret = find_cells_by_script(ScriptType::Type, type_script.as_reader(), Source::CellDep)?;
     assert!(
         ret.len() == 1,
         Error::TimeCellIsRequired,
@@ -309,7 +298,7 @@ pub fn load_height() -> Result<u64, Error> {
     let type_script = height_cell_type();
 
     // There must be one TimeCell in the cell_deps, no more and no less.
-    let ret = find_cells_by_script(ScriptType::Type, &type_script, Source::CellDep)?;
+    let ret = find_cells_by_script(ScriptType::Type, type_script.as_reader(), Source::CellDep)?;
     assert!(
         ret.len() == 1,
         Error::HeightCellIsRequired,
@@ -340,7 +329,8 @@ pub fn load_height() -> Result<u64, Error> {
 
 pub fn load_quote() -> Result<u64, Error> {
     let quote_lock = oracle_lock();
-    let quote_cells = find_cells_by_script(ScriptType::Lock, &quote_lock, Source::CellDep)?;
+    let quote_cells =
+        find_cells_by_script(ScriptType::Lock, quote_lock.as_reader(), Source::CellDep)?;
 
     assert!(
         quote_cells.len() == 1,
@@ -700,6 +690,15 @@ pub fn is_inputs_and_outputs_consistent(
             (input_cell_index, Source::Input),
             (output_cell_index, Source::Output),
         )?;
+    }
+
+    Ok(())
+}
+
+pub fn is_system_off(config: das_packed::ConfigCellMainReader) -> Result<(), Error> {
+    let status = u8::from(config.status());
+    if status == 0 {
+        return Err(Error::SystemOff);
     }
 
     Ok(())

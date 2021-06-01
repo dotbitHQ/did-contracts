@@ -4,3 +4,4 @@ contracts/**/target/*
 .cache/.cargo/*
 !.gitkeep
 .tmp/
+.idea/

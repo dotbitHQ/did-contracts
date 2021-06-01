@@ -4,7 +4,7 @@ use ckb_std::{
 };
 use core::convert::TryInto;
 use core::result::Result;
-use das_core::{assert, constants::*, debug, error::Error, util};
+use das_core::{assert, constants::*, debug, error::Error, util, warn};
 use das_types::{constants::DataType, packed::*, prelude::*};
 
 pub fn main() -> Result<(), Error> {
@@ -28,10 +28,10 @@ pub fn main() -> Result<(), Error> {
 
         // Find out PreAccountCells in current transaction.
         let this_type_script = load_script().map_err(|e| Error::from(e))?;
-        let old_cells =
-            util::find_cells_by_script(ScriptType::Type, &this_type_script, Source::Input)?;
-        let new_cells =
-            util::find_cells_by_script(ScriptType::Type, &this_type_script, Source::Output)?;
+        let (old_cells, new_cells) = util::find_cells_by_script_in_inputs_and_outputs(
+            ScriptType::Type,
+            this_type_script.as_reader(),
+        )?;
 
         // Consuming PreAccountCell is not allowed in pre_register action.
         if old_cells.len() != 0 {
@@ -291,13 +291,25 @@ fn verify_invited_discount(
     let zero = Uint32::from(0);
     let expected_discount;
     if reader.inviter_lock().is_none() {
+        assert!(
+            reader.inviter_id().is_empty(),
+            Error::PreRegisterFoundInvalidTransaction,
+            "The inviter_id should be empty when inviter do not exist."
+        );
+
         expected_discount = zero.as_reader();
         assert!(
             util::is_reader_eq(expected_discount, reader.invited_discount()),
             Error::PreRegisterDiscountIsInvalid,
-            "The invited_discount should be 0 when inviter do not exist."
+            "The invited_discount should be 0 when inviter does not exist."
         );
     } else {
+        assert!(
+            reader.inviter_id().len() == ACCOUNT_ID_LENGTH,
+            Error::PreRegisterFoundInvalidTransaction,
+            "The inviter_id should be 10 bytes when inviter exists."
+        );
+
         expected_discount = config.discount().invited_discount();
         assert!(
             util::is_reader_eq(expected_discount, reader.invited_discount()),
@@ -422,8 +434,49 @@ fn verify_preserved_accounts(
 ) -> Result<(), Error> {
     debug!("Verify if account is preserved.");
 
-    // TODO implement reserved account verification
-    // let account = reader.account().as_readable();
+    let account = pre_account_reader.account().as_readable();
+    let account_hash = util::blake2b_256(account.as_slice());
+    let first_10_bytes = account_hash.get(..10).unwrap();
+    // debug!("first 10 bytes of account hash: {:?}", first_10_bytes);
+
+    for reserved_accounts in config_reserved_account {
+        if reserved_accounts.len() > 0 {
+            let accounts_total = reserved_accounts.len() / 10;
+            let mut start_account = 0;
+            let mut end_account = accounts_total - 1;
+
+            loop {
+                let nth_account = (end_account - start_account) / 2 + start_account;
+                // debug!(
+                //     "nth_account({:?}) = (end_account({:?}) - start_account({:?})) / 2 + start_account({:?}))",
+                //     nth_account, end_account, start_account, start_account
+                // );
+                let start_index = nth_account * 10;
+                let end_index = nth_account * 10 + 10;
+                // debug!("start_index: {:?}, end_index: {:?}", start_index, end_index);
+                let bytes_of_nth_account = reserved_accounts.get(start_index..end_index).unwrap();
+                // debug!("bytes_of_nth_account: {:?}", bytes_of_nth_account);
+                if bytes_of_nth_account < first_10_bytes {
+                    // debug!("<");
+                    start_account = nth_account;
+                } else if bytes_of_nth_account > first_10_bytes {
+                    // debug!(">");
+                    end_account = nth_account;
+                } else {
+                    warn!(
+                        "Account 0x{} is reserved. (hash: 0x{})",
+                        util::hex_string(account.as_slice()),
+                        util::hex_string(&account_hash)
+                    );
+                    return Err(Error::AccountIsReserved);
+                }
+
+                if end_account - start_account <= 1 {
+                    break;
+                }
+            }
+        }
+    }
 
     Ok(())
 }

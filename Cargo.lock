@@ -1030,6 +1030,7 @@ dependencies = [
  "blake2b-ref 0.3.0",
  "chrono",
  "ckb-std",
+ "das-map",
  "das-types",
  "hex",
  "no-std-compat",

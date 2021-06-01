@@ -54,7 +54,7 @@ macro_rules! challenge_with_generator {
             let ret = parser.execute_tx_directly();
             match ret {
                 Ok(_) => {
-                    println!("{}", serde_json::to_string_pretty(&template).unwrap());
+                    // println!("{}", serde_json::to_string_pretty(&template).unwrap());
                     panic!(
                         "The test should failed with error code: {}, but it returns Ok.",
                         $error_code as i8

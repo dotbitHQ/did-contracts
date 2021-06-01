@@ -65,12 +65,11 @@ pub enum Error {
     PreRegisterDiscountIsInvalid = 80,
     PreRegisterOwnerLockArgsIsInvalid,
     ProposalFoundInvalidTransaction = 90,
-    ProposalMustIncludeSomePreAccountCell,
     ProposalSliceIsNotSorted,
     ProposalSliceIsDiscontinuity,
     ProposalSliceRelatedCellNotFound,
-    ProposalSliceRelatedCellMissing, // 95
-    ProposalCellTypeError,
+    ProposalSliceRelatedCellMissing,
+    ProposalCellTypeError, // 95
     ProposalCellAccountIdError,
     ProposalFieldCanNotBeModified,
     ProposalWitnessCanNotBeModified,
@@ -85,8 +84,8 @@ pub enum Error {
     ProposalConfirmWitnessStatusError,
     ProposalConfirmWitnessRecordsError,
     ProposalConfirmAccountLockArgsIsInvalid = 110,
-    ProposalConfirmWalletMissMatch,
-    ProposalConfirmWalletBalanceError,
+    ProposalConfirmIncomeError,
+    ProposalConfirmRefundError,
     ProposalSliceNotEndCorrectly,
     ProposalSliceMustStartWithAccountCell,
     ProposalSliceMustContainMoreThanOneElement, // 115
@@ -112,6 +111,8 @@ pub enum Error {
     AccountCellIsNotExpired,
     AccountCellRecycleCapacityError,
     AccountCellChangeCapacityError, // -97
+    AccountCellRecordKeyInvalid,
+    SystemOff = -1,
 }
 
 impl From<SysError> for Error {

@@ -132,67 +132,31 @@ fn gen_slices(slices: &Vec<Vec<(&str, ProposalSliceItemType, &str)>>) -> SliceLi
 
 pub fn gen_account_record(
     type_: &str,
-    label: &str,
     key: &str,
+    label: &str,
     value: impl AsRef<[u8]>,
     ttl: u32,
 ) -> Record {
     Record::new_builder()
         .record_type(Bytes::from(type_.as_bytes()))
-        .record_label(Bytes::from(label.as_bytes()))
         .record_key(Bytes::from(key.as_bytes()))
+        .record_label(Bytes::from(label.as_bytes()))
         .record_value(Bytes::from(value.as_ref()))
         .record_ttl(Uint32::from(ttl))
         .build()
 }
 
-pub fn gen_account_records() -> Records {
-    let address_records = [
-        (
-            "address",
-            "Personal",
-            "ETH",
-            util::hex_to_bytes("0x00000000000000000000").unwrap(),
-        ),
-        (
-            "address",
-            "Company",
-            "ETH",
-            util::hex_to_bytes("0x00000000000000000000").unwrap(),
-        ),
-        (
-            "address",
-            "Personal",
-            "BTC",
-            util::hex_to_bytes("0x00000000000000000000").unwrap(),
-        ),
-        (
-            "address",
-            "Company",
-            "BTC",
-            util::hex_to_bytes("0x00000000000000000000").unwrap(),
-        ),
-    ];
-
-    let profile_records = [
-        (
-            "profile",
-            "Mars",
-            "id",
-            "120981203982901389398390".as_bytes(),
-        ),
-        ("profile", "Company", "email", "xxxxx@mars.bit".as_bytes()),
-    ];
-
+pub fn gen_account_records(records_param: Vec<AccountRecordParam>) -> Records {
     let mut records = Records::new_builder();
-
-    for (type_, label, key, value) in address_records.iter() {
-        records = records.push(gen_account_record(type_, label, key, value, 300));
+    for record_param in records_param.into_iter() {
+        records = records.push(gen_account_record(
+            record_param.type_,
+            record_param.key,
+            record_param.label,
+            record_param.value,
+            300,
+        ));
     }
-    for (type_, label, key, value) in profile_records.iter() {
-        records = records.push(gen_account_record(type_, label, key, value, 300));
-    }
-
     records.build()
 }
 
@@ -329,6 +293,7 @@ pub fn gen_record_key_namespace() -> Vec<u8> {
         "profile.avatar",
         "profile.email",
         "profile.phone",
+
         "address.btc",
         "address.eth",
         "address.ckb",
@@ -377,6 +342,14 @@ pub fn gen_record_key_namespace() -> Vec<u8> {
 
 fn bytes_to_hex(input: Bytes) -> String {
     "0x".to_string() + &hex_string(input.as_reader().raw_data()).unwrap()
+}
+
+#[derive(Debug, Clone)]
+pub struct AccountRecordParam {
+    pub type_: &'static str,
+    pub key: &'static str,
+    pub label: &'static str,
+    pub value: bytes::Bytes,
 }
 
 #[derive(Debug, Clone)]
@@ -680,7 +653,6 @@ impl TemplateGenerator {
         let entity = ConfigCellProfitRate::new_builder()
             .channel(Uint32::from(800))
             .inviter(Uint32::from(800))
-            .das(Uint32::from(8000))
             .proposal_create(Uint32::from(400))
             .proposal_confirm(Uint32::from(0))
             .income_consolidate(Uint32::from(100))
@@ -711,13 +683,21 @@ impl TemplateGenerator {
         let lines = io::BufReader::new(file).lines();
 
         let mut account_hashes = Vec::new();
+        let mut _account_map = Vec::new();
         for line in lines {
             if let Ok(account) = line {
                 let account_hash = blake2b_256(account.as_bytes());
                 account_hashes.push(account_hash.get(..10).unwrap().to_vec());
+                _account_map.push((account_hash.get(..10).unwrap().to_vec(), account));
             }
         }
         account_hashes.sort();
+
+        // _account_map.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        // println!("Hash => Account:");
+        // for item in _account_map {
+        //     println!("{:?} => {}", item.0, item.1);
+        // }
 
         let mut raw = account_hashes.into_iter().flatten().collect::<Vec<u8>>();
         raw = util::prepend_molecule_like_length(raw);
@@ -865,6 +845,7 @@ impl TemplateGenerator {
             .account(account_chars.to_owned())
             .owner_lock_args(owner_lock_args)
             .refund_lock(gen_always_success_lock(refund_lock_args))
+            .inviter_id(Bytes::from(vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0]))
             .inviter_lock(ScriptOpt::from(gen_always_success_lock(inviter_lock_args)))
             .channel_lock(ScriptOpt::from(gen_always_success_lock(channel_lock_args)))
             .price(price.to_owned())

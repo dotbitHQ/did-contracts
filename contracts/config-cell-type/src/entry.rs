@@ -18,7 +18,8 @@ pub fn main() -> Result<(), Error> {
 
     // Limit this type script must be used with super lock.
     let has_super_lock =
-        util::find_cells_by_script(ScriptType::Lock, &super_lock, Source::Input)?.len() > 0;
+        util::find_cells_by_script(ScriptType::Lock, super_lock.as_reader(), Source::Input)?.len()
+            > 0;
     if !has_super_lock {
         return Err(Error::SuperLockIsRequired);
     }
@@ -29,11 +30,11 @@ pub fn main() -> Result<(), Error> {
         debug!("Route to config action ...");
 
         // Finding out ConfigCells in current transaction.
-        let config_cell_type = load_script().map_err(|e| Error::from(e))?;
-        let input_cells =
-            util::find_cells_by_script(ScriptType::Type, &config_cell_type, Source::Input)?;
-        let output_cells =
-            util::find_cells_by_script(ScriptType::Type, &config_cell_type, Source::Output)?;
+        let this_type_script = load_script().map_err(|e| Error::from(e))?;
+        let (input_cells, output_cells) = util::find_cells_by_script_in_inputs_and_outputs(
+            ScriptType::Type,
+            this_type_script.as_reader(),
+        )?;
 
         assert!(
             output_cells.len() >= 1,

@@ -17,6 +17,8 @@ fn init(action: &str, params_opt: Option<&str>) -> (TemplateGenerator, u64) {
 
     template.push_time_cell(1, timestamp, 0, Source::CellDep);
 
+    template.push_config_cell(DataType::ConfigCellAccount, true, 0, Source::CellDep);
+
     (template, timestamp)
 }
 
@@ -129,6 +131,13 @@ test_with_template!(test_edit_manager, "account_edit_manager.json");
 fn gen_edit_records() {
     let (mut template, timestamp) = init("edit_records", Some("0x01"));
 
+    template.push_config_cell(
+        DataType::ConfigCellRecordKeyNamespace,
+        true,
+        0,
+        Source::CellDep,
+    );
+
     let account = "das00001.bit";
     let registered_at = timestamp - 86400;
     let expired_at = timestamp + 31536000 - 86400;
@@ -145,14 +154,51 @@ fn gen_edit_records() {
         Source::Input,
     );
 
-    let records = gen_account_records();
+    let records = vec![
+        AccountRecordParam {
+            type_: "address",
+            key: "eth",
+            label: "Personal",
+            value: hex_to_bytes("0x00000000000000000000").unwrap(),
+        },
+        AccountRecordParam {
+            type_: "address",
+            key: "eth",
+            label: "Company",
+            value: hex_to_bytes("0x00000000000000000000").unwrap(),
+        },
+        AccountRecordParam {
+            type_: "address",
+            key: "btc",
+            label: "Personal",
+            value: hex_to_bytes("0x00000000000000000000").unwrap(),
+        },
+        AccountRecordParam {
+            type_: "address",
+            key: "xxxx",
+            label: "Test",
+            value: hex_to_bytes("0x00000000000000000000").unwrap(),
+        },
+        AccountRecordParam {
+            type_: "profile",
+            key: "id",
+            label: "Mars",
+            value: bytes::Bytes::from("120981203982901389398390".as_bytes()),
+        },
+        AccountRecordParam {
+            type_: "profile",
+            key: "email",
+            label: "Company",
+            value: bytes::Bytes::from("xxxxx@mars.bit".as_bytes()),
+        },
+    ];
 
     let (cell_data, new_entity) = template.gen_account_cell_data(
         account,
         next.clone(),
         registered_at,
         expired_at,
-        Some(records),
+        Some(gen_account_records(records)),
     );
     template.push_account_cell(
         "0x0000000000000000000000000000000000001111",
@@ -179,7 +225,11 @@ test_with_template!(test_edit_records, "account_edit_records.json");
 fn gen_renew_account() {
     let (mut template, timestamp) = init("renew_account", None);
 
+    template.push_contract_cell("income-cell-type", false);
+
     template.push_quote_cell(1000, 0, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellAccount, true, 0, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellMain, true, 0, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellPrice, true, 0, Source::CellDep);
 
     let account = "das00001.bit";
@@ -194,7 +244,7 @@ fn gen_renew_account() {
         "0x0000000000000000000000000000000000002222",
         cell_data,
         None,
-        19_400_000_000,
+        20_000_000_000,
         Source::Input,
     );
     let (cell_data, new_entity) = template.gen_account_cell_data(
@@ -209,7 +259,7 @@ fn gen_renew_account() {
         "0x0000000000000000000000000000000000002222",
         cell_data,
         None,
-        19_400_000_000,
+        20_000_000_000,
         Source::Output,
     );
     template.push_witness(
@@ -219,9 +269,36 @@ fn gen_renew_account() {
         None,
     );
 
-    template.push_signall_cell(
-        "0x0300000000000000000000000000000000000000",
-        500_000_000_000,
+    let income_records = vec![IncomeRecordParam {
+        belong_to: "0x0000000000000000000000000000000000000000",
+        capacity: 20_000_000_000,
+    }];
+    let (cell_data, entity) =
+        template.gen_income_cell_data("0x0000000000000000000000000000000000000000", income_records);
+    template.push_income_cell(
+        cell_data,
+        Some((1, 1, entity)),
+        20_000_000_000,
+        Source::Input,
+    );
+
+    let income_records = vec![
+        IncomeRecordParam {
+            belong_to: "0x0000000000000000000000000000000000000000",
+            capacity: 20_000_000_000,
+        },
+        // Profit to DAS
+        IncomeRecordParam {
+            belong_to: "0x0300000000000000000000000000000000000000",
+            capacity: 500_000_000_000,
+        },
+    ];
+    let (cell_data, entity) =
+        template.gen_income_cell_data("0x0000000000000000000000000000000000000000", income_records);
+    template.push_income_cell(
+        cell_data,
+        Some((1, 1, entity)),
+        520_000_000_000,
         Source::Output,
     );
 
@@ -258,10 +335,8 @@ fn gen_recycle_expired_account_by_keeper() {
         15_800_000_000,
         Source::Input,
     );
-    template.push_wallet_cell(account, 8_400_000_000 + 2_000_000_000, Source::Input);
-    template.push_wallet_cell("das.bit", 8_400_000_000, Source::Input);
 
-    template.push_wallet_cell("das.bit", 16_800_000_000, Source::Output);
+    // TODO check if everything is OK.
 
     template.push_witness(
         DataType::AccountCellData,
