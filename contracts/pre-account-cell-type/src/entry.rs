@@ -272,13 +272,20 @@ fn verify_owner_lock_args(reader: PreAccountCellDataReader) -> Result<(), Error>
         "Check if PreAccountCell.witness.owner_lock_args is more than 1 byte and the first byte is 0x00."
     );
 
-    let owner_lock_args = reader.owner_lock_args();
+    let owner_lock_args = reader.owner_lock_args().raw_data();
 
     assert!(
-        owner_lock_args.len() > 1,
+        owner_lock_args.len() == 21,
         Error::PreRegisterOwnerLockArgsIsInvalid,
-        "The length of owner_lock_args should be more 1 byte, but {} found.",
+        "The length of owner_lock_args should be more 21 byte, but {} found.",
         owner_lock_args.len()
+    );
+
+    assert!(
+        owner_lock_args[0] <= 10,
+        Error::PreRegisterOwnerLockArgsIsInvalid,
+        "The first of owner_lock_args should between 0 and 10, but {} found.",
+        owner_lock_args[0]
     );
 
     Ok(())
@@ -451,7 +458,6 @@ fn verify_account_chars(
         let account_char_bytes = account_char.bytes().raw_data();
         let mut found = false;
         let mut from = 0;
-
         for (i, item) in required_char_sets[char_set_index].iter().enumerate() {
             if item == &0 {
                 let char_bytes = required_char_sets[char_set_index].get(from..i).unwrap();
