@@ -344,7 +344,7 @@ pub fn load_quote() -> Result<u64, Error> {
     Ok(quote)
 }
 
-fn trim_empty_bytes(buf: &mut [u8]) -> &[u8] {
+pub fn trim_empty_bytes(buf: &[u8]) -> &[u8] {
     let header = buf.get(..3);
     let length = buf
         .get(7..11)
@@ -355,6 +355,34 @@ fn trim_empty_bytes(buf: &mut [u8]) -> &[u8] {
         buf.get(..(7 + length.unwrap())).unwrap()
     } else {
         buf
+    }
+}
+
+pub fn load_small_config_witnesses(index: usize) -> Result<[u8; 2000], Error> {
+    let mut buf = [0u8; 2000];
+    let ret = syscalls::load_witness(&mut buf, 0, index, Source::Input);
+
+    match ret {
+        // Data which length is too short to be DAS witnesses, so ignore it.
+        Ok(_) => return Ok(buf),
+        Err(e) => {
+            warn!("Load small config witness[{}] failed: {:?}", index, e);
+            return Err(Error::from(e));
+        }
+    }
+}
+
+pub fn load_large_config_witnesses(index: usize) -> Result<[u8; 32000], Error> {
+    let mut buf = [0u8; 32000];
+    let ret = syscalls::load_witness(&mut buf, 0, index, Source::Input);
+
+    match ret {
+        // Data which length is too short to be DAS witnesses, so ignore it.
+        Ok(_) => return Ok(buf),
+        Err(e) => {
+            warn!("Load small config witness[{}] failed: {:?}", index, e);
+            return Err(Error::from(e));
+        }
     }
 }
 

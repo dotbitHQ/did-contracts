@@ -2,12 +2,17 @@ use ckb_std::{
     ckb_constants::Source,
     high_level::{load_cell_capacity, load_cell_data, load_cell_lock, load_script},
 };
-use core::convert::TryInto;
+use core::convert::{TryFrom, TryInto};
 use core::result::Result;
 use das_core::{
     assert, constants::*, debug, error::Error, util, warn, witness_parser::WitnessesParser,
 };
-use das_types::{constants::DataType, packed::*, prelude::*};
+use das_types::{
+    constants::{CharSetType, DataType, CHAR_SET_LENGTH},
+    packed::*,
+    prelude::*,
+    util as das_types_util,
+};
 
 pub fn main() -> Result<(), Error> {
     debug!("====== Running pre-account-cell-type ======");
@@ -54,7 +59,6 @@ pub fn main() -> Result<(), Error> {
         parser.parse_config(&[
             DataType::ConfigCellAccount,
             DataType::ConfigCellApply,
-            DataType::ConfigCellCharSet,
             DataType::ConfigCellPrice,
             DataType::ConfigCellPreservedAccount00,
         ])?;
@@ -143,8 +147,7 @@ pub fn main() -> Result<(), Error> {
         verify_created_at(timestamp, reader)?;
         util::verify_account_length_and_years(reader.account().len(), timestamp, None)?;
 
-        let config_char_set_reader = parser.configs.char_set()?;
-        verify_account_chars(config_char_set_reader, reader)?;
+        verify_account_chars(&mut parser, reader)?;
 
         let config_reserved_account = parser.configs.reserved_account()?;
         verify_preserved_accounts(config_reserved_account, reader)?;
@@ -198,18 +201,13 @@ fn verify_account_id(
     let account: Vec<u8> = [reader.account().as_readable(), ".bit".as_bytes().to_vec()].concat();
     let hash = util::blake2b_256(account.as_slice());
 
-    debug!(
-        "Verify account ID in PreAccountCell: hash_from({:?}){:?} != PreAccountCell.data.account_id{:?} {}",
-        account,
-        &hash[..10],
-        account_id.raw_data(),
-        &hash[..10] != account_id.raw_data()
+    assert!(
+        &hash[..10] == account_id.raw_data(),
+        Error::PreRegisterAccountIdIsInvalid,
+        "PreAccountCell.account_id should be calculated from account correctly.(expected: 0x{}, current: 0x{})",
+        util::hex_string(&hash),
+        util::hex_string(account_id.raw_data())
     );
-
-    // The account ID in PreAccountCell must be calculated from the account.
-    if &hash[..10] != account_id.raw_data() {
-        return Err(Error::PreRegisterAccountIdIsInvalid);
-    }
 
     Ok(())
 }
@@ -217,7 +215,7 @@ fn verify_account_id(
 fn verify_apply_hash(
     reader: PreAccountCellDataReader,
     pubkey_hash: Vec<u8>,
-    expected_hash: &[u8],
+    current_hash: &[u8],
 ) -> Result<(), Error> {
     let data_to_hash: Vec<u8> = [
         pubkey_hash,
@@ -225,22 +223,15 @@ fn verify_apply_hash(
         ".bit".as_bytes().to_vec(),
     ]
     .concat();
-    let hash = util::blake2b_256(data_to_hash.as_slice());
+    let expected_hash = util::blake2b_256(data_to_hash.as_slice());
 
-    debug!(
-        "Verify hash in ApplyRegisterCell: 0x{}(expected) != 0x{}(apply_register_cell.data)",
-        util::hex_string(expected_hash),
-        util::hex_string(&hash)
+    assert!(
+        current_hash == expected_hash,
+        Error::PreRegisterApplyHashIsInvalid,
+        "The hash in ApplyRegisterCell should be calculated from blake2b(ApplyRegisterCell.lock.args + account).(expected: 0x{}, current: 0x{})",
+        util::hex_string(&expected_hash),
+        util::hex_string(current_hash)
     );
-
-    if expected_hash != hash {
-        debug!(
-            "Hash calculated from: arg: 0x{}, account: 0x{}",
-            util::hex_string(data_to_hash.get(..20).unwrap()),
-            util::hex_string(data_to_hash.get(20..).unwrap())
-        );
-        return Err(Error::PreRegisterApplyHashIsInvalid);
-    }
 
     Ok(())
 }
@@ -386,47 +377,61 @@ fn verify_price_and_capacity(
 }
 
 fn verify_account_chars(
-    config: ConfigCellCharSetReader,
+    parser: &mut WitnessesParser,
     reader: PreAccountCellDataReader,
 ) -> Result<(), Error> {
     debug!("Verify if account chars is available.");
 
-    let char_set_list = config.char_sets();
     let mut prev_char_set_name: Option<_> = None;
     for account_char in reader.account().iter() {
-        let char_set_opt = char_set_list
-            .iter()
-            .find(|char_set| util::is_reader_eq(char_set.name(), account_char.char_set_name()));
-        match char_set_opt {
-            Some(char_set) => {
-                // Store the first non-global char set by default.
-                if u8::from(char_set.global()) == 0 {
-                    if prev_char_set_name.is_none() {
-                        prev_char_set_name = Some(char_set.name());
-                    } else {
-                        // No other character set can be different from the first one.
-                        if !util::is_reader_eq(prev_char_set_name.unwrap(), char_set.name()) {
-                            return Err(Error::PreRegisterAccountCharSetConflict);
-                        }
-                    }
-                }
+        // Loading different charset configs on demand.
+        let data_type = das_types_util::char_set_to_data_type(
+            CharSetType::try_from(account_char.char_set_name()).unwrap(),
+        );
+        parser.parse_config(&[data_type])?;
 
-                // Check if the char is in the char set.
-                let is_char_valid = char_set
-                    .chars()
-                    .iter()
-                    .any(|char| util::is_reader_eq(account_char.bytes(), char));
-                if !is_char_valid {
-                    debug!(
-                        "The invalid char is: {:x?}",
-                        account_char.bytes().raw_data()
+        let char_set_index = das_types_util::data_type_to_char_set(data_type) as usize;
+        let char_sets = parser.configs.char_set()?;
+        let char_set_opt = char_sets.get(char_set_index);
+        // Check if account contains only one non-global character set.
+        if let Some(Some(char_set)) = char_set_opt {
+            if !char_set.global {
+                if prev_char_set_name.is_none() {
+                    prev_char_set_name = Some(char_set_index);
+                } else {
+                    let pre_char_set_index = prev_char_set_name.as_ref().unwrap();
+                    assert!(
+                        pre_char_set_index == &char_set_index,
+                        Error::PreRegisterAccountCharSetConflict,
+                        "Non-global CharSet[{}] has been used by account, so CharSet[{}] can not be used together.",
+                        pre_char_set_index,
+                        char_set_index
                     );
-
-                    return Err(Error::PreRegisterAccountCharIsInvalid);
                 }
             }
-            _ => return Err(Error::PreRegisterFoundUndefinedCharSet),
+        } else {
+            warn!("CharSet[{}] is undefined.", char_set_index);
+            return Err(Error::PreRegisterFoundUndefinedCharSet);
         }
+    }
+
+    let char_sets = parser.configs.char_set()?;
+    let mut required_char_sets = vec![Vec::new(); CHAR_SET_LENGTH];
+    for account_char in reader.account().iter() {
+        let char_set_index = u32::from(account_char.char_set_name()) as usize;
+        if required_char_sets[char_set_index].len() == 0 {
+            let char_set = char_sets[char_set_index].as_ref().unwrap();
+            required_char_sets[char_set_index] =
+                char_set.data.split(|item| item == &0u8).collect::<Vec<_>>();
+        }
+
+        assert!(
+            required_char_sets[char_set_index].contains(&account_char.bytes().raw_data()),
+            Error::PreRegisterAccountCharIsInvalid,
+            "The character 0x{}(utf-8) can not be used in account, because it is not contained by CharSet[{}].",
+            util::hex_string(account_char.bytes().raw_data()),
+            char_set_index
+        );
     }
 
     Ok(())

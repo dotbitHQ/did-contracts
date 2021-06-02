@@ -1,15 +1,16 @@
 use super::constants::*;
 use super::error::Error;
-use super::types::Configs;
+use super::types::{CharSet, Configs};
 use super::util;
 use super::{assert, debug};
 use ckb_std::{ckb_constants::Source, error::SysError, syscalls};
 use core::convert::{TryFrom, TryInto};
 use das_map::map;
 use das_types::{
-    constants::{DataType, WITNESS_HEADER},
+    constants::{DataType, CHAR_SET_LENGTH, WITNESS_HEADER},
     packed::*,
     prelude::*,
+    util as das_types_util,
 };
 use std::prelude::v1::*;
 
@@ -98,20 +99,43 @@ impl WitnessesParser {
     pub fn parse_config(&mut self, config_types: &[DataType]) -> Result<(), Error> {
         debug!("Parsing config witnesses only ...");
 
-        // If ConfigCellMain is already parsed and we want to parse just it again, skip.
-        if config_types.len() == 1
-            && config_types[0] == DataType::ConfigCellMain
-            && self.configs.main().is_ok()
-        {
+        // Filter out ConfigCells that have not been loaded yet. This only works for ConfigCells that maybe loaded multiple times.
+        let unloaded_config_types = config_types
+            .iter()
+            .filter(|&&config_type| {
+                // Skip some exists ConfigCells.
+                match config_type {
+                    DataType::ConfigCellMain => return self.configs.main().is_err(),
+                    DataType::ConfigCellCharSetEmoji
+                    | DataType::ConfigCellCharSetDigit
+                    | DataType::ConfigCellCharSetEn => {
+                        if self.configs.char_set().is_ok() {
+                            let char_sets = self.configs.char_set().unwrap();
+                            let char_set_index =
+                                das_types_util::data_type_to_char_set(config_type.to_owned());
+                            return char_sets[char_set_index as usize].is_none();
+                        }
+                        return true;
+                    }
+                    _ => return true,
+                }
+            })
+            .collect::<Vec<_>>();
+
+        if unloaded_config_types.len() == 0 {
+            debug!("  Skip loaded ConfigCells ...");
             return Ok(());
         }
 
-        debug!("  Load ConfigCells in cell_deps ...");
+        debug!(
+            "  Load ConfigCells {:?} from cell_deps ...",
+            unloaded_config_types
+        );
 
         let config_cell_type = util::script_literal_to_script(CONFIG_CELL_TYPE);
         let mut config_data_types = Vec::new();
         let mut config_entity_hashes = map::Map::new();
-        for config_type in config_types {
+        for config_type in unloaded_config_types {
             let args = Bytes::from((config_type.to_owned() as u32).to_le_bytes().to_vec());
             let type_script = config_cell_type
                 .clone()
@@ -176,19 +200,38 @@ impl WitnessesParser {
             };
         }
 
-        for (_i, (index, data_type)) in self.witnesses.iter().enumerate() {
-            // Skip configs that no need to parse.
-            if !config_data_types.contains(data_type) {
-                continue;
-            }
+        macro_rules! assign_config_char_set_witness {
+            ( $char_set_type:expr, $entity:expr ) => {{
+                let index = $char_set_type as usize;
+                let char_set = CharSet {
+                    name: $char_set_type,
+                    global: $entity.get(4).unwrap() == &1u8,
+                    data: $entity.get(5..).unwrap().to_vec(),
+                };
+                if self.configs.char_set.is_some() {
+                    self.configs
+                        .char_set
+                        .as_mut()
+                        .map(|char_sets| char_sets[index] = Some(char_set));
+                } else {
+                    let mut char_sets: Vec<Option<CharSet>> = vec![None; CHAR_SET_LENGTH];
+                    char_sets[index] = Some(char_set);
+                    self.configs.char_set = Some(char_sets)
+                }
+            }};
+        }
 
-            let raw = util::load_das_witnesses(index.to_owned(), data_type.to_owned())?;
-
-            let entity = raw.get(7..).ok_or(Error::ConfigCellWitnessDecodingError)?;
+        fn find_and_remove_from_hashes(
+            _i: usize,
+            _data_type: DataType,
+            config_entity_hashes: &mut map::Map<usize, Vec<u8>>,
+            entity: &[u8],
+        ) -> Result<(), Error> {
             let entity_hash = util::blake2b_256(entity).to_vec();
             let ret = config_entity_hashes
                 .find(&entity_hash)
                 .map(|v| v.to_owned());
+
             // debug!("current: 0x{}", util::hex_string(entity_hash.as_slice()));
             if let Some(key) = ret {
                 // debug!("expected: 0x{}", util::hex_string(config_entity_hashes.get(&key).unwrap().as_slice()));
@@ -198,47 +241,112 @@ impl WitnessesParser {
                 debug!(
                     "The witness of witness[{}] is corrupted! data_type: {:?} hash: 0x{} entity: {:?}",
                     _i,
-                    data_type,
+                    _data_type,
                     util::hex_string(entity_hash.as_slice()),
                     entity.get(..40).map(|item| util::hex_string(item) + "...")
                 );
                 return Err(Error::ConfigCellWitnessIsCorrupted);
             }
 
-            debug!(
-                "    Found matched ConfigCell witness at: witnesses[{}] data_type: {:?}",
-                _i, data_type
-            );
+            Ok(())
+        }
+
+        for (_i, witness_info) in self.witnesses.iter().enumerate() {
+            let (index, data_type) = witness_info.to_owned();
+
+            // Skip configs that no need to parse.
+            if !config_data_types.contains(&data_type) {
+                continue;
+            }
+
             match data_type {
-                DataType::ConfigCellAccount => {
-                    assign_config_witness!(self.configs.account, ConfigCellAccount, entity)
+                DataType::ConfigCellAccount
+                | DataType::ConfigCellApply
+                | DataType::ConfigCellIncome
+                | DataType::ConfigCellMain
+                | DataType::ConfigCellPrice
+                | DataType::ConfigCellProposal
+                | DataType::ConfigCellProfitRate => {
+                    let raw = util::load_small_config_witnesses(index)?;
+                    let raw_trimed = util::trim_empty_bytes(&raw);
+                    let entity = raw_trimed
+                        .get(7..)
+                        .ok_or(Error::ConfigCellWitnessDecodingError)?;
+
+                    find_and_remove_from_hashes(_i, data_type, &mut config_entity_hashes, entity)?;
+
+                    debug!(
+                        "    Found matched ConfigCell witness at: witnesses[{}] data_type: {:?} size: {}",
+                        _i, data_type, raw_trimed.len()
+                    );
+
+                    match data_type {
+                        DataType::ConfigCellAccount => {
+                            assign_config_witness!(self.configs.account, ConfigCellAccount, entity)
+                        }
+                        DataType::ConfigCellApply => {
+                            assign_config_witness!(self.configs.apply, ConfigCellApply, entity)
+                        }
+                        DataType::ConfigCellIncome => {
+                            assign_config_witness!(self.configs.income, ConfigCellIncome, entity)
+                        }
+                        DataType::ConfigCellMain => {
+                            assign_config_witness!(self.configs.main, ConfigCellMain, entity)
+                        }
+                        DataType::ConfigCellPrice => {
+                            assign_config_witness!(self.configs.price, ConfigCellPrice, entity)
+                        }
+                        DataType::ConfigCellProposal => {
+                            assign_config_witness!(
+                                self.configs.proposal,
+                                ConfigCellProposal,
+                                entity
+                            )
+                        }
+                        DataType::ConfigCellProfitRate => {
+                            assign_config_witness!(
+                                self.configs.profit_rate,
+                                ConfigCellProfitRate,
+                                entity
+                            )
+                        }
+                        _ => return Err(Error::ConfigTypeIsUndefined),
+                    }
                 }
-                DataType::ConfigCellApply => {
-                    assign_config_witness!(self.configs.apply, ConfigCellApply, entity)
-                }
-                DataType::ConfigCellCharSet => {
-                    assign_config_witness!(self.configs.char_set, ConfigCellCharSet, entity)
-                }
-                DataType::ConfigCellIncome => {
-                    assign_config_witness!(self.configs.income, ConfigCellIncome, entity)
-                }
-                DataType::ConfigCellMain => {
-                    assign_config_witness!(self.configs.main, ConfigCellMain, entity)
-                }
-                DataType::ConfigCellPrice => {
-                    assign_config_witness!(self.configs.price, ConfigCellPrice, entity)
-                }
-                DataType::ConfigCellProposal => {
-                    assign_config_witness!(self.configs.proposal, ConfigCellProposal, entity)
-                }
-                DataType::ConfigCellProfitRate => {
-                    assign_config_witness!(self.configs.profit_rate, ConfigCellProfitRate, entity)
-                }
-                DataType::ConfigCellRecordKeyNamespace => {
-                    self.configs.record_key_namespace = Some(entity.get(4..).unwrap().to_vec());
-                }
-                DataType::ConfigCellPreservedAccount00 => {
-                    assign_config_reserved_account_witness!(0, entity)
+                DataType::ConfigCellRecordKeyNamespace
+                | DataType::ConfigCellPreservedAccount00
+                | DataType::ConfigCellCharSetEmoji
+                | DataType::ConfigCellCharSetDigit
+                | DataType::ConfigCellCharSetEn => {
+                    let raw = util::load_large_config_witnesses(index)?;
+                    let raw_trimed = util::trim_empty_bytes(&raw);
+                    let entity = raw_trimed
+                        .get(7..)
+                        .ok_or(Error::ConfigCellWitnessDecodingError)?;
+
+                    find_and_remove_from_hashes(_i, data_type, &mut config_entity_hashes, entity)?;
+
+                    debug!(
+                        "    Found matched ConfigCell witness at: witnesses[{}] data_type: {:?} size: {}",
+                        _i, data_type, raw_trimed.len()
+                    );
+
+                    match data_type {
+                        DataType::ConfigCellRecordKeyNamespace => {
+                            self.configs.record_key_namespace =
+                                Some(entity.get(4..).unwrap().to_vec());
+                        }
+                        DataType::ConfigCellPreservedAccount00 => {
+                            assign_config_reserved_account_witness!(0, entity)
+                        }
+                        DataType::ConfigCellCharSetEmoji
+                        | DataType::ConfigCellCharSetDigit
+                        | DataType::ConfigCellCharSetEn => {
+                            let char_set_type = das_types_util::data_type_to_char_set(data_type);
+                            assign_config_char_set_witness!(char_set_type, entity)
+                        }
+                        _ => return Err(Error::ConfigTypeIsUndefined),
+                    }
                 }
                 _ => return Err(Error::ConfigTypeIsUndefined),
             }
@@ -248,7 +356,12 @@ impl WitnessesParser {
         assert!(
             config_entity_hashes.is_empty(),
             Error::ConfigIsPartialMissing,
-            "Can not find some ConfigCells' witnesses."
+            "Can not find some ConfigCells' witnesses. (hashes: {:?})",
+            config_entity_hashes
+                .items
+                .iter()
+                .map(|(_, value)| util::hex_string(value.as_slice()))
+                .collect::<Vec<String>>()
         );
 
         Ok(())
@@ -312,12 +425,12 @@ impl WitnessesParser {
         let version = u32::from(data_entity.version());
         let entity = data_entity.entity();
 
-        let unwraped_entity = entity.as_reader().raw_data();
-        let hash = util::blake2b_256(unwraped_entity).to_vec();
+        let unwrapped_entity = entity.as_reader().raw_data();
+        let hash = util::blake2b_256(unwrapped_entity).to_vec();
 
         // debug!(
         //     "entity: index = {} hash = {:?} entity = {:?}",
-        //     index, hash, unwraped_entity
+        //     index, hash, unwrapped_entity
         // );
 
         Ok((index, version, data_type, hash, entity))
@@ -384,7 +497,6 @@ impl WitnessesParser {
         let config_data_types = [
             DataType::ConfigCellAccount,
             DataType::ConfigCellApply,
-            DataType::ConfigCellCharSet,
             DataType::ConfigCellIncome,
             DataType::ConfigCellMain,
             DataType::ConfigCellPrice,
@@ -392,6 +504,9 @@ impl WitnessesParser {
             DataType::ConfigCellProfitRate,
             DataType::ConfigCellRecordKeyNamespace,
             DataType::ConfigCellPreservedAccount00,
+            DataType::ConfigCellCharSetEmoji,
+            DataType::ConfigCellCharSetDigit,
+            DataType::ConfigCellCharSetEn,
         ];
 
         config_data_types.contains(&data_type)

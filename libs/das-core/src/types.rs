@@ -1,6 +1,7 @@
 use super::constants::ScriptHashType;
 use super::error::Error;
 use alloc::vec::Vec;
+use das_types::constants::CharSetType;
 use das_types::packed::*;
 
 macro_rules! config_getter {
@@ -23,11 +24,18 @@ pub struct ScriptLiteral {
     pub args: Vec<u8>,
 }
 
+#[derive(Clone, Debug)]
+pub struct CharSet {
+    pub name: CharSetType,
+    pub global: bool,
+    pub data: Vec<u8>,
+}
+
 #[derive(Debug, Default)]
 pub struct Configs {
     pub account: Option<ConfigCellAccount>,
     pub apply: Option<ConfigCellApply>,
-    pub char_set: Option<ConfigCellCharSet>,
+    pub char_set: Option<Vec<Option<CharSet>>>,
     pub income: Option<ConfigCellIncome>,
     pub main: Option<ConfigCellMain>,
     pub price: Option<ConfigCellPrice>,
@@ -44,7 +52,6 @@ impl Configs {
 
     config_getter!(account, ConfigCellAccountReader);
     config_getter!(apply, ConfigCellApplyReader);
-    config_getter!(char_set, ConfigCellCharSetReader);
     config_getter!(income, ConfigCellIncomeReader);
     config_getter!(main, ConfigCellMainReader);
     config_getter!(price, ConfigCellPriceReader);
@@ -63,6 +70,15 @@ impl Configs {
     pub fn reserved_account(&self) -> Result<&Vec<Vec<u8>>, Error> {
         let reader = self
             .reserved_account
+            .as_ref()
+            .map(|item| item)
+            .ok_or(Error::ConfigIsPartialMissing)?;
+        Ok(reader)
+    }
+
+    pub fn char_set(&self) -> Result<&Vec<Option<CharSet>>, Error> {
+        let reader = self
+            .char_set
             .as_ref()
             .map(|item| item)
             .ok_or(Error::ConfigIsPartialMissing)?;

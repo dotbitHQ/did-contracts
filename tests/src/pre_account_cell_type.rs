@@ -19,7 +19,9 @@ fn init(account: &str) -> (TemplateGenerator, &str, u64) {
 
     template.push_config_cell(DataType::ConfigCellAccount, true, 0, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellApply, true, 0, Source::CellDep);
-    template.push_config_cell(DataType::ConfigCellCharSet, true, 0, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellCharSetEmoji, true, 0, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellCharSetDigit, true, 0, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellCharSetEn, true, 0, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellMain, true, 0, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellPrice, true, 0, Source::CellDep);
     template.push_config_cell(
@@ -42,7 +44,7 @@ fn init(account: &str) -> (TemplateGenerator, &str, u64) {
 
 #[test]
 fn gen_pre_register() {
-    let (mut template, account, timestamp) = init("das00001.bit");
+    let (mut template, account, timestamp) = init("✨das🎉001.bit");
 
     let (cell_data, entity) = template.gen_pre_account_cell_data(
         account,
@@ -65,6 +67,34 @@ fn gen_pre_register() {
 }
 
 test_with_template!(test_pre_register, "pre_register.json");
+
+challenge_with_generator!(
+    challenge_pre_register_invalid_char,
+    Error::PreRegisterAccountCharIsInvalid,
+    || {
+        // ⚠️ Need delete the emoji from char_set_emoji.txt first, otherwise the test can not pass.
+        let (mut template, account, timestamp) = init("✨das🎱001.bit");
+
+        let (cell_data, entity) = template.gen_pre_account_cell_data(
+            account,
+            "0x0000000000000000000000000000000000002222",
+            "0x000000000000000000000000000000000000FFFF",
+            "0x0000000000000000000000000000000000001111",
+            "0x0000000000000000000000000000000000002222",
+            1000,
+            500,
+            timestamp,
+        );
+        template.push_pre_account_cell(
+            cell_data,
+            Some((1, 0, entity)),
+            535_600_000_000,
+            Source::Output,
+        );
+
+        template.as_json()
+    }
+);
 
 challenge_with_generator!(
     challenge_pre_register_reserved_account,

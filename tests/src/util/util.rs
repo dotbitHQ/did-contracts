@@ -20,7 +20,10 @@ use das_types::packed as das_packed;
 use lazy_static::lazy_static;
 use std::collections::HashSet;
 use std::error::Error;
+use std::fs::File;
+use std::io::{BufRead, BufReader, Lines};
 use std::str::FromStr;
+use std::{env, io, path::PathBuf};
 
 lazy_static! {
     pub static ref SECP256K1: secp256k1::Secp256k1<secp256k1::All> = secp256k1::Secp256k1::new();
@@ -317,4 +320,16 @@ pub fn prepend_molecule_like_length(raw: Vec<u8>) -> Vec<u8> {
     entity.extend(raw);
 
     entity
+}
+
+pub fn read_lines(file_name: &str) -> io::Result<Lines<BufReader<File>>> {
+    let dir = env::current_dir().unwrap();
+    let mut file_path = PathBuf::new();
+    file_path.push(dir);
+    file_path.push("data");
+    file_path.push(file_name);
+
+    // Read record keys from file, then sort them.
+    let file = File::open(file_path)?;
+    Ok(io::BufReader::new(file).lines())
 }
