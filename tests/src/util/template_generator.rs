@@ -627,8 +627,8 @@ impl TemplateGenerator {
     fn gen_config_cell_reserved_account(&mut self) -> (Bytes, Vec<u8>) {
         let mut account_hashes = Vec::new();
         let mut _account_map = Vec::new();
-        let lines = util::read_lines("reserved_accounts.txt")
-            .expect("Expect file ./tests/data/reserved_accounts.txt exist.");
+        let lines = util::read_lines("preserved_accounts.txt")
+            .expect("Expect file ./tests/data/preserved_accounts.txt exist.");
         for line in lines {
             if let Ok(account) = line {
                 let account_hash = blake2b_256(account.as_bytes());
@@ -697,9 +697,9 @@ impl TemplateGenerator {
             }};
         }
 
-        let mut reserved_account_configs = Vec::new();
+        let mut preserved_account_configs = Vec::new();
         if [DataType::ConfigCellPreservedAccount00].contains(&config_type) {
-            reserved_account_configs = vec![self.gen_config_cell_reserved_account()];
+            preserved_account_configs = vec![self.gen_config_cell_reserved_account()];
         }
 
         let (cell_data, witness) = match config_type {
@@ -749,7 +749,7 @@ impl TemplateGenerator {
             }
             DataType::ConfigCellPreservedAccount00 => gen_config_data_and_raw_witness!(
                 0,
-                reserved_account_configs,
+                preserved_account_configs,
                 DataType::ConfigCellPreservedAccount00
             ),
             DataType::ConfigCellCharSetEmoji => {

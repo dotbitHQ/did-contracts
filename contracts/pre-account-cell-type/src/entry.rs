@@ -44,14 +44,16 @@ pub fn main() -> Result<(), Error> {
             this_type_script.as_reader(),
         )?;
 
-        // Consuming PreAccountCell is not allowed in pre_register action.
-        if old_cells.len() != 0 {
-            return Err(Error::PreRegisterFoundInvalidTransaction);
-        }
-        // Only one PreAccountCell can be created at one time.
-        if new_cells.len() != 1 {
-            return Err(Error::PreRegisterFoundInvalidTransaction);
-        }
+        assert!(
+            old_cells.len() == 0,
+            Error::PreRegisterFoundInvalidTransaction,
+            "There should be none PreRegisterCell in inputs."
+        );
+        assert!(
+            new_cells.len() == 1,
+            Error::PreRegisterFoundInvalidTransaction,
+            "There should be only one PreRegisterCell in outputs."
+        );
 
         debug!("Find out ApplyRegisterCell ...");
 
@@ -75,14 +77,16 @@ pub fn main() -> Result<(), Error> {
             Source::Output,
         )?;
 
-        // There must be one ApplyRegisterCell in inputs.
-        if old_apply_register_cells.len() != 1 {
-            return Err(Error::PreRegisterFoundInvalidTransaction);
-        }
-        // Creating ApplyRegisterCell is not allowed in this action.
-        if new_apply_register_cells.len() != 0 {
-            return Err(Error::PreRegisterFoundInvalidTransaction);
-        }
+        assert!(
+            old_apply_register_cells.len() == 1,
+            Error::PreRegisterFoundInvalidTransaction,
+            "There should be only one ApplyRegisterCell in outputs."
+        );
+        assert!(
+            new_apply_register_cells.len() == 0,
+            Error::PreRegisterFoundInvalidTransaction,
+            "There should be none ApplyRegisterCell in inputs."
+        );
 
         debug!("Read data of ApplyRegisterCell ...");
 
@@ -149,8 +153,8 @@ pub fn main() -> Result<(), Error> {
 
         verify_account_chars(&mut parser, reader)?;
 
-        let config_reserved_account = parser.configs.reserved_account()?;
-        verify_preserved_accounts(config_reserved_account, reader)?;
+        let config_preserved_account = parser.configs.preserved_account()?;
+        verify_preserved_accounts(config_preserved_account, reader)?;
     } else {
         return Err(Error::ActionNotSupported);
     }
@@ -166,30 +170,40 @@ fn verify_apply_height(
     // Read the apply timestamp from outputs_data of ApplyRegisterCell.
     let apply_height = match data.get(32..) {
         Some(bytes) => {
-            if bytes.len() != 8 {
-                return Err(Error::InvalidCellData);
-            }
+            assert!(
+                bytes.len() == 8,
+                Error::InvalidCellData,
+                "The data of ApplyRegisterCell is invalid."
+            );
             u64::from_le_bytes(bytes.try_into().unwrap())
         }
         _ => return Err(Error::InvalidCellData),
     };
 
     // Check that the ApplyRegisterCell has existed long enough, but has not yet timed out.
-    let apply_min_waiting_time = u32::from(config_reader.apply_min_waiting_block_number());
-    let apply_max_waiting_time = u32::from(config_reader.apply_max_waiting_block_number());
+    let apply_min_waiting_block = u32::from(config_reader.apply_min_waiting_block_number());
+    let apply_max_waiting_block = u32::from(config_reader.apply_max_waiting_block_number());
     let passed_block_number = current_height - apply_height;
 
     debug!(
         "Has passed {} block after apply.(min waiting: {} block, max waiting: {} block)",
-        passed_block_number, apply_min_waiting_time, apply_max_waiting_time
+        passed_block_number, apply_min_waiting_block, apply_max_waiting_block
     );
 
-    if passed_block_number < apply_min_waiting_time as u64 {
-        return Err(Error::ApplyRegisterNeedWaitLonger);
-    }
-    if passed_block_number > apply_max_waiting_time as u64 {
-        return Err(Error::ApplyRegisterHasTimeout);
-    }
+    assert!(
+        passed_block_number >= apply_min_waiting_block as u64,
+        Error::ApplyRegisterNeedWaitLonger,
+        "The ApplyRegisterCell need to wait longer.(passed: {}, min_wait: {})",
+        passed_block_number,
+        apply_min_waiting_block
+    );
+    assert!(
+        passed_block_number <= apply_max_waiting_block as u64,
+        Error::ApplyRegisterHasTimeout,
+        "The ApplyRegisterCell has been timeout.(passed: {}, max_wait: {})",
+        passed_block_number,
+        apply_max_waiting_block
+    );
 
     Ok(())
 }
@@ -237,13 +251,18 @@ fn verify_apply_hash(
 }
 
 fn verify_created_at(
-    current_timestamp: u64,
+    expected_timestamp: u64,
     reader: PreAccountCellDataReader,
 ) -> Result<(), Error> {
-    let create_at = reader.created_at();
-    if u64::from(create_at) != current_timestamp {
-        return Err(Error::PreRegisterCreateAtIsInvalid);
-    }
+    let create_at = u64::from(reader.created_at());
+
+    assert!(
+        create_at == expected_timestamp,
+        Error::PreRegisterCreateAtIsInvalid,
+        "PreAccountCell.created_at should be the same as the TimeCell.(expected: {}, current: {})",
+        expected_timestamp,
+        create_at
+    );
 
     Ok(())
 }
@@ -268,11 +287,16 @@ fn verify_owner_lock_args(reader: PreAccountCellDataReader) -> Result<(), Error>
 fn verify_quote(reader: PreAccountCellDataReader) -> Result<(), Error> {
     debug!("Check if PreAccountCell.witness.quote is the same as QuoteCell.");
 
-    let expected_quote = util::load_quote()?.to_le_bytes();
+    let expected_quote = util::load_quote()?;
+    let current = u64::from(reader.quote());
 
-    if &expected_quote != reader.quote().raw_data() {
-        return Err(Error::PreRegisterQuoteIsInvalid);
-    }
+    assert!(
+        expected_quote == current,
+        Error::PreRegisterQuoteIsInvalid,
+        "PreAccountCell.quote should be the same as the QuoteCell.(expected: {:?}, current: {:?})",
+        expected_quote,
+        current
+    );
 
     Ok(())
 }
@@ -340,14 +364,13 @@ fn verify_price_and_capacity(
 
     debug!("Check if PreAccountCell.witness.price is selected base on account length.");
 
-    if !util::is_reader_eq(expected_price, price) {
-        debug!(
-            "PreAccountCell.price is invalid: {}(expected.length) != {}(result.length)",
-            u8::from(reader.price().length()),
-            u8::from(expected_price.length())
-        );
-        return Err(Error::PreRegisterPriceInvalid);
-    }
+    assert!(
+        util::is_reader_eq(expected_price, price),
+        Error::PreRegisterPriceInvalid,
+        "PreAccountCell.price should be the same as which in ConfigCellPrice.(expected: {}, current: {})",
+        expected_price,
+        price
+    );
 
     let new_account_price_in_usd = u64::from(reader.price().new()); // x USD
     let discount = u32::from(reader.invited_discount());
@@ -415,21 +438,38 @@ fn verify_account_chars(
         }
     }
 
+    let tmp = vec![0u8];
     let char_sets = parser.configs.char_set()?;
-    let mut required_char_sets = vec![Vec::new(); CHAR_SET_LENGTH];
+    let mut required_char_sets = vec![tmp.as_slice(); CHAR_SET_LENGTH];
     for account_char in reader.account().iter() {
         let char_set_index = u32::from(account_char.char_set_name()) as usize;
-        if required_char_sets[char_set_index].len() == 0 {
+        if required_char_sets[char_set_index].len() <= 1 {
             let char_set = char_sets[char_set_index].as_ref().unwrap();
-            required_char_sets[char_set_index] =
-                char_set.data.split(|item| item == &0u8).collect::<Vec<_>>();
+            required_char_sets[char_set_index] = char_set.data.as_slice();
+        }
+
+        let account_char_bytes = account_char.bytes().raw_data();
+        let mut found = false;
+        let mut from = 0;
+
+        for (i, item) in required_char_sets[char_set_index].iter().enumerate() {
+            if item == &0 {
+                let char_bytes = required_char_sets[char_set_index].get(from..i).unwrap();
+                if account_char_bytes == char_bytes {
+                    found = true;
+                    break;
+                }
+
+                from = i + 1;
+            }
         }
 
         assert!(
-            required_char_sets[char_set_index].contains(&account_char.bytes().raw_data()),
+            found,
             Error::PreRegisterAccountCharIsInvalid,
-            "The character 0x{}(utf-8) can not be used in account, because it is not contained by CharSet[{}].",
-            util::hex_string(account_char.bytes().raw_data()),
+            "The character {:?}(utf-8) can not be used in account, because it is not contained by CharSet[{}].",
+            // util::hex_string(account_char.bytes().raw_data()),
+            account_char.bytes().raw_data(),
             char_set_index
         );
     }
@@ -438,7 +478,7 @@ fn verify_account_chars(
 }
 
 fn verify_preserved_accounts(
-    config_reserved_account: &Vec<Vec<u8>>,
+    config_preserved_account: &Vec<Vec<u8>>,
     pre_account_reader: PreAccountCellDataReader,
 ) -> Result<(), Error> {
     debug!("Verify if account is preserved.");
@@ -448,9 +488,9 @@ fn verify_preserved_accounts(
     let first_10_bytes = account_hash.get(..10).unwrap();
     // debug!("first 10 bytes of account hash: {:?}", first_10_bytes);
 
-    for reserved_accounts in config_reserved_account {
-        if reserved_accounts.len() > 0 {
-            let accounts_total = reserved_accounts.len() / 10;
+    for preserved_accounts in config_preserved_account {
+        if preserved_accounts.len() > 0 {
+            let accounts_total = preserved_accounts.len() / 10;
             let mut start_account = 0;
             let mut end_account = accounts_total - 1;
 
@@ -463,7 +503,7 @@ fn verify_preserved_accounts(
                 let start_index = nth_account * 10;
                 let end_index = nth_account * 10 + 10;
                 // debug!("start_index: {:?}, end_index: {:?}", start_index, end_index);
-                let bytes_of_nth_account = reserved_accounts.get(start_index..end_index).unwrap();
+                let bytes_of_nth_account = preserved_accounts.get(start_index..end_index).unwrap();
                 // debug!("bytes_of_nth_account: {:?}", bytes_of_nth_account);
                 if bytes_of_nth_account < first_10_bytes {
                     // debug!("<");
@@ -473,11 +513,11 @@ fn verify_preserved_accounts(
                     end_account = nth_account;
                 } else {
                     warn!(
-                        "Account 0x{} is reserved. (hash: 0x{})",
+                        "Account 0x{} is preserved. (hash: 0x{})",
                         util::hex_string(account.as_slice()),
                         util::hex_string(&account_hash)
                     );
-                    return Err(Error::AccountIsReserved);
+                    return Err(Error::AccountIsPreserved);
                 }
 
                 if end_account - start_account <= 1 {

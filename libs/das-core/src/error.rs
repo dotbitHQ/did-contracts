@@ -32,7 +32,7 @@ pub enum Error {
     CellCapacityMustConsistent,
     CellsMustHaveSameOrderAndNumber,
     ActionNotSupported,
-    AccountIsReserved, // 28
+    AccountIsPreserved, // 28
     AccountStillCanNotBeRegister,
     WitnessStructureError = 40,
     WitnessEmpty,

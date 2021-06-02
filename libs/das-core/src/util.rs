@@ -358,34 +358,6 @@ pub fn trim_empty_bytes(buf: &[u8]) -> &[u8] {
     }
 }
 
-pub fn load_small_config_witnesses(index: usize) -> Result<[u8; 2000], Error> {
-    let mut buf = [0u8; 2000];
-    let ret = syscalls::load_witness(&mut buf, 0, index, Source::Input);
-
-    match ret {
-        // Data which length is too short to be DAS witnesses, so ignore it.
-        Ok(_) => return Ok(buf),
-        Err(e) => {
-            warn!("Load small config witness[{}] failed: {:?}", index, e);
-            return Err(Error::from(e));
-        }
-    }
-}
-
-pub fn load_large_config_witnesses(index: usize) -> Result<[u8; 32000], Error> {
-    let mut buf = [0u8; 32000];
-    let ret = syscalls::load_witness(&mut buf, 0, index, Source::Input);
-
-    match ret {
-        // Data which length is too short to be DAS witnesses, so ignore it.
-        Ok(_) => return Ok(buf),
-        Err(e) => {
-            warn!("Load small config witness[{}] failed: {:?}", index, e);
-            return Err(Error::from(e));
-        }
-    }
-}
-
 pub fn load_das_witnesses(index: usize, data_type: DataType) -> Result<Vec<u8>, Error> {
     fn load_witness(buf: &mut [u8], i: usize) -> Result<Vec<u8>, Error> {
         syscalls::load_witness(buf, 0, i, Source::Input).map_err(|e| Error::from(e))?;
@@ -432,6 +404,14 @@ pub fn load_das_witnesses(index: usize, data_type: DataType) -> Result<Vec<u8>, 
             );
 
             match actual_size {
+                x if x <= 500 => {
+                    let mut buf = [0u8; 500];
+                    data = load_witness(&mut buf, index)?;
+                }
+                x if x <= 1000 => {
+                    let mut buf = [0u8; 1000];
+                    data = load_witness(&mut buf, index)?;
+                }
                 x if x <= 2000 => {
                     let mut buf = [0u8; 2000];
                     data = load_witness(&mut buf, index)?;
@@ -448,20 +428,14 @@ pub fn load_das_witnesses(index: usize, data_type: DataType) -> Result<Vec<u8>, 
                     let mut buf = [0u8; 16000];
                     data = load_witness(&mut buf, index)?;
                 }
-                x if x <= 32000 => {
-                    let mut buf = [0u8; 32000];
-                    data = load_witness(&mut buf, index)?;
-                }
-                x if x <= 64000 => {
-                    let mut buf = [0u8; 64000];
-                    data = load_witness(&mut buf, index)?;
-                }
                 _ => {
+                    warn!("=============1");
                     return Err(Error::from(SysError::LengthNotEnough(actual_size)));
                 }
             }
         }
         Err(e) => {
+            warn!("=============2");
             warn!("Load witness[{}] failed: {:?}", index, e);
             return Err(Error::from(e));
         }

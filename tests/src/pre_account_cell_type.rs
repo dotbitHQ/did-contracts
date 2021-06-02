@@ -97,8 +97,8 @@ challenge_with_generator!(
 );
 
 challenge_with_generator!(
-    challenge_pre_register_reserved_account,
-    Error::AccountIsReserved,
+    challenge_pre_register_preserved_account,
+    Error::AccountIsPreserved,
     || {
         let (mut template, account, timestamp) = init("microsoft.bit");
 
