@@ -22,6 +22,11 @@ use das_types::{constants::*, packed::*, prelude::*};
 pub fn main() -> Result<(), Error> {
     debug!("====== Running proposal-cell-type ======");
 
+    let mut parser = WitnessesParser::new()?;
+    parser.parse_config(&[DataType::ConfigCellMain])?;
+    let config_main = parser.configs.main()?;
+    util::is_system_off(config_main)?;
+
     debug!("Find out ProposalCell ...");
 
     // Find out PreAccountCells in current transaction.
@@ -34,14 +39,13 @@ pub fn main() -> Result<(), Error> {
     let dep_cells =
         util::find_cells_by_script(ScriptType::Type, this_type_script_reader, Source::CellDep)?;
 
-    let action_data = util::load_das_action()?;
+    let action_data = parser.parse_action()?;
     let action = action_data.as_reader().action().raw_data();
     if action == b"propose" {
         debug!("Route to propose action ...");
 
-        let mut parser = util::load_das_witnesses(None)?;
-        parser.parse_all_data()?;
-        parser.parse_only_config(&[DataType::ConfigCellMain, DataType::ConfigCellProposal])?;
+        parser.parse_cell()?;
+        parser.parse_config(&[DataType::ConfigCellProposal])?;
         let config_main = parser.configs.main()?;
         let config_proposal = parser.configs.proposal()?;
 
@@ -90,9 +94,8 @@ pub fn main() -> Result<(), Error> {
     } else if action == b"extend_proposal" {
         debug!("Route to extend_proposal action ...");
 
-        let mut parser = util::load_das_witnesses(None)?;
-        parser.parse_all_data()?;
-        parser.parse_only_config(&[DataType::ConfigCellMain, DataType::ConfigCellProposal])?;
+        parser.parse_cell()?;
+        parser.parse_config(&[DataType::ConfigCellProposal])?;
         let config_main = parser.configs.main()?;
         let config_proposal = parser.configs.proposal()?;
 
@@ -151,13 +154,8 @@ pub fn main() -> Result<(), Error> {
         let timestamp = util::load_timestamp()?;
         // let height = util::load_height()?;
 
-        let mut parser = util::load_das_witnesses(None)?;
-        parser.parse_all_data()?;
-        parser.parse_only_config(&[
-            DataType::ConfigCellAccount,
-            DataType::ConfigCellMain,
-            DataType::ConfigCellProfitRate,
-        ])?;
+        parser.parse_cell()?;
+        parser.parse_config(&[DataType::ConfigCellAccount, DataType::ConfigCellProfitRate])?;
         let config_account = parser.configs.account()?;
         let config_main = parser.configs.main()?;
         let config_profit_rate = parser.configs.profit_rate()?;
@@ -206,9 +204,8 @@ pub fn main() -> Result<(), Error> {
     } else if action == b"recycle_proposal" {
         debug!("Route to recycle_proposal action ...");
 
-        let mut parser = util::load_das_witnesses(None)?;
-        parser.parse_all_data()?;
-        parser.parse_only_config(&[DataType::ConfigCellProposal])?;
+        parser.parse_cell()?;
+        parser.parse_config(&[DataType::ConfigCellProposal])?;
         let config_proposal_reader = parser.configs.proposal()?;
 
         assert!(
@@ -782,10 +779,11 @@ fn verify_proposal_execution_result(
                     util::calc_account_storage_capacity(config_account, account_name_storage);
                 // Allocate the profits carried by PreAccountCell to the wallets for later verification.
                 let profit = total_capacity - storage_capacity;
-                // debug!(
-                //     "total_capacity: {:?} storage_capacity: {:?}",
-                //     total_capacity, storage_capacity
-                // );
+
+                debug!(
+                    "  Item[{}] The profit in PreAccountCell is: {}(profit) = {}(total_capacity) - {}(storage_capacity)",
+                    item_index, profit, total_capacity, storage_capacity
+                );
 
                 util::verify_account_length_and_years(
                     input_cell_witness_reader.account().len(),
@@ -1335,21 +1333,25 @@ fn verify_refund_correct(
         proposer_lock.as_reader().into(),
         Source::Output,
     )?;
+
     assert!(
-        refund_cells.len() == 1,
+        refund_cells.len() >= 1,
         Error::ProposalConfirmRefundError,
-        "There should be 1 cell in outputs with the lock of the proposer. (expected_lock: {})",
+        "There should be at least 1 cell in outputs with the lock of the proposer. (expected_lock: {})",
         proposer_lock
     );
 
+    let mut refund_capacity = 0;
+    for index in refund_cells {
+        refund_capacity += load_cell_capacity(index, Source::Output).map_err(|e| Error::from(e))?;
+    }
+
     let proposal_capacity = load_cell_capacity(proposal_cell_index.to_owned(), Source::Input)
         .map_err(|e| Error::from(e))?;
-    let refund_capacity =
-        load_cell_capacity(refund_cells[0], Source::Output).map_err(|e| Error::from(e))?;
     assert!(
-        proposal_capacity == refund_capacity,
+        proposal_capacity <= refund_capacity,
         Error::ProposalConfirmRefundError,
-        "There refund of proposer should be {}, but {} found.",
+        "There refund of proposer should be at least {}, but {} found.",
         proposal_capacity,
         refund_capacity
     );

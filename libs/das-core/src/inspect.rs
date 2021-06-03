@@ -2,8 +2,8 @@
 #![allow(unused_variables)]
 
 use super::data_parser::{account_cell, pre_account_cell};
+use super::debug;
 use ckb_std::ckb_constants::Source;
-use ckb_std::debug;
 use core::convert::TryInto;
 use das_types::{packed::*, prelude::*, util::hex_string};
 

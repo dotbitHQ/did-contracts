@@ -21,7 +21,12 @@ use das_types::{
 pub fn main() -> Result<(), Error> {
     debug!("====== Running account-cell-type ======");
 
-    let action_data = util::load_das_action()?;
+    let mut parser = WitnessesParser::new()?;
+    parser.parse_config(&[DataType::ConfigCellMain])?;
+    let config_main = parser.configs.main()?;
+    util::is_system_off(config_main)?;
+
+    let action_data = parser.parse_action()?;
     let action = action_data.as_reader().action().raw_data();
     let params = action_data.as_reader().params().raw_data();
     if action == b"init_account_chain" {
@@ -72,7 +77,6 @@ pub fn main() -> Result<(), Error> {
     } else if action == b"confirm_proposal" {
         debug!("Route to confirm_proposal action ...");
         // Loading DAS witnesses and parsing the action.
-        let mut parser = util::load_das_witnesses(Some(vec![DataType::ConfigCellMain]))?;
         util::require_type_script(
             &mut parser,
             TypeScript::ProposalCellType,
@@ -84,9 +88,8 @@ pub fn main() -> Result<(), Error> {
 
         let timestamp = util::load_timestamp()?;
 
-        let mut parser = util::load_das_witnesses(None)?;
-        parser.parse_only_config(&[DataType::ConfigCellAccount])?;
-        parser.parse_all_data()?;
+        parser.parse_config(&[DataType::ConfigCellAccount])?;
+        parser.parse_cell()?;
 
         let config_account = parser.configs.account()?;
         let (input_account_cells, output_account_cells) = load_account_cells()?;
@@ -110,9 +113,8 @@ pub fn main() -> Result<(), Error> {
 
         let timestamp = util::load_timestamp()?;
 
-        let mut parser = util::load_das_witnesses(None)?;
-        parser.parse_only_config(&[DataType::ConfigCellAccount])?;
-        parser.parse_all_data()?;
+        parser.parse_config(&[DataType::ConfigCellAccount])?;
+        parser.parse_cell()?;
 
         let config_account = parser.configs.account()?;
         let (input_account_cells, output_account_cells) = load_account_cells()?;
@@ -136,9 +138,8 @@ pub fn main() -> Result<(), Error> {
 
         let timestamp = util::load_timestamp()?;
 
-        let mut parser = util::load_das_witnesses(None)?;
-        parser.parse_all_data()?;
-        parser.parse_only_config(&[
+        parser.parse_cell()?;
+        parser.parse_config(&[
             DataType::ConfigCellAccount,
             DataType::ConfigCellMain,
             DataType::ConfigCellRecordKeyNamespace,
@@ -162,9 +163,8 @@ pub fn main() -> Result<(), Error> {
     } else if action == b"renew_account" {
         debug!("Route to renew_account action ...");
 
-        let mut parser = util::load_das_witnesses(None)?;
-        parser.parse_all_data()?;
-        parser.parse_only_config(&[
+        parser.parse_cell()?;
+        parser.parse_config(&[
             DataType::ConfigCellAccount,
             DataType::ConfigCellMain,
             DataType::ConfigCellPrice,
@@ -356,9 +356,8 @@ pub fn main() -> Result<(), Error> {
 
         let timestamp = util::load_timestamp()?;
 
-        let mut parser = util::load_das_witnesses(None)?;
-        parser.parse_all_data()?;
-        parser.parse_only_config(&[DataType::ConfigCellAccount])?;
+        parser.parse_cell()?;
+        parser.parse_config(&[DataType::ConfigCellAccount])?;
 
         let config_account = parser.configs.account()?;
 

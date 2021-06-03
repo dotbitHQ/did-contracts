@@ -1,4 +1,3 @@
-use super::charset;
 use super::{constants::*, util};
 use ckb_tool::{
     ckb_hash::blake2b_256,
@@ -8,7 +7,7 @@ use ckb_tool::{
 use das_sorted_list::DasSortedList;
 use das_types::{constants::*, packed::*, prelude::*, util as das_util};
 use serde_json::{json, Value};
-use std::{collections::HashMap, convert::TryFrom, env, fs, io, io::BufRead, path::PathBuf, str};
+use std::{collections::HashMap, convert::TryFrom, str};
 
 fn gen_always_success_lock(lock_args: &str) -> Script {
     Script::new_builder()
@@ -35,28 +34,6 @@ fn gen_price_config(length: u8, new_price: u64, renew_price: u64) -> PriceConfig
         .length(Uint8::from(length))
         .new(Uint64::from(new_price))
         .renew(Uint64::from(renew_price))
-        .build()
-}
-
-fn gen_char_set(name: CharSetType, global: u8, chars: Vec<&str>) -> CharSet {
-    let mut builder = CharSet::new_builder()
-        .name(Uint32::from(name as u32))
-        .global(Uint8::from(global));
-
-    let mut chars_builder = Chars::new_builder();
-    for char in chars {
-        chars_builder = chars_builder.push(Bytes::from(char.as_bytes()));
-    }
-    builder = builder.chars(chars_builder.build());
-
-    builder.build()
-}
-
-fn gen_char_sets() -> CharSetList {
-    CharSetList::new_builder()
-        .push(gen_char_set(CharSetType::Emoji, 1, charset::emoji()))
-        .push(gen_char_set(CharSetType::Digit, 1, charset::digit()))
-        .push(gen_char_set(CharSetType::En, 0, charset::english()))
         .build()
 }
 
@@ -281,65 +258,6 @@ pub fn account_to_id_bytes(account: &str) -> Vec<u8> {
     util::hex_to_bytes(account_id).unwrap().to_vec()
 }
 
-pub fn gen_record_key_namespace() -> Vec<u8> {
-    let data = vec![
-        "profile.twitter",
-        "profile.facebook",
-        "profile.reddit",
-        "profile.linkedin",
-        "profile.github",
-        "profile.telegram",
-        "profile.description",
-        "profile.avatar",
-        "profile.email",
-        "profile.phone",
-
-        "address.btc",
-        "address.eth",
-        "address.ckb",
-        "address.bch",
-        "address.ltc",
-        "address.doge",
-        "address.xrp",
-        "address.dot",
-        "address.fil",
-        "address.trx",
-        "address.eos",
-        "address.iota",
-        "address.xmr",
-        "address.bsc",
-        "address.heco",
-        "address.xem",
-        "address.etc",
-        "address.dash",
-        "address.zec",
-        "address.zil",
-        "address.flow",
-        "address.iost",
-        "address.sc",
-        "address.near",
-        "address.ksm",
-        "address.atom",
-        "address.xtz",
-        "address.bsv",
-        "address.sol",
-        "address.vet",
-        "address.xlm",
-        "address.ada",
-    ];
-
-    // ("custom_keys", Vec::new()),
-
-    // Combine all keys into a u8 vector which is separated by 0x00.
-    let mut raw = Vec::new();
-    for key in data {
-        raw.extend(key.as_bytes());
-        raw.extend(&[0u8]);
-    }
-
-    raw
-}
-
 fn bytes_to_hex(input: Bytes) -> String {
     "0x".to_string() + &hex_string(input.as_reader().raw_data()).unwrap()
 }
@@ -356,6 +274,34 @@ pub struct AccountRecordParam {
 pub struct IncomeRecordParam {
     pub belong_to: &'static str,
     pub capacity: u64,
+}
+
+macro_rules! gen_config_cell_char_set {
+    ($fn_name:ident, $is_global:expr, $file_name:expr, $ret_type:expr) => {
+        fn $fn_name(&mut self) -> (Bytes, Vec<u8>) {
+            let mut charsets = Vec::new();
+            let lines = util::read_lines($file_name)
+                .expect(format!("Expect file ./tests/data/{} exist.", $file_name).as_str());
+            for line in lines {
+                if let Ok(key) = line {
+                    charsets.push(key);
+                }
+            }
+
+            // Join all record keys with 0x00 byte as entity.
+            let mut raw = Vec::new();
+            raw.push($is_global); // global status
+            for key in charsets {
+                raw.extend(key.as_bytes());
+                raw.extend(&[0u8]);
+            }
+            let raw = util::prepend_molecule_like_length(raw);
+
+            let cell_data = Bytes::from(blake2b_256(raw.as_slice()).to_vec());
+
+            (cell_data, raw)
+        }
+    };
 }
 
 pub struct TemplateGenerator {
@@ -584,16 +530,6 @@ impl TemplateGenerator {
         (cell_data, entity)
     }
 
-    fn gen_config_cell_char_set(&mut self) -> (Bytes, ConfigCellCharSet) {
-        let entity = ConfigCellCharSet::new_builder()
-            .char_sets(gen_char_sets())
-            .build();
-
-        let cell_data = Bytes::from(blake2b_256(entity.as_slice()).to_vec());
-
-        (cell_data, entity)
-    }
-
     fn gen_config_cell_income(&mut self) -> (Bytes, ConfigCellIncome) {
         let entity = ConfigCellIncome::new_builder()
             .basic_capacity(Uint64::from(20_000_000_000))
@@ -607,6 +543,7 @@ impl TemplateGenerator {
 
     fn gen_config_cell_main(&mut self) -> (Bytes, ConfigCellMain) {
         let entity = ConfigCellMain::new_builder()
+            .status(Uint8::from(1))
             .type_id_table(gen_type_id_table())
             .build();
 
@@ -664,8 +601,23 @@ impl TemplateGenerator {
     }
 
     fn gen_config_cell_record_key_namespace(&mut self) -> (Bytes, Vec<u8>) {
-        let mut raw = gen_record_key_namespace();
-        raw = util::prepend_molecule_like_length(raw);
+        let mut record_key_namespace = Vec::new();
+        let lines = util::read_lines("record_key_namespace.txt")
+            .expect("Expect file ./tests/data/record_key_namespace.txt exist.");
+        for line in lines {
+            if let Ok(key) = line {
+                record_key_namespace.push(key);
+            }
+        }
+        record_key_namespace.sort();
+
+        // Join all record keys with 0x00 byte as entity.
+        let mut raw = Vec::new();
+        for key in record_key_namespace {
+            raw.extend(key.as_bytes());
+            raw.extend(&[0u8]);
+        }
+        let raw = util::prepend_molecule_like_length(raw);
 
         let cell_data = Bytes::from(blake2b_256(raw.as_slice()).to_vec());
 
@@ -673,17 +625,10 @@ impl TemplateGenerator {
     }
 
     fn gen_config_cell_reserved_account(&mut self) -> (Bytes, Vec<u8>) {
-        let dir = env::current_dir().unwrap();
-        let mut file_path = PathBuf::new();
-        file_path.push(dir);
-        file_path.push("reserved_accounts.txt");
-
-        let file =
-            fs::File::open(file_path).expect("Expect file ./tests/reserved_accounts.txt exist.");
-        let lines = io::BufReader::new(file).lines();
-
         let mut account_hashes = Vec::new();
         let mut _account_map = Vec::new();
+        let lines = util::read_lines("preserved_accounts.txt")
+            .expect("Expect file ./tests/data/preserved_accounts.txt exist.");
         for line in lines {
             if let Ok(account) = line {
                 let account_hash = blake2b_256(account.as_bytes());
@@ -706,6 +651,27 @@ impl TemplateGenerator {
 
         (cell_data, raw)
     }
+
+    gen_config_cell_char_set!(
+        gen_config_cell_char_set_emoji,
+        1,
+        "char_set_emoji.txt",
+        DataType::ConfigCellCharSetEmoji
+    );
+
+    gen_config_cell_char_set!(
+        gen_config_cell_char_set_digit,
+        1,
+        "char_set_digit.txt",
+        DataType::ConfigCellCharSetDigit
+    );
+
+    gen_config_cell_char_set!(
+        gen_config_cell_char_set_en,
+        1,
+        "char_set_en.txt",
+        DataType::ConfigCellCharSetEn
+    );
 
     pub fn push_config_cell(
         &mut self,
@@ -731,9 +697,9 @@ impl TemplateGenerator {
             }};
         }
 
-        let mut reserved_account_configs = Vec::new();
+        let mut preserved_account_configs = Vec::new();
         if [DataType::ConfigCellPreservedAccount00].contains(&config_type) {
-            reserved_account_configs = vec![self.gen_config_cell_reserved_account()];
+            preserved_account_configs = vec![self.gen_config_cell_reserved_account()];
         }
 
         let (cell_data, witness) = match config_type {
@@ -741,12 +707,6 @@ impl TemplateGenerator {
                 gen_config_data_and_entity_witness!(
                     gen_config_cell_apply,
                     DataType::ConfigCellApply
-                )
-            }
-            DataType::ConfigCellCharSet => {
-                gen_config_data_and_entity_witness!(
-                    gen_config_cell_char_set,
-                    DataType::ConfigCellCharSet
                 )
             }
             DataType::ConfigCellIncome => {
@@ -789,9 +749,30 @@ impl TemplateGenerator {
             }
             DataType::ConfigCellPreservedAccount00 => gen_config_data_and_raw_witness!(
                 0,
-                reserved_account_configs,
+                preserved_account_configs,
                 DataType::ConfigCellPreservedAccount00
             ),
+            DataType::ConfigCellCharSetEmoji => {
+                let (cell_data, raw) = self.gen_config_cell_char_set_emoji();
+                (
+                    cell_data,
+                    das_util::wrap_raw_witness(DataType::ConfigCellCharSetEmoji, raw),
+                )
+            }
+            DataType::ConfigCellCharSetDigit => {
+                let (cell_data, raw) = self.gen_config_cell_char_set_digit();
+                (
+                    cell_data,
+                    das_util::wrap_raw_witness(DataType::ConfigCellCharSetDigit, raw),
+                )
+            }
+            DataType::ConfigCellCharSetEn => {
+                let (cell_data, raw) = self.gen_config_cell_char_set_en();
+                (
+                    cell_data,
+                    das_util::wrap_raw_witness(DataType::ConfigCellCharSetEn, raw),
+                )
+            }
             _ => {
                 panic!("Not config cell data type.")
             }
@@ -826,9 +807,8 @@ impl TemplateGenerator {
         invited_discount: u32,
         created_at: u64,
     ) -> (Bytes, PreAccountCellData) {
-        let account_chars_raw = account
+        let account_chars_raw = account[..account.len() - 4]
             .chars()
-            .take(account.len() - 4)
             .map(|c| c.to_string())
             .collect::<Vec<String>>();
         let account_chars = gen_account_chars(account_chars_raw);

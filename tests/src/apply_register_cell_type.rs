@@ -1,7 +1,7 @@
 use super::util::{constants::*, template_generator::*, template_parser::TemplateParser};
 use ckb_testtool::context::Context;
 use das_core::error::Error;
-use das_types::packed::Bytes;
+use das_types::{constants::DataType, packed::*};
 use serde_json::json;
 
 fn init() -> (TemplateGenerator, u64) {
@@ -12,6 +12,8 @@ fn init() -> (TemplateGenerator, u64) {
 
     let height = 1000u64;
     template.push_height_cell(1, height, 1000, Source::CellDep);
+
+    template.push_config_cell(DataType::ConfigCellMain, true, 0, Source::CellDep);
 
     (template, height)
 }

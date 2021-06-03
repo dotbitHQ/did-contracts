@@ -1,21 +1,22 @@
 use super::constants::*;
 use super::error::Error;
-use super::types::Configs;
+use super::types::{CharSet, Configs};
 use super::util;
 use super::{assert, debug};
-use ckb_std::ckb_constants::Source;
+use ckb_std::{ckb_constants::Source, error::SysError, syscalls};
 use core::convert::{TryFrom, TryInto};
 use das_map::map;
 use das_types::{
-    constants::{DataType, WITNESS_HEADER},
+    constants::{DataType, CHAR_SET_LENGTH, WITNESS_HEADER},
     packed::*,
     prelude::*,
+    util as das_types_util,
 };
 use std::prelude::v1::*;
 
 #[derive(Debug)]
 pub struct WitnessesParser {
-    pub witnesses: Vec<Vec<u8>>,
+    pub witnesses: Vec<(usize, DataType)>,
     pub configs: Configs,
     // The Bytes is wrapped DataEntity.entity.
     dep: Vec<(u32, u32, DataType, Vec<u8>, Bytes)>,
@@ -24,8 +25,55 @@ pub struct WitnessesParser {
 }
 
 impl WitnessesParser {
-    pub fn new(witnesses: Vec<Vec<u8>>) -> Result<Self, Error> {
-        if witnesses.len() <= 0 {
+    pub fn new() -> Result<Self, Error> {
+        let mut witnesses = Vec::new();
+        let mut i = 0;
+        let mut das_witnesses_started = false;
+        loop {
+            let mut buf = [0u8; 7];
+            let ret = syscalls::load_witness(&mut buf, 0, i, Source::Input);
+
+            match ret {
+                // Data which length is too short to be DAS witnesses, so ignore it.
+                Ok(_) => i += 1,
+                Err(SysError::LengthNotEnough(_)) => {
+                    if let Some(raw) = buf.get(..3) {
+                        if raw != &WITNESS_HEADER {
+                            assert!(
+                                !das_witnesses_started,
+                                Error::WitnessStructureError,
+                                "The witnesses of DAS must at the end of witnesses field and next to each other."
+                            );
+
+                            i += 1;
+                            continue;
+                        }
+                    }
+
+                    let data_type_in_int =
+                        u32::from_le_bytes(buf.get(3..7).unwrap().try_into().unwrap());
+                    let data_type = DataType::try_from(data_type_in_int)
+                        .map_err(|_| Error::WitnessDataTypeDecodingError)?;
+
+                    if !das_witnesses_started {
+                        assert!(
+                            data_type == DataType::ActionData,
+                            Error::WitnessStructureError,
+                            "The first DAS witness must be the type of DataType::ActionData ."
+                        );
+                        das_witnesses_started = true
+                    }
+
+                    witnesses.push((i, data_type));
+
+                    i += 1;
+                }
+                Err(SysError::IndexOutOfBound) => break,
+                Err(e) => return Err(Error::from(e)),
+            }
+        }
+
+        if witnesses.is_empty() {
             return Err(Error::WitnessEmpty);
         }
 
@@ -38,20 +86,56 @@ impl WitnessesParser {
         })
     }
 
-    pub fn parse_only_config(&mut self, config_types: &[DataType]) -> Result<(), Error> {
+    pub fn parse_action(&mut self) -> Result<ActionData, Error> {
+        let (index, data_type) = self.witnesses[0];
+        let raw = util::load_das_witnesses(index, data_type)?;
+
+        let action_data = ActionData::from_slice(raw.get(7..).unwrap())
+            .map_err(|_| Error::WitnessActionDecodingError)?;
+
+        Ok(action_data)
+    }
+
+    pub fn parse_config(&mut self, config_types: &[DataType]) -> Result<(), Error> {
         debug!("Parsing config witnesses only ...");
 
-        debug!("  Load ConfigCells in cell_deps ...");
+        // Filter out ConfigCells that have not been loaded yet. This only works for ConfigCells that maybe loaded multiple times.
+        let unloaded_config_types = config_types
+            .iter()
+            .filter(|&&config_type| {
+                // Skip some exists ConfigCells.
+                match config_type {
+                    DataType::ConfigCellMain => return self.configs.main().is_err(),
+                    DataType::ConfigCellCharSetEmoji
+                    | DataType::ConfigCellCharSetDigit
+                    | DataType::ConfigCellCharSetEn => {
+                        if self.configs.char_set().is_ok() {
+                            let char_sets = self.configs.char_set().unwrap();
+                            let char_set_index =
+                                das_types_util::data_type_to_char_set(config_type.to_owned());
+                            return char_sets[char_set_index as usize].is_none();
+                        }
+                        return true;
+                    }
+                    _ => return true,
+                }
+            })
+            .collect::<Vec<_>>();
+
+        if unloaded_config_types.len() == 0 {
+            debug!("  Skip all loaded ConfigCells ...");
+            return Ok(());
+        }
+
+        debug!(
+            "  Load ConfigCells {:?} from cell_deps ...",
+            unloaded_config_types
+        );
 
         let config_cell_type = util::script_literal_to_script(CONFIG_CELL_TYPE);
         let mut config_data_types = Vec::new();
         let mut config_entity_hashes = map::Map::new();
-        for config_type in config_types {
-            // The ConfigCellMain may load multiple times, so we skip it here if it exists.
-            if config_type == &DataType::ConfigCellMain && self.configs.main().is_ok() {
-                continue;
-            }
-
+        for config_type in unloaded_config_types {
             let args = Bytes::from((config_type.to_owned() as u32).to_le_bytes().to_vec());
             let type_script = config_cell_type
                 .clone()
@@ -102,36 +186,56 @@ impl WitnessesParser {
             };
         }
 
-        macro_rules! assign_config_reserved_account_witness {
+        macro_rules! assign_config_preserved_account_witness {
             ( $index:expr, $entity:expr ) => {
-                if self.configs.reserved_account.is_some() {
-                    self.configs.reserved_account.as_mut().map(|account_lists| {
-                        account_lists[$index] = $entity.get(4..).unwrap().to_vec()
-                    });
+                if self.configs.preserved_account.is_some() {
+                    self.configs
+                        .preserved_account
+                        .as_mut()
+                        .map(|account_lists| {
+                            account_lists[$index] = $entity.get(4..).unwrap().to_vec()
+                        });
                 } else {
                     let mut account_lists = vec![Vec::new(); 8];
                     account_lists[$index] = $entity.get(4..).unwrap().to_vec();
-                    self.configs.reserved_account = Some(account_lists)
+                    self.configs.preserved_account = Some(account_lists)
                 }
             };
         }
 
-        for (_i, witness) in self.witnesses.iter().enumerate() {
-            Self::verify_das_header(&witness)?;
+        macro_rules! assign_config_char_set_witness {
+            ( $char_set_type:expr, $entity:expr ) => {{
+                let index = $char_set_type as usize;
+                let char_set = CharSet {
+                    name: $char_set_type,
+                    // skip 7 bytes das header, 4 bytes length
+                    global: $entity.get(4).unwrap() == &1u8,
+                    data: $entity.get(5..).unwrap().to_vec(),
+                };
+                if self.configs.char_set.is_some() {
+                    self.configs
+                        .char_set
+                        .as_mut()
+                        .map(|char_sets| char_sets[index] = Some(char_set));
+                } else {
+                    let mut char_sets: Vec<Option<CharSet>> = vec![None; CHAR_SET_LENGTH];
+                    char_sets[index] = Some(char_set);
+                    self.configs.char_set = Some(char_sets)
+                }
+            }};
+        }
 
-            // Just handle required config witness.
-            let data_type = Self::parse_data_type(&witness)?;
-            if !config_data_types.contains(&data_type) {
-                continue;
-            }
-
-            let entity = witness
-                .get(7..)
-                .ok_or(Error::ConfigCellWitnessDecodingError)?;
+        fn find_and_remove_from_hashes(
+            _i: usize,
+            _data_type: DataType,
+            config_entity_hashes: &mut map::Map<usize, Vec<u8>>,
+            entity: &[u8],
+        ) -> Result<(), Error> {
             let entity_hash = util::blake2b_256(entity).to_vec();
             let ret = config_entity_hashes
                 .find(&entity_hash)
                 .map(|v| v.to_owned());
+
             // debug!("current: 0x{}", util::hex_string(entity_hash.as_slice()));
             if let Some(key) = ret {
                 // debug!("expected: 0x{}", util::hex_string(config_entity_hashes.get(&key).unwrap().as_slice()));
@@ -141,26 +245,45 @@ impl WitnessesParser {
                 debug!(
                     "The witness of witness[{}] is corrupted! data_type: {:?} hash: 0x{} entity: {:?}",
                     _i,
-                    data_type,
+                    _data_type,
                     util::hex_string(entity_hash.as_slice()),
                     entity.get(..40).map(|item| util::hex_string(item) + "...")
                 );
                 return Err(Error::ConfigCellWitnessIsCorrupted);
             }
 
+            Ok(())
+        }
+
+        for (_i, witness_info) in self.witnesses.iter().enumerate() {
+            let (index, data_type) = witness_info.to_owned();
+
+            // Skip configs that no need to parse.
+            if !config_data_types.contains(&data_type) {
+                continue;
+            }
+
+            let raw = util::load_das_witnesses(index, data_type)?;
+            let raw_trimed = util::trim_empty_bytes(&raw);
+            let entity = raw_trimed
+                .get(7..)
+                .ok_or(Error::ConfigCellWitnessDecodingError)?;
+
+            find_and_remove_from_hashes(_i, data_type, &mut config_entity_hashes, entity)?;
+
             debug!(
-                "    Found matched ConfigCell witness at: witnesses[{}] data_type: {:?}",
-                _i, data_type
+                "    Found matched ConfigCell witness at: witnesses[{}] data_type: {:?} size: {}",
+                _i,
+                data_type,
+                raw_trimed.len()
             );
+
             match data_type {
                 DataType::ConfigCellAccount => {
                     assign_config_witness!(self.configs.account, ConfigCellAccount, entity)
                 }
                 DataType::ConfigCellApply => {
                     assign_config_witness!(self.configs.apply, ConfigCellApply, entity)
-                }
-                DataType::ConfigCellCharSet => {
-                    assign_config_witness!(self.configs.char_set, ConfigCellCharSet, entity)
                 }
                 DataType::ConfigCellIncome => {
                     assign_config_witness!(self.configs.income, ConfigCellIncome, entity)
@@ -181,7 +304,13 @@ impl WitnessesParser {
                     self.configs.record_key_namespace = Some(entity.get(4..).unwrap().to_vec());
                 }
                 DataType::ConfigCellPreservedAccount00 => {
-                    assign_config_reserved_account_witness!(0, entity)
+                    assign_config_preserved_account_witness!(0, entity)
+                }
+                DataType::ConfigCellCharSetEmoji
+                | DataType::ConfigCellCharSetDigit
+                | DataType::ConfigCellCharSetEn => {
+                    let char_set_type = das_types_util::data_type_to_char_set(data_type);
+                    assign_config_char_set_witness!(char_set_type, entity)
                 }
                 _ => return Err(Error::ConfigTypeIsUndefined),
             }
@@ -191,28 +320,32 @@ impl WitnessesParser {
         assert!(
             config_entity_hashes.is_empty(),
             Error::ConfigIsPartialMissing,
-            "Can not find some ConfigCells' witnesses."
+            "Can not find some ConfigCells' witnesses. (hashes: {:?})",
+            config_entity_hashes
+                .items
+                .iter()
+                .map(|(_, value)| util::hex_string(value.as_slice()))
+                .collect::<Vec<String>>()
         );
 
         Ok(())
     }
 
-    pub fn parse_all_data(&mut self) -> Result<(), Error> {
+    pub fn parse_cell(&mut self) -> Result<(), Error> {
         debug!("Parsing witnesses of all other cells ...");
 
         for (_i, witness) in self.witnesses.iter().enumerate() {
-            Self::verify_das_header(witness)?;
-
-            let data_type = Self::parse_data_type(witness)?;
-
-            // Skip all config witnesses.
-            if self.is_config_data_type(data_type) {
+            let (index, data_type) = witness.to_owned();
+            // Skip ActionData witness and ConfigCells' witnesses.
+            if data_type == DataType::ActionData || self.is_config_data_type(data_type) {
                 continue;
             }
 
+            let raw = util::load_das_witnesses(index, data_type)?;
+
             // debug!("Parse witnesses[{}] in type: {:?}", _i, data_type);
 
-            let data = Self::parse_data(witness)?;
+            let data = Self::parse_data(raw.as_slice())?;
             if let Some(entity) = data.dep().to_opt() {
                 self.dep.push(Self::parse_entity(entity, data_type)?)
             }
@@ -225,28 +358,6 @@ impl WitnessesParser {
         }
 
         Ok(())
-    }
-
-    fn verify_das_header(witness: &[u8]) -> Result<(), Error> {
-        if let Some(raw) = witness.get(..3) {
-            if raw != &WITNESS_HEADER {
-                return Err(Error::WitnessDasHeaderDecodingError);
-            }
-        } else {
-            return Err(Error::WitnessDasHeaderDecodingError);
-        };
-
-        Ok(())
-    }
-
-    fn parse_data_type(witness: &[u8]) -> Result<DataType, Error> {
-        if let Some(raw) = witness.get(3..7) {
-            let data_type = DataType::try_from(u32::from_le_bytes(raw.try_into().unwrap()))
-                .map_err(|_| Error::WitnessTypeDecodingError)?;
-            Ok(data_type)
-        } else {
-            Err(Error::WitnessTypeDecodingError)
-        }
     }
 
     fn parse_data(witness: &[u8]) -> Result<Data, Error> {
@@ -278,12 +389,12 @@ impl WitnessesParser {
         let version = u32::from(data_entity.version());
         let entity = data_entity.entity();
 
-        let unwraped_entity = entity.as_reader().raw_data();
-        let hash = util::blake2b_256(unwraped_entity).to_vec();
+        let unwrapped_entity = entity.as_reader().raw_data();
+        let hash = util::blake2b_256(unwrapped_entity).to_vec();
 
         // debug!(
         //     "entity: index = {} hash = {:?} entity = {:?}",
-        //     index, hash, unwraped_entity
+        //     index, hash, unwrapped_entity
         // );
 
         Ok((index, version, data_type, hash, entity))
@@ -350,7 +461,6 @@ impl WitnessesParser {
         let config_data_types = [
             DataType::ConfigCellAccount,
             DataType::ConfigCellApply,
-            DataType::ConfigCellCharSet,
             DataType::ConfigCellIncome,
             DataType::ConfigCellMain,
             DataType::ConfigCellPrice,
@@ -358,45 +468,11 @@ impl WitnessesParser {
             DataType::ConfigCellProfitRate,
             DataType::ConfigCellRecordKeyNamespace,
             DataType::ConfigCellPreservedAccount00,
+            DataType::ConfigCellCharSetEmoji,
+            DataType::ConfigCellCharSetDigit,
+            DataType::ConfigCellCharSetEn,
         ];
 
         config_data_types.contains(&data_type)
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use crate::util::is_reader_eq;
-    use das_types::util::is_entity_eq;
-
-    fn restore_bytes_from_hex(input: &str) -> Vec<u8> {
-        let trimed_input = input.trim_start_matches("0x");
-        hex::decode(trimed_input).unwrap()
-    }
-
-    fn before_each() -> WitnessesParser {
-        let witnesses = vec![
-            restore_bytes_from_hex("0x646173000000001a0000000c0000001600000006000000636f6e66696700000000"),
-            restore_bytes_from_hex("0x6461730a00000060010000100000001400000018000000008d27002c0100004801000028000000480000006800000088000000a8000000c8000000e80000000801000028010000cac501b0a5826bffa485ccac13c2195fcdf3aa86b113203f620ddd34d3decd70431a3af2d4bbcd69ab732d37be794ac0ab172c151545dfdbae1f578a7083bc84071ee1a005b5bc1a619aed290c39bbb613ac93991eabab8418d6b0a9bdd220eb15f69a14cfafac4e21516e7076e135492c4b20fe4fb5af9e1942577a46985a133d216e5bfb54b9e2ec0f0fbb1cdf23703f550a7ec7c35264742fce69308482e1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000cf2f19e19c13d4ccfeae96634f6be6cdb2e4cd68f810ce3b865ee34030374524"),
-            restore_bytes_from_hex("0x6461730a0000003b0400003000000034000000380000003c000000e8020000140400001504000016040000170400001b0400001f0400003c00000080510100e8030000ac020000100000004c000000bf0000003c00000010000000140000001500000000000000012700000010000000180000002000000004000000f09f988204000000f09f918d03000000e29ca87300000010000000140000001500000001000000015e0000002c00000031000000360000003b00000040000000450000004a0000004f00000054000000590000000100000030010000003101000000320100000033010000003401000000350100000036010000003701000000380100000039ed0100001000000014000000150000000200000000d8010000d4000000d9000000de000000e3000000e8000000ed000000f2000000f7000000fc00000001010000060100000b01000010010000150100001a0100001f01000024010000290100002e01000033010000380100003d01000042010000470100004c01000051010000560100005b01000060010000650100006a0100006f01000074010000790100007e01000083010000880100008d01000092010000970100009c010000a1010000a6010000ab010000b0010000b5010000ba010000bf010000c4010000c9010000ce010000d3010000010000006101000000620100000063010000006401000000650100000066010000006701000000680100000069010000006a010000006b010000006c010000006d010000006e010000006f0100000070010000007101000000720100000073010000007401000000750100000076010000007701000000780100000079010000007a010000004101000000420100000043010000004401000000450100000046010000004701000000480100000049010000004a010000004b010000004c010000004d010000004e010000004f0100000050010000005101000000520100000053010000005401000000550100000056010000005701000000580100000059010000005a2c01000024000000450000006600000087000000a8000000c9000000ea0000000b01000021000000100000001100000019000000044054890000000000a0bb0d00000000002100000010000000110000001900000008404b4c000000000020a10700000000002100000010000000110000001900000002c0d8a70000000000e0c8100000000000210000001000000011000000190000000500127a000000000000350c00000000002100000010000000110000001900000006c0cf6a000000000060ae0a00000000002100000010000000110000001900000007808d5b0000000000c0270900000000002100000010000000110000001900000001001bb70000000000804f1200000000002100000010000000110000001900000003809698000000000040420f000000000004020632000000320000001c000000100000001400000018000000e8030000e8030000401f0000"),
-            restore_bytes_from_hex("0x646173090000000000000000000000000000000000"),
-            restore_bytes_from_hex("0x6461730a000000540000000c000000300000002400000014000000180000001c00000020000000000000000000000080510100e80300002400000014000000180000001c00000020000000008d2700008d270080510100e8030000"),
-        ];
-
-        WitnessesParser::new(witnesses).unwrap()
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_verify_das_header() {
-        let witnesses = vec![
-            restore_bytes_from_hex("0x21000000646173060000001a0000000c0000001600000006000000636f6e66696700000000"),
-            restore_bytes_from_hex("0x00000000"),
-            restore_bytes_from_hex("0x0501000064617301000000fe0000001000000010000000fe000000ee0000001000000014000000180000000000000001000000d2000000d2000000380000003c0000003d0000003e00000042000000460000004a0000004e0000005200000056000000c6000000ca000000ce00000000000000040232000000320000003c00000080510100e803000004000000700000001000000030000000500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002c0100008051010080510100"),
-        ];
-
-        let mut parser = WitnessesParser::new(witnesses).unwrap();
-        parser.parse_all_data().unwrap();
     }
 }

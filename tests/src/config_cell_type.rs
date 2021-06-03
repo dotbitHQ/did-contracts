@@ -23,7 +23,7 @@ fn gen_config_create() {
 
     template.push_config_cell(DataType::ConfigCellAccount, true, 0, Source::Output);
     template.push_config_cell(DataType::ConfigCellApply, true, 0, Source::Output);
-    template.push_config_cell(DataType::ConfigCellCharSet, true, 0, Source::Output);
+    template.push_config_cell(DataType::ConfigCellCharSetDigit, true, 0, Source::Output);
     template.push_config_cell(DataType::ConfigCellIncome, true, 0, Source::Output);
     template.push_config_cell(DataType::ConfigCellMain, true, 0, Source::Output);
     template.push_config_cell(DataType::ConfigCellPrice, true, 0, Source::Output);
@@ -53,7 +53,7 @@ fn gen_config_edit() {
 
     template.push_config_cell(DataType::ConfigCellAccount, true, 0, Source::Input);
     template.push_config_cell(DataType::ConfigCellApply, true, 0, Source::Input);
-    template.push_config_cell(DataType::ConfigCellCharSet, true, 0, Source::Input);
+    template.push_config_cell(DataType::ConfigCellCharSetDigit, true, 0, Source::Input);
     template.push_config_cell(DataType::ConfigCellIncome, true, 0, Source::Input);
     template.push_config_cell(DataType::ConfigCellMain, true, 0, Source::Input);
     template.push_config_cell(DataType::ConfigCellPrice, true, 0, Source::Input);
@@ -62,7 +62,7 @@ fn gen_config_edit() {
 
     template.push_config_cell(DataType::ConfigCellAccount, true, 0, Source::Output);
     template.push_config_cell(DataType::ConfigCellApply, true, 0, Source::Output);
-    template.push_config_cell(DataType::ConfigCellCharSet, true, 0, Source::Output);
+    template.push_config_cell(DataType::ConfigCellCharSetDigit, true, 0, Source::Output);
     template.push_config_cell(DataType::ConfigCellIncome, true, 0, Source::Output);
     template.push_config_cell(DataType::ConfigCellMain, true, 0, Source::Output);
     template.push_config_cell(DataType::ConfigCellPrice, true, 0, Source::Output);
