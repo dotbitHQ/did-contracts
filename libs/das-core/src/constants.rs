@@ -363,42 +363,70 @@ pub const CONFIG_CELL_TYPE: ScriptLiteral = ScriptLiteral {
     args: Vec::new(),
 };
 
-#[cfg(feature = "dev")]
-pub const ALWAYS_SUCCESS_LOCK: ScriptLiteral = ScriptLiteral {
-    code_hash: [
-        157, 111, 41, 25, 227, 40, 243, 33, 125, 125, 211, 218, 181, 247, 206, 233, 216, 224, 98,
-        190, 230, 168, 13, 93, 5, 205, 73, 92, 163, 65, 99, 120,
-    ],
-    hash_type: ScriptHashType::Type,
-    args: Vec::new(),
-};
+pub fn always_success_lock() -> Script {
+    #[cfg(feature = "dev")]
+    let always_success_lock = ScriptLiteral {
+        code_hash: [
+            157, 111, 41, 25, 227, 40, 243, 33, 125, 125, 211, 218, 181, 247, 206, 233, 216, 224,
+            98, 190, 230, 168, 13, 93, 5, 205, 73, 92, 163, 65, 99, 120,
+        ],
+        hash_type: ScriptHashType::Type,
+        args: Vec::new(),
+    };
 
-#[cfg(feature = "local")]
-pub const ALWAYS_SUCCESS_LOCK: ScriptLiteral = ScriptLiteral {
-    code_hash: [
-        184, 243, 231, 77, 189, 72, 86, 149, 58, 151, 112, 104, 42, 255, 194, 137, 221, 0, 152,
-        153, 45, 17, 214, 103, 205, 243, 84, 151, 226, 103, 190, 50,
-    ],
-    hash_type: ScriptHashType::Type,
-    args: Vec::new(),
-};
+    #[cfg(feature = "local")]
+    let always_success_lock = ScriptLiteral {
+        code_hash: [
+            184, 243, 231, 77, 189, 72, 86, 149, 58, 151, 112, 104, 42, 255, 194, 137, 221, 0, 152,
+            153, 45, 17, 214, 103, 205, 243, 84, 151, 226, 103, 190, 50,
+        ],
+        hash_type: ScriptHashType::Type,
+        args: Vec::new(),
+    };
 
-#[cfg(feature = "testnet")]
-pub const ALWAYS_SUCCESS_LOCK: ScriptLiteral = ScriptLiteral {
-    code_hash: [
-        241, 239, 97, 182, 151, 117, 8, 217, 236, 86, 254, 67, 57, 154, 1, 229, 118, 8, 106, 118,
-        207, 15, 124, 104, 125, 20, 24, 51, 94, 140, 64, 31,
-    ],
-    hash_type: ScriptHashType::Type,
-    args: Vec::new(),
-};
+    #[cfg(feature = "testnet")]
+    let always_success_lock = ScriptLiteral {
+        code_hash: [
+            241, 239, 97, 182, 151, 117, 8, 217, 236, 86, 254, 67, 57, 154, 1, 229, 118, 8, 106,
+            118, 207, 15, 124, 104, 125, 20, 24, 51, 94, 140, 64, 31,
+        ],
+        hash_type: ScriptHashType::Type,
+        args: Vec::new(),
+    };
 
-#[cfg(feature = "mainnet")]
-pub const ALWAYS_SUCCESS_LOCK: ScriptLiteral = ScriptLiteral {
-    code_hash: [
-        2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2,
-        2, 2,
-    ],
-    hash_type: ScriptHashType::Type,
-    args: Vec::new(),
-};
+    #[cfg(feature = "mainnet")]
+    let always_success_lock = ScriptLiteral {
+        code_hash: [
+            2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2,
+            2, 2, 2,
+        ],
+        hash_type: ScriptHashType::Type,
+        args: Vec::new(),
+    };
+
+    util::script_literal_to_script(always_success_lock)
+}
+
+pub fn signall_lock() -> Script {
+    #[cfg(feature = "dev")]
+    let signall_lock = ScriptLiteral {
+        code_hash: [
+            157, 111, 41, 25, 227, 40, 243, 33, 125, 125, 211, 218, 181, 247, 206, 233, 216, 224,
+            98, 190, 230, 168, 13, 93, 5, 205, 73, 92, 163, 65, 99, 120,
+        ],
+        hash_type: ScriptHashType::Type,
+        args: Vec::new(),
+    };
+
+    #[cfg(not(feature = "dev"))]
+    let signall_lock = ScriptLiteral {
+        code_hash: [
+            155, 215, 224, 111, 62, 207, 75, 224, 242, 252, 210, 24, 139, 35, 241, 185, 252, 200,
+            142, 93, 75, 101, 168, 99, 123, 23, 114, 59, 189, 163, 204, 232,
+        ],
+        hash_type: ScriptHashType::Type,
+        args: Vec::new(),
+    };
+
+    util::script_literal_to_script(signall_lock)
+}

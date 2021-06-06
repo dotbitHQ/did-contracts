@@ -42,6 +42,8 @@ pub fn main() -> Result<(), Error> {
             "Only one IncomeCell can be created in create_income action."
         );
 
+        util::is_cell_use_always_success_lock(output_cells[0], Source::Output)?;
+
         parser.parse_cell()?;
         parser.parse_config(&[DataType::ConfigCellIncome])?;
 
@@ -49,8 +51,8 @@ pub fn main() -> Result<(), Error> {
 
         debug!("Read data of the IncomeCell ...");
 
-        let index = &output_cells[0];
-        let (_, _, entity) = parser.verify_and_get(index.to_owned(), Source::Output)?;
+        let index = output_cells[0].to_owned();
+        let (_, _, entity) = parser.verify_and_get(index, Source::Output)?;
         let income_cell_witness = IncomeCellData::from_slice(entity.as_reader().raw_data())
             .map_err(|_| Error::WitnessEntityDecodingError)?;
         let income_cell_witness_reader = income_cell_witness.as_reader();
@@ -72,6 +74,17 @@ pub fn main() -> Result<(), Error> {
             util::is_reader_eq(record.capacity(), config_income.basic_capacity()),
             Error::IncomeCellInvalidTransaction,
             "The only one record should has the same capacity with ConfigCellIncome.basic_capacity ."
+        );
+
+        let cell_capacity =
+            load_cell_capacity(index, Source::Output).map_err(|e| Error::from(e))?;
+        let basic_capacity = u64::from(config_income.basic_capacity());
+        assert!(
+            cell_capacity == basic_capacity,
+            Error::IncomeCellCapacityError,
+            "The IncomeCell.capacity should equal to the basic capacity of IncomeCell. (expected: {}, current: {})",
+            basic_capacity,
+            cell_capacity
         );
     } else if action == b"consolidate_income" {
         debug!("Route to consolidate action ...");
@@ -314,13 +327,11 @@ pub fn main() -> Result<(), Error> {
                 }
             }
 
-            if !is_exist {
-                warn!(
-                    "Missing expected record in outputs. (expected: {:?})",
-                    record
-                );
-                return Err(Error::IncomeCellConsolidateError);
-            }
+            assert!(
+                is_exist,
+                Error::IncomeCellConsolidateError,
+                "Missing expected record in outputs. (expected: {:?})", record
+            );
         }
     } else if action == b"confirm_proposal" {
         debug!("Route to confirm_proposal action ...");

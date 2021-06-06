@@ -12,8 +12,6 @@ pub enum Error {
     HardCodedError, // 5
     InvalidTransactionStructure,
     InvalidCellData,
-    SuperLockIsRequired,
-    CellMustUseSuperLock,
     TimeCellIsRequired = 10,
     TimeCellDataDecodingError,
     HeightCellIsRequired,
@@ -29,10 +27,14 @@ pub enum Error {
     CellDataCanNotBeModified,
     CellCapacityMustReduced,
     CellCapacityMustIncreased,
-    CellCapacityMustConsistent,
+    CellCapacityMustConsistent, // 25
     CellsMustHaveSameOrderAndNumber,
     ActionNotSupported,
-    AccountIsPreserved, // 28
+    SuperLockIsRequired,
+    CellMustUseSuperLock,
+    AlwaysSuccessLockIsRequired, // 30
+    SignallLockIsRequired,
+    AccountIsPreserved,
     AccountStillCanNotBeRegister,
     WitnessStructureError = 40,
     WitnessEmpty,
@@ -84,17 +86,19 @@ pub enum Error {
     ProposalConfirmAccountLockArgsIsInvalid = 110,
     ProposalConfirmIncomeError,
     ProposalConfirmRefundError,
+    ProposalSlicesCanNotBeEmpty,
     ProposalSliceNotEndCorrectly,
-    ProposalSliceMustStartWithAccountCell,
-    ProposalSliceMustContainMoreThanOneElement, // 115
+    ProposalSliceMustStartWithAccountCell, // 115
+    ProposalSliceMustContainMoreThanOneElement,
     ProposalSliceItemMustBeUniqueAccount,
     ProposalRecycleNeedWaitLonger,
     ProposalRecycleCanNotFoundRefundCell,
-    ProposalRecycleRefundAmountError,
-    PrevProposalItemNotFound, // 120
+    ProposalRecycleRefundAmountError, // 120
+    PrevProposalItemNotFound,
     IncomeCellInvalidTransaction = -126,
     IncomeCellConsolidateError,
     IncomeCellTransferError,
+    IncomeCellCapacityError,
     AccountCellFoundInvalidTransaction = -110,
     AccountCellPermissionDenied,
     AccountCellOwnerLockShouldNotBeModified,

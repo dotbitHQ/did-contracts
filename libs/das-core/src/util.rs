@@ -105,6 +105,16 @@ pub fn find_cells_by_type_id(
     Ok(cell_indexes)
 }
 
+pub fn find_cells_by_type_id_in_inputs_and_outputs(
+    script_type: ScriptType,
+    type_id: das_packed::HashReader,
+) -> Result<(Vec<usize>, Vec<usize>), Error> {
+    let input_cells = find_cells_by_type_id(script_type, type_id, Source::Input)?;
+    let output_cells = find_cells_by_type_id(script_type, type_id, Source::Output)?;
+
+    Ok((input_cells, output_cells))
+}
+
 pub fn find_only_cell_by_type_id(
     script_type: ScriptType,
     type_id: das_packed::HashReader,
@@ -633,6 +643,44 @@ pub fn is_inputs_and_outputs_consistent(
             (output_cell_index, Source::Output),
         )?;
     }
+
+    Ok(())
+}
+
+pub fn is_cell_use_always_success_lock(index: usize, source: Source) -> Result<(), Error> {
+    let lock = high_level::load_cell_lock(index, source).map_err(|e| Error::from(e))?;
+    let always_success_lock = always_success_lock();
+
+    assert!(
+        is_reader_eq(
+            lock.as_reader().code_hash(),
+            always_success_lock.as_reader().code_hash()
+        ),
+        Error::AlwaysSuccessLockIsRequired,
+        "The cell at {:?}[{}] should use always-success lock.(expected_code_hash: {})",
+        source,
+        index,
+        always_success_lock.as_reader().code_hash()
+    );
+
+    Ok(())
+}
+
+pub fn is_cell_use_signall_lock(index: usize, source: Source) -> Result<(), Error> {
+    let lock = high_level::load_cell_lock(index, source).map_err(|e| Error::from(e))?;
+    let signall_lock = signall_lock();
+
+    assert!(
+        is_reader_eq(
+            lock.as_reader().code_hash(),
+            signall_lock.as_reader().code_hash()
+        ),
+        Error::SignallLockIsRequired,
+        "The cell at {:?}[{}] should use signall lock.(expected_code_hash: {})",
+        source,
+        index,
+        signall_lock.as_reader().code_hash()
+    );
 
     Ok(())
 }

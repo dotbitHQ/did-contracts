@@ -5,7 +5,8 @@ use ckb_std::{
 use core::convert::{TryFrom, TryInto};
 use core::result::Result;
 use das_core::{
-    assert, constants::*, debug, error::Error, util, warn, witness_parser::WitnessesParser,
+    assert, constants::*, data_parser, debug, error::Error, util, warn,
+    witness_parser::WitnessesParser,
 };
 use das_types::{
     constants::{CharSetType, DataType, CHAR_SET_LENGTH},
@@ -39,21 +40,23 @@ pub fn main() -> Result<(), Error> {
 
         // Find out PreAccountCells in current transaction.
         let this_type_script = load_script().map_err(|e| Error::from(e))?;
-        let (old_cells, new_cells) = util::find_cells_by_script_in_inputs_and_outputs(
+        let (input_cells, output_cells) = util::find_cells_by_script_in_inputs_and_outputs(
             ScriptType::Type,
             this_type_script.as_reader(),
         )?;
 
         assert!(
-            old_cells.len() == 0,
+            input_cells.len() == 0,
             Error::PreRegisterFoundInvalidTransaction,
             "There should be none PreRegisterCell in inputs."
         );
         assert!(
-            new_cells.len() == 1,
+            output_cells.len() == 1,
             Error::PreRegisterFoundInvalidTransaction,
             "There should be only one PreRegisterCell in outputs."
         );
+
+        util::is_cell_use_always_success_lock(output_cells[0], Source::Output)?;
 
         debug!("Find out ApplyRegisterCell ...");
 
@@ -66,24 +69,19 @@ pub fn main() -> Result<(), Error> {
         ])?;
         let config_main_reader = parser.configs.main()?;
 
-        let old_apply_register_cells = util::find_cells_by_type_id(
-            ScriptType::Type,
-            config_main_reader.type_id_table().apply_register_cell(),
-            Source::Input,
-        )?;
-        let new_apply_register_cells = util::find_cells_by_type_id(
-            ScriptType::Type,
-            config_main_reader.type_id_table().apply_register_cell(),
-            Source::Output,
-        )?;
+        let (input_apply_register_cells, output_apply_register_cells) =
+            util::find_cells_by_type_id_in_inputs_and_outputs(
+                ScriptType::Type,
+                config_main_reader.type_id_table().apply_register_cell(),
+            )?;
 
         assert!(
-            old_apply_register_cells.len() == 1,
+            input_apply_register_cells.len() == 1,
             Error::PreRegisterFoundInvalidTransaction,
             "There should be only one ApplyRegisterCell in outputs."
         );
         assert!(
-            new_apply_register_cells.len() == 0,
+            output_apply_register_cells.len() == 0,
             Error::PreRegisterFoundInvalidTransaction,
             "There should be none ApplyRegisterCell in inputs."
         );
@@ -91,7 +89,7 @@ pub fn main() -> Result<(), Error> {
         debug!("Read data of ApplyRegisterCell ...");
 
         // Read the hash from outputs_data of the ApplyRegisterCell.
-        let index = &old_apply_register_cells[0];
+        let index = &input_apply_register_cells[0];
         let data = load_cell_data(index.to_owned(), Source::Input).map_err(|e| Error::from(e))?;
         let apply_register_hash = match data.get(..32) {
             Some(bytes) => bytes,
@@ -110,12 +108,9 @@ pub fn main() -> Result<(), Error> {
         debug!("Read witness of PreAccountCell ...");
 
         // Read outputs_data and witness of the PreAccountCell.
-        let index = &new_cells[0];
+        let index = &output_cells[0];
         let data = load_cell_data(index.to_owned(), Source::Output).map_err(|e| Error::from(e))?;
-        let account_id = match data.get(32..) {
-            Some(bytes) => Bytes::from(bytes),
-            _ => return Err(Error::InvalidCellData),
-        };
+        let account_id = data_parser::pre_account_cell::get_id(&data);
         let capacity =
             load_cell_capacity(index.to_owned(), Source::Output).map_err(|e| Error::from(e))?;
         let (_, _, entity) = parser.verify_and_get(index.to_owned(), Source::Output)?;
@@ -145,7 +140,7 @@ pub fn main() -> Result<(), Error> {
         verify_invited_discount(config_price, reader)?;
         verify_price_and_capacity(config_account, config_price, reader, capacity)?;
 
-        verify_account_id(reader, account_id.as_reader())?;
+        verify_account_id(reader, account_id)?;
 
         let timestamp = util::load_timestamp()?;
         verify_created_at(timestamp, reader)?;
@@ -183,7 +178,11 @@ fn verify_apply_height(
     // Check that the ApplyRegisterCell has existed long enough, but has not yet timed out.
     let apply_min_waiting_block = u32::from(config_reader.apply_min_waiting_block_number());
     let apply_max_waiting_block = u32::from(config_reader.apply_max_waiting_block_number());
-    let passed_block_number = current_height - apply_height;
+    let passed_block_number = if current_height > apply_height {
+        current_height - apply_height
+    } else {
+        0
+    };
 
     debug!(
         "Has passed {} block after apply.(min waiting: {} block, max waiting: {} block)",
@@ -208,19 +207,16 @@ fn verify_apply_height(
     Ok(())
 }
 
-fn verify_account_id(
-    reader: PreAccountCellDataReader,
-    account_id: BytesReader,
-) -> Result<(), Error> {
+fn verify_account_id(reader: PreAccountCellDataReader, account_id: &[u8]) -> Result<(), Error> {
     let account: Vec<u8> = [reader.account().as_readable(), ".bit".as_bytes().to_vec()].concat();
     let hash = util::blake2b_256(account.as_slice());
 
     assert!(
-        &hash[..10] == account_id.raw_data(),
+        &hash[..10] == account_id,
         Error::PreRegisterAccountIdIsInvalid,
         "PreAccountCell.account_id should be calculated from account correctly.(expected: 0x{}, current: 0x{})",
         util::hex_string(&hash),
-        util::hex_string(account_id.raw_data())
+        util::hex_string(account_id)
     );
 
     Ok(())
@@ -228,11 +224,11 @@ fn verify_account_id(
 
 fn verify_apply_hash(
     reader: PreAccountCellDataReader,
-    pubkey_hash: Vec<u8>,
+    apply_register_cell_lock_args: Vec<u8>,
     current_hash: &[u8],
 ) -> Result<(), Error> {
     let data_to_hash: Vec<u8> = [
-        pubkey_hash,
+        apply_register_cell_lock_args,
         reader.account().as_readable(),
         ".bit".as_bytes().to_vec(),
     ]
@@ -360,14 +356,13 @@ fn verify_price_and_capacity(
     let prices = config_price.prices();
 
     // Find out register price in from ConfigCellRegister.
-    let mut price_opt = Some(prices.get(prices.len() - 1).unwrap());
-    for item in prices.iter() {
-        if u8::from(item.length()) == length_in_price {
-            price_opt = Some(item);
-            break;
+    let expected_price = match prices.get(length_in_price as usize - 1) {
+        Some(price) => price,
+        None => {
+            warn!("The price of length {} is undefined.", length_in_price);
+            return Err(Error::PreRegisterPriceInvalid);
         }
-    }
-    let expected_price = price_opt.unwrap(); // x USD
+    };
 
     debug!("Check if PreAccountCell.witness.price is selected base on account length.");
 

@@ -533,7 +533,7 @@ impl TemplateGenerator {
     fn gen_config_cell_income(&mut self) -> (Bytes, ConfigCellIncome) {
         let entity = ConfigCellIncome::new_builder()
             .basic_capacity(Uint64::from(20_000_000_000))
-            .max_records(Uint32::from(100))
+            .max_records(Uint32::from(50))
             .build();
 
         let cell_data = Bytes::from(blake2b_256(entity.as_slice()).to_vec());
