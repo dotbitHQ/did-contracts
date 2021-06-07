@@ -685,8 +685,10 @@ pub fn is_cell_use_signall_lock(index: usize, source: Source) -> Result<(), Erro
     Ok(())
 }
 
-pub fn is_system_off(config: das_packed::ConfigCellMainReader) -> Result<(), Error> {
-    let status = u8::from(config.status());
+pub fn is_system_off(parser: &mut WitnessesParser) -> Result<(), Error> {
+    parser.parse_config(&[DataType::ConfigCellMain])?;
+    let config_main = parser.configs.main()?;
+    let status = u8::from(config_main.status());
     if status == 0 {
         warn!("The DAS system is currently off.");
         return Err(Error::SystemOff);
@@ -701,6 +703,28 @@ pub fn get_length_in_price(account_length: u64) -> u8 {
     } else {
         account_length as u8
     }
+}
+
+pub fn is_init_day(current_timestamp: u64) -> Result<(), Error> {
+    use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
+
+    let current = DateTime::<Utc>::from_utc(
+        NaiveDateTime::from_timestamp(current_timestamp as i64, 0),
+        Utc,
+    );
+
+    // On CKB main net, AKA Lina, some actions can be only executed at or before the initialization day of DAS.
+    if cfg!(feature = "mainnet") {
+        let init_day = Utc.ymd(2021, 6, 15).and_hms(0, 0, 0);
+        // Otherwise, any account longer than two chars in length can be registered.
+        assert!(
+            current <= init_day,
+            Error::InitDayHasPassed,
+            "The day of DAS initialization has passed."
+        );
+    }
+
+    Ok(())
 }
 
 pub fn verify_account_length_and_years(
@@ -818,6 +842,20 @@ pub fn require_type_script(
         source,
         hex_string(type_id.raw_data()),
         TypeScript::AccountCellType
+    );
+
+    Ok(())
+}
+
+pub fn require_super_lock() -> Result<(), Error> {
+    let super_lock = super_lock();
+    let has_super_lock =
+        find_cells_by_script(ScriptType::Lock, super_lock.as_reader(), Source::Input)?.len() > 0;
+
+    assert!(
+        has_super_lock,
+        Error::SuperLockIsRequired,
+        "Super lock is required."
     );
 
     Ok(())

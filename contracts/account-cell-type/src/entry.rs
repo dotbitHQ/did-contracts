@@ -32,6 +32,10 @@ pub fn main() -> Result<(), Error> {
     if action == b"init_account_chain" {
         debug!("Route to init_account_chain action ...");
 
+        // No Root AccountCell can be created after the initialization day of DAS.
+        let timestamp = util::load_timestamp()?;
+        util::is_init_day(timestamp)?;
+
         let this_type_script = load_script().map_err(|e| Error::from(e))?;
         let (input_cells, output_cells) = util::find_cells_by_script_in_inputs_and_outputs(
             ScriptType::Type,

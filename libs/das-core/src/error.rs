@@ -12,6 +12,7 @@ pub enum Error {
     HardCodedError, // 5
     InvalidTransactionStructure,
     InvalidCellData,
+    InitDayHasPassed,
     TimeCellIsRequired = 10,
     TimeCellDataDecodingError,
     HeightCellIsRequired,

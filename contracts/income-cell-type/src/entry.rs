@@ -14,9 +14,7 @@ pub fn main() -> Result<(), Error> {
     debug!("====== Running income-cell-type ======");
 
     let mut parser = WitnessesParser::new()?;
-    parser.parse_config(&[DataType::ConfigCellMain])?;
-    let config_main = parser.configs.main()?;
-    util::is_system_off(config_main)?;
+    util::is_system_off(&mut parser)?;
 
     let action_data = parser.parse_action()?;
     let action = action_data.as_reader().action().raw_data();

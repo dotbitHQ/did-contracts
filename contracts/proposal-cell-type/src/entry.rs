@@ -23,9 +23,7 @@ pub fn main() -> Result<(), Error> {
     debug!("====== Running proposal-cell-type ======");
 
     let mut parser = WitnessesParser::new()?;
-    parser.parse_config(&[DataType::ConfigCellMain])?;
-    let config_main = parser.configs.main()?;
-    util::is_system_off(config_main)?;
+    util::is_system_off(&mut parser)?;
 
     debug!("Find out ProposalCell ...");
 
