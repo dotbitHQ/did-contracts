@@ -114,6 +114,7 @@ pub enum Error {
     AccountCellRecycleCapacityError,
     AccountCellChangeCapacityError, // -97
     AccountCellRecordKeyInvalid,
+    AccountCellRecordSizeTooLarge,
     SystemOff = -1,
 }
 

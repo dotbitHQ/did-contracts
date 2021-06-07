@@ -7,7 +7,7 @@ use ckb_std::{
 };
 use das_core::{
     assert,
-    constants::{das_lock, das_wallet_lock, super_lock, ScriptType, TypeScript},
+    constants::{das_lock, das_wallet_lock, ScriptType, TypeScript},
     data_parser,
     error::Error,
     util, warn,
@@ -141,13 +141,13 @@ pub fn main() -> Result<(), Error> {
         verify_account_capacity_consistent(input_account_cells[0], output_account_cells[0])?;
         verify_account_lock_consistent(input_account_cells[0], output_account_cells[0], None)?;
         verify_account_data_consistent(input_account_cells[0], output_account_cells[0], vec![])?;
-        verify_account_witness_consistent(
+        let (_, output_account_witness) = verify_account_witness_consistent(
             &parser,
             input_account_cells[0],
             output_account_cells[0],
             vec!["records"],
         )?;
-        verify_records_keys(&parser, record_key_namespace, output_account_cells[0])?;
+        verify_records_keys(record_key_namespace, output_account_witness.as_reader())?;
     } else if action == b"renew_account" {
         debug!("Route to renew_account action ...");
 
@@ -549,7 +549,7 @@ fn verify_account_witness_consistent(
     input_account_index: usize,
     output_account_index: usize,
     except: Vec<&str>,
-) -> Result<(), Error> {
+) -> Result<(AccountCellData, AccountCellData), Error> {
     debug!("Check if AccountCell.witness is consistent in input and output.");
 
     let (_, _, entity) = parser.verify_and_get(input_account_index, Source::Input)?;
@@ -612,18 +612,22 @@ fn verify_account_witness_consistent(
         );
     }
 
-    Ok(())
+    Ok((input_account_witness, output_account_witness))
 }
 
 fn verify_records_keys(
-    parser: &WitnessesParser,
     record_key_namespace: &Vec<u8>,
-    output_account_index: usize,
+    output_account_witness_reader: AccountCellDataReader,
 ) -> Result<(), Error> {
-    let (_, _, entity) = parser.verify_and_get(output_account_index, Source::Output)?;
-    let output_account_witness = AccountCellData::from_slice(entity.as_reader().raw_data())
-        .map_err(|_| Error::WitnessEntityDecodingError)?;
-    let records = output_account_witness.as_reader().records();
+    let records = output_account_witness_reader.records();
+
+    let records_max_size = 5000;
+    assert!(
+        records.total_size() <= records_max_size,
+        Error::AccountCellRecordSizeTooLarge,
+        "The total size of all records can not be more than {} bytes.",
+        records_max_size
+    );
 
     // extract all the keys, which are split by 0
     let mut key_start_at = 0;
@@ -647,6 +651,10 @@ fn verify_records_keys(
         let mut is_valid = false;
 
         let mut record_type = Vec::from(record.record_type().raw_data());
+        if record_type == b"custom_key" {
+            continue;
+        }
+
         let mut record_key = Vec::from(record.record_key().raw_data());
         record_type.push(46);
         record_type.append(&mut record_key);

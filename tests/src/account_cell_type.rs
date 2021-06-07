@@ -192,6 +192,12 @@ fn gen_edit_records() {
             label: "Company",
             value: bytes::Bytes::from("xxxxx@mars.bit".as_bytes()),
         },
+        AccountRecordParam {
+            type_: "custom_key",
+            key: "xxxx",
+            label: "xxxxxx",
+            value: hex_to_bytes("0x00000000000000000000").unwrap(),
+        },
     ];
 
     let (cell_data, new_entity) = template.gen_account_cell_data(
