@@ -210,7 +210,7 @@ fn verify_account_id(reader: PreAccountCellDataReader, account_id: &[u8]) -> Res
     let hash = util::blake2b_256(account.as_slice());
 
     assert!(
-        &hash[..10] == account_id,
+        &hash[..ACCOUNT_ID_LENGTH] == account_id,
         Error::PreRegisterAccountIdIsInvalid,
         "PreAccountCell.account_id should be calculated from account correctly.(expected: 0x{}, current: 0x{})",
         util::hex_string(&hash),
@@ -327,7 +327,7 @@ fn verify_invited_discount(
         assert!(
             reader.inviter_id().len() == ACCOUNT_ID_LENGTH,
             Error::PreRegisterFoundInvalidTransaction,
-            "The inviter_id should be 10 bytes when inviter exists."
+            "The inviter_id should be 20 bytes when inviter exists."
         );
 
         expected_discount = config.discount().invited_discount();
@@ -354,13 +354,10 @@ fn verify_price_and_capacity(
     let prices = config_price.prices();
 
     // Find out register price in from ConfigCellRegister.
-    let expected_price = match prices.get(length_in_price as usize - 1) {
-        Some(price) => price,
-        None => {
-            warn!("The price of length {} is undefined.", length_in_price);
-            return Err(Error::PreRegisterPriceInvalid);
-        }
-    };
+    let expected_price = prices
+        .iter()
+        .find(|item| u8::from(item.length()) == length_in_price)
+        .ok_or(Error::ItemMissing)?;
 
     debug!("Check if PreAccountCell.witness.price is selected base on account length.");
 
@@ -484,12 +481,12 @@ fn verify_preserved_accounts(
 
     let account = pre_account_reader.account().as_readable();
     let account_hash = util::blake2b_256(account.as_slice());
-    let first_10_bytes = account_hash.get(..10).unwrap();
-    // debug!("first 10 bytes of account hash: {:?}", first_10_bytes);
+    let first_20_bytes = account_hash.get(..ACCOUNT_ID_LENGTH).unwrap();
+    // debug!("first 20 bytes of account hash: {:?}", first_10_bytes);
 
     for preserved_accounts in config_preserved_account {
         if preserved_accounts.len() > 0 {
-            let accounts_total = preserved_accounts.len() / 10;
+            let accounts_total = preserved_accounts.len() / ACCOUNT_ID_LENGTH;
             let mut start_account = 0;
             let mut end_account = accounts_total - 1;
 
@@ -499,15 +496,15 @@ fn verify_preserved_accounts(
                 //     "nth_account({:?}) = (end_account({:?}) - start_account({:?})) / 2 + start_account({:?}))",
                 //     nth_account, end_account, start_account, start_account
                 // );
-                let start_index = nth_account * 10;
-                let end_index = nth_account * 10 + 10;
+                let start_index = nth_account * ACCOUNT_ID_LENGTH;
+                let end_index = (nth_account + 1) * ACCOUNT_ID_LENGTH;
                 // debug!("start_index: {:?}, end_index: {:?}", start_index, end_index);
                 let bytes_of_nth_account = preserved_accounts.get(start_index..end_index).unwrap();
                 // debug!("bytes_of_nth_account: {:?}", bytes_of_nth_account);
-                if bytes_of_nth_account < first_10_bytes {
+                if bytes_of_nth_account < first_20_bytes {
                     // debug!("<");
                     start_account = nth_account;
-                } else if bytes_of_nth_account > first_10_bytes {
+                } else if bytes_of_nth_account > first_20_bytes {
                     // debug!(">");
                     end_account = nth_account;
                 } else {

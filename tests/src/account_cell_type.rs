@@ -295,7 +295,7 @@ fn gen_renew_account() {
         // Profit to DAS
         IncomeRecordParam {
             belong_to: "0x0300000000000000000000000000000000000000",
-            capacity: 500_000_000_000,
+            capacity: 50_000_000_000,
         },
     ];
     let (cell_data, entity) =
@@ -303,7 +303,7 @@ fn gen_renew_account() {
     template.push_income_cell(
         cell_data,
         Some((1, 1, entity)),
-        520_000_000_000,
+        70_000_000_000,
         Source::Output,
     );
 

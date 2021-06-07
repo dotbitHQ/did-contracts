@@ -220,40 +220,50 @@ pub fn gen_account_list() {
 
 pub fn account_to_id_bytes(account: &str) -> Vec<u8> {
     // Sorted testing accounts, generated from gen_account_list().
+
     let account_id = match account {
-        "das00012.bit" => "0x05d2771e6c0366846677",
-        "das00005.bit" => "0x0eb54a48689ce16b1fe8",
-        "das00009.bit" => "0x100871e1ff8a4cbde1d4",
-        "das00002.bit" => "0x1710cbaf08cf1fa2dcad",
-        "das00013.bit" => "0x2ba50252fba902dc5287",
-        "das00010.bit" => "0x5998f1666df91f989212",
-        "das00004.bit" => "0x5cbc30a5bfd00de7f7c5",
-        "das00018.bit" => "0x60e70978fd6456883990",
-        "das00008.bit" => "0x6729295b9a936d6c67fd",
-        "das00011.bit" => "0x70aa5e4d41c3d557ca84",
-        "das00006.bit" => "0x76b1e100d9ff3dc62e75",
-        "das00019.bit" => "0x9b992223d5ccd0fca8e1",
-        "das00001.bit" => "0xa2e06438859db0449574",
-        "das00014.bit" => "0xb209ac25bd48f00b9ae6",
-        "das00003.bit" => "0xbfab64fccdb83b3316cf",
-        "das00007.bit" => "0xc9804583fc51c64512c0",
-        "das00000.bit" => "0xcc4e1b0c31b5f537ad0a",
-        "das00016.bit" => "0xeb12a2e3eabe2a20015c",
-        "das00015.bit" => "0xed912d8f62ce9815d415",
+        "das00012.bit" => "0x05d2771e6c0366846677ce2e97fe7a78a20ad1f8",
+        "das00005.bit" => "0x0eb54a48689ce16b1fe8eaf126f81e9eff558a73",
+        "das00009.bit" => "0x100871e1ff8a4cbde1d4673914707a32083e4ce0",
+        "das00002.bit" => "0x1710cbaf08cf1fa2dcad206a909c76705970a2ee",
+        "das00013.bit" => "0x2ba50252fba902dc5287c8617a98d2b8e0c201d9",
+        "das00010.bit" => "0x5998f1666df91f989212994540a51561e1d3dc44",
+        "das00004.bit" => "0x5cbc30a5bfd00de7f7c512473f2ff097e7bba50b",
+        "das00018.bit" => "0x60e70978fd6456883990ab9a6a0785efdf0d5250",
+        "das00008.bit" => "0x6729295b9a936d6c67fd8b84990c9639b01985bd",
+        "das00011.bit" => "0x70aa5e4d41c3d557ca847bd10f1efe9b2ca07aca",
+        "das00006.bit" => "0x76b1e100d9ff3dc62e75e810be3253bf61d8e794",
+        "das00019.bit" => "0x9b992223d5ccd0fca8e17e122e97cff52afaf3ec",
+        "das00001.bit" => "0xa2e06438859db0449574d1443ade636a7e6bd09f",
+        "das00014.bit" => "0xb209ac25bd48f00b9ae6a1cb7ecff4b58d6c1d07",
+        "das00003.bit" => "0xbfab64fccdb83b3316cf3b8faaf6bb5cedef7e4c",
+        "das00007.bit" => "0xc9804583fc51c64512c0153264a707c254ae81ff",
+        "das00000.bit" => "0xcc4e1b0c31b5f537ad0a91f37c7aea0f47b450f5",
+        "das00016.bit" => "0xeb12a2e3eabe2a20015c8bee1b3cfb8577f6360f",
+        "das00015.bit" => "0xed912d8f62ce9815d415370c66b00cefc80fcce6",
         // ======
-        "das.bit" => "0xb7526803f67ebe70aba6",
-        "inviter_01.bit" => "0x12dedc00d4e73e7c7c50",
-        "inviter_02.bit" => "0xa3281c84335fc37e8331",
-        "inviter_03.bit" => "0x75614a21ee56531bf708",
-        "channel_01.bit" => "0x0de06eb8bcaa6b33d9eb",
-        "channel_02.bit" => "0xd6d474d85a9edc9ee26a",
-        "channel_03.bit" => "0x3781b1590a0ef3b0bbce",
-        "proposer_01.bit" => "0xdb352d1d5e245fa09697",
-        "proposer_02.bit" => "0xc0d1d7b1b88c584c4c23",
-        "proposer_03.bit" => "0x26bcd993ec69922481d2",
+        "das.bit" => "0xb7526803f67ebe70aba631ae3e9560e0cd969c2d",
+        "inviter_01.bit" => "0x12dedc00d4e73e7c7c501e386a5514e8a3e94129",
+        "inviter_02.bit" => "0xa3281c84335fc37e83315f39ffbb582ba184e433",
+        "inviter_03.bit" => "0x75614a21ee56531bf708326d7ae9f053703464d7",
+        "channel_01.bit" => "0x0de06eb8bcaa6b33d9ebea5dcdde9f38e98677dc",
+        "channel_02.bit" => "0xd6d474d85a9edc9ee26a925b5812c358148e7f78",
+        "channel_03.bit" => "0x3781b1590a0ef3b0bbce7513d018e4f636d2b219",
+        "proposer_01.bit" => "0xdb352d1d5e245fa09697221b5f7e1bde025f2ee8",
+        "proposer_02.bit" => "0xc0d1d7b1b88c584c4c2309d550cfab60cf3b3c7d",
+        "proposer_03.bit" => "0x26bcd993ec69922481d26f65d0d778592530de5e",
         // ======
         _ => panic!("Can not find ID of account."),
     };
+
+    // let tmp = [];
+    // tmp.iter().for_each(|item| {
+    //     println!(
+    //         "\"{}\" => \"0x{}\",",
+    //         item,
+    //         hex_string(blake2b_256(item.as_bytes()).get(..20).unwrap()).unwrap()
+    //     )
+    // });
 
     util::hex_to_bytes(account_id).unwrap().to_vec()
 }
@@ -632,8 +642,11 @@ impl TemplateGenerator {
         for line in lines {
             if let Ok(account) = line {
                 let account_hash = blake2b_256(account.as_bytes());
-                account_hashes.push(account_hash.get(..10).unwrap().to_vec());
-                _account_map.push((account_hash.get(..10).unwrap().to_vec(), account));
+                account_hashes.push(account_hash.get(..ACCOUNT_ID_LENGTH).unwrap().to_vec());
+                _account_map.push((
+                    account_hash.get(..ACCOUNT_ID_LENGTH).unwrap().to_vec(),
+                    account,
+                ));
             }
         }
         account_hashes.sort();
@@ -825,7 +838,9 @@ impl TemplateGenerator {
             .account(account_chars.to_owned())
             .owner_lock_args(owner_lock_args)
             .refund_lock(gen_always_success_lock(refund_lock_args))
-            .inviter_id(Bytes::from(vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0]))
+            .inviter_id(Bytes::from(vec![
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            ]))
             .inviter_lock(ScriptOpt::from(gen_always_success_lock(inviter_lock_args)))
             .channel_lock(ScriptOpt::from(gen_always_success_lock(channel_lock_args)))
             .price(price.to_owned())
@@ -908,8 +923,11 @@ impl TemplateGenerator {
     }
 
     pub fn gen_root_account_cell_data(&mut self) -> (Bytes, AccountCellData) {
-        let id: Vec<u8> = vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-        let next: Vec<u8> = vec![255, 255, 255, 255, 255, 255, 255, 255, 255, 255];
+        let id: Vec<u8> = vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        let next: Vec<u8> = vec![
+            255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+            255, 255, 255,
+        ];
         let account = AccountChars::default();
         let expired_at = u64::MAX.to_le_bytes();
 

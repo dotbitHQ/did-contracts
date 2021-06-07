@@ -108,7 +108,7 @@ pub enum Error {
     AccountCellDataNotConsistent,
     AccountCellProtectFieldIsModified,
     AccountCellRenewDurationMustLongerThanYear,
-    AccountCellRenewDurationBiggerThanPaied,
+    AccountCellRenewDurationBiggerThanPayed,
     AccountCellInExpirationGracePeriod,
     AccountCellHasExpired, // -100
     AccountCellIsNotExpired,

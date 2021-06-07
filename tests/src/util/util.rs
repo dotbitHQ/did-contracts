@@ -1,5 +1,5 @@
 use super::super::Loader;
-use super::constants::SECP_SIGNATURE_SIZE;
+use super::constants::*;
 use ckb_testtool::context::Context;
 use ckb_tool::{
     ckb_chain_spec::consensus::TYPE_ID_CODE_HASH,
@@ -78,7 +78,7 @@ pub fn hex_to_u64(input: &str) -> Result<u64, Box<dyn Error>> {
 
 pub fn account_to_id(input: &[u8]) -> Vec<u8> {
     let hash = blake2b_256(input);
-    hash.get(..10).unwrap().to_vec()
+    hash.get(..ACCOUNT_ID_LENGTH).unwrap().to_vec()
 }
 
 pub fn deploy_dev_contract(

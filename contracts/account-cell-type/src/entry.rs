@@ -22,9 +22,6 @@ pub fn main() -> Result<(), Error> {
     debug!("====== Running account-cell-type ======");
 
     let mut parser = WitnessesParser::new()?;
-    parser.parse_config(&[DataType::ConfigCellMain])?;
-    let config_main = parser.configs.main()?;
-    util::is_system_off(config_main)?;
 
     let action_data = parser.parse_action()?;
     let action = action_data.as_reader().action().raw_data();
@@ -66,6 +63,7 @@ pub fn main() -> Result<(), Error> {
         );
     } else if action == b"confirm_proposal" {
         debug!("Route to confirm_proposal action ...");
+        util::is_system_off(&mut parser)?;
         // Loading DAS witnesses and parsing the action.
         util::require_type_script(
             &mut parser,
@@ -76,6 +74,7 @@ pub fn main() -> Result<(), Error> {
     } else if action == b"transfer_account" {
         debug!("Route to transfer_account action ...");
 
+        util::is_system_off(&mut parser)?;
         let timestamp = util::load_timestamp()?;
 
         parser.parse_config(&[DataType::ConfigCellAccount])?;
@@ -102,6 +101,7 @@ pub fn main() -> Result<(), Error> {
     } else if action == b"edit_manager" {
         debug!("Route to edit_manager action ...");
 
+        util::is_system_off(&mut parser)?;
         let timestamp = util::load_timestamp()?;
 
         parser.parse_config(&[DataType::ConfigCellAccount])?;
@@ -128,6 +128,7 @@ pub fn main() -> Result<(), Error> {
     } else if action == b"edit_records" {
         debug!("Route to edit_records action ...");
 
+        util::is_system_off(&mut parser)?;
         let timestamp = util::load_timestamp()?;
 
         parser.parse_cell()?;
@@ -154,6 +155,8 @@ pub fn main() -> Result<(), Error> {
         verify_records_keys(record_key_namespace, output_account_witness.as_reader())?;
     } else if action == b"renew_account" {
         debug!("Route to renew_account action ...");
+
+        util::is_system_off(&mut parser)?;
 
         parser.parse_cell()?;
         parser.parse_config(&[DataType::ConfigCellAccount, DataType::ConfigCellPrice])?;
@@ -313,13 +316,10 @@ pub fn main() -> Result<(), Error> {
             util::get_length_in_price(input_witness_reader.account().len() as u64);
 
         // Find out register price in from ConfigCellRegister.
-        let price = match prices.get(length_in_price as usize - 1) {
-            Some(price) => price,
-            None => {
-                warn!("The price of length {} is undefined.", length_in_price);
-                return Err(Error::PreRegisterPriceInvalid);
-            }
-        };
+        let price = prices
+            .iter()
+            .find(|item| u8::from(item.length()) == length_in_price)
+            .ok_or(Error::ItemMissing)?;
 
         let renew_price_in_usd = u64::from(price.renew()); // x USD
         let quote = util::load_quote()?;
@@ -327,22 +327,23 @@ pub fn main() -> Result<(), Error> {
         // Renew price for 1 year in CKB = x ÷ y .
         let expected_duration = util::calc_duration_from_paid(paid, renew_price_in_usd, quote, 0);
         // The duration can be floated within the range of one day.
-        if duration >= expected_duration - 86400 || duration <= expected_duration + 86400 {
-            debug!(
-                "Verify is user payed enough capacity: duration({}) > (paid({}) / (renew_price({}) / quote({}) * 100_000_000) ) * 86400 * 365 -> true",
-                duration,
-                paid,
-                renew_price_in_usd,
-                quote
-            );
 
-            return Err(Error::AccountCellRenewDurationBiggerThanPaied);
-        }
+        assert!(
+            duration >= expected_duration - 86400 && duration <= expected_duration + 86400,
+            Error::AccountCellRenewDurationBiggerThanPayed,
+            "The duration should be equal to {} +/- 86400s. (current: duration({}), calculation: (paid({}) / (renew_price({}) / quote({}) * 100_000_000) ) * 86400 * 365)",
+            expected_duration,
+            duration,
+            paid,
+            renew_price_in_usd,
+            quote
+        );
 
         // The AccountCell can be used as long as it is not modified.
     } else if action == b"recycle_expired_account_by_keeper" {
         debug!("Route to recycle_expired_account_by_keeper action ...");
 
+        util::is_system_off(&mut parser)?;
         let timestamp = util::load_timestamp()?;
 
         parser.parse_cell()?;
