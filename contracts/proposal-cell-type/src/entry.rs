@@ -23,9 +23,7 @@ pub fn main() -> Result<(), Error> {
     debug!("====== Running proposal-cell-type ======");
 
     let mut parser = WitnessesParser::new()?;
-    parser.parse_config(&[DataType::ConfigCellMain])?;
-    let config_main = parser.configs.main()?;
-    util::is_system_off(config_main)?;
+    util::is_system_off(&mut parser)?;
 
     debug!("Find out ProposalCell ...");
 
@@ -54,6 +52,8 @@ pub fn main() -> Result<(), Error> {
             Error::ProposalFoundInvalidTransaction,
             "There should be only one ProposalCell found in the outputs."
         );
+
+        util::is_cell_use_always_success_lock(output_cells[0], Source::Output)?;
 
         // Read outputs_data and witness of the ProposalCell.
         let index = &output_cells[0];
@@ -104,6 +104,8 @@ pub fn main() -> Result<(), Error> {
             Error::ProposalFoundInvalidTransaction,
             "There should be one ProposalCell found in the cell_deps and one in the outputs."
         );
+
+        util::is_cell_use_always_success_lock(output_cells[0], Source::Output)?;
 
         // Read outputs_data and witness of previous ProposalCell.
         let index = &dep_cells[0];
@@ -340,6 +342,12 @@ fn verify_slices(
     let mut account_cell_contained = 0;
     let mut pre_account_cell_contained = 0;
 
+    assert!(
+        slices_reader.len() > 0,
+        Error::ProposalSlicesCanNotBeEmpty,
+        "The slices of ProposalCell should not be empty."
+    );
+
     for (sl_index, sl_reader) in slices_reader.iter().enumerate() {
         debug!("Check Slice[{}] ...", sl_index);
         let mut account_id_list = Vec::new();
@@ -397,13 +405,13 @@ fn verify_slices(
             }
 
             // Check the continuity of the items in the slice.
-            if let Some(next) = sl_reader.get(index + 1) {
+            if let Some(next_item) = sl_reader.get(index + 1) {
                 assert!(
-                    util::is_reader_eq(item.next(), next.account_id()),
+                    util::is_reader_eq(item.next(), next_item.account_id()),
                     Error::ProposalSliceIsDiscontinuity,
                     "  Item[{}].next should be {}, but it is {} now.",
                     index,
-                    next.account_id(),
+                    next_item.account_id(),
                     item.next()
                 );
             }
@@ -494,8 +502,8 @@ fn find_proposal_related_cells(
             sorted.push(remain[i]);
         }
     } else {
+        // The PreAccountCells in inputs is already sorted by their indexes, so no need to sort again.
         sorted = pre_account_cells;
-        sorted.sort();
     }
 
     debug!(
@@ -814,9 +822,7 @@ fn verify_proposal_execution_result(
                 verify_witness_id(item_index, &output_cell_data, output_cell_witness_reader)?;
                 verify_witness_account(item_index, &output_cell_data, output_cell_witness_reader)?;
                 verify_witness_status(item_index, output_cell_witness_reader)?;
-                verify_witness_records(item_index, output_cell_witness_reader)?;
 
-                // Only when inviter_wallet's length is equal to account ID it will be count in profit.
                 let mut inviter_profit = 0;
                 if input_cell_witness_reader.inviter_lock().is_some() {
                     let inviter_lock_reader =
@@ -1068,7 +1074,7 @@ fn is_lock_correct(
         item_index
     );
 
-    let mut das_lock = das_lock();
+    let das_lock = das_lock();
     let mut owner_lock_args = input_cell_witness_reader
         .owner_lock_args()
         .raw_data()
@@ -1076,27 +1082,22 @@ fn is_lock_correct(
     let output_cell_lock =
         load_cell_lock(output_cell_index, Source::Output).map_err(|e| Error::from(e))?;
 
-    assert!(
-        owner_lock_args.len() > 1,
-        Error::ProposalConfirmAccountLockArgsIsInvalid,
-        "  Item[{}] The inputs[{}].witness.owner_lock_args should be more than 1 byte.",
-        item_index,
-        input_cell_index
-    );
-
+    // The manager lock should be the same as the owner lock by default.
     owner_lock_args.extend(owner_lock_args.clone().iter());
-    das_lock = das_lock
+
+    let expected_lock = das_lock
         .as_builder()
         .args(Bytes::from(owner_lock_args).into())
         .build();
 
     assert!(
-        util::is_entity_eq(&das_lock, &output_cell_lock),
+        util::is_entity_eq(&expected_lock, &output_cell_lock),
         Error::ProposalConfirmAccountLockArgsIsInvalid,
-        "  Item[{}] The outputs[{}].lock is invalid. (expected: {}, current: {})",
+        "  Item[{}] The outputs[{}].lock should come from the owner_lock_args of inputs[{}]. (expected: {}, current: {})",
         item_index,
         output_cell_index,
-        das_lock,
+        input_cell_index,
+        expected_lock,
         output_cell_lock
     );
 
@@ -1299,23 +1300,6 @@ fn verify_witness_status(
         "  Item[{}] Check if outputs[].AccountCell.status is normal. (result: {}, expected: 0)",
         item_index,
         status
-    );
-
-    Ok(())
-}
-
-fn verify_witness_records(
-    item_index: usize,
-    output_cell_witness_reader: AccountCellDataReader,
-) -> Result<(), Error> {
-    let records = output_cell_witness_reader.records();
-
-    assert!(
-        records.is_empty(),
-        Error::ProposalConfirmWitnessRecordsError,
-        "  Item[{}] Check if outputs[].AccountCell.records is empty. (result: {}, expected: true)",
-        item_index,
-        records.is_empty()
     );
 
     Ok(())

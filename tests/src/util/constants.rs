@@ -2,6 +2,8 @@ use ckb_tool::ckb_types::{h256, H256};
 
 pub const MAX_CYCLES: u64 = 100_000_000; // up to 70_000_000
 
+pub const ACCOUNT_ID_LENGTH: usize = 20;
+
 // error numbers
 pub const ERROR_EMPTY_ARGS: i8 = 5;
 

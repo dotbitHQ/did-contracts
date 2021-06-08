@@ -3,6 +3,7 @@ use super::util::{
 };
 use ckb_testtool::context::Context;
 use ckb_tool::ckb_types::bytes;
+use das_core::error::Error;
 use das_types::{constants::DataType, packed::*};
 
 fn init(action: &str, params_opt: Option<&str>) -> (TemplateGenerator, u64) {
@@ -43,7 +44,7 @@ fn gen_init_account_chain() {
         Source::Output,
     );
 
-    template.pretty_print();
+    template.write_template("account_init_account_chain.json");
 }
 
 test_with_template!(test_init_account_chain, "account_init_account_chain.json");
@@ -86,10 +87,54 @@ fn gen_transfer_account() {
         None,
     );
 
-    template.pretty_print();
+    template.write_template("account_transfer.json");
 }
 
 test_with_template!(test_transfer_account, "account_transfer.json");
+
+challenge_with_generator!(
+    challenge_transfer_account_invalid_manager_lock,
+    Error::AccountCellManagerLockShouldBeModified,
+    || {
+        let (mut template, timestamp) = init("transfer_account", Some("0x00"));
+
+        let account = "das00001.bit";
+        let registered_at = timestamp - 86400;
+        let expired_at = timestamp + 31536000 - 86400;
+        let next = bytes::Bytes::from(account_to_id_bytes("das00014.bit"));
+
+        let (cell_data, old_entity) =
+            template.gen_account_cell_data(account, next.clone(), registered_at, expired_at, None);
+        template.push_account_cell(
+            "0x0000000000000000000000000000000000001111",
+            "0x0000000000000000000000000000000000001111",
+            cell_data,
+            None,
+            19_400_000_000,
+            Source::Input,
+        );
+
+        let (cell_data, new_entity) =
+            template.gen_account_cell_data(account, next.clone(), registered_at, expired_at, None);
+        template.push_account_cell(
+            "0x0000000000000000000000000000000000002222",
+            "0x0000000000000000000000000000000000003333",
+            cell_data,
+            None,
+            19_400_000_000,
+            Source::Output,
+        );
+
+        template.push_witness(
+            DataType::AccountCellData,
+            Some((1, 0, new_entity)),
+            Some((1, 0, old_entity)),
+            None,
+        );
+
+        template.as_json()
+    }
+);
 
 #[test]
 fn gen_edit_manager() {
@@ -129,7 +174,7 @@ fn gen_edit_manager() {
         None,
     );
 
-    template.pretty_print();
+    template.write_template("account_edit_manager.json");
 }
 
 test_with_template!(test_edit_manager, "account_edit_manager.json");
@@ -192,6 +237,12 @@ fn gen_edit_records() {
             label: "Company",
             value: bytes::Bytes::from("xxxxx@mars.bit".as_bytes()),
         },
+        AccountRecordParam {
+            type_: "custom_key",
+            key: "xxxx",
+            label: "xxxxxx",
+            value: hex_to_bytes("0x00000000000000000000").unwrap(),
+        },
     ];
 
     let (cell_data, new_entity) = template.gen_account_cell_data(
@@ -217,7 +268,7 @@ fn gen_edit_records() {
         None,
     );
 
-    template.pretty_print();
+    template.write_template("account_edit_records.json");
 }
 
 test_with_template!(test_edit_records, "account_edit_records.json");
@@ -289,7 +340,7 @@ fn gen_renew_account() {
         // Profit to DAS
         IncomeRecordParam {
             belong_to: "0x0300000000000000000000000000000000000000",
-            capacity: 500_000_000_000,
+            capacity: 50_000_000_000,
         },
     ];
     let (cell_data, entity) =
@@ -297,11 +348,11 @@ fn gen_renew_account() {
     template.push_income_cell(
         cell_data,
         Some((1, 1, entity)),
-        520_000_000_000,
+        70_000_000_000,
         Source::Output,
     );
 
-    template.pretty_print();
+    template.write_template("account_renew_account.json");
 }
 
 test_with_template!(test_renew_account, "account_renew_account.json");
@@ -332,7 +383,7 @@ fn gen_recycle_expired_account_by_keeper() {
         Source::Output,
     );
 
-    template.pretty_print();
+    template.write_template("account_recycle_expired_account_by_keeper.json");
 }
 
 test_with_template!(

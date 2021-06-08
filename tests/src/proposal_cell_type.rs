@@ -104,7 +104,7 @@ fn gen_proposal_create() {
 
     gen_proposal_related_cell_at_create(&mut template, slices, timestamp);
 
-    template.pretty_print();
+    template.write_template("proposal_create.json");
 }
 
 test_with_template!(test_proposal_create, "proposal_create.json");
@@ -225,7 +225,7 @@ fn gen_extend_proposal() {
 
     gen_proposal_related_cell_at_create(&mut template, slices, timestamp);
 
-    template.pretty_print();
+    template.write_template("proposal_extend.json");
 }
 
 test_with_template!(test_proposal_extend, "proposal_extend.json");
@@ -484,7 +484,7 @@ fn gen_confirm_proposal() {
         Source::Output,
     );
 
-    template.pretty_print();
+    template.write_template("proposal_confirm.json");
 }
 
 test_with_template!(test_proposal_confirm, "proposal_confirm.json");
@@ -777,7 +777,7 @@ fn gen_proposal_recycle() {
         Source::Output,
     );
 
-    template.pretty_print();
+    template.write_template("proposal_recycle.json");
 }
 
 test_with_template!(test_proposal_recycle, "proposal_recycle.json");

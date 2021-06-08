@@ -14,9 +14,7 @@ pub fn main() -> Result<(), Error> {
     debug!("====== Running income-cell-type ======");
 
     let mut parser = WitnessesParser::new()?;
-    parser.parse_config(&[DataType::ConfigCellMain])?;
-    let config_main = parser.configs.main()?;
-    util::is_system_off(config_main)?;
+    util::is_system_off(&mut parser)?;
 
     let action_data = parser.parse_action()?;
     let action = action_data.as_reader().action().raw_data();
@@ -33,14 +31,16 @@ pub fn main() -> Result<(), Error> {
 
         assert!(
             input_cells.len() == 0,
-            Error::IncomeCellInvalidTransaction,
+            Error::InvalidTransactionStructure,
             "Consuming IncomeCell is not allowed in create_income action."
         );
         assert!(
             output_cells.len() == 1,
-            Error::IncomeCellInvalidTransaction,
+            Error::InvalidTransactionStructure,
             "Only one IncomeCell can be created in create_income action."
         );
+
+        util::is_cell_use_always_success_lock(output_cells[0], Source::Output)?;
 
         parser.parse_cell()?;
         parser.parse_config(&[DataType::ConfigCellIncome])?;
@@ -49,15 +49,15 @@ pub fn main() -> Result<(), Error> {
 
         debug!("Read data of the IncomeCell ...");
 
-        let index = &output_cells[0];
-        let (_, _, entity) = parser.verify_and_get(index.to_owned(), Source::Output)?;
+        let index = output_cells[0].to_owned();
+        let (_, _, entity) = parser.verify_and_get(index, Source::Output)?;
         let income_cell_witness = IncomeCellData::from_slice(entity.as_reader().raw_data())
             .map_err(|_| Error::WitnessEntityDecodingError)?;
         let income_cell_witness_reader = income_cell_witness.as_reader();
 
         assert!(
             income_cell_witness_reader.records().len() == 1,
-            Error::IncomeCellInvalidTransaction,
+            Error::InvalidTransactionStructure,
             "Only one record should exist in the IncomeCell."
         );
 
@@ -65,13 +65,24 @@ pub fn main() -> Result<(), Error> {
 
         assert!(
             util::is_reader_eq(income_cell_witness_reader.creator(), record.belong_to()),
-            Error::IncomeCellInvalidTransaction,
+            Error::InvalidTransactionStructure,
             "The only one record should belong to the creator of the IncomeCell ."
         );
         assert!(
             util::is_reader_eq(record.capacity(), config_income.basic_capacity()),
-            Error::IncomeCellInvalidTransaction,
+            Error::InvalidTransactionStructure,
             "The only one record should has the same capacity with ConfigCellIncome.basic_capacity ."
+        );
+
+        let cell_capacity =
+            load_cell_capacity(index, Source::Output).map_err(|e| Error::from(e))?;
+        let basic_capacity = u64::from(config_income.basic_capacity());
+        assert!(
+            cell_capacity == basic_capacity,
+            Error::IncomeCellCapacityError,
+            "The IncomeCell.capacity should equal to the basic capacity of IncomeCell. (expected: {}, current: {})",
+            basic_capacity,
+            cell_capacity
         );
     } else if action == b"consolidate_income" {
         debug!("Route to consolidate action ...");
@@ -86,12 +97,12 @@ pub fn main() -> Result<(), Error> {
 
         assert!(
             input_cells.len() >= 2,
-            Error::IncomeCellInvalidTransaction,
+            Error::IncomeCellConsolidateConditionNotSatisfied,
             "There should be at least 2 IncomeCell in this transaction."
         );
         assert!(
             input_cells.len() > output_cells.len(),
-            Error::IncomeCellInvalidTransaction,
+            Error::IncomeCellConsolidateConditionNotSatisfied,
             "The number of IncomeCells in the outputs should be lesser than in the inputs."
         );
 
@@ -121,7 +132,7 @@ pub fn main() -> Result<(), Error> {
                 let first_record = records.get(0).unwrap();
                 assert!(
                     !util::is_entity_eq(&first_record.belong_to(), &creator),
-                    Error::IncomeCellConsolidateError,
+                    Error::IncomeCellConsolidateConditionNotSatisfied,
                     "Can not consolidate the IncomeCell which has only one record belong to the creator."
                 );
             }
@@ -203,7 +214,7 @@ pub fn main() -> Result<(), Error> {
         if records_should_keep.len() > 0 {
             assert!(
                 output_records.len() > 0,
-                Error::IncomeCellInvalidTransaction,
+                Error::InvalidTransactionStructure,
                 "There should be some IncomeCell in the outputs, because the count of records_should_keep is {}",
                 records_should_keep.len()
             );
@@ -314,13 +325,11 @@ pub fn main() -> Result<(), Error> {
                 }
             }
 
-            if !is_exist {
-                warn!(
-                    "Missing expected record in outputs. (expected: {:?})",
-                    record
-                );
-                return Err(Error::IncomeCellConsolidateError);
-            }
+            assert!(
+                is_exist,
+                Error::IncomeCellConsolidateError,
+                "Missing expected record in outputs. (expected: {:?})", record
+            );
         }
     } else if action == b"confirm_proposal" {
         debug!("Route to confirm_proposal action ...");

@@ -12,15 +12,13 @@ use das_core::{
     util,
     witness_parser::WitnessesParser,
 };
-use das_types::{constants::*, prelude::*};
+use das_types::prelude::*;
 
 pub fn main() -> Result<(), Error> {
     debug!("====== Running apply-register-cell-type ======");
 
     let mut parser = WitnessesParser::new()?;
-    parser.parse_config(&[DataType::ConfigCellMain])?;
-    let config_main = parser.configs.main()?;
-    util::is_system_off(config_main)?;
+    util::is_system_off(&mut parser)?;
 
     let action_data = parser.parse_action()?;
     let action = action_data.as_reader().action().raw_data();
@@ -41,6 +39,8 @@ pub fn main() -> Result<(), Error> {
             Error::ApplyRegisterFoundInvalidTransaction,
             "There should be none ApplyRegisterCell in inputs and one in outputs."
         );
+
+        util::is_cell_use_signall_lock(output_cells[0], Source::Output)?;
 
         // Verify the outputs_data of ApplyRegisterCell.
         let index = &output_cells[0];

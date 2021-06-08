@@ -11,19 +11,6 @@ use das_types::{constants::DataType, prelude::Entity};
 pub fn main() -> Result<(), Error> {
     debug!("====== Running config-cell-type ======");
 
-    // Define DAS official super lock.
-    let super_lock = super_lock();
-
-    debug!("Check if super lock has been used in inputs ...");
-
-    // Limit this type script must be used with super lock.
-    let has_super_lock =
-        util::find_cells_by_script(ScriptType::Lock, super_lock.as_reader(), Source::Input)?.len()
-            > 0;
-    if !has_super_lock {
-        return Err(Error::SuperLockIsRequired);
-    }
-
     let mut parser = WitnessesParser::new()?;
     // ⚠️ NEVER use util::is_system_off here! That will make it impossible to turn the system back on by updating the ConfigCellMain. ⚠️
 
@@ -53,8 +40,16 @@ pub fn main() -> Result<(), Error> {
                 Error::InvalidTransactionStructure,
                 "The number of ConfigCell in outputs should be the same as inputs."
             );
+        } else {
+            // Create new ConfigCells will require super lock to execute after the initialization day of DAS.
+            let timestamp = util::load_timestamp()?;
+            if util::is_init_day(timestamp).is_err() {
+                util::require_super_lock()?;
+            }
         }
 
+        // Define DAS official super lock.
+        let super_lock = super_lock();
         let super_lock_hash = util::blake2b_256(super_lock.as_slice());
         for (i, output_cell_index) in output_cells.into_iter().enumerate() {
             // The ConfigCell in outputs must has the same lock script as super lock.

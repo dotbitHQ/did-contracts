@@ -8,6 +8,9 @@ fn init() -> TemplateGenerator {
     template.push_contract_cell("always_success", true);
     template.push_contract_cell("config-cell-type", false);
 
+    let timestamp = 1611200000u64;
+    template.push_time_cell(1, timestamp, 0, Source::CellDep);
+
     template
 }
 
@@ -36,7 +39,7 @@ fn gen_config_create() {
     //     Source::Output,
     // );
 
-    template.pretty_print();
+    template.write_template("config_create.json");
 }
 
 test_with_template!(test_config_create, "config_create.json");
@@ -69,7 +72,7 @@ fn gen_config_edit() {
     template.push_config_cell(DataType::ConfigCellProposal, true, 0, Source::Output);
     template.push_config_cell(DataType::ConfigCellProfitRate, true, 0, Source::Output);
 
-    template.pretty_print();
+    template.write_template("config_edit.json");
 }
 
 test_with_template!(test_config_edit, "config_edit.json");

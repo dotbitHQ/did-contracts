@@ -7,7 +7,7 @@ use ckb_std::{
 };
 use das_core::{
     assert,
-    constants::{das_lock, das_wallet_lock, super_lock, ScriptType, TypeScript},
+    constants::{das_lock, das_wallet_lock, ScriptType, TypeScript},
     data_parser,
     error::Error,
     util, warn,
@@ -22,15 +22,16 @@ pub fn main() -> Result<(), Error> {
     debug!("====== Running account-cell-type ======");
 
     let mut parser = WitnessesParser::new()?;
-    parser.parse_config(&[DataType::ConfigCellMain])?;
-    let config_main = parser.configs.main()?;
-    util::is_system_off(config_main)?;
 
     let action_data = parser.parse_action()?;
     let action = action_data.as_reader().action().raw_data();
     let params = action_data.as_reader().params().raw_data();
     if action == b"init_account_chain" {
         debug!("Route to init_account_chain action ...");
+
+        // No Root AccountCell can be created after the initialization day of DAS.
+        let timestamp = util::load_timestamp()?;
+        util::is_init_day(timestamp)?;
 
         let this_type_script = load_script().map_err(|e| Error::from(e))?;
         let (input_cells, output_cells) = util::find_cells_by_script_in_inputs_and_outputs(
@@ -49,20 +50,6 @@ pub fn main() -> Result<(), Error> {
             "There should be only one AccountCells in outputs."
         );
 
-        debug!("Check if super lock has been used in inputs ...");
-
-        let super_lock = super_lock();
-        let has_super_lock =
-            util::find_cells_by_script(ScriptType::Lock, super_lock.as_reader(), Source::Input)?
-                .len()
-                > 0;
-
-        assert!(
-            has_super_lock,
-            Error::SuperLockIsRequired,
-            "The super lock is required."
-        );
-
         debug!("Check if root AccountCell uses das-lock ...");
 
         let index = output_cells[0];
@@ -76,6 +63,7 @@ pub fn main() -> Result<(), Error> {
         );
     } else if action == b"confirm_proposal" {
         debug!("Route to confirm_proposal action ...");
+        util::is_system_off(&mut parser)?;
         // Loading DAS witnesses and parsing the action.
         util::require_type_script(
             &mut parser,
@@ -86,6 +74,7 @@ pub fn main() -> Result<(), Error> {
     } else if action == b"transfer_account" {
         debug!("Route to transfer_account action ...");
 
+        util::is_system_off(&mut parser)?;
         let timestamp = util::load_timestamp()?;
 
         parser.parse_config(&[DataType::ConfigCellAccount])?;
@@ -96,7 +85,8 @@ pub fn main() -> Result<(), Error> {
 
         verify_unlock_role(params, LockRole::Owner)?;
         verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
-        verify_account_consistent(
+        verify_account_capacity_consistent(input_account_cells[0], output_account_cells[0])?;
+        verify_account_lock_consistent(
             input_account_cells[0],
             output_account_cells[0],
             Some("owner"),
@@ -111,6 +101,7 @@ pub fn main() -> Result<(), Error> {
     } else if action == b"edit_manager" {
         debug!("Route to edit_manager action ...");
 
+        util::is_system_off(&mut parser)?;
         let timestamp = util::load_timestamp()?;
 
         parser.parse_config(&[DataType::ConfigCellAccount])?;
@@ -121,7 +112,8 @@ pub fn main() -> Result<(), Error> {
 
         verify_unlock_role(params, LockRole::Owner)?;
         verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
-        verify_account_consistent(
+        verify_account_capacity_consistent(input_account_cells[0], output_account_cells[0])?;
+        verify_account_lock_consistent(
             input_account_cells[0],
             output_account_cells[0],
             Some("manager"),
@@ -136,12 +128,12 @@ pub fn main() -> Result<(), Error> {
     } else if action == b"edit_records" {
         debug!("Route to edit_records action ...");
 
+        util::is_system_off(&mut parser)?;
         let timestamp = util::load_timestamp()?;
 
         parser.parse_cell()?;
         parser.parse_config(&[
             DataType::ConfigCellAccount,
-            DataType::ConfigCellMain,
             DataType::ConfigCellRecordKeyNamespace,
         ])?;
 
@@ -151,33 +143,31 @@ pub fn main() -> Result<(), Error> {
 
         verify_unlock_role(params, LockRole::Manager)?;
         verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
-        verify_account_consistent(input_account_cells[0], output_account_cells[0], None)?;
+        verify_account_capacity_consistent(input_account_cells[0], output_account_cells[0])?;
+        verify_account_lock_consistent(input_account_cells[0], output_account_cells[0], None)?;
         verify_account_data_consistent(input_account_cells[0], output_account_cells[0], vec![])?;
-        verify_account_witness_consistent(
+        let (_, output_account_witness) = verify_account_witness_consistent(
             &parser,
             input_account_cells[0],
             output_account_cells[0],
             vec!["records"],
         )?;
-        verify_records_keys(&parser, record_key_namespace, output_account_cells[0])?;
+        verify_records_keys(record_key_namespace, output_account_witness.as_reader())?;
     } else if action == b"renew_account" {
         debug!("Route to renew_account action ...");
 
-        parser.parse_cell()?;
-        parser.parse_config(&[
-            DataType::ConfigCellAccount,
-            DataType::ConfigCellMain,
-            DataType::ConfigCellPrice,
-        ])?;
+        util::is_system_off(&mut parser)?;
 
-        // let expiration_grace_period =
-        //     u32::from(parser.configs.account()?.expiration_grace_period());
+        parser.parse_cell()?;
+        parser.parse_config(&[DataType::ConfigCellAccount, DataType::ConfigCellPrice])?;
+
         let prices = parser.configs.price()?.prices();
         let income_cell_type_id = parser.configs.main()?.type_id_table().income_cell();
 
         let (input_account_cells, output_account_cells) = load_account_cells()?;
 
-        verify_account_consistent(input_account_cells[0], output_account_cells[0], None)?;
+        verify_account_capacity_consistent(input_account_cells[0], output_account_cells[0])?;
+        verify_account_lock_consistent(input_account_cells[0], output_account_cells[0], None)?;
         verify_account_data_consistent(
             input_account_cells[0],
             output_account_cells[0],
@@ -247,7 +237,7 @@ pub fn main() -> Result<(), Error> {
             );
 
             let first_record = income_cell_witness_reader.records().get(0).unwrap();
-            let storage_capacity = u64::from(first_record.capacity());
+            let exist_capacity = u64::from(first_record.capacity());
 
             assert!(
                 util::is_reader_eq(expected_first_record.as_reader(), first_record),
@@ -266,10 +256,10 @@ pub fn main() -> Result<(), Error> {
             );
 
             assert!(
-                income_cell_capacity == storage_capacity + paid,
+                income_cell_capacity == exist_capacity + paid,
                 Error::ProposalFoundInvalidTransaction,
                 "The capacity of IncomeCell in outputs is incorrect. (expected: {}, current: {})",
-                storage_capacity + paid,
+                exist_capacity + paid,
                 income_cell_capacity
             );
         } else {
@@ -325,35 +315,35 @@ pub fn main() -> Result<(), Error> {
         let length_in_price =
             util::get_length_in_price(input_witness_reader.account().len() as u64);
 
-        // Find out renew price in USD.
-        let mut price_opt = Some(prices.get(prices.len() - 1).unwrap());
-        for item in prices.iter() {
-            if u8::from(item.length()) == length_in_price {
-                price_opt = Some(item);
-                break;
-            }
-        }
-        let renew_price_in_usd = u64::from(price_opt.unwrap().renew()); // x USD
+        // Find out register price in from ConfigCellRegister.
+        let price = prices
+            .iter()
+            .find(|item| u8::from(item.length()) == length_in_price)
+            .ok_or(Error::ItemMissing)?;
+
+        let renew_price_in_usd = u64::from(price.renew()); // x USD
         let quote = util::load_quote()?;
 
         // Renew price for 1 year in CKB = x ÷ y .
         let expected_duration = util::calc_duration_from_paid(paid, renew_price_in_usd, quote, 0);
-        if duration > expected_duration {
-            debug!(
-                "Verify is user payed enough capacity: duration({}) > (paid({}) / (renew_price({}) / quote({}) * 100_000_000) ) * 86400 * 365 -> true",
-                duration,
-                paid,
-                renew_price_in_usd,
-                quote
-            );
+        // The duration can be floated within the range of one day.
 
-            return Err(Error::AccountCellRenewDurationBiggerThanPaied);
-        }
+        assert!(
+            duration >= expected_duration - 86400 && duration <= expected_duration + 86400,
+            Error::AccountCellRenewDurationBiggerThanPayed,
+            "The duration should be equal to {} +/- 86400s. (current: duration({}), calculation: (paid({}) / (renew_price({}) / quote({}) * 100_000_000) ) * 86400 * 365)",
+            expected_duration,
+            duration,
+            paid,
+            renew_price_in_usd,
+            quote
+        );
 
         // The AccountCell can be used as long as it is not modified.
     } else if action == b"recycle_expired_account_by_keeper" {
         debug!("Route to recycle_expired_account_by_keeper action ...");
 
+        util::is_system_off(&mut parser)?;
         let timestamp = util::load_timestamp()?;
 
         parser.parse_cell()?;
@@ -374,9 +364,6 @@ pub fn main() -> Result<(), Error> {
         let expiration_grace_period = u32::from(config_account.expiration_grace_period()) as u64;
         let account_data = util::load_cell_data(input_account_cells[0], Source::Input)?;
         let expired_at = data_parser::account_cell::get_expired_at(&account_data);
-        if expired_at + expiration_grace_period >= timestamp {
-            return Err(Error::AccountCellIsNotExpired);
-        }
 
         assert!(
             expired_at + expiration_grace_period < timestamp,
@@ -431,21 +418,24 @@ fn verify_unlock_role(params: &[u8], lock: LockRole) -> Result<(), Error> {
     Ok(())
 }
 
-fn verify_account_consistent(
+fn verify_account_capacity_consistent(
     input_account_index: usize,
     output_account_index: usize,
-    changed_lock: Option<&str>,
 ) -> Result<(), Error> {
-    debug!("Check if everything consistent except data in the AccountCell.");
+    debug!("Check if capacity consistent in the AccountCell.");
 
     util::is_cell_capacity_equal(
         (input_account_index, Source::Input),
         (output_account_index, Source::Output),
-    )?;
-    util::is_cell_type_equal(
-        (input_account_index, Source::Input),
-        (output_account_index, Source::Output),
-    )?;
+    )
+}
+
+fn verify_account_lock_consistent(
+    input_account_index: usize,
+    output_account_index: usize,
+    changed_lock: Option<&str>,
+) -> Result<(), Error> {
+    debug!("Check if lock consistent in the AccountCell.");
 
     if let Some(lock) = changed_lock {
         let input_lock =
@@ -564,7 +554,7 @@ fn verify_account_witness_consistent(
     input_account_index: usize,
     output_account_index: usize,
     except: Vec<&str>,
-) -> Result<(), Error> {
+) -> Result<(AccountCellData, AccountCellData), Error> {
     debug!("Check if AccountCell.witness is consistent in input and output.");
 
     let (_, _, entity) = parser.verify_and_get(input_account_index, Source::Input)?;
@@ -627,17 +617,22 @@ fn verify_account_witness_consistent(
         );
     }
 
-    Ok(())
+    Ok((input_account_witness, output_account_witness))
 }
 
 fn verify_records_keys(
-    parser: &WitnessesParser,
     record_key_namespace: &Vec<u8>,
-    output_account_index: usize,
+    output_account_witness_reader: AccountCellDataReader,
 ) -> Result<(), Error> {
-    let (_, _, entity) = parser.verify_and_get(output_account_index, Source::Output)?;
-    let output_account_witness = AccountCellData::from_slice(entity.as_reader().raw_data()).map_err(|_| Error::WitnessEntityDecodingError)?;
-    let records = output_account_witness.as_reader().records();
+    let records = output_account_witness_reader.records();
+
+    let records_max_size = 5000;
+    assert!(
+        records.total_size() <= records_max_size,
+        Error::AccountCellRecordSizeTooLarge,
+        "The total size of all records can not be more than {} bytes.",
+        records_max_size
+    );
 
     // extract all the keys, which are split by 0
     let mut key_start_at = 0;
@@ -653,10 +648,7 @@ fn verify_records_keys(
 
     fn vec_compare(va: &[u8], vb: &[u8]) -> bool {
         // zip stops at the shortest
-        (va.len() == vb.len()) &&
-            va.iter()
-                .zip(vb)
-                .all(|(a,b)| a == b)
+        (va.len() == vb.len()) && va.iter().zip(vb).all(|(a, b)| a == b)
     }
 
     // check if all the record.{type+key} are valid
@@ -664,6 +656,10 @@ fn verify_records_keys(
         let mut is_valid = false;
 
         let mut record_type = Vec::from(record.record_type().raw_data());
+        if record_type == b"custom_key" {
+            continue;
+        }
+
         let mut record_key = Vec::from(record.record_key().raw_data());
         record_type.push(46);
         record_type.append(&mut record_key);
@@ -671,7 +667,7 @@ fn verify_records_keys(
         for key in &key_list {
             if vec_compare(record_type.as_slice(), *key) {
                 is_valid = true;
-                break
+                break;
             }
         }
 
@@ -679,8 +675,7 @@ fn verify_records_keys(
             assert!(
                 false,
                 Error::AccountCellRecordKeyInvalid,
-                "Account cell record key is invalid: {:?}",
-                record_type
+                "Account cell record key is invalid: {:?}", record_type
             );
 
             break;

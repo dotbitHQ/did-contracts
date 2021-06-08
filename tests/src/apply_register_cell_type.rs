@@ -30,7 +30,7 @@ fn gen_apply_register() {
         Source::Output,
     );
 
-    template.pretty_print();
+    template.write_template("apply_register.json");
 }
 
 test_with_template!(test_apply_register, "apply_register.json");

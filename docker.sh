@@ -9,10 +9,10 @@ CACHE_VOLUME="capsule-cache"
 
 function is_feature_available() {
     case $1 in
-    dev | local | testnet | mainnet) ;;
+    dev | local | testnet2 | testnet3 | mainnet) ;;
 
     *)
-        echo "Feature $1 is invalid, please choose one of dev|local|testnet|mainnet ."
+        echo "Feature $1 is invalid, please choose one of dev|local|testnet2|testnet3|mainnet ."
         exit 1
         ;;
     esac
@@ -30,6 +30,9 @@ function parse_args() {
             feature=${tmp:2}
 
             is_feature_available $feature
+            if [[ $feature == "testnet3" || $feature == "testnet2" ]]; then
+              feature="testnet"
+            fi
         fi
     else
         if [[ ! -z $1 ]]; then
@@ -37,6 +40,9 @@ function parse_args() {
             feature=${tmp:2}
 
             is_feature_available $feature
+            if [[ $feature == "testnet3" || $feature == "testnet2" ]]; then
+              feature="testnet"
+            fi
         fi
     fi
 }
