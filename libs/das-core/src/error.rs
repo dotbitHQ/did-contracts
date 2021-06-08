@@ -96,7 +96,7 @@ pub enum Error {
     ProposalRecycleCanNotFoundRefundCell,
     ProposalRecycleRefundAmountError, // 120
     PrevProposalItemNotFound,
-    IncomeCellInvalidTransaction = -126,
+    IncomeCellConsolidateConditionNotSatisfied = -126,
     IncomeCellConsolidateError,
     IncomeCellTransferError,
     IncomeCellCapacityError,

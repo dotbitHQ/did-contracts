@@ -31,12 +31,12 @@ pub fn main() -> Result<(), Error> {
 
         assert!(
             input_cells.len() == 0,
-            Error::IncomeCellInvalidTransaction,
+            Error::InvalidTransactionStructure,
             "Consuming IncomeCell is not allowed in create_income action."
         );
         assert!(
             output_cells.len() == 1,
-            Error::IncomeCellInvalidTransaction,
+            Error::InvalidTransactionStructure,
             "Only one IncomeCell can be created in create_income action."
         );
 
@@ -57,7 +57,7 @@ pub fn main() -> Result<(), Error> {
 
         assert!(
             income_cell_witness_reader.records().len() == 1,
-            Error::IncomeCellInvalidTransaction,
+            Error::InvalidTransactionStructure,
             "Only one record should exist in the IncomeCell."
         );
 
@@ -65,12 +65,12 @@ pub fn main() -> Result<(), Error> {
 
         assert!(
             util::is_reader_eq(income_cell_witness_reader.creator(), record.belong_to()),
-            Error::IncomeCellInvalidTransaction,
+            Error::InvalidTransactionStructure,
             "The only one record should belong to the creator of the IncomeCell ."
         );
         assert!(
             util::is_reader_eq(record.capacity(), config_income.basic_capacity()),
-            Error::IncomeCellInvalidTransaction,
+            Error::InvalidTransactionStructure,
             "The only one record should has the same capacity with ConfigCellIncome.basic_capacity ."
         );
 
@@ -97,12 +97,12 @@ pub fn main() -> Result<(), Error> {
 
         assert!(
             input_cells.len() >= 2,
-            Error::IncomeCellInvalidTransaction,
+            Error::IncomeCellConsolidateConditionNotSatisfied,
             "There should be at least 2 IncomeCell in this transaction."
         );
         assert!(
             input_cells.len() > output_cells.len(),
-            Error::IncomeCellInvalidTransaction,
+            Error::IncomeCellConsolidateConditionNotSatisfied,
             "The number of IncomeCells in the outputs should be lesser than in the inputs."
         );
 
@@ -132,7 +132,7 @@ pub fn main() -> Result<(), Error> {
                 let first_record = records.get(0).unwrap();
                 assert!(
                     !util::is_entity_eq(&first_record.belong_to(), &creator),
-                    Error::IncomeCellConsolidateError,
+                    Error::IncomeCellConsolidateConditionNotSatisfied,
                     "Can not consolidate the IncomeCell which has only one record belong to the creator."
                 );
             }
@@ -214,7 +214,7 @@ pub fn main() -> Result<(), Error> {
         if records_should_keep.len() > 0 {
             assert!(
                 output_records.len() > 0,
-                Error::IncomeCellInvalidTransaction,
+                Error::InvalidTransactionStructure,
                 "There should be some IncomeCell in the outputs, because the count of records_should_keep is {}",
                 records_should_keep.len()
             );
