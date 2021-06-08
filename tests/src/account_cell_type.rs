@@ -43,7 +43,7 @@ fn gen_init_account_chain() {
         Source::Output,
     );
 
-    template.pretty_print();
+    template.write_template("account_init_account_chain.json");
 }
 
 test_with_template!(test_init_account_chain, "account_init_account_chain.json");
@@ -86,7 +86,7 @@ fn gen_transfer_account() {
         None,
     );
 
-    template.pretty_print();
+    template.write_template("account_transfer.json");
 }
 
 test_with_template!(test_transfer_account, "account_transfer.json");
@@ -129,7 +129,7 @@ fn gen_edit_manager() {
         None,
     );
 
-    template.pretty_print();
+    template.write_template("account_edit_manager.json");
 }
 
 test_with_template!(test_edit_manager, "account_edit_manager.json");
@@ -223,7 +223,7 @@ fn gen_edit_records() {
         None,
     );
 
-    template.pretty_print();
+    template.write_template("account_edit_records.json");
 }
 
 test_with_template!(test_edit_records, "account_edit_records.json");
@@ -307,7 +307,7 @@ fn gen_renew_account() {
         Source::Output,
     );
 
-    template.pretty_print();
+    template.write_template("account_renew_account.json");
 }
 
 test_with_template!(test_renew_account, "account_renew_account.json");
@@ -338,7 +338,7 @@ fn gen_recycle_expired_account_by_keeper() {
         Source::Output,
     );
 
-    template.pretty_print();
+    template.write_template("account_recycle_expired_account_by_keeper.json");
 }
 
 test_with_template!(

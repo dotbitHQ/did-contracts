@@ -7,7 +7,7 @@ use ckb_tool::{
 use das_sorted_list::DasSortedList;
 use das_types::{constants::*, packed::*, prelude::*, util as das_util};
 use serde_json::{json, Value};
-use std::{collections::HashMap, convert::TryFrom, str};
+use std::{collections::HashMap, convert::TryFrom, env, fs::OpenOptions, io::Write, str};
 
 fn gen_always_success_lock(lock_args: &str) -> Script {
     Script::new_builder()
@@ -1087,8 +1087,19 @@ impl TemplateGenerator {
         })
     }
 
-    pub fn pretty_print(&self) {
-        let data = self.as_json();
-        println!("{}", serde_json::to_string_pretty(&data).unwrap());
+    pub fn write_template(&self, filename: &str) {
+        let mut filepath = env::current_dir().unwrap();
+        filepath.push("templates");
+        filepath.push(filename);
+
+        let mut file = OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .write(true)
+            .open(filepath.clone())
+            .expect(format!("Expect file path {:?} to be writable.", filepath).as_str());
+
+        let data = serde_json::to_string_pretty(&self.as_json()).unwrap();
+        file.write(data.as_bytes()).expect("Write file failed.");
     }
 }

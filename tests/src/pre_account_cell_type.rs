@@ -63,7 +63,7 @@ fn gen_pre_register() {
         Source::Output,
     );
 
-    template.pretty_print();
+    template.write_template("pre_register.json");
 }
 
 test_with_template!(test_pre_register, "pre_register.json");

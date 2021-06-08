@@ -58,7 +58,7 @@ fn gen_income_create() {
         Source::Output,
     );
 
-    template.pretty_print();
+    template.write_template("income_create.json");
 }
 
 test_with_template!(test_income_create, "income_create.json");
@@ -153,7 +153,7 @@ fn gen_income_consolidate() {
         Source::Output,
     );
 
-    template.pretty_print();
+    template.write_template("income_consolidate.json");
 }
 
 test_with_template!(test_income_consolidate_need_pad, "income_consolidate.json");
