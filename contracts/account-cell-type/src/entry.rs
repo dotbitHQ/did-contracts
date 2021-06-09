@@ -452,6 +452,13 @@ fn verify_account_lock_consistent(
                 Error::AccountCellOwnerLockShouldBeModified,
                 "The owner lock args in AccountCell.lock should be different in input and output."
             );
+
+            assert!(
+                data_parser::das_lock_args::get_manager_lock_args(output_args)
+                    == data_parser::das_lock_args::get_owner_lock_args(output_args),
+                Error::AccountCellManagerLockShouldBeModified,
+                "The manager lock args in AccountCell.lock should be different in input and output."
+            );
         } else {
             assert!(
                 data_parser::das_lock_args::get_owner_lock_args(input_args)
