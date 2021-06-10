@@ -121,33 +121,44 @@ pub fn main() -> Result<(), Error> {
             entity.to_owned(),
         );
 
-        let pre_account_witness = PreAccountCellData::from_slice(entity.as_reader().raw_data())
-            .map_err(|_| Error::WitnessEntityDecodingError)?;
-        let reader = pre_account_witness.as_reader();
+        let pre_account_cell_witness =
+            PreAccountCellData::from_slice(entity.as_reader().raw_data())
+                .map_err(|_| Error::WitnessEntityDecodingError)?;
+        let pre_account_cell_reader = pre_account_cell_witness.as_reader();
 
         verify_apply_hash(
-            reader,
+            pre_account_cell_reader,
             apply_register_lock.as_reader().args().raw_data().to_vec(),
             apply_register_hash,
         )?;
 
-        verify_owner_lock_args(reader)?;
-        verify_quote(reader)?;
+        verify_owner_lock_args(pre_account_cell_reader)?;
+        verify_quote(pre_account_cell_reader)?;
         let config_price = parser.configs.price()?;
         let config_account = parser.configs.account()?;
-        verify_invited_discount(config_price, reader)?;
-        verify_price_and_capacity(config_account, config_price, reader, capacity)?;
+        verify_invited_discount(config_price, pre_account_cell_reader)?;
+        verify_price_and_capacity(
+            config_account,
+            config_price,
+            pre_account_cell_reader,
+            capacity,
+        )?;
 
-        verify_account_id(reader, account_id)?;
+        verify_account_id(pre_account_cell_reader, account_id)?;
 
         let timestamp = util::load_timestamp()?;
-        verify_created_at(timestamp, reader)?;
-        util::verify_account_length_and_years(reader.account().len(), timestamp, None)?;
+        verify_created_at(timestamp, pre_account_cell_reader)?;
+        util::verify_account_length_and_years(
+            pre_account_cell_reader.account().len(),
+            timestamp,
+            None,
+        )?;
 
-        verify_account_chars(&mut parser, reader)?;
+        verify_account_length(config_account, pre_account_cell_reader)?;
+        verify_account_chars(&mut parser, pre_account_cell_reader)?;
 
         let config_preserved_account = parser.configs.preserved_account()?;
-        verify_preserved_accounts(config_preserved_account, reader)?;
+        verify_preserved_accounts(config_preserved_account, pre_account_cell_reader)?;
     } else {
         return Err(Error::ActionNotSupported);
     }
@@ -391,6 +402,24 @@ fn verify_price_and_capacity(
         "PreAccountCell.capacity should contains more than 1 year of registeration fee. (expected: {}, current: {})",
         register_capacity + storage_capacity,
         capacity
+    );
+
+    Ok(())
+}
+
+fn verify_account_length(
+    config: ConfigCellAccountReader,
+    reader: PreAccountCellDataReader,
+) -> Result<(), Error> {
+    let max_length = u32::from(config.max_length());
+    let account_length = reader.account().len() as u32;
+
+    assert!(
+        max_length >= account_length,
+        Error::PreRegisterAccountIsTooLong,
+        "The maximum length of account is {}, but {} found.",
+        max_length,
+        account_length
     );
 
     Ok(())

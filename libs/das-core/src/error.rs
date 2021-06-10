@@ -60,10 +60,11 @@ pub enum Error {
     PreRegisterPriceInvalid,
     PreRegisterFoundUndefinedCharSet, // 75
     PreRegisterCKBInsufficient,
+    PreRegisterAccountIsTooLong,
     PreRegisterAccountCharSetConflict,
     PreRegisterAccountCharIsInvalid,
-    PreRegisterQuoteIsInvalid,
-    PreRegisterDiscountIsInvalid = 80,
+    PreRegisterQuoteIsInvalid, // 80
+    PreRegisterDiscountIsInvalid,
     PreRegisterOwnerLockArgsIsInvalid,
     ProposalFoundInvalidTransaction = 90,
     ProposalSliceIsNotSorted,

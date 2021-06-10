@@ -518,7 +518,7 @@ impl TemplateGenerator {
 
     fn gen_config_cell_account(&mut self) -> (Bytes, ConfigCellAccount) {
         let entity = ConfigCellAccount::new_builder()
-            .max_length(Uint32::from(1000))
+            .max_length(Uint32::from(20))
             .basic_capacity(Uint64::from(20_000_000_000))
             .expiration_grace_period(Uint32::from(2_592_000))
             .record_min_ttl(Uint32::from(300))
