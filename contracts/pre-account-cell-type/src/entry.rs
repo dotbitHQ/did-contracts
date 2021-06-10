@@ -269,9 +269,9 @@ fn verify_owner_lock_args(reader: PreAccountCellDataReader) -> Result<(), Error>
     let owner_lock_args = reader.owner_lock_args().raw_data();
 
     assert!(
-        owner_lock_args.len() == 21,
+        owner_lock_args.len() >= 42,
         Error::PreRegisterOwnerLockArgsIsInvalid,
-        "The length of owner_lock_args should be more 21 byte, but {} found.",
+        "The length of owner_lock_args should be more 42 byte, but {} found.",
         owner_lock_args.len()
     );
 

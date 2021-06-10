@@ -832,8 +832,9 @@ impl TemplateGenerator {
         };
 
         let price = self.prices.get(&account_length).unwrap();
-        let owner_lock_args =
-            Bytes::from(util::hex_to_bytes(&gen_das_lock_args(owner_lock_args, None)).unwrap());
+        let mut tmp = util::hex_to_bytes(&gen_das_lock_args(owner_lock_args, None)).unwrap();
+        tmp = bytes::Bytes::from([tmp.clone(), tmp].concat());
+        let owner_lock_args = Bytes::from(tmp);
         let entity = PreAccountCellData::new_builder()
             .account(account_chars.to_owned())
             .owner_lock_args(owner_lock_args)

@@ -1075,15 +1075,12 @@ fn is_lock_correct(
     );
 
     let das_lock = das_lock();
-    let mut owner_lock_args = input_cell_witness_reader
+    let owner_lock_args = input_cell_witness_reader
         .owner_lock_args()
         .raw_data()
         .to_owned();
     let output_cell_lock =
         load_cell_lock(output_cell_index, Source::Output).map_err(|e| Error::from(e))?;
-
-    // The manager lock should be the same as the owner lock by default.
-    owner_lock_args.extend(owner_lock_args.clone().iter());
 
     let expected_lock = das_lock
         .as_builder()
