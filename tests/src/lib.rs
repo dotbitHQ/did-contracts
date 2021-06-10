@@ -29,20 +29,20 @@ mod proposal_cell_type;
 // #[cfg(test)]
 // mod gen_type_id_table;
 
-const TEST_ENV_VAR: &str = "CAPSULE_TEST_ENV";
+const BINARY_VERSION: &str = "BINARY_VERSION";
 
-pub enum TestEnv {
+pub enum BinaryVersion {
     Debug,
     Release,
 }
 
-impl FromStr for TestEnv {
+impl FromStr for BinaryVersion {
     type Err = &'static str;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "debug" => Ok(TestEnv::Debug),
-            "release" => Ok(TestEnv::Release),
+            "debug" => Ok(BinaryVersion::Debug),
+            "release" => Ok(BinaryVersion::Release),
             _ => Err("no match"),
         }
     }
@@ -52,19 +52,21 @@ pub struct Loader(PathBuf);
 
 impl Default for Loader {
     fn default() -> Self {
-        let test_env = match env::var(TEST_ENV_VAR) {
-            Ok(val) => val.parse().expect("test env"),
-            Err(_) => TestEnv::Debug,
+        let test_env = match env::var(BINARY_VERSION) {
+            Ok(val) => val
+                .parse()
+                .expect("Binary version should be one of debug and release."),
+            Err(_) => BinaryVersion::Debug,
         };
         Self::with_test_env(test_env)
     }
 }
 
 impl Loader {
-    fn with_test_env(env: TestEnv) -> Self {
+    fn with_test_env(env: BinaryVersion) -> Self {
         let load_prefix = match env {
-            TestEnv::Debug => "debug",
-            TestEnv::Release => "release",
+            BinaryVersion::Debug => "debug",
+            BinaryVersion::Release => "release",
         };
         let dir = env::current_dir().unwrap();
         let mut base_path = PathBuf::new();
