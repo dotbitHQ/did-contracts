@@ -47,8 +47,8 @@ struct NewAction {
         about = "The discount of register fee."
     )]
     discount: u32,
-    #[clap(long = "current", required = true, about = "The current timestamp.")]
-    current: u64,
+    #[clap(long = "current", about = "The current timestamp, can be omitted.")]
+    current: Option<u64>,
 }
 
 #[derive(Clap, Debug)]
@@ -118,11 +118,13 @@ fn main() {
                 options.discount,
             );
 
-            let expired_at = options.current + duration;
-            println!(
-                "expired_at({}) = current({}) - duration({})",
-                expired_at, options.current, duration
-            );
+            if let Some(current) = options.current {
+                let expired_at = current + duration;
+                println!(
+                    "expired_at({}) = current({}) - duration({})",
+                    expired_at, current, duration
+                );
+            }
         }
         SubCommand::Renew(options) => {
             let duration =
