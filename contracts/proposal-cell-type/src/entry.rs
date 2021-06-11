@@ -12,7 +12,7 @@ use das_core::{
     data_parser::{account_cell, pre_account_cell},
     debug,
     error::Error,
-    util,
+    parse_witness, util,
     witness_parser::WitnessesParser,
 };
 use das_map::{map::Map, util as map_util};
@@ -170,9 +170,8 @@ pub fn main() -> Result<(), Error> {
 
         // Read outputs_data and witness of ProposalCell.
         let proposal_cell_index = input_cells[0];
-        let (_, _, entity) = parser.verify_and_get(proposal_cell_index, Source::Input)?;
-        let proposal_cell_data = ProposalCellData::from_slice(entity.as_reader().raw_data())
-            .map_err(|_| Error::WitnessEntityDecodingError)?;
+        let proposal_cell_data =
+            parse_witness!(parser, proposal_cell_index, Source::Input, ProposalCellData);
         let proposal_cell_data_reader = proposal_cell_data.as_reader();
 
         debug!("Check all AccountCells are updated or created base on proposal.");
@@ -568,7 +567,7 @@ fn verify_slices_relevant_cells(
                 &cell_data,
                 cell_index,
                 Source::CellDep,
-                item_account_id,
+                item_account_id.raw_data(),
             )?;
 
             // ⚠️ The first item is very very important, its "next" must be correct so that
@@ -669,14 +668,12 @@ fn verify_proposal_execution_result(
     for (sl_index, sl_reader) in slices_reader.iter().enumerate() {
         debug!("Check Slice[{}] ...", sl_index);
         for (item_index, item) in sl_reader.iter().enumerate() {
-            let item_account_id = item.account_id();
+            let item_account_id = item.account_id().raw_data();
             let item_type = u8::from(item.item_type());
             let item_next = item.next();
 
-            let (input_cell_data, input_cell_entity) =
-                util::load_cell_data_and_entity(&parser, input_related_cells[i], Source::Input)?;
-            let (output_cell_data, output_cell_entity) =
-                util::load_cell_data_and_entity(&parser, output_account_cells[i], Source::Output)?;
+            let input_cell_data = util::load_cell_data(input_related_cells[i], Source::Input)?;
+            let output_cell_data = util::load_cell_data(output_account_cells[i], Source::Output)?;
 
             if item_type == ProposalSliceItemType::Exist as u8
                 || item_type == ProposalSliceItemType::Proposed as u8
@@ -726,19 +723,13 @@ fn verify_proposal_execution_result(
                 )?;
 
                 // For the existing AccountCell, only the next field in data can be modified.
+                // No need to check the witness of AccountCells here, because we check their hash instead.
                 is_old_account_cell_data_consistent(
                     item_index,
                     &output_cell_data,
                     &input_cell_data,
                 )?;
                 is_next_correct(item_index, &output_cell_data, item_next)?;
-
-                // Check if the witness of the AccountCell is consistent.
-                assert!(
-                    input_cell_entity.as_slice() == output_cell_entity.as_slice(),
-                    Error::ProposalWitnessCanNotBeModified,
-                    "The witness of exist AccountCell should not be modified."
-                );
             } else {
                 debug!(
                     "  Item[{}] Check that the inputs[{}].PreAccountCell and outputs[{}].AccountCell is converted correctly.",
@@ -775,14 +766,22 @@ fn verify_proposal_execution_result(
                     item_account_id,
                 )?;
 
-                let input_cell_witness = PreAccountCellData::new_unchecked(
-                    input_cell_entity.as_reader().raw_data().into(),
+                let output_cell_witness = parse_witness!(
+                    parser,
+                    input_related_cells[i],
+                    Source::Input,
+                    PreAccountCellData
                 );
-                let input_cell_witness_reader = input_cell_witness.as_reader();
-                let new_cell_witness = AccountCellData::new_unchecked(
-                    output_cell_entity.as_reader().raw_data().into(),
+                let input_cell_witness_reader = output_cell_witness.as_reader();
+
+                let output_cell_witness = parse_witness!(
+                    parser,
+                    output_account_cells[i],
+                    Source::Output,
+                    AccountCellData
                 );
-                let output_cell_witness_reader = new_cell_witness.as_reader();
+                let output_cell_witness_reader = output_cell_witness.as_reader();
+
                 let account_name_storage =
                     account_cell::get_account(&output_cell_data).len() as u64;
                 let total_capacity = load_cell_capacity(input_related_cells[i], Source::Input)
@@ -1006,11 +1005,11 @@ fn verify_cell_type_id(
 ) -> Result<(), Error> {
     let cell_type_id = load_cell_type(cell_index, source)
         .map_err(|e| Error::from(e))?
-        .map(|script| Hash::from(script.code_hash()))
+        .map(|script| script.code_hash())
         .ok_or(Error::ProposalSliceRelatedCellNotFound)?;
 
     assert!(
-        util::is_reader_eq(expected_type_id.to_owned(), cell_type_id.as_reader()),
+        cell_type_id.as_reader().raw_data() == expected_type_id.raw_data(),
         Error::ProposalCellTypeError,
         "  The type ID of Item[{}] should be {}. (related_cell: {:?}[{}])",
         item_index,
@@ -1027,17 +1026,16 @@ fn verify_account_cell_account_id(
     cell_data: &Vec<u8>,
     cell_index: usize,
     source: Source,
-    expected_account_id: AccountIdReader,
+    expected_account_id: &[u8],
 ) -> Result<(), Error> {
-    let account_id = AccountId::try_from(account_cell::get_id(&cell_data))
-        .map_err(|_| Error::InvalidCellData)?;
+    let account_id = account_cell::get_id(&cell_data);
 
     assert!(
-        util::is_reader_eq(account_id.as_reader(), expected_account_id),
+        account_id == expected_account_id,
         Error::ProposalCellAccountIdError,
         "  The account ID of Item[{}] should be {}. (related_cell: {:?}[{}])",
         item_index,
-        expected_account_id,
+        util::hex_string(expected_account_id),
         source,
         cell_index
     );
@@ -1050,17 +1048,16 @@ fn verify_pre_account_cell_account_id(
     cell_data: &Vec<u8>,
     cell_index: usize,
     source: Source,
-    expected_account_id: AccountIdReader,
+    expected_account_id: &[u8],
 ) -> Result<(), Error> {
-    let account_id = AccountId::try_from(pre_account_cell::get_id(&cell_data))
-        .map_err(|_| Error::InvalidCellData)?;
+    let account_id = pre_account_cell::get_id(&cell_data);
 
     assert!(
-        util::is_reader_eq(account_id.as_reader(), expected_account_id),
+        account_id == expected_account_id,
         Error::ProposalCellAccountIdError,
         "  The account ID of Item[{}] should be {}. (related_cell: {:?}[{}])",
         item_index,
-        expected_account_id,
+        util::hex_string(expected_account_id),
         source,
         cell_index
     );
@@ -1131,6 +1128,13 @@ fn is_old_account_cell_data_consistent(
     output_cell_data: &Vec<u8>,
     input_cell_data: &Vec<u8>,
 ) -> Result<(), Error> {
+    is_bytes_eq(
+        item_index,
+        "hash",
+        output_cell_data.get(..32).unwrap(),
+        input_cell_data.get(..32).unwrap(),
+        Error::ProposalFieldCanNotBeModified,
+    )?;
     is_bytes_eq(
         item_index,
         "id",

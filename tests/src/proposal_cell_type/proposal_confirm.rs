@@ -4,8 +4,6 @@ use ckb_testtool::context::Context;
 use das_core::error::Error;
 use das_types::constants::*;
 
-use super::common::*;
-
 fn gen_proposal_related_cell_at_confirm(
     template: &mut TemplateGenerator,
     slices: Vec<Vec<(&str, ProposalSliceItemType, &str)>>,
