@@ -186,9 +186,9 @@ pub fn gen_account_list() {
 
     let mut account_id_map = HashMap::new();
     let mut account_id_list = Vec::new();
-    for account in accounts.iter() {
-        let account_id = bytes::Bytes::from(util::account_to_id(account.as_bytes()));
-        account_id_map.insert(account_id.clone(), *account);
+    for account in accounts.into_iter() {
+        let account_id = util::account_to_id_bytes(account);
+        account_id_map.insert(account_id.clone(), account);
         account_id_list.push(account_id);
     }
 
@@ -197,24 +197,6 @@ pub fn gen_account_list() {
     for item in sorted_list.items() {
         let account = account_id_map.get(item).unwrap();
         println!("{} => {}", account, item.pack());
-    }
-
-    let accounts = vec![
-        "das.bit",
-        "inviter_01.bit",
-        "inviter_02.bit",
-        "inviter_03.bit",
-        "channel_01.bit",
-        "channel_02.bit",
-        "channel_03.bit",
-        "proposer_01.bit",
-        "proposer_02.bit",
-        "proposer_03.bit",
-    ];
-    println!("====== Special accounts list ======");
-    for account in accounts.into_iter() {
-        let id = bytes::Bytes::from(util::account_to_id(account.as_bytes()));
-        println!("{} => {}", account, id.pack());
     }
 }
 
@@ -850,7 +832,7 @@ impl TemplateGenerator {
             .created_at(Timestamp::from(created_at))
             .build();
 
-        let id = util::account_to_id(account.as_bytes());
+        let id = util::account_to_id(account);
 
         let hash = Hash::try_from(blake2b_256(entity.as_slice()).to_vec()).unwrap();
         let raw = [hash.as_reader().raw_data(), id.as_slice()].concat();
@@ -883,7 +865,7 @@ impl TemplateGenerator {
     pub fn gen_account_cell_data(
         &mut self,
         account: &str,
-        next: bytes::Bytes,
+        next_account: &str,
         registered_at: u64,
         expired_at: u64,
         records_opt: Option<Records>,
@@ -894,7 +876,7 @@ impl TemplateGenerator {
             .map(|c| c.to_string())
             .collect::<Vec<String>>();
         let account_chars = gen_account_chars(account_chars_raw);
-        let id = util::account_to_id(account.as_bytes());
+        let id = util::account_to_id(account);
 
         let records = match records_opt {
             Some(records) => records,
@@ -909,11 +891,13 @@ impl TemplateGenerator {
             .records(records)
             .build();
 
+        let next = util::account_to_id(next_account);
+
         let hash = Hash::try_from(blake2b_256(entity.as_slice()).to_vec()).unwrap();
         let raw = [
             hash.as_reader().raw_data(),
             id.as_slice(),
-            &next[..],
+            next.as_slice(),
             &expired_at.to_le_bytes()[..],
             account.as_bytes(),
         ]
