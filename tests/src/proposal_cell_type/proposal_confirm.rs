@@ -110,7 +110,7 @@ fn init_confirm(action: &str) -> (TemplateGenerator, u64, u64) {
 }
 
 #[test]
-fn gen_confirm_proposal() {
+fn gen_proposal_confirm() {
     let (mut template, height, timestamp) = init_confirm("confirm_proposal");
 
     let slices = vec![
@@ -394,6 +394,124 @@ challenge_with_generator!(
             475_000_000_000,
             Source::Output,
         );
+
+        template.as_json()
+    }
+);
+
+challenge_with_generator!(
+    chanllenge_proposal_confirm_account_cell_capacity_mismatch,
+    Error::CellCapacityMustConsistent,
+    || {
+        let (mut template, height, timestamp) = init_confirm("confirm_proposal");
+
+        let slices = vec![vec![
+            ("das00012.bit", ProposalSliceItemType::Exist, "das00009.bit"),
+            ("das00005.bit", ProposalSliceItemType::New, ""),
+        ]];
+
+        let (cell_data, entity) = template.gen_proposal_cell_data(
+            "0x0000000000000000000000000000000000002233",
+            height,
+            &slices,
+        );
+        template.push_proposal_cell(
+            cell_data,
+            Some((1, 0, entity)),
+            100_000_000_000,
+            Source::Input,
+        );
+
+        let old_registered_at = timestamp - 86400;
+        let old_expired_at = timestamp + 31536000 - 86400;
+        let new_registered_at = timestamp;
+        let new_expired_at = timestamp + 31536000;
+
+        gen_account_cells_edit_capacity!(
+            template,
+            "das00012.bit",
+            "das00009.bit",
+            "das00005.bit",
+            old_registered_at,
+            old_expired_at,
+            1,
+            0,
+            20_000_000_000,
+            19_900_000_000
+        );
+        gen_account_and_pre_account_cells!(
+            template,
+            "das00005.bit",
+            "das00009.bit",
+            1000,
+            500,
+            timestamp - 60,
+            new_registered_at,
+            new_expired_at,
+            2,
+            1
+        );
+
+        gen_income_cell!(template, 2);
+
+        template.as_json()
+    }
+);
+
+challenge_with_generator!(
+    chanllenge_proposal_confirm_new_account_cell_capacity_mismatch,
+    Error::ProposalConfirmNewAccountCellCapacityError,
+    || {
+        let (mut template, height, timestamp) = init_confirm("confirm_proposal");
+
+        let slices = vec![vec![
+            ("das00012.bit", ProposalSliceItemType::Exist, "das00009.bit"),
+            ("das00005.bit", ProposalSliceItemType::New, ""),
+        ]];
+
+        let (cell_data, entity) = template.gen_proposal_cell_data(
+            "0x0000000000000000000000000000000000002233",
+            height,
+            &slices,
+        );
+        template.push_proposal_cell(
+            cell_data,
+            Some((1, 0, entity)),
+            100_000_000_000,
+            Source::Input,
+        );
+
+        let old_registered_at = timestamp - 86400;
+        let old_expired_at = timestamp + 31536000 - 86400;
+        let new_registered_at = timestamp;
+        let new_expired_at = timestamp + 31536000;
+
+        gen_account_cells!(
+            template,
+            "das00012.bit",
+            "das00009.bit",
+            "das00005.bit",
+            old_registered_at,
+            old_expired_at,
+            1,
+            0
+        );
+        gen_account_and_pre_account_cells_edit_capacity!(
+            template,
+            "das00005.bit",
+            "das00009.bit",
+            1000,
+            500,
+            timestamp - 60,
+            new_registered_at,
+            new_expired_at,
+            2,
+            1,
+            496_200_000_000,
+            19_900_000_000
+        );
+
+        gen_income_cell!(template, 2);
 
         template.as_json()
     }

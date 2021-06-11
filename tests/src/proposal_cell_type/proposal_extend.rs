@@ -5,7 +5,7 @@ use das_types::constants::*;
 use super::common::*;
 
 #[test]
-fn gen_extend_proposal() {
+fn gen_proposal_extend() {
     let (mut template, height, timestamp) = init("extend_proposal");
 
     // Generate previous proposal

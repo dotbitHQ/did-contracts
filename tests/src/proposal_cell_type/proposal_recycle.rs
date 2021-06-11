@@ -54,7 +54,7 @@ test_with_template!(test_proposal_recycle, "proposal_recycle.json");
 
 challenge_with_generator!(
     chanllenge_proposal_recycle_no_refund,
-    Error::ProposalRecycleCanNotFoundRefundCell,
+    Error::ProposalConfirmRefundError,
     || {
         let (mut template, height) = init_recycle();
 

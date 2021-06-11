@@ -716,22 +716,26 @@ fn verify_proposal_execution_result(
                     item_account_id,
                 )?;
 
+                util::is_cell_capacity_equal(
+                    (input_related_cells[i], Source::Input),
+                    (output_account_cells[i], Source::Output),
+                )?;
+                util::is_cell_lock_equal(
+                    (input_related_cells[i], Source::Input),
+                    (output_account_cells[i], Source::Output),
+                )?;
+
                 // For the existing AccountCell, only the next field in data can be modified.
-                is_id_same(item_index, &output_cell_data, &input_cell_data)?;
-                is_account_same(item_index, &output_cell_data, &input_cell_data)?;
-                is_expired_at_same(item_index, &output_cell_data, &input_cell_data)?;
+                is_old_account_cell_data_consistent(
+                    item_index,
+                    &output_cell_data,
+                    &input_cell_data,
+                )?;
                 is_next_correct(item_index, &output_cell_data, item_next)?;
 
-                let input_account_witness =
-                    AccountCellData::new_unchecked(input_cell_entity.as_reader().raw_data().into());
-                let input_account_witness_reader = input_account_witness.as_reader();
-                let output_account_witness = AccountCellData::new_unchecked(
-                    output_cell_entity.as_reader().raw_data().into(),
-                );
-                let output_cell_witness_reader = output_account_witness.as_reader();
-
+                // Check if the witness of the AccountCell is consistent.
                 assert!(
-                    util::is_reader_eq(input_account_witness_reader, output_cell_witness_reader),
+                    input_cell_entity.as_slice() == output_cell_entity.as_slice(),
                     Error::ProposalWitnessCanNotBeModified,
                     "The witness of exist AccountCell should not be modified."
                 );
@@ -799,7 +803,8 @@ fn verify_proposal_execution_result(
                     Some(item_index),
                 )?;
 
-                is_lock_correct(
+                is_cell_capacity_correct(item_index, output_account_cells[i], storage_capacity)?;
+                is_new_account_cell_lock_correct(
                     item_index,
                     input_related_cells[i],
                     input_cell_witness_reader,
@@ -1063,7 +1068,7 @@ fn verify_pre_account_cell_account_id(
     Ok(())
 }
 
-fn is_lock_correct(
+fn is_new_account_cell_lock_correct(
     item_index: usize,
     input_cell_index: usize,
     input_cell_witness_reader: PreAccountCellDataReader,
@@ -1111,17 +1116,17 @@ fn is_bytes_eq(
     assert!(
         current_bytes == expected_bytes,
         error_code,
-        "  Item[{}] Check outputs[].AccountCell.{}: 0x{} != 0x{} => true",
+        "  Item[{}] The AccountCell.{} should be consist in inputs and outputs.(expected: {}, current: {})",
         item_index,
         field,
-        util::hex_string(current_bytes),
-        util::hex_string(expected_bytes)
+        util::hex_string(expected_bytes),
+        util::hex_string(current_bytes)
     );
 
     Ok(())
 }
 
-fn is_id_same(
+fn is_old_account_cell_data_consistent(
     item_index: usize,
     output_cell_data: &Vec<u8>,
     input_cell_data: &Vec<u8>,
@@ -1132,39 +1137,21 @@ fn is_id_same(
         account_cell::get_id(output_cell_data),
         account_cell::get_id(input_cell_data),
         Error::ProposalFieldCanNotBeModified,
-    )
-}
-
-fn is_account_same(
-    item_index: usize,
-    output_cell_data: &Vec<u8>,
-    input_cell_data: &Vec<u8>,
-) -> Result<(), Error> {
+    )?;
     is_bytes_eq(
         item_index,
         "account",
         account_cell::get_account(output_cell_data),
         account_cell::get_account(input_cell_data),
         Error::ProposalFieldCanNotBeModified,
-    )
-}
-
-fn is_expired_at_same(
-    item_index: usize,
-    output_cell_data: &Vec<u8>,
-    input_cell_data: &Vec<u8>,
-) -> Result<(), Error> {
-    let input_expired_at = account_cell::get_expired_at(input_cell_data);
-    let output_expired_at = account_cell::get_expired_at(output_cell_data);
-
-    assert!(
-        input_expired_at == output_expired_at,
-        Error::ProposalFieldCanNotBeModified,
-        "  Item[{}] Check outputs[].AccountCell.expired_at: {:x?} != {:x?} => true",
+    )?;
+    is_bytes_eq(
         item_index,
-        input_expired_at,
-        output_expired_at
-    );
+        "expired_at",
+        &account_cell::get_expired_at(output_cell_data).to_le_bytes(),
+        &account_cell::get_expired_at(input_cell_data).to_le_bytes(),
+        Error::ProposalFieldCanNotBeModified,
+    )?;
 
     Ok(())
 }
@@ -1179,7 +1166,7 @@ fn is_id_correct(
         "id",
         account_cell::get_id(output_cell_data),
         account_cell::get_id(input_cell_data),
-        Error::ProposalConfirmIdError,
+        Error::ProposalConfirmNewAccountCellDataError,
     )
 }
 
@@ -1195,7 +1182,7 @@ fn is_next_correct(
         "next",
         account_cell::get_next(output_cell_data),
         expected_next,
-        Error::ProposalConfirmNextError,
+        Error::ProposalConfirmNewAccountCellDataError,
     )
 }
 
@@ -1224,7 +1211,7 @@ fn is_expired_at_correct(
 
     assert!(
         calculated_expired_at == expired_at,
-        Error::ProposalConfirmExpiredAtError,
+        Error::ProposalConfirmNewAccountCellDataError,
         "  Item[{}] The AccountCell.expired_at should be {}, but {} found.",
         item_index,
         calculated_expired_at,
@@ -1246,8 +1233,28 @@ fn is_account_correct(item_index: usize, output_cell_data: &Vec<u8>) -> Result<(
         "account",
         account_id,
         expected_account_id,
-        Error::ProposalConfirmAccountError,
+        Error::ProposalConfirmNewAccountCellDataError,
     )
+}
+
+fn is_cell_capacity_correct(
+    item_index: usize,
+    cell_index: usize,
+    expected_capacity: u64,
+) -> Result<(), Error> {
+    let cell_capacity =
+        load_cell_capacity(cell_index, Source::Output).map_err(|e| Error::from(e))?;
+
+    assert!(
+        expected_capacity == cell_capacity,
+        Error::ProposalConfirmNewAccountCellCapacityError,
+        "  Item[{}] The AccountCell.expired_at should be {}, but {} found.",
+        item_index,
+        expected_capacity,
+        cell_capacity
+    );
+
+    Ok(())
 }
 
 fn verify_witness_id(
