@@ -124,7 +124,7 @@ challenge_with_generator!(
 );
 
 challenge_with_generator!(
-    challenge_pre_register_account_length,
+    challenge_pre_register_account_can_not_register,
     Error::AccountStillCanNotBeRegister,
     || {
         let (mut template, account, timestamp) = init("a.bit");
@@ -143,6 +143,33 @@ challenge_with_generator!(
             cell_data,
             Some((1, 0, entity)),
             1174900000000,
+            Source::Output,
+        );
+
+        template.as_json()
+    }
+);
+
+challenge_with_generator!(
+    challenge_pre_register_account_length,
+    Error::PreRegisterAccountIsTooLong,
+    || {
+        let (mut template, account, timestamp) = init("123456789012345678901.bit");
+
+        let (cell_data, entity) = template.gen_pre_account_cell_data(
+            account,
+            "0x0000000000000000000000000000000000002222",
+            "0x000000000000000000000000000000000000FFFF",
+            "0x0000000000000000000000000000000000001111",
+            "0x0000000000000000000000000000000000002222",
+            1000,
+            500,
+            timestamp,
+        );
+        template.push_pre_account_cell(
+            cell_data,
+            Some((1, 0, entity)),
+            535_600_000_000,
             Source::Output,
         );
 

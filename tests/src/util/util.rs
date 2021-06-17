@@ -16,7 +16,7 @@ use ckb_tool::{
     },
 };
 use das_core::error;
-use das_types::packed as das_packed;
+use das_types::{packed as das_packed, util as das_types_util};
 use lazy_static::lazy_static;
 use std::collections::HashSet;
 use std::error::Error;
@@ -28,6 +28,8 @@ use std::{env, io, path::PathBuf};
 lazy_static! {
     pub static ref SECP256K1: secp256k1::Secp256k1<secp256k1::All> = secp256k1::Secp256k1::new();
 }
+
+pub use das_types_util::hex_string;
 
 pub fn contains_error(message: &str, err_code: error::Error) -> bool {
     let err_str = format!("ValidationFailure({})", (err_code as i8).to_string());
@@ -76,9 +78,17 @@ pub fn hex_to_u64(input: &str) -> Result<u64, Box<dyn Error>> {
     }
 }
 
-pub fn account_to_id(input: &[u8]) -> Vec<u8> {
-    let hash = blake2b_256(input);
+pub fn account_to_id(account: &str) -> Vec<u8> {
+    let hash = blake2b_256(account);
     hash.get(..ACCOUNT_ID_LENGTH).unwrap().to_vec()
+}
+
+pub fn account_to_id_bytes(account: &str) -> bytes::Bytes {
+    bytes::Bytes::from(account_to_id(account))
+}
+
+pub fn account_to_id_hex(account: &str) -> String {
+    format!("0x{}", hex_string(account_to_id(account).as_slice()))
 }
 
 pub fn deploy_dev_contract(

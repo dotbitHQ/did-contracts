@@ -60,10 +60,11 @@ pub enum Error {
     PreRegisterPriceInvalid,
     PreRegisterFoundUndefinedCharSet, // 75
     PreRegisterCKBInsufficient,
+    PreRegisterAccountIsTooLong,
     PreRegisterAccountCharSetConflict,
     PreRegisterAccountCharIsInvalid,
-    PreRegisterQuoteIsInvalid,
-    PreRegisterDiscountIsInvalid = 80,
+    PreRegisterQuoteIsInvalid, // 80
+    PreRegisterDiscountIsInvalid,
     PreRegisterOwnerLockArgsIsInvalid,
     ProposalFoundInvalidTransaction = 90,
     ProposalSliceIsNotSorted,
@@ -74,14 +75,12 @@ pub enum Error {
     ProposalCellAccountIdError,
     ProposalFieldCanNotBeModified,
     ProposalWitnessCanNotBeModified,
-    ProposalConfirmIdError = 100,
-    ProposalConfirmNextError,
-    ProposalConfirmExpiredAtError,
-    ProposalConfirmAccountError,
+    ProposalConfirmNewAccountCellDataError = 100,
+    ProposalConfirmNewAccountCellCapacityError,
     ProposalConfirmWitnessIDError,
-    ProposalConfirmWitnessAccountError, // 105
+    ProposalConfirmWitnessAccountError,
     ProposalConfirmWitnessOwnerError,
-    ProposalConfirmWitnessManagerError,
+    ProposalConfirmWitnessManagerError, // 105
     ProposalConfirmWitnessStatusError,
     ProposalConfirmWitnessRecordsError,
     ProposalConfirmAccountLockArgsIsInvalid = 110,
@@ -93,7 +92,6 @@ pub enum Error {
     ProposalSliceMustContainMoreThanOneElement,
     ProposalSliceItemMustBeUniqueAccount,
     ProposalRecycleNeedWaitLonger,
-    ProposalRecycleCanNotFoundRefundCell,
     ProposalRecycleRefundAmountError, // 120
     PrevProposalItemNotFound,
     IncomeCellConsolidateConditionNotSatisfied = -126,

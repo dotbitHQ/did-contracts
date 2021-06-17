@@ -54,12 +54,12 @@ fn gen_transfer_account() {
     let (mut template, timestamp) = init("transfer_account", Some("0x00"));
 
     let account = "das00001.bit";
+    let next_account = "das00014.bit";
     let registered_at = timestamp - 86400;
     let expired_at = timestamp + 31536000 - 86400;
-    let next = bytes::Bytes::from(account_to_id_bytes("das00014.bit"));
 
     let (cell_data, old_entity) =
-        template.gen_account_cell_data(account, next.clone(), registered_at, expired_at, None);
+        template.gen_account_cell_data(account, next_account, registered_at, expired_at, None);
     template.push_account_cell(
         "0x0000000000000000000000000000000000001111",
         "0x0000000000000000000000000000000000001111",
@@ -70,7 +70,7 @@ fn gen_transfer_account() {
     );
 
     let (cell_data, new_entity) =
-        template.gen_account_cell_data(account, next.clone(), registered_at, expired_at, None);
+        template.gen_account_cell_data(account, next_account, registered_at, expired_at, None);
     template.push_account_cell(
         "0x0000000000000000000000000000000000002222",
         "0x0000000000000000000000000000000000002222",
@@ -99,12 +99,12 @@ challenge_with_generator!(
         let (mut template, timestamp) = init("transfer_account", Some("0x00"));
 
         let account = "das00001.bit";
+        let next_account = "das00014.bit";
         let registered_at = timestamp - 86400;
         let expired_at = timestamp + 31536000 - 86400;
-        let next = bytes::Bytes::from(account_to_id_bytes("das00014.bit"));
 
         let (cell_data, old_entity) =
-            template.gen_account_cell_data(account, next.clone(), registered_at, expired_at, None);
+            template.gen_account_cell_data(account, next_account, registered_at, expired_at, None);
         template.push_account_cell(
             "0x0000000000000000000000000000000000001111",
             "0x0000000000000000000000000000000000001111",
@@ -115,7 +115,7 @@ challenge_with_generator!(
         );
 
         let (cell_data, new_entity) =
-            template.gen_account_cell_data(account, next.clone(), registered_at, expired_at, None);
+            template.gen_account_cell_data(account, next_account, registered_at, expired_at, None);
         template.push_account_cell(
             "0x0000000000000000000000000000000000002222",
             "0x0000000000000000000000000000000000003333",
@@ -141,12 +141,12 @@ fn gen_edit_manager() {
     let (mut template, timestamp) = init("edit_manager", Some("0x00"));
 
     let account = "das00001.bit";
+    let next_account = "das00014.bit";
     let registered_at = timestamp - 86400;
     let expired_at = timestamp + 31536000 - 86400;
-    let next = bytes::Bytes::from(account_to_id_bytes("das00014.bit"));
 
     let (cell_data, old_entity) =
-        template.gen_account_cell_data(account, next.clone(), registered_at, expired_at, None);
+        template.gen_account_cell_data(account, next_account, registered_at, expired_at, None);
     template.push_account_cell(
         "0x0000000000000000000000000000000000001111",
         "0x0000000000000000000000000000000000002222",
@@ -157,7 +157,7 @@ fn gen_edit_manager() {
     );
 
     let (cell_data, new_entity) =
-        template.gen_account_cell_data(account, next.clone(), registered_at, expired_at, None);
+        template.gen_account_cell_data(account, next_account, registered_at, expired_at, None);
     template.push_account_cell(
         "0x0000000000000000000000000000000000001111",
         "0x0000000000000000000000000000000000003333",
@@ -191,12 +191,12 @@ fn gen_edit_records() {
     );
 
     let account = "das00001.bit";
+    let next_account = "das00014.bit";
     let registered_at = timestamp - 86400;
     let expired_at = timestamp + 31536000 - 86400;
-    let next = bytes::Bytes::from(account_to_id_bytes("das00014.bit"));
 
     let (cell_data, old_entity) =
-        template.gen_account_cell_data(account, next.clone(), registered_at, expired_at, None);
+        template.gen_account_cell_data(account, next_account, registered_at, expired_at, None);
     template.push_account_cell(
         "0x0000000000000000000000000000000000001111",
         "0x0000000000000000000000000000000000002222",
@@ -247,7 +247,7 @@ fn gen_edit_records() {
 
     let (cell_data, new_entity) = template.gen_account_cell_data(
         account,
-        next.clone(),
+        next_account,
         registered_at,
         expired_at,
         Some(gen_account_records(records)),
@@ -283,12 +283,12 @@ fn gen_renew_account() {
     template.push_config_cell(DataType::ConfigCellPrice, true, 0, Source::CellDep);
 
     let account = "das00001.bit";
+    let next_account = "das00014.bit";
     let registered_at = timestamp - 86400;
     let expired_at = timestamp + 31536000 - 86400;
-    let next = bytes::Bytes::from(account_to_id_bytes("das00014.bit"));
 
     let (cell_data, old_entity) =
-        template.gen_account_cell_data(account, next.clone(), registered_at, expired_at, None);
+        template.gen_account_cell_data(account, next_account, registered_at, expired_at, None);
     template.push_account_cell(
         "0x0000000000000000000000000000000000001111",
         "0x0000000000000000000000000000000000002222",
@@ -299,7 +299,7 @@ fn gen_renew_account() {
     );
     let (cell_data, new_entity) = template.gen_account_cell_data(
         account,
-        next.clone(),
+        next_account,
         registered_at,
         expired_at + 86400 * 365,
         None,
@@ -362,12 +362,12 @@ fn gen_recycle_expired_account_by_keeper() {
     let (mut template, timestamp) = init("recycle_expired_account_by_keeper", None);
 
     let account = "das00001.bit";
+    let next_account = "das00014.bit";
     let registered_at = timestamp - 86400 * (365 + 30); // Register at 1 year and 1 month before
     let expired_at = timestamp - 86400 * 30 - 1; // Expired at 1 month + 1 second before
-    let next = bytes::Bytes::from(account_to_id_bytes("das00014.bit"));
 
     let (cell_data, old_entity) =
-        template.gen_account_cell_data(account, next.clone(), registered_at, expired_at, None);
+        template.gen_account_cell_data(account, next_account, registered_at, expired_at, None);
     template.push_account_cell(
         "0x0000000000000000000000000000000000001111",
         "0x0000000000000000000000000000000000002222",
