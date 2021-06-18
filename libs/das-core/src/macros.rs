@@ -35,3 +35,13 @@ macro_rules! assert {
         }
     };
 }
+
+#[macro_export]
+macro_rules! parse_witness {
+    ($parser:expr, $index:expr, $source:expr, $entity_type:ty) => {{
+        let (_, _, entity) = $parser.verify_and_get($index, $source)?;
+        let entity = <$entity_type>::from_slice(entity.as_reader().raw_data())
+            .map_err(|_| Error::WitnessEntityDecodingError)?;
+        entity
+    }};
+}

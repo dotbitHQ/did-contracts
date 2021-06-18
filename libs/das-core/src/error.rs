@@ -96,6 +96,7 @@ pub enum Error {
     PrevProposalItemNotFound,
     IncomeCellConsolidateConditionNotSatisfied = -126,
     IncomeCellConsolidateError,
+    IncomeCellConsolidateWaste,
     IncomeCellTransferError,
     IncomeCellCapacityError,
     AccountCellFoundInvalidTransaction = -110,

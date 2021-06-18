@@ -125,9 +125,9 @@ pub fn find_only_cell_by_type_id(
     assert!(
         cells.len() == 1,
         Error::InvalidTransactionStructure,
-        "Only one cell expected existing in this transaction, but found more: {:?}: {:?}",
-        source,
-        cells
+        "Only one cell expected existing in this transaction, but found {:?} in {:?}.",
+        cells.len(),
+        source
     );
 
     Ok(cells[0])

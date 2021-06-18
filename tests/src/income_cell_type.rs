@@ -189,8 +189,11 @@ challenge_with_generator!(
 );
 
 #[test]
-fn gen_income_consolidate() {
+fn gen_income_consolidate_need_pad() {
     let mut template = init("consolidate_income");
+
+    let capacity_of_10 = 20_000_000_000;
+    let capacity_of_20 = 10_200_000_000;
 
     // inputs
     let records_param = vec![
@@ -200,19 +203,19 @@ fn gen_income_consolidate() {
         },
         IncomeRecordParam {
             belong_to: "0x0000000000000000000000000000000000000010",
-            capacity: 19_000_000_000,
+            capacity: capacity_of_10 / 2, // 100 CKB
         },
         IncomeRecordParam {
             belong_to: "0x0000000000000000000000000000000000000020",
-            capacity: 19_000_000_000,
+            capacity: capacity_of_20 - 200_000_000, // 100 CKB
         },
         IncomeRecordParam {
             belong_to: "0x0000000000000000000000000000000000000030",
-            capacity: 500_000_000,
+            capacity: 100_000_000,
         },
         IncomeRecordParam {
             belong_to: "0x0000000000000000000000000000000000000040",
-            capacity: 500_000_000,
+            capacity: 9_900_000_000,
         },
     ];
     push_income_cell!(template, records_param, 0, Source::Input);
@@ -224,15 +227,15 @@ fn gen_income_consolidate() {
         },
         IncomeRecordParam {
             belong_to: "0x0000000000000000000000000000000000000010",
-            capacity: 1_000_000_000,
+            capacity: capacity_of_10 / 2, // 100 CKB
         },
         IncomeRecordParam {
             belong_to: "0x0000000000000000000000000000000000000020",
-            capacity: 1_000_000_000,
+            capacity: capacity_of_20 - 10_000_000_000, // 2 CKB
         },
         IncomeRecordParam {
             belong_to: "0x0000000000000000000000000000000000000030",
-            capacity: 500_000_000,
+            capacity: 100_000_000,
         },
     ];
     push_income_cell!(template, records_param, 1, Source::Input);
@@ -248,15 +251,15 @@ fn gen_income_consolidate() {
     let records_param = vec![
         IncomeRecordParam {
             belong_to: "0x0000000000000000000000000000000000000010",
-            capacity: 20_000_000_000,
+            capacity: 9_900_000_000,
         },
         IncomeRecordParam {
             belong_to: "0x0000000000000000000000000000000000000030",
-            capacity: 1_000_000_000,
+            capacity: 200_000_000,
         },
         IncomeRecordParam {
             belong_to: "0x0000000000000000000000000000000000000040",
-            capacity: 500_000_000,
+            capacity: 9_900_000_000,
         },
     ];
     push_income_cell!(template, records_param, 0, Source::Output);
@@ -268,7 +271,12 @@ fn gen_income_consolidate() {
     );
     template.push_signall_cell(
         "0x0000000000000000000000000000000000000010",
-        19_800_000_000,
+        9_900_000_000,
+        Source::Output,
+    );
+    template.push_signall_cell(
+        "0x0000000000000000000000000000000000000020",
+        10_098_000_000,
         Source::Output,
     );
     // 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF can take some from user as their profit.
@@ -294,7 +302,7 @@ test_with_generator!(test_income_consolidate_no_pad, || {
         },
         IncomeRecordParam {
             belong_to: "0x0000000000000000000000000000000000000010",
-            capacity: 6_100_000_000,
+            capacity: 10_000_000_000,
         },
     ];
     push_income_cell!(template, records_param, 0, Source::Input);
@@ -306,7 +314,7 @@ test_with_generator!(test_income_consolidate_no_pad, || {
         },
         IncomeRecordParam {
             belong_to: "0x0000000000000000000000000000000000000010",
-            capacity: 100_000_000,
+            capacity: 200_000_000,
         },
     ];
     push_income_cell!(template, records_param, 1, Source::Input);
@@ -326,7 +334,7 @@ test_with_generator!(test_income_consolidate_no_pad, || {
     );
     template.push_signall_cell(
         "0x0000000000000000000000000000000000000010",
-        6_138_000_000,
+        10_098_000_000,
         Source::Output,
     );
     // 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF can take some from user as their profit.
@@ -476,6 +484,94 @@ challenge_with_generator!(
         template.push_signall_cell(
             "0x0000000000000000000000000000000000000000",
             20_000_000_000,
+            Source::Output,
+        );
+
+        template.as_json()
+    }
+);
+
+challenge_with_generator!(
+    challenge_income_consolidate_wasted_capacity,
+    Error::IncomeCellConsolidateWaste,
+    || {
+        let mut template = init("consolidate_income");
+
+        let capacity_of_10 = 20_000_000_000;
+        let capacity_of_20 = 10_200_000_000;
+
+        // inputs
+        let records_param = vec![
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000000010",
+                capacity: capacity_of_10 / 2, // 100 CKB
+            },
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000000020",
+                capacity: capacity_of_20 - 200_000_000, // 100 CKB
+            },
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000000040",
+                capacity: 9_900_000_000,
+            },
+        ];
+        push_income_cell!(template, records_param, 0, Source::Input);
+
+        let records_param = vec![
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000000010",
+                capacity: capacity_of_10 / 2, // 100 CKB
+            },
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000000020",
+                capacity: capacity_of_20 - 10_000_000_000, // 2 CKB
+            },
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000000030",
+                capacity: 200_000_000,
+            },
+        ];
+        push_income_cell!(template, records_param, 1, Source::Input);
+
+        // 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF is the keeper who pushed the consolidate_income transaction.
+        template.push_signall_cell(
+            "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+            6_100_000_000,
+            Source::Input,
+        );
+
+        // outputs
+        let records_param = vec![
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000000010",
+                capacity: 9_900_000_000,
+            },
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000000030",
+                capacity: 200_000_000,
+            },
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000000040",
+                capacity: 9_900_000_000,
+            },
+        ];
+        push_income_cell!(template, records_param, 0, Source::Output);
+
+        template.push_signall_cell(
+            "0x0000000000000000000000000000000000000010",
+            9_900_000_000,
+            Source::Output,
+        );
+        // Waste 198_000_000 CKBytes
+        template.push_signall_cell(
+            "0x0000000000000000000000000000000000000020",
+            9_900_000_000,
+            Source::Output,
+        );
+        // 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF can take some from user as their profit.
+        template.push_signall_cell(
+            "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+            6_300_000_000,
             Source::Output,
         );
 

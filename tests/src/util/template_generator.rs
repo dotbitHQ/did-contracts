@@ -501,9 +501,15 @@ impl TemplateGenerator {
     fn gen_config_cell_account(&mut self) -> (Bytes, ConfigCellAccount) {
         let entity = ConfigCellAccount::new_builder()
             .max_length(Uint32::from(20))
-            .basic_capacity(Uint64::from(20_000_000_000))
+            .basic_capacity(Uint64::from(20_600_000_000))
             .expiration_grace_period(Uint32::from(2_592_000))
             .record_min_ttl(Uint32::from(300))
+            .record_size_limit(Uint32::from(5000))
+            .transfer_account_fee(Uint64::from(10_000))
+            .edit_manager_fee(Uint64::from(10_000))
+            .edit_records_fee(Uint64::from(10_000))
+            .transfer_account_throttle(Uint32::from(86400))
+            .edit_manager_throttle(Uint32::from(3600))
             .build();
 
         let cell_data = Bytes::from(blake2b_256(entity.as_slice()).to_vec());
@@ -526,6 +532,7 @@ impl TemplateGenerator {
         let entity = ConfigCellIncome::new_builder()
             .basic_capacity(Uint64::from(20_000_000_000))
             .max_records(Uint32::from(50))
+            .min_transfer_capacity(Uint64::from(10_000_000_000))
             .build();
 
         let cell_data = Bytes::from(blake2b_256(entity.as_slice()).to_vec());
