@@ -59,7 +59,7 @@
     },
     {
       "tmp_type": "full",
-      "capacity": 15800000000,
+      "capacity": 21900000000,
       "lock": {
         "code_hash": "{{always_success}}",
         "args": "0x000000000000000000000000000000000000001111000000000000000000000000000000000000001111"
@@ -71,7 +71,7 @@
     },
     {
       "tmp_type": "full",
-      "capacity": 535600000000,
+      "capacity": 496900000000,
       "lock": {
         "code_hash": "{{always_success}}"
       },
@@ -82,7 +82,7 @@
     },
     {
       "tmp_type": "full",
-      "capacity": 535600000000,
+      "capacity": 496900000000,
       "lock": {
         "code_hash": "{{always_success}}"
       },
@@ -93,7 +93,7 @@
     },
     {
       "tmp_type": "full",
-      "capacity": 535600000000,
+      "capacity": 496900000000,
       "lock": {
         "code_hash": "{{always_success}}"
       },
@@ -104,7 +104,7 @@
     },
     {
       "tmp_type": "full",
-      "capacity": 535600000000,
+      "capacity": 496900000000,
       "lock": {
         "code_hash": "{{always_success}}"
       },
@@ -115,7 +115,7 @@
     },
     {
       "tmp_type": "full",
-      "capacity": 15800000000,
+      "capacity": 21900000000,
       "lock": {
         "code_hash": "{{always_success}}",
         "args": "0x000000000000000000000000000000000000001111000000000000000000000000000000000000001111"
@@ -127,7 +127,7 @@
     },
     {
       "tmp_type": "full",
-      "capacity": 535600000000,
+      "capacity": 496900000000,
       "lock": {
         "code_hash": "{{always_success}}"
       },

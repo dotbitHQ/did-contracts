@@ -49,7 +49,7 @@ pub fn gen_proposal_related_cell_at_create(
                     "0x0000000000000000000000000000000000001111",
                     cell_data,
                     Some((1, dep_index, entity)),
-                    15_800_000_000,
+                    1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
                     Source::CellDep,
                 );
             } else {
@@ -66,7 +66,7 @@ pub fn gen_proposal_related_cell_at_create(
                 template.push_pre_account_cell(
                     cell_data,
                     Some((1, dep_index, entity)),
-                    535_600_000_000,
+                    476_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
                     Source::CellDep,
                 );
             }
@@ -86,7 +86,7 @@ macro_rules! gen_account_cells {
             "0x0000000000000000000000000000000000001111",
             cell_data,
             None,
-            20_000_000_000, // The capacity is edited
+            1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
             Source::Input,
         );
 
@@ -103,7 +103,7 @@ macro_rules! gen_account_cells {
             "0x0000000000000000000000000000000000001111",
             cell_data,
             None,
-            20_000_000_000, // The capacity is edited
+            1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
             Source::Output,
         );
 
@@ -174,7 +174,7 @@ macro_rules! gen_account_and_pre_account_cells {
         $template.push_pre_account_cell(
             cell_data,
             Some((1, $input_index, entity)),
-            496_200_000_000,
+            476_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
             Source::Input,
         );
 
@@ -186,7 +186,7 @@ macro_rules! gen_account_and_pre_account_cells {
             "0x0000000000000000000000000000000000001100",
             cell_data,
             Some((1, $output_index, entity)),
-            21_200_000_000,
+            1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
             Source::Output,
         );
     }};

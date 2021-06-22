@@ -25,7 +25,7 @@ fn init(action: &str, params_opt: Option<&str>) -> (TemplateGenerator, u64) {
 }
 
 #[test]
-fn gen_init_account_chain() {
+fn gen_account_init_account_chain() {
     let (mut template, _) = init("init_account_chain", None);
 
     template.push_signall_cell(
@@ -47,10 +47,13 @@ fn gen_init_account_chain() {
     template.write_template("account_init_account_chain.json");
 }
 
-test_with_template!(test_init_account_chain, "account_init_account_chain.json");
+test_with_template!(
+    test_account_init_account_chain,
+    "account_init_account_chain.json"
+);
 
 #[test]
-fn gen_transfer_account() {
+fn gen_account_transfer() {
     let (mut template, timestamp) = init("transfer_account", Some("0x00"));
 
     let account = "das00001.bit";
@@ -65,7 +68,7 @@ fn gen_transfer_account() {
         "0x0000000000000000000000000000000000001111",
         cell_data,
         None,
-        19_400_000_000,
+        1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
         Source::Input,
     );
 
@@ -76,7 +79,8 @@ fn gen_transfer_account() {
         "0x0000000000000000000000000000000000002222",
         cell_data,
         None,
-        19_400_000_000,
+        1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY
+            - ACCOUNT_OPERATE_FEE,
         Source::Output,
     );
 
@@ -90,10 +94,10 @@ fn gen_transfer_account() {
     template.write_template("account_transfer.json");
 }
 
-test_with_template!(test_transfer_account, "account_transfer.json");
+test_with_template!(test_account_transfer, "account_transfer.json");
 
 challenge_with_generator!(
-    challenge_transfer_account_invalid_manager_lock,
+    challenge_account_transfer_invalid_manager_lock,
     Error::AccountCellManagerLockShouldBeModified,
     || {
         let (mut template, timestamp) = init("transfer_account", Some("0x00"));
@@ -110,7 +114,7 @@ challenge_with_generator!(
             "0x0000000000000000000000000000000000001111",
             cell_data,
             None,
-            19_400_000_000,
+            1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
             Source::Input,
         );
 
@@ -121,7 +125,7 @@ challenge_with_generator!(
             "0x0000000000000000000000000000000000003333",
             cell_data,
             None,
-            19_400_000_000,
+            1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
             Source::Output,
         );
 
@@ -137,7 +141,7 @@ challenge_with_generator!(
 );
 
 #[test]
-fn gen_edit_manager() {
+fn gen_account_edit_manager() {
     let (mut template, timestamp) = init("edit_manager", Some("0x00"));
 
     let account = "das00001.bit";
@@ -152,7 +156,7 @@ fn gen_edit_manager() {
         "0x0000000000000000000000000000000000002222",
         cell_data,
         None,
-        19_400_000_000,
+        1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
         Source::Input,
     );
 
@@ -163,7 +167,7 @@ fn gen_edit_manager() {
         "0x0000000000000000000000000000000000003333",
         cell_data,
         None,
-        19_400_000_000,
+        1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
         Source::Output,
     );
 
@@ -177,10 +181,10 @@ fn gen_edit_manager() {
     template.write_template("account_edit_manager.json");
 }
 
-test_with_template!(test_edit_manager, "account_edit_manager.json");
+test_with_template!(test_account_edit_manager, "account_edit_manager.json");
 
 #[test]
-fn gen_edit_records() {
+fn gen_account_edit_records() {
     let (mut template, timestamp) = init("edit_records", Some("0x01"));
 
     template.push_config_cell(
@@ -202,7 +206,7 @@ fn gen_edit_records() {
         "0x0000000000000000000000000000000000002222",
         cell_data,
         None,
-        19_400_000_000,
+        1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
         Source::Input,
     );
 
@@ -257,7 +261,7 @@ fn gen_edit_records() {
         "0x0000000000000000000000000000000000002222",
         cell_data,
         None,
-        19_400_000_000,
+        1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
         Source::Output,
     );
 
@@ -271,10 +275,10 @@ fn gen_edit_records() {
     template.write_template("account_edit_records.json");
 }
 
-test_with_template!(test_edit_records, "account_edit_records.json");
+test_with_template!(test_account_edit_records, "account_edit_records.json");
 
 #[test]
-fn gen_renew_account() {
+fn gen_account_renew() {
     let (mut template, timestamp) = init("renew_account", None);
 
     template.push_contract_cell("income-cell-type", false);
@@ -355,10 +359,10 @@ fn gen_renew_account() {
     template.write_template("account_renew_account.json");
 }
 
-test_with_template!(test_renew_account, "account_renew_account.json");
+test_with_template!(test_account_renew, "account_renew_account.json");
 
 #[test]
-fn gen_recycle_expired_account_by_keeper() {
+fn gen_account_recycle_expired_account_by_keeper() {
     let (mut template, timestamp) = init("recycle_expired_account_by_keeper", None);
 
     let account = "das00001.bit";
@@ -387,6 +391,6 @@ fn gen_recycle_expired_account_by_keeper() {
 }
 
 test_with_template!(
-    test_recycle_expired_account_by_keeper,
+    test_account_recycle_expired_account_by_keeper,
     "account_recycle_expired_account_by_keeper.json"
 );

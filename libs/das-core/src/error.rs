@@ -106,14 +106,15 @@ pub enum Error {
     AccountCellManagerLockShouldBeModified,
     AccountCellDataNotConsistent,
     AccountCellProtectFieldIsModified,
+    AccountCellNoMoreFee,
     AccountCellRenewDurationMustLongerThanYear,
     AccountCellRenewDurationBiggerThanPayed,
-    AccountCellInExpirationGracePeriod,
-    AccountCellHasExpired, // -100
+    AccountCellInExpirationGracePeriod, // -100
+    AccountCellHasExpired,
     AccountCellIsNotExpired,
     AccountCellRecycleCapacityError,
-    AccountCellChangeCapacityError, // -97
-    AccountCellRecordKeyInvalid,
+    AccountCellChangeCapacityError,
+    AccountCellRecordKeyInvalid, // -95
     AccountCellRecordSizeTooLarge,
     SystemOff = -1,
 }

@@ -390,7 +390,7 @@ fn verify_price_and_capacity(
     let storage_capacity =
         util::calc_account_storage_capacity(config_account, reader.account().len() as u64 + 4);
 
-    debug!("Check if PreAccountCell.capacity is enough for registration: {}(paid) < {}(1 year registeration fee) + {}(storage fee)",
+    debug!("Check if PreAccountCell.capacity is enough for registration: {}(paid) <-> {}(1 year registeration fee) + {}(storage fee)",
         capacity,
         register_capacity,
         storage_capacity

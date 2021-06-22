@@ -1252,7 +1252,7 @@ fn is_cell_capacity_correct(
     assert!(
         expected_capacity == cell_capacity,
         Error::ProposalConfirmNewAccountCellCapacityError,
-        "  Item[{}] The AccountCell.expired_at should be {}, but {} found.",
+        "  Item[{}] The AccountCell.capacity should be {}, but {} found.",
         item_index,
         expected_capacity,
         cell_capacity
