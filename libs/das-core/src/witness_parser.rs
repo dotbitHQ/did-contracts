@@ -108,7 +108,9 @@ impl WitnessesParser {
                     DataType::ConfigCellMain => return self.configs.main().is_err(),
                     DataType::ConfigCellCharSetEmoji
                     | DataType::ConfigCellCharSetDigit
-                    | DataType::ConfigCellCharSetEn => {
+                    | DataType::ConfigCellCharSetEn
+                    | DataType::ConfigCellCharSetZhHans
+                    | DataType::ConfigCellCharSetZhHant => {
                         if self.configs.char_set().is_ok() {
                             let char_sets = self.configs.char_set().unwrap();
                             let char_set_index =
@@ -308,7 +310,9 @@ impl WitnessesParser {
                 }
                 DataType::ConfigCellCharSetEmoji
                 | DataType::ConfigCellCharSetDigit
-                | DataType::ConfigCellCharSetEn => {
+                | DataType::ConfigCellCharSetEn
+                | DataType::ConfigCellCharSetZhHans
+                | DataType::ConfigCellCharSetZhHant => {
                     let char_set_type = das_types_util::data_type_to_char_set(data_type);
                     assign_config_char_set_witness!(char_set_type, entity)
                 }
@@ -361,9 +365,26 @@ impl WitnessesParser {
     }
 
     fn parse_data(witness: &[u8]) -> Result<Data, Error> {
+        debug!(
+            "witness[..3] = 0x{}",
+            util::hex_string(witness.get(..3).unwrap())
+        );
+        debug!(
+            "witness[3..7] = 0x{}",
+            util::hex_string(witness.get(3..7).unwrap())
+        );
+
         if let Some(raw) = witness.get(7..11) {
             // Because of the redundancy of the witness, appropriate trimming is performed here.
             let length = u32::from_le_bytes(raw.try_into().unwrap()) as usize;
+
+            debug!(
+                "witness[7..11] = 0x{}",
+                util::hex_string(witness.get(7..11).unwrap())
+            );
+            debug!("stored data length: {}", length);
+            debug!("real data length: {}", witness.get(7..).unwrap().len());
+
             if let Some(raw) = witness.get(7..(7 + length)) {
                 let data = match Data::from_slice(raw) {
                     Ok(data) => data,
@@ -471,6 +492,8 @@ impl WitnessesParser {
             DataType::ConfigCellCharSetEmoji,
             DataType::ConfigCellCharSetDigit,
             DataType::ConfigCellCharSetEn,
+            DataType::ConfigCellCharSetZhHans,
+            DataType::ConfigCellCharSetZhHant,
         ];
 
         config_data_types.contains(&data_type)

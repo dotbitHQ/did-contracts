@@ -43,7 +43,7 @@ fn init(account: &str) -> (TemplateGenerator, &str, u64) {
 }
 
 #[test]
-fn gen_pre_register() {
+fn gen_pre_register_simple() {
     let (mut template, account, timestamp) = init("✨das🎉001.bit");
 
     let (cell_data, entity) = template.gen_pre_account_cell_data(
@@ -66,10 +66,10 @@ fn gen_pre_register() {
     template.write_template("pre_register.json");
 }
 
-test_with_template!(test_pre_register, "pre_register.json");
+test_with_template!(test_pre_register_simple, "pre_register.json");
 
 test_with_generator!(test_pre_register_char_set, || {
-    let (mut template, account, timestamp) = init("一二三四0001.bit");
+    let (mut template, account, timestamp) = init("✨咐桑糯0001.bit");
     template.push_config_cell(DataType::ConfigCellCharSetZhHans, true, 0, Source::CellDep);
 
     let (cell_data, entity) = template.gen_pre_account_cell_data(

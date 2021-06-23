@@ -6,6 +6,8 @@ use ckb_tool::{
 };
 use das_sorted_list::DasSortedList;
 use das_types::{constants::*, packed::*, prelude::*, util as das_util};
+use lazy_static::lazy_static;
+use regex::Regex;
 use serde_json::{json, Value};
 use std::{collections::HashMap, convert::TryFrom, env, fs::OpenOptions, io::Write, str};
 
@@ -138,6 +140,10 @@ pub fn gen_account_records(records_param: Vec<AccountRecordParam>) -> Records {
 }
 
 pub fn gen_account_chars(chars: Vec<impl AsRef<str>>) -> AccountChars {
+    lazy_static! {
+        static ref RE_ZH: Regex = Regex::new(r"^[\u4E00-\u9FA5]+$").unwrap();
+    }
+
     let mut builder = AccountChars::new_builder();
     for char in chars {
         let char = char.as_ref();
@@ -146,8 +152,13 @@ pub fn gen_account_chars(chars: Vec<impl AsRef<str>>) -> AccountChars {
             continue;
         }
 
+        // ⚠️ For testing only, the judgement is not accurate.
         if char.len() != 1 {
-            builder = builder.push(gen_account_char(char, CharSetType::Emoji))
+            if RE_ZH.is_match(char) {
+                builder = builder.push(gen_account_char(char, CharSetType::ZhHans))
+            } else {
+                builder = builder.push(gen_account_char(char, CharSetType::Emoji))
+            }
         } else {
             let raw_char = char.chars().next().unwrap();
             if raw_char.is_digit(10) {
