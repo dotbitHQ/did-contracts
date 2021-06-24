@@ -38,10 +38,10 @@ macro_rules! assert {
 
 #[macro_export]
 macro_rules! parse_witness {
-    ($parser:expr, $index:expr, $source:expr, $entity_type:ty) => {{
-        let (_, _, entity) = $parser.verify_and_get($index, $source)?;
-        let entity = <$entity_type>::from_slice(entity.as_reader().raw_data())
+    ($entity:expr, $entity_reader:expr, $parser:expr, $index:expr, $source:expr, $entity_type:ty) => {{
+        let (_, _, mol_bytes) = $parser.verify_and_get($index, $source)?;
+        $entity = <$entity_type>::from_slice(mol_bytes.as_reader().raw_data())
             .map_err(|_| Error::WitnessEntityDecodingError)?;
-        entity
+        $entity_reader = $entity.as_reader();
     }};
 }

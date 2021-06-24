@@ -55,26 +55,30 @@ pub fn main() -> Result<(), Error> {
 
         util::is_cell_use_always_success_lock(output_cells[0], Source::Output)?;
 
-        // Read outputs_data and witness of the ProposalCell.
-        let index = &output_cells[0];
-        let (_, _, entity) = parser.verify_and_get(index.to_owned(), Source::Output)?;
-        let proposal_cell_data = ProposalCellData::from_slice(entity.as_reader().raw_data())
-            .map_err(|_| Error::WitnessEntityDecodingError)?;
-        let proposal_cell_data_reader = proposal_cell_data.as_reader();
+        // Read witness of the ProposalCell.
+        let output_cell_witness;
+        let output_cell_witness_reader;
+        parse_witness!(
+            output_cell_witness,
+            output_cell_witness_reader,
+            parser,
+            output_cells[0],
+            Source::Output,
+            ProposalCellData
+        );
 
         let required_cells_count =
-            verify_slices(config_proposal, proposal_cell_data_reader.slices())?;
+            verify_slices(config_proposal, output_cell_witness_reader.slices())?;
         let dep_related_cells = find_proposal_related_cells(config_main, Source::CellDep)?;
 
         #[cfg(not(feature = "mainnet"))]
-        inspect_slices(proposal_cell_data_reader.slices())?;
+        inspect_slices(output_cell_witness_reader.slices())?;
         #[cfg(not(feature = "mainnet"))]
         inspect_related_cells(
             &parser,
             config_main,
             dep_related_cells.clone(),
             Source::CellDep,
-            None,
         )?;
 
         assert!(
@@ -87,7 +91,7 @@ pub fn main() -> Result<(), Error> {
 
         verify_slices_relevant_cells(
             config_main,
-            proposal_cell_data_reader.slices(),
+            output_cell_witness_reader.slices(),
             dep_related_cells,
             None,
         )?;
@@ -108,32 +112,41 @@ pub fn main() -> Result<(), Error> {
         util::is_cell_use_always_success_lock(output_cells[0], Source::Output)?;
 
         // Read outputs_data and witness of previous ProposalCell.
-        let index = &dep_cells[0];
-        let (_, _, entity) = parser.verify_and_get(index.to_owned(), Source::CellDep)?;
-        let prev_proposal_cell_data = ProposalCellData::from_slice(entity.as_reader().raw_data())
-            .map_err(|_| Error::WitnessEntityDecodingError)?;
-        let prev_proposal_cell_data_reader = prev_proposal_cell_data.as_reader();
+        let dep_cell_witness;
+        let dep_cell_witness_reader;
+        parse_witness!(
+            dep_cell_witness,
+            dep_cell_witness_reader,
+            parser,
+            dep_cells[0],
+            Source::CellDep,
+            ProposalCellData
+        );
 
         // Read outputs_data and witness of the ProposalCell.
-        let index = &output_cells[0];
-        let (_, _, entity) = parser.verify_and_get(index.to_owned(), Source::Output)?;
-        let proposal_cell_data = ProposalCellData::from_slice(entity.as_reader().raw_data())
-            .map_err(|_| Error::WitnessEntityDecodingError)?;
-        let proposal_cell_data_reader = proposal_cell_data.as_reader();
+        let output_cell_witness;
+        let output_cell_witness_reader;
+        parse_witness!(
+            output_cell_witness,
+            output_cell_witness_reader,
+            parser,
+            output_cells[0],
+            Source::Output,
+            ProposalCellData
+        );
 
         let required_cells_count =
-            verify_slices(config_proposal, proposal_cell_data_reader.slices())?;
+            verify_slices(config_proposal, output_cell_witness_reader.slices())?;
         let dep_related_cells = find_proposal_related_cells(config_main, Source::CellDep)?;
 
         #[cfg(not(feature = "mainnet"))]
-        inspect_slices(proposal_cell_data_reader.slices())?;
+        inspect_slices(output_cell_witness_reader.slices())?;
         #[cfg(not(feature = "mainnet"))]
         inspect_related_cells(
             &parser,
             config_main,
             dep_related_cells.clone(),
             Source::CellDep,
-            None,
         )?;
 
         assert!(
@@ -146,9 +159,9 @@ pub fn main() -> Result<(), Error> {
 
         verify_slices_relevant_cells(
             config_main,
-            proposal_cell_data_reader.slices(),
+            output_cell_witness_reader.slices(),
             dep_related_cells,
-            Some(prev_proposal_cell_data_reader.slices()),
+            Some(dep_cell_witness_reader.slices()),
         )?;
     } else if action == b"confirm_proposal" {
         debug!("Route to confirm_proposal action ...");
@@ -168,11 +181,17 @@ pub fn main() -> Result<(), Error> {
             "There should be only one ProposalCell found in the inputs."
         );
 
-        // Read outputs_data and witness of ProposalCell.
-        let proposal_cell_index = input_cells[0];
-        let proposal_cell_data =
-            parse_witness!(parser, proposal_cell_index, Source::Input, ProposalCellData);
-        let proposal_cell_data_reader = proposal_cell_data.as_reader();
+        // Read witness of ProposalCell.
+        let input_cell_witness;
+        let input_cell_witness_reader;
+        parse_witness!(
+            input_cell_witness,
+            input_cell_witness_reader,
+            parser,
+            input_cells[0],
+            Source::Input,
+            ProposalCellData
+        );
 
         debug!("Check all AccountCells are updated or created base on proposal.");
 
@@ -180,14 +199,20 @@ pub fn main() -> Result<(), Error> {
         let output_account_cells = find_output_account_cells(config_main)?;
 
         #[cfg(not(feature = "mainnet"))]
-        inspect_slices(proposal_cell_data_reader.slices())?;
+        inspect_slices(input_cell_witness_reader.slices())?;
         #[cfg(not(feature = "mainnet"))]
         inspect_related_cells(
             &parser,
             config_main,
             input_related_cells.clone(),
             Source::Input,
-            Some(output_account_cells.clone()),
+        )?;
+        #[cfg(not(feature = "mainnet"))]
+        inspect_related_cells(
+            &parser,
+            config_main,
+            output_account_cells.clone(),
+            Source::Output,
         )?;
 
         verify_proposal_execution_result(
@@ -196,12 +221,12 @@ pub fn main() -> Result<(), Error> {
             config_main,
             config_profit_rate,
             timestamp,
-            proposal_cell_data_reader,
+            input_cell_witness_reader,
             input_related_cells,
             output_account_cells,
         )?;
 
-        verify_refund_correct(proposal_cell_index, proposal_cell_data_reader)?;
+        verify_refund_correct(input_cells[0], input_cell_witness_reader)?;
     } else if action == b"recycle_proposal" {
         debug!("Route to recycle_proposal action ...");
 
@@ -217,16 +242,21 @@ pub fn main() -> Result<(), Error> {
 
         debug!("Check if ProposalCell can be recycled.");
 
-        let proposal_cell_index = input_cells[0];
-        let (_, _, entity) = parser.verify_and_get(proposal_cell_index, Source::Input)?;
-        let proposal_cell_data = ProposalCellData::from_slice(entity.as_reader().raw_data())
-            .map_err(|_| Error::WitnessEntityDecodingError)?;
-        let proposal_cell_data_reader = proposal_cell_data.as_reader();
+        let input_cell_witness;
+        let input_cell_witness_reader;
+        parse_witness!(
+            input_cell_witness,
+            input_cell_witness_reader,
+            parser,
+            input_cells[0],
+            Source::Input,
+            ProposalCellData
+        );
 
         let height = util::load_height()?;
         let proposal_min_recycle_interval =
             u8::from(config_proposal_reader.proposal_min_recycle_interval()) as u64;
-        let created_at_height = u64::from(proposal_cell_data_reader.created_at_height());
+        let created_at_height = u64::from(input_cell_witness_reader.created_at_height());
 
         assert!(
             height - created_at_height >= proposal_min_recycle_interval,
@@ -235,7 +265,7 @@ pub fn main() -> Result<(), Error> {
             created_at_height + proposal_min_recycle_interval - height
         );
 
-        verify_refund_correct(proposal_cell_index, proposal_cell_data_reader)?;
+        verify_refund_correct(input_cells[0], input_cell_witness_reader)?;
     } else {
         return Err(Error::ActionNotSupported);
     }
@@ -277,11 +307,8 @@ fn inspect_related_cells(
     config_main: ConfigCellMainReader,
     related_cells: Vec<usize>,
     related_cells_source: Source,
-    output_account_cells: Option<Vec<usize>>,
 ) -> Result<(), Error> {
-    use das_core::inspect;
-
-    debug!("Inspect {:?}:", related_cells_source);
+    debug!("Inspect {:?}{:?}:", related_cells_source, related_cells);
     for i in related_cells {
         let script = load_cell_type(i, related_cells_source)
             .map_err(|e| Error::from(e))?
@@ -290,38 +317,28 @@ fn inspect_related_cells(
         let (_, _, entity) = parser.verify_and_get(i, related_cells_source)?;
         let data = util::load_cell_data(i, related_cells_source)?;
 
-        debug!("  Input[{}].cell.type: {}", i, script);
-
         if util::is_reader_eq(
             config_main.type_id_table().account_cell(),
             code_hash.as_reader(),
         ) {
-            inspect::account_cell(Source::Input, i, &data, entity.to_owned());
+            das_core::inspect::account_cell(
+                related_cells_source,
+                i,
+                &data,
+                Some(entity.as_reader()),
+                None,
+            );
         } else if util::is_reader_eq(
             config_main.type_id_table().pre_account_cell(),
             code_hash.as_reader(),
         ) {
-            inspect::pre_account_cell(Source::Input, i, &data, entity.to_owned());
-        }
-    }
-
-    if let Some(output_account_cells) = output_account_cells {
-        for i in output_account_cells {
-            let script = load_cell_type(i, Source::Output)
-                .map_err(|e| Error::from(e))?
-                .unwrap();
-            let code_hash = Hash::from(script.code_hash());
-            let (_, _, entity) = parser.verify_and_get(i, Source::Output)?;
-            let data = util::load_cell_data(i, Source::Output)?;
-
-            debug!("  Output[{}].cell.type: {}", i, script);
-
-            if util::is_reader_eq(
-                config_main.type_id_table().account_cell(),
-                code_hash.as_reader(),
-            ) {
-                inspect::account_cell(Source::Output, i, &data, entity.to_owned());
-            }
+            das_core::inspect::pre_account_cell(
+                related_cells_source,
+                i,
+                &data,
+                Some(entity.as_reader()),
+                None,
+            );
         }
     }
 
@@ -766,21 +783,27 @@ fn verify_proposal_execution_result(
                     item_account_id,
                 )?;
 
-                let output_cell_witness = parse_witness!(
+                let input_cell_witness;
+                let input_cell_witness_reader;
+                parse_witness!(
+                    input_cell_witness,
+                    input_cell_witness_reader,
                     parser,
                     input_related_cells[i],
                     Source::Input,
                     PreAccountCellData
                 );
-                let input_cell_witness_reader = output_cell_witness.as_reader();
 
-                let output_cell_witness = parse_witness!(
+                let output_cell_witness;
+                let output_cell_witness_reader;
+                parse_witness!(
+                    output_cell_witness,
+                    output_cell_witness_reader,
                     parser,
                     output_account_cells[i],
                     Source::Output,
                     AccountCellData
                 );
-                let output_cell_witness_reader = output_cell_witness.as_reader();
 
                 let account_name_storage =
                     account_cell::get_account(&output_cell_data).len() as u64;
@@ -914,20 +937,26 @@ fn verify_proposal_execution_result(
     );
 
     if input_income_cells.len() == 1 {
-        let (_, _, entity) = parser.verify_and_get(input_income_cells[0], Source::Input)?;
-        let income_cell_witness = IncomeCellData::from_slice(entity.as_reader().raw_data())
-            .map_err(|_| Error::WitnessEntityDecodingError)?;
-        let income_cell_witness_reader = income_cell_witness.as_reader();
+        let input_income_cell_witness;
+        let input_income_cell_witness_reader;
+        parse_witness!(
+            input_income_cell_witness,
+            input_income_cell_witness_reader,
+            parser,
+            input_income_cells[0],
+            Source::Input,
+            IncomeCellData
+        );
 
         // The IncomeCell should be a newly created cell with only one record which is belong to the creator, but we do not need to check everything here, so we only check the length.
         assert!(
-            income_cell_witness_reader.records().len() == 1,
+            input_income_cell_witness_reader.records().len() == 1,
             Error::ProposalFoundInvalidTransaction,
             "The IncomeCell in inputs should be a newly created cell with only one record which is belong to the creator."
         );
 
         // Add the original record into profit_map to bypass later verification.
-        let first_record = income_cell_witness_reader.records().get(0).unwrap();
+        let first_record = input_income_cell_witness_reader.records().get(0).unwrap();
         profit_map.insert(
             first_record.belong_to().as_slice().to_vec(),
             u64::from(first_record.capacity()),
@@ -943,13 +972,24 @@ fn verify_proposal_execution_result(
         output_income_cells.len()
     );
 
-    let (_, _, entity) = parser.verify_and_get(output_income_cells[0], Source::Output)?;
-    let output_cell_witness = IncomeCellData::from_slice(entity.as_reader().raw_data())
-        .map_err(|_| Error::WitnessEntityDecodingError)?;
-    let output_cell_witness_reader = output_cell_witness.as_reader();
+    let output_income_cell_witness;
+    let output_income_cell_witness_reader;
+    parse_witness!(
+        output_income_cell_witness,
+        output_income_cell_witness_reader,
+        parser,
+        output_income_cells[0],
+        Source::Output,
+        IncomeCellData
+    );
+
     let mut expected_capacity = 0;
 
-    for (i, record) in output_cell_witness_reader.records().iter().enumerate() {
+    for (i, record) in output_income_cell_witness_reader
+        .records()
+        .iter()
+        .enumerate()
+    {
         let key = record.belong_to().as_slice().to_vec();
         let recorded_profit = u64::from(record.capacity());
         let result = profit_map.get(&key);

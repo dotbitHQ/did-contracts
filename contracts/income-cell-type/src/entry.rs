@@ -7,7 +7,9 @@ use ckb_std::{
 };
 use core::result::Result;
 use core::slice::Iter;
-use das_core::{assert, constants::*, error::Error, util, warn, witness_parser::WitnessesParser};
+use das_core::{
+    assert, constants::*, error::Error, parse_witness, util, warn, witness_parser::WitnessesParser,
+};
 use das_types::{constants::DataType, packed::*, prelude::*};
 
 pub fn main() -> Result<(), Error> {
@@ -49,11 +51,16 @@ pub fn main() -> Result<(), Error> {
 
         debug!("Read data of the IncomeCell ...");
 
-        let index = output_cells[0].to_owned();
-        let (_, _, entity) = parser.verify_and_get(index, Source::Output)?;
-        let income_cell_witness = IncomeCellData::from_slice(entity.as_reader().raw_data())
-            .map_err(|_| Error::WitnessEntityDecodingError)?;
-        let income_cell_witness_reader = income_cell_witness.as_reader();
+        let income_cell_witness;
+        let income_cell_witness_reader;
+        parse_witness!(
+            income_cell_witness,
+            income_cell_witness_reader,
+            parser,
+            output_cells[0],
+            Source::Output,
+            IncomeCellData
+        );
 
         assert!(
             income_cell_witness_reader.records().len() == 1,
@@ -75,7 +82,7 @@ pub fn main() -> Result<(), Error> {
         );
 
         let cell_capacity =
-            load_cell_capacity(index, Source::Output).map_err(|e| Error::from(e))?;
+            load_cell_capacity(output_cells[0], Source::Output).map_err(|e| Error::from(e))?;
         let basic_capacity = u64::from(config_income.basic_capacity());
         assert!(
             cell_capacity == basic_capacity,
@@ -126,6 +133,15 @@ pub fn main() -> Result<(), Error> {
             let (_, _, entity) = parser.verify_and_get(index.to_owned(), Source::Input)?;
             let income_cell_witness = IncomeCellData::from_slice(entity.as_reader().raw_data())
                 .map_err(|_| Error::WitnessEntityDecodingError)?;
+
+            #[cfg(not(feature = "mainnet"))]
+            das_core::inspect::income_cell(
+                Source::Input,
+                index,
+                None,
+                Some(income_cell_witness.as_reader()),
+            );
+
             let creator = income_cell_witness.creator();
             let records = income_cell_witness.records();
 
@@ -168,7 +184,12 @@ pub fn main() -> Result<(), Error> {
                 .map_err(|_| Error::WitnessEntityDecodingError)?;
 
             #[cfg(not(feature = "mainnet"))]
-            inspect_records_in_witness("outputs", i, income_cell_witness.as_reader());
+            das_core::inspect::income_cell(
+                Source::Output,
+                cell_index.to_owned(),
+                None,
+                Some(income_cell_witness.as_reader()),
+            );
 
             assert!(
                 income_cell_witness.records().len() <= income_cell_max_records,
@@ -457,19 +478,6 @@ fn inspect_records_for_pad(title: &str, records: &Vec<(Script, u64, bool)>) {
             "  {{ belong_to.args: {}, capacity: {} }}",
             record.0.args(),
             record.1
-        );
-    }
-}
-
-#[cfg(not(feature = "mainnet"))]
-fn inspect_records_in_witness(field: &str, index: usize, reader: IncomeCellDataReader) {
-    debug!("IncomeCell at {}[{}]", field, index);
-
-    for record in reader.records().iter() {
-        debug!(
-            "  {{ belong_to.args: {}, capacity: {} }}",
-            record.belong_to().args(),
-            u64::from(record.capacity())
         );
     }
 }

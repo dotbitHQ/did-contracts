@@ -365,25 +365,25 @@ impl WitnessesParser {
     }
 
     fn parse_data(witness: &[u8]) -> Result<Data, Error> {
-        debug!(
-            "witness[..3] = 0x{}",
-            util::hex_string(witness.get(..3).unwrap())
-        );
-        debug!(
-            "witness[3..7] = 0x{}",
-            util::hex_string(witness.get(3..7).unwrap())
-        );
+        // debug!(
+        //     "witness[..3] = 0x{}",
+        //     util::hex_string(witness.get(..3).unwrap())
+        // );
+        // debug!(
+        //     "witness[3..7] = 0x{}",
+        //     util::hex_string(witness.get(3..7).unwrap())
+        // );
 
         if let Some(raw) = witness.get(7..11) {
             // Because of the redundancy of the witness, appropriate trimming is performed here.
             let length = u32::from_le_bytes(raw.try_into().unwrap()) as usize;
 
-            debug!(
-                "witness[7..11] = 0x{}",
-                util::hex_string(witness.get(7..11).unwrap())
-            );
-            debug!("stored data length: {}", length);
-            debug!("real data length: {}", witness.get(7..).unwrap().len());
+            // debug!(
+            //     "witness[7..11] = 0x{}",
+            //     util::hex_string(witness.get(7..11).unwrap())
+            // );
+            // debug!("stored data length: {}", length);
+            // debug!("real data length: {}", witness.get(7..).unwrap().len());
 
             if let Some(raw) = witness.get(7..(7 + length)) {
                 let data = match Data::from_slice(raw) {
