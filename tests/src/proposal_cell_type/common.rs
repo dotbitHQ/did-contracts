@@ -42,6 +42,9 @@ pub fn gen_proposal_related_cell_at_create(
                     next_account,
                     old_registered_at,
                     old_expired_at,
+                    0,
+                    0,
+                    0,
                     None,
                 );
                 template.push_account_cell(
@@ -79,8 +82,16 @@ pub fn gen_proposal_related_cell_at_create(
 macro_rules! gen_account_cells {
     ($template:expr, $account:expr, $next:expr, $updated_next:expr, $registered_at:expr, $expired_at:expr, $input_index:expr, $output_index:expr) => {{
         // Generate AccountCell in inputs
-        let (cell_data, old_entity) =
-            $template.gen_account_cell_data($account, $next, $registered_at, $expired_at, None);
+        let (cell_data, old_entity) = $template.gen_account_cell_data(
+            $account,
+            $next,
+            $registered_at,
+            $expired_at,
+            0,
+            0,
+            0,
+            None,
+        );
         $template.push_account_cell(
             "0x0000000000000000000000000000000000001111",
             "0x0000000000000000000000000000000000001111",
@@ -96,6 +107,9 @@ macro_rules! gen_account_cells {
             $updated_next,
             $registered_at,
             $expired_at,
+            0,
+            0,
+            0,
             None,
         );
         $template.push_account_cell(
@@ -120,8 +134,16 @@ macro_rules! gen_account_cells {
 macro_rules! gen_account_cells_edit_capacity {
     ($template:expr, $account:expr, $next:expr, $updated_next:expr, $registered_at:expr, $expired_at:expr, $input_index:expr, $output_index:expr, $input_capacity:expr, $output_capacity:expr) => {{
         // Generate AccountCell in inputs
-        let (cell_data, old_entity) =
-            $template.gen_account_cell_data($account, $next, $registered_at, $expired_at, None);
+        let (cell_data, old_entity) = $template.gen_account_cell_data(
+            $account,
+            $next,
+            $registered_at,
+            $expired_at,
+            0,
+            0,
+            0,
+            None,
+        );
         $template.push_account_cell(
             "0x0000000000000000000000000000000000001111",
             "0x0000000000000000000000000000000000001111",
@@ -137,6 +159,9 @@ macro_rules! gen_account_cells_edit_capacity {
             $updated_next,
             $registered_at,
             $expired_at,
+            0,
+            0,
+            0,
             None,
         );
         $template.push_account_cell(
@@ -179,8 +204,16 @@ macro_rules! gen_account_and_pre_account_cells {
         );
 
         // Generate new AccountCell in outputs.
-        let (cell_data, entity) =
-            $template.gen_account_cell_data($account, $next, $registered_at, $expired_at, None);
+        let (cell_data, entity) = $template.gen_account_cell_data(
+            $account,
+            $next,
+            $registered_at,
+            $expired_at,
+            0,
+            0,
+            0,
+            None,
+        );
         $template.push_account_cell(
             "0x0000000000000000000000000000000000001100",
             "0x0000000000000000000000000000000000001100",
@@ -213,8 +246,16 @@ macro_rules! gen_account_and_pre_account_cells_edit_capacity {
         );
 
         // Generate new AccountCell in outputs.
-        let (cell_data, entity) =
-            $template.gen_account_cell_data($account, $next, $registered_at, $expired_at, None);
+        let (cell_data, entity) = $template.gen_account_cell_data(
+            $account,
+            $next,
+            $registered_at,
+            $expired_at,
+            0,
+            0,
+            0,
+            None,
+        );
         $template.push_account_cell(
             "0x0000000000000000000000000000000000001100",
             "0x0000000000000000000000000000000000001100",

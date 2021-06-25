@@ -916,6 +916,9 @@ impl TemplateGenerator {
         next_account: &str,
         registered_at: u64,
         expired_at: u64,
+        last_transfer_account_at: u64,
+        last_edit_manager_at: u64,
+        last_edit_records_at: u64,
         records_opt: Option<Records>,
     ) -> (Bytes, AccountCellData) {
         let account_chars_raw = account
@@ -935,6 +938,9 @@ impl TemplateGenerator {
             .id(AccountId::try_from(id.clone()).unwrap())
             .account(account_chars.to_owned())
             .registered_at(Uint64::from(registered_at))
+            .last_transfer_account_at(Timestamp::from(last_transfer_account_at))
+            .last_edit_manager_at(Timestamp::from(last_edit_manager_at))
+            .last_edit_records_at(Timestamp::from(last_edit_records_at))
             .status(Uint8::from(0))
             .records(records)
             .build();

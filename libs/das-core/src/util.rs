@@ -715,7 +715,7 @@ pub fn is_init_day(current_timestamp: u64) -> Result<(), Error> {
 
     // On CKB main net, AKA Lina, some actions can be only executed at or before the initialization day of DAS.
     if cfg!(feature = "mainnet") {
-        let init_day = Utc.ymd(2021, 6, 15).and_hms(0, 0, 0);
+        let init_day = Utc.ymd(2021, 7, 10).and_hms(0, 0, 0);
         // Otherwise, any account longer than two chars in length can be registered.
         assert!(
             current <= init_day,
