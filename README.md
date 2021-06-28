@@ -3,11 +3,31 @@
 
 ## Development
 
-Build specific:
+### How to compile
 
-```sh
-./docker.sh build config-cell-type
-```
+To compile scripts on your own is the first step to start developing scripts, but it always cause headache problems when we facing problems about dependencies. 
+so here we choose the simple solution provided by Nervos team, the Docker. With an image named `jjy0/ckb-capsule-recipe-rust` which contains all dependencies 
+for compiling scripts, anyone may start compiling in about half an hour and the most time cost will be waiting for downloading. Thanks Nervos team! 👍
+
+> ⚠️ Linux is recommended system to do the compiling task, otherwise you may face a little bit of performance issues of docker.
+
+- Install docker base on [official documentation](https://docs.docker.com/engine/install/);
+- Pull the compiling image with `docker pull jjy0/ckb-capsule-recipe-rust:2020-9-28`;
+- Install `build-essential` if you are using Linux, install `xcode-select --install` if you are using MacOS;
+- Install `pkg-config libssl-dev` to make openssl available as dependency if you are using Ubuntu, other Linux distributions may also need to do something similar.
+
+Now you can start compiling scripts by yourself! 🚀
+
+### Compiling commands
+
+First you need to start container with `./docker.sh start`, then you can try commands below:
+
+- `./docker.sh build xxx-cell-type --dev` compiling a specific script for development environment, it can be also `--local, --testnet2, --testnet3, --mainnet`;
+- `./docker.sh build-all --dev` compiling all scripts for development environment;
+- `./docker.sh build xxx-cell-type --release --dev` compiling a specific script with release profile, but still for development environment;
+- `./docker.sh build-all --release --dev` compiling all scripts with release profile, but still for development environment;
+
+> ⚠️ `./docker.sh` is a very simple script which can not handle arguments in different order, so remember keep all arguments as the same order as above otherwise it may not working properly.
 
 ### Unit tests
 
@@ -25,11 +45,6 @@ cargo test -p tests challenge_ -- --nocapture --test-threads=1
 ```
 
 > Do not use `capsule build` and `capsule test` for performance reasons.
-
-### Recompile Flow
-
-1. Build config-cell-type.
-2. Calculate code_hash of config-cell-type.
 
 
 ## Documents

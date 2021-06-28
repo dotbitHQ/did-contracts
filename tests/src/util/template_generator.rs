@@ -6,6 +6,8 @@ use ckb_tool::{
 };
 use das_sorted_list::DasSortedList;
 use das_types::{constants::*, packed::*, prelude::*, util as das_util};
+use lazy_static::lazy_static;
+use regex::Regex;
 use serde_json::{json, Value};
 use std::{collections::HashMap, convert::TryFrom, env, fs::OpenOptions, io::Write, str};
 
@@ -138,6 +140,10 @@ pub fn gen_account_records(records_param: Vec<AccountRecordParam>) -> Records {
 }
 
 pub fn gen_account_chars(chars: Vec<impl AsRef<str>>) -> AccountChars {
+    lazy_static! {
+        static ref RE_ZH: Regex = Regex::new(r"^[\u4E00-\u9FA5]+$").unwrap();
+    }
+
     let mut builder = AccountChars::new_builder();
     for char in chars {
         let char = char.as_ref();
@@ -146,8 +152,13 @@ pub fn gen_account_chars(chars: Vec<impl AsRef<str>>) -> AccountChars {
             continue;
         }
 
+        // ⚠️ For testing only, the judgement is not accurate.
         if char.len() != 1 {
-            builder = builder.push(gen_account_char(char, CharSetType::Emoji))
+            if RE_ZH.is_match(char) {
+                builder = builder.push(gen_account_char(char, CharSetType::ZhHans))
+            } else {
+                builder = builder.push(gen_account_char(char, CharSetType::Emoji))
+            }
         } else {
             let raw_char = char.chars().next().unwrap();
             if raw_char.is_digit(10) {
@@ -501,9 +512,17 @@ impl TemplateGenerator {
     fn gen_config_cell_account(&mut self) -> (Bytes, ConfigCellAccount) {
         let entity = ConfigCellAccount::new_builder()
             .max_length(Uint32::from(20))
-            .basic_capacity(Uint64::from(20_000_000_000))
+            .basic_capacity(Uint64::from(ACCOUNT_BASIC_CAPACITY))
+            .prepared_fee_capacity(Uint64::from(ACCOUNT_PREPARED_FEE_CAPACITY))
             .expiration_grace_period(Uint32::from(2_592_000))
             .record_min_ttl(Uint32::from(300))
+            .record_size_limit(Uint32::from(5000))
+            .transfer_account_fee(Uint64::from(ACCOUNT_OPERATE_FEE))
+            .edit_manager_fee(Uint64::from(ACCOUNT_OPERATE_FEE))
+            .edit_records_fee(Uint64::from(ACCOUNT_OPERATE_FEE))
+            .transfer_account_throttle(Uint32::from(86400))
+            .edit_manager_throttle(Uint32::from(3600))
+            .edit_records_throttle(Uint32::from(600))
             .build();
 
         let cell_data = Bytes::from(blake2b_256(entity.as_slice()).to_vec());
@@ -526,6 +545,7 @@ impl TemplateGenerator {
         let entity = ConfigCellIncome::new_builder()
             .basic_capacity(Uint64::from(20_000_000_000))
             .max_records(Uint32::from(50))
+            .min_transfer_capacity(Uint64::from(10_000_000_000))
             .build();
 
         let cell_data = Bytes::from(blake2b_256(entity.as_slice()).to_vec());
@@ -668,6 +688,20 @@ impl TemplateGenerator {
         DataType::ConfigCellCharSetEn
     );
 
+    gen_config_cell_char_set!(
+        gen_config_cell_char_set_zh_hans,
+        1,
+        "char_set_zh_hans.txt",
+        DataType::ConfigCellCharSetZhHans
+    );
+
+    gen_config_cell_char_set!(
+        gen_config_cell_char_set_zh_hant,
+        1,
+        "char_set_zh_hant.txt",
+        DataType::ConfigCellCharSetZhHant
+    );
+
     pub fn push_config_cell(
         &mut self,
         config_type: DataType,
@@ -766,6 +800,20 @@ impl TemplateGenerator {
                 (
                     cell_data,
                     das_util::wrap_raw_witness(DataType::ConfigCellCharSetEn, raw),
+                )
+            }
+            DataType::ConfigCellCharSetZhHans => {
+                let (cell_data, raw) = self.gen_config_cell_char_set_zh_hans();
+                (
+                    cell_data,
+                    das_util::wrap_raw_witness(DataType::ConfigCellCharSetZhHans, raw),
+                )
+            }
+            DataType::ConfigCellCharSetZhHant => {
+                let (cell_data, raw) = self.gen_config_cell_char_set_zh_hant();
+                (
+                    cell_data,
+                    das_util::wrap_raw_witness(DataType::ConfigCellCharSetZhHant, raw),
                 )
             }
             _ => {
@@ -868,6 +916,9 @@ impl TemplateGenerator {
         next_account: &str,
         registered_at: u64,
         expired_at: u64,
+        last_transfer_account_at: u64,
+        last_edit_manager_at: u64,
+        last_edit_records_at: u64,
         records_opt: Option<Records>,
     ) -> (Bytes, AccountCellData) {
         let account_chars_raw = account
@@ -887,6 +938,9 @@ impl TemplateGenerator {
             .id(AccountId::try_from(id.clone()).unwrap())
             .account(account_chars.to_owned())
             .registered_at(Uint64::from(registered_at))
+            .last_transfer_account_at(Timestamp::from(last_transfer_account_at))
+            .last_edit_manager_at(Timestamp::from(last_edit_manager_at))
+            .last_edit_records_at(Timestamp::from(last_edit_records_at))
             .status(Uint8::from(0))
             .records(records)
             .build();

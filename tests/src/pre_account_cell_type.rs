@@ -43,7 +43,7 @@ fn init(account: &str) -> (TemplateGenerator, &str, u64) {
 }
 
 #[test]
-fn gen_pre_register() {
+fn gen_pre_register_simple() {
     let (mut template, account, timestamp) = init("✨das🎉001.bit");
 
     let (cell_data, entity) = template.gen_pre_account_cell_data(
@@ -59,14 +59,38 @@ fn gen_pre_register() {
     template.push_pre_account_cell(
         cell_data,
         Some((1, 0, entity)),
-        535_600_000_000,
+        476_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
         Source::Output,
     );
 
     template.write_template("pre_register.json");
 }
 
-test_with_template!(test_pre_register, "pre_register.json");
+test_with_template!(test_pre_register_simple, "pre_register.json");
+
+test_with_generator!(test_pre_register_char_set, || {
+    let (mut template, account, timestamp) = init("✨咐桑糯0001.bit");
+    template.push_config_cell(DataType::ConfigCellCharSetZhHans, true, 0, Source::CellDep);
+
+    let (cell_data, entity) = template.gen_pre_account_cell_data(
+        account,
+        "0x000000000000000000000000000000000000FFFF",
+        "0x0000000000000000000000000000000000001100",
+        "0x0000000000000000000000000000000000001111",
+        "0x0000000000000000000000000000000000002222",
+        1000,
+        500,
+        timestamp,
+    );
+    template.push_pre_account_cell(
+        cell_data,
+        Some((1, 0, entity)),
+        476_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
+        Source::Output,
+    );
+
+    template.as_json()
+});
 
 challenge_with_generator!(
     challenge_pre_register_invalid_char,
@@ -88,7 +112,7 @@ challenge_with_generator!(
         template.push_pre_account_cell(
             cell_data,
             Some((1, 0, entity)),
-            535_600_000_000,
+            476_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
             Source::Output,
         );
 
@@ -115,7 +139,7 @@ challenge_with_generator!(
         template.push_pre_account_cell(
             cell_data,
             Some((1, 0, entity)),
-            535_600_000_000,
+            476_300_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
             Source::Output,
         );
 
@@ -142,7 +166,7 @@ challenge_with_generator!(
         template.push_pre_account_cell(
             cell_data,
             Some((1, 0, entity)),
-            1174900000000,
+            1_140_500_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
             Source::Output,
         );
 
@@ -169,7 +193,7 @@ challenge_with_generator!(
         template.push_pre_account_cell(
             cell_data,
             Some((1, 0, entity)),
-            535_600_000_000,
+            500_000_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
             Source::Output,
         );
 

@@ -5,7 +5,7 @@ use ckb_std::{
 use core::convert::{TryFrom, TryInto};
 use core::result::Result;
 use das_core::{
-    assert, constants::*, data_parser, debug, error::Error, util, warn,
+    assert, constants::*, data_parser, debug, error::Error, parse_witness, util, warn,
     witness_parser::WitnessesParser,
 };
 use das_types::{
@@ -106,59 +106,64 @@ pub fn main() -> Result<(), Error> {
         debug!("Read witness of PreAccountCell ...");
 
         // Read outputs_data and witness of the PreAccountCell.
-        let index = &output_cells[0];
-        let data = load_cell_data(index.to_owned(), Source::Output).map_err(|e| Error::from(e))?;
+        let data = load_cell_data(output_cells[0], Source::Output).map_err(|e| Error::from(e))?;
         let account_id = data_parser::pre_account_cell::get_id(&data);
         let capacity =
-            load_cell_capacity(index.to_owned(), Source::Output).map_err(|e| Error::from(e))?;
-        let (_, _, entity) = parser.verify_and_get(index.to_owned(), Source::Output)?;
+            load_cell_capacity(output_cells[0], Source::Output).map_err(|e| Error::from(e))?;
+
+        let pre_account_cell_witness;
+        let pre_account_cell_witness_reader;
+        parse_witness!(
+            pre_account_cell_witness,
+            pre_account_cell_witness_reader,
+            parser,
+            output_cells[0],
+            Source::Output,
+            PreAccountCellData
+        );
 
         #[cfg(not(feature = "mainnet"))]
         das_core::inspect::pre_account_cell(
             Source::Output,
-            index.to_owned(),
+            output_cells[0],
             &data,
-            entity.to_owned(),
+            None,
+            Some(pre_account_cell_witness_reader),
         );
 
-        let pre_account_cell_witness =
-            PreAccountCellData::from_slice(entity.as_reader().raw_data())
-                .map_err(|_| Error::WitnessEntityDecodingError)?;
-        let pre_account_cell_reader = pre_account_cell_witness.as_reader();
-
         verify_apply_hash(
-            pre_account_cell_reader,
+            pre_account_cell_witness_reader,
             apply_register_lock.as_reader().args().raw_data().to_vec(),
             apply_register_hash,
         )?;
 
-        verify_owner_lock_args(pre_account_cell_reader)?;
-        verify_quote(pre_account_cell_reader)?;
+        verify_owner_lock_args(pre_account_cell_witness_reader)?;
+        verify_quote(pre_account_cell_witness_reader)?;
         let config_price = parser.configs.price()?;
         let config_account = parser.configs.account()?;
-        verify_invited_discount(config_price, pre_account_cell_reader)?;
+        verify_invited_discount(config_price, pre_account_cell_witness_reader)?;
         verify_price_and_capacity(
             config_account,
             config_price,
-            pre_account_cell_reader,
+            pre_account_cell_witness_reader,
             capacity,
         )?;
 
-        verify_account_id(pre_account_cell_reader, account_id)?;
+        verify_account_id(pre_account_cell_witness_reader, account_id)?;
 
         let timestamp = util::load_timestamp()?;
-        verify_created_at(timestamp, pre_account_cell_reader)?;
+        verify_created_at(timestamp, pre_account_cell_witness_reader)?;
         util::verify_account_length_and_years(
-            pre_account_cell_reader.account().len(),
+            pre_account_cell_witness_reader.account().len(),
             timestamp,
             None,
         )?;
 
-        verify_account_length(config_account, pre_account_cell_reader)?;
-        verify_account_chars(&mut parser, pre_account_cell_reader)?;
+        verify_account_length(config_account, pre_account_cell_witness_reader)?;
+        verify_account_chars(&mut parser, pre_account_cell_witness_reader)?;
 
         let config_preserved_account = parser.configs.preserved_account()?;
-        verify_preserved_accounts(config_preserved_account, pre_account_cell_reader)?;
+        verify_preserved_accounts(config_preserved_account, pre_account_cell_witness_reader)?;
     } else {
         return Err(Error::ActionNotSupported);
     }
@@ -390,7 +395,7 @@ fn verify_price_and_capacity(
     let storage_capacity =
         util::calc_account_storage_capacity(config_account, reader.account().len() as u64 + 4);
 
-    debug!("Check if PreAccountCell.capacity is enough for registration: {}(paid) < {}(1 year registeration fee) + {}(storage fee)",
+    debug!("Check if PreAccountCell.capacity is enough for registration: {}(paid) <-> {}(1 year registeration fee) + {}(storage fee)",
         capacity,
         register_capacity,
         storage_capacity

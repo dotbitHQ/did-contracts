@@ -96,6 +96,7 @@ pub enum Error {
     PrevProposalItemNotFound,
     IncomeCellConsolidateConditionNotSatisfied = -126,
     IncomeCellConsolidateError,
+    IncomeCellConsolidateWaste,
     IncomeCellTransferError,
     IncomeCellCapacityError,
     AccountCellFoundInvalidTransaction = -110,
@@ -105,13 +106,15 @@ pub enum Error {
     AccountCellManagerLockShouldBeModified,
     AccountCellDataNotConsistent,
     AccountCellProtectFieldIsModified,
+    AccountCellNoMoreFee,
+    AccountCellThrottle,
     AccountCellRenewDurationMustLongerThanYear,
-    AccountCellRenewDurationBiggerThanPayed,
+    AccountCellRenewDurationBiggerThanPayed, // -100
     AccountCellInExpirationGracePeriod,
-    AccountCellHasExpired, // -100
+    AccountCellHasExpired,
     AccountCellIsNotExpired,
     AccountCellRecycleCapacityError,
-    AccountCellChangeCapacityError, // -97
+    AccountCellChangeCapacityError, // -95
     AccountCellRecordKeyInvalid,
     AccountCellRecordSizeTooLarge,
     SystemOff = -1,

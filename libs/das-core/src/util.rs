@@ -125,9 +125,9 @@ pub fn find_only_cell_by_type_id(
     assert!(
         cells.len() == 1,
         Error::InvalidTransactionStructure,
-        "Only one cell expected existing in this transaction, but found more: {:?}: {:?}",
-        source,
-        cells
+        "Only one cell expected existing in this transaction, but found {:?} in {:?}.",
+        cells.len(),
+        source
     );
 
     Ok(cells[0])
@@ -715,7 +715,7 @@ pub fn is_init_day(current_timestamp: u64) -> Result<(), Error> {
 
     // On CKB main net, AKA Lina, some actions can be only executed at or before the initialization day of DAS.
     if cfg!(feature = "mainnet") {
-        let init_day = Utc.ymd(2021, 6, 15).and_hms(0, 0, 0);
+        let init_day = Utc.ymd(2021, 7, 10).and_hms(0, 0, 0);
         // Otherwise, any account longer than two chars in length can be registered.
         assert!(
             current <= init_day,
@@ -741,12 +741,12 @@ pub fn verify_account_length_and_years(
 
     if item_index.is_some() {
         debug!(
-            "  Item[{}] Check if account is available for registration now. (length: {}, datetime: {:#?})",
+            "  Item[{}] Check if the account is available for registration now. (length: {}, current: {:#?})",
             item_index.unwrap(), account_length, current
         );
     } else {
         debug!(
-            "Check if account is available for registration now. (length: {}, datetime: {:#?})",
+            "Check if the account is available for registration now. (length: {}, current: {:#?})",
             account_length, current
         );
     }
@@ -818,8 +818,14 @@ pub fn verify_account_length_and_years(
         }
         // Otherwise, any account longer than two chars in length can be registered.
     } else {
-        if account_length <= 1 {
-            return Err(Error::AccountStillCanNotBeRegister);
+        let year_n = Utc.ymd(4444, 4, 4).and_hms(4, 4, 4);
+        if current < year_n {
+            assert!(
+                account_length >= 2,
+                Error::AccountStillCanNotBeRegister,
+                "The account less than 2 characters can not be registered now. (available_for_register: {:?})",
+                year_n
+            );
         }
     }
 
@@ -831,7 +837,8 @@ pub fn calc_account_storage_capacity(
     account_name_storage: u64,
 ) -> u64 {
     let basic_capacity = u64::from(config_account.basic_capacity());
-    basic_capacity + (account_name_storage * 100_000_000)
+    let prepared_fee_capacity = u64::from(config_account.prepared_fee_capacity());
+    basic_capacity + prepared_fee_capacity + (account_name_storage * 100_000_000)
 }
 
 pub fn calc_yearly_capacity(yearly_price: u64, quote: u64, discount: u32) -> u64 {
