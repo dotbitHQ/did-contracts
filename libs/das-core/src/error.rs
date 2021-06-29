@@ -36,6 +36,8 @@ pub enum Error {
     AlwaysSuccessLockIsRequired, // 30
     SignallLockIsRequired,
     AccountIsPreserved,
+    DataTypeUpgradeRequired,
+    NarrowMixerTypeFailed,
     AccountStillCanNotBeRegister,
     WitnessStructureError = 40,
     WitnessEmpty,

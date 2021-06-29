@@ -409,7 +409,7 @@ pub fn load_das_witnesses(index: usize, data_type: DataType) -> Result<Vec<u8>, 
             );
 
             debug!(
-                "Load witnesses[{}]: {:?} size: {} Bytes",
+                "  Load witnesses[{}]: {:?} size: {} Bytes",
                 index, data_type, actual_size
             );
 
