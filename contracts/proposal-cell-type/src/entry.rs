@@ -309,12 +309,13 @@ fn inspect_related_cells(
     related_cells_source: Source,
 ) -> Result<(), Error> {
     debug!("Inspect {:?}{:?}:", related_cells_source, related_cells);
+
     for i in related_cells {
         let script = load_cell_type(i, related_cells_source)
             .map_err(|e| Error::from(e))?
             .unwrap();
         let code_hash = Hash::from(script.code_hash());
-        let (_, _, entity) = parser.verify_and_get(i, related_cells_source)?;
+        let (version, _, entity) = parser.verify_and_get(i, related_cells_source)?;
         let data = util::load_cell_data(i, related_cells_source)?;
 
         if util::is_reader_eq(
@@ -325,6 +326,7 @@ fn inspect_related_cells(
                 related_cells_source,
                 i,
                 &data,
+                version,
                 Some(entity.as_reader()),
                 None,
             );
