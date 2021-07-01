@@ -158,6 +158,11 @@ pub fn main() -> Result<(), Error> {
             timestamp,
             None,
         )?;
+        verify_account_release_datetime(
+            timestamp,
+            account_id,
+            pre_account_cell_witness_reader.account().len(),
+        )?;
 
         verify_account_length(config_account, pre_account_cell_witness_reader)?;
         verify_account_chars(&mut parser, pre_account_cell_witness_reader)?;
@@ -553,6 +558,92 @@ fn verify_preserved_accounts(
                 if end_account - start_account <= 1 {
                     break;
                 }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn verify_account_release_datetime(
+    current: u64,
+    account_id: &[u8],
+    account_length: usize,
+) -> Result<(), Error> {
+    debug!("Check if account is released for registration.");
+
+    use chrono::{TimeZone, Utc};
+    macro_rules! verify_if_account_released {
+        ($release_start:expr, $release_end:expr) => {{
+            let release_duration = ($release_end - $release_start) / 3600; // hours
+            if current < $release_end && release_duration > 0 {
+                let mut buf = [0u8, 0];
+                buf.copy_from_slice(account_id.get(..2).unwrap());
+                let lucky_num = u16::from_be_bytes(buf) as u64;
+
+                assert!(
+                    current >= $release_start,
+                    Error::AccountStillCanNotBeRegister,
+                    "The registration is still not started."
+                );
+
+                let release_after = lucky_num % release_duration;
+                let passed_hours = (current - $release_start) / 3600;
+
+                debug!(
+                    "account ID: 0x{} lucky number: {} release_duration: {} passed_hours: {} release_after: {}",
+                    util::hex_string(account_id),
+                    lucky_num,
+                    release_duration,
+                    passed_hours,
+                    release_after
+                );
+
+                assert!(
+                    passed_hours >= release_after,
+                    Error::AccountStillCanNotBeRegister,
+                    "The account is still not released for registration.(passed_hours: {}, release_after: {})",
+                    passed_hours,
+                    release_after
+                );
+            }
+        }};
+    }
+
+    if cfg!(feature = "mainnet") {
+        match account_length {
+            5 => {
+                // ⚠️ TODO update to final value
+                let release_start = Utc.ymd(2021, 6, 22).and_hms(0, 0, 0).timestamp() as u64;
+                let release_end = Utc.ymd(2021, 7, 8).and_hms(0, 0, 0).timestamp() as u64;
+                verify_if_account_released!(release_start, release_end);
+            }
+            6 => {
+                // ⚠️ TODO update to final value
+                let release_start = Utc.ymd(2021, 6, 22).and_hms(0, 0, 0).timestamp() as u64;
+                let release_end = Utc.ymd(2021, 7, 8).and_hms(0, 0, 0).timestamp() as u64;
+                verify_if_account_released!(release_start, release_end);
+            }
+            _ => {
+                // ⚠️ TODO update to final value
+                let release_start = Utc.ymd(2021, 6, 22).and_hms(0, 0, 0).timestamp() as u64;
+                let release_end = Utc.ymd(2021, 7, 8).and_hms(0, 0, 0).timestamp() as u64;
+                verify_if_account_released!(release_start, release_end);
+            }
+        }
+    } else {
+        match account_length {
+            2 => {
+                // ⚠️ TODO update to final value
+                let release_start = Utc.ymd(2021, 6, 28).and_hms(0, 0, 0).timestamp() as u64;
+                let release_end = Utc.ymd(2021, 7, 10).and_hms(0, 0, 0).timestamp() as u64;
+                verify_if_account_released!(release_start, release_end);
+            }
+            _ => {
+                // ⚠️ TODO update to final value
+                let release_start = Utc.ymd(2021, 6, 1).and_hms(0, 0, 0).timestamp() as u64;
+                let release_end = Utc.ymd(2021, 6, 1).and_hms(0, 0, 0).timestamp() as u64;
+                verify_if_account_released!(release_start, release_end);
             }
         }
     }

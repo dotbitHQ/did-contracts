@@ -753,11 +753,9 @@ pub fn verify_account_length_and_years(
 
     // On CKB main net, AKA Lina, accounts of less lengths can be registered only after a specific number of years.
     if cfg!(feature = "mainnet") {
+        // TODO When to start releasing accounts have 3 or less characters TBD.
         let start_from = 2021;
         let year_2 = Utc.ymd(start_from + 1, 1, 1).and_hms(0, 0, 0);
-        let year_3 = Utc.ymd(start_from + 2, 1, 1).and_hms(0, 0, 0);
-        let year_4 = Utc.ymd(start_from + 3, 1, 1).and_hms(0, 0, 0);
-        let year_5 = Utc.ymd(start_from + 4, 1, 1).and_hms(0, 0, 0);
         // ⚠️ Before year 2 means the first year.
         if current < year_2 {
             assert!(
@@ -765,31 +763,18 @@ pub fn verify_account_length_and_years(
                 Error::AccountStillCanNotBeRegister,
                 "The account less than 5 characters can not be registered now."
             );
-        } else if current < year_3 {
+        } else {
             assert!(
                 account_length >= 4,
                 Error::AccountStillCanNotBeRegister,
                 "The account less than 4 characters can not be registered now."
             );
-        } else if current < year_4 {
-            assert!(
-                account_length >= 3,
-                Error::AccountStillCanNotBeRegister,
-                "The account less than 3 characters can not be registered now."
-            );
-        } else if current < year_5 {
-            assert!(
-                account_length >= 2,
-                Error::AccountStillCanNotBeRegister,
-                "The account less than 2 characters can not be registered now."
-            );
         }
-    // Otherwise, any account longer than two chars in length can be registered.
+        // Otherwise, any account longer than two chars in length can be registered.
     } else if cfg!(feature = "testnet") {
         let year_2 = Utc.ymd(2021, 6, 14).and_hms(0, 0, 0);
         let year_3 = Utc.ymd(2021, 6, 21).and_hms(0, 0, 0);
         let year_4 = Utc.ymd(2021, 6, 28).and_hms(0, 0, 0);
-        let year_5 = Utc.ymd(2021, 7, 5).and_hms(0, 0, 0);
         // ⚠️ Before year 2 means the first year.
         if current < year_2 {
             assert!(
@@ -809,7 +794,7 @@ pub fn verify_account_length_and_years(
                 Error::AccountStillCanNotBeRegister,
                 "The account less than 3 characters can not be registered now."
             );
-        } else if current < year_5 {
+        } else {
             assert!(
                 account_length >= 2,
                 Error::AccountStillCanNotBeRegister,

@@ -38,7 +38,7 @@ pub enum Error {
     AccountIsPreserved,
     DataTypeUpgradeRequired,
     NarrowMixerTypeFailed,
-    AccountStillCanNotBeRegister,
+    AccountStillCanNotBeRegister = 35, // ⚠️ DO NOT CHANGE
     WitnessStructureError = 40,
     WitnessEmpty,
     WitnessDataTypeDecodingError,
