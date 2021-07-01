@@ -536,7 +536,7 @@ impl TemplateGenerator {
 
     fn gen_config_cell_apply(&mut self) -> (Bytes, ConfigCellApply) {
         let entity = ConfigCellApply::new_builder()
-            .apply_min_waiting_block_number(Uint32::from(4))
+            .apply_min_waiting_block_number(Uint32::from(1))
             .apply_max_waiting_block_number(Uint32::from(5760))
             .build();
 
