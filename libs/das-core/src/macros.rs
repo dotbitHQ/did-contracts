@@ -45,3 +45,23 @@ macro_rules! parse_witness {
         $entity_reader = $entity.as_reader();
     }};
 }
+
+#[macro_export]
+macro_rules! parse_account_cell_witness {
+    ($entity:expr, $entity_reader:expr, $parser:expr, $index:expr, $source:expr) => {{
+        let (version, _, mol_bytes) = $parser.verify_and_get($index, $source)?;
+        if version == 1 {
+            $entity = Box::new(
+                AccountCellDataV1::from_slice(mol_bytes.as_reader().raw_data())
+                    .map_err(|_| Error::WitnessEntityDecodingError)?,
+            );
+            $entity_reader = $entity.as_reader();
+        } else {
+            $entity = Box::new(
+                AccountCellData::from_slice(mol_bytes.as_reader().raw_data())
+                    .map_err(|_| Error::WitnessEntityDecodingError)?,
+            );
+            $entity_reader = $entity.as_reader();
+        }
+    }};
+}

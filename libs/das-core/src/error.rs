@@ -36,7 +36,9 @@ pub enum Error {
     AlwaysSuccessLockIsRequired, // 30
     SignallLockIsRequired,
     AccountIsPreserved,
-    AccountStillCanNotBeRegister,
+    DataTypeUpgradeRequired,
+    NarrowMixerTypeFailed,
+    AccountStillCanNotBeRegister = 35, // ⚠️ DO NOT CHANGE
     WitnessStructureError = 40,
     WitnessEmpty,
     WitnessDataTypeDecodingError,
@@ -48,11 +50,12 @@ pub enum Error {
     WitnessDataHashMissMatch,
     WitnessDataIndexMissMatch,
     WitnessEntityDecodingError, // 50
-    ApplyRegisterFoundInvalidTransaction = 60,
-    ApplyRegisterCellDataDecodingError,
+    ApplyRegisterCellDataDecodingError = 60,
     ApplyRegisterCellHeightInvalid,
     ApplyRegisterNeedWaitLonger,
     ApplyRegisterHasTimeout,
+    ApplyRegisterRefundNeedWaitLonger,
+    ApplyRegisterRefundCapacityError,
     PreRegisterFoundInvalidTransaction = 70,
     PreRegisterAccountIdIsInvalid,
     PreRegisterApplyHashIsInvalid,

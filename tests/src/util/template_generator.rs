@@ -340,27 +340,31 @@ impl TemplateGenerator {
         }
     }
 
-    pub fn push_witness<T: Entity>(
+    pub fn push_witness<A: Entity, B: Entity, C: Entity>(
         &mut self,
         data_type: DataType,
-        output_opt: Option<(u32, u32, T)>,
-        input_opt: Option<(u32, u32, T)>,
-        dep_opt: Option<(u32, u32, T)>,
+        output_opt: Option<(u32, u32, A)>,
+        input_opt: Option<(u32, u32, B)>,
+        dep_opt: Option<(u32, u32, C)>,
     ) {
         let witness = das_util::wrap_data_witness(data_type, output_opt, input_opt, dep_opt);
         self.witnesses.push(bytes_to_hex(witness));
     }
 
-    pub fn push_witness_with_group(
+    pub fn push_witness_with_group<T: Entity>(
         &mut self,
         data_type: DataType,
         group: Source,
-        entity: (u32, u32, impl Entity),
+        entity: (u32, u32, T),
     ) {
         let witness = match group {
-            Source::Input => das_util::wrap_data_witness(data_type, None, Some(entity), None),
-            Source::Output => das_util::wrap_data_witness(data_type, Some(entity), None, None),
-            _ => das_util::wrap_data_witness(data_type, None, None, Some(entity)),
+            Source::Input => {
+                das_util::wrap_data_witness::<T, T, T>(data_type, None, Some(entity), None)
+            }
+            Source::Output => {
+                das_util::wrap_data_witness::<T, T, T>(data_type, Some(entity), None, None)
+            }
+            _ => das_util::wrap_data_witness::<T, T, T>(data_type, None, None, Some(entity)),
         };
         self.witnesses.push(bytes_to_hex(witness));
     }
@@ -532,7 +536,7 @@ impl TemplateGenerator {
 
     fn gen_config_cell_apply(&mut self) -> (Bytes, ConfigCellApply) {
         let entity = ConfigCellApply::new_builder()
-            .apply_min_waiting_block_number(Uint32::from(4))
+            .apply_min_waiting_block_number(Uint32::from(1))
             .apply_max_waiting_block_number(Uint32::from(5760))
             .build();
 
@@ -910,6 +914,51 @@ impl TemplateGenerator {
         }
     }
 
+    pub fn gen_account_cell_data_v1(
+        &mut self,
+        account: &str,
+        next_account: &str,
+        registered_at: u64,
+        expired_at: u64,
+        records_opt: Option<Records>,
+    ) -> (Bytes, AccountCellDataV1) {
+        let account_chars_raw = account
+            .chars()
+            .take(account.len() - 4)
+            .map(|c| c.to_string())
+            .collect::<Vec<String>>();
+        let account_chars = gen_account_chars(account_chars_raw);
+        let id = util::account_to_id(account);
+
+        let records = match records_opt {
+            Some(records) => records,
+            None => Records::default(),
+        };
+
+        let entity = AccountCellDataV1::new_builder()
+            .id(AccountId::try_from(id.clone()).unwrap())
+            .account(account_chars.to_owned())
+            .registered_at(Uint64::from(registered_at))
+            .status(Uint8::from(0))
+            .records(records)
+            .build();
+
+        let next = util::account_to_id(next_account);
+
+        let hash = Hash::try_from(blake2b_256(entity.as_slice()).to_vec()).unwrap();
+        let raw = [
+            hash.as_reader().raw_data(),
+            id.as_slice(),
+            next.as_slice(),
+            &expired_at.to_le_bytes()[..],
+            account.as_bytes(),
+        ]
+        .concat();
+        let cell_data = Bytes::from(raw);
+
+        (cell_data, entity)
+    }
+
     pub fn gen_account_cell_data(
         &mut self,
         account: &str,
@@ -991,12 +1040,12 @@ impl TemplateGenerator {
         (cell_data, entity)
     }
 
-    pub fn push_account_cell(
+    pub fn push_account_cell<T: Entity>(
         &mut self,
         owner_lock_args: &str,
         manager_lock_args: &str,
         cell_data: Bytes,
-        entity_opt: Option<(u32, u32, AccountCellData)>,
+        entity_opt: Option<(u32, u32, T)>,
         capacity: u64,
         source: Source,
     ) {

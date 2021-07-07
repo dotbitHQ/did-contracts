@@ -1,6 +1,6 @@
 use super::super::util::{constants::*, template_generator::*};
 use ckb_tool::ckb_types::{bytes, prelude::Pack};
-use das_types::constants::*;
+use das_types::{constants::*, packed::*};
 
 pub fn init(action: &str) -> (TemplateGenerator, u64, u64) {
     let mut template = TemplateGenerator::new(action, None);
@@ -37,17 +37,14 @@ pub fn gen_proposal_related_cell_at_create(
             );
 
             if *item_type == ProposalSliceItemType::Exist {
-                let (cell_data, entity) = template.gen_account_cell_data(
+                let (cell_data, entity) = template.gen_account_cell_data_v1(
                     account,
                     next_account,
                     old_registered_at,
                     old_expired_at,
-                    0,
-                    0,
-                    0,
                     None,
                 );
-                template.push_account_cell(
+                template.push_account_cell::<AccountCellDataV1>(
                     "0x0000000000000000000000000000000000001111",
                     "0x0000000000000000000000000000000000001111",
                     cell_data,
@@ -82,17 +79,9 @@ pub fn gen_proposal_related_cell_at_create(
 macro_rules! gen_account_cells {
     ($template:expr, $account:expr, $next:expr, $updated_next:expr, $registered_at:expr, $expired_at:expr, $input_index:expr, $output_index:expr) => {{
         // Generate AccountCell in inputs
-        let (cell_data, old_entity) = $template.gen_account_cell_data(
-            $account,
-            $next,
-            $registered_at,
-            $expired_at,
-            0,
-            0,
-            0,
-            None,
-        );
-        $template.push_account_cell(
+        let (cell_data, old_entity) =
+            $template.gen_account_cell_data_v1($account, $next, $registered_at, $expired_at, None);
+        $template.push_account_cell::<AccountCellDataV1>(
             "0x0000000000000000000000000000000000001111",
             "0x0000000000000000000000000000000000001111",
             cell_data,
@@ -112,7 +101,7 @@ macro_rules! gen_account_cells {
             0,
             None,
         );
-        $template.push_account_cell(
+        $template.push_account_cell::<AccountCellData>(
             "0x0000000000000000000000000000000000001111",
             "0x0000000000000000000000000000000000001111",
             cell_data,
@@ -122,7 +111,7 @@ macro_rules! gen_account_cells {
         );
 
         // Generate witness of AccountCell.
-        $template.push_witness(
+        $template.push_witness::<AccountCellData, AccountCellDataV1, AccountCellData>(
             DataType::AccountCellData,
             Some((1, $output_index, new_entity)),
             Some((1, $input_index, old_entity)),
@@ -134,17 +123,9 @@ macro_rules! gen_account_cells {
 macro_rules! gen_account_cells_edit_capacity {
     ($template:expr, $account:expr, $next:expr, $updated_next:expr, $registered_at:expr, $expired_at:expr, $input_index:expr, $output_index:expr, $input_capacity:expr, $output_capacity:expr) => {{
         // Generate AccountCell in inputs
-        let (cell_data, old_entity) = $template.gen_account_cell_data(
-            $account,
-            $next,
-            $registered_at,
-            $expired_at,
-            0,
-            0,
-            0,
-            None,
-        );
-        $template.push_account_cell(
+        let (cell_data, old_entity) =
+            $template.gen_account_cell_data_v1($account, $next, $registered_at, $expired_at, None);
+        $template.push_account_cell::<AccountCellDataV1>(
             "0x0000000000000000000000000000000000001111",
             "0x0000000000000000000000000000000000001111",
             cell_data,
@@ -164,7 +145,7 @@ macro_rules! gen_account_cells_edit_capacity {
             0,
             None,
         );
-        $template.push_account_cell(
+        $template.push_account_cell::<AccountCellData>(
             "0x0000000000000000000000000000000000001111",
             "0x0000000000000000000000000000000000001111",
             cell_data,
@@ -174,7 +155,7 @@ macro_rules! gen_account_cells_edit_capacity {
         );
 
         // Generate witness of AccountCell.
-        $template.push_witness(
+        $template.push_witness::<AccountCellData, AccountCellDataV1, AccountCellData>(
             DataType::AccountCellData,
             Some((1, $output_index, new_entity)),
             Some((1, $input_index, old_entity)),
@@ -214,7 +195,7 @@ macro_rules! gen_account_and_pre_account_cells {
             0,
             None,
         );
-        $template.push_account_cell(
+        $template.push_account_cell::<AccountCellData>(
             "0x0000000000000000000000000000000000001100",
             "0x0000000000000000000000000000000000001100",
             cell_data,
@@ -256,7 +237,7 @@ macro_rules! gen_account_and_pre_account_cells_edit_capacity {
             0,
             None,
         );
-        $template.push_account_cell(
+        $template.push_account_cell::<AccountCellData>(
             "0x0000000000000000000000000000000000001100",
             "0x0000000000000000000000000000000000001100",
             cell_data,

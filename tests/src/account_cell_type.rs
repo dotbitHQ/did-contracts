@@ -35,7 +35,7 @@ fn gen_account_init_account_chain() {
     );
 
     let (cell_data, entity) = template.gen_root_account_cell_data();
-    template.push_account_cell(
+    template.push_account_cell::<AccountCellData>(
         "0x0000000000000000000000000000000000000000",
         "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
         cell_data,
@@ -61,17 +61,9 @@ fn gen_account_transfer() {
     let registered_at = timestamp - 86400;
     let expired_at = timestamp + 31536000 - 86400;
 
-    let (cell_data, old_entity) = template.gen_account_cell_data(
-        account,
-        next_account,
-        registered_at,
-        expired_at,
-        0,
-        0,
-        0,
-        None,
-    );
-    template.push_account_cell(
+    let (cell_data, old_entity) =
+        template.gen_account_cell_data_v1(account, next_account, registered_at, expired_at, None);
+    template.push_account_cell::<AccountCellDataV1>(
         "0x0000000000000000000000000000000000001111",
         "0x0000000000000000000000000000000000001111",
         cell_data,
@@ -90,7 +82,7 @@ fn gen_account_transfer() {
         0,
         None,
     );
-    template.push_account_cell(
+    template.push_account_cell::<AccountCellData>(
         "0x0000000000000000000000000000000000002222",
         "0x0000000000000000000000000000000000002222",
         cell_data,
@@ -100,9 +92,9 @@ fn gen_account_transfer() {
         Source::Output,
     );
 
-    template.push_witness(
+    template.push_witness::<AccountCellData, AccountCellDataV1, AccountCellData>(
         DataType::AccountCellData,
-        Some((1, 0, new_entity)),
+        Some((2, 0, new_entity)),
         Some((1, 0, old_entity)),
         None,
     );
@@ -133,7 +125,7 @@ challenge_with_generator!(
             0,
             None,
         );
-        template.push_account_cell(
+        template.push_account_cell::<AccountCellData>(
             "0x0000000000000000000000000000000000001111",
             "0x0000000000000000000000000000000000001111",
             cell_data,
@@ -152,7 +144,7 @@ challenge_with_generator!(
             0,
             None,
         );
-        template.push_account_cell(
+        template.push_account_cell::<AccountCellData>(
             "0x0000000000000000000000000000000000002222",
             "0x0000000000000000000000000000000000003333",
             cell_data,
@@ -161,10 +153,10 @@ challenge_with_generator!(
             Source::Output,
         );
 
-        template.push_witness(
+        template.push_witness::<AccountCellData, AccountCellData, AccountCellData>(
             DataType::AccountCellData,
-            Some((1, 0, new_entity)),
-            Some((1, 0, old_entity)),
+            Some((2, 0, new_entity)),
+            Some((2, 0, old_entity)),
             None,
         );
 
@@ -193,7 +185,7 @@ challenge_with_generator!(
             0,
             None,
         );
-        template.push_account_cell(
+        template.push_account_cell::<AccountCellData>(
             "0x0000000000000000000000000000000000001111",
             "0x0000000000000000000000000000000000001111",
             cell_data,
@@ -212,7 +204,7 @@ challenge_with_generator!(
             0,
             None,
         );
-        template.push_account_cell(
+        template.push_account_cell::<AccountCellData>(
             "0x0000000000000000000000000000000000002222",
             "0x0000000000000000000000000000000000002222",
             cell_data,
@@ -221,10 +213,10 @@ challenge_with_generator!(
             Source::Output,
         );
 
-        template.push_witness(
+        template.push_witness::<AccountCellData, AccountCellData, AccountCellData>(
             DataType::AccountCellData,
-            Some((1, 0, new_entity)),
-            Some((1, 0, old_entity)),
+            Some((2, 0, new_entity)),
+            Some((2, 0, old_entity)),
             None,
         );
 
@@ -251,7 +243,7 @@ fn gen_account_edit_manager() {
         0,
         None,
     );
-    template.push_account_cell(
+    template.push_account_cell::<AccountCellData>(
         "0x0000000000000000000000000000000000001111",
         "0x0000000000000000000000000000000000002222",
         cell_data,
@@ -270,7 +262,7 @@ fn gen_account_edit_manager() {
         0,
         None,
     );
-    template.push_account_cell(
+    template.push_account_cell::<AccountCellData>(
         "0x0000000000000000000000000000000000001111",
         "0x0000000000000000000000000000000000003333",
         cell_data,
@@ -279,10 +271,10 @@ fn gen_account_edit_manager() {
         Source::Output,
     );
 
-    template.push_witness(
+    template.push_witness::<AccountCellData, AccountCellData, AccountCellData>(
         DataType::AccountCellData,
-        Some((1, 0, new_entity)),
-        Some((1, 0, old_entity)),
+        Some((2, 0, new_entity)),
+        Some((2, 0, old_entity)),
         None,
     );
 
@@ -317,7 +309,7 @@ fn gen_account_edit_records() {
         0,
         None,
     );
-    template.push_account_cell(
+    template.push_account_cell::<AccountCellData>(
         "0x0000000000000000000000000000000000001111",
         "0x0000000000000000000000000000000000002222",
         cell_data,
@@ -375,7 +367,7 @@ fn gen_account_edit_records() {
         timestamp,
         Some(gen_account_records(records)),
     );
-    template.push_account_cell(
+    template.push_account_cell::<AccountCellData>(
         "0x0000000000000000000000000000000000001111",
         "0x0000000000000000000000000000000000002222",
         cell_data,
@@ -384,10 +376,10 @@ fn gen_account_edit_records() {
         Source::Output,
     );
 
-    template.push_witness(
+    template.push_witness::<AccountCellData, AccountCellData, AccountCellData>(
         DataType::AccountCellData,
-        Some((1, 0, new_entity)),
-        Some((1, 0, old_entity)),
+        Some((2, 0, new_entity)),
+        Some((2, 0, old_entity)),
         None,
     );
 
@@ -420,7 +412,7 @@ fn gen_account_renew() {
         0,
         None,
     );
-    template.push_account_cell(
+    template.push_account_cell::<AccountCellData>(
         "0x0000000000000000000000000000000000001111",
         "0x0000000000000000000000000000000000002222",
         cell_data,
@@ -438,7 +430,7 @@ fn gen_account_renew() {
         0,
         None,
     );
-    template.push_account_cell(
+    template.push_account_cell::<AccountCellData>(
         "0x0000000000000000000000000000000000001111",
         "0x0000000000000000000000000000000000002222",
         cell_data,
@@ -446,10 +438,10 @@ fn gen_account_renew() {
         20_000_000_000,
         Source::Output,
     );
-    template.push_witness(
+    template.push_witness::<AccountCellData, AccountCellData, AccountCellData>(
         DataType::AccountCellData,
-        Some((1, 0, new_entity)),
-        Some((1, 0, old_entity)),
+        Some((2, 0, new_entity)),
+        Some((2, 0, old_entity)),
         None,
     );
 
@@ -510,7 +502,7 @@ fn gen_account_recycle_expired_account_by_keeper() {
         0,
         None,
     );
-    template.push_account_cell(
+    template.push_account_cell::<AccountCellData>(
         "0x0000000000000000000000000000000000001111",
         "0x0000000000000000000000000000000000002222",
         cell_data,

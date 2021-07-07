@@ -1,11 +1,13 @@
 use super::util::{constants::*, template_generator::*, template_parser::TemplateParser};
+use chrono::{TimeZone, Utc};
 use ckb_testtool::context::Context;
 use das_core::error::Error;
 use das_types::constants::*;
 
 fn init(account: &str) -> (TemplateGenerator, &str, u64) {
     let mut template = TemplateGenerator::new("pre_register", None);
-    let timestamp = 1611200060u64;
+
+    let timestamp = Utc.ymd(2021, 7, 7).and_hms(14, 0, 0).timestamp() as u64;
     let height = 1000u64;
 
     template.push_contract_cell("always_success", true);
@@ -71,6 +73,29 @@ test_with_template!(test_pre_register_simple, "pre_register.json");
 test_with_generator!(test_pre_register_char_set, || {
     let (mut template, account, timestamp) = init("✨咐桑糯0001.bit");
     template.push_config_cell(DataType::ConfigCellCharSetZhHans, true, 0, Source::CellDep);
+
+    let (cell_data, entity) = template.gen_pre_account_cell_data(
+        account,
+        "0x000000000000000000000000000000000000FFFF",
+        "0x0000000000000000000000000000000000001100",
+        "0x0000000000000000000000000000000000001111",
+        "0x0000000000000000000000000000000000002222",
+        1000,
+        500,
+        timestamp,
+    );
+    template.push_pre_account_cell(
+        cell_data,
+        Some((1, 0, entity)),
+        476_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
+        Source::Output,
+    );
+
+    template.as_json()
+});
+
+test_with_generator!(test_pre_register_release_datetime, || {
+    let (mut template, account, timestamp) = init("✨das🎉001.bit");
 
     let (cell_data, entity) = template.gen_pre_account_cell_data(
         account,

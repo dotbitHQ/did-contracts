@@ -50,10 +50,14 @@ pub fn account_cell(
     source: Source,
     index: usize,
     data: &Vec<u8>,
+    version: u32,
     raw_witness: Option<BytesReader>,
     witness_reader_opt: Option<AccountCellDataReader>,
 ) {
-    debug!("  ====== {:?}[{}] AccountCell ↓ ======", source, index);
+    debug!(
+        "  ====== {:?}[{}] AccountCell(v{}) ↓ ======",
+        source, index, version
+    );
 
     debug!(
         "    data: {{ id: 0x{}, next: 0x{}, expired_at: {}, account: 0x{} }}",
@@ -63,16 +67,33 @@ pub fn account_cell(
         hex_string(account_cell::get_account(&data))
     );
 
-    let witness_reader;
+    let mut witness_reader: Option<AccountCellDataReader> = None;
+    let mut witness_reader_v1: Option<AccountCellDataV1Reader> = None;
     if raw_witness.is_some() {
-        witness_reader = AccountCellDataReader::new_unchecked(raw_witness.unwrap().raw_data());
+        if version == 1 {
+            witness_reader_v1 = Some(
+                AccountCellDataV1Reader::from_slice(raw_witness.unwrap().raw_data()).expect(
+                    "Failed to decode witness, please check the version of the AccountCell.",
+                ),
+            );
+        } else {
+            witness_reader = Some(
+                AccountCellDataReader::from_slice(raw_witness.unwrap().raw_data()).expect(
+                    "Failed to decode witness, please check the version of the AccountCell.",
+                ),
+            );
+        }
     } else if witness_reader_opt.is_some() {
-        witness_reader = witness_reader_opt.unwrap()
+        witness_reader = Some(witness_reader_opt.unwrap());
     } else {
         panic!("Must pass one of raw_witness and witness_reader_opt");
     }
 
-    debug!("    witness: {}", witness_reader);
+    if version == 1 {
+        debug!("    witness: {}", witness_reader_v1.unwrap());
+    } else {
+        debug!("    witness: {}", witness_reader.unwrap());
+    }
 }
 
 pub fn income_cell(

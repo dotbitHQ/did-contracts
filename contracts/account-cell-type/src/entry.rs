@@ -1,15 +1,16 @@
-use alloc::{vec, vec::Vec};
+use alloc::{boxed::Box, vec, vec::Vec};
 use ckb_std::{ckb_constants::Source, ckb_types::prelude::*, debug, high_level};
 use das_core::{
     assert,
     constants::{das_lock, das_wallet_lock, ScriptType, TypeScript},
     data_parser,
     error::Error,
-    parse_witness, util, warn,
+    parse_account_cell_witness, parse_witness, util, warn,
     witness_parser::WitnessesParser,
 };
 use das_types::{
     constants::{DataType, LockRole},
+    mixer::*,
     packed::*,
 };
 
@@ -79,26 +80,30 @@ pub fn main() -> Result<(), Error> {
 
         let (input_account_cells, output_account_cells) = load_account_cells()?;
 
-        let input_cell_witness;
+        let input_cell_witness: Box<dyn AccountCellDataMixer>;
         let input_cell_witness_reader;
-        parse_witness!(
+        parse_account_cell_witness!(
             input_cell_witness,
             input_cell_witness_reader,
             parser,
             input_account_cells[0],
-            Source::Input,
-            AccountCellData
+            Source::Input
         );
 
-        let output_cell_witness;
+        let output_cell_witness: Box<dyn AccountCellDataMixer>;
         let output_cell_witness_reader;
-        parse_witness!(
+        parse_account_cell_witness!(
             output_cell_witness,
             output_cell_witness_reader,
             parser,
             output_account_cells[0],
-            Source::Output,
-            AccountCellData
+            Source::Output
+        );
+
+        assert!(
+            output_cell_witness_reader.version() == 2,
+            Error::DataTypeUpgradeRequired,
+            "The witness of the AccountCell in outputs should be upgrade to version 2."
         );
 
         if action == b"transfer_account" {
@@ -116,8 +121,8 @@ pub fn main() -> Result<(), Error> {
             verify_action_throttle(
                 action,
                 config_account,
-                input_cell_witness_reader,
-                output_cell_witness_reader,
+                &input_cell_witness_reader,
+                &output_cell_witness_reader,
                 timestamp,
             )?;
             verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
@@ -134,8 +139,8 @@ pub fn main() -> Result<(), Error> {
             verify_account_witness_consistent(
                 input_account_cells[0],
                 output_account_cells[0],
-                input_cell_witness_reader,
-                output_cell_witness_reader,
+                &input_cell_witness_reader,
+                &output_cell_witness_reader,
                 vec!["last_transfer_account_at"],
             )?;
         } else if action == b"edit_manager" {
@@ -153,8 +158,8 @@ pub fn main() -> Result<(), Error> {
             verify_action_throttle(
                 action,
                 config_account,
-                input_cell_witness_reader,
-                output_cell_witness_reader,
+                &input_cell_witness_reader,
+                &output_cell_witness_reader,
                 timestamp,
             )?;
             verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
@@ -171,8 +176,8 @@ pub fn main() -> Result<(), Error> {
             verify_account_witness_consistent(
                 input_account_cells[0],
                 output_account_cells[0],
-                input_cell_witness_reader,
-                output_cell_witness_reader,
+                &input_cell_witness_reader,
+                &output_cell_witness_reader,
                 vec!["last_edit_manager_at"],
             )?;
         } else if action == b"edit_records" {
@@ -192,8 +197,8 @@ pub fn main() -> Result<(), Error> {
             verify_action_throttle(
                 action,
                 config_account,
-                input_cell_witness_reader,
-                output_cell_witness_reader,
+                &input_cell_witness_reader,
+                &output_cell_witness_reader,
                 timestamp,
             )?;
             verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
@@ -206,14 +211,14 @@ pub fn main() -> Result<(), Error> {
             verify_account_witness_consistent(
                 input_account_cells[0],
                 output_account_cells[0],
-                input_cell_witness_reader,
-                output_cell_witness_reader,
+                &input_cell_witness_reader,
+                &output_cell_witness_reader,
                 vec!["records", "last_edit_records_at"],
             )?;
             verify_records_keys(
                 config_account,
                 record_key_namespace,
-                output_cell_witness_reader,
+                &output_cell_witness_reader,
             )?;
         }
     } else if action == b"renew_account" {
@@ -228,26 +233,24 @@ pub fn main() -> Result<(), Error> {
         let income_cell_type_id = parser.configs.main()?.type_id_table().income_cell();
 
         let (input_account_cells, output_account_cells) = load_account_cells()?;
-        let input_cell_witness;
+        let input_cell_witness: Box<dyn AccountCellDataMixer>;
         let input_cell_witness_reader;
-        parse_witness!(
+        parse_account_cell_witness!(
             input_cell_witness,
             input_cell_witness_reader,
             parser,
             input_account_cells[0],
-            Source::Input,
-            AccountCellData
+            Source::Input
         );
 
-        let output_cell_witness;
+        let output_cell_witness: Box<dyn AccountCellDataMixer>;
         let output_cell_witness_reader;
-        parse_witness!(
+        parse_account_cell_witness!(
             output_cell_witness,
             output_cell_witness_reader,
             parser,
             output_account_cells[0],
-            Source::Output,
-            AccountCellData
+            Source::Output
         );
 
         verify_account_capacity_not_decrease(input_account_cells[0], output_account_cells[0])?;
@@ -260,8 +263,8 @@ pub fn main() -> Result<(), Error> {
         verify_account_witness_consistent(
             input_account_cells[0],
             output_account_cells[0],
-            input_cell_witness_reader,
-            output_cell_witness_reader,
+            &input_cell_witness_reader,
+            &output_cell_witness_reader,
             vec![],
         )?;
 
@@ -399,19 +402,11 @@ pub fn main() -> Result<(), Error> {
 
         debug!("Check if the expired_at field has been updated correctly based on the capacity paid by the user.");
 
-        let input_account_witness;
-        let input_account_witness_reader;
-        parse_witness!(
-            input_account_witness,
-            input_account_witness_reader,
-            parser,
-            input_account_cells[0],
-            Source::Input,
-            AccountCellData
-        );
-
+        let output_account_witness_reader = output_cell_witness_reader
+            .try_into_latest()
+            .map_err(|_| Error::NarrowMixerTypeFailed)?;
         let length_in_price =
-            util::get_length_in_price(input_account_witness_reader.account().len() as u64);
+            util::get_length_in_price(output_account_witness_reader.account().len() as u64);
 
         // Find out register price in from ConfigCellRegister.
         let price = prices
@@ -562,18 +557,46 @@ fn verify_transaction_fee_spent_correctly(
     Ok(())
 }
 
-fn verify_action_throttle(
+fn verify_action_throttle<'a>(
     action: &[u8],
     config: ConfigCellAccountReader,
-    input_witness_reader: AccountCellDataReader,
-    output_witness_reader: AccountCellDataReader,
+    input_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
+    output_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
     current_timestamp: u64,
 ) -> Result<(), Error> {
+    // Migration for AccountCellData v1
+    macro_rules! assert_action_throttle_new {
+        ($output_witness_reader:expr, ($new_field:ident, $new_field_name:expr), $( ($zero_field:ident, $zero_field_name:expr) ),*) => {{
+            let current = u64::from($output_witness_reader.$new_field());
+            assert!(
+                current_timestamp == current,
+                Error::AccountCellThrottle,
+                "The AccountCell.{} in outputs should be the same as the timestamp in the TimeCell.(expected: {}, current: {})",
+                $new_field_name,
+                current_timestamp,
+                current
+            );
+
+
+            $(
+                let new_default_timestamp = u64::from($output_witness_reader.$zero_field());
+                assert!(
+                    0 == new_default_timestamp,
+                    Error::AccountCellThrottle,
+                    "The AccountCell.{} in outputs is new created, so it should be zero.(expected: {}, current: {})",
+                    $zero_field_name,
+                    0,
+                    current
+                );
+            )*
+        }}
+    }
+
     macro_rules! assert_action_throttle {
-        ($config_field:ident, $field:ident, $field_name:expr) => {{
+        ($input_witness_reader:expr, $output_witness_reader:expr, $config_field:ident, $field:ident, $field_name:expr) => {{
             let throttle = u32::from(config.$config_field()) as u64;
-            let prev = u64::from(input_witness_reader.$field());
-            let current = u64::from(output_witness_reader.$field());
+            let prev = u64::from($input_witness_reader.$field());
+            let current = u64::from($output_witness_reader.$field());
 
             if prev != 0 {
                 assert!(
@@ -597,23 +620,62 @@ fn verify_action_throttle(
         }}
     }
 
-    match action {
-        b"transfer_account" => assert_action_throttle!(
-            transfer_account_throttle,
-            last_transfer_account_at,
-            "last_transfer_account_at"
-        ),
-        b"edit_manager" => assert_action_throttle!(
-            edit_manager_throttle,
-            last_edit_manager_at,
-            "last_edit_manager_at"
-        ),
-        b"edit_records" => assert_action_throttle!(
-            edit_records_throttle,
-            last_edit_records_at,
-            "last_edit_records_at"
-        ),
-        _ => return Err(Error::ActionNotSupported),
+    let output_witness_reader = output_witness_reader
+        .try_into_latest()
+        .map_err(|_| Error::NarrowMixerTypeFailed)?;
+
+    // Migration for AccountCellData v1
+    if input_witness_reader.version() == 1 {
+        match action {
+            b"transfer_account" => assert_action_throttle_new!(
+                output_witness_reader,
+                (last_transfer_account_at, "last_transfer_account_at"),
+                (last_edit_manager_at, "last_edit_manager_at"),
+                (last_edit_records_at, "last_edit_records_at")
+            ),
+            b"edit_manager" => assert_action_throttle_new!(
+                output_witness_reader,
+                (last_edit_manager_at, "last_edit_manager_at"),
+                (last_transfer_account_at, "last_transfer_account_at"),
+                (last_edit_records_at, "last_edit_records_at")
+            ),
+            b"edit_records" => assert_action_throttle_new!(
+                output_witness_reader,
+                (last_edit_records_at, "last_edit_records_at"),
+                (last_transfer_account_at, "last_transfer_account_at"),
+                (last_edit_manager_at, "last_edit_manager_at")
+            ),
+            _ => return Err(Error::ActionNotSupported),
+        }
+    } else {
+        let input_witness_reader = input_witness_reader
+            .try_into_latest()
+            .map_err(|_| Error::NarrowMixerTypeFailed)?;
+
+        match action {
+            b"transfer_account" => assert_action_throttle!(
+                input_witness_reader,
+                output_witness_reader,
+                transfer_account_throttle,
+                last_transfer_account_at,
+                "last_transfer_account_at"
+            ),
+            b"edit_manager" => assert_action_throttle!(
+                input_witness_reader,
+                output_witness_reader,
+                edit_manager_throttle,
+                last_edit_manager_at,
+                "last_edit_manager_at"
+            ),
+            b"edit_records" => assert_action_throttle!(
+                input_witness_reader,
+                output_witness_reader,
+                edit_records_throttle,
+                last_edit_records_at,
+                "last_edit_records_at"
+            ),
+            _ => return Err(Error::ActionNotSupported),
+        }
     }
 
     Ok(())
@@ -768,57 +830,105 @@ fn verify_account_expiration(
     Ok(())
 }
 
-fn verify_account_witness_consistent(
+fn verify_account_witness_consistent<'a>(
     input_index: usize,
     output_index: usize,
-    input_witness_reader: AccountCellDataReader,
-    output_witness_reader: AccountCellDataReader,
+    input_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
+    output_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
     except: Vec<&str>,
 ) -> Result<(), Error> {
     debug!("Check if AccountCell.witness is consistent in input and output.");
 
     macro_rules! assert_field_consistent {
-        ($field:ident, $field_name:expr) => {
-            assert!(
-                util::is_reader_eq(
-                    input_witness_reader.$field(),
-                    output_witness_reader.$field()
-                ),
-                Error::AccountCellProtectFieldIsModified,
-                "The witness.{} field of inputs[{}] and outputs[{}] should be the same.",
-                $field_name,
-                input_index,
-                output_index
-            );
+        ($input_witness_reader:expr, $output_witness_reader:expr, $( ($field:ident, $field_name:expr) ),*) => {
+            $(
+                assert!(
+                    util::is_reader_eq(
+                        $input_witness_reader.$field(),
+                        $output_witness_reader.$field()
+                    ),
+                    Error::AccountCellProtectFieldIsModified,
+                    "The witness.{} field of inputs[{}] and outputs[{}] should be the same.",
+                    $field_name,
+                    input_index,
+                    output_index
+                );
+            )*
         };
     }
 
     macro_rules! assert_field_consistent_if_not_except {
-        ($field:ident, $field_name:expr) => {
-            if !except.contains(&$field_name) {
-                assert_field_consistent!($field, $field_name);
-            }
+        ($input_witness_reader:expr, $output_witness_reader:expr, $( ($field:ident, $field_name:expr) ),*) => {
+            $(
+                if !except.contains(&$field_name) {
+                    assert_field_consistent!(
+                        $input_witness_reader,
+                        $output_witness_reader,
+                        ($field, $field_name)
+                    );
+                }
+            )*
         };
     }
 
-    assert_field_consistent!(id, "id");
-    assert_field_consistent!(account, "account");
-    assert_field_consistent!(registered_at, "registered_at");
-    assert_field_consistent!(status, "status");
+    let output_witness_reader = output_witness_reader
+        .try_into_latest()
+        .map_err(|_| Error::NarrowMixerTypeFailed)?;
+    // Migration for AccountCellData v1
+    if input_witness_reader.version() == 1 {
+        let input_witness_reader = input_witness_reader
+            .try_into_v1()
+            .map_err(|_| Error::NarrowMixerTypeFailed)?;
 
-    assert_field_consistent_if_not_except!(records, "records");
-    assert_field_consistent_if_not_except!(last_transfer_account_at, "last_transfer_account_at");
-    assert_field_consistent_if_not_except!(last_edit_manager_at, "last_edit_manager_at");
-    assert_field_consistent_if_not_except!(last_edit_records_at, "last_edit_records_at");
+        assert_field_consistent!(
+            input_witness_reader,
+            output_witness_reader,
+            (id, "id"),
+            (account, "account"),
+            (registered_at, "registered_at"),
+            (status, "status")
+        );
+
+        assert_field_consistent_if_not_except!(
+            input_witness_reader,
+            output_witness_reader,
+            (records, "records")
+        );
+    } else {
+        let input_witness_reader = input_witness_reader
+            .try_into_latest()
+            .map_err(|_| Error::NarrowMixerTypeFailed)?;
+
+        assert_field_consistent!(
+            input_witness_reader,
+            output_witness_reader,
+            (id, "id"),
+            (account, "account"),
+            (registered_at, "registered_at"),
+            (status, "status")
+        );
+
+        assert_field_consistent_if_not_except!(
+            input_witness_reader,
+            output_witness_reader,
+            (records, "records"),
+            (last_transfer_account_at, "last_transfer_account_at"),
+            (last_edit_manager_at, "last_edit_manager_at"),
+            (last_edit_records_at, "last_edit_records_at")
+        );
+    }
 
     Ok(())
 }
 
-fn verify_records_keys(
+fn verify_records_keys<'a>(
     config: ConfigCellAccountReader,
     record_key_namespace: &Vec<u8>,
-    output_account_witness_reader: AccountCellDataReader,
+    output_account_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
 ) -> Result<(), Error> {
+    let output_account_witness_reader = output_account_witness_reader
+        .try_into_latest()
+        .map_err(|_| Error::NarrowMixerTypeFailed)?;
     let records_max_size = u32::from(config.record_size_limit()) as usize;
     let records = output_account_witness_reader.records();
 
