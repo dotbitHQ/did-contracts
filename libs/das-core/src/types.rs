@@ -42,7 +42,7 @@ pub struct Configs {
     pub proposal: Option<ConfigCellProposal>,
     pub profit_rate: Option<ConfigCellProfitRate>,
     pub record_key_namespace: Option<Vec<u8>>,
-    pub preserved_account: Option<Vec<Vec<u8>>>,
+    pub preserved_account: Option<Vec<u8>>,
 }
 
 impl Configs {
@@ -67,11 +67,10 @@ impl Configs {
         Ok(reader)
     }
 
-    pub fn preserved_account(&self) -> Result<&Vec<Vec<u8>>, Error> {
+    pub fn preserved_account(&self) -> Result<&[u8], Error> {
         let reader = self
             .preserved_account
             .as_ref()
-            .map(|item| item)
             .ok_or(Error::ConfigIsPartialMissing)?;
         Ok(reader)
     }

@@ -409,7 +409,7 @@ pub fn load_das_witnesses(index: usize, data_type: DataType) -> Result<Vec<u8>, 
             );
 
             debug!(
-                "  Load witnesses[{}]: {:?} size: {} Bytes",
+                "Load witnesses[{}]: {:?} size: {} Bytes",
                 index, data_type, actual_size
             );
 
@@ -436,6 +436,11 @@ pub fn load_das_witnesses(index: usize, data_type: DataType) -> Result<Vec<u8>, 
                 }
                 x if x <= 16000 => {
                     let mut buf = [0u8; 16000];
+                    data = load_witness(&mut buf, index)?;
+                }
+                // There is no sense that x goes to big, because the VM will always return OutOfBounds error if x over some threshold.
+                x if x <= 32000 => {
+                    let mut buf = [0u8; 200000];
                     data = load_witness(&mut buf, index)?;
                 }
                 _ => {

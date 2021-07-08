@@ -155,10 +155,20 @@ impl TemplateParser {
 
     pub fn execute_tx_directly(&mut self) -> Result<Cycle, ckb_error::Error> {
         let tx = self.build_tx();
+        println!(
+            "\nTransaction size: {} bytes, Suggested fee: {} shannon(feeRate: 1)",
+            tx.data().total_size(),
+            tx.data().total_size() + 4
+        );
         self.context.verify_tx(&tx, MAX_CYCLES)
     }
 
     pub fn execute_tx(&mut self, tx: TransactionView) -> Result<Cycle, ckb_error::Error> {
+        println!(
+            "\nTransaction size: {} bytes, Suggested fee: {} shannon(feeRate: 1)",
+            tx.data().total_size(),
+            tx.data().total_size() + 4
+        );
         self.context.verify_tx(&tx, MAX_CYCLES)
     }
 

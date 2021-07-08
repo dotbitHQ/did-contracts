@@ -9,7 +9,7 @@ use das_core::{
     witness_parser::WitnessesParser,
 };
 use das_types::{
-    constants::{CharSetType, DataType, CHAR_SET_LENGTH},
+    constants::{CharSetType, DataType, CHAR_SET_LENGTH, PRESERVED_ACCOUNT_CELL_COUNT},
     packed::*,
     prelude::*,
     util as das_types_util,
@@ -63,7 +63,6 @@ pub fn main() -> Result<(), Error> {
             DataType::ConfigCellAccount,
             DataType::ConfigCellApply,
             DataType::ConfigCellPrice,
-            DataType::ConfigCellPreservedAccount00,
         ])?;
         let config_main_reader = parser.configs.main()?;
 
@@ -166,9 +165,7 @@ pub fn main() -> Result<(), Error> {
 
         verify_account_length(config_account, pre_account_cell_witness_reader)?;
         verify_account_chars(&mut parser, pre_account_cell_witness_reader)?;
-
-        let config_preserved_account = parser.configs.preserved_account()?;
-        verify_preserved_accounts(config_preserved_account, pre_account_cell_witness_reader)?;
+        verify_preserved_accounts(&mut parser, pre_account_cell_witness_reader)?;
     } else {
         return Err(Error::ActionNotSupported);
     }
@@ -513,7 +510,7 @@ fn verify_account_chars(
 }
 
 fn verify_preserved_accounts(
-    config_preserved_account: &Vec<Vec<u8>>,
+    parser: &mut WitnessesParser,
     pre_account_reader: PreAccountCellDataReader,
 ) -> Result<(), Error> {
     debug!("Verify if account is preserved.");
@@ -521,43 +518,46 @@ fn verify_preserved_accounts(
     let account = pre_account_reader.account().as_readable();
     let account_hash = util::blake2b_256(account.as_slice());
     let first_20_bytes = account_hash.get(..ACCOUNT_ID_LENGTH).unwrap();
-    // debug!("first 20 bytes of account hash: {:?}", first_10_bytes);
+    // debug!("first 20 bytes of account hash: {:?}", first_20_bytes);
+    let index = (first_20_bytes[0] % PRESERVED_ACCOUNT_CELL_COUNT) as usize;
+    let data_type = das_types_util::preserved_accounts_group_to_data_type(index);
 
-    for preserved_accounts in config_preserved_account {
-        if preserved_accounts.len() > 0 {
-            let accounts_total = preserved_accounts.len() / ACCOUNT_ID_LENGTH;
-            let mut start_account = 0;
-            let mut end_account = accounts_total - 1;
+    parser.parse_config(&[data_type])?;
+    let preserved_accounts = parser.configs.preserved_account()?;
 
-            loop {
-                let nth_account = (end_account - start_account) / 2 + start_account;
-                // debug!(
-                //     "nth_account({:?}) = (end_account({:?}) - start_account({:?})) / 2 + start_account({:?}))",
-                //     nth_account, end_account, start_account, start_account
-                // );
-                let start_index = nth_account * ACCOUNT_ID_LENGTH;
-                let end_index = (nth_account + 1) * ACCOUNT_ID_LENGTH;
-                // debug!("start_index: {:?}, end_index: {:?}", start_index, end_index);
-                let bytes_of_nth_account = preserved_accounts.get(start_index..end_index).unwrap();
-                // debug!("bytes_of_nth_account: {:?}", bytes_of_nth_account);
-                if bytes_of_nth_account < first_20_bytes {
-                    // debug!("<");
-                    start_account = nth_account;
-                } else if bytes_of_nth_account > first_20_bytes {
-                    // debug!(">");
-                    end_account = nth_account;
-                } else {
-                    warn!(
-                        "Account 0x{} is preserved. (hash: 0x{})",
-                        util::hex_string(account.as_slice()),
-                        util::hex_string(&account_hash)
-                    );
-                    return Err(Error::AccountIsPreserved);
-                }
+    if preserved_accounts.len() > 0 {
+        let accounts_total = preserved_accounts.len() / ACCOUNT_ID_LENGTH;
+        let mut start_account = 0;
+        let mut end_account = accounts_total - 1;
 
-                if end_account - start_account <= 1 {
-                    break;
-                }
+        loop {
+            let nth_account = (end_account - start_account) / 2 + start_account;
+            // debug!(
+            //     "nth_account({:?}) = (end_account({:?}) - start_account({:?})) / 2 + start_account({:?}))",
+            //     nth_account, end_account, start_account, start_account
+            // );
+            let start_index = nth_account * ACCOUNT_ID_LENGTH;
+            let end_index = (nth_account + 1) * ACCOUNT_ID_LENGTH;
+            // debug!("start_index: {:?}, end_index: {:?}", start_index, end_index);
+            let bytes_of_nth_account = preserved_accounts.get(start_index..end_index).unwrap();
+            // debug!("bytes_of_nth_account: {:?}", bytes_of_nth_account);
+            if bytes_of_nth_account < first_20_bytes {
+                // debug!("<");
+                start_account = nth_account;
+            } else if bytes_of_nth_account > first_20_bytes {
+                // debug!(">");
+                end_account = nth_account;
+            } else {
+                warn!(
+                    "Account 0x{} is preserved. (hash: 0x{})",
+                    util::hex_string(account.as_slice()),
+                    util::hex_string(&account_hash)
+                );
+                return Err(Error::AccountIsPreserved);
+            }
+
+            if end_account - start_account <= 1 {
+                break;
             }
         }
     }

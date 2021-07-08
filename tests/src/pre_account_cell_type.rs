@@ -26,12 +26,6 @@ fn init(account: &str) -> (TemplateGenerator, &str, u64) {
     template.push_config_cell(DataType::ConfigCellCharSetEn, true, 0, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellMain, true, 0, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellPrice, true, 0, Source::CellDep);
-    template.push_config_cell(
-        DataType::ConfigCellPreservedAccount00,
-        true,
-        0,
-        Source::CellDep,
-    );
 
     template.push_apply_register_cell(
         "0x9af92f5e690f4669ca543deb99af8385b12624cc",
@@ -47,6 +41,7 @@ fn init(account: &str) -> (TemplateGenerator, &str, u64) {
 #[test]
 fn gen_pre_register_simple() {
     let (mut template, account, timestamp) = init("✨das🎉001.bit");
+    template.push_config_cell_derived_by_account("✨das🎉001", true, 0, Source::CellDep);
 
     let (cell_data, entity) = template.gen_pre_account_cell_data(
         account,
@@ -72,6 +67,7 @@ test_with_template!(test_pre_register_simple, "pre_register.json");
 
 test_with_generator!(test_pre_register_char_set, || {
     let (mut template, account, timestamp) = init("✨咐桑糯0001.bit");
+    template.push_config_cell_derived_by_account("✨咐桑糯0001", true, 0, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellCharSetZhHans, true, 0, Source::CellDep);
 
     let (cell_data, entity) = template.gen_pre_account_cell_data(
@@ -96,6 +92,7 @@ test_with_generator!(test_pre_register_char_set, || {
 
 test_with_generator!(test_pre_register_release_datetime, || {
     let (mut template, account, timestamp) = init("✨das🎉001.bit");
+    template.push_config_cell_derived_by_account("✨das🎉001", true, 0, Source::CellDep);
 
     let (cell_data, entity) = template.gen_pre_account_cell_data(
         account,
@@ -122,7 +119,8 @@ challenge_with_generator!(
     Error::PreRegisterAccountCharIsInvalid,
     || {
         // ⚠️ Need delete the emoji from char_set_emoji.txt first, otherwise the test can not pass.
-        let (mut template, account, timestamp) = init("✨das🎱001.bit");
+        let (mut template, account, timestamp) = init("✨das🇵🇫001.bit");
+        template.push_config_cell_derived_by_account("✨das🇵🇫001", true, 0, Source::CellDep);
 
         let (cell_data, entity) = template.gen_pre_account_cell_data(
             account,
@@ -150,6 +148,7 @@ challenge_with_generator!(
     Error::AccountIsPreserved,
     || {
         let (mut template, account, timestamp) = init("microsoft.bit");
+        template.push_config_cell_derived_by_account("microsoft", true, 0, Source::CellDep);
 
         let (cell_data, entity) = template.gen_pre_account_cell_data(
             account,
@@ -177,6 +176,7 @@ challenge_with_generator!(
     Error::AccountStillCanNotBeRegister,
     || {
         let (mut template, account, timestamp) = init("a.bit");
+        template.push_config_cell_derived_by_account("a", true, 0, Source::CellDep);
 
         let (cell_data, entity) = template.gen_pre_account_cell_data(
             account,
@@ -204,6 +204,12 @@ challenge_with_generator!(
     Error::PreRegisterAccountIsTooLong,
     || {
         let (mut template, account, timestamp) = init("123456789012345678901.bit");
+        template.push_config_cell_derived_by_account(
+            "123456789012345678901",
+            true,
+            0,
+            Source::CellDep,
+        );
 
         let (cell_data, entity) = template.gen_pre_account_cell_data(
             account,

@@ -91,14 +91,11 @@ macro_rules! gen_account_cells {
         );
 
         // Generate AccountCell in outputs
-        let (cell_data, new_entity) = $template.gen_account_cell_data(
+        let (cell_data, new_entity) = $template.gen_account_cell_data_v1(
             $account,
             $updated_next,
             $registered_at,
             $expired_at,
-            0,
-            0,
-            0,
             None,
         );
         $template.push_account_cell::<AccountCellData>(
@@ -111,7 +108,7 @@ macro_rules! gen_account_cells {
         );
 
         // Generate witness of AccountCell.
-        $template.push_witness::<AccountCellData, AccountCellDataV1, AccountCellData>(
+        $template.push_witness::<AccountCellDataV1, AccountCellDataV1, AccountCellData>(
             DataType::AccountCellData,
             Some((1, $output_index, new_entity)),
             Some((1, $input_index, old_entity)),
@@ -199,7 +196,7 @@ macro_rules! gen_account_and_pre_account_cells {
             "0x0000000000000000000000000000000000001100",
             "0x0000000000000000000000000000000000001100",
             cell_data,
-            Some((1, $output_index, entity)),
+            Some((2, $output_index, entity)),
             1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
             Source::Output,
         );

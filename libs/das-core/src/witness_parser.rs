@@ -274,7 +274,7 @@ impl WitnessesParser {
             find_and_remove_from_hashes(_i, data_type, &mut config_entity_hashes, entity)?;
 
             debug!(
-                "    Found matched ConfigCell witness at: witnesses[{}] data_type: {:?} size: {}",
+                "  Found matched ConfigCell witness at: witnesses[{}] data_type: {:?} size: {}",
                 _i,
                 data_type,
                 raw_trimed.len()
@@ -305,8 +305,29 @@ impl WitnessesParser {
                 DataType::ConfigCellRecordKeyNamespace => {
                     self.configs.record_key_namespace = Some(entity.get(4..).unwrap().to_vec());
                 }
-                DataType::ConfigCellPreservedAccount00 => {
-                    assign_config_preserved_account_witness!(0, entity)
+                DataType::ConfigCellPreservedAccount00
+                | DataType::ConfigCellPreservedAccount01
+                | DataType::ConfigCellPreservedAccount02
+                | DataType::ConfigCellPreservedAccount03
+                | DataType::ConfigCellPreservedAccount04
+                | DataType::ConfigCellPreservedAccount05
+                | DataType::ConfigCellPreservedAccount06
+                | DataType::ConfigCellPreservedAccount07
+                | DataType::ConfigCellPreservedAccount08
+                | DataType::ConfigCellPreservedAccount09
+                | DataType::ConfigCellPreservedAccount10
+                | DataType::ConfigCellPreservedAccount11
+                | DataType::ConfigCellPreservedAccount12
+                | DataType::ConfigCellPreservedAccount13
+                | DataType::ConfigCellPreservedAccount14
+                | DataType::ConfigCellPreservedAccount15
+                | DataType::ConfigCellPreservedAccount16
+                | DataType::ConfigCellPreservedAccount17
+                | DataType::ConfigCellPreservedAccount18
+                | DataType::ConfigCellPreservedAccount19 => {
+                    // debug!("length: {}", entity.get(4..).unwrap().len());
+                    // self.configs.preserved_account = None;
+                    self.configs.preserved_account = Some(entity.get(4..).unwrap().to_vec());
                 }
                 DataType::ConfigCellCharSetEmoji
                 | DataType::ConfigCellCharSetDigit
@@ -489,6 +510,25 @@ impl WitnessesParser {
             DataType::ConfigCellProfitRate,
             DataType::ConfigCellRecordKeyNamespace,
             DataType::ConfigCellPreservedAccount00,
+            DataType::ConfigCellPreservedAccount01,
+            DataType::ConfigCellPreservedAccount02,
+            DataType::ConfigCellPreservedAccount03,
+            DataType::ConfigCellPreservedAccount04,
+            DataType::ConfigCellPreservedAccount05,
+            DataType::ConfigCellPreservedAccount06,
+            DataType::ConfigCellPreservedAccount07,
+            DataType::ConfigCellPreservedAccount08,
+            DataType::ConfigCellPreservedAccount09,
+            DataType::ConfigCellPreservedAccount10,
+            DataType::ConfigCellPreservedAccount11,
+            DataType::ConfigCellPreservedAccount12,
+            DataType::ConfigCellPreservedAccount13,
+            DataType::ConfigCellPreservedAccount14,
+            DataType::ConfigCellPreservedAccount15,
+            DataType::ConfigCellPreservedAccount16,
+            DataType::ConfigCellPreservedAccount17,
+            DataType::ConfigCellPreservedAccount18,
+            DataType::ConfigCellPreservedAccount19,
             DataType::ConfigCellCharSetEmoji,
             DataType::ConfigCellCharSetDigit,
             DataType::ConfigCellCharSetEn,
