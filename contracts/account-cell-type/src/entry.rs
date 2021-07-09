@@ -519,6 +519,16 @@ fn verify_transaction_fee_spent_correctly(
 ) -> Result<(), Error> {
     debug!("Check if the fee in the AccountCell is spent correctly.");
 
+    let input_capacity = high_level::load_cell_capacity(input_account_index, Source::Output)
+        .map_err(|e| Error::from(e))?;
+    let output_capacity = high_level::load_cell_capacity(output_account_index, Source::Output)
+        .map_err(|e| Error::from(e))?;
+
+    // The capacity is not changed, skip the following verification.
+    if input_capacity == output_capacity {
+        return Ok(());
+    }
+
     let input_data = util::load_cell_data(input_account_index, Source::Input)?;
     let account_length = data_parser::account_cell::get_account(&input_data).len() as u64;
 
@@ -529,11 +539,6 @@ fn verify_transaction_fee_spent_correctly(
         _ => return Err(Error::ActionNotSupported),
     };
     let storage_capacity = u64::from(config.basic_capacity()) + account_length * 100_000_000;
-
-    let input_capacity = high_level::load_cell_capacity(input_account_index, Source::Output)
-        .map_err(|e| Error::from(e))?;
-    let output_capacity = high_level::load_cell_capacity(output_account_index, Source::Output)
-        .map_err(|e| Error::from(e))?;
 
     assert!(
         output_capacity >= storage_capacity,
