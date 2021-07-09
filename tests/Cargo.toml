@@ -20,4 +20,4 @@ das-sorted-list = { path = "../libs/das-sorted-list", features = ["std"] }
 das-types = { path = "../../das-types/rust", features = ["std"] }
 walkdir = "2"
 rand = "0.8.3"
-chrono = { version = "0.4", default-features = false }
+chrono = { version = "0.4" }

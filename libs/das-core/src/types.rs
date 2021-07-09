@@ -41,6 +41,7 @@ pub struct Configs {
     pub price: Option<ConfigCellPrice>,
     pub proposal: Option<ConfigCellProposal>,
     pub profit_rate: Option<ConfigCellProfitRate>,
+    pub release: Option<ConfigCellRelease>,
     pub record_key_namespace: Option<Vec<u8>>,
     pub preserved_account: Option<Vec<u8>>,
 }
@@ -57,6 +58,7 @@ impl Configs {
     config_getter!(price, ConfigCellPriceReader);
     config_getter!(proposal, ConfigCellProposalReader);
     config_getter!(profit_rate, ConfigCellProfitRateReader);
+    config_getter!(release, ConfigCellReleaseReader);
 
     pub fn record_key_namespace(&self) -> Result<&Vec<u8>, Error> {
         let reader = self

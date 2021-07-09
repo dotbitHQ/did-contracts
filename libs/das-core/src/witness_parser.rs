@@ -188,23 +188,6 @@ impl WitnessesParser {
             };
         }
 
-        macro_rules! assign_config_preserved_account_witness {
-            ( $index:expr, $entity:expr ) => {
-                if self.configs.preserved_account.is_some() {
-                    self.configs
-                        .preserved_account
-                        .as_mut()
-                        .map(|account_lists| {
-                            account_lists[$index] = $entity.get(4..).unwrap().to_vec()
-                        });
-                } else {
-                    let mut account_lists = vec![Vec::new(); 8];
-                    account_lists[$index] = $entity.get(4..).unwrap().to_vec();
-                    self.configs.preserved_account = Some(account_lists)
-                }
-            };
-        }
-
         macro_rules! assign_config_char_set_witness {
             ( $char_set_type:expr, $entity:expr ) => {{
                 let index = $char_set_type as usize;
@@ -301,6 +284,9 @@ impl WitnessesParser {
                 }
                 DataType::ConfigCellProfitRate => {
                     assign_config_witness!(self.configs.profit_rate, ConfigCellProfitRate, entity)
+                }
+                DataType::ConfigCellRelease => {
+                    assign_config_witness!(self.configs.release, ConfigCellRelease, entity)
                 }
                 DataType::ConfigCellRecordKeyNamespace => {
                     self.configs.record_key_namespace = Some(entity.get(4..).unwrap().to_vec());
@@ -508,6 +494,7 @@ impl WitnessesParser {
             DataType::ConfigCellPrice,
             DataType::ConfigCellProposal,
             DataType::ConfigCellProfitRate,
+            DataType::ConfigCellRelease,
             DataType::ConfigCellRecordKeyNamespace,
             DataType::ConfigCellPreservedAccount00,
             DataType::ConfigCellPreservedAccount01,

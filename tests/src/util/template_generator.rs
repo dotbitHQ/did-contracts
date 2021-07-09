@@ -621,6 +621,39 @@ impl TemplateGenerator {
         (cell_data, entity)
     }
 
+    fn gen_config_cell_release(&mut self) -> (Bytes, ConfigCellRelease) {
+        let data = vec![
+            (
+                2,
+                util::gen_timestamp("2021-06-28 00:00:00"),
+                util::gen_timestamp("2021-07-10 00:00:00"),
+            ),
+            (
+                0,
+                util::gen_timestamp("2021-06-01 00:00:00"),
+                util::gen_timestamp("2021-06-01 00:00:00"),
+            ),
+        ];
+
+        let mut release_rules = ReleaseRules::new_builder();
+        for item in data.into_iter() {
+            release_rules = release_rules.push(
+                ReleaseRule::new_builder()
+                    .length(Uint32::from(item.0))
+                    .release_start(Timestamp::from(item.1))
+                    .release_end(Timestamp::from(item.2))
+                    .build(),
+            );
+        }
+
+        let entity = ConfigCellRelease::new_builder()
+            .release_rules(release_rules.build())
+            .build();
+        let cell_data = Bytes::from(blake2b_256(entity.as_slice()).to_vec());
+
+        (cell_data, entity)
+    }
+
     fn gen_config_cell_record_key_namespace(&mut self) -> (Bytes, Vec<u8>) {
         let mut record_key_namespace = Vec::new();
         let lines = util::read_lines("record_key_namespace.txt")
@@ -782,6 +815,10 @@ impl TemplateGenerator {
             DataType::ConfigCellProfitRate => gen_config_data_and_entity_witness!(
                 gen_config_cell_profit_rate,
                 DataType::ConfigCellProfitRate
+            ),
+            DataType::ConfigCellRelease => gen_config_data_and_entity_witness!(
+                gen_config_cell_release,
+                DataType::ConfigCellRelease
             ),
             DataType::ConfigCellRecordKeyNamespace => {
                 let (cell_data, raw) = self.gen_config_cell_record_key_namespace();

@@ -26,6 +26,7 @@ fn init(account: &str) -> (TemplateGenerator, &str, u64) {
     template.push_config_cell(DataType::ConfigCellCharSetEn, true, 0, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellMain, true, 0, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellPrice, true, 0, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellRelease, true, 0, Source::CellDep);
 
     template.push_apply_register_cell(
         "0x9af92f5e690f4669ca543deb99af8385b12624cc",
