@@ -152,7 +152,7 @@ pub fn gen_account_chars(chars: Vec<impl AsRef<str>>) -> AccountChars {
             continue;
         }
 
-        // ⚠️ For testing only, the judgement is not accurate.
+        // ⚠️ For testing only, the judgement is not accurate, DO NOT support multiple emoji with more than 4 bytes.
         if char.len() != 1 {
             if RE_ZH.is_match(char) {
                 builder = builder.push(gen_account_char(char, CharSetType::ZhHans))

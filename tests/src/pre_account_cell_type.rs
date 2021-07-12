@@ -119,9 +119,9 @@ challenge_with_generator!(
     challenge_pre_register_invalid_char,
     Error::PreRegisterAccountCharIsInvalid,
     || {
-        // ⚠️ Need delete the emoji from char_set_emoji.txt first, otherwise the test can not pass.
-        let (mut template, account, timestamp) = init("✨das🇵🇫001.bit");
-        template.push_config_cell_derived_by_account("✨das🇵🇫001", true, 0, Source::CellDep);
+        // ⚠️ Need to delete the emoji from char_set_emoji.txt first, otherwise the test can not pass.
+        let (mut template, account, timestamp) = init("✨das🎱001.bit");
+        template.push_config_cell_derived_by_account("✨das🎱001", true, 0, Source::CellDep);
 
         let (cell_data, entity) = template.gen_pre_account_cell_data(
             account,
@@ -136,7 +136,7 @@ challenge_with_generator!(
         template.push_pre_account_cell(
             cell_data,
             Some((1, 0, entity)),
-            476_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
+            476_300_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
             Source::Output,
         );
 
