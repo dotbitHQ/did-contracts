@@ -9,7 +9,7 @@ use das_core::{
     witness_parser::WitnessesParser,
 };
 use das_types::{
-    constants::{CharSetType, DataType, CHAR_SET_LENGTH},
+    constants::{CharSetType, DataType, CHAR_SET_LENGTH, PRESERVED_ACCOUNT_CELL_COUNT},
     packed::*,
     prelude::*,
     util as das_types_util,
@@ -63,7 +63,7 @@ pub fn main() -> Result<(), Error> {
             DataType::ConfigCellAccount,
             DataType::ConfigCellApply,
             DataType::ConfigCellPrice,
-            DataType::ConfigCellPreservedAccount00,
+            DataType::ConfigCellRelease,
         ])?;
         let config_main_reader = parser.configs.main()?;
 
@@ -158,7 +158,9 @@ pub fn main() -> Result<(), Error> {
             timestamp,
             None,
         )?;
+        let config_release = parser.configs.release()?;
         verify_account_release_datetime(
+            config_release,
             timestamp,
             account_id,
             pre_account_cell_witness_reader.account().len(),
@@ -166,9 +168,7 @@ pub fn main() -> Result<(), Error> {
 
         verify_account_length(config_account, pre_account_cell_witness_reader)?;
         verify_account_chars(&mut parser, pre_account_cell_witness_reader)?;
-
-        let config_preserved_account = parser.configs.preserved_account()?;
-        verify_preserved_accounts(config_preserved_account, pre_account_cell_witness_reader)?;
+        verify_preserved_accounts(&mut parser, pre_account_cell_witness_reader)?;
     } else {
         return Err(Error::ActionNotSupported);
     }
@@ -513,7 +513,7 @@ fn verify_account_chars(
 }
 
 fn verify_preserved_accounts(
-    config_preserved_account: &Vec<Vec<u8>>,
+    parser: &mut WitnessesParser,
     pre_account_reader: PreAccountCellDataReader,
 ) -> Result<(), Error> {
     debug!("Verify if account is preserved.");
@@ -521,43 +521,46 @@ fn verify_preserved_accounts(
     let account = pre_account_reader.account().as_readable();
     let account_hash = util::blake2b_256(account.as_slice());
     let first_20_bytes = account_hash.get(..ACCOUNT_ID_LENGTH).unwrap();
-    // debug!("first 20 bytes of account hash: {:?}", first_10_bytes);
+    // debug!("first 20 bytes of account hash: {:?}", first_20_bytes);
+    let index = (first_20_bytes[0] % PRESERVED_ACCOUNT_CELL_COUNT) as usize;
+    let data_type = das_types_util::preserved_accounts_group_to_data_type(index);
 
-    for preserved_accounts in config_preserved_account {
-        if preserved_accounts.len() > 0 {
-            let accounts_total = preserved_accounts.len() / ACCOUNT_ID_LENGTH;
-            let mut start_account = 0;
-            let mut end_account = accounts_total - 1;
+    parser.parse_config(&[data_type])?;
+    let preserved_accounts = parser.configs.preserved_account()?;
 
-            loop {
-                let nth_account = (end_account - start_account) / 2 + start_account;
-                // debug!(
-                //     "nth_account({:?}) = (end_account({:?}) - start_account({:?})) / 2 + start_account({:?}))",
-                //     nth_account, end_account, start_account, start_account
-                // );
-                let start_index = nth_account * ACCOUNT_ID_LENGTH;
-                let end_index = (nth_account + 1) * ACCOUNT_ID_LENGTH;
-                // debug!("start_index: {:?}, end_index: {:?}", start_index, end_index);
-                let bytes_of_nth_account = preserved_accounts.get(start_index..end_index).unwrap();
-                // debug!("bytes_of_nth_account: {:?}", bytes_of_nth_account);
-                if bytes_of_nth_account < first_20_bytes {
-                    // debug!("<");
-                    start_account = nth_account;
-                } else if bytes_of_nth_account > first_20_bytes {
-                    // debug!(">");
-                    end_account = nth_account;
-                } else {
-                    warn!(
-                        "Account 0x{} is preserved. (hash: 0x{})",
-                        util::hex_string(account.as_slice()),
-                        util::hex_string(&account_hash)
-                    );
-                    return Err(Error::AccountIsPreserved);
-                }
+    if preserved_accounts.len() > 0 {
+        let accounts_total = preserved_accounts.len() / ACCOUNT_ID_LENGTH;
+        let mut start_account = 0;
+        let mut end_account = accounts_total - 1;
 
-                if end_account - start_account <= 1 {
-                    break;
-                }
+        loop {
+            let nth_account = (end_account - start_account) / 2 + start_account;
+            // debug!(
+            //     "nth_account({:?}) = (end_account({:?}) - start_account({:?})) / 2 + start_account({:?}))",
+            //     nth_account, end_account, start_account, start_account
+            // );
+            let start_index = nth_account * ACCOUNT_ID_LENGTH;
+            let end_index = (nth_account + 1) * ACCOUNT_ID_LENGTH;
+            // debug!("start_index: {:?}, end_index: {:?}", start_index, end_index);
+            let bytes_of_nth_account = preserved_accounts.get(start_index..end_index).unwrap();
+            // debug!("bytes_of_nth_account: {:?}", bytes_of_nth_account);
+            if bytes_of_nth_account < first_20_bytes {
+                // debug!("<");
+                start_account = nth_account;
+            } else if bytes_of_nth_account > first_20_bytes {
+                // debug!(">");
+                end_account = nth_account;
+            } else {
+                warn!(
+                    "Account 0x{} is preserved. (hash: 0x{})",
+                    util::hex_string(account.as_slice()),
+                    util::hex_string(&account_hash)
+                );
+                return Err(Error::AccountIsPreserved);
+            }
+
+            if end_account - start_account <= 1 {
+                break;
             }
         }
     }
@@ -566,29 +569,36 @@ fn verify_preserved_accounts(
 }
 
 fn verify_account_release_datetime(
+    config_release: ConfigCellReleaseReader,
     current: u64,
     account_id: &[u8],
     account_length: usize,
 ) -> Result<(), Error> {
     debug!("Check if account is released for registration.");
 
-    use chrono::{TimeZone, Utc};
     macro_rules! verify_if_account_released {
         ($release_start:expr, $release_end:expr) => {{
-            let release_duration = ($release_end - $release_start) / 3600; // hours
-            if current < $release_end && release_duration > 0 {
+            let release_start = u64::from($release_start);
+            let release_end = u64::from($release_end);
+            let release_duration = (release_end - release_start) / 3600; // hours
+            if current < release_end && release_duration > 0 {
                 let mut buf = [0u8, 0];
                 buf.copy_from_slice(account_id.get(..2).unwrap());
                 let lucky_num = u16::from_be_bytes(buf) as u64;
+                // debug!("account_id: {:?}", account_id);
+                // debug!("num_from_first_2_bytes: {}", lucky_num);
 
                 assert!(
-                    current >= $release_start,
+                    current >= release_start,
                     Error::AccountStillCanNotBeRegister,
                     "The registration is still not started."
                 );
 
                 let release_after = lucky_num % release_duration;
-                let passed_hours = (current - $release_start) / 3600;
+                // debug!("release_start: {}", release_start);
+                // debug!("release_end: {}", release_end);
+                // debug!("release_after: {} hour", release_after);
+                let passed_hours = (current - release_start) / 3600;
 
                 debug!(
                     "account ID: 0x{} lucky number: {} release_duration: {} passed_hours: {} release_after: {}",
@@ -610,42 +620,24 @@ fn verify_account_release_datetime(
         }};
     }
 
-    if cfg!(feature = "mainnet") {
-        match account_length {
-            5 => {
-                // ⚠️ TODO update to final value
-                let release_start = Utc.ymd(2021, 6, 22).and_hms(0, 0, 0).timestamp() as u64;
-                let release_end = Utc.ymd(2021, 7, 8).and_hms(0, 0, 0).timestamp() as u64;
-                verify_if_account_released!(release_start, release_end);
-            }
-            6 => {
-                // ⚠️ TODO update to final value
-                let release_start = Utc.ymd(2021, 6, 22).and_hms(0, 0, 0).timestamp() as u64;
-                let release_end = Utc.ymd(2021, 7, 8).and_hms(0, 0, 0).timestamp() as u64;
-                verify_if_account_released!(release_start, release_end);
-            }
-            _ => {
-                // ⚠️ TODO update to final value
-                let release_start = Utc.ymd(2021, 6, 22).and_hms(0, 0, 0).timestamp() as u64;
-                let release_end = Utc.ymd(2021, 7, 8).and_hms(0, 0, 0).timestamp() as u64;
-                verify_if_account_released!(release_start, release_end);
-            }
+    let release_rules = config_release.release_rules();
+    let mut tmp = None;
+    for item in release_rules.iter() {
+        let length = u32::from(item.length()) as usize;
+        if length == 0 {
+            tmp = Some(item);
         }
+    }
+    let default_rule = tmp.expect("The default release rule is undefined.");
+
+    let rule_matched_opt = release_rules
+        .iter()
+        .find(|item| u32::from(item.length()) as usize == account_length);
+
+    if let Some(rule_matched) = rule_matched_opt {
+        verify_if_account_released!(rule_matched.release_start(), rule_matched.release_end());
     } else {
-        match account_length {
-            2 => {
-                // ⚠️ TODO update to final value
-                let release_start = Utc.ymd(2021, 6, 28).and_hms(0, 0, 0).timestamp() as u64;
-                let release_end = Utc.ymd(2021, 7, 10).and_hms(0, 0, 0).timestamp() as u64;
-                verify_if_account_released!(release_start, release_end);
-            }
-            _ => {
-                // ⚠️ TODO update to final value
-                let release_start = Utc.ymd(2021, 6, 1).and_hms(0, 0, 0).timestamp() as u64;
-                let release_end = Utc.ymd(2021, 6, 1).and_hms(0, 0, 0).timestamp() as u64;
-                verify_if_account_released!(release_start, release_end);
-            }
-        }
+        verify_if_account_released!(default_rule.release_start(), default_rule.release_end());
     }
 
     Ok(())

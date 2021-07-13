@@ -60,7 +60,8 @@ pub fn account_cell(
     );
 
     debug!(
-        "    data: {{ id: 0x{}, next: 0x{}, expired_at: {}, account: 0x{} }}",
+        "    data: {{ hash: 0x{}, id: 0x{}, next: 0x{}, expired_at: {}, account: 0x{} }}",
+        hex_string(data.get(..32).unwrap()),
         hex_string(account_cell::get_id(&data)),
         hex_string(account_cell::get_next(&data)),
         account_cell::get_expired_at(&data),

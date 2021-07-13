@@ -152,7 +152,7 @@ pub fn gen_account_chars(chars: Vec<impl AsRef<str>>) -> AccountChars {
             continue;
         }
 
-        // ⚠️ For testing only, the judgement is not accurate.
+        // ⚠️ For testing only, the judgement is not accurate, DO NOT support multiple emoji with more than 4 bytes.
         if char.len() != 1 {
             if RE_ZH.is_match(char) {
                 builder = builder.push(gen_account_char(char, CharSetType::ZhHans))
@@ -281,7 +281,7 @@ pub struct IncomeRecordParam {
 
 macro_rules! gen_config_cell_char_set {
     ($fn_name:ident, $is_global:expr, $file_name:expr, $ret_type:expr) => {
-        fn $fn_name(&mut self) -> (Bytes, Vec<u8>) {
+        fn $fn_name(&self) -> (Bytes, Vec<u8>) {
             let mut charsets = Vec::new();
             let lines = util::read_lines($file_name)
                 .expect(format!("Expect file ./tests/data/{} exist.", $file_name).as_str());
@@ -298,7 +298,7 @@ macro_rules! gen_config_cell_char_set {
                 raw.extend(key.as_bytes());
                 raw.extend(&[0u8]);
             }
-            let raw = util::prepend_molecule_like_length(raw);
+            raw = util::prepend_molecule_like_length(raw);
 
             let cell_data = Bytes::from(blake2b_256(raw.as_slice()).to_vec());
 
@@ -314,6 +314,8 @@ pub struct TemplateGenerator {
     pub outputs: Vec<Value>,
     pub witnesses: Vec<String>,
     pub prices: HashMap<u8, PriceConfig>,
+    pub preserved_account_groups: HashMap<u32, (Bytes, Vec<u8>)>,
+    pub charsets: HashMap<u32, (Bytes, Vec<u8>)>,
 }
 
 impl TemplateGenerator {
@@ -337,6 +339,8 @@ impl TemplateGenerator {
             outputs: Vec::new(),
             witnesses: vec![bytes_to_hex(witness)],
             prices,
+            preserved_account_groups: HashMap::new(),
+            charsets: HashMap::new(),
         }
     }
 
@@ -561,6 +565,7 @@ impl TemplateGenerator {
         let entity = ConfigCellMain::new_builder()
             .status(Uint8::from(1))
             .type_id_table(gen_type_id_table())
+            .das_lock_out_point_table(DasLockOutPointTable::default())
             .build();
 
         let cell_data = Bytes::from(blake2b_256(entity.as_slice()).to_vec());
@@ -616,6 +621,39 @@ impl TemplateGenerator {
         (cell_data, entity)
     }
 
+    fn gen_config_cell_release(&mut self) -> (Bytes, ConfigCellRelease) {
+        let data = vec![
+            (
+                2,
+                util::gen_timestamp("2021-06-28 00:00:00"),
+                util::gen_timestamp("2021-07-10 00:00:00"),
+            ),
+            (
+                0,
+                util::gen_timestamp("2021-06-01 00:00:00"),
+                util::gen_timestamp("2021-06-01 00:00:00"),
+            ),
+        ];
+
+        let mut release_rules = ReleaseRules::new_builder();
+        for item in data.into_iter() {
+            release_rules = release_rules.push(
+                ReleaseRule::new_builder()
+                    .length(Uint32::from(item.0))
+                    .release_start(Timestamp::from(item.1))
+                    .release_end(Timestamp::from(item.2))
+                    .build(),
+            );
+        }
+
+        let entity = ConfigCellRelease::new_builder()
+            .release_rules(release_rules.build())
+            .build();
+        let cell_data = Bytes::from(blake2b_256(entity.as_slice()).to_vec());
+
+        (cell_data, entity)
+    }
+
     fn gen_config_cell_record_key_namespace(&mut self) -> (Bytes, Vec<u8>) {
         let mut record_key_namespace = Vec::new();
         let lines = util::read_lines("record_key_namespace.txt")
@@ -640,35 +678,45 @@ impl TemplateGenerator {
         (cell_data, raw)
     }
 
-    fn gen_config_cell_reserved_account(&mut self) -> (Bytes, Vec<u8>) {
-        let mut account_hashes = Vec::new();
-        let mut _account_map = Vec::new();
-        let lines = util::read_lines("preserved_accounts.txt")
-            .expect("Expect file ./tests/data/preserved_accounts.txt exist.");
-        for line in lines {
-            if let Ok(account) = line {
-                let account_hash = blake2b_256(account.as_bytes());
-                account_hashes.push(account_hash.get(..ACCOUNT_ID_LENGTH).unwrap().to_vec());
-                _account_map.push((
-                    account_hash.get(..ACCOUNT_ID_LENGTH).unwrap().to_vec(),
-                    account,
-                ));
+    fn gen_config_cell_preserved_account(
+        &mut self,
+        data_type: DataType,
+    ) -> Option<(Bytes, Vec<u8>)> {
+        if self.preserved_account_groups.is_empty() {
+            // Load and group preserved accounts
+            let mut preserved_accounts_groups: Vec<Vec<Vec<u8>>> =
+                vec![Vec::new(); PRESERVED_ACCOUNT_CELL_COUNT as usize];
+            let lines = util::read_lines("preserved_accounts.txt")
+                .expect("Expect file ./data/preserved_accounts.txt exist.");
+            for line in lines {
+                if let Ok(account) = line {
+                    let account_hash = blake2b_256(account.as_bytes())
+                        .get(..ACCOUNT_ID_LENGTH)
+                        .unwrap()
+                        .to_vec();
+                    let index = (account_hash[0] % PRESERVED_ACCOUNT_CELL_COUNT) as usize;
+
+                    preserved_accounts_groups[index].push(account_hash);
+                }
+            }
+
+            // Store grouped preserved accounts into self.preserved_account_groups
+            for (_i, mut group) in preserved_accounts_groups.into_iter().enumerate() {
+                // println!("Preserved account group[{}] count: {}", _i, group.len());
+                group.sort();
+                let mut raw = group.into_iter().flatten().collect::<Vec<u8>>();
+                raw = util::prepend_molecule_like_length(raw);
+
+                let data_type = das_util::preserved_accounts_group_to_data_type(_i);
+                let cell_data = Bytes::from(blake2b_256(raw.as_slice()).to_vec());
+                self.preserved_account_groups
+                    .insert(data_type as u32, (cell_data, raw));
             }
         }
-        account_hashes.sort();
 
-        // _account_map.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-        // println!("Hash => Account:");
-        // for item in _account_map {
-        //     println!("{:?} => {}", item.0, item.1);
-        // }
-
-        let mut raw = account_hashes.into_iter().flatten().collect::<Vec<u8>>();
-        raw = util::prepend_molecule_like_length(raw);
-
-        let cell_data = Bytes::from(blake2b_256(raw.as_slice()).to_vec());
-
-        (cell_data, raw)
+        self.preserved_account_groups
+            .get(&(data_type as u32))
+            .map(|item| item.to_owned())
     }
 
     gen_config_cell_char_set!(
@@ -724,15 +772,10 @@ impl TemplateGenerator {
         }
 
         macro_rules! gen_config_data_and_raw_witness {
-            ( $index:expr, $configs:expr, $config_type:expr ) => {{
-                let (cell_data, raw) = $configs[$index].clone();
+            ( $gen_fn:ident, $config_type:expr ) => {{
+                let (cell_data, raw) = self.$gen_fn();
                 (cell_data, das_util::wrap_raw_witness($config_type, raw))
             }};
-        }
-
-        let mut preserved_account_configs = Vec::new();
-        if [DataType::ConfigCellPreservedAccount00].contains(&config_type) {
-            preserved_account_configs = vec![self.gen_config_cell_reserved_account()];
         }
 
         let (cell_data, witness) = match config_type {
@@ -773,6 +816,10 @@ impl TemplateGenerator {
                 gen_config_cell_profit_rate,
                 DataType::ConfigCellProfitRate
             ),
+            DataType::ConfigCellRelease => gen_config_data_and_entity_witness!(
+                gen_config_cell_release,
+                DataType::ConfigCellRelease
+            ),
             DataType::ConfigCellRecordKeyNamespace => {
                 let (cell_data, raw) = self.gen_config_cell_record_key_namespace();
                 (
@@ -780,49 +827,95 @@ impl TemplateGenerator {
                     das_util::wrap_raw_witness(DataType::ConfigCellRecordKeyNamespace, raw),
                 )
             }
-            DataType::ConfigCellPreservedAccount00 => gen_config_data_and_raw_witness!(
-                0,
-                preserved_account_configs,
-                DataType::ConfigCellPreservedAccount00
+            DataType::ConfigCellPreservedAccount00
+            | DataType::ConfigCellPreservedAccount01
+            | DataType::ConfigCellPreservedAccount02
+            | DataType::ConfigCellPreservedAccount03
+            | DataType::ConfigCellPreservedAccount04
+            | DataType::ConfigCellPreservedAccount05
+            | DataType::ConfigCellPreservedAccount06
+            | DataType::ConfigCellPreservedAccount07
+            | DataType::ConfigCellPreservedAccount08
+            | DataType::ConfigCellPreservedAccount09
+            | DataType::ConfigCellPreservedAccount10
+            | DataType::ConfigCellPreservedAccount11
+            | DataType::ConfigCellPreservedAccount12
+            | DataType::ConfigCellPreservedAccount13
+            | DataType::ConfigCellPreservedAccount14
+            | DataType::ConfigCellPreservedAccount15
+            | DataType::ConfigCellPreservedAccount16
+            | DataType::ConfigCellPreservedAccount17
+            | DataType::ConfigCellPreservedAccount18
+            | DataType::ConfigCellPreservedAccount19 => {
+                match self.gen_config_cell_preserved_account(config_type) {
+                    Some((cell_data, raw)) => {
+                        (cell_data, das_util::wrap_raw_witness(config_type, raw))
+                    }
+                    None => panic!("Load preserved accounts from file failed ..."),
+                }
+            }
+            DataType::ConfigCellCharSetEmoji => gen_config_data_and_raw_witness!(
+                gen_config_cell_char_set_emoji,
+                DataType::ConfigCellCharSetEmoji
             ),
-            DataType::ConfigCellCharSetEmoji => {
-                let (cell_data, raw) = self.gen_config_cell_char_set_emoji();
-                (
-                    cell_data,
-                    das_util::wrap_raw_witness(DataType::ConfigCellCharSetEmoji, raw),
-                )
-            }
-            DataType::ConfigCellCharSetDigit => {
-                let (cell_data, raw) = self.gen_config_cell_char_set_digit();
-                (
-                    cell_data,
-                    das_util::wrap_raw_witness(DataType::ConfigCellCharSetDigit, raw),
-                )
-            }
-            DataType::ConfigCellCharSetEn => {
-                let (cell_data, raw) = self.gen_config_cell_char_set_en();
-                (
-                    cell_data,
-                    das_util::wrap_raw_witness(DataType::ConfigCellCharSetEn, raw),
-                )
-            }
-            DataType::ConfigCellCharSetZhHans => {
-                let (cell_data, raw) = self.gen_config_cell_char_set_zh_hans();
-                (
-                    cell_data,
-                    das_util::wrap_raw_witness(DataType::ConfigCellCharSetZhHans, raw),
-                )
-            }
-            DataType::ConfigCellCharSetZhHant => {
-                let (cell_data, raw) = self.gen_config_cell_char_set_zh_hant();
-                (
-                    cell_data,
-                    das_util::wrap_raw_witness(DataType::ConfigCellCharSetZhHant, raw),
-                )
-            }
+            DataType::ConfigCellCharSetDigit => gen_config_data_and_raw_witness!(
+                gen_config_cell_char_set_digit,
+                DataType::ConfigCellCharSetDigit
+            ),
+            DataType::ConfigCellCharSetEn => gen_config_data_and_raw_witness!(
+                gen_config_cell_char_set_en,
+                DataType::ConfigCellCharSetEn
+            ),
+            DataType::ConfigCellCharSetZhHans => gen_config_data_and_raw_witness!(
+                gen_config_cell_char_set_zh_hans,
+                DataType::ConfigCellCharSetZhHans
+            ),
+            DataType::ConfigCellCharSetZhHant => gen_config_data_and_raw_witness!(
+                gen_config_cell_char_set_zh_hant,
+                DataType::ConfigCellCharSetZhHant
+            ),
             _ => {
                 panic!("Not config cell data type.")
             }
+        };
+
+        // Create config cell.
+        let config_id_hex = hex_string(&(config_type as u32).to_le_bytes()).unwrap();
+        let lock_script = json!({
+          "code_hash": "{{always_success}}",
+          "args": CONFIG_LOCK_ARGS
+        });
+        let type_script = json!({
+          "code_hash": "{{config-cell-type}}",
+          "args": format!("0x{}", config_id_hex),
+        });
+        self.push_cell(capacity, lock_script, type_script, Some(cell_data), source);
+
+        if push_witness {
+            // Create config cell witness.
+            self.witnesses.push(bytes_to_hex(witness));
+        }
+    }
+
+    pub fn push_config_cell_derived_by_account(
+        &mut self,
+        account_without_suffix: &str,
+        push_witness: bool,
+        capacity: u64,
+        source: Source,
+    ) {
+        let first_byte_of_account_hash = blake2b_256(account_without_suffix.as_bytes())[0];
+        let index = (first_byte_of_account_hash % PRESERVED_ACCOUNT_CELL_COUNT) as usize;
+        let config_type = das_util::preserved_accounts_group_to_data_type(index);
+
+        println!(
+            "The first byte of account hash is {:?}, so {:?} will be chosen.",
+            first_byte_of_account_hash, config_type
+        );
+
+        let (cell_data, witness) = match self.gen_config_cell_preserved_account(config_type) {
+            Some((cell_data, raw)) => (cell_data, das_util::wrap_raw_witness(config_type, raw)),
+            None => panic!("Can not find preserved account group from the account ..."),
         };
 
         // Create config cell.

@@ -1,7 +1,15 @@
-build/*
-target/*
-contracts/**/target/*
-.cache/.cargo/*
-!.gitkeep
-.tmp/
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor & IDE
 .idea/
+.vscode/
+.history/
+build/
+target/
+!.gitkeep
+
+# Other
+*tmp
+

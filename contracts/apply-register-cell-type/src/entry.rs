@@ -44,7 +44,7 @@ pub fn main() -> Result<(), Error> {
         debug!("Check if the first 32 bytes exists ...");
 
         assert!(
-            data.get(..32).is_some(),
+            data.len() >= 32,
             Error::InvalidCellData,
             "The data of ApplyRegisterCell should start with 32 bytes hash."
         );

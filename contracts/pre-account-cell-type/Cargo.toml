@@ -1,6 +1,6 @@
 [package]
 name = "pre-account-cell-type"
-version = "0.1.0"
+version = "0.2.1"
 edition = "2018"
 
 [features]
@@ -14,4 +14,3 @@ ckb-std = "0.7.1"
 hex = { default-features = false, version = "0.4.2"}
 das-core = { path = "../../libs/das-core", default-features = false }
 das-types = { path = "../../../das-types/rust", default-features = false }
-chrono = { version = "0.4", default-features = false }

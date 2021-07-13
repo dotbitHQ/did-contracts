@@ -52,19 +52,27 @@ impl WitnessesParser {
 
                     let data_type_in_int =
                         u32::from_le_bytes(buf.get(3..7).unwrap().try_into().unwrap());
-                    let data_type = DataType::try_from(data_type_in_int)
-                        .map_err(|_| Error::WitnessDataTypeDecodingError)?;
+                    match DataType::try_from(data_type_in_int) {
+                        Ok(data_type) => {
+                            if !das_witnesses_started {
+                                assert!(
+                                    data_type == DataType::ActionData,
+                                    Error::WitnessStructureError,
+                                    "The first DAS witness must be the type of DataType::ActionData ."
+                                );
+                                das_witnesses_started = true
+                            }
 
-                    if !das_witnesses_started {
-                        assert!(
-                            data_type == DataType::ActionData,
-                            Error::WitnessStructureError,
-                            "The first DAS witness must be the type of DataType::ActionData ."
-                        );
-                        das_witnesses_started = true
+                            witnesses.push((i, data_type));
+                        }
+                        Err(_) => {
+                            // Ignore unknown DataTypes which will make adding new DataType much easier and no need to update every contracts.
+                            debug!(
+                                "Ignored unknown DataType {:?} for compatible purpose.",
+                                data_type_in_int
+                            );
+                        }
                     }
-
-                    witnesses.push((i, data_type));
 
                     i += 1;
                 }
@@ -86,7 +94,7 @@ impl WitnessesParser {
         })
     }
 
-    pub fn parse_action(&mut self) -> Result<ActionData, Error> {
+    pub fn parse_action(&self) -> Result<ActionData, Error> {
         let (index, data_type) = self.witnesses[0];
         let raw = util::load_das_witnesses(index, data_type)?;
 
@@ -188,23 +196,6 @@ impl WitnessesParser {
             };
         }
 
-        macro_rules! assign_config_preserved_account_witness {
-            ( $index:expr, $entity:expr ) => {
-                if self.configs.preserved_account.is_some() {
-                    self.configs
-                        .preserved_account
-                        .as_mut()
-                        .map(|account_lists| {
-                            account_lists[$index] = $entity.get(4..).unwrap().to_vec()
-                        });
-                } else {
-                    let mut account_lists = vec![Vec::new(); 8];
-                    account_lists[$index] = $entity.get(4..).unwrap().to_vec();
-                    self.configs.preserved_account = Some(account_lists)
-                }
-            };
-        }
-
         macro_rules! assign_config_char_set_witness {
             ( $char_set_type:expr, $entity:expr ) => {{
                 let index = $char_set_type as usize;
@@ -274,7 +265,7 @@ impl WitnessesParser {
             find_and_remove_from_hashes(_i, data_type, &mut config_entity_hashes, entity)?;
 
             debug!(
-                "    Found matched ConfigCell witness at: witnesses[{}] data_type: {:?} size: {}",
+                "  Found matched ConfigCell witness at: witnesses[{}] data_type: {:?} size: {}",
                 _i,
                 data_type,
                 raw_trimed.len()
@@ -302,11 +293,35 @@ impl WitnessesParser {
                 DataType::ConfigCellProfitRate => {
                     assign_config_witness!(self.configs.profit_rate, ConfigCellProfitRate, entity)
                 }
+                DataType::ConfigCellRelease => {
+                    assign_config_witness!(self.configs.release, ConfigCellRelease, entity)
+                }
                 DataType::ConfigCellRecordKeyNamespace => {
                     self.configs.record_key_namespace = Some(entity.get(4..).unwrap().to_vec());
                 }
-                DataType::ConfigCellPreservedAccount00 => {
-                    assign_config_preserved_account_witness!(0, entity)
+                DataType::ConfigCellPreservedAccount00
+                | DataType::ConfigCellPreservedAccount01
+                | DataType::ConfigCellPreservedAccount02
+                | DataType::ConfigCellPreservedAccount03
+                | DataType::ConfigCellPreservedAccount04
+                | DataType::ConfigCellPreservedAccount05
+                | DataType::ConfigCellPreservedAccount06
+                | DataType::ConfigCellPreservedAccount07
+                | DataType::ConfigCellPreservedAccount08
+                | DataType::ConfigCellPreservedAccount09
+                | DataType::ConfigCellPreservedAccount10
+                | DataType::ConfigCellPreservedAccount11
+                | DataType::ConfigCellPreservedAccount12
+                | DataType::ConfigCellPreservedAccount13
+                | DataType::ConfigCellPreservedAccount14
+                | DataType::ConfigCellPreservedAccount15
+                | DataType::ConfigCellPreservedAccount16
+                | DataType::ConfigCellPreservedAccount17
+                | DataType::ConfigCellPreservedAccount18
+                | DataType::ConfigCellPreservedAccount19 => {
+                    // debug!("length: {}", entity.get(4..).unwrap().len());
+                    // self.configs.preserved_account = None;
+                    self.configs.preserved_account = Some(entity.get(4..).unwrap().to_vec());
                 }
                 DataType::ConfigCellCharSetEmoji
                 | DataType::ConfigCellCharSetDigit
@@ -487,8 +502,28 @@ impl WitnessesParser {
             DataType::ConfigCellPrice,
             DataType::ConfigCellProposal,
             DataType::ConfigCellProfitRate,
+            DataType::ConfigCellRelease,
             DataType::ConfigCellRecordKeyNamespace,
             DataType::ConfigCellPreservedAccount00,
+            DataType::ConfigCellPreservedAccount01,
+            DataType::ConfigCellPreservedAccount02,
+            DataType::ConfigCellPreservedAccount03,
+            DataType::ConfigCellPreservedAccount04,
+            DataType::ConfigCellPreservedAccount05,
+            DataType::ConfigCellPreservedAccount06,
+            DataType::ConfigCellPreservedAccount07,
+            DataType::ConfigCellPreservedAccount08,
+            DataType::ConfigCellPreservedAccount09,
+            DataType::ConfigCellPreservedAccount10,
+            DataType::ConfigCellPreservedAccount11,
+            DataType::ConfigCellPreservedAccount12,
+            DataType::ConfigCellPreservedAccount13,
+            DataType::ConfigCellPreservedAccount14,
+            DataType::ConfigCellPreservedAccount15,
+            DataType::ConfigCellPreservedAccount16,
+            DataType::ConfigCellPreservedAccount17,
+            DataType::ConfigCellPreservedAccount18,
+            DataType::ConfigCellPreservedAccount19,
             DataType::ConfigCellCharSetEmoji,
             DataType::ConfigCellCharSetDigit,
             DataType::ConfigCellCharSetEn,

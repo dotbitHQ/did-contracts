@@ -259,7 +259,7 @@ pub fn main() -> Result<(), Error> {
         let created_at_height = u64::from(input_cell_witness_reader.created_at_height());
 
         assert!(
-            height - created_at_height >= proposal_min_recycle_interval,
+            height >= created_at_height + proposal_min_recycle_interval,
             Error::ProposalRecycleNeedWaitLonger,
             "ProposalCell should be recycled later, about {} block to wait.",
             created_at_height + proposal_min_recycle_interval - height
