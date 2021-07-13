@@ -52,19 +52,27 @@ impl WitnessesParser {
 
                     let data_type_in_int =
                         u32::from_le_bytes(buf.get(3..7).unwrap().try_into().unwrap());
-                    let data_type = DataType::try_from(data_type_in_int)
-                        .map_err(|_| Error::WitnessDataTypeDecodingError)?;
+                    match DataType::try_from(data_type_in_int) {
+                        Ok(data_type) => {
+                            if !das_witnesses_started {
+                                assert!(
+                                    data_type == DataType::ActionData,
+                                    Error::WitnessStructureError,
+                                    "The first DAS witness must be the type of DataType::ActionData ."
+                                );
+                                das_witnesses_started = true
+                            }
 
-                    if !das_witnesses_started {
-                        assert!(
-                            data_type == DataType::ActionData,
-                            Error::WitnessStructureError,
-                            "The first DAS witness must be the type of DataType::ActionData ."
-                        );
-                        das_witnesses_started = true
+                            witnesses.push((i, data_type));
+                        }
+                        Err(_) => {
+                            // Ignore unknown DataTypes which will make adding new DataType much easier and no need to update every contracts.
+                            debug!(
+                                "Ignored unknown DataType {:?} for compatible purpose.",
+                                data_type_in_int
+                            );
+                        }
                     }
-
-                    witnesses.push((i, data_type));
 
                     i += 1;
                 }
@@ -86,7 +94,7 @@ impl WitnessesParser {
         })
     }
 
-    pub fn parse_action(&mut self) -> Result<ActionData, Error> {
+    pub fn parse_action(&self) -> Result<ActionData, Error> {
         let (index, data_type) = self.witnesses[0];
         let raw = util::load_das_witnesses(index, data_type)?;
 

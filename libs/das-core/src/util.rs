@@ -73,33 +73,37 @@ pub fn find_cells_by_type_id(
     let mut i = 0;
     let mut cell_indexes = Vec::new();
     loop {
-        let mut buf = [0u8; 1000];
+        let offset = 16;
+        let mut code_hash = [0u8; 32];
         let ret = match script_type {
             ScriptType::Lock => {
-                syscalls::load_cell_by_field(&mut buf, 0, i, source, CellField::Lock)
+                syscalls::load_cell_by_field(&mut code_hash, offset, i, source, CellField::Lock)
             }
             ScriptType::Type => {
-                syscalls::load_cell_by_field(&mut buf, 0, i, source, CellField::Type)
+                syscalls::load_cell_by_field(&mut code_hash, offset, i, source, CellField::Type)
             }
         };
 
-        if ret.is_err() {
-            if script_type == ScriptType::Type && ret == Err(SysError::ItemMissing) {
-                i += 1;
-                continue;
+        match ret {
+            Ok(_) => {
+                // Since script.as_slice().len() must larger than the length of code_hash.
+                unreachable!()
             }
-
-            match ret {
-                Err(SysError::IndexOutOfBound) => break,
-                _ => return Err(Error::from(ret.unwrap_err())),
+            Err(SysError::LengthNotEnough(_)) => {
+                if code_hash == type_id.raw_data() {
+                    cell_indexes.push(i);
+                }
             }
-        } else {
-            let cell_code_hash = buf.get(16..(16 + 32)).unwrap();
-            if cell_code_hash == type_id.raw_data() {
-                cell_indexes.push(i);
+            Err(SysError::ItemMissing) if script_type == ScriptType::Type => {}
+            Err(SysError::IndexOutOfBound) => {
+                break;
             }
-            i += 1;
+            Err(err) => {
+                return Err(Error::from(err));
+            }
         }
+
+        i += 1;
     }
 
     Ok(cell_indexes)
@@ -143,25 +147,24 @@ pub fn find_cells_by_script(
     let expected_hash = blake2b_256(script.as_slice());
     loop {
         let ret = match script_type {
-            ScriptType::Lock => high_level::load_cell_lock_hash(i, source),
-            _ => high_level::load_cell_type_hash(i, source).map(|hash_opt| match hash_opt {
-                Some(hash) => hash,
-                None => [0u8; 32],
-            }),
+            ScriptType::Lock => high_level::load_cell_lock_hash(i, source).map(Some),
+            _ => high_level::load_cell_type_hash(i, source),
         };
 
-        if ret.is_err() {
-            match ret {
-                Err(SysError::IndexOutOfBound) => break,
-                _ => return Err(Error::from(ret.unwrap_err())),
-            }
-        } else {
-            let hash = ret.unwrap();
-            if hash == expected_hash {
+        match ret {
+            Ok(Some(hash)) if hash == expected_hash => {
                 cell_indexes.push(i);
             }
-            i += 1;
+            Ok(_) => {}
+            Err(SysError::IndexOutOfBound) => {
+                break;
+            }
+            Err(err) => {
+                return Err(Error::from(err));
+            }
         }
+
+        i += 1;
     }
 
     Ok(cell_indexes)
@@ -369,23 +372,14 @@ pub fn trim_empty_bytes(buf: &[u8]) -> &[u8] {
 }
 
 pub fn load_das_witnesses(index: usize, data_type: DataType) -> Result<Vec<u8>, Error> {
-    fn load_witness(buf: &mut [u8], i: usize) -> Result<Vec<u8>, Error> {
-        syscalls::load_witness(buf, 0, i, Source::Input).map_err(|e| Error::from(e))?;
-        Ok(trim_empty_bytes(buf).to_vec())
-    }
-
     let mut buf = [0u8; 7];
-    let mut data = Vec::new();
     let ret = syscalls::load_witness(&mut buf, 0, index, Source::Input);
 
     match ret {
         // Data which length is too short to be DAS witnesses, so ignore it.
         Ok(_) => {
-            assert!(
-                false,
-                Error::WitnessReadingError,
-                "The witnesses[{}] is too short to be DAS witness.", index
-            );
+            warn!("The witnesses[{}] is too short to be DAS witness.", index);
+            Err(Error::WitnessReadingError)
         }
         Err(SysError::LengthNotEnough(actual_size)) => {
             if let Some(raw) = buf.get(..3) {
@@ -413,50 +407,21 @@ pub fn load_das_witnesses(index: usize, data_type: DataType) -> Result<Vec<u8>, 
                 index, data_type, actual_size
             );
 
-            match actual_size {
-                x if x <= 500 => {
-                    let mut buf = [0u8; 500];
-                    data = load_witness(&mut buf, index)?;
-                }
-                x if x <= 1000 => {
-                    let mut buf = [0u8; 1000];
-                    data = load_witness(&mut buf, index)?;
-                }
-                x if x <= 2000 => {
-                    let mut buf = [0u8; 2000];
-                    data = load_witness(&mut buf, index)?;
-                }
-                x if x <= 4000 => {
-                    let mut buf = [0u8; 4000];
-                    data = load_witness(&mut buf, index)?;
-                }
-                x if x <= 8000 => {
-                    let mut buf = [0u8; 8000];
-                    data = load_witness(&mut buf, index)?;
-                }
-                x if x <= 16000 => {
-                    let mut buf = [0u8; 16000];
-                    data = load_witness(&mut buf, index)?;
-                }
-                // There is no sense that x goes to big, because the VM will always return OutOfBounds error if x over some threshold.
-                x if x <= 32000 => {
-                    let mut buf = [0u8; 200000];
-                    data = load_witness(&mut buf, index)?;
-                }
-                _ => {
-                    warn!("=============1");
-                    return Err(Error::from(SysError::LengthNotEnough(actual_size)));
-                }
+            if actual_size > 32000 {
+                warn!("The witnesses[{}] should be less than 32KB because the signall lock do not support more than that.", index);
+                Err(Error::from(SysError::LengthNotEnough(actual_size)))
+            } else {
+                let mut buf = vec![0u8; actual_size];
+                syscalls::load_witness(&mut buf, 0, index, Source::Input)
+                    .map_err(|e| Error::from(e))?;
+                Ok(buf)
             }
         }
         Err(e) => {
-            warn!("=============2");
             warn!("Load witness[{}] failed: {:?}", index, e);
-            return Err(Error::from(e));
+            Err(Error::from(e))
         }
     }
-
-    Ok(data)
 }
 
 pub fn new_blake2b() -> Blake2b {
@@ -654,13 +619,15 @@ pub fn is_inputs_and_outputs_consistent(
 
 pub fn is_cell_use_always_success_lock(index: usize, source: Source) -> Result<(), Error> {
     let lock = high_level::load_cell_lock(index, source).map_err(|e| Error::from(e))?;
+    let lock_reader = lock.as_reader();
     let always_success_lock = always_success_lock();
+    let always_success_lock_reader = always_success_lock.as_reader();
 
     assert!(
         is_reader_eq(
-            lock.as_reader().code_hash(),
-            always_success_lock.as_reader().code_hash()
-        ),
+            lock_reader.code_hash(),
+            always_success_lock_reader.code_hash()
+        ) && lock_reader.hash_type() == always_success_lock_reader.hash_type(),
         Error::AlwaysSuccessLockIsRequired,
         "The cell at {:?}[{}] should use always-success lock.(expected_code_hash: {})",
         source,
