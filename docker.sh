@@ -3,7 +3,7 @@
 # Docker image name
 DOCKER_IMAGE="jjy0/ckb-capsule-recipe-rust:2020-9-28"
 # Docker container name
-DOCKER_CONTAINER="capsule-dev"
+DOCKER_CONTAINER="capsule-dev-"`whoami`
 # Name of capsule cache volume
 CACHE_VOLUME="capsule-cache"
 
