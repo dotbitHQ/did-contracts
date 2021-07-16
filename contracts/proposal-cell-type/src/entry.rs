@@ -226,7 +226,7 @@ pub fn main() -> Result<(), Error> {
             output_account_cells,
         )?;
 
-        verify_refund_correct(input_cells[0], input_cell_witness_reader)?;
+        verify_refund_correct(input_cells[0], input_cell_witness_reader, 0)?;
     } else if action == b"recycle_proposal" {
         debug!("Route to recycle_proposal action ...");
 
@@ -265,7 +265,7 @@ pub fn main() -> Result<(), Error> {
             created_at_height + proposal_min_recycle_interval - height
         );
 
-        verify_refund_correct(input_cells[0], input_cell_witness_reader)?;
+        verify_refund_correct(input_cells[0], input_cell_witness_reader, 10000)?;
     } else {
         return Err(Error::ActionNotSupported);
     }
@@ -1358,6 +1358,7 @@ fn verify_witness_status(
 fn verify_refund_correct(
     proposal_cell_index: usize,
     proposal_cell_data_reader: ProposalCellDataReader,
+    available_for_fee: u64,
 ) -> Result<(), Error> {
     debug!("Check if the refund amount to proposer_lock is correct.");
 
@@ -1383,10 +1384,10 @@ fn verify_refund_correct(
     let proposal_capacity = load_cell_capacity(proposal_cell_index.to_owned(), Source::Input)
         .map_err(|e| Error::from(e))?;
     assert!(
-        proposal_capacity <= refund_capacity,
+        proposal_capacity <= refund_capacity + available_for_fee,
         Error::ProposalConfirmRefundError,
         "There refund of proposer should be at least {}, but {} found.",
-        proposal_capacity,
+        proposal_capacity - available_for_fee,
         refund_capacity
     );
 

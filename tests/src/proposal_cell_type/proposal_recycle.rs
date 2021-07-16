@@ -45,7 +45,7 @@ fn gen_proposal_recycle() {
     // outputs
     template.push_signall_cell(
         "0x0000000000000000000000000000000000002233",
-        100_000_000_000,
+        100_000_000_000 - 10000,
         Source::Output,
     );
 
@@ -85,6 +85,44 @@ challenge_with_generator!(
         template.push_signall_cell(
             "0x0000000000000000000000000000000000002233",
             100_000_000_000,
+            Source::Output,
+        );
+
+        template.as_json()
+    }
+);
+
+challenge_with_generator!(
+    chanllenge_proposal_recycle_refund_error,
+    Error::ProposalConfirmRefundError,
+    || {
+        let (mut template, height) = init_recycle();
+
+        // inputs
+        let slices = vec![
+            // A slice base on previous modified AccountCell
+            vec![
+                ("das00012.bit", ProposalSliceItemType::Exist, "das00009.bit"),
+                ("das00005.bit", ProposalSliceItemType::New, ""),
+            ],
+        ];
+
+        let (cell_data, entity) = template.gen_proposal_cell_data(
+            "0x0000000000000000000000000000000000002233",
+            height - 10,
+            &slices,
+        );
+        template.push_proposal_cell(
+            cell_data,
+            Some((1, 0, entity)),
+            100_000_000_000,
+            Source::Input,
+        );
+
+        // outputs
+        template.push_signall_cell(
+            "0x0000000000000000000000000000000000002233",
+            100_000_000_000 - 10001,
             Source::Output,
         );
 
