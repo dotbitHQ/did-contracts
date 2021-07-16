@@ -166,7 +166,7 @@ pub fn main() -> Result<(), Error> {
     } else if action == b"confirm_proposal" {
         debug!("Route to confirm_proposal action ...");
 
-        let timestamp = util::load_timestamp()?;
+        let timestamp = util::load_oracle_data(OracleCellType::Time)?;
         // let height = util::load_height()?;
 
         parser.parse_cell()?;
@@ -253,7 +253,7 @@ pub fn main() -> Result<(), Error> {
             ProposalCellData
         );
 
-        let height = util::load_height()?;
+        let height = util::load_oracle_data(OracleCellType::Height)?;
         let proposal_min_recycle_interval =
             u8::from(config_proposal_reader.proposal_min_recycle_interval()) as u64;
         let created_at_height = u64::from(input_cell_witness_reader.created_at_height());

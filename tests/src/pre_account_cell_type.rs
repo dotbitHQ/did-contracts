@@ -14,10 +14,9 @@ fn init(account: &str) -> (TemplateGenerator, &str, u64) {
     template.push_contract_cell("apply-register-cell-type", false);
     template.push_contract_cell("pre-account-cell-type", false);
 
-    template.push_height_cell(1, height, 200_000_000_000, Source::CellDep);
-    template.push_time_cell(1, timestamp, 200_000_000_000, Source::CellDep);
-
-    template.push_quote_cell(1000, 500_000_000_000, Source::CellDep);
+    template.push_oracle_cell(1, OracleCellType::Height, height);
+    template.push_oracle_cell(1, OracleCellType::Time, timestamp);
+    template.push_oracle_cell(1, OracleCellType::Quote, 1000);
 
     template.push_config_cell(DataType::ConfigCellAccount, true, 0, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellApply, true, 0, Source::CellDep);

@@ -9,7 +9,7 @@ fn init() -> TemplateGenerator {
     template.push_contract_cell("config-cell-type", false);
 
     let timestamp = 1611200000u64;
-    template.push_time_cell(1, timestamp, 0, Source::CellDep);
+    template.push_oracle_cell(1, OracleCellType::Time, timestamp);
 
     template
 }

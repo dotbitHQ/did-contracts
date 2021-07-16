@@ -16,7 +16,7 @@ fn init(action: &str, params_opt: Option<&str>) -> (TemplateGenerator, u64) {
     template.push_contract_cell("always_success", true);
     template.push_contract_cell("account-cell-type", false);
 
-    template.push_time_cell(1, timestamp, 0, Source::CellDep);
+    template.push_oracle_cell(1, OracleCellType::Time, timestamp);
 
     template.push_config_cell(DataType::ConfigCellMain, true, 0, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellAccount, true, 0, Source::CellDep);
@@ -468,7 +468,7 @@ fn gen_account_renew() {
 
     template.push_contract_cell("income-cell-type", false);
 
-    template.push_quote_cell(1000, 0, Source::CellDep);
+    template.push_oracle_cell(1, OracleCellType::Quote, 1000);
     template.push_config_cell(DataType::ConfigCellPrice, true, 0, Source::CellDep);
 
     let account = "das00001.bit";

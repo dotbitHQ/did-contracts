@@ -11,7 +11,7 @@ fn init(action: &str) -> (TemplateGenerator, u64) {
     template.push_contract_cell("apply-register-cell-type", false);
 
     let height = 1_000_000u64;
-    template.push_height_cell(1, height, 1000, Source::CellDep);
+    template.push_oracle_cell(1, OracleCellType::Height, height);
 
     template.push_config_cell(DataType::ConfigCellMain, true, 0, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellApply, true, 0, Source::CellDep);

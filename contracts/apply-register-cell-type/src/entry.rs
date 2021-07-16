@@ -1,6 +1,7 @@
 use ckb_std::{ckb_constants::Source, high_level};
 use core::convert::TryInto;
 use core::result::Result;
+use das_core::constants::OracleCellType;
 use das_core::{
     assert,
     constants::{ScriptType, TypeScript},
@@ -65,7 +66,7 @@ pub fn main() -> Result<(), Error> {
             _ => return Err(Error::InvalidCellData),
         };
 
-        let expected_height = util::load_height()?;
+        let expected_height = util::load_oracle_data(OracleCellType::Height)?;
         assert!(
             apply_height == expected_height,
             Error::ApplyRegisterCellHeightInvalid,
@@ -108,7 +109,7 @@ pub fn main() -> Result<(), Error> {
         };
         let max_waiting_block_number = u32::from(config.apply_max_waiting_block_number()) as u64;
 
-        let current_height = util::load_height()?;
+        let current_height = util::load_oracle_data(OracleCellType::Height)?;
         assert!(
             apply_height + max_waiting_block_number < current_height,
             Error::ApplyRegisterRefundNeedWaitLonger,

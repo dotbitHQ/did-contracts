@@ -67,3 +67,11 @@ pub enum Source {
     CellDep,
     HeaderDep,
 }
+
+#[derive(Debug, PartialEq, Copy, Clone)]
+#[repr(u8)]
+pub enum OracleCellType {
+    Quote = 0,
+    Time = 1,
+    Height = 2,
+}

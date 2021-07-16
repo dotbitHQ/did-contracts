@@ -268,93 +268,57 @@ pub fn load_cell_data_and_entity(
     Ok((data, entity))
 }
 
-pub fn load_timestamp() -> Result<u64, Error> {
-    debug!("Reading TimeCell ...");
+pub fn load_oracle_data(type_: OracleCellType) -> Result<u64, Error> {
+    let type_script;
+    match type_ {
+        OracleCellType::Height => {
+            debug!("Reading HeightCell ...");
+            type_script = height_cell_type();
+        }
+        OracleCellType::Time => {
+            debug!("Reading TimeCell ...");
+            type_script = time_cell_type();
+        }
+        OracleCellType::Quote => {
+            debug!("Reading QuoteCell ...");
+            type_script = quote_cell_type();
+        }
+    }
 
-    // Define nervos official TimeCell type script.
-    let type_script = time_cell_type();
-
-    // There must be one TimeCell in the cell_deps, no more and no less.
+    // There must be one OracleCell in the cell_deps, no more and no less.
     let ret = find_cells_by_script(ScriptType::Type, type_script.as_reader(), Source::CellDep)?;
     assert!(
         ret.len() == 1,
-        Error::TimeCellIsRequired,
-        "There should be one TimeCell in cell_deps, no more and no less."
+        Error::OracleCellIsRequired,
+        "There should be one cell of {:?} in cell_deps, no more and no less, but {} found.",
+        type_,
+        ret.len()
     );
 
-    debug!("Reading outputs_data of the TimeCell ...");
+    debug!("Reading outputs_data of the cell of {:?} ...", type_);
 
     // Read the passed timestamp from outputs_data of TimeCell
     let data = load_cell_data(ret[0], Source::CellDep)?;
-    let timestamp = match data.get(1..) {
-        Some(bytes) => {
-            assert!(
-                bytes.len() == 4,
-                Error::TimeCellDataDecodingError,
-                "Decoding timestamp from TimeCell failed, uint32 with big-endian expected."
-            );
-            u32::from_be_bytes(bytes.try_into().unwrap())
-        }
-        _ => {
-            warn!("Decoding timestamp from TimeCell failed, data is missing.");
-            return Err(Error::TimeCellDataDecodingError);
-        }
-    };
-
-    Ok(timestamp as u64)
-}
-
-pub fn load_height() -> Result<u64, Error> {
-    debug!("Reading HeightCell ...");
-
-    // Define nervos official TimeCell type script.
-    let type_script = height_cell_type();
-
-    // There must be one TimeCell in the cell_deps, no more and no less.
-    let ret = find_cells_by_script(ScriptType::Type, type_script.as_reader(), Source::CellDep)?;
-    assert!(
-        ret.len() == 1,
-        Error::HeightCellIsRequired,
-        "There should be one HeightCell in cell_deps, no more and no less."
-    );
-
-    debug!("Reading outputs_data of the HeightCell ...");
-
-    // Read the passed timestamp from outputs_data of TimeCell
-    let data = load_cell_data(ret[0], Source::CellDep)?;
-    let height = match data.get(1..) {
+    let data_in_uint = match data.get(2..) {
         Some(bytes) => {
             assert!(
                 bytes.len() == 8,
-                Error::HeightCellDataDecodingError,
-                "Decoding block number from HeightCell failed, uint64 with big-endian expected."
+                Error::OracleCellDataDecodingError,
+                "Decoding data from cell of {:?} failed, uint64 with big-endian expected.",
+                type_
             );
             u64::from_be_bytes(bytes.try_into().unwrap())
         }
         _ => {
-            warn!("Decoding block number from HeightCell failed, data is missing.");
-            return Err(Error::HeightCellDataDecodingError);
+            warn!(
+                "Decoding data from cell of {:?} failed, data is missing.",
+                type_
+            );
+            return Err(Error::OracleCellDataDecodingError);
         }
     };
 
-    Ok(height)
-}
-
-pub fn load_quote() -> Result<u64, Error> {
-    let quote_lock = oracle_lock();
-    let quote_cells =
-        find_cells_by_script(ScriptType::Lock, quote_lock.as_reader(), Source::CellDep)?;
-
-    assert!(
-        quote_cells.len() == 1,
-        Error::QuoteCellIsRequired,
-        "There should be one QuoteCell in cell_deps, no more and no less."
-    );
-
-    let quote_cell_data = load_cell_data(quote_cells[0], Source::CellDep)?;
-    let quote = u64::from_le_bytes(quote_cell_data.try_into().unwrap()); // y CKB/USD
-
-    Ok(quote)
+    Ok(data_in_uint as u64)
 }
 
 pub fn trim_empty_bytes(buf: &[u8]) -> &[u8] {

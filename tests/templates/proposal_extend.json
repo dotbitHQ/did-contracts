@@ -10,15 +10,16 @@
     },
     {
       "tmp_type": "full",
-      "capacity": 0,
+      "capacity": 40000000000,
       "lock": {
         "code_hash": "{{always_success}}"
       },
       "type": {
-        "code_hash": "0x0200000000000000000000000000000000000000000000000000000000000000",
-        "hash_type": "type"
+        "code_hash": "0x0100000000000000000000000000000000000000000000000000000000000000",
+        "hash_type": "type",
+        "args": "0x02"
       },
-      "tmp_data": "0x0100000000000003e8"
+      "tmp_data": "0x010200000000000003e8"
     },
     {
       "tmp_type": "full",

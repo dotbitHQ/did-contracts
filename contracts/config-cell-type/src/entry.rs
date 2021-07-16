@@ -42,7 +42,7 @@ pub fn main() -> Result<(), Error> {
             );
         } else {
             // Create new ConfigCells will require super lock to execute after the initialization day of DAS.
-            let timestamp = util::load_timestamp()?;
+            let timestamp = util::load_oracle_data(OracleCellType::Time)?;
             if util::is_init_day(timestamp).is_err() {
                 util::require_super_lock()?;
             }

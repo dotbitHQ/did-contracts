@@ -2,7 +2,9 @@ use alloc::{boxed::Box, vec, vec::Vec};
 use ckb_std::{ckb_constants::Source, ckb_types::prelude::*, debug, high_level};
 use das_core::{
     assert,
-    constants::{das_lock, das_wallet_lock, ScriptType, TypeScript, CUSTOM_KEYS_NAMESPACE},
+    constants::{
+        das_lock, das_wallet_lock, OracleCellType, ScriptType, TypeScript, CUSTOM_KEYS_NAMESPACE,
+    },
     data_parser,
     error::Error,
     parse_account_cell_witness, parse_witness, util, warn,
@@ -26,7 +28,7 @@ pub fn main() -> Result<(), Error> {
         debug!("Route to init_account_chain action ...");
 
         // No Root AccountCell can be created after the initialization day of DAS.
-        let timestamp = util::load_timestamp()?;
+        let timestamp = util::load_oracle_data(OracleCellType::Time)?;
         util::is_init_day(timestamp)?;
 
         let this_type_script = high_level::load_script().map_err(|e| Error::from(e))?;
@@ -73,7 +75,7 @@ pub fn main() -> Result<(), Error> {
         || action == b"edit_records"
     {
         util::is_system_off(&mut parser)?;
-        let timestamp = util::load_timestamp()?;
+        let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
         parser.parse_config(&[DataType::ConfigCellAccount])?;
         parser.parse_cell()?;
@@ -415,7 +417,7 @@ pub fn main() -> Result<(), Error> {
             .ok_or(Error::ItemMissing)?;
 
         let renew_price_in_usd = u64::from(price.renew()); // x USD
-        let quote = util::load_quote()?;
+        let quote = util::load_oracle_data(OracleCellType::Quote)?;
 
         // Renew price for 1 year in CKB = x ÷ y .
         let expected_duration = util::calc_duration_from_paid(paid, renew_price_in_usd, quote, 0);
@@ -437,7 +439,7 @@ pub fn main() -> Result<(), Error> {
         debug!("Route to recycle_expired_account_by_keeper action ...");
 
         util::is_system_off(&mut parser)?;
-        let timestamp = util::load_timestamp()?;
+        let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
         parser.parse_cell()?;
         parser.parse_config(&[DataType::ConfigCellAccount])?;

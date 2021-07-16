@@ -10,7 +10,7 @@ pub fn init(action: &str) -> (TemplateGenerator, u64, u64) {
     template.push_contract_cell("always_success", true);
     template.push_contract_cell("proposal-cell-type", false);
 
-    template.push_height_cell(1, height, 0, Source::CellDep);
+    template.push_oracle_cell(1, OracleCellType::Height, height);
     template.push_config_cell(DataType::ConfigCellMain, true, 0, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellProposal, true, 0, Source::CellDep);
 

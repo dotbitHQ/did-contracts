@@ -99,7 +99,7 @@ pub fn main() -> Result<(), Error> {
         #[cfg(not(feature = "mainnet"))]
         das_core::inspect::apply_register_cell(Source::Input, index.to_owned(), &data);
 
-        let height = util::load_height()?;
+        let height = util::load_oracle_data(OracleCellType::Height)?;
         let config_apply_reader = parser.configs.apply()?;
         verify_apply_height(height, config_apply_reader, &data)?;
 
@@ -151,7 +151,7 @@ pub fn main() -> Result<(), Error> {
 
         verify_account_id(pre_account_cell_witness_reader, account_id)?;
 
-        let timestamp = util::load_timestamp()?;
+        let timestamp = util::load_oracle_data(OracleCellType::Time)?;
         verify_created_at(timestamp, pre_account_cell_witness_reader)?;
         util::verify_account_length_and_years(
             pre_account_cell_witness_reader.account().len(),
@@ -303,7 +303,7 @@ fn verify_owner_lock_args(reader: PreAccountCellDataReader) -> Result<(), Error>
 fn verify_quote(reader: PreAccountCellDataReader) -> Result<(), Error> {
     debug!("Check if PreAccountCell.witness.quote is the same as QuoteCell.");
 
-    let expected_quote = util::load_quote()?;
+    let expected_quote = util::load_oracle_data(OracleCellType::Quote)?;
     let current = u64::from(reader.quote());
 
     assert!(
@@ -565,13 +565,24 @@ fn verify_preserved_accounts(
 fn verify_account_release_datetime(account_id: &[u8]) -> Result<(), Error> {
     debug!("Check if account is released for registration.");
 
-    // TODO Trible check.
-    let lucky_num = account_id[0];
-    assert!(
-        lucky_num <= 12,
-        Error::AccountStillCanNotBeRegister,
-        "The registration is still not started."
-    );
+    if cfg!(feature = "mainnet") {
+        // TODO Trible check.
+        let lucky_num = account_id[0];
+        assert!(
+            lucky_num <= 12,
+            Error::AccountStillCanNotBeRegister,
+            "The registration is still not started.(lucky_num: {}, required: <= 12)",
+            lucky_num
+        );
+    } else {
+        let lucky_num = account_id[0];
+        assert!(
+            lucky_num <= 254,
+            Error::AccountStillCanNotBeRegister,
+            "The registration is still not started.(lucky_num: {}, required: <= 254)",
+            lucky_num
+        );
+    }
 
     Ok(())
 }

@@ -97,8 +97,8 @@ fn init_confirm(action: &str) -> (TemplateGenerator, u64, u64) {
     template.push_contract_cell("pre-account-cell-type", false);
     template.push_contract_cell("income-cell-type", false);
 
-    template.push_time_cell(1, timestamp, 0, Source::CellDep);
-    template.push_height_cell(1, height, 0, Source::CellDep);
+    template.push_oracle_cell(1, OracleCellType::Time, timestamp);
+    template.push_oracle_cell(1, OracleCellType::Height, height);
 
     template.push_config_cell(DataType::ConfigCellAccount, true, 0, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellMain, true, 0, Source::CellDep);

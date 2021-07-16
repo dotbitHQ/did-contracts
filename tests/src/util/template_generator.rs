@@ -431,10 +431,11 @@ impl TemplateGenerator {
         self.cell_deps.push(value)
     }
 
-    pub fn push_time_cell(&mut self, index: u8, timestamp: u64, capacity: u64, source: Source) {
+    pub fn push_oracle_cell(&mut self, index: u8, type_: OracleCellType, data: u64) {
         let mut cell_raw_data = Vec::new();
         cell_raw_data.extend(index.to_be_bytes().iter());
-        cell_raw_data.extend((timestamp as u32).to_be_bytes().iter());
+        cell_raw_data.extend(&[type_ as u8]);
+        cell_raw_data.extend(data.to_be_bytes().iter());
         let cell_data = Bytes::from(cell_raw_data);
 
         let lock_script = json!({
@@ -442,40 +443,17 @@ impl TemplateGenerator {
         });
         let type_script = json!({
             "code_hash": "0x0100000000000000000000000000000000000000000000000000000000000000",
-            "hash_type": "type"
+            "hash_type": "type",
+            "args": format!("0x{}", hex_string(&[type_ as u8]).expect("Expect &[u8] as inputs"))
         });
 
-        self.push_cell(capacity, lock_script, type_script, Some(cell_data), source);
-    }
-
-    pub fn push_height_cell(&mut self, index: u8, height: u64, capacity: u64, source: Source) {
-        let mut cell_raw_data = Vec::new();
-        cell_raw_data.extend(index.to_be_bytes().iter());
-        cell_raw_data.extend(height.to_be_bytes().iter());
-        let cell_data = Bytes::from(cell_raw_data);
-
-        let lock_script = json!({
-            "code_hash": "{{always_success}}"
-        });
-        let type_script = json!({
-            "code_hash": "0x0200000000000000000000000000000000000000000000000000000000000000",
-            "hash_type": "type"
-        });
-
-        self.push_cell(capacity, lock_script, type_script, Some(cell_data), source);
-    }
-
-    pub fn push_quote_cell(&mut self, quote: u64, capacity: u64, source: Source) {
-        let raw = quote.to_le_bytes();
-        let cell_data = Bytes::from(&raw[..]);
-
-        let lock_script = json!({
-            "code_hash": "{{always_success}}",
-            "args": QUOTE_LOCK_ARGS
-        });
-        let type_script = json!(null);
-
-        self.push_cell(capacity, lock_script, type_script, Some(cell_data), source);
+        self.push_cell(
+            40_000_000_000,
+            lock_script,
+            type_script,
+            Some(cell_data),
+            Source::CellDep,
+        );
     }
 
     pub fn push_apply_register_cell(
