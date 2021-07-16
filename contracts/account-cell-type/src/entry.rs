@@ -2,7 +2,7 @@ use alloc::{boxed::Box, vec, vec::Vec};
 use ckb_std::{ckb_constants::Source, ckb_types::prelude::*, debug, high_level};
 use das_core::{
     assert,
-    constants::{das_lock, das_wallet_lock, ScriptType, TypeScript},
+    constants::{das_lock, das_wallet_lock, ScriptType, TypeScript, CUSTOM_KEYS_NAMESPACE},
     data_parser,
     error::Error,
     parse_account_cell_witness, parse_witness, util, warn,
@@ -966,11 +966,19 @@ fn verify_records_keys<'a>(
         let mut is_valid = false;
 
         let mut record_type = Vec::from(record.record_type().raw_data());
+        let mut record_key = Vec::from(record.record_key().raw_data());
         if record_type == b"custom_key" {
+            // TODO Trible check.
+            for char in record_key.iter() {
+                assert!(
+                    CUSTOM_KEYS_NAMESPACE.contains(char),
+                    Error::AccountCellRecordKeyInvalid,
+                    "The keys in custom_key should only contain digits, lowercase alphabet and underline."
+                );
+            }
             continue;
         }
 
-        let mut record_key = Vec::from(record.record_key().raw_data());
         record_type.push(46);
         record_type.append(&mut record_key);
 

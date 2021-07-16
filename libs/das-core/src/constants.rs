@@ -37,6 +37,8 @@ pub const ACCOUNT_ID_LENGTH: usize = 20;
 pub const ACCOUNT_SUFFIX: &str = ".bit";
 pub const ACCOUNT_MAX_PRICED_LENGTH: u8 = 8;
 
+pub const CUSTOM_KEYS_NAMESPACE: &[u8] = b"0123456789abcdefghijklmnopqrstuvwxyz_";
+
 pub fn super_lock() -> Script {
     #[cfg(feature = "dev")]
     let super_lock = ScriptLiteral {

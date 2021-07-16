@@ -158,13 +158,7 @@ pub fn main() -> Result<(), Error> {
             timestamp,
             None,
         )?;
-        let config_release = parser.configs.release()?;
-        verify_account_release_datetime(
-            config_release,
-            timestamp,
-            account_id,
-            pre_account_cell_witness_reader.account().len(),
-        )?;
+        verify_account_release_datetime(account_id)?;
 
         verify_account_length(config_account, pre_account_cell_witness_reader)?;
         verify_account_chars(&mut parser, pre_account_cell_witness_reader)?;
@@ -568,77 +562,16 @@ fn verify_preserved_accounts(
     Ok(())
 }
 
-fn verify_account_release_datetime(
-    config_release: ConfigCellReleaseReader,
-    current: u64,
-    account_id: &[u8],
-    account_length: usize,
-) -> Result<(), Error> {
+fn verify_account_release_datetime(account_id: &[u8]) -> Result<(), Error> {
     debug!("Check if account is released for registration.");
 
-    macro_rules! verify_if_account_released {
-        ($release_start:expr, $release_end:expr) => {{
-            let release_start = u64::from($release_start);
-            let release_end = u64::from($release_end);
-            let release_duration = (release_end - release_start) / 3600; // hours
-            if current < release_end && release_duration > 0 {
-                let mut buf = [0u8, 0];
-                buf.copy_from_slice(account_id.get(..2).unwrap());
-                let lucky_num = u16::from_be_bytes(buf) as u64;
-                // debug!("account_id: {:?}", account_id);
-                // debug!("num_from_first_2_bytes: {}", lucky_num);
-
-                assert!(
-                    current >= release_start,
-                    Error::AccountStillCanNotBeRegister,
-                    "The registration is still not started."
-                );
-
-                let release_after = lucky_num % release_duration;
-                // debug!("release_start: {}", release_start);
-                // debug!("release_end: {}", release_end);
-                // debug!("release_after: {} hour", release_after);
-                let passed_hours = (current - release_start) / 3600;
-
-                debug!(
-                    "account ID: 0x{} lucky number: {} release_duration: {} passed_hours: {} release_after: {}",
-                    util::hex_string(account_id),
-                    lucky_num,
-                    release_duration,
-                    passed_hours,
-                    release_after
-                );
-
-                assert!(
-                    passed_hours >= release_after,
-                    Error::AccountStillCanNotBeRegister,
-                    "The account is still not released for registration.(passed_hours: {}, release_after: {})",
-                    passed_hours,
-                    release_after
-                );
-            }
-        }};
-    }
-
-    let release_rules = config_release.release_rules();
-    let mut tmp = None;
-    for item in release_rules.iter() {
-        let length = u32::from(item.length()) as usize;
-        if length == 0 {
-            tmp = Some(item);
-        }
-    }
-    let default_rule = tmp.expect("The default release rule is undefined.");
-
-    let rule_matched_opt = release_rules
-        .iter()
-        .find(|item| u32::from(item.length()) as usize == account_length);
-
-    if let Some(rule_matched) = rule_matched_opt {
-        verify_if_account_released!(rule_matched.release_start(), rule_matched.release_end());
-    } else {
-        verify_if_account_released!(default_rule.release_start(), default_rule.release_end());
-    }
+    // TODO Trible check.
+    let lucky_num = account_id[0];
+    assert!(
+        lucky_num <= 12,
+        Error::AccountStillCanNotBeRegister,
+        "The registration is still not started."
+    );
 
     Ok(())
 }
