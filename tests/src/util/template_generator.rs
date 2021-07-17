@@ -1,9 +1,5 @@
 use super::{constants::*, util};
-use ckb_tool::{
-    ckb_hash::blake2b_256,
-    ckb_types::{bytes, prelude::Pack},
-    faster_hex::hex_string,
-};
+use ckb_tool::{ckb_hash::blake2b_256, ckb_types::prelude::Pack, faster_hex::hex_string};
 use das_sorted_list::DasSortedList;
 use das_types::{constants::*, packed::*, prelude::*, util as das_util};
 use lazy_static::lazy_static;
@@ -15,7 +11,7 @@ fn gen_always_success_lock(lock_args: &str) -> Script {
     Script::new_builder()
         .code_hash(Hash::try_from(ALWAYS_SUCCESS_CODE_HASH.to_vec()).unwrap())
         .hash_type(Byte::new(1))
-        .args(Bytes::from(&util::hex_to_bytes(lock_args).unwrap()[..]))
+        .args(Bytes::from(util::hex_to_bytes(lock_args)))
         .build()
 }
 
@@ -258,7 +254,7 @@ pub fn account_to_id_bytes(account: &str) -> Vec<u8> {
     //     )
     // });
 
-    util::hex_to_bytes(account_id).unwrap().to_vec()
+    util::hex_to_bytes(account_id)
 }
 
 fn bytes_to_hex(input: Bytes) -> String {
@@ -270,7 +266,7 @@ pub struct AccountRecordParam {
     pub type_: &'static str,
     pub key: &'static str,
     pub label: &'static str,
-    pub value: bytes::Bytes,
+    pub value: Vec<u8>,
 }
 
 #[derive(Debug, Clone)]
@@ -466,12 +462,9 @@ impl TemplateGenerator {
     ) {
         let hash_of_account = Hash::new_unchecked(
             blake2b_256(
-                [
-                    util::hex_to_bytes(lock_args).unwrap().as_ref(),
-                    account.as_bytes(),
-                ]
-                .concat()
-                .as_slice(),
+                [&util::hex_to_bytes(lock_args), account.as_bytes()]
+                    .concat()
+                    .as_slice(),
             )
             .to_vec()
             .into(),
@@ -937,8 +930,8 @@ impl TemplateGenerator {
         };
 
         let price = self.prices.get(&account_length).unwrap();
-        let mut tmp = util::hex_to_bytes(&gen_das_lock_args(owner_lock_args, None)).unwrap();
-        tmp = bytes::Bytes::from([tmp.clone(), tmp].concat());
+        let mut tmp = util::hex_to_bytes(&gen_das_lock_args(owner_lock_args, None));
+        tmp.append(&mut tmp.clone());
         let owner_lock_args = Bytes::from(tmp);
         let entity = PreAccountCellData::new_builder()
             .account(account_chars.to_owned())

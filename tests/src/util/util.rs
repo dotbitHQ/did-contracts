@@ -37,12 +37,12 @@ pub fn contains_error(message: &str, err_code: error::Error) -> bool {
     message.contains(&err_str)
 }
 
-pub fn hex_to_bytes(input: &str) -> Result<bytes::Bytes, Box<dyn Error>> {
+pub fn hex_to_bytes(input: &str) -> Vec<u8> {
     let hex = input.trim_start_matches("0x");
     if hex == "" {
-        Ok(bytes::Bytes::default())
+        Vec::new()
     } else {
-        Ok(bytes::Bytes::from(hex::decode(hex)?))
+        hex::decode(hex).expect("Expect input to valid hex")
     }
 }
 
@@ -84,8 +84,8 @@ pub fn account_to_id(account: &str) -> Vec<u8> {
     hash.get(..ACCOUNT_ID_LENGTH).unwrap().to_vec()
 }
 
-pub fn account_to_id_bytes(account: &str) -> bytes::Bytes {
-    bytes::Bytes::from(account_to_id(account))
+pub fn account_to_id_bytes(account: &str) -> Vec<u8> {
+    account_to_id(account)
 }
 
 pub fn account_to_id_hex(account: &str) -> String {
@@ -180,15 +180,9 @@ pub fn mock_cell(
     capacity: u64,
     lock_script: Script,
     type_script: Option<Script>,
-    bytes: Option<bytes::Bytes>,
+    data_opt: Option<Vec<u8>>,
 ) -> OutPoint {
-    let data;
-    if bytes.is_some() {
-        data = bytes.unwrap();
-    } else {
-        data = bytes::Bytes::new();
-    }
-
+    let data = data_opt.unwrap_or_default();
     let cell = CellOutput::new_builder()
         .capacity(capacity.pack())
         .lock(lock_script)
@@ -200,7 +194,7 @@ pub fn mock_cell(
     //     serde_json::to_string_pretty(&rpc_types::CellOutput::from(cell.clone())).unwrap()
     // );
 
-    context.create_cell(cell, data)
+    context.create_cell(cell, bytes::Bytes::from(data))
 }
 
 pub fn mock_cell_with_outpoint(

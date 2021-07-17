@@ -1,15 +1,14 @@
 use super::util::cmp;
 use alloc::vec::Vec;
-use ckb_std::ckb_types::bytes;
 use std::prelude::v1::*;
 
 #[derive(Debug)]
 pub struct DasSortedList {
-    items: Vec<bytes::Bytes>,
+    items: Vec<Vec<u8>>,
 }
 
 impl DasSortedList {
-    pub fn new(mut items: Vec<bytes::Bytes>) -> Self {
+    pub fn new(mut items: Vec<Vec<u8>>) -> Self {
         if items.len() > 0 {
             items.sort_by(cmp);
         }
@@ -17,13 +16,13 @@ impl DasSortedList {
         DasSortedList { items }
     }
 
-    pub fn items(&self) -> &Vec<bytes::Bytes> {
+    pub fn items(&self) -> &[Vec<u8>] {
         return &self.items;
     }
 
-    pub fn cmp_order_with(&self, targets: Vec<bytes::Bytes>) -> bool {
+    pub fn cmp_order_with(&self, targets: &[Vec<u8>]) -> bool {
         for (index, item) in self.items.iter().enumerate() {
-            if **item != *targets[index] {
+            if item != &targets[index] {
                 return false;
             }
         }
@@ -52,11 +51,11 @@ mod test {
             "0x0000", "0x0001", "0x1000", "0x1100", "0x1200", "0x1234", "0x2000", "0xa000",
             "0xa100", "0xb000", "0xb100",
         ];
-        let expected_data = expected_raw
+        let expected_data: Vec<Vec<u8>> = expected_raw
             .into_iter()
             .map(|item| hex_to_bytes(item))
             .collect();
 
-        assert!(sorted_list.cmp_order_with(expected_data));
+        assert!(sorted_list.cmp_order_with(&expected_data));
     }
 }

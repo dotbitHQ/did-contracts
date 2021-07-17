@@ -154,7 +154,7 @@ macro_rules! gen_account_cells_edit_capacity {
         // Generate witness of AccountCell.
         $template.push_witness::<AccountCellData, AccountCellDataV1, AccountCellData>(
             DataType::AccountCellData,
-            Some((1, $output_index, new_entity)),
+            Some((2, $output_index, new_entity)),
             Some((1, $input_index, old_entity)),
             None,
         );
@@ -238,7 +238,7 @@ macro_rules! gen_account_and_pre_account_cells_edit_capacity {
             "0x0000000000000000000000000000000000001100",
             "0x0000000000000000000000000000000000001100",
             cell_data,
-            Some((1, $output_index, entity)),
+            Some((2, $output_index, entity)),
             $output_capacity,
             Source::Output,
         );

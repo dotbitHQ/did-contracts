@@ -1,7 +1,6 @@
 use alloc::borrow::ToOwned;
 use ckb_std::{
     ckb_constants::Source,
-    ckb_types::bytes,
     high_level::{load_cell_capacity, load_cell_lock, load_cell_type, load_script},
 };
 use core::convert::TryFrom;
@@ -356,7 +355,6 @@ fn verify_slices(
     // debug!("slices_reader = {}", slices_reader);
 
     let mut required_cells_count: usize = 0;
-    let mut exists_account_ids: Vec<bytes::Bytes> = Vec::new();
     let mut account_cell_contained = 0;
     let mut pre_account_cell_contained = 0;
 
@@ -366,9 +364,10 @@ fn verify_slices(
         "The slices of ProposalCell should not be empty."
     );
 
+    let mut account_id_list = Vec::new();
+    let mut exist_next_list = Vec::new();
     for (sl_index, sl_reader) in slices_reader.iter().enumerate() {
         debug!("Check Slice[{}] ...", sl_index);
-        let mut account_id_list = Vec::new();
 
         assert!(
             sl_reader.len() > 1,
@@ -379,13 +378,13 @@ fn verify_slices(
         );
 
         // The "next" of last item is refer to an existing account, so we put it into the vector.
-        let first_item = sl_reader.get(0).unwrap();
-        exists_account_ids.push(bytes::Bytes::from(first_item.account_id().raw_data()));
         let last_item = sl_reader.get(sl_reader.len() - 1).unwrap();
-        exists_account_ids.push(bytes::Bytes::from(last_item.next().raw_data()));
+        exist_next_list.push(last_item.next().raw_data().to_vec());
 
         for (index, item) in sl_reader.iter().enumerate() {
             debug!("  Check if Item[{}] refer to correct next.", index);
+
+            let account_id = item.account_id().raw_data().to_vec();
 
             if index == 0 {
                 account_cell_contained += 1;
@@ -396,7 +395,20 @@ fn verify_slices(
                     index,
                     index,
                     ProposalSliceItemType::New
-                )
+                );
+
+                // Some account ID may be appear in next field and it is also an exist item in later slices,
+                // we need to remove it from exist_next_list, because its uniqueness will be checked in account_id_list.
+                if u8::from(item.item_type()) == ProposalSliceItemType::Exist as u8 {
+                    let found = exist_next_list
+                        .iter()
+                        .enumerate()
+                        .find(|(_i, next)| &account_id == *next);
+
+                    if let Some((i, _)) = found {
+                        exist_next_list.remove(i);
+                    }
+                }
             } else {
                 pre_account_cell_contained += 1;
                 assert!(
@@ -406,20 +418,7 @@ fn verify_slices(
                     index,
                     index,
                     ProposalSliceItemType::New
-                )
-            }
-
-            // Check the uniqueness of current account.
-            let account_id_bytes = bytes::Bytes::from(item.account_id().raw_data());
-            if index != 0 {
-                for account_id in exists_account_ids.iter() {
-                    assert!(
-                        account_id.ne(account_id_bytes.as_ref()),
-                        Error::ProposalSliceItemMustBeUniqueAccount,
-                        "  Item[{}] is an exists account.",
-                        index
-                    );
-                }
+                );
             }
 
             // Check the continuity of the items in the slice.
@@ -434,22 +433,41 @@ fn verify_slices(
                 );
             }
 
-            // Store exists account IDs for uniqueness verification.
-            exists_account_ids.push(account_id_bytes.clone());
+            // Check if there is any account ID duplicate in the slices.
+            for exist_account_id in account_id_list.iter() {
+                assert!(
+                    &account_id != exist_account_id,
+                    Error::ProposalSliceItemMustBeUniqueAccount,
+                    "Every item in slice should be unique, but item[0x{}] is found twice.",
+                    util::hex_string(&account_id)
+                )
+            }
+
             // Store account IDs for order verification.
-            account_id_list.push(account_id_bytes);
+            account_id_list.push(account_id);
             required_cells_count += 1;
         }
-
-        // Check the order of items in the slice.
-        let sorted_account_id_list = DasSortedList::new(account_id_list.clone());
-        assert!(
-            sorted_account_id_list.cmp_order_with(account_id_list),
-            Error::ProposalSliceIsNotSorted,
-            "The order of items in Slice[{}] is incorrect.",
-            sl_index
-        );
     }
+
+    // Check if there is any next(it is account ID either) exist in the account_id_list.
+    for next in exist_next_list.iter() {
+        for account_id in account_id_list.iter() {
+            assert!(
+                next != account_id,
+                Error::ProposalSliceItemMustBeUniqueAccount,
+                "The next of any exist AccountCell should not be contained in the slices as an item, but the item[{}] is found.",
+                util::hex_string(&next)
+            )
+        }
+    }
+
+    // Check the order of items in the slice.
+    let sorted_account_id_list = DasSortedList::new(account_id_list.clone());
+    assert!(
+        sorted_account_id_list.cmp_order_with(&account_id_list),
+        Error::ProposalSliceIsNotSorted,
+        "The order of items in slices is incorrect."
+    );
 
     let max_account_cell_count = u32::from(config.proposal_max_account_affect());
     assert!(

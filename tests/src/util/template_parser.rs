@@ -11,6 +11,7 @@ use ckb_testtool::context::Context;
 use ckb_tool::{
     ckb_error, ckb_jsonrpc_types as rpc_types,
     ckb_types::{
+        bytes,
         bytes::Bytes,
         core::{Cycle, ScriptHashType, TransactionBuilder, TransactionView},
         h256, packed,
@@ -433,8 +434,7 @@ impl TemplateParser {
                         .build();
 
                     self.outputs.push(cell);
-                    self.outputs_data
-                        .push(data.unwrap_or(Bytes::default()).pack());
+                    self.outputs_data.push(data.unwrap_or_default().pack());
                 }
                 _ => {
                     return Err("Unsupported outputs type.".into());
@@ -450,7 +450,7 @@ impl TemplateParser {
     fn parse_cell(
         &mut self,
         cell: Value,
-    ) -> Result<(u64, Script, Option<Script>, Option<Bytes>), Box<dyn Error>> {
+    ) -> Result<(u64, Script, Option<Script>, Option<Vec<u8>>), Box<dyn Error>> {
         // parse capacity of cell
         let capacity: u64;
         if cell["capacity"].is_number() {
@@ -475,9 +475,10 @@ impl TemplateParser {
         // parse data of cell
         let data;
         if let Some(hex) = cell["tmp_data"].as_str() {
-            data = Some(hex_to_bytes(hex).map_err(|err| {
-                format!("Field `cell.tmp_data` parse failed: {}", err.to_string())
-            })?)
+            data = Some(hex_to_bytes(hex))
+            // data = Some(hex_to_bytes(hex).map_err(|err| {
+            //     format!("Field `cell.tmp_data` parse failed: {}", err.to_string())
+            // })?)
         } else {
             data = None;
         }
@@ -534,7 +535,7 @@ impl TemplateParser {
                 Script::new_builder()
                     .code_hash(real_code_hash)
                     .hash_type(hash_type.into())
-                    .args(hex_to_bytes(&args)?.pack())
+                    .args(bytes::Bytes::from(hex_to_bytes(&args)).pack())
                     .build(),
             );
         } else {
@@ -545,14 +546,15 @@ impl TemplateParser {
     }
 
     fn parse_witnesses(&mut self, witnesses: Vec<Value>) -> Result<(), Box<dyn Error>> {
-        for (i, witness) in witnesses.into_iter().enumerate() {
+        for (_i, witness) in witnesses.into_iter().enumerate() {
             let data = witness
                 .as_str()
                 .map(|hex| {
-                    hex_to_bytes(hex).expect(&format!(
-                        "Field `witnesses[{}]` is not valid u64 in hex.",
-                        i
-                    ))
+                    bytes::Bytes::from(hex_to_bytes(hex))
+                    // hex_to_bytes(hex).expect(&format!(
+                    //     "Field `witnesses[{}]` is not valid u64 in hex.",
+                    //     i
+                    // ))
                 })
                 .unwrap();
 

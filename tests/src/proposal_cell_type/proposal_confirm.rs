@@ -244,7 +244,7 @@ macro_rules! gen_income_cell {
 }
 
 challenge_with_generator!(
-    chanllenge_proposal_confirm_no_refund,
+    challenge_proposal_confirm_no_refund,
     Error::ProposalConfirmRefundError,
     || {
         let (mut template, height, timestamp) = init_confirm("confirm_proposal");
@@ -276,7 +276,7 @@ challenge_with_generator!(
 );
 
 challenge_with_generator!(
-    chanllenge_proposal_confirm_income_record_belong_to_mismatch,
+    challenge_proposal_confirm_income_record_belong_to_mismatch,
     Error::ProposalConfirmIncomeError,
     || {
         let (mut template, height, timestamp) = init_confirm("confirm_proposal");
@@ -337,7 +337,7 @@ challenge_with_generator!(
 );
 
 challenge_with_generator!(
-    chanllenge_proposal_confirm_income_record_capacity_mismatch,
+    challenge_proposal_confirm_income_record_capacity_mismatch,
     Error::ProposalConfirmIncomeError,
     || {
         let (mut template, height, timestamp) = init_confirm("confirm_proposal");
@@ -398,7 +398,7 @@ challenge_with_generator!(
 );
 
 challenge_with_generator!(
-    chanllenge_proposal_confirm_account_cell_capacity_mismatch,
+    challenge_proposal_confirm_account_cell_capacity_mismatch,
     Error::CellCapacityMustConsistent,
     || {
         let (mut template, height, timestamp) = init_confirm("confirm_proposal");
@@ -457,7 +457,7 @@ challenge_with_generator!(
 );
 
 challenge_with_generator!(
-    chanllenge_proposal_confirm_new_account_cell_capacity_mismatch,
+    challenge_proposal_confirm_new_account_cell_capacity_mismatch,
     Error::ProposalConfirmNewAccountCellCapacityError,
     || {
         let (mut template, height, timestamp) = init_confirm("confirm_proposal");

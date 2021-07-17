@@ -6,4 +6,4 @@ extern crate no_std_compat as std;
 mod das_sorted_list;
 pub mod util;
 
-pub use das_sorted_list::DasSortedList;
+pub use crate::das_sorted_list::DasSortedList;

@@ -2,15 +2,12 @@ use super::util::{
     constants::*, hex_to_bytes, template_generator::*, template_parser::TemplateParser,
 };
 use ckb_testtool::context::Context;
-use ckb_tool::ckb_types::bytes;
 use das_core::error::Error;
 use das_types::{constants::DataType, packed::*};
 
 fn init(action: &str, params_opt: Option<&str>) -> (TemplateGenerator, u64) {
-    let mut template = TemplateGenerator::new(
-        action,
-        params_opt.map(|raw| Bytes::from(hex_to_bytes(raw).unwrap())),
-    );
+    let mut template =
+        TemplateGenerator::new(action, params_opt.map(|raw| Bytes::from(hex_to_bytes(raw))));
     let timestamp = 1611200000u64;
 
     template.push_contract_cell("always_success", true);
@@ -323,37 +320,37 @@ fn gen_account_edit_records() {
             type_: "address",
             key: "eth",
             label: "Personal",
-            value: hex_to_bytes("0x00000000000000000000").unwrap(),
+            value: hex_to_bytes("0x00000000000000000000"),
         },
         AccountRecordParam {
             type_: "address",
             key: "eth",
             label: "Company",
-            value: hex_to_bytes("0x00000000000000000000").unwrap(),
+            value: hex_to_bytes("0x00000000000000000000"),
         },
         AccountRecordParam {
             type_: "address",
             key: "btc",
             label: "Personal",
-            value: hex_to_bytes("0x00000000000000000000").unwrap(),
+            value: hex_to_bytes("0x00000000000000000000"),
         },
         AccountRecordParam {
             type_: "profile",
             key: "phone",
             label: "Mars",
-            value: bytes::Bytes::from("120981203982901389398390".as_bytes()),
+            value: "120981203982901389398390".as_bytes().to_vec(),
         },
         AccountRecordParam {
             type_: "profile",
             key: "email",
             label: "Company",
-            value: bytes::Bytes::from("xxxxx@mars.bit".as_bytes()),
+            value: "xxxxx@mars.bit".as_bytes().to_vec(),
         },
         AccountRecordParam {
             type_: "custom_key",
             key: "xxxx",
             label: "xxxxxx",
-            value: hex_to_bytes("0x00000000000000000000").unwrap(),
+            value: hex_to_bytes("0x00000000000000000000"),
         },
     ];
 
@@ -429,7 +426,7 @@ challenge_with_generator!(
             type_: "custom_key",
             key: "xxxA",
             label: "xxxxx",
-            value: hex_to_bytes("0x00000000000000000000").unwrap(),
+            value: hex_to_bytes("0x00000000000000000000"),
         }];
 
         let (cell_data, new_entity) = template.gen_account_cell_data(

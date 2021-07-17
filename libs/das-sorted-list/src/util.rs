@@ -1,8 +1,7 @@
-use ckb_std::ckb_types::bytes;
 use core::cmp::Ordering;
 use std::prelude::v1::*;
 
-pub fn cmp_by_byte(a: &bytes::Bytes, b: &bytes::Bytes) -> Ordering {
+pub fn cmp_by_byte(a: &[u8], b: &[u8]) -> Ordering {
     for (i, a_byte) in a[..].iter().enumerate() {
         let b_byte = &b[i];
         if a_byte < b_byte {
@@ -15,7 +14,7 @@ pub fn cmp_by_byte(a: &bytes::Bytes, b: &bytes::Bytes) -> Ordering {
     return Ordering::Equal;
 }
 
-pub fn cmp(a: &bytes::Bytes, b: &bytes::Bytes) -> Ordering {
+pub fn cmp(a: &Vec<u8>, b: &Vec<u8>) -> Ordering {
     if a.len() < b.len() {
         Ordering::Less
     } else if a.len() > b.len() {
@@ -26,12 +25,12 @@ pub fn cmp(a: &bytes::Bytes, b: &bytes::Bytes) -> Ordering {
 }
 
 #[cfg(test)]
-pub fn hex_to_bytes(input: &str) -> bytes::Bytes {
+pub fn hex_to_bytes(input: &str) -> Vec<u8> {
     let hex = input.trim_start_matches("0x");
     if hex == "" {
-        bytes::Bytes::default()
+        Vec::new()
     } else {
-        bytes::Bytes::from(hex::decode(hex).unwrap())
+        hex::decode(hex).expect("Expect input to valid hex")
     }
 }
 

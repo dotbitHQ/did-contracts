@@ -26,8 +26,8 @@ mod pre_account_cell_type;
 #[cfg(test)]
 mod proposal_cell_type;
 
-// #[cfg(test)]
-// mod gen_type_id_table;
+#[cfg(test)]
+mod gen_type_id_table;
 
 const BINARY_VERSION: &str = "BINARY_VERSION";
 
