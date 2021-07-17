@@ -46,6 +46,11 @@ cargo test -p tests challenge_ -- --nocapture --test-threads=1
 
 > Do not use `capsule build` and `capsule test` for performance reasons.
 
+### BE CAREFUL!
+
+- DO NOT use `ckb_types::bytes`, IDE may treat it as `bytes-v0.5.6`, but it is `molecule::bytes` indeed, that is just a simple wrapper for `Vec<u8>`.
+- DO NOT use `bytes-v0.5.6`, it will cause `VM Internal Error: InvalidInstruction(335951151)` for some reasons.
+
 
 ## Documents
 
