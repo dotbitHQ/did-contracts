@@ -2,7 +2,7 @@ use ckb_std::{
     ckb_constants::Source,
     high_level::{load_cell_capacity, load_cell_data, load_cell_lock, load_script},
 };
-use core::convert::{TryFrom, TryInto};
+use core::convert::TryFrom;
 use core::result::Result;
 use das_core::{
     assert, constants::*, data_parser, debug, error::Error, parse_witness, util, warn,
@@ -176,17 +176,7 @@ fn verify_apply_height(
     data: &[u8],
 ) -> Result<(), Error> {
     // Read the apply timestamp from outputs_data of ApplyRegisterCell.
-    let apply_height = match data.get(32..) {
-        Some(bytes) => {
-            assert!(
-                bytes.len() == 8,
-                Error::InvalidCellData,
-                "The data of ApplyRegisterCell is invalid."
-            );
-            u64::from_le_bytes(bytes.try_into().unwrap())
-        }
-        _ => return Err(Error::InvalidCellData),
-    };
+    let apply_height = data_parser::apply_register_cell::get_height(data);
 
     // Check that the ApplyRegisterCell has existed long enough, but has not yet timed out.
     let apply_min_waiting_block = u32::from(config_reader.apply_min_waiting_block_number());

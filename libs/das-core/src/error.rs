@@ -49,6 +49,7 @@ pub enum Error {
     WitnessEntityDecodingError, // 50
     ApplyRegisterCellDataDecodingError = 60,
     ApplyRegisterCellHeightInvalid,
+    ApplyRegisterCellTimeInvalid,
     ApplyRegisterNeedWaitLonger,
     ApplyRegisterHasTimeout,
     ApplyRegisterRefundNeedWaitLonger,

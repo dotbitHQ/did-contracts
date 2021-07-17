@@ -1,7 +1,7 @@
 #![allow(unused_imports)]
 #![allow(unused_variables)]
 
-use super::data_parser::{account_cell, pre_account_cell};
+use super::data_parser::{account_cell, apply_register_cell, pre_account_cell};
 use super::debug;
 use ckb_std::ckb_constants::Source;
 use core::convert::TryInto;
@@ -14,9 +14,10 @@ pub fn apply_register_cell(source: Source, index: usize, data: &Vec<u8>) {
     );
 
     debug!(
-        "    data: {{ hash: 0x{}, height: {} }}",
+        "    data: {{ hash: 0x{}, height: {}, timestamp: {} }}",
         hex_string(data.get(..32).unwrap()),
-        u64::from_le_bytes(data.get(32..).unwrap().try_into().unwrap())
+        apply_register_cell::get_height(data),
+        apply_register_cell::get_timestamp(data)
     );
 }
 

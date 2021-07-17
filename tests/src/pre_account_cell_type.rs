@@ -31,6 +31,7 @@ fn init(account: &str) -> (TemplateGenerator, &str, u64) {
         "0x9af92f5e690f4669ca543deb99af8385b12624cc",
         account,
         height - 4,
+        timestamp - 60,
         0,
         Source::Input,
     );

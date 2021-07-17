@@ -457,6 +457,7 @@ impl TemplateGenerator {
         lock_args: &str,
         account: &str,
         height: u64,
+        timestamp: u64,
         capacity: u64,
         source: Source,
     ) {
@@ -473,6 +474,7 @@ impl TemplateGenerator {
         let raw = [
             hash_of_account.as_reader().raw_data(),
             &height.to_le_bytes(),
+            &timestamp.to_le_bytes(),
         ]
         .concat();
         let cell_data = Bytes::from(raw);

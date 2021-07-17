@@ -1,11 +1,10 @@
 use ckb_std::{ckb_constants::Source, high_level};
-use core::convert::TryInto;
 use core::result::Result;
 use das_core::constants::OracleCellType;
 use das_core::{
     assert,
     constants::{ScriptType, TypeScript},
-    debug,
+    data_parser, debug,
     error::Error,
     util,
     witness_parser::WitnessesParser,
@@ -45,32 +44,27 @@ pub fn main() -> Result<(), Error> {
         debug!("Check if the first 32 bytes exists ...");
 
         assert!(
-            data.len() >= 32,
+            data.len() == 48,
             Error::InvalidCellData,
-            "The data of ApplyRegisterCell should start with 32 bytes hash."
+            "The data of ApplyRegisterCell should have 48 bytes of data."
         );
 
         debug!("Check if the height of the ApplyRegisterCell and the HeightCell is consistent ...");
 
-        // Then follows the 8 bytes u64.
-        let apply_height = match data.get(32..) {
-            Some(bytes) => {
-                assert!(
-                    bytes.len() == 8,
-                    Error::InvalidCellData,
-                    "The data of ApplyRegisterCell should end with 8 bytes little-endian uint64."
-                );
-
-                u64::from_le_bytes(bytes.try_into().unwrap())
-            }
-            _ => return Err(Error::InvalidCellData),
-        };
-
+        let apply_height = data_parser::apply_register_cell::get_height(&data);
         let expected_height = util::load_oracle_data(OracleCellType::Height)?;
         assert!(
             apply_height == expected_height,
             Error::ApplyRegisterCellHeightInvalid,
             "The block number in ApplyRegisterCell data should be the same as which in HeightCell."
+        );
+
+        let apply_time = data_parser::apply_register_cell::get_timestamp(&data);
+        let expected_time = util::load_oracle_data(OracleCellType::Time)?;
+        assert!(
+            apply_time == expected_time,
+            Error::ApplyRegisterCellTimeInvalid,
+            "The timestamp in ApplyRegisterCell data should be the same as which in TimeCell."
         );
     } else if action == b"refund_apply" {
         debug!("Route to refund_apply action ...");
@@ -94,19 +88,15 @@ pub fn main() -> Result<(), Error> {
         debug!("Check if the ApplyRegisterCell is available for refund ...");
 
         let data = util::load_cell_data(input_cells[0], Source::Input)?;
-        // Then follows the 8 bytes u64.
-        let apply_height = match data.get(32..) {
-            Some(bytes) => {
-                assert!(
-                    bytes.len() == 8,
-                    Error::InvalidCellData,
-                    "The data of ApplyRegisterCell should end with 8 bytes little-endian uint64."
-                );
 
-                u64::from_le_bytes(bytes.try_into().unwrap())
-            }
-            _ => return Err(Error::InvalidCellData),
-        };
+        assert!(
+            data.len() == 48,
+            Error::InvalidCellData,
+            "The data of ApplyRegisterCell should have 48 bytes of data."
+        );
+
+        // Then follows the 8 bytes u64.
+        let apply_height = data_parser::apply_register_cell::get_height(&data);
         let max_waiting_block_number = u32::from(config.apply_max_waiting_block_number()) as u64;
 
         let current_height = util::load_oracle_data(OracleCellType::Height)?;
