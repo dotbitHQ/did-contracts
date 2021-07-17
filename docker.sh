@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Docker image name
 DOCKER_IMAGE="jjy0/ckb-capsule-recipe-rust:2020-9-28"
@@ -87,9 +87,13 @@ function build() {
         docker exec -it -w /code $DOCKER_CONTAINER bash -c \
             "cp /code/target/riscv64imac-unknown-none-elf/debug/${contract} /code/build/debug/"
     fi
+    ret=$?
 
-    if [ $? -ne 0 ]; then
-        exit $?
+    if [[ $ret -ne 0 ]]; then
+        echo "Build contract failed, exit code ($ret)."
+        exit $ret
+    else
+        echo "Build contract succeeded."
     fi
 }
 
