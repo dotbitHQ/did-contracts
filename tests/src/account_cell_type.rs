@@ -335,8 +335,8 @@ fn gen_account_edit_records() {
             value: hex_to_bytes("0x00000000000000000000"),
         },
         AccountRecordParam {
-            type_: "profile",
-            key: "phone",
+            type_: "dweb",
+            key: "ipfs",
             label: "Mars",
             value: "120981203982901389398390".as_bytes().to_vec(),
         },
@@ -424,7 +424,81 @@ challenge_with_generator!(
 
         let records = vec![AccountRecordParam {
             type_: "custom_key",
-            key: "xxxA",
+            key: "xxxx",
+            label: "xxxxx",
+            value: hex_to_bytes("0x00000000000000000000"),
+        }];
+
+        let (cell_data, new_entity) = template.gen_account_cell_data(
+            account,
+            next_account,
+            registered_at,
+            expired_at,
+            0,
+            0,
+            timestamp,
+            Some(gen_account_records(records)),
+        );
+        template.push_account_cell::<AccountCellData>(
+            "0x0000000000000000000000000000000000001111",
+            "0x0000000000000000000000000000000000002222",
+            cell_data,
+            None,
+            1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
+            Source::Output,
+        );
+
+        template.push_witness::<AccountCellData, AccountCellData, AccountCellData>(
+            DataType::AccountCellData,
+            Some((2, 0, new_entity)),
+            Some((2, 0, old_entity)),
+            None,
+        );
+
+        template.as_json()
+    }
+);
+
+challenge_with_generator!(
+    challenge_edit_records_invalid_key,
+    Error::AccountCellRecordKeyInvalid,
+    || {
+        let (mut template, timestamp) = init("edit_records", Some("0x01"));
+
+        template.push_config_cell(
+            DataType::ConfigCellRecordKeyNamespace,
+            true,
+            0,
+            Source::CellDep,
+        );
+
+        let account = "das00001.bit";
+        let next_account = "das00014.bit";
+        let registered_at = timestamp - 86400;
+        let expired_at = timestamp + 31536000 - 86400;
+
+        let (cell_data, old_entity) = template.gen_account_cell_data(
+            account,
+            next_account,
+            registered_at,
+            expired_at,
+            0,
+            0,
+            0,
+            None,
+        );
+        template.push_account_cell::<AccountCellData>(
+            "0x0000000000000000000000000000000000001111",
+            "0x0000000000000000000000000000000000002222",
+            cell_data,
+            None,
+            1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
+            Source::Input,
+        );
+
+        let records = vec![AccountRecordParam {
+            type_: "dweb",
+            key: "xxxx",
             label: "xxxxx",
             value: hex_to_bytes("0x00000000000000000000"),
         }];

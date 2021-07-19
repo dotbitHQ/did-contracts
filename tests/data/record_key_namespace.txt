@@ -6,8 +6,14 @@ profile.github
 profile.telegram
 profile.description
 profile.avatar
+profile.instagram
+profile.weibo
+profile.discord
 profile.email
-profile.phone
+profile.website
+profile.youtube
+profile.bilibili
+profile.tiktok
 address.btc
 address.eth
 address.ckb
@@ -40,3 +46,6 @@ address.sol
 address.vet
 address.xlm
 address.ada
+dweb.ipfs
+dweb.ipns
+dweb.resilio
