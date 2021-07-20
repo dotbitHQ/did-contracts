@@ -158,7 +158,10 @@ pub fn main() -> Result<(), Error> {
             timestamp,
             None,
         )?;
-        verify_account_release_datetime(account_id)?;
+        verify_account_release_datetime(
+            pre_account_cell_witness_reader.account().len(),
+            account_id,
+        )?;
 
         verify_account_length(config_account, pre_account_cell_witness_reader)?;
         verify_account_chars(&mut parser, pre_account_cell_witness_reader)?;
@@ -552,26 +555,30 @@ fn verify_preserved_accounts(
     Ok(())
 }
 
-fn verify_account_release_datetime(account_id: &[u8]) -> Result<(), Error> {
+fn verify_account_release_datetime(account_length: usize, account_id: &[u8]) -> Result<(), Error> {
     debug!("Check if account is released for registration.");
 
+    let lucky_num = account_id[0];
+
     if cfg!(feature = "mainnet") {
-        // TODO Trible check.
-        let lucky_num = account_id[0];
-        assert!(
-            lucky_num <= 12,
-            Error::AccountStillCanNotBeRegister,
-            "The registration is still not started.(lucky_num: {}, required: <= 12)",
-            lucky_num
-        );
+        if account_length < 10 {
+            // TODO Trible check.
+            assert!(
+                lucky_num <= 12,
+                Error::AccountStillCanNotBeRegister,
+                "The registration is still not started.(lucky_num: {}, required: <= 12)",
+                lucky_num
+            );
+        }
     } else {
-        let lucky_num = account_id[0];
-        assert!(
-            lucky_num <= 254,
-            Error::AccountStillCanNotBeRegister,
-            "The registration is still not started.(lucky_num: {}, required: <= 254)",
-            lucky_num
-        );
+        if account_length < 10 {
+            assert!(
+                lucky_num <= 254,
+                Error::AccountStillCanNotBeRegister,
+                "The registration is still not started.(lucky_num: {}, required: <= 254)",
+                lucky_num
+            );
+        }
     }
 
     Ok(())

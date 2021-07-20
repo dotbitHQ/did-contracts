@@ -424,7 +424,7 @@ challenge_with_generator!(
 
         let records = vec![AccountRecordParam {
             type_: "custom_key",
-            key: "xxxx",
+            key: "xxx+",
             label: "xxxxx",
             value: hex_to_bytes("0x00000000000000000000"),
         }];
