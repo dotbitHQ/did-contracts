@@ -657,7 +657,7 @@ pub fn is_init_day(current_timestamp: u64) -> Result<(), Error> {
 
     // On CKB main net, AKA Lina, some actions can be only executed at or before the initialization day of DAS.
     if cfg!(feature = "mainnet") {
-        let init_day = Utc.ymd(2021, 7, 20).and_hms(23, 59, 59);
+        let init_day = Utc.ymd(2021, 7, 22).and_hms(12, 00, 00);
         // Otherwise, any account longer than two chars in length can be registered.
         assert!(
             current <= init_day,
@@ -697,21 +697,16 @@ pub fn verify_account_length_and_years(
     if cfg!(feature = "mainnet") {
         // TODO Trible check.
         // ⚠️ Before year 2 means the first year.
-        let year_n = Utc.ymd(2021, 7, 20).and_hms(23, 59, 59);
-        if current < year_n {
-            assert!(
-                account_length >= 61,
-                Error::AccountStillCanNotBeRegister,
-                "The account less than 61 characters can not be registered now. (available_for_register: {:?})",
-                year_n
-            );
-        } else {
-            assert!(
-                account_length >= 5,
-                Error::AccountStillCanNotBeRegister,
-                "The account less than 10 characters can not be registered now."
-            );
-        }
+        assert!(
+            account_length >= 61,
+            Error::AccountStillCanNotBeRegister,
+            "The account less than 61 characters can not be registered now."
+        );
+        // assert!(
+        //     account_length >= 5,
+        //     Error::AccountStillCanNotBeRegister,
+        //     "The account less than 10 characters can not be registered now."
+        // );
     } else if cfg!(feature = "testnet") {
         assert!(
             account_length >= 2,
