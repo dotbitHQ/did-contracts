@@ -35,6 +35,7 @@ pub enum OracleCellType {
     Height = 2,
 }
 
+pub const CKB_HASH_DIGEST: usize = 32;
 pub const CKB_HASH_PERSONALIZATION: &[u8] = b"ckb-default-hash";
 
 pub const CELL_BASIC_CAPACITY: u64 = 6_100_000_000;

@@ -2,6 +2,7 @@ use super::util::{constants::*, template_generator::*, template_parser::Template
 use chrono::{TimeZone, Utc};
 use ckb_testtool::context::Context;
 use das_core::error::Error;
+use das_core::util;
 use das_types::constants::*;
 
 fn init(account: &str) -> (TemplateGenerator, &str, u64) {
@@ -91,30 +92,6 @@ test_with_generator!(test_pre_register_char_set, || {
     template.as_json()
 });
 
-test_with_generator!(test_pre_register_release_datetime, || {
-    let (mut template, account, timestamp) = init("✨das🎉001.bit");
-    template.push_config_cell_derived_by_account("✨das🎉001", true, 0, Source::CellDep);
-
-    let (cell_data, entity) = template.gen_pre_account_cell_data(
-        account,
-        "0x000000000000000000000000000000000000FFFF",
-        "0x0000000000000000000000000000000000001100",
-        "0x0000000000000000000000000000000000001111",
-        "0x0000000000000000000000000000000000002222",
-        1000,
-        500,
-        timestamp,
-    );
-    template.push_pre_account_cell(
-        cell_data,
-        Some((1, 0, entity)),
-        476_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
-        Source::Output,
-    );
-
-    template.as_json()
-});
-
 challenge_with_generator!(
     challenge_pre_register_invalid_char,
     Error::PreRegisterAccountCharIsInvalid,
@@ -178,6 +155,34 @@ challenge_with_generator!(
     || {
         let (mut template, account, timestamp) = init("a.bit");
         template.push_config_cell_derived_by_account("a", true, 0, Source::CellDep);
+
+        let (cell_data, entity) = template.gen_pre_account_cell_data(
+            account,
+            "0x0000000000000000000000000000000000002222",
+            "0x000000000000000000000000000000000000FFFF",
+            "0x0000000000000000000000000000000000001111",
+            "0x0000000000000000000000000000000000002222",
+            1000,
+            500,
+            timestamp,
+        );
+        template.push_pre_account_cell(
+            cell_data,
+            Some((1, 0, entity)),
+            1_140_500_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
+            Source::Output,
+        );
+
+        template.as_json()
+    }
+);
+
+challenge_with_generator!(
+    challenge_pre_register_account_not_released,
+    Error::AccountStillCanNotBeRegister,
+    || {
+        let (mut template, account, timestamp) = init("yw3l1n.bit");
+        template.push_config_cell_derived_by_account("yw3l1n", true, 0, Source::CellDep);
 
         let (cell_data, entity) = template.gen_pre_account_cell_data(
             account,

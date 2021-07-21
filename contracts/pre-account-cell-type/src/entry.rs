@@ -158,9 +158,9 @@ pub fn main() -> Result<(), Error> {
             timestamp,
             None,
         )?;
-        verify_account_release_datetime(
+        verify_account_release_status(
             pre_account_cell_witness_reader.account().len(),
-            account_id,
+            pre_account_cell_witness_reader,
         )?;
 
         verify_account_length(config_account, pre_account_cell_witness_reader)?;
@@ -214,7 +214,11 @@ fn verify_apply_height(
 }
 
 fn verify_account_id(reader: PreAccountCellDataReader, account_id: &[u8]) -> Result<(), Error> {
-    let account: Vec<u8> = [reader.account().as_readable(), ".bit".as_bytes().to_vec()].concat();
+    let account: Vec<u8> = [
+        reader.account().as_readable(),
+        ACCOUNT_SUFFIX.as_bytes().to_vec(),
+    ]
+    .concat();
     let hash = util::blake2b_256(account.as_slice());
 
     assert!(
@@ -555,10 +559,19 @@ fn verify_preserved_accounts(
     Ok(())
 }
 
-fn verify_account_release_datetime(account_length: usize, account_id: &[u8]) -> Result<(), Error> {
+fn verify_account_release_status(
+    account_length: usize,
+    reader: PreAccountCellDataReader,
+) -> Result<(), Error> {
     debug!("Check if account is released for registration.");
 
-    let lucky_num = account_id[0];
+    let account: Vec<u8> = [
+        reader.account().as_readable(),
+        ACCOUNT_SUFFIX.as_bytes().to_vec(),
+    ]
+    .concat();
+    let hash = util::blake2b_das(account.as_slice());
+    let lucky_num = hash[0];
 
     if cfg!(feature = "mainnet") {
         if account_length < 10 {
@@ -573,7 +586,7 @@ fn verify_account_release_datetime(account_length: usize, account_id: &[u8]) -> 
     } else {
         if account_length < 10 {
             assert!(
-                lucky_num <= 254,
+                lucky_num <= 200,
                 Error::AccountStillCanNotBeRegister,
                 "The registration is still not started.(lucky_num: {}, required: <= 254)",
                 lucky_num
