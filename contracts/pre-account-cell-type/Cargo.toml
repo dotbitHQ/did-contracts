@@ -1,6 +1,6 @@
 [package]
 name = "pre-account-cell-type"
-version = "0.2.1"
+version = "1.0.0"
 edition = "2018"
 
 [features]
