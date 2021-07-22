@@ -521,7 +521,7 @@ fn verify_transaction_fee_spent_correctly(
 ) -> Result<(), Error> {
     debug!("Check if the fee in the AccountCell is spent correctly.");
 
-    let input_capacity = high_level::load_cell_capacity(input_account_index, Source::Output)
+    let input_capacity = high_level::load_cell_capacity(input_account_index, Source::Input)
         .map_err(|e| Error::from(e))?;
     let output_capacity = high_level::load_cell_capacity(output_account_index, Source::Output)
         .map_err(|e| Error::from(e))?;
