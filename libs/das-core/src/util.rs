@@ -698,15 +698,10 @@ pub fn verify_account_length_and_years(
         // TODO Trible check.
         // ⚠️ Before year 2 means the first year.
         assert!(
-            account_length >= 61,
+            account_length >= 5,
             Error::AccountStillCanNotBeRegister,
-            "The account less than 61 characters can not be registered now."
+            "The account less than 10 characters can not be registered now."
         );
-        // assert!(
-        //     account_length >= 5,
-        //     Error::AccountStillCanNotBeRegister,
-        //     "The account less than 10 characters can not be registered now."
-        // );
     } else if cfg!(feature = "testnet") {
         assert!(
             account_length >= 2,
