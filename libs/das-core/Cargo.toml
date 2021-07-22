@@ -1,0 +1,23 @@
+[package]
+name = "das-core"
+version = "1.0.0"
+edition = "2018"
+
+[features]
+default = ["mainnet"]
+std = ["no-std-compat/std"]
+dev = []
+local = []
+testnet = []
+mainnet = []
+
+[dependencies]
+ckb-std = "0.7.1"
+blake2b-ref = "0.3"
+das-types = { path = "../../../das-types/rust", default-features = false }
+no-std-compat = { version = "0.4", features = [ "alloc", "compat_macros" ] }
+chrono = { version = "0.4", default-features = false }
+das-map = { path = "../das-map", default-features = false }
+
+[dev-dependencies]
+hex = { version = "0.4", default-features = false }

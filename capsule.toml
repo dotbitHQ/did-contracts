@@ -6,10 +6,34 @@
 # docker_image = "jjy0/ckb-capsule-recipe-rust:2020-9-28"
 
 # capsule version
-version = "0.4.4"
+version = "0.4.4 87bd895"
 # path of deployment config file
 deployment = "deployment.toml"
 
 [[contracts]]
-name = "action"
+name = "account-cell-type"
+template_type = "Rust"
+
+[[contracts]]
+name = "always-success"
+template_type = "Rust"
+
+[[contracts]]
+name = "apply-register-cell-type"
+template_type = "Rust"
+
+[[contracts]]
+name = "config-cell-type"
+template_type = "Rust"
+
+[[contracts]]
+name = "income-cell-type"
+template_type = "Rust"
+
+[[contracts]]
+name = "pre-account-cell-type"
+template_type = "Rust"
+
+[[contracts]]
+name = "proposal-cell-type"
 template_type = "Rust"

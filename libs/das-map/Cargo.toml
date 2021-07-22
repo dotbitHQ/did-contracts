@@ -1,0 +1,16 @@
+[package]
+name = "das-map"
+version = "1.0.0"
+edition = "2018"
+
+[features]
+default = ["no_std"]
+std = ["no-std-compat/std"]
+no_std = []
+
+[dependencies]
+ckb-std = "0.7.1"
+no-std-compat = { version = "0.4", features = [ "alloc", "compat_macros" ] }
+
+[dev-dependencies]
+hex = { version = "0.4", default-features = false }

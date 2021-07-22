@@ -1,5 +1,18 @@
 [workspace]
-members = ["tests", "contracts/action"]
+members = [
+    "tests",
+    "libs/das-core",
+    "libs/das-sorted-list",
+    "libs/das-map",
+    "contracts/always-success",
+    "contracts/apply-register-cell-type",
+    "contracts/account-cell-type",
+    "contracts/config-cell-type",
+    "contracts/income-cell-type",
+    "contracts/pre-account-cell-type",
+    "contracts/proposal-cell-type",
+    "tools/calculator",
+]
 
 [profile.release]
 overflow-checks = true

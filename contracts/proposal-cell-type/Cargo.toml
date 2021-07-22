@@ -1,0 +1,18 @@
+[package]
+name = "proposal-cell-type"
+version = "1.0.0"
+edition = "2018"
+
+[features]
+dev = ["das-core/dev"]
+local = ["das-core/local"]
+testnet = ["das-core/testnet"]
+mainnet = ["das-core/mainnet"]
+
+[dependencies]
+ckb-std = "0.7.1"
+das-core = { path = "../../libs/das-core", default-features = false }
+das-sorted-list = { path = "../../libs/das-sorted-list" }
+das-map = { path = "../../libs/das-map" }
+das-types = { path = "../../../das-types/rust", default-features = false }
+chrono = { version = "0.4", default-features = false }

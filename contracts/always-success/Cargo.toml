@@ -1,0 +1,13 @@
+[package]
+name = "always-success"
+version = "1.0.0"
+edition = "2018"
+
+[features]
+dev = []
+local = []
+testnet = []
+mainnet = []
+
+[dependencies]
+ckb-std = "0.7.1"

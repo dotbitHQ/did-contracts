@@ -1,0 +1,46 @@
+{
+  "cell_deps": [
+    {
+      "tmp_type": "contract",
+      "tmp_file_name": "always-success"
+    }
+  ],
+  "header_deps": [],
+  "inputs": [
+    {
+      "previous_output": {
+        "tmp_type": "full",
+        "capacity": 1000,
+        "lock": {
+          "code_hash": "{{always-success}}"
+        },
+        "type": null,
+        "tmp_data": "0x"
+      },
+      "since": "0x"
+    }
+  ],
+  "outputs": [
+    {
+      "tmp_type": "full",
+      "capacity": 500,
+      "lock": {
+        "args": "",
+        "code_hash": "{{always-success}}",
+        "hash_type": "type"
+      },
+      "type": null
+    },
+    {
+      "tmp_type": "full",
+      "capacity": 500,
+      "lock": {
+        "args": "",
+        "code_hash": "{{always-success}}",
+        "hash_type": "type"
+      },
+      "type": null,
+      "tmp_data": "0x68656C6C6F20776F726C64"
+    }
+  ]
+}
