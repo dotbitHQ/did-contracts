@@ -505,11 +505,20 @@ challenge_with_generator!(
             new_expired_at,
             2,
             1,
-            496_200_000_000,
-            19_900_000_000
+            475_000_000_000
+                + 1_200_000_000
+                + ACCOUNT_BASIC_CAPACITY
+                + ACCOUNT_PREPARED_FEE_CAPACITY,
+            21_900_000_000 - 1
         );
 
         gen_income_cell!(template, 2);
+
+        template.push_signall_cell(
+            "0x0000000000000000000000000000000000002233",
+            100_000_000_000,
+            Source::Output,
+        );
 
         template.as_json()
     }
