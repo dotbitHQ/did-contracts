@@ -492,6 +492,76 @@ challenge_with_generator!(
 );
 
 challenge_with_generator!(
+    challenge_income_consolidate_no_redundant_cells,
+    Error::IncomeCellConsolidateConditionNotSatisfied,
+    || {
+        let mut template = init("consolidate_income");
+
+        // inputs
+        let records_param = vec![
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000000000",
+                capacity: 20_000_000_000,
+            },
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000000010",
+                capacity: 1_000_000_000,
+            },
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000000030",
+                capacity: 21_000_000_000,
+            },
+        ];
+        push_income_cell!(template, records_param, 0, Source::Input);
+
+        let records_param = vec![
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000000000",
+                capacity: 20_000_000_000,
+            },
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000000020",
+                capacity: 1_000_000_000,
+            },
+        ];
+        push_income_cell!(template, records_param, 1, Source::Input);
+
+        // outputs
+        let records_param = vec![
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000000000",
+                capacity: 20_000_000_000,
+            },
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000000010",
+                capacity: 1_000_000_000,
+            },
+        ];
+        push_income_cell!(template, records_param, 0, Source::Output);
+
+        let records_param = vec![
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000000000",
+                capacity: 20_000_000_000,
+            },
+            IncomeRecordParam {
+                belong_to: "0x0000000000000000000000000000000000000020",
+                capacity: 1_000_000_000,
+            },
+        ];
+        push_income_cell!(template, records_param, 1, Source::Output);
+
+        let records_param = vec![IncomeRecordParam {
+            belong_to: "0x0000000000000000000000000000000000000030",
+            capacity: 21_000_000_000,
+        }];
+        push_income_cell!(template, records_param, 2, Source::Output);
+
+        template.as_json()
+    }
+);
+
+challenge_with_generator!(
     challenge_income_consolidate_wasted_capacity,
     Error::IncomeCellConsolidateWaste,
     || {
