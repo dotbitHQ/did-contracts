@@ -1,11 +1,11 @@
 #[macro_export]
 macro_rules! debug {
     ($fmt:literal) => {
-        #[cfg(not(feature = "mainnet"))]
+        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
         ckb_std::syscalls::debug(alloc::format!($fmt));
     };
     ($fmt:literal, $($args:expr),+) => {
-        #[cfg(not(feature = "mainnet"))]
+        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
         ckb_std::syscalls::debug(alloc::format!($fmt, $($args), +));
     };
 }

@@ -134,7 +134,7 @@ pub fn main() -> Result<(), Error> {
             let income_cell_witness = IncomeCellData::from_slice(entity.as_reader().raw_data())
                 .map_err(|_| Error::WitnessEntityDecodingError)?;
 
-            #[cfg(not(feature = "mainnet"))]
+            #[cfg(any(not(feature = "mainnet"), debug_assertions))]
             das_core::inspect::income_cell(
                 Source::Input,
                 index,
@@ -170,9 +170,9 @@ pub fn main() -> Result<(), Error> {
             input_records,
         );
 
-        #[cfg(not(feature = "mainnet"))]
+        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
         inspect_records("Records should be kept:", &records_should_keep);
-        #[cfg(not(feature = "mainnet"))]
+        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
         inspect_records("Records should be transferred:", &records_should_transfer);
 
         debug!("Classify all income records in outputs.");
@@ -183,7 +183,7 @@ pub fn main() -> Result<(), Error> {
             let income_cell_witness = IncomeCellData::from_slice(entity.as_reader().raw_data())
                 .map_err(|_| Error::WitnessEntityDecodingError)?;
 
-            #[cfg(not(feature = "mainnet"))]
+            #[cfg(any(not(feature = "mainnet"), debug_assertions))]
             das_core::inspect::income_cell(
                 Source::Output,
                 cell_index.to_owned(),
@@ -309,7 +309,7 @@ pub fn main() -> Result<(), Error> {
             }
         }
 
-        #[cfg(not(feature = "mainnet"))]
+        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
         inspect_records_for_pad(
             "Records should be used to pad IncomeCell capacity:",
             &records_used_for_pad,
@@ -456,26 +456,28 @@ fn classify_income_records(
     )
 }
 
-#[cfg(not(feature = "mainnet"))]
+#[cfg(any(not(feature = "mainnet"), debug_assertions))]
 fn inspect_records(title: &str, records: &Vec<(Script, u64)>) {
-    debug!("{}", title);
+    debug!("{} {} total", title, records.len());
 
-    for record in records {
+    for (i, record) in records.iter().enumerate() {
         debug!(
-            "  {{ belong_to.args: {}, capacity: {} }}",
+            "  {{ index: {}, belong_to.args: {}, capacity: {} }}",
+            i,
             record.0.args(),
             record.1
         );
     }
 }
 
-#[cfg(not(feature = "mainnet"))]
+#[cfg(any(not(feature = "mainnet"), debug_assertions))]
 fn inspect_records_for_pad(title: &str, records: &Vec<(Script, u64, bool)>) {
     debug!("{}", title);
 
-    for record in records {
+    for (i, record) in records.iter().enumerate() {
         debug!(
-            "  {{ belong_to.args: {}, capacity: {} }}",
+            "  {{ index: {}, belong_to.args: {}, capacity: {} }}",
+            i,
             record.0.args(),
             record.1
         );

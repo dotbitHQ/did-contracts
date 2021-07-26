@@ -96,7 +96,7 @@ pub fn main() -> Result<(), Error> {
         let apply_register_lock =
             load_cell_lock(index.to_owned(), Source::Input).map_err(|e| Error::from(e))?;
 
-        #[cfg(not(feature = "mainnet"))]
+        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
         das_core::inspect::apply_register_cell(Source::Input, index.to_owned(), &data);
 
         let height = util::load_oracle_data(OracleCellType::Height)?;
@@ -122,7 +122,7 @@ pub fn main() -> Result<(), Error> {
             PreAccountCellData
         );
 
-        #[cfg(not(feature = "mainnet"))]
+        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
         das_core::inspect::pre_account_cell(
             Source::Output,
             output_cells[0],
