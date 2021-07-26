@@ -108,9 +108,9 @@ pub fn main() -> Result<(), Error> {
             "There should be at least 2 IncomeCell in this transaction."
         );
         assert!(
-            input_cells.len() > output_cells.len(),
+            input_cells.len() >= output_cells.len(),
             Error::IncomeCellConsolidateConditionNotSatisfied,
-            "The number of IncomeCells in the outputs should be lesser than in the inputs."
+            "The number of IncomeCells in the outputs should be lesser than or equal to in the inputs."
         );
 
         parser.parse_cell()?;

@@ -2,7 +2,6 @@ use super::util::{constants::*, template_generator::*, template_parser::Template
 use chrono::{TimeZone, Utc};
 use ckb_testtool::context::Context;
 use das_core::error::Error;
-use das_core::util;
 use das_types::constants::*;
 
 fn init(account: &str) -> (TemplateGenerator, &str, u64) {
