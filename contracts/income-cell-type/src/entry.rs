@@ -165,6 +165,7 @@ pub fn main() -> Result<(), Error> {
 
         let (records_should_transfer, records_should_keep, need_pad) = classify_income_records(
             income_consolidate_profit_rate,
+            income_cell_max_records,
             income_cell_basic_capacity,
             income_cell_min_transfer_capacity,
             input_records,
@@ -174,6 +175,8 @@ pub fn main() -> Result<(), Error> {
         inspect_records("Records should be kept:", &records_should_keep);
         #[cfg(any(not(feature = "mainnet"), debug_assertions))]
         inspect_records("Records should be transferred:", &records_should_transfer);
+
+        debug!("Conclusion of need_pad: {}", need_pad);
 
         debug!("Classify all income records in outputs.");
 
@@ -294,7 +297,7 @@ pub fn main() -> Result<(), Error> {
                         false,
                     ));
                 } else {
-                    warn!("Outputs[{}] The transferred capacity is less than expected. (capacity_in_record: {}, capacity_should_be_transferred: {}, capacity_transferred: {})", 
+                    warn!("Outputs[{}] The transferred capacity is less than expected. (capacity_in_record: {}, capacity_should_be_transferred: {}, capacity_transferred: {})",
                         cells[0], item.1, capacity_should_be_transferred, capacity_transferred
                     );
                     return Err(Error::IncomeCellTransferError);
@@ -417,6 +420,7 @@ fn calc_total_records_capacity(records: Iter<(Script, u64)>) -> u64 {
 
 fn classify_income_records(
     income_consolidate_profit_rate: u64,
+    income_cell_max_records: usize,
     income_cell_basic_capacity: u64,
     income_cell_min_transfer_capacity: u64,
     input_records: Vec<(Script, u64)>,
@@ -447,12 +451,24 @@ fn classify_income_records(
 
     let remain_capacity = calc_total_records_capacity(records_should_keep.iter());
 
+    // Calculate how many IncomeCell is required in outputs.
+    let mut output_income_cell_count: u64;
+    if records_should_keep.len() <= 0 {
+        output_income_cell_count = 0;
+    } else {
+        output_income_cell_count = (records_should_keep.len() / income_cell_max_records) as u64;
+        if records_should_keep.len() % income_cell_max_records != 0 {
+            output_income_cell_count += 1
+        }
+    }
+
     (
         records_should_transfer,
         records_should_keep,
         // If the total capacity remains in IncomeCell is not enough, that means the IncomeCell needs padding.
         // If the total capacity remains 0, that means no IncomeCell is needed is outputs.
-        remain_capacity != 0 && remain_capacity < income_cell_basic_capacity,
+        remain_capacity != 0
+            && remain_capacity < (income_cell_basic_capacity * output_income_cell_count),
     )
 }
 
