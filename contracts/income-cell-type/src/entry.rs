@@ -278,7 +278,7 @@ pub fn main() -> Result<(), Error> {
                 load_cell_capacity(cells[0], Source::Output).map_err(|e| Error::from(e))?;
 
             let mut capacity_should_be_transferred =
-                item.1 - item.1 * income_consolidate_profit_rate / RATE_BASE;
+                item.1 / RATE_BASE * (RATE_BASE - income_consolidate_profit_rate);
 
             // If the record belongs to a IncomeCell creator, keeper should not take fee from it.
             for creator in creators.iter() {
@@ -293,13 +293,19 @@ pub fn main() -> Result<(), Error> {
 
             if capacity_transferred < capacity_should_be_transferred {
                 if need_pad {
+                    let capacity_should_transferred_with_fee = capacity_transferred
+                        / (RATE_BASE - income_consolidate_profit_rate)
+                        * RATE_BASE;
+                    let capacity_should_remain_for_pad =
+                        item.1 - capacity_should_transferred_with_fee;
+
+                    debug!("  Outputs[{}] recalculate fee from transferred part: {{ capacity_transferred: {}, final_fee: {} }}",
+                        cells[0], capacity_transferred, capacity_should_transferred_with_fee - capacity_transferred
+                    );
+
                     // If the IncomeCell needs capacity padding, and the records should be transferred are transferred parts of its capacity,
                     // we think the remain parts of capacity must be used for padding.
-                    records_used_for_pad.push((
-                        item.0,
-                        capacity_should_be_transferred - capacity_transferred,
-                        false,
-                    ));
+                    records_used_for_pad.push((item.0, capacity_should_remain_for_pad, false));
                 } else {
                     warn!("Outputs[{}] The transferred capacity is less than expected. (capacity_in_record: {}, capacity_should_be_transferred: {}, capacity_transferred: {})",
                         cells[0], item.1, capacity_should_be_transferred, capacity_transferred
@@ -317,7 +323,7 @@ pub fn main() -> Result<(), Error> {
         }
 
         #[cfg(any(not(feature = "mainnet"), debug_assertions))]
-        inspect_records_for_pad(
+        inspect_records(
             "Records should be used to pad IncomeCell capacity:",
             &records_used_for_pad,
         );
@@ -445,7 +451,7 @@ fn classify_income_records(
 
     for record in input_records.into_iter() {
         let capacity_after_fee_paid =
-            record.1 - record.1 * income_consolidate_profit_rate / RATE_BASE;
+            record.1 / RATE_BASE * (RATE_BASE - income_consolidate_profit_rate);
 
         debug!(
             "  {{ args: {}, capacity_after_fee_paid: {} = {}(record.capacity) - {}(record.capacity) * {}(income_consolidate_profit_rate) / {}(RATE_BASE) }}",
