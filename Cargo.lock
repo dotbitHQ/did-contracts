@@ -1521,7 +1521,7 @@ dependencies = [
 
 [[package]]
 name = "income-cell-type"
-version = "1.0.0"
+version = "1.0.2"
 dependencies = [
  "ckb-std",
  "das-core",
