@@ -163,7 +163,7 @@ pub fn main() -> Result<(), Error> {
 
         debug!("Classify all income records in inputs for comparing them with outputs later.");
 
-        let (records_should_transfer, records_should_keep, need_pad) = classify_income_records(
+        let (records_should_transfer, mut records_should_keep, need_pad) = classify_income_records(
             income_consolidate_profit_rate,
             income_cell_max_records,
             income_cell_basic_capacity,
@@ -323,7 +323,7 @@ pub fn main() -> Result<(), Error> {
         for record in output_records {
             let mut is_exist = false;
             // Check if record exists in the records_should_keep.
-            for expected_record in records_should_keep.iter() {
+            for expected_record in records_should_keep.iter_mut() {
                 if util::is_entity_eq(&record.0, &expected_record.0) {
                     assert!(
                         record.1 == expected_record.1,
@@ -333,6 +333,7 @@ pub fn main() -> Result<(), Error> {
                         expected_record.1,
                         record.1
                     );
+                    expected_record.2 = true;
                     is_exist = true;
                 }
             }
@@ -360,6 +361,16 @@ pub fn main() -> Result<(), Error> {
                 is_exist,
                 Error::IncomeCellConsolidateError,
                 "Missing expected record in outputs. (expected: {:?})", record
+            );
+        }
+
+        for record in records_should_keep.iter() {
+            assert!(
+                record.2,
+                Error::IncomeCellConsolidateError,
+                "The record should be kept is missing in outputs. (belong_to: {}, wasted: {})",
+                record.0,
+                record.1
             );
         }
 
@@ -408,7 +419,7 @@ fn merge_record(mut input_records: Vec<(Script, u64)>, record: IncomeRecord) -> 
     input_records
 }
 
-fn calc_total_records_capacity(records: Iter<(Script, u64)>) -> u64 {
+fn calc_total_records_capacity(records: Iter<(Script, u64, bool)>) -> u64 {
     // There is no reduce method here, so we use for...in instead.
     let mut total = 0;
     for record in records {
@@ -424,7 +435,7 @@ fn classify_income_records(
     income_cell_basic_capacity: u64,
     income_cell_min_transfer_capacity: u64,
     input_records: Vec<(Script, u64)>,
-) -> (Vec<(Script, u64)>, Vec<(Script, u64)>, bool) {
+) -> (Vec<(Script, u64, bool)>, Vec<(Script, u64, bool)>, bool) {
     let mut records_should_transfer = Vec::new();
     let mut records_should_keep = Vec::new();
 
@@ -443,9 +454,9 @@ fn classify_income_records(
         );
 
         if capacity_after_fee_paid >= income_cell_min_transfer_capacity {
-            records_should_transfer.push(record);
+            records_should_transfer.push((record.0, record.1, false));
         } else {
-            records_should_keep.push(record);
+            records_should_keep.push((record.0, record.1, false));
         }
     }
 
@@ -473,22 +484,8 @@ fn classify_income_records(
 }
 
 #[cfg(any(not(feature = "mainnet"), debug_assertions))]
-fn inspect_records(title: &str, records: &Vec<(Script, u64)>) {
+fn inspect_records(title: &str, records: &Vec<(Script, u64, bool)>) {
     debug!("{} {} total", title, records.len());
-
-    for (i, record) in records.iter().enumerate() {
-        debug!(
-            "  {{ index: {}, belong_to.args: {}, capacity: {} }}",
-            i,
-            record.0.args(),
-            record.1
-        );
-    }
-}
-
-#[cfg(any(not(feature = "mainnet"), debug_assertions))]
-fn inspect_records_for_pad(title: &str, records: &Vec<(Script, u64, bool)>) {
-    debug!("{}", title);
 
     for (i, record) in records.iter().enumerate() {
         debug!(
