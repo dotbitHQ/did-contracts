@@ -1,6 +1,7 @@
 use ckb_tool::ckb_types::{h256, H256};
 
-pub const MAX_CYCLES: u64 = u64::MAX; // up to 70_000_000
+// ⚠️ The maximum cycles on-chain is 70_000_000.
+pub const MAX_CYCLES: u64 = u64::MAX;
 
 pub const ACCOUNT_ID_LENGTH: usize = 20;
 pub const ACCOUNT_BASIC_CAPACITY: u64 = 20_600_000_000;
