@@ -134,7 +134,7 @@ pub fn main() -> Result<(), Error> {
             let income_cell_witness = IncomeCellData::from_slice(entity.as_reader().raw_data())
                 .map_err(|_| Error::WitnessEntityDecodingError)?;
 
-            #[cfg(not(feature = "mainnet"))]
+            #[cfg(any(not(feature = "mainnet"), debug_assertions))]
             das_core::inspect::income_cell(
                 Source::Input,
                 index,
@@ -161,19 +161,26 @@ pub fn main() -> Result<(), Error> {
             creators.push(creator);
         }
 
+        // Always include DAS in the members which is free from consolidating fee.
+        let das_wallet_lock = das_wallet_lock();
+        creators.push(das_wallet_lock.into());
+
         debug!("Classify all income records in inputs for comparing them with outputs later.");
 
-        let (records_should_transfer, records_should_keep, need_pad) = classify_income_records(
+        let (records_should_transfer, mut records_should_keep, need_pad) = classify_income_records(
             income_consolidate_profit_rate,
+            income_cell_max_records,
             income_cell_basic_capacity,
             income_cell_min_transfer_capacity,
             input_records,
         );
 
-        #[cfg(not(feature = "mainnet"))]
+        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
         inspect_records("Records should be kept:", &records_should_keep);
-        #[cfg(not(feature = "mainnet"))]
+        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
         inspect_records("Records should be transferred:", &records_should_transfer);
+
+        debug!("Conclusion of need_pad: {}", need_pad);
 
         debug!("Classify all income records in outputs.");
 
@@ -183,7 +190,7 @@ pub fn main() -> Result<(), Error> {
             let income_cell_witness = IncomeCellData::from_slice(entity.as_reader().raw_data())
                 .map_err(|_| Error::WitnessEntityDecodingError)?;
 
-            #[cfg(not(feature = "mainnet"))]
+            #[cfg(any(not(feature = "mainnet"), debug_assertions))]
             das_core::inspect::income_cell(
                 Source::Output,
                 cell_index.to_owned(),
@@ -271,7 +278,7 @@ pub fn main() -> Result<(), Error> {
                 load_cell_capacity(cells[0], Source::Output).map_err(|e| Error::from(e))?;
 
             let mut capacity_should_be_transferred =
-                item.1 - item.1 * income_consolidate_profit_rate / RATE_BASE;
+                item.1 / RATE_BASE * (RATE_BASE - income_consolidate_profit_rate);
 
             // If the record belongs to a IncomeCell creator, keeper should not take fee from it.
             for creator in creators.iter() {
@@ -286,15 +293,21 @@ pub fn main() -> Result<(), Error> {
 
             if capacity_transferred < capacity_should_be_transferred {
                 if need_pad {
+                    let capacity_should_transferred_with_fee = capacity_transferred
+                        / (RATE_BASE - income_consolidate_profit_rate)
+                        * RATE_BASE;
+                    let capacity_should_remain_for_pad =
+                        item.1 - capacity_should_transferred_with_fee;
+
+                    debug!("  Outputs[{}] recalculate fee from transferred part: {{ capacity_transferred: {}, final_fee: {} }}",
+                        cells[0], capacity_transferred, capacity_should_transferred_with_fee - capacity_transferred
+                    );
+
                     // If the IncomeCell needs capacity padding, and the records should be transferred are transferred parts of its capacity,
                     // we think the remain parts of capacity must be used for padding.
-                    records_used_for_pad.push((
-                        item.0,
-                        capacity_should_be_transferred - capacity_transferred,
-                        false,
-                    ));
+                    records_used_for_pad.push((item.0, capacity_should_remain_for_pad, false));
                 } else {
-                    warn!("Outputs[{}] The transferred capacity is less than expected. (capacity_in_record: {}, capacity_should_be_transferred: {}, capacity_transferred: {})", 
+                    warn!("Outputs[{}] The transferred capacity is less than expected. (capacity_in_record: {}, capacity_should_be_transferred: {}, capacity_transferred: {})",
                         cells[0], item.1, capacity_should_be_transferred, capacity_transferred
                     );
                     return Err(Error::IncomeCellTransferError);
@@ -309,8 +322,8 @@ pub fn main() -> Result<(), Error> {
             }
         }
 
-        #[cfg(not(feature = "mainnet"))]
-        inspect_records_for_pad(
+        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
+        inspect_records(
             "Records should be used to pad IncomeCell capacity:",
             &records_used_for_pad,
         );
@@ -320,7 +333,7 @@ pub fn main() -> Result<(), Error> {
         for record in output_records {
             let mut is_exist = false;
             // Check if record exists in the records_should_keep.
-            for expected_record in records_should_keep.iter() {
+            for expected_record in records_should_keep.iter_mut() {
                 if util::is_entity_eq(&record.0, &expected_record.0) {
                     assert!(
                         record.1 == expected_record.1,
@@ -330,6 +343,7 @@ pub fn main() -> Result<(), Error> {
                         expected_record.1,
                         record.1
                     );
+                    expected_record.2 = true;
                     is_exist = true;
                 }
             }
@@ -357,6 +371,16 @@ pub fn main() -> Result<(), Error> {
                 is_exist,
                 Error::IncomeCellConsolidateError,
                 "Missing expected record in outputs. (expected: {:?})", record
+            );
+        }
+
+        for record in records_should_keep.iter() {
+            assert!(
+                record.2,
+                Error::IncomeCellConsolidateError,
+                "The record should be kept is missing in outputs. (belong_to: {}, wasted: {})",
+                record.0,
+                record.1
             );
         }
 
@@ -405,7 +429,7 @@ fn merge_record(mut input_records: Vec<(Script, u64)>, record: IncomeRecord) -> 
     input_records
 }
 
-fn calc_total_records_capacity(records: Iter<(Script, u64)>) -> u64 {
+fn calc_total_records_capacity(records: Iter<(Script, u64, bool)>) -> u64 {
     // There is no reduce method here, so we use for...in instead.
     let mut total = 0;
     for record in records {
@@ -417,16 +441,17 @@ fn calc_total_records_capacity(records: Iter<(Script, u64)>) -> u64 {
 
 fn classify_income_records(
     income_consolidate_profit_rate: u64,
+    income_cell_max_records: usize,
     income_cell_basic_capacity: u64,
     income_cell_min_transfer_capacity: u64,
     input_records: Vec<(Script, u64)>,
-) -> (Vec<(Script, u64)>, Vec<(Script, u64)>, bool) {
+) -> (Vec<(Script, u64, bool)>, Vec<(Script, u64, bool)>, bool) {
     let mut records_should_transfer = Vec::new();
     let mut records_should_keep = Vec::new();
 
     for record in input_records.into_iter() {
         let capacity_after_fee_paid =
-            record.1 - record.1 * income_consolidate_profit_rate / RATE_BASE;
+            record.1 / RATE_BASE * (RATE_BASE - income_consolidate_profit_rate);
 
         debug!(
             "  {{ args: {}, capacity_after_fee_paid: {} = {}(record.capacity) - {}(record.capacity) * {}(income_consolidate_profit_rate) / {}(RATE_BASE) }}",
@@ -439,43 +464,43 @@ fn classify_income_records(
         );
 
         if capacity_after_fee_paid >= income_cell_min_transfer_capacity {
-            records_should_transfer.push(record);
+            records_should_transfer.push((record.0, record.1, false));
         } else {
-            records_should_keep.push(record);
+            records_should_keep.push((record.0, record.1, false));
         }
     }
 
     let remain_capacity = calc_total_records_capacity(records_should_keep.iter());
+
+    // Calculate how many IncomeCell is required in outputs.
+    let mut output_income_cell_count: u64;
+    if records_should_keep.len() <= 0 {
+        output_income_cell_count = 0;
+    } else {
+        output_income_cell_count = (records_should_keep.len() / income_cell_max_records) as u64;
+        if records_should_keep.len() % income_cell_max_records != 0 {
+            output_income_cell_count += 1
+        }
+    }
 
     (
         records_should_transfer,
         records_should_keep,
         // If the total capacity remains in IncomeCell is not enough, that means the IncomeCell needs padding.
         // If the total capacity remains 0, that means no IncomeCell is needed is outputs.
-        remain_capacity != 0 && remain_capacity < income_cell_basic_capacity,
+        remain_capacity != 0
+            && remain_capacity < (income_cell_basic_capacity * output_income_cell_count),
     )
 }
 
-#[cfg(not(feature = "mainnet"))]
-fn inspect_records(title: &str, records: &Vec<(Script, u64)>) {
-    debug!("{}", title);
+#[cfg(any(not(feature = "mainnet"), debug_assertions))]
+fn inspect_records(title: &str, records: &Vec<(Script, u64, bool)>) {
+    debug!("{} {} total", title, records.len());
 
-    for record in records {
+    for (i, record) in records.iter().enumerate() {
         debug!(
-            "  {{ belong_to.args: {}, capacity: {} }}",
-            record.0.args(),
-            record.1
-        );
-    }
-}
-
-#[cfg(not(feature = "mainnet"))]
-fn inspect_records_for_pad(title: &str, records: &Vec<(Script, u64, bool)>) {
-    debug!("{}", title);
-
-    for record in records {
-        debug!(
-            "  {{ belong_to.args: {}, capacity: {} }}",
+            "  {{ index: {}, belong_to.args: {}, capacity: {} }}",
+            i,
             record.0.args(),
             record.1
         );

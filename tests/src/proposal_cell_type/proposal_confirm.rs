@@ -150,7 +150,7 @@ fn gen_proposal_confirm() {
         gen_proposal_related_cell_at_confirm(&mut template, slices, timestamp);
 
     let income_records = vec![IncomeRecordParam {
-        belong_to: "0x0000000000000000000000000000000000000000",
+        belong_to: "0x0000000000000000000000000000000000000000".to_string(),
         capacity: 20_000_000_000,
     }];
     let (cell_data, entity) =
@@ -164,27 +164,27 @@ fn gen_proposal_confirm() {
 
     let income_records = vec![
         IncomeRecordParam {
-            belong_to: "0x0000000000000000000000000000000000000000",
+            belong_to: "0x0000000000000000000000000000000000000000".to_string(),
             capacity: 20_000_000_000,
         },
         // Profit to inviter
         IncomeRecordParam {
-            belong_to: "0x0000000000000000000000000000000000001111",
+            belong_to: "0x0000000000000000000000000000000000001111".to_string(),
             capacity: 152_000_000_000,
         },
         // Profit to channel
         IncomeRecordParam {
-            belong_to: "0x0000000000000000000000000000000000002222",
+            belong_to: "0x0000000000000000000000000000000000002222".to_string(),
             capacity: 152_000_000_000,
         },
         // Profit to proposer
         IncomeRecordParam {
-            belong_to: "0x0000000000000000000000000000000000002233",
+            belong_to: "0x0000000000000000000000000000000000002233".to_string(),
             capacity: 76_000_000_000,
         },
         // Profit to DAS
         IncomeRecordParam {
-            belong_to: "0x0300000000000000000000000000000000000000",
+            belong_to: "0x0300000000000000000000000000000000000000".to_string(),
             capacity: 1_520_000_000_000,
         },
     ];
@@ -213,22 +213,22 @@ macro_rules! gen_income_cell {
         let income_records = vec![
             // Profit to inviter
             IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000001111",
+                belong_to: "0x0000000000000000000000000000000000001111".to_string(),
                 capacity: 38_000_000_000,
             },
             // Profit to channel
             IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000002222",
+                belong_to: "0x0000000000000000000000000000000000002222".to_string(),
                 capacity: 38_000_000_000,
             },
             // Profit to proposer
             IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000002233",
+                belong_to: "0x0000000000000000000000000000000000002233".to_string(),
                 capacity: 19_000_000_000,
             },
             // Profit to DAS
             IncomeRecordParam {
-                belong_to: "0x0300000000000000000000000000000000000000",
+                belong_to: "0x0300000000000000000000000000000000000000".to_string(),
                 capacity: 380_000_000_000,
             },
         ];
@@ -304,22 +304,22 @@ challenge_with_generator!(
         let income_records = vec![
             // Profit to inviter
             IncomeRecordParam {
-                belong_to: "0x000000000000000000000000000000000000FFFF",
+                belong_to: "0x000000000000000000000000000000000000FFFF".to_string(),
                 capacity: 38_000_000_000,
             },
             // Profit to channel
             IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000002222",
+                belong_to: "0x0000000000000000000000000000000000002222".to_string(),
                 capacity: 38_000_000_000,
             },
             // Profit to proposer
             IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000002233",
+                belong_to: "0x0000000000000000000000000000000000002233".to_string(),
                 capacity: 19_000_000_000,
             },
             // Profit to DAS
             IncomeRecordParam {
-                belong_to: "0x0300000000000000000000000000000000000000",
+                belong_to: "0x0300000000000000000000000000000000000000".to_string(),
                 capacity: 380_000_000_000,
             },
         ];
@@ -365,22 +365,22 @@ challenge_with_generator!(
         let income_records = vec![
             // Profit to inviter
             IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000001111",
+                belong_to: "0x0000000000000000000000000000000000001111".to_string(),
                 capacity: 99_000_000_000,
             },
             // Profit to channel
             IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000002222",
+                belong_to: "0x0000000000000000000000000000000000002222".to_string(),
                 capacity: 38_000_000_000,
             },
             // Profit to proposer
             IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000002233",
+                belong_to: "0x0000000000000000000000000000000000002233".to_string(),
                 capacity: 19_000_000_000,
             },
             // Profit to DAS
             IncomeRecordParam {
-                belong_to: "0x0300000000000000000000000000000000000000",
+                belong_to: "0x0300000000000000000000000000000000000000".to_string(),
                 capacity: 380_000_000_000,
             },
         ];

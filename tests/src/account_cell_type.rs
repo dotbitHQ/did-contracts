@@ -591,7 +591,7 @@ fn gen_account_renew() {
     );
 
     let income_records = vec![IncomeRecordParam {
-        belong_to: "0x0000000000000000000000000000000000000000",
+        belong_to: "0x0000000000000000000000000000000000000000".to_string(),
         capacity: 20_000_000_000,
     }];
     let (cell_data, entity) =
@@ -605,12 +605,12 @@ fn gen_account_renew() {
 
     let income_records = vec![
         IncomeRecordParam {
-            belong_to: "0x0000000000000000000000000000000000000000",
+            belong_to: "0x0000000000000000000000000000000000000000".to_string(),
             capacity: 20_000_000_000,
         },
         // Profit to DAS
         IncomeRecordParam {
-            belong_to: "0x0300000000000000000000000000000000000000",
+            belong_to: "0x0300000000000000000000000000000000000000".to_string(),
             capacity: 50_000_000_000,
         },
     ];

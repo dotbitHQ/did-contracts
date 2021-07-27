@@ -1,4 +1,4 @@
-use super::super::util::{constants::*, template_generator::*};
+use crate::util::{constants::*, template_generator::*};
 use ckb_tool::ckb_types::{bytes, prelude::Pack};
 use das_types::{constants::*, packed::*};
 

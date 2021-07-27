@@ -116,10 +116,14 @@ pub fn income_cell(
     }
 
     debug!("    witness.creator: {}", witness_reader.creator());
-    debug!("    witness.records: ");
-    for record in witness_reader.records().iter() {
+    debug!(
+        "    witness.records: {} total",
+        witness_reader.records().len()
+    );
+    for (i, record) in witness_reader.records().iter().enumerate() {
         debug!(
-            "      {{ belong_to.args: {}, capacity: {} }}",
+            "      {{ index: {}, belong_to.args: {}, capacity: {} }}",
+            i,
             record.belong_to().args(),
             u64::from(record.capacity())
         );

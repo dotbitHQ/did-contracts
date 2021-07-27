@@ -271,7 +271,7 @@ pub struct AccountRecordParam {
 
 #[derive(Debug, Clone)]
 pub struct IncomeRecordParam {
-    pub belong_to: &'static str,
+    pub belong_to: String,
     pub capacity: u64,
 }
 
@@ -586,7 +586,7 @@ impl TemplateGenerator {
             .inviter(Uint32::from(800))
             .proposal_create(Uint32::from(400))
             .proposal_confirm(Uint32::from(0))
-            .income_consolidate(Uint32::from(100))
+            .income_consolidate(Uint32::from(CONSOLIDATING_FEE as u32))
             .build();
 
         let cell_data = Bytes::from(blake2b_256(entity.as_slice()).to_vec());
@@ -1184,7 +1184,7 @@ impl TemplateGenerator {
         for record_param in records_param.into_iter() {
             records = records.push(
                 IncomeRecord::new_builder()
-                    .belong_to(gen_always_success_lock(record_param.belong_to))
+                    .belong_to(gen_always_success_lock(record_param.belong_to.as_str()))
                     .capacity(Uint64::from(record_param.capacity))
                     .build(),
             );

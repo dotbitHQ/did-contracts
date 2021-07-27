@@ -70,9 +70,9 @@ pub fn main() -> Result<(), Error> {
             verify_slices(config_proposal, output_cell_witness_reader.slices())?;
         let dep_related_cells = find_proposal_related_cells(config_main, Source::CellDep)?;
 
-        #[cfg(not(feature = "mainnet"))]
+        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
         inspect_slices(output_cell_witness_reader.slices())?;
-        #[cfg(not(feature = "mainnet"))]
+        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
         inspect_related_cells(
             &parser,
             config_main,
@@ -138,9 +138,9 @@ pub fn main() -> Result<(), Error> {
             verify_slices(config_proposal, output_cell_witness_reader.slices())?;
         let dep_related_cells = find_proposal_related_cells(config_main, Source::CellDep)?;
 
-        #[cfg(not(feature = "mainnet"))]
+        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
         inspect_slices(output_cell_witness_reader.slices())?;
-        #[cfg(not(feature = "mainnet"))]
+        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
         inspect_related_cells(
             &parser,
             config_main,
@@ -197,16 +197,16 @@ pub fn main() -> Result<(), Error> {
         let input_related_cells = find_proposal_related_cells(config_main, Source::Input)?;
         let output_account_cells = find_output_account_cells(config_main)?;
 
-        #[cfg(not(feature = "mainnet"))]
+        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
         inspect_slices(input_cell_witness_reader.slices())?;
-        #[cfg(not(feature = "mainnet"))]
+        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
         inspect_related_cells(
             &parser,
             config_main,
             input_related_cells.clone(),
             Source::Input,
         )?;
-        #[cfg(not(feature = "mainnet"))]
+        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
         inspect_related_cells(
             &parser,
             config_main,
@@ -272,7 +272,7 @@ pub fn main() -> Result<(), Error> {
     Ok(())
 }
 
-#[cfg(not(feature = "mainnet"))]
+#[cfg(any(not(feature = "mainnet"), debug_assertions))]
 fn inspect_slices(slices_reader: SliceListReader) -> Result<(), Error> {
     debug!("Inspect Slices [");
     for (sl_index, sl_reader) in slices_reader.iter().enumerate() {
@@ -300,7 +300,7 @@ fn inspect_slices(slices_reader: SliceListReader) -> Result<(), Error> {
     Ok(())
 }
 
-#[cfg(not(feature = "mainnet"))]
+#[cfg(any(not(feature = "mainnet"), debug_assertions))]
 fn inspect_related_cells(
     parser: &WitnessesParser,
     config_main: ConfigCellMainReader,
