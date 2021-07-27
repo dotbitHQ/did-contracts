@@ -161,6 +161,10 @@ pub fn main() -> Result<(), Error> {
             creators.push(creator);
         }
 
+        // Always include DAS in the members which is free from consolidating fee.
+        let das_wallet_lock = das_wallet_lock();
+        creators.push(das_wallet_lock.into());
+
         debug!("Classify all income records in inputs for comparing them with outputs later.");
 
         let (records_should_transfer, mut records_should_keep, need_pad) = classify_income_records(
