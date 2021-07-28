@@ -74,6 +74,7 @@ pub enum Error {
     ProposalSliceRelatedCellMissing,
     ProposalCellTypeError, // 95
     ProposalCellAccountIdError,
+    ProposalCellNextError,
     ProposalFieldCanNotBeModified,
     ProposalWitnessCanNotBeModified,
     ProposalConfirmNewAccountCellDataError = 100,

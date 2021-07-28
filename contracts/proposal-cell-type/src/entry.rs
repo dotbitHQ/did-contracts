@@ -704,6 +704,10 @@ fn verify_proposal_execution_result(
     let mut i = 0;
     for (sl_index, sl_reader) in slices_reader.iter().enumerate() {
         debug!("Check Slice[{}] ...", sl_index);
+
+        let last_item = sl_reader.get(sl_reader.len() - 1).unwrap();
+        let original_next_of_account_cell = last_item.next().raw_data();
+
         for (item_index, item) in sl_reader.iter().enumerate() {
             let item_account_id = item.account_id().raw_data();
             let item_type = u8::from(item.item_type());
@@ -732,6 +736,13 @@ fn verify_proposal_execution_result(
                     output_account_cells[i],
                     Source::Output,
                     &account_cell_type_id,
+                )?;
+
+                verify_next_is_consistent_in_account_cell_and_item(
+                    item_index,
+                    input_related_cells[i],
+                    &input_cell_data,
+                    original_next_of_account_cell,
                 )?;
 
                 // All cells' account_id in data must be the same as the account_id in proposal.
@@ -1081,14 +1092,35 @@ fn verify_cell_type_id(
     Ok(())
 }
 
+fn verify_next_is_consistent_in_account_cell_and_item(
+    item_index: usize,
+    cell_index: usize,
+    cell_data: &[u8],
+    original_next_of_account_cell: &[u8],
+) -> Result<(), Error> {
+    let next = account_cell::get_next(cell_data);
+
+    assert!(
+        next == original_next_of_account_cell,
+        Error::ProposalCellNextError,
+        "  The next of Item[{}] should be {}, but it has changed. (related_cell: {:?}[{}])",
+        item_index,
+        util::hex_string(original_next_of_account_cell),
+        Source::Input,
+        cell_index
+    );
+
+    Ok(())
+}
+
 fn verify_account_cell_account_id(
     item_index: usize,
-    cell_data: &Vec<u8>,
+    cell_data: &[u8],
     cell_index: usize,
     source: Source,
     expected_account_id: &[u8],
 ) -> Result<(), Error> {
-    let account_id = account_cell::get_id(&cell_data);
+    let account_id = account_cell::get_id(cell_data);
 
     assert!(
         account_id == expected_account_id,
@@ -1105,12 +1137,12 @@ fn verify_account_cell_account_id(
 
 fn verify_pre_account_cell_account_id(
     item_index: usize,
-    cell_data: &Vec<u8>,
+    cell_data: &[u8],
     cell_index: usize,
     source: Source,
     expected_account_id: &[u8],
 ) -> Result<(), Error> {
-    let account_id = pre_account_cell::get_id(&cell_data);
+    let account_id = pre_account_cell::get_id(cell_data);
 
     assert!(
         account_id == expected_account_id,
