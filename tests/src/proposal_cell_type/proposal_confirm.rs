@@ -244,6 +244,130 @@ macro_rules! gen_income_cell {
 }
 
 challenge_with_generator!(
+    challenge_proposal_confirm_pre_register_has_same_next,
+    Error::ProposalCellNextError,
+    || {
+        let (mut template, height, timestamp) = init_confirm("confirm_proposal");
+        let old_registered_at = timestamp - 86400;
+        let old_expired_at = timestamp + 31536000 - 86400;
+        let new_registered_at = timestamp;
+        let new_expired_at = timestamp + 31536000;
+
+        let mut input_index = 0;
+        let mut output_index = 0;
+
+        // Generate proposal cells
+        let slices = vec![vec![
+            ("das00012.bit", ProposalSliceItemType::Exist, "das00009.bit"),
+            ("das00005.bit", ProposalSliceItemType::New, ""),
+        ]];
+
+        let (cell_data, entity) = template.gen_proposal_cell_data(
+            "0x0000000000000000000000000000000000002233",
+            height,
+            &slices,
+        );
+        template.push_proposal_cell(
+            cell_data,
+            Some((1, input_index, entity)),
+            100_000_000_000,
+            Source::Input,
+        );
+        input_index += 1;
+
+        // Generate AccountCell of slices[0][0]
+        let (cell_data, old_entity) = template.gen_account_cell_data(
+            "das00012.bit",
+            // The key point of this test is that the AccountCell has been updated by another PreAccountCell with the same account as current one.
+            // But the next in ProposalCell.slices is still old one. When this happens, the transaction shall be rejected.
+            "das00005.bit",
+            old_registered_at,
+            old_expired_at,
+            0,
+            0,
+            0,
+            None,
+        );
+        template.push_account_cell::<AccountCellData>(
+            "0x0000000000000000000000000000000000001111",
+            "0x0000000000000000000000000000000000001111",
+            cell_data,
+            None,
+            1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
+            Source::Input,
+        );
+        let (cell_data, new_entity) = template.gen_account_cell_data(
+            "das00012.bit",
+            "das00005.bit",
+            old_registered_at,
+            old_expired_at,
+            0,
+            0,
+            0,
+            None,
+        );
+        template.push_account_cell::<AccountCellData>(
+            "0x0000000000000000000000000000000000001111",
+            "0x0000000000000000000000000000000000001111",
+            cell_data,
+            None,
+            1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
+            Source::Output,
+        );
+        template.push_witness::<AccountCellData, AccountCellData, AccountCellData>(
+            DataType::AccountCellData,
+            Some((2, output_index, new_entity)),
+            Some((2, input_index, old_entity)),
+            None,
+        );
+        input_index += 1;
+        output_index += 1;
+
+        // Generate PreAccountCell and AccountCell of slices[0][1]
+        let (cell_data, old_entity) = template.gen_pre_account_cell_data(
+            "das00005.bit",
+            "0x000000000000000000000000000000000000FFFF",
+            "0x0000000000000000000000000000000000001100",
+            "0x0000000000000000000000000000000000001111",
+            "0x0000000000000000000000000000000000002222",
+            1000,
+            500,
+            timestamp - 60,
+        );
+        template.push_pre_account_cell(
+            cell_data,
+            Some((1, input_index, old_entity)),
+            476_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
+            Source::Input,
+        );
+        let (cell_data, new_entity) = template.gen_account_cell_data(
+            "das00005.bit",
+            "das00009.bit",
+            new_registered_at,
+            new_expired_at,
+            0,
+            0,
+            0,
+            None,
+        );
+        template.push_account_cell::<AccountCellData>(
+            "0x0000000000000000000000000000000000001100",
+            "0x0000000000000000000000000000000000001100",
+            cell_data,
+            Some((2, output_index, new_entity)),
+            1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
+            Source::Output,
+        );
+        // input_index += 1;
+        output_index += 1;
+
+        gen_income_cell!(template, output_index);
+
+        template.as_json()
+    }
+);
+
+challenge_with_generator!(
     challenge_proposal_confirm_no_refund,
     Error::ProposalConfirmRefundError,
     || {
