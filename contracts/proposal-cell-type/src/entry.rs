@@ -850,12 +850,6 @@ fn verify_proposal_execution_result(
                     item_index, profit, total_capacity, storage_capacity
                 );
 
-                util::verify_account_length_and_years(
-                    input_cell_witness_reader.account().len(),
-                    timestamp,
-                    Some(item_index),
-                )?;
-
                 is_cell_capacity_correct(item_index, output_account_cells[i], storage_capacity)?;
                 is_new_account_cell_lock_correct(
                     item_index,

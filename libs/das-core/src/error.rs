@@ -1,7 +1,7 @@
 use ckb_std::error::SysError;
 
 /// Error
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 #[repr(i8)]
 pub enum Error {
     IndexOutOfBound = 1,

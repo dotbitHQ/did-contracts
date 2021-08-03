@@ -669,60 +669,6 @@ pub fn is_init_day(current_timestamp: u64) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn verify_account_length_and_years(
-    account_length: usize,
-    current_timestamp: u64,
-    item_index: Option<usize>,
-) -> Result<(), Error> {
-    use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
-
-    let current = DateTime::<Utc>::from_utc(
-        NaiveDateTime::from_timestamp(current_timestamp as i64, 0),
-        Utc,
-    );
-
-    if item_index.is_some() {
-        debug!(
-            "  Item[{}] Check if the account is available for registration now. (length: {}, current: {:#?})",
-            item_index.unwrap(), account_length, current
-        );
-    } else {
-        debug!(
-            "Check if the account is available for registration now. (length: {}, current: {:#?})",
-            account_length, current
-        );
-    }
-
-    // On CKB main net, AKA Lina, accounts of less lengths can be registered only after a specific number of years.
-    if cfg!(feature = "mainnet") {
-        // TODO Trible check.
-        // ⚠️ Before year 2 means the first year.
-        assert!(
-            account_length >= 5,
-            Error::AccountStillCanNotBeRegister,
-            "The account less than 10 characters can not be registered now."
-        );
-    } else if cfg!(feature = "testnet") {
-        assert!(
-            account_length >= 2,
-            Error::AccountStillCanNotBeRegister,
-            "The account less than 2 characters can not be registered now."
-        );
-    } else {
-        let year_n = Utc.ymd(4444, 4, 4).and_hms(4, 4, 4);
-        if current < year_n {
-            assert!(
-                account_length >= 2,
-                Error::AccountStillCanNotBeRegister,
-                "The account less than 2 characters can not be registered now. (available_for_register: {:?})",
-                year_n
-            );
-        }
-    }
-
-    Ok(())
-}
-
 pub fn calc_account_storage_capacity(
     config_account: das_packed::ConfigCellAccountReader,
     account_name_storage: u64,
