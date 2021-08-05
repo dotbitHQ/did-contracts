@@ -1,6 +1,6 @@
 # Overview of DAS
 
-DAS is short for Decentralized Account Systems. This document is an overview of the design of it. It is mainly about how the system works and how the modules communicate with each other.
+DAS is short for Decentralized Account System. This document is an overview of the design of it. It is mainly about how the system works and how the modules communicate with each other.
 
 ## Big Picture
 
@@ -34,7 +34,13 @@ Each step above corresponds to a transaction, if you want to understand them in 
 
 ## Account On-Chain Structure
 
-After the account is successfully registered, user can finally use the account. The use of the account can be divided into two categories: one is the write operation to modify the account through transactions, and the other is the read operation to read the account information by parsing its data.
+After the account is successfully registered, the account data will be saved on blockchain in a cell, and all cells can eventually form **a one-way ordered linked list**, which is also the proof of uniqueness in the account registration process:
+
+![Account On-Chain Structure](DAS-account-structure.png)
+
+### Account Management
+
+The use of the account can be divided into two categories: one is the write operation to modify the account through transactions, and the other is the read operation to read the account information by parsing its data.
 
 For write operations, in addition to understanding the data structure of the account you must also understand the various transactions of account, such as:
 
@@ -70,3 +76,16 @@ Records are the most important data for each account, and basic application scen
 - `ttl` field is the recommended expiration date of the record cache in seconds，each level of applications should update their cache base on this value in time.
 
 > At the front-end interface level, `type` and `key` are combined into a single `key` for the sake of brevity, separated by a `.` symbol.
+
+
+## Take Part in DAS
+
+Just like what you see in [Big Picture](#big-picture)，anyone can take part in DAS through becoming one of the role in its ecosystem:
+
+- User is the easiest kind of role to be, you can sign up for a personal account now by visiting https://da.systems/ .
+- Exchange/Wallet is usually played by a professional team or company that is already doing this type of business.
+- Registrar is the role need to resolve payment problems for users, and implement on-chain transactions base on [Transaction-Structure/Register-Transactions](Data-Structure-and-Protocol/Transaction-Structure.md#register-transactions) .
+- Keeper , for security purposes we will not open source for now, is the hardest role to be, anyone willing to become a keeper need to understand [Cell-Structure](Data-Structure-and-Protocol/Cell-Structure.md) and [Transaction-Structure](Data-Structure-and-Protocol/Transaction-Structure.md) totally and develop a keeper again.
+- Resolver is a role easier to be，it just need to run open sourced [resolver code](https://github.com/DeAccountSystems/das_account_indexer). But there is no gain for this role, and exchange/wallet only trust their own resolvers, so it is not recommended to run this service alone.
+
+No matter which of the above roles you want to be in the DAS ecosystem, we are always happy to help you with any technical questions on our Discord group, you can find the invite link on our official site. 🤝

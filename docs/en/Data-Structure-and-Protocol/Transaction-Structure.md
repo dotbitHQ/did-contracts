@@ -12,6 +12,7 @@ Since contract script on CKB do not have things like interface, we defined a ser
 
 > All transaction fees are paid by the creator of the transaction.
 
+
 ## Terms and Conventions
 
 > Everything in this document needs to be understood on the basis of [RFC-0022 CKB Transaction Structure](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0022-transaction-structure/0022-transaction-structure.md) . Lack of sufficient understanding of transaction structure of CKB may be an obstacle to understanding this document.
@@ -30,6 +31,10 @@ Since contract script on CKB do not have things like interface, we defined a ser
 | XxxYyyCell (n) | Means XxxYyyCell is ordered and this is nth XxxYyyCell. |
 | XxxYyyCell {n} | {4} means there are and only 4 of XxxYyyCell<br>{3,} means there are at least 3 XxxYyyCell<br/>{,2} means there are at most 2 XxxYyyCell<br/>{1,4} means there are 1 to 4 XxxYyyCell. |
 | XxxYyyCell [A] | Means multiple XxxYyyCell in differet parts of transaction should have consistent sequence.<br/>If XxxYyyCell in Inputs/Output/CellDeps with the same `[A]` mark then they should have consistent sequence.<br>The `[A]` means that some sorting method A, it could also be B, C and so on |
+| ConfigCellXXXX.yyyy | Means the data needs to be retrieved from a field in the witness of a ConfigCell, see [ConfigCell](./Cell-Structure.md#ConfigCell) for details. |
+
+> All hash are using the same hash algorithm, i.e. [ckbhash algorithm](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0022-transaction-structure/0022-transaction-structure.md#crypto-primitives) .
+
 
 ## Transactions of Keeper
 
@@ -487,8 +492,6 @@ Outputs:
 
 ### Account Management Transactions
 
-所有的账户管理相关交易的 `ActionData` 中多了一个 `permission` 参数，此参数表明了当前交易所需权限，并会被 account-cell-type 以及 das-lock 两个合约脚本共同检查，所以必须正确填写。`permission` 可选的值有：
-
 All account management transactions have an additional `permission` parameter in the `ActionData` which indicates the required permission for the current transaction and is checked by both the account-cell-type and das-lock scripts, so it must be provided correctly. The optional values for `permission` are:
 
 - 0x00 indicates the transaction requires owner permission.
@@ -639,7 +642,7 @@ Outputs:
   [ChangeCell]
 ```
 
-### System Maintance
+## Special Transactions
 
 #### Contract Deploy
 

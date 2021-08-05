@@ -22,9 +22,9 @@ Type ID 是 CKB 链上合约相关的一个关键概念，并且合约脚本从�
 
 ## Super Lock
 
-实际上这就是一个 CKB 系统的多签 lock script，源码详见 [secp256k1-blake160-multisig-all.c](https://github.com/nervosnetwork/ckb-system-scripts/blob/master/c/secp256k1_blake160_multisig_all.c) ，只是它的 Script 结构被硬编码到了 DAS 合约脚本中，只有能够解锁这个 lock script 的签名可以更新 DAS 源码，配置 DAS ，所以我们将其命名为 **Super Lock**。
+实际上这就是一个 CKB 系统的多签 lock script，源码详见 [secp256k1-blake160-multisig-all.c](https://github.com/nervosnetwork/ckb-system-scripts/blob/master/c/secp256k1_blake160_multisig_all.c) ，只是它的 [molecule 编码](https://github.com/nervosnetwork/molecule)的 Script 结构被硬编码到了 DAS 合约脚本中，只有能够解锁这个 lock script 的签名可以更新 DAS 源码，配置 DAS ，所以我们将其命名为 **Super Lock**。
 
-当需要验证一笔交易是否为 DAS 官方签发时，唯一正确的方式就是检查 inputs 中是否存在某个 Cell 的 `lock` 字段为下列结构。
+当需要验证一笔交易是否为 DAS 官方签发时，唯一正确的方式就是检查 inputs 中是否存在某个 Cell 的 `lock` 字段为下列结构：
 
 ```
 Code Hash: 0x5c5069eb0857efc65e1bca0c07df34c31663b3622fd3876c876320fc9634e2a8
