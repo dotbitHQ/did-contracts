@@ -14,7 +14,7 @@ fn init(action: &str) -> TemplateGenerator {
 }
 
 #[test]
-fn gen_income_consolidate_need_pad() {
+fn gen_income_consolidate_need_pad_1() {
     let mut template = init("consolidate_income");
 
     let capacity_of_10 = 20_000_000_000;
@@ -114,7 +114,10 @@ fn gen_income_consolidate_need_pad() {
     template.write_template("income_consolidate.json");
 }
 
-test_with_template!(test_income_consolidate_need_pad, "income_consolidate.json");
+test_with_template!(
+    test_income_consolidate_need_pad_1,
+    "income_consolidate.json"
+);
 
 test_with_generator!(test_income_consolidate_need_pad_2, || {
     let mut template = init("consolidate_income");

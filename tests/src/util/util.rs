@@ -345,3 +345,27 @@ pub fn gen_timestamp(datetime: &str) -> u64 {
     let datetime = DateTime::<Utc>::from_utc(navie_datetime, Utc);
     datetime.timestamp() as u64
 }
+
+pub fn gen_register_fee(account_length: usize, has_inviter: bool) -> u64 {
+    let price_in_usd = match account_length {
+        1 => ACCOUNT_PRICE_1_CHAR,
+        2 => ACCOUNT_PRICE_2_CHAR,
+        3 => ACCOUNT_PRICE_3_CHAR,
+        4 => ACCOUNT_PRICE_4_CHAR,
+        _ => ACCOUNT_PRICE_5_CHAR,
+    };
+
+    let price_in_ckb = price_in_usd / CKB_QUOTE * 100_000_000;
+
+    if has_inviter {
+        price_in_ckb * (RATE_BASE - INVITED_DISCOUNT) / RATE_BASE
+            + ACCOUNT_BASIC_CAPACITY
+            + ACCOUNT_PREPARED_FEE_CAPACITY
+            + (account_length as u64 + 4) * 100_000_000
+    } else {
+        price_in_ckb
+            + ACCOUNT_BASIC_CAPACITY
+            + ACCOUNT_PREPARED_FEE_CAPACITY
+            + (account_length as u64 + 4) * 100_000_000
+    }
+}
