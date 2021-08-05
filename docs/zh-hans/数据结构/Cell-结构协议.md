@@ -1,21 +1,5 @@
 # Cell 协议 v1
 
-- [Cell 协议 v1](#cell-协议-v1)
-  - [协议符号约定](#协议符号约定)
-  - [数据结构](#数据结构)
-    - [ApplyRegisterCell](#applyregistercell)
-    - [PreAccountCell](#preaccountcell)
-    - [ProposalCell](#proposalcell)
-    - [AccountCell](#accountcell)
-    - [IncomeCell](#incomecell)
-    - [ConfigCell](#configcell)
-    - [TimeCell、HeightCell、QuoteCell](#timecellheightcellquotecell)
-  - [其他](#其他)
-    - [Hash 算法](#hash-算法)
-    - [系统状态枚举值 Status](#系统状态枚举值-status)
-    - [Witness 类型枚举值 DataType](#witness-类型枚举值-datatype)
-    - [字符集枚举值 CharSet](#字符集枚举值-charset)
-
 ## 协议符号约定
 
 本文档以下内容都会采用统一的结构描述一个 cell：
