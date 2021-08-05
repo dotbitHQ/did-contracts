@@ -35,8 +35,6 @@ pub fn main() -> Result<(), Error> {
             "There should be none ApplyRegisterCell in inputs and one in outputs."
         );
 
-        util::is_cell_use_signall_lock(output_cells[0], Source::Output)?;
-
         // Verify the outputs_data of ApplyRegisterCell.
         let index = &output_cells[0];
         let data = util::load_cell_data(index.to_owned(), Source::Output)?;

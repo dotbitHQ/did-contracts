@@ -314,13 +314,6 @@ fn verify_owner_lock_args(reader: PreAccountCellDataReader) -> Result<(), Error>
         owner_lock_args.len()
     );
 
-    assert!(
-        owner_lock_args[0] <= 10,
-        Error::PreRegisterOwnerLockArgsIsInvalid,
-        "The first of owner_lock_args should between 0 and 10, but {} found.",
-        owner_lock_args[0]
-    );
-
     Ok(())
 }
 
