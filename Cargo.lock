@@ -66,7 +66,7 @@ checksum = "afddf7f520a80dbf76e6f50a35bca42a2331ef227a28b3b6dc5c2e2338d114b1"
 
 [[package]]
 name = "apply-register-cell-type"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "ckb-std",
  "das-core",
@@ -2126,7 +2126,7 @@ checksum = "ac74c624d6b2d21f425f752262f42188365d7b8ff1aff74c82e45136510a4857"
 
 [[package]]
 name = "pre-account-cell-type"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "chrono",
  "ckb-std",
@@ -2182,7 +2182,7 @@ dependencies = [
 
 [[package]]
 name = "proposal-cell-type"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "chrono",
  "ckb-std",
