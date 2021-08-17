@@ -626,7 +626,7 @@ fn gen_account_renew() {
     template.write_template("account_renew_account.json");
 }
 
-test_with_template!(test_account_renew, "account_renew_account.json");
+// test_with_template!(test_account_renew, "account_renew_account.json");
 
 #[test]
 fn gen_account_recycle_expired_account_by_keeper() {

@@ -137,6 +137,8 @@ pub fn main() -> Result<(), Error> {
             apply_register_hash,
         )?;
 
+        debug!("Verify various fields of PreAccountCell ...");
+
         verify_owner_lock_args(pre_account_cell_witness_reader)?;
         verify_quote(pre_account_cell_witness_reader)?;
         let config_price = parser.configs.price()?;
@@ -148,24 +150,49 @@ pub fn main() -> Result<(), Error> {
             pre_account_cell_witness_reader,
             capacity,
         )?;
-
         verify_account_id(pre_account_cell_witness_reader, account_id)?;
-
         let timestamp = util::load_oracle_data(OracleCellType::Time)?;
         verify_created_at(timestamp, pre_account_cell_witness_reader)?;
-        util::verify_account_length_and_years(
-            pre_account_cell_witness_reader.account().len(),
-            timestamp,
-            None,
-        )?;
-        verify_account_release_status(
-            pre_account_cell_witness_reader.account().len(),
-            pre_account_cell_witness_reader,
-        )?;
 
-        verify_account_length(config_account, pre_account_cell_witness_reader)?;
+        debug!("Verify if account is available for registration for now ...");
+        verify_account_max_length(config_account, pre_account_cell_witness_reader)?;
+
+        let cells_with_super_lock =
+            util::find_cells_by_script(ScriptType::Lock, super_lock().as_reader(), Source::Input)?;
+
+        match verify_account_length_and_years(pre_account_cell_witness_reader, timestamp) {
+            Ok(_) => {}
+            Err(code) => {
+                if !(code == Error::AccountStillCanNotBeRegister && cells_with_super_lock.len() > 0)
+                {
+                    return Err(code);
+                }
+                debug!("Skip Error::AccountStillCanNotBeRegister because of super lock.");
+            }
+        }
+
+        match verify_account_release_status(pre_account_cell_witness_reader) {
+            Ok(_) => {}
+            Err(code) => {
+                if !(code == Error::AccountStillCanNotBeRegister && cells_with_super_lock.len() > 0)
+                {
+                    return Err(code);
+                }
+                debug!("Skip Error::AccountStillCanNotBeRegister because of super lock.");
+            }
+        }
+
+        match verify_preserved_accounts(&mut parser, pre_account_cell_witness_reader) {
+            Ok(_) => {}
+            Err(code) => {
+                if !(code == Error::AccountIsPreserved && cells_with_super_lock.len() > 0) {
+                    return Err(code);
+                }
+                debug!("Skip Error::AccountIsPreserved because of super lock.");
+            }
+        }
+
         verify_account_chars(&mut parser, pre_account_cell_witness_reader)?;
-        verify_preserved_accounts(&mut parser, pre_account_cell_witness_reader)?;
     } else {
         return Err(Error::ActionNotSupported);
     }
@@ -287,13 +314,6 @@ fn verify_owner_lock_args(reader: PreAccountCellDataReader) -> Result<(), Error>
         owner_lock_args.len()
     );
 
-    assert!(
-        owner_lock_args[0] <= 10,
-        Error::PreRegisterOwnerLockArgsIsInvalid,
-        "The first of owner_lock_args should between 0 and 10, but {} found.",
-        owner_lock_args[0]
-    );
-
     Ok(())
 }
 
@@ -408,7 +428,7 @@ fn verify_price_and_capacity(
     Ok(())
 }
 
-fn verify_account_length(
+fn verify_account_max_length(
     config: ConfigCellAccountReader,
     reader: PreAccountCellDataReader,
 ) -> Result<(), Error> {
@@ -559,10 +579,35 @@ fn verify_preserved_accounts(
     Ok(())
 }
 
-fn verify_account_release_status(
-    account_length: usize,
+fn verify_account_length_and_years(
     reader: PreAccountCellDataReader,
+    current_timestamp: u64,
 ) -> Result<(), Error> {
+    use chrono::{DateTime, NaiveDateTime, Utc};
+
+    let account_length = reader.account().len();
+    let current = DateTime::<Utc>::from_utc(
+        NaiveDateTime::from_timestamp(current_timestamp as i64, 0),
+        Utc,
+    );
+
+    debug!(
+        "Check if the account is available for registration now. (length: {}, current: {:#?})",
+        account_length, current
+    );
+
+    // On CKB main net, AKA Lina, accounts of less lengths can be registered only after a specific number of years.
+    // TODO Trible check.
+    assert!(
+        account_length >= 5,
+        Error::AccountStillCanNotBeRegister,
+        "The account less than 5 characters can not be registered now."
+    );
+
+    Ok(())
+}
+
+fn verify_account_release_status(reader: PreAccountCellDataReader) -> Result<(), Error> {
     debug!("Check if account is released for registration.");
 
     let account: Vec<u8> = [
@@ -574,7 +619,7 @@ fn verify_account_release_status(
     let lucky_num = hash[0];
 
     if cfg!(feature = "mainnet") {
-        if account_length < 10 {
+        if reader.account().len() < 10 {
             // TODO Trible check.
             assert!(
                 lucky_num <= 12,
@@ -584,11 +629,11 @@ fn verify_account_release_status(
             );
         }
     } else {
-        if account_length < 10 {
+        if reader.account().len() < 10 {
             assert!(
                 lucky_num <= 200,
                 Error::AccountStillCanNotBeRegister,
-                "The registration is still not started.(lucky_num: {}, required: <= 254)",
+                "The registration is still not started.(lucky_num: {}, required: <= 200)",
                 lucky_num
             );
         }

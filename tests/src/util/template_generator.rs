@@ -7,7 +7,7 @@ use regex::Regex;
 use serde_json::{json, Value};
 use std::{collections::HashMap, convert::TryFrom, env, fs::OpenOptions, io::Write, str};
 
-fn gen_always_success_lock(lock_args: &str) -> Script {
+pub fn gen_always_success_lock(lock_args: &str) -> Script {
     Script::new_builder()
         .code_hash(Hash::try_from(ALWAYS_SUCCESS_CODE_HASH.to_vec()).unwrap())
         .hash_type(Byte::new(1))
@@ -15,7 +15,7 @@ fn gen_always_success_lock(lock_args: &str) -> Script {
         .build()
 }
 
-fn gen_das_lock_args(owner_pubkey_hash: &str, manager_pubkey_hash_opt: Option<&str>) -> String {
+pub fn gen_das_lock_args(owner_pubkey_hash: &str, manager_pubkey_hash_opt: Option<&str>) -> String {
     if let Some(manager_pubkey_hash) = manager_pubkey_hash_opt {
         format!(
             "0x00{}00{}",
@@ -319,14 +319,38 @@ impl TemplateGenerator {
         let witness = das_util::wrap_action_witness(action, params_opt);
 
         let mut prices = HashMap::new();
-        prices.insert(1u8, gen_price_config(1, 12_000_000, 1_200_000));
-        prices.insert(2u8, gen_price_config(2, 11_000_000, 1_100_000));
-        prices.insert(3u8, gen_price_config(3, 10_000_000, 1_000_000));
-        prices.insert(4u8, gen_price_config(4, 9_000_000, 900_000));
-        prices.insert(5u8, gen_price_config(5, 8_000_000, 800_000));
-        prices.insert(6u8, gen_price_config(6, 7_000_000, 700_000));
-        prices.insert(7u8, gen_price_config(7, 6_000_000, 600_000));
-        prices.insert(8u8, gen_price_config(8, 5_000_000, 500_000));
+        prices.insert(
+            1u8,
+            gen_price_config(1, ACCOUNT_PRICE_1_CHAR, ACCOUNT_PRICE_1_CHAR),
+        );
+        prices.insert(
+            2u8,
+            gen_price_config(2, ACCOUNT_PRICE_2_CHAR, ACCOUNT_PRICE_2_CHAR),
+        );
+        prices.insert(
+            3u8,
+            gen_price_config(3, ACCOUNT_PRICE_3_CHAR, ACCOUNT_PRICE_3_CHAR),
+        );
+        prices.insert(
+            4u8,
+            gen_price_config(4, ACCOUNT_PRICE_4_CHAR, ACCOUNT_PRICE_4_CHAR),
+        );
+        prices.insert(
+            5u8,
+            gen_price_config(5, ACCOUNT_PRICE_5_CHAR, ACCOUNT_PRICE_5_CHAR),
+        );
+        prices.insert(
+            6u8,
+            gen_price_config(6, ACCOUNT_PRICE_5_CHAR, ACCOUNT_PRICE_5_CHAR),
+        );
+        prices.insert(
+            7u8,
+            gen_price_config(7, ACCOUNT_PRICE_5_CHAR, ACCOUNT_PRICE_5_CHAR),
+        );
+        prices.insert(
+            8u8,
+            gen_price_config(8, ACCOUNT_PRICE_5_CHAR, ACCOUNT_PRICE_5_CHAR),
+        );
 
         TemplateGenerator {
             header_deps: Vec::new(),
@@ -338,6 +362,15 @@ impl TemplateGenerator {
             preserved_account_groups: HashMap::new(),
             charsets: HashMap::new(),
         }
+    }
+
+    pub fn get_price(&self, account_length: usize) -> &PriceConfig {
+        let key = if account_length > 8 {
+            8u8
+        } else {
+            account_length as u8
+        };
+        self.prices.get(&key).unwrap()
     }
 
     pub fn push_witness<A: Entity, B: Entity, C: Entity>(
@@ -492,7 +525,7 @@ impl TemplateGenerator {
 
     fn gen_config_cell_account(&mut self) -> (Bytes, ConfigCellAccount) {
         let entity = ConfigCellAccount::new_builder()
-            .max_length(Uint32::from(20))
+            .max_length(Uint32::from(42))
             .basic_capacity(Uint64::from(ACCOUNT_BASIC_CAPACITY))
             .prepared_fee_capacity(Uint64::from(ACCOUNT_PREPARED_FEE_CAPACITY))
             .expiration_grace_period(Uint32::from(2_592_000))
@@ -548,7 +581,7 @@ impl TemplateGenerator {
 
     fn gen_config_cell_price(&mut self) -> (Bytes, ConfigCellPrice) {
         let discount_config = DiscountConfig::new_builder()
-            .invited_discount(Uint32::from(500))
+            .invited_discount(Uint32::from(INVITED_DISCOUNT as u32))
             .build();
 
         let mut prices = PriceConfigList::new_builder();
@@ -881,10 +914,10 @@ impl TemplateGenerator {
         let index = (first_byte_of_account_hash % PRESERVED_ACCOUNT_CELL_COUNT) as usize;
         let config_type = das_util::preserved_accounts_group_to_data_type(index);
 
-        println!(
-            "The first byte of account hash is {:?}, so {:?} will be chosen.",
-            first_byte_of_account_hash, config_type
-        );
+        // println!(
+        //     "The first byte of account hash is {:?}, so {:?} will be chosen.",
+        //     first_byte_of_account_hash, config_type
+        // );
 
         let (cell_data, witness) = match self.gen_config_cell_preserved_account(config_type) {
             Some((cell_data, raw)) => (cell_data, das_util::wrap_raw_witness(config_type, raw)),
@@ -917,7 +950,7 @@ impl TemplateGenerator {
         inviter_lock_args: &str,
         channel_lock_args: &str,
         quote: u64,
-        invited_discount: u32,
+        invited_discount: u64,
         created_at: u64,
     ) -> (Bytes, PreAccountCellData) {
         let account_chars_raw = account[..account.len() - 4]
@@ -935,21 +968,35 @@ impl TemplateGenerator {
         let mut tmp = util::hex_to_bytes(&gen_das_lock_args(owner_lock_args, None));
         tmp.append(&mut tmp.clone());
         let owner_lock_args = Bytes::from(tmp);
-        let entity = PreAccountCellData::new_builder()
+        let mut entity_builder = PreAccountCellData::new_builder()
             .account(account_chars.to_owned())
             .owner_lock_args(owner_lock_args)
             .refund_lock(gen_always_success_lock(refund_lock_args))
-            .inviter_id(Bytes::from(vec![
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            ]))
-            .inviter_lock(ScriptOpt::from(gen_always_success_lock(inviter_lock_args)))
             .channel_lock(ScriptOpt::from(gen_always_success_lock(channel_lock_args)))
             .price(price.to_owned())
             .quote(Uint64::from(quote))
-            .invited_discount(Uint32::from(invited_discount))
-            .created_at(Timestamp::from(created_at))
-            .build();
+            .invited_discount(Uint32::from(invited_discount as u32))
+            .created_at(Timestamp::from(created_at));
 
+        if inviter_lock_args.is_empty() {
+            entity_builder = entity_builder.inviter_lock(ScriptOpt::default());
+            entity_builder = entity_builder.inviter_id(Bytes::default());
+        } else {
+            entity_builder = entity_builder
+                .inviter_lock(ScriptOpt::from(gen_always_success_lock(inviter_lock_args)));
+            entity_builder = entity_builder.inviter_id(Bytes::from(vec![
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            ]))
+        }
+
+        if channel_lock_args.is_empty() {
+            entity_builder = entity_builder.channel_lock(ScriptOpt::default());
+        } else {
+            entity_builder = entity_builder
+                .channel_lock(ScriptOpt::from(gen_always_success_lock(channel_lock_args)));
+        }
+
+        let entity = entity_builder.build();
         let id = util::account_to_id(account);
 
         let hash = Hash::try_from(blake2b_256(entity.as_slice()).to_vec()).unwrap();
