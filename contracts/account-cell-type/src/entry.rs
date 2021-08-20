@@ -1,11 +1,11 @@
 use alloc::{boxed::Box, vec, vec::Vec};
-use ckb_std::{ckb_constants::Source, ckb_types::prelude::*, debug, high_level};
+use ckb_std::{ckb_constants::Source, ckb_types::prelude::*, high_level};
 use das_core::{
     assert,
     constants::{
         das_lock, das_wallet_lock, OracleCellType, ScriptType, TypeScript, CUSTOM_KEYS_NAMESPACE,
     },
-    data_parser,
+    data_parser, debug,
     error::Error,
     parse_account_cell_witness, parse_witness, util, warn,
     witness_parser::WitnessesParser,
@@ -81,6 +81,11 @@ pub fn main() -> Result<(), Error> {
         parser.parse_cell()?;
 
         let (input_account_cells, output_account_cells) = load_account_cells()?;
+        assert!(
+            input_account_cells.len() == 1 && output_account_cells.len() == 1,
+            Error::InvalidTransactionStructure,
+            "There should be only one AccountCell in inputs and outputs."
+        );
 
         let input_cell_witness: Box<dyn AccountCellDataMixer>;
         let input_cell_witness_reader;
@@ -225,6 +230,7 @@ pub fn main() -> Result<(), Error> {
         }
     } else if action == b"renew_account" {
         debug!("Route to renew_account action ...");
+        return Err(Error::InvalidTransactionStructure);
 
         util::is_system_off(&mut parser)?;
 
@@ -235,6 +241,12 @@ pub fn main() -> Result<(), Error> {
         let income_cell_type_id = parser.configs.main()?.type_id_table().income_cell();
 
         let (input_account_cells, output_account_cells) = load_account_cells()?;
+        assert!(
+            input_account_cells.len() == 1 && output_account_cells.len() == 1,
+            Error::InvalidTransactionStructure,
+            "There should be only one AccountCell in inputs and outputs."
+        );
+
         let input_cell_witness: Box<dyn AccountCellDataMixer>;
         let input_cell_witness_reader;
         parse_account_cell_witness!(
@@ -437,6 +449,7 @@ pub fn main() -> Result<(), Error> {
         // The AccountCell can be used as long as it is not modified.
     } else if action == b"recycle_expired_account_by_keeper" {
         debug!("Route to recycle_expired_account_by_keeper action ...");
+        return Err(Error::InvalidTransactionStructure);
 
         util::is_system_off(&mut parser)?;
         let timestamp = util::load_oracle_data(OracleCellType::Time)?;
@@ -536,8 +549,8 @@ fn verify_transaction_fee_spent_correctly(
 
     let fee = match action {
         b"transfer_account" => u64::from(config.transfer_account_fee()),
-        b"edit_manager" => u64::from(config.transfer_account_fee()),
-        b"edit_records" => u64::from(config.transfer_account_fee()),
+        b"edit_manager" => u64::from(config.edit_manager_fee()),
+        b"edit_records" => u64::from(config.edit_records_fee()),
         _ => return Err(Error::ActionNotSupported),
     };
     let storage_capacity = u64::from(config.basic_capacity()) + account_length * 100_000_000;
