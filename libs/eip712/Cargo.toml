@@ -1,0 +1,19 @@
+[package]
+name = "eip712"
+version = "1.0.0"
+edition = "2018"
+
+[features]
+default = ["no_std"]
+std = ["no-std-compat/std"]
+no_std = []
+
+[dependencies]
+ckb-std = "0.7.1"
+no-std-compat = { version = "0.4", features = [ "alloc", "compat_macros" ] }
+serde = { version = "1.0", default-features = false, features = [ "alloc", "derive" ] }
+serde_json = { version = "1.0", default-features = false, features = [ "alloc" ] }
+tiny-keccak = { version = "2.0.2", features = ["keccak"] }
+hex = { version = "0.4", default-features = false }
+
+[dev-dependencies]

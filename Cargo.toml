@@ -4,6 +4,7 @@ members = [
     "libs/das-core",
     "libs/das-sorted-list",
     "libs/das-map",
+    "libs/eip712",
     "contracts/always-success",
     "contracts/apply-register-cell-type",
     "contracts/account-cell-type",
