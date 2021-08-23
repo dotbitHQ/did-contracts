@@ -355,6 +355,35 @@ Witness 中的主要字段如下：
 
 `106` Bytes
 
+### AccountSaleCell
+
+这是一种用来描述账户出售信息的 Cell ，每一个出售中的账户都有一个对应的 AccountSaleCell。
+
+#### 结构
+
+```
+lock: <always_success>
+type: <account-sale-cell-type>
+
+data: hash(witness: AccountSaleCellData)
+
+======
+table AccountSaleCellData {
+    account_id: AccountId,
+    price: Uint64,
+    description: Bytes,
+}
+```
+
+Witness 中的主要字段如下：
+
+- account_id ，关联的账户 ID；
+- price ，账户售价；
+- description ，用户自定义的简介信息；
+
+#### 体积
+
+`106` Bytes
 
 ### ConfigCell
 
@@ -390,10 +419,23 @@ table ConfigCellAccount {
     max_length: Uint32,
     // The basic capacity AccountCell required, it is bigger than or equal to AccountCell occupied capacity.
     basic_capacity: Uint64,
+    // The fees prepared for various transactions for operating an account.
+    prepared_fee_capacity: Uint64,
     // The grace period for account expiration in seconds
     expiration_grace_period: Uint32,
     // The minimum ttl of record in seconds
     record_min_ttl: Uint32,
+    // The maximum size of all records in molecule encoding
+    record_size_limit: Uint32,
+    // The fee of each action
+    transfer_account_fee: Uint64,
+    edit_manager_fee: Uint64,
+    edit_records_fee: Uint64,
+    force_recover_fee: Uint64,
+    // The frequency limit of actions which manipulating account
+    transfer_account_throttle: Uint32,
+    edit_manager_throttle: Uint32,
+    edit_records_throttle: Uint32,
 }
 ```
 
@@ -588,6 +630,19 @@ table ReleaseRule {
 - release_start ，释放开始时间，单位 秒；
 - release_end ，释放结束时间，单位 秒；
 
+#### ConfigCellSecondaryMarket
+
+**witness：**
+
+```
+table ConfigCellSecondaryMarket {
+    // Minimum price for selling an account.
+    min_sale_price: Uint64,
+}
+```
+
+- min_sale_price ，一口价出售账户时的最低售价；
+
 #### ConfigCellRecordKeyNamespace
 
 解析记录 key 命名空间。
@@ -710,6 +765,7 @@ enum DataType {
     ConfigCellProfitRate, // args: 0x6b000000
     ConfigCellRecordKeyNamespace, // args: 0x6c000000
     ConfigCellRelease, // args: 0x6d000000
+    ConfigCellSecondaryMarket, // args: 0x6e000000
     ConfigCellPreservedAccount00 = 10000, // args: 0x10270000
     ConfigCellPreservedAccount01,
     ConfigCellPreservedAccount02,
