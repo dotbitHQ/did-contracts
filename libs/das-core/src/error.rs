@@ -119,6 +119,14 @@ pub enum Error {
     AccountCellChangeCapacityError, // -95
     AccountCellRecordKeyInvalid,
     AccountCellRecordSizeTooLarge,
+    AccountCellSaleStatusError1,
+    AccountCellSaleStatusError2,
+    AccountCellSaleStatusNotAllow,
+    OnSaleCellNumberInvalid = -210,
+    OnSaleCellAccountCellMustOne,
+    OnSaleCellArgsInvalid,
+    OnSaleCellStartedAtInvalid,
+    OnSaleCellPriceTooSmall,
     SystemOff = -1,
 }
 
