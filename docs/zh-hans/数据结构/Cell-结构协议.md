@@ -369,9 +369,14 @@ data: hash(witness: AccountSaleCellData)
 
 ======
 table AccountSaleCellData {
+    // Account ID of associated account.
     account_id: AccountId,
+    // The price user willing to sell the account.
     price: Uint64,
+    // A customizable description for the account.
     description: Bytes,
+    // Expiration timestamp of the deal.
+    expired_at: Uint64,
 }
 ```
 
@@ -589,14 +594,19 @@ table ConfigCellProfitRate {
     inviter: Uint32,
     // The profit rate of channels who support people to create DAS accounts.
     channel: Uint32,
-    // The profit rate of DAS itself.
-    das: Uint32,
     // The profit rate for who created proposal
     proposal_create: Uint32,
     // The profit rate for who confirmed proposal
     proposal_confirm: Uint32,
-    // The profit rate for consolidate IncomeCells
+    // The profit rate for consolidating IncomeCells
     income_consolidate: Uint32,
+    // The profit rate for inviter in account sale.
+    sale_inviter: Uint32,
+    // The profit rate for channel in account sale.
+    sale_channel: Uint32,
+    // The profit rate for DAS in account sale.
+    sale_das: Uint32,
+    
 }
 ```
 
@@ -638,10 +648,13 @@ table ReleaseRule {
 table ConfigCellSecondaryMarket {
     // Minimum price for selling an account.
     min_sale_price: Uint64,
+    // Expiration time limit for selling accounts.
+    sale_expiration_limit: Uint64,
 }
 ```
 
 - min_sale_price ，一口价出售账户时的最低售价；
+- sale_expiration_limit ，一口价挂单的到期时间限制；
 
 #### ConfigCellRecordKeyNamespace
 
