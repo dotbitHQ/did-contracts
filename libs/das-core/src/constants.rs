@@ -229,8 +229,8 @@ pub fn time_cell_type() -> Script {
     #[cfg(feature = "mainnet")]
     let time_cell_type = ScriptLiteral {
         code_hash: [
-            46, 14, 91, 121, 12, 251, 52, 107, 221, 192, 232, 42, 112, 247, 133, 233, 13, 21, 55,
-            187, 253, 189, 210, 95, 106, 54, 23, 204, 118, 15, 136, 123,
+            158, 83, 123, 245, 184, 236, 4, 76, 163, 245, 51, 85, 232, 121, 243, 253, 136, 50, 33,
+            126, 74, 155, 65, 217, 153, 76, 240, 197, 71, 36, 26, 121,
         ],
         hash_type: ScriptHashType::Type,
         args: vec![1],
@@ -273,8 +273,8 @@ pub fn height_cell_type() -> Script {
     #[cfg(feature = "mainnet")]
     let height_cell_type = ScriptLiteral {
         code_hash: [
-            46, 14, 91, 121, 12, 251, 52, 107, 221, 192, 232, 42, 112, 247, 133, 233, 13, 21, 55,
-            187, 253, 189, 210, 95, 106, 54, 23, 204, 118, 15, 136, 123,
+            158, 83, 123, 245, 184, 236, 4, 76, 163, 245, 51, 85, 232, 121, 243, 253, 136, 50, 33,
+            126, 74, 155, 65, 217, 153, 76, 240, 197, 71, 36, 26, 121,
         ],
         hash_type: ScriptHashType::Type,
         args: vec![2],
@@ -317,8 +317,8 @@ pub fn quote_cell_type() -> Script {
     #[cfg(feature = "mainnet")]
     let quote_cell_type = ScriptLiteral {
         code_hash: [
-            46, 14, 91, 121, 12, 251, 52, 107, 221, 192, 232, 42, 112, 247, 133, 233, 13, 21, 55,
-            187, 253, 189, 210, 95, 106, 54, 23, 204, 118, 15, 136, 123,
+            158, 83, 123, 245, 184, 236, 4, 76, 163, 245, 51, 85, 232, 121, 243, 253, 136, 50, 33,
+            126, 74, 155, 65, 217, 153, 76, 240, 197, 71, 36, 26, 121,
         ],
         hash_type: ScriptHashType::Type,
         args: vec![0],
@@ -360,8 +360,8 @@ pub const CONFIG_CELL_TYPE: ScriptLiteral = ScriptLiteral {
 #[cfg(feature = "mainnet")]
 pub const CONFIG_CELL_TYPE: ScriptLiteral = ScriptLiteral {
     code_hash: [
-        1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2,
-        2, 2,
+        144, 59, 255, 2, 33, 183, 43, 47, 93, 84, 146, 54, 182, 49, 35, 75, 41, 79, 16, 245, 62,
+        108, 199, 50, 138, 240, 119, 118, 227, 42, 102, 64,
     ],
     hash_type: ScriptHashType::Type,
     args: Vec::new(),
