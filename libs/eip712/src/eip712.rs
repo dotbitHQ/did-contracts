@@ -147,20 +147,16 @@ pub fn encode_message(
         let value = message
             .get(name)
             .ok_or(EIP712EncodingError::FailedWhenEncodingMessage)?;
-        let (type_, data) = encode_field(domain_types, name, type_, value)?;
-        types.push(type_);
-        values.push(data);
+        let (encoded_type, encoded_data) = encode_field(domain_types, name, type_, value)?;
+        // if primary_type == "Transaction" {
+        //     println!(
+        //         "name: {}, type: {}, value: {}, encoded_type: {}, encoded_data: {:?}",
+        //         field["name"], type_, value, encoded_type, encoded_data
+        //     );
+        // }
+        types.push(encoded_type);
+        values.push(encoded_data);
     }
-
-    // println!("primary_type = {:?}", primary_type);
-    // println!("types = {:#?}", types);
-    // println!(
-    //     "values = {:#?}",
-    //     values_slices = values
-    //         .iter()
-    //         .map(|item| hex::encode(item))
-    //         .collect::<Vec<_>>()
-    // );
 
     let values_slices = values
         .iter()
@@ -232,7 +228,7 @@ fn encode_field(
             .map_err(|_| EIP712EncodingError::HexDecodingError)?;
             return Ok(("address", bytes));
         } else if type_ == "uint256" {
-            // WARNING! Here we can only support uint64 because of serde type limitation.
+            // ⚠️ Here we can only support uint64 because of serde type limitation.
             let num = value
                 .as_u64()
                 .ok_or(EIP712EncodingError::TypeOfValueIsInvalid)?;
@@ -285,7 +281,7 @@ fn eth_abi_encode_single(type_: &str, value: &[u8]) -> Result<Vec<u8>, EIP712Enc
 mod test {
     use super::*;
     use hex;
-    use serde_json::{Map, Value};
+    use serde_json::Value;
 
     fn gen_typed_data_v4() -> TypedDataV4 {
         let action: Value = Action::new("transfer_account", "0x01,0x00").into();
@@ -342,11 +338,14 @@ mod test {
                   extraData: "string"
                 ],
                 Transaction: [
+                  plainText: "string",
+                  inputsCapacity: "string",
+                  outputsCapacity: "string",
+                  fee: "string",
                   action: "Action",
                   inputs: "Cell[]",
                   outputs: "Cell[]",
-                  digest: "bytes32",
-                  plainText: "string"
+                  digest: "bytes32"
                 ]
             },
             primaryType: "Transaction",
@@ -357,154 +356,88 @@ mod test {
                 version: "1"
             },
             message: {
+                plainText: "Transfer account test.bit from A to B.",
+                inputsCapacity: "999.99 CKB",
+                outputsCapacity: "999.99 CKB",
+                fee: "0.0001 CKB",
                 action: action,
                 inputs: inputs,
                 outputs: outputs,
-                digest: "0x4eb68a6707ae16ce24fde8e5964f9f04c5a4abf9884f67b9425a5e1e65968119",
-                plainText: "Transfer account test.bit from A to B."
+                digest: "0x4eb68a6707ae16ce24fde8e5964f9f04c5a4abf9884f67b9425a5e1e65968119"
             }
         });
 
         data
     }
 
-    // #[test]
-    // fn test_hash_json() {
-    //     let json = r#"{
-    //       "types": {
-    //         "EIP712Domain": [
-    //           {
-    //             "name": "name",
-    //             "type": "string"
-    //           },
-    //           {
-    //             "name": "version",
-    //             "type": "string"
-    //           },
-    //           {
-    //             "name": "chainId",
-    //             "type": "uint256"
-    //           },
-    //           {
-    //             "name": "verifyingContract",
-    //             "type": "address"
-    //           }
-    //         ],
-    //         "Action": [
-    //           {
-    //             "name": "action",
-    //             "type": "string"
-    //           },
-    //           {
-    //             "name": "params",
-    //             "type": "string"
-    //           }
-    //         ],
-    //         "Cell": [
-    //           {
-    //             "name": "capacity",
-    //             "type": "string"
-    //           },
-    //           {
-    //             "name": "lock",
-    //             "type": "string"
-    //           },
-    //           {
-    //             "name": "type",
-    //             "type": "string"
-    //           },
-    //           {
-    //             "name": "data",
-    //             "type": "string"
-    //           },
-    //           {
-    //             "name": "extraData",
-    //             "type": "string"
-    //           }
-    //         ],
-    //         "Transaction": [
-    //           {
-    //             "name": "action",
-    //             "type": "Action"
-    //           },
-    //           {
-    //             "name": "inputs",
-    //             "type": "Cell[]"
-    //           },
-    //           {
-    //             "name": "outputs",
-    //             "type": "Cell[]"
-    //           },
-    //           {
-    //             "name": "digest",
-    //             "type": "string"
-    //           },
-    //           {
-    //             "name": "plainText",
-    //             "type": "string"
-    //           }
-    //         ]
-    //       },
-    //       "domain": {
-    //         "chainId": 1,
-    //         "name": "da.systems",
-    //         "verifyingContract": "0xb3dc32341ee4bae03c85cd663311de0b1b122955",
-    //         "version": "1"
-    //       },
-    //       "primaryType": "Transaction",
-    //       "message": {
-    //         "action": {
-    //           "action": "transfer_account",
-    //           "params": "0x01,0x00"
-    //         },
-    //         "inputs": [
-    //           {
-    //             "capacity": "999.99 CKB",
-    //             "lock": "0x123456,0x01,0x123456",
-    //             "type": "0x123456,0x01,0x123456",
-    //             "data": "account: test.bit",
-    //             "extraData": ""
-    //           },
-    //           {
-    //             "capacity": "999.99 CKB",
-    //             "lock": "0x123456,0x01,0x123456",
-    //             "type": "0x123456,0x01,0x123456",
-    //             "data": "",
-    //             "extraData": ""
-    //           }
-    //         ],
-    //         "outputs": [
-    //           {
-    //             "capacity": "999.99 CKB",
-    //             "lock": "0x123456,0x01,0x123456",
-    //             "type": "0x123456,0x01,0x123456",
-    //             "data": "account: test.bit",
-    //             "extraData": ""
-    //           },
-    //           {
-    //             "capacity": "999.99 CKB",
-    //             "lock": "0x123456,0x01,0x123456",
-    //             "type": "0x123456,0x01,0x123456",
-    //             "data": "",
-    //             "extraData": ""
-    //           }
-    //         ],
-    //         "digest": "0x4eb68a6707ae16ce24fde8e5964f9f04c5a4abf9884f67b9425a5e1e65968119",
-    //         "plainText": "Transfer account test.bit from A to B."
-    //       }
-    //     }"#;
-    //
-    //     let expected = "2c96a222ea2a1e0e5815cd3a01d023a7518d68dc0e8311549df9f3fcf7d06065";
-    //     let data = hash_json(json).unwrap();
-    //
-    //     assert_eq!(hex::encode(data).as_str(), expected);
-    // }
+    #[test]
+    fn test_hash_json() {
+        let json = r#"{
+          "types": {
+            "EIP712Domain": [
+              { "name": "name", "type": "string" },
+              { "name": "version", "type": "string" },
+              { "name": "chainId", "type": "uint256" },
+              { "name": "verifyingContract", "type": "address" }
+            ],
+            "Action": [
+              { "name": "action", "type": "string" },
+              { "name": "params", "type": "string" }
+            ],
+            "Cell": [
+              { "name": "capacity", "type": "string" },
+              { "name": "lock", "type": "string" },
+              { "name": "type", "type": "string" },
+              { "name": "data", "type": "string" },
+              { "name": "extraData", "type": "string" }
+            ],
+            "Transaction": [
+              { "name": "plainText", "type": "string" },
+              { "name": "inputsCapacity", "type": "string" },
+              { "name": "outputsCapacity", "type": "string" },
+              { "name": "fee", "type": "string" },
+              { "name": "action", "type": "Action" },
+              { "name": "inputs", "type": "Cell[]" },
+              { "name": "outputs", "type": "Cell[]" },
+              { "name": "digest", "type": "bytes32" }
+            ]
+          },
+          "primaryType": "Transaction",
+          "domain": {
+            "chainId": 1,
+            "name": "da.systems",
+            "verifyingContract": "0xb3dc32341ee4bae03c85cd663311de0b1b122955",
+            "version": "1"
+          },
+          "message": {
+            "plainText": "Transfer account test.bit from A to B.",
+            "inputsCapacity": "999.99 CKB",
+            "outputsCapacity": "999.99 CKB",
+            "fee": "0.0001 CKB",
+            "action": { "action": "transfer_account", "params": "0x01,0x00" },
+            "inputs": [
+              { "capacity": "999.99 CKB", "lock": "0x123456,0x01,0x123456", "type": "0x123456,0x01,0x123456", "data": "account: test.bit", "extraData": "" },
+              { "capacity": "999.99 CKB", "lock": "0x123456,0x01,0x123456", "type": "0x123456,0x01,0x123456", "data": "", "extraData": "" }
+            ],
+            "outputs": [
+              { "capacity": "999.99 CKB", "lock": "0x123456,0x01,0x123456", "type": "0x123456,0x01,0x123456", "data": "account: test.bit", "extraData": "" },
+              { "capacity": "999.99 CKB", "lock": "0x123456,0x01,0x123456", "type": "0x123456,0x01,0x123456", "data": "", "extraData": "" }
+            ],
+            "digest": "0x4eb68a6707ae16ce24fde8e5964f9f04c5a4abf9884f67b9425a5e1e65968119"
+          }
+        }"#;
+
+        let expected = "1c5494d55a3dc7ef66a9cac5234dca6423230170c6d32483b6a05fc79dafa6ba";
+        let data = hash_json(json).unwrap();
+
+        assert_eq!(hex::encode(data).as_str(), expected);
+    }
 
     #[test]
     fn test_hash_data() {
         let typed_data = gen_typed_data_v4();
 
-        let expected = "2c96a222ea2a1e0e5815cd3a01d023a7518d68dc0e8311549df9f3fcf7d06065";
+        let expected = "1c5494d55a3dc7ef66a9cac5234dca6423230170c6d32483b6a05fc79dafa6ba";
         let data = hash_data(typed_data).unwrap();
 
         assert_eq!(hex::encode(data).as_str(), expected);
@@ -603,7 +536,7 @@ mod test {
     fn test_hash_message() {
         let typed_data = gen_typed_data_v4();
 
-        let expected = "c6e1a436fd4e5e01092aba72e6856c2d045ab51f014e4bb5d3410849e367d707";
+        let expected = "39696cf69791b60eb0ed7832a51bd0f23062a389fe0697469b93edd459ef1215";
         let data = hash_message(&typed_data.types, "Transaction", &typed_data.message).unwrap();
         assert_eq!(hex::encode(data).as_str(), expected);
     }
@@ -612,7 +545,7 @@ mod test {
     fn test_encode_message() {
         let typed_data = gen_typed_data_v4();
 
-        let expected = "4ddab48cd954896ac22eb32b76c7104dcf84375c7ed70a467edda0c5511fe031c293aa03c4c3300b0ee452a0988dd18b08ab152328657ffb8954b6eae6564a1ab4e788529779901b8d9bd038e2a6bfd26938fa88c67557009afae43dcd20ee06b4e788529779901b8d9bd038e2a6bfd26938fa88c67557009afae43dcd20ee064eb68a6707ae16ce24fde8e5964f9f04c5a4abf9884f67b9425a5e1e6596811908e0229b71be5e528d9b3e217152cc55330e613c8d33a2d67c583950e78172ae";
+        let expected = "d023f92c24a8027f47413405e0b90ed69fa4a654754b4c7e17b845c25c3467a108e0229b71be5e528d9b3e217152cc55330e613c8d33a2d67c583950e78172ae465c129596d2c100cd8a19f6564b8e5a36971b468975720cdd17c953b3d97fd0465c129596d2c100cd8a19f6564b8e5a36971b468975720cdd17c953b3d97fd0890e6a9632fdbb0d41dc68fa3cf66e218c32f08d5aaf6ff15c717066176c293bc293aa03c4c3300b0ee452a0988dd18b08ab152328657ffb8954b6eae6564a1ab4e788529779901b8d9bd038e2a6bfd26938fa88c67557009afae43dcd20ee06b4e788529779901b8d9bd038e2a6bfd26938fa88c67557009afae43dcd20ee064eb68a6707ae16ce24fde8e5964f9f04c5a4abf9884f67b9425a5e1e65968119";
         let data = encode_message(&typed_data.types, "Transaction", &typed_data.message).unwrap();
         assert_eq!(hex::encode(data).as_str(), expected);
     }

@@ -1,3 +1,4 @@
+use core::fmt;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::prelude::v1::*;
@@ -24,6 +25,19 @@ impl TypedDataV4 {
             domain,
             message,
         }
+    }
+}
+
+impl fmt::Display for TypedDataV4 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            r#"{{ "types": {}, "primaryType": "{}", "domain": {}, "message": {} }}"#,
+            serde_json::to_string(&self.types).unwrap(),
+            self.primary_type,
+            serde_json::to_string(&self.domain).unwrap(),
+            serde_json::to_string(&self.message).unwrap()
+        )
     }
 }
 
