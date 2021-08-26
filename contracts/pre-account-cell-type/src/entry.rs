@@ -597,7 +597,7 @@ fn verify_account_length_and_years(
     );
 
     // On CKB main net, AKA Lina, accounts of less lengths can be registered only after a specific number of years.
-    // TODO Trible check.
+    // CAREFUL Triple check.
     assert!(
         account_length >= 5,
         Error::AccountStillCanNotBeRegister,
@@ -620,7 +620,7 @@ fn verify_account_release_status(reader: PreAccountCellDataReader) -> Result<(),
 
     if cfg!(feature = "mainnet") {
         if reader.account().len() < 10 {
-            // TODO Trible check.
+            // CAREFUL Triple check.
             assert!(
                 lucky_num <= 12,
                 Error::AccountStillCanNotBeRegister,

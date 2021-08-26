@@ -983,7 +983,7 @@ fn verify_records_keys<'a>(
         let mut record_type = Vec::from(record.record_type().raw_data());
         let mut record_key = Vec::from(record.record_key().raw_data());
         if record_type == b"custom_key" {
-            // TODO Trible check.
+            // CAREFUL Triple check
             for char in record_key.iter() {
                 assert!(
                     CUSTOM_KEYS_NAMESPACE.contains(char),
