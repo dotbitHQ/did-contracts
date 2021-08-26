@@ -15,9 +15,11 @@ mainnet = []
 ckb-std = "0.7.1"
 blake2b-ref = "0.3"
 das-types = { path = "../../../das-types/rust", default-features = false }
+eip712 = { path = "../../libs/eip712" }
 no-std-compat = { version = "0.4", features = [ "alloc", "compat_macros" ] }
 chrono = { version = "0.4", default-features = false }
 das-map = { path = "../das-map", default-features = false }
+serde_json = { version = "1.0", default-features = false, features = [ "alloc" ] }
 
 [dev-dependencies]
 hex = { version = "0.4", default-features = false }

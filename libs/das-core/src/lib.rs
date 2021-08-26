@@ -5,6 +5,7 @@ extern crate no_std_compat as std;
 
 pub mod constants;
 pub mod data_parser;
+pub mod eip712;
 pub mod error;
 pub mod inspect;
 pub mod macros;

@@ -2,7 +2,7 @@ use super::constants::*;
 use super::error::Error;
 use super::types::{CharSet, Configs};
 use super::util;
-use super::{assert, debug};
+use super::{assert, debug, warn};
 use ckb_std::{ckb_constants::Source, error::SysError, syscalls};
 use core::convert::{TryFrom, TryInto};
 use das_map::map;
@@ -56,8 +56,12 @@ impl WitnessesParser {
                         }
                     }
 
-                    let data_type_in_int =
-                        u32::from_le_bytes(buf.get(DAS_BYTES_3..HEADER_BYTES_7).unwrap().try_into().unwrap());
+                    let data_type_in_int = u32::from_le_bytes(
+                        buf.get(DAS_BYTES_3..HEADER_BYTES_7)
+                            .unwrap()
+                            .try_into()
+                            .unwrap(),
+                    );
                     match DataType::try_from(data_type_in_int) {
                         Ok(data_type) => {
                             if !das_witnesses_started {
@@ -110,6 +114,22 @@ impl WitnessesParser {
         Ok(action_data)
     }
 
+    pub fn parse_action_with_params(&self) -> Result<(Bytes, Vec<Bytes>), Error> {
+        let (index, data_type) = self.witnesses[0];
+        let raw = util::load_das_witnesses(index, data_type)?;
+
+        let action_data = ActionData::from_slice(raw.get(7..).unwrap())
+            .map_err(|_| Error::WitnessActionDecodingError)?;
+        let params = match action_data.as_reader().action().raw_data() {
+            b"transfer_account" | b"edit_manager" | b"edit_records" => {
+                vec![action_data.params()]
+            }
+            _ => Vec::new(),
+        };
+
+        Ok((action_data.action(), params))
+    }
+
     pub fn parse_config(&mut self, config_types: &[DataType]) -> Result<(), Error> {
         debug!("Parsing config witnesses only ...");
 
@@ -127,7 +147,8 @@ impl WitnessesParser {
                     | DataType::ConfigCellCharSetZhHant => {
                         if self.configs.char_set().is_ok() {
                             let char_sets = self.configs.char_set().unwrap();
-                            let char_set_index = das_types_util::data_type_to_char_set(config_type.to_owned());
+                            let char_set_index =
+                                das_types_util::data_type_to_char_set(config_type.to_owned());
                             return char_sets[char_set_index as usize].is_none();
                         }
                         return true;
@@ -142,16 +163,27 @@ impl WitnessesParser {
             return Ok(());
         }
 
-        debug!("  Load ConfigCells {:?} from cell_deps ...", unloaded_config_types);
+        debug!(
+            "  Load ConfigCells {:?} from cell_deps ...",
+            unloaded_config_types
+        );
 
         let config_cell_type = util::script_literal_to_script(CONFIG_CELL_TYPE);
         let mut config_data_types = Vec::new();
         let mut config_entity_hashes = map::Map::new();
         for config_type in unloaded_config_types {
             let args = Bytes::from((config_type.to_owned() as u32).to_le_bytes().to_vec());
-            let type_script = config_cell_type.clone().as_builder().args(args.into()).build();
+            let type_script = config_cell_type
+                .clone()
+                .as_builder()
+                .args(args.into())
+                .build();
             // There must be one ConfigCell in the cell_deps, no more and no less.
-            let ret = util::find_cells_by_script(ScriptType::Type, type_script.as_reader(), Source::CellDep)?;
+            let ret = util::find_cells_by_script(
+                ScriptType::Type,
+                type_script.as_reader(),
+                Source::CellDep,
+            )?;
             assert!(
                 ret.len() == 1,
                 Error::ConfigCellIsRequired,
@@ -183,8 +215,10 @@ impl WitnessesParser {
 
         macro_rules! assign_config_witness {
             ( $property:expr, $witness_type:ty, $entity:expr ) => {
-                $property =
-                    Some(<$witness_type>::from_slice($entity).map_err(|_| Error::ConfigCellWitnessDecodingError)?)
+                $property = Some(<$witness_type>::from_slice($entity).map_err(|e| {
+                    warn!("Decoding witness error: {}", e.to_string());
+                    Error::ConfigCellWitnessDecodingError
+                })?)
             };
         }
 
@@ -217,7 +251,9 @@ impl WitnessesParser {
             entity: &[u8],
         ) -> Result<(), Error> {
             let entity_hash = util::blake2b_256(entity).to_vec();
-            let ret = config_entity_hashes.find(&entity_hash).map(|v| v.to_owned());
+            let ret = config_entity_hashes
+                .find(&entity_hash)
+                .map(|v| v.to_owned());
 
             // debug!("current: 0x{}", util::hex_string(entity_hash.as_slice()));
             if let Some(key) = ret {
@@ -287,7 +323,8 @@ impl WitnessesParser {
                     assign_config_witness!(self.configs.release, ConfigCellRelease, entity)
                 }
                 DataType::ConfigCellRecordKeyNamespace => {
-                    self.configs.record_key_namespace = Some(entity.get(LENGTH_BYTES_4..).unwrap().to_vec());
+                    self.configs.record_key_namespace =
+                        Some(entity.get(LENGTH_BYTES_4..).unwrap().to_vec());
                 }
                 DataType::ConfigCellPreservedAccount00
                 | DataType::ConfigCellPreservedAccount01
@@ -311,11 +348,13 @@ impl WitnessesParser {
                 | DataType::ConfigCellPreservedAccount19 => {
                     // debug!("length: {}", entity.get(4..).unwrap().len());
                     // self.configs.preserved_account = None;
-                    self.configs.preserved_account = Some(entity.get(LENGTH_BYTES_4..).unwrap().to_vec());
+                    self.configs.preserved_account =
+                        Some(entity.get(LENGTH_BYTES_4..).unwrap().to_vec());
                 }
                 DataType::ConfigCellUnAvailableAccount => {
                     // debug!("length: {}", entity.get(LENGTH_BYTES_4..).unwrap().len());
-                    self.configs.unavailable_account = Some(entity.get(LENGTH_BYTES_4..).unwrap().to_vec());
+                    self.configs.unavailable_account =
+                        Some(entity.get(LENGTH_BYTES_4..).unwrap().to_vec());
                 }
                 DataType::ConfigCellCharSetEmoji
                 | DataType::ConfigCellCharSetDigit
@@ -430,13 +469,26 @@ impl WitnessesParser {
         Ok((index, version, data_type, hash, entity))
     }
 
-    pub fn verify_and_get(&self, index: usize, source: Source) -> Result<(u32, DataType, &Bytes), Error> {
+    pub fn verify_and_get(
+        &self,
+        index: usize,
+        source: Source,
+    ) -> Result<(u32, DataType, &Bytes), Error> {
         let data = util::load_cell_data(index, source)?;
         let hash = match data.get(..32) {
             Some(bytes) => bytes.to_vec(),
             _ => return Err(Error::InvalidCellData),
         };
 
+        self.verify_with_hash_and_get(&hash, index, source)
+    }
+
+    pub fn verify_with_hash_and_get(
+        &self,
+        expected_hash: &[u8],
+        index: usize,
+        source: Source,
+    ) -> Result<(u32, DataType, &Bytes), Error> {
         let group = match source {
             Source::Input => &self.old,
             Source::Output => &self.new,
@@ -452,7 +504,7 @@ impl WitnessesParser {
         if let Some((_, _version, _entity_type, _hash, _entity)) =
             group.iter().find(|&(i, _, _, _h, _)| *i as usize == index)
         {
-            if hash == _hash.as_slice() {
+            if expected_hash == _hash.as_slice() {
                 version = _version.to_owned();
                 data_type = _entity_type.to_owned();
                 entity = _entity;
@@ -463,7 +515,7 @@ impl WitnessesParser {
                     source,
                     index,
                     _entity_type,
-                    util::hex_string(hash.as_slice()),
+                    util::hex_string(expected_hash),
                     util::hex_string(_hash.as_slice()),
                     util::hex_string(_entity.as_reader().raw_data())
                 );
@@ -475,7 +527,7 @@ impl WitnessesParser {
                 "Can not find witness at: {:?}[{}] 0x{}",
                 source,
                 index,
-                util::hex_string(hash.as_slice())
+                util::hex_string(expected_hash)
             );
             return Err(Error::WitnessDataIndexMissMatch);
         }

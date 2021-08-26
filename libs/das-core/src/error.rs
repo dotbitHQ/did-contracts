@@ -20,6 +20,7 @@ pub enum Error {
     ConfigCellIsRequired,
     ConfigCellWitnessIsCorrupted,
     ConfigCellWitnessDecodingError,
+    EIP712SerializationError,
     CellLockCanNotBeModified = 20,
     CellTypeCanNotBeModified,
     CellDataCanNotBeModified,
