@@ -19,18 +19,28 @@ Now DAS has been deployed on CKB mainnet which named **Lina** and launched from 
 
 ## Development
 
+### Prerequisites
+
+Make sure you have installed all the following prerequisites on your development machine:
+- Docker - [Install Docker](https://docs.docker.com/engine/install/).
+- Rust - [Install Rust](https://www.rust-lang.org/tools/install) and [switch to nightly version](https://rust-lang.github.io/rustup/concepts/channels.html) using the following commands:
+```shell
+rustup toolchain install nightly # install nightly
+rustup default nightly # use nightly
+``` 
+- Install `build-essential` if you are using Linux, install `xcode-select --install` if you are using macOS;
+- Install `pkg-config libssl-dev` to make openssl available as dependency if you are using Ubuntu, other Linux distributions may also need to do something similar.
+
+
 ### How to compile
 
-To compile scripts on your own is the first step to start developing scripts, but it always cause headache problems when we facing problems about dependencies. 
-so here we choose the simple solution provided by Nervos team, the Docker. With an image named `jjy0/ckb-capsule-recipe-rust` which contains all dependencies 
-for compiling scripts, anyone may start compiling in about half an hour and the most time cost will be waiting for downloading. Thanks Nervos team! 👍
+To compile scripts on your own is the first step to start developing scripts, but it always causes headache problems when we're facing problems about dependencies. 
+So here we choose a simple solution provided by Nervos team - using Docker. With an image named `jjy0/ckb-capsule-recipe-rust` which contains all dependencies 
+for compiling scripts, anyone can start compiling in about half an hour, and the most time cost will be waiting for downloading. Thanks Nervos team! 👍
 
 > ⚠️ Linux is recommended system to do the compiling task, otherwise you may face a little bit of performance issues of docker.
 
-- Install docker base on [official documentation](https://docs.docker.com/engine/install/);
 - Pull the compiling image with `docker pull jjy0/ckb-capsule-recipe-rust:2020-9-28`;
-- Install `build-essential` if you are using Linux, install `xcode-select --install` if you are using MacOS;
-- Install `pkg-config libssl-dev` to make openssl available as dependency if you are using Ubuntu, other Linux distributions may also need to do something similar.
 
 Now you can start compiling scripts by yourself! 🚀
 
@@ -73,7 +83,7 @@ cargo test -p tests challenge_
 - For details about price, preserved accounts and so on, please see: https://docs.da.systems/docs/v/English/
 - To learn more about data structures, protocols and other technical details, please see documents in [docs/](docs) directory of this repository.
 - It's a good idea to start with their RFCs to learn more about all aspects of CKB: https://github.com/nervosnetwork/rfcs
-- Other things may helps you a lot when develop contracts:
+- Other things may help you a lot when develop contracts:
   - CKB VM Error Codes: https://github.com/nervosnetwork/ckb-system-scripts/wiki/Error-codes
   - CKB JSON-RPC Protocols: https://github.com/nervosnetwork/ckb/tree/develop/rpc
 
