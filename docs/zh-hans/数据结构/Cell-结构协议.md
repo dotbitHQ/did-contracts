@@ -375,8 +375,8 @@ table AccountSaleCellData {
     price: Uint64,
     // A customizable description for the account.
     description: Bytes,
-    // Expiration timestamp of the deal.
-    expired_at: Uint64,
+    // timestamp of sale start.
+    started_at: Uint64,
 }
 ```
 

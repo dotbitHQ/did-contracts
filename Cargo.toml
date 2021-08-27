@@ -11,7 +11,7 @@ members = [
     "contracts/income-cell-type",
     "contracts/pre-account-cell-type",
     "contracts/proposal-cell-type",
-    "contracts/on-sale-cell-type",
+    "contracts/account-sale-cell-type",
     "tools/calculator",
 ]
 
