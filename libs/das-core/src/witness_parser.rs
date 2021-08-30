@@ -514,6 +514,7 @@ impl WitnessesParser {
             DataType::ConfigCellPreservedAccount17,
             DataType::ConfigCellPreservedAccount18,
             DataType::ConfigCellPreservedAccount19,
+            DataType::ConfigCellUnAvailableAccount,
             DataType::ConfigCellCharSetEmoji,
             DataType::ConfigCellCharSetDigit,
             DataType::ConfigCellCharSetEn,

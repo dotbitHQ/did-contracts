@@ -53,7 +53,7 @@ First you need to start container with `./docker.sh start`, then you can try com
 - `./docker.sh build xxx-cell-type --release --dev` compiling a specific script with release profile, but still for development environment;
 - `./docker.sh build-all --release --dev` compiling all scripts with release profile, but still for development environment;
 
-> ⚠️ `./docker.sh` is a very simple script which can not handle arguments in different order, so remember keep all arguments as the same order as above otherwise it may not working properly.
+> ⚠️ `./docker.sh` is a very simple script which can not handle arguments in different order, so remember keep all arguments as the same order as above otherwise it may not work properly.
 
 ### Unit tests
 
