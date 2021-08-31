@@ -20,7 +20,6 @@ pub enum Error {
     ConfigCellIsRequired,
     ConfigCellWitnessIsCorrupted,
     ConfigCellWitnessDecodingError,
-    EIP712SerializationError,
     CellLockCanNotBeModified = 20,
     CellTypeCanNotBeModified,
     CellDataCanNotBeModified,
@@ -38,6 +37,8 @@ pub enum Error {
     AccountStillCanNotBeRegister = 35, // ⚠️ DO NOT CHANGE
     AccountIsPreserved,
     AccountIsUnAvailable,
+    EIP712SerializationError,
+    EIP712SematicError,
     WitnessStructureError = 40,
     WitnessEmpty,
     WitnessDataTypeDecodingError,

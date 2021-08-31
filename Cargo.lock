@@ -119,6 +119,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 
 [[package]]
+name = "bech32"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf9ff0bbfd639f15c74af777d81383cf53efb7c93613f6cab67c6c11e05bbf8b"
+
+[[package]]
 name = "bit-vec"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1038,13 +1044,16 @@ dependencies = [
 name = "das-core"
 version = "1.0.0"
 dependencies = [
+ "bech32",
  "blake2b-ref 0.3.0",
  "chrono",
  "ckb-std",
  "das-map",
  "das-types",
+ "eip712",
  "hex",
  "no-std-compat",
+ "serde_json",
 ]
 
 [[package]]

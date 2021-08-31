@@ -359,6 +359,10 @@ pub const CONFIG_CELL_TYPE: ScriptLiteral = ScriptLiteral {
     args: Vec::new(),
 };
 
+pub fn config_cell_type() -> Script {
+    util::script_literal_to_script(CONFIG_CELL_TYPE)
+}
+
 pub fn always_success_lock() -> Script {
     #[cfg(feature = "dev")]
     let always_success_lock = ScriptLiteral {

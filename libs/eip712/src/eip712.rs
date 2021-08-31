@@ -18,11 +18,7 @@ pub fn hash_data(typed_data: TypedDataV4) -> Result<Vec<u8>, EIP712EncodingError
 
     let mut part3 = Vec::new();
     if typed_data.primary_type != "EIP712Domain" {
-        part3 = hash_message(
-            &typed_data.types,
-            &typed_data.primary_type,
-            &typed_data.message,
-        )?;
+        part3 = hash_message(&typed_data.types, &typed_data.primary_type, &typed_data.message)?;
     }
 
     // println!("part1: {:?}", hex::encode(part1.clone()));
@@ -33,18 +29,12 @@ pub fn hash_data(typed_data: TypedDataV4) -> Result<Vec<u8>, EIP712EncodingError
     Ok(keccak256(&bytes))
 }
 
-pub fn hash_type(
-    domain_types: &Map<String, Value>,
-    primary_type: &str,
-) -> Result<(&'static str, Vec<u8>), EIP712EncodingError> {
+pub fn hash_type(domain_types: &Map<String, Value>, primary_type: &str) -> Result<(&'static str, Vec<u8>), EIP712EncodingError> {
     let types_string = encode_type(domain_types, primary_type)?;
     Ok(("bytes32", keccak256(types_string.as_bytes())))
 }
 
-pub fn encode_type(
-    domain_types: &Map<String, Value>,
-    primary_type: &str,
-) -> Result<String, EIP712EncodingError> {
+pub fn encode_type(domain_types: &Map<String, Value>, primary_type: &str) -> Result<String, EIP712EncodingError> {
     let mut dep_types = Vec::new();
     find_type_dependencies(domain_types, primary_type, &mut dep_types)?;
     // Sort by ascii in ascending order
@@ -62,12 +52,8 @@ pub fn encode_type(
         let fields_str = fields
             .iter()
             .map(|field| -> Result<String, EIP712EncodingError> {
-                let name = field["name"]
-                    .as_str()
-                    .ok_or(EIP712EncodingError::FailedWhenEncodingTypes)?;
-                let type_ = field["type"]
-                    .as_str()
-                    .ok_or(EIP712EncodingError::FailedWhenEncodingTypes)?;
+                let name = field["name"].as_str().ok_or(EIP712EncodingError::FailedWhenEncodingTypes)?;
+                let type_ = field["type"].as_str().ok_or(EIP712EncodingError::FailedWhenEncodingTypes)?;
                 return Ok(format!("{} {}", type_, name));
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -92,16 +78,10 @@ fn find_type_dependencies(
     let types = domain_types
         .get(parse_type(primary_type))
         .ok_or(EIP712EncodingError::FailedWhenEncodingTypes)?;
-    let types_vec = types
-        .as_array()
-        .ok_or(EIP712EncodingError::FailedWhenEncodingTypes)?;
+    let types_vec = types.as_array().ok_or(EIP712EncodingError::FailedWhenEncodingTypes)?;
 
     for field in types_vec {
-        let sub_type = parse_type(
-            field["type"]
-                .as_str()
-                .ok_or(EIP712EncodingError::FailedWhenEncodingTypes)?,
-        );
+        let sub_type = parse_type(field["type"].as_str().ok_or(EIP712EncodingError::FailedWhenEncodingTypes)?);
         let sub_type_string = String::from(sub_type);
 
         if !results.contains(&sub_type_string) && domain_types.contains_key(sub_type) {
@@ -138,15 +118,9 @@ pub fn encode_message(
         .ok_or(EIP712EncodingError::FailedWhenEncodingMessage)?;
 
     for field in fields {
-        let name = field["name"]
-            .as_str()
-            .ok_or(EIP712EncodingError::FailedWhenEncodingMessage)?;
-        let type_ = field["type"]
-            .as_str()
-            .ok_or(EIP712EncodingError::FailedWhenEncodingMessage)?;
-        let value = message
-            .get(name)
-            .ok_or(EIP712EncodingError::FailedWhenEncodingMessage)?;
+        let name = field["name"].as_str().ok_or(EIP712EncodingError::FailedWhenEncodingMessage)?;
+        let type_ = field["type"].as_str().ok_or(EIP712EncodingError::FailedWhenEncodingMessage)?;
+        let value = message.get(name).ok_or(EIP712EncodingError::FailedWhenEncodingMessage)?;
         let (encoded_type, encoded_data) = encode_field(domain_types, name, type_, value)?;
         // if primary_type == "Transaction" {
         //     println!(
@@ -158,10 +132,7 @@ pub fn encode_message(
         values.push(encoded_data);
     }
 
-    let values_slices = values
-        .iter()
-        .map(|item| item.as_slice())
-        .collect::<Vec<_>>();
+    let values_slices = values.iter().map(|item| item.as_slice()).collect::<Vec<_>>();
     Ok(eth_abi_encode(types, values_slices)?)
 }
 
@@ -175,9 +146,7 @@ fn encode_field(
         let bytes = encode_message(
             domain_types,
             type_,
-            value
-                .as_object()
-                .ok_or(EIP712EncodingError::TypeOfValueIsInvalid)?,
+            value.as_object().ok_or(EIP712EncodingError::TypeOfValueIsInvalid)?,
         )?;
         return Ok(("bytes32", keccak256(&bytes)));
     } else if type_ == "bytes" {
@@ -190,18 +159,12 @@ fn encode_field(
         .map_err(|_| EIP712EncodingError::HexDecodingError)?;
         return Ok(("bytes32", keccak256(&bytes)));
     } else if type_ == "string" {
-        let text = value
-            .as_str()
-            .ok_or(EIP712EncodingError::TypeOfValueIsInvalid)?;
+        let text = value.as_str().ok_or(EIP712EncodingError::TypeOfValueIsInvalid)?;
         return Ok(("bytes32", keccak256(text.as_bytes())));
     } else if type_.ends_with("[]") {
         let mut sub_types = Vec::new();
         let mut sub_values = Vec::new();
-        for item in value
-            .as_array()
-            .ok_or(EIP712EncodingError::TypeOfValueIsInvalid)?
-            .iter()
-        {
+        for item in value.as_array().ok_or(EIP712EncodingError::TypeOfValueIsInvalid)?.iter() {
             let (sub_type, sub_bytes) = encode_field(domain_types, name, parse_type(type_), item)?;
             sub_types.push(sub_type);
             sub_values.push(sub_bytes);
@@ -229,9 +192,7 @@ fn encode_field(
             return Ok(("address", bytes));
         } else if type_ == "uint256" {
             // ⚠️ Here we can only support uint64 because of serde type limitation.
-            let num = value
-                .as_u64()
-                .ok_or(EIP712EncodingError::TypeOfValueIsInvalid)?;
+            let num = value.as_u64().ok_or(EIP712EncodingError::TypeOfValueIsInvalid)?;
             return Ok(("uint256", num.to_be_bytes().to_vec()));
         } else {
             println!("name: {}, type: {}, value: {:?}", name, type_, value);
@@ -293,13 +254,7 @@ mod test {
                 "account: test.bit",
                 "",
             ),
-            Cell::new(
-                "999.99 CKB",
-                "0x123456,0x01,0x123456",
-                "0x123456,0x01,0x123456",
-                "",
-                "",
-            ),
+            Cell::new("999.99 CKB", "0x123456,0x01,0x123456", "0x123456,0x01,0x123456", "", ""),
         ]);
         let outputs = Value::from(vec![
             Cell::new(
@@ -309,13 +264,7 @@ mod test {
                 "account: test.bit",
                 "",
             ),
-            Cell::new(
-                "999.99 CKB",
-                "0x123456,0x01,0x123456",
-                "0x123456,0x01,0x123456",
-                "",
-                "",
-            ),
+            Cell::new("999.99 CKB", "0x123456,0x01,0x123456", "0x123456,0x01,0x123456", "", ""),
         ]);
 
         let data = typed_data_v4!({
@@ -525,9 +474,7 @@ mod test {
             }
         });
 
-        let expected = String::from(
-            "Transaction(TypeB layer1)TypeA(string value1,string value2)TypeB(TypeA layer2)",
-        );
+        let expected = String::from("Transaction(TypeB layer1)TypeA(string value1,string value2)TypeB(TypeA layer2)");
         let types_string = encode_type(&typed_data.types, "Transaction").unwrap();
         assert_eq!(types_string, expected);
     }
@@ -565,8 +512,7 @@ mod test {
 
         // Encoding string type
         let plain_text = typed_data.message.get("plainText").unwrap();
-        let (type_, data) =
-            encode_field(&typed_data.types, "plainText", "string", plain_text).unwrap();
+        let (type_, data) = encode_field(&typed_data.types, "plainText", "string", plain_text).unwrap();
         assert_eq!(type_, "bytes32");
         assert_eq!(
             hex::encode(data).as_str(),
@@ -575,8 +521,7 @@ mod test {
 
         // Encoding uint256 type
         let chain_id = typed_data.domain.get("chainId").unwrap();
-        let (type_, data) =
-            encode_field(&typed_data.types, "chainId", "uint256", chain_id).unwrap();
+        let (type_, data) = encode_field(&typed_data.types, "chainId", "uint256", chain_id).unwrap();
         assert_eq!(type_, "uint256");
         assert_eq!(hex::encode(data).as_str(), "0000000000000001");
 
@@ -594,12 +539,9 @@ mod test {
     fn test_eth_abi_encode() {
         let types = vec!["bytes32", "bytes32", "bytes32", "uint256", "address"];
         let values = vec![
-            hex::decode("8b73c3c69bb8fe3d512ecc4cf759cc79239f7b179b0ffacaa9a75d522b39400f")
-                .unwrap(),
-            hex::decode("b6f30b130932fb5584f1644a542248dd6a18f3f873983c198e0dec0a324e840e")
-                .unwrap(),
-            hex::decode("c89efdaa54c0f20c7adf612882df0950f5a951637e0307cdcb4c672f298b8bc6")
-                .unwrap(),
+            hex::decode("8b73c3c69bb8fe3d512ecc4cf759cc79239f7b179b0ffacaa9a75d522b39400f").unwrap(),
+            hex::decode("b6f30b130932fb5584f1644a542248dd6a18f3f873983c198e0dec0a324e840e").unwrap(),
+            hex::decode("c89efdaa54c0f20c7adf612882df0950f5a951637e0307cdcb4c672f298b8bc6").unwrap(),
             hex::decode("0000000000000001").unwrap(),
             hex::decode("b3dc32341ee4bae03c85cd663311de0b1b122955").unwrap(),
         ];
