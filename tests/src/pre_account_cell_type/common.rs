@@ -24,6 +24,7 @@ pub fn init_without_apply(account: &str) -> (TemplateGenerator, &str, u64, u64) 
     template.push_config_cell(DataType::ConfigCellMain, true, 0, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellPrice, true, 0, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellRelease, true, 0, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellUnAvailableAccount, true, 0, Source::CellDep);
 
     (template, account, timestamp, height)
 }

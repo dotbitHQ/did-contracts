@@ -607,11 +607,15 @@ fn verify_unavailable_accounts(
 ) -> Result<(), Error> {
     debug!("Verify if account if unavailable");
 
+    parser.parse_config(&[DataType::ConfigCellUnAvailableAccount])?;
+
     let account = pre_account_reader.account().as_readable();
     let account_hash = util::blake2b_256(account.as_slice());
     let first_20_bytes = account_hash.get(..ACCOUNT_ID_LENGTH).unwrap();
     let unavailable_accounts = parser.configs.unavailable_account()?;
 
+    debug!("--------------unavailable_accounts {:?}", unavailable_accounts);
+    // todo: maybe a naive traverse is much faster and use less cycles
     if unavailable_accounts.len() > 0 {
         let accounts_total = unavailable_accounts.len() / ACCOUNT_ID_LENGTH;
         let mut start_account = 0;

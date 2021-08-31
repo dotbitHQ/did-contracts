@@ -164,10 +164,7 @@ challenge_with_generator!(
         let invited_discount = INVITED_DISCOUNT;
         let created_at = timestamp - 1;
 
-        let account_chars_raw = "1234567890"
-            .chars()
-            .map(|c| c.to_string())
-            .collect::<Vec<String>>();
+        let account_chars_raw = "1234567890".chars().map(|c| c.to_string()).collect::<Vec<String>>();
         let account_chars = gen_account_chars(account_chars_raw);
         let price = template.get_price(account_chars.len());
         let mut tmp = util::hex_to_bytes(&gen_das_lock_args(owner_lock_args, None));
@@ -295,8 +292,7 @@ challenge_with_generator!(
     challenge_pre_register_exceed_account_max_length,
     Error::PreRegisterAccountIsTooLong,
     || {
-        let (mut template, account, timestamp) =
-            init("1234567890123456789012345678901234567890123.bit");
+        let (mut template, account, timestamp) = init("1234567890123456789012345678901234567890123.bit");
         template.push_config_cell_derived_by_account(
             "1234567890123456789012345678901234567890123",
             true,
@@ -396,10 +392,7 @@ challenge_with_generator!(
         let invited_discount = INVITED_DISCOUNT;
         let created_at = timestamp - 1;
 
-        let account_chars_raw = "1234567890"
-            .chars()
-            .map(|c| c.to_string())
-            .collect::<Vec<String>>();
+        let account_chars_raw = "1234567890".chars().map(|c| c.to_string()).collect::<Vec<String>>();
         let account_chars = gen_account_chars(account_chars_raw);
         let price = template.get_price(4);
         let mut tmp = util::hex_to_bytes(&gen_das_lock_args(owner_lock_args, None));
