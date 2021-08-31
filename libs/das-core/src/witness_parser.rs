@@ -184,7 +184,7 @@ impl WitnessesParser {
         macro_rules! assign_config_witness {
             ( $property:expr, $witness_type:ty, $entity:expr ) => {
                 $property =
-                    Some(<$witness_type>::from_slice($entity).map_err(|_| Error::ConfigCellWitnessDecodingError)?);
+                    Some(<$witness_type>::from_slice($entity).map_err(|_| Error::ConfigCellWitnessDecodingError)?)
             };
         }
 
