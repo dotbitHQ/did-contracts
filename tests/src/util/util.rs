@@ -48,10 +48,7 @@ pub fn hex_to_bytes(input: &str) -> Vec<u8> {
 
 pub fn hex_to_byte32(input: &str) -> Result<Byte32, Box<dyn Error>> {
     let hex = input.trim_start_matches("0x");
-    let data = hex::decode(hex)?
-        .into_iter()
-        .map(Byte::new)
-        .collect::<Vec<_>>();
+    let data = hex::decode(hex)?.into_iter().map(Byte::new).collect::<Vec<_>>();
     let mut inner = [Byte::new(0); 32];
     inner.copy_from_slice(&data);
 
@@ -60,10 +57,7 @@ pub fn hex_to_byte32(input: &str) -> Result<Byte32, Box<dyn Error>> {
 
 pub fn hex_to_hash(input: &str) -> Result<das_packed::Hash, Box<dyn Error>> {
     let hex = input.trim_start_matches("0x");
-    let data = hex::decode(hex)?
-        .into_iter()
-        .map(Byte::new)
-        .collect::<Vec<_>>();
+    let data = hex::decode(hex)?.into_iter().map(Byte::new).collect::<Vec<_>>();
     let mut inner = [Byte::new(0); 32];
     inner.copy_from_slice(&data);
 
@@ -92,19 +86,13 @@ pub fn account_to_id_hex(account: &str) -> String {
     format!("0x{}", hex_string(account_to_id(account).as_slice()))
 }
 
-pub fn deploy_dev_contract(
-    context: &mut Context,
-    binary_name: &str,
-) -> (Byte32, OutPoint, CellDep) {
+pub fn deploy_dev_contract(context: &mut Context, binary_name: &str) -> (Byte32, OutPoint, CellDep) {
     let contract_bin: bytes::Bytes = Loader::default().load_binary(binary_name);
 
     deploy_contract(context, binary_name, contract_bin)
 }
 
-pub fn deploy_builtin_contract(
-    context: &mut Context,
-    binary_name: &str,
-) -> (Byte32, OutPoint, CellDep) {
+pub fn deploy_builtin_contract(context: &mut Context, binary_name: &str) -> (Byte32, OutPoint, CellDep) {
     let contract_bin: bytes::Bytes = Loader::with_deployed_scripts().load_binary(binary_name);
 
     deploy_contract(context, binary_name, contract_bin)
@@ -122,13 +110,13 @@ fn deploy_contract(
         .map(Byte::new)
         .collect::<Vec<_>>();
     let type_ = Script::new_builder()
-        .code_hash(Byte32::new_unchecked(bytes::Bytes::from(
-            TYPE_ID_CODE_HASH.as_bytes(),
-        )))
+        .code_hash(Byte32::new_unchecked(bytes::Bytes::from(TYPE_ID_CODE_HASH.as_bytes())))
         .hash_type(ScriptHashType::Type.into())
         .args(Bytes::new_builder().set(args).build())
         .build();
     let type_id = type_.calc_script_hash();
+    // Uncomment the line below can print type ID of each script in unit tests.
+    // println!("script: {}, type_id: {}", binary_name, type_id);
     let cell = CellOutput::new_builder()
         .capacity(Capacity::bytes(contract_bin.len()).unwrap().pack())
         .type_(ScriptOpt::new_builder().set(Some(type_)).build())
@@ -251,15 +239,13 @@ pub fn serialize_signature(signature: &secp256k1::recovery::RecoverableSignature
     signature_bytes
 }
 
-pub type SignerFn = Box<
-    dyn FnMut(&HashSet<H160>, &H256, &rpc_types::Transaction) -> Result<Option<[u8; 65]>, String>,
->;
+pub type SignerFn = Box<dyn FnMut(&HashSet<H160>, &H256, &rpc_types::Transaction) -> Result<Option<[u8; 65]>, String>>;
 
 pub fn get_privkey_signer(input: &str) -> SignerFn {
     let privkey = secp256k1::SecretKey::from_str(input.trim_start_matches("0x")).unwrap();
     let pubkey = secp256k1::PublicKey::from_secret_key(&SECP256K1, &privkey);
-    let lock_arg = H160::from_slice(&blake2b_256(&pubkey.serialize()[..])[0..20])
-        .expect("Generate hash(H160) from pubkey failed");
+    let lock_arg =
+        H160::from_slice(&blake2b_256(&pubkey.serialize()[..])[0..20]).expect("Generate hash(H160) from pubkey failed");
     Box::new(
         move |lock_args: &HashSet<H160>, message: &H256, _tx: &rpc_types::Transaction| {
             if lock_args.contains(&lock_arg) {
@@ -278,9 +264,7 @@ pub fn get_privkey_signer(input: &str) -> SignerFn {
     )
 }
 
-pub fn build_signature<
-    S: FnMut(&H256, &rpc_types::Transaction) -> Result<[u8; SECP_SIGNATURE_SIZE], String>,
->(
+pub fn build_signature<S: FnMut(&H256, &rpc_types::Transaction) -> Result<[u8; SECP_SIGNATURE_SIZE], String>>(
     tx: &TransactionView,
     input_size: usize,
     input_group_idxs: &[usize],
@@ -291,8 +275,7 @@ pub fn build_signature<
     let init_witness = if witnesses[init_witness_idx].raw_data().is_empty() {
         WitnessArgs::default()
     } else {
-        WitnessArgs::from_slice(witnesses[init_witness_idx].raw_data().as_ref())
-            .map_err(|err| err.to_string())?
+        WitnessArgs::from_slice(witnesses[init_witness_idx].raw_data().as_ref()).map_err(|err| err.to_string())?
     };
 
     let init_witness = init_witness
@@ -340,8 +323,8 @@ pub fn read_lines(file_name: &str) -> io::Result<Lines<BufReader<File>>> {
 }
 
 pub fn gen_timestamp(datetime: &str) -> u64 {
-    let navie_datetime = NaiveDateTime::parse_from_str(datetime, "%Y-%m-%d %H:%M:%S")
-        .expect("Invalid datetime format.");
+    let navie_datetime =
+        NaiveDateTime::parse_from_str(datetime, "%Y-%m-%d %H:%M:%S").expect("Invalid datetime format.");
     let datetime = DateTime::<Utc>::from_utc(navie_datetime, Utc);
     datetime.timestamp() as u64
 }

@@ -1,8 +1,7 @@
 macro_rules! parse_template {
     ($file:expr) => {{
-        let mut parser =
-            TemplateParser::from_file(Context::default(), format!("./templates/{}", $file))
-                .expect("Init template parser failed.");
+        let mut parser = TemplateParser::from_file(Context::default(), format!("./templates/{}", $file))
+            .expect("Init template parser failed.");
 
         parser.parse();
 
@@ -30,6 +29,7 @@ macro_rules! test_with_generator {
         fn $test_name() {
             let generator = $generator_fn;
             let template = generator();
+            // println!("{}", serde_json::to_string_pretty(&template).unwrap());
             let mut parser = TemplateParser::from_data(Context::default(), template.clone());
             parser.parse();
 
