@@ -67,8 +67,8 @@ The prefix is design for running different categories of tests separately:
 
 ``` sh
 cargo test -p tests gen_
-cargo test -p tests test_
-cargo test -p tests challenge_
+cargo test -p tests test_ # all the tests start with test_ are normal tests
+cargo test -p tests challenge_ # all the tests start with challenge_ are abnormal tests
 ```
 
 > DO NOT use `capsule build` and `capsule test` for performance reasons.
