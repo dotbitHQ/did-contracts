@@ -2,6 +2,7 @@ use super::{constants::*, util};
 use ckb_tool::{ckb_hash::blake2b_256, ckb_types::prelude::Pack, faster_hex::hex_string};
 use das_sorted_list::DasSortedList;
 use das_types::{constants::*, packed::*, prelude::*, util as das_util};
+use hex;
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde_json::{json, Value};
@@ -672,15 +673,16 @@ impl TemplateGenerator {
             .map(|item| item.to_owned())
     }
 
-    fn gen_config_cell_unavailable_account(&mut self) -> (Bytes, Vec<u8>) {
+    fn gen_config_cell_unavailable_account(&mut self) -> Option<(Bytes, Vec<u8>)> {
         // Load and group unavailable accounts
         let mut unavailable_account_hashes = Vec::new();
         let lines = util::read_lines("unavailable_account_hashes.txt")
             .expect("Expect file ./tests/data/unavailable_account_hashes.txt exist.");
 
         for line in lines {
-            if let Ok(account_hash) = line {
-                unavailable_account_hashes.push(account_hash);
+            if let Ok(account_hash_string) = line {
+                let account_hash: Vec<u8> = hex::decode(account_hash_string).ok()?;
+                unavailable_account_hashes.push(account_hash.get(..ACCOUNT_ID_LENGTH).unwrap().to_vec());
             }
         }
 
@@ -689,13 +691,13 @@ impl TemplateGenerator {
         let mut raw = Vec::new();
 
         for account_hash in unavailable_account_hashes {
-            raw.extend(account_hash.as_bytes());
+            raw.extend(account_hash);
         }
         let raw = util::prepend_molecule_like_length(raw);
 
         let cell_data = Bytes::from(blake2b_256(raw.as_slice()).to_vec());
 
-        (cell_data, raw)
+        Some((cell_data, raw))
     }
 
     gen_config_cell_char_set!(
@@ -803,14 +805,13 @@ impl TemplateGenerator {
                 Some((cell_data, raw)) => (cell_data, das_util::wrap_raw_witness(config_type, raw)),
                 None => panic!("Load preserved accounts from file failed ..."),
             },
-            DataType::ConfigCellUnAvailableAccount => {
-                let (cell_data, raw) = self.gen_config_cell_unavailable_account();
-
-                (
+            DataType::ConfigCellUnAvailableAccount => match self.gen_config_cell_unavailable_account() {
+                Some((cell_data, raw)) => (
                     cell_data,
                     das_util::wrap_raw_witness(DataType::ConfigCellUnAvailableAccount, raw),
-                )
-            }
+                ),
+                None => panic!("Load unavailable accounts from file failed ..."),
+            },
             DataType::ConfigCellCharSetEmoji => {
                 gen_config_data_and_raw_witness!(gen_config_cell_char_set_emoji, DataType::ConfigCellCharSetEmoji)
             }

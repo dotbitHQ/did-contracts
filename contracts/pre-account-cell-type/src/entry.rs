@@ -611,10 +611,14 @@ fn verify_unavailable_accounts(
 
     let account = pre_account_reader.account().as_readable();
     let account_hash = util::blake2b_256(account.as_slice());
+
     let first_20_bytes = account_hash.get(..ACCOUNT_ID_LENGTH).unwrap();
     let unavailable_accounts = parser.configs.unavailable_account()?;
 
-    debug!("--------------unavailable_accounts {:?}", unavailable_accounts);
+    // debug!("--------------account {:?}", account);
+    // debug!("--------------account_hash {:?}", account_hash);
+    // debug!("--------------unavailable_accounts {:?}", unavailable_accounts);
+    // debug!("--------------first_20_bytes {:?}", first_20_bytes);
     // todo: maybe a naive traverse is much faster and use less cycles
     if unavailable_accounts.len() > 0 {
         let accounts_total = unavailable_accounts.len() / ACCOUNT_ID_LENGTH;
@@ -633,11 +637,11 @@ fn verify_unavailable_accounts(
                 end_account = nth_account;
             } else {
                 warn!(
-                    "Account 0x{} is preserved. (hash: 0x{})",
+                    "Account 0x{} is unavailable. (hash: 0x{})",
                     util::hex_string(account.as_slice()),
                     util::hex_string(&account_hash)
                 );
-                return Err(Error::AccountIsPreserved);
+                return Err(Error::AccountIsUnAvailable);
             }
 
             if end_account - start_account <= 1 {
