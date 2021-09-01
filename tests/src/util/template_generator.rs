@@ -1,5 +1,9 @@
 use super::{constants::*, util};
-use ckb_tool::{ckb_hash::blake2b_256, ckb_types::prelude::Pack, faster_hex::hex_string};
+use ckb_tool::{
+    ckb_hash::blake2b_256,
+    ckb_types::{packed as ckb_packed, prelude::Pack},
+    faster_hex::hex_string,
+};
 use das_sorted_list::DasSortedList;
 use das_types::{constants::*, packed::*, prelude::*, util as das_util};
 use hex;
@@ -309,7 +313,8 @@ pub struct TemplateGenerator {
     pub cell_deps: Vec<Value>,
     pub inputs: Vec<Value>,
     pub outputs: Vec<Value>,
-    pub witnesses: Vec<String>,
+    pub inner_witnesses: Vec<String>,
+    pub outer_witnesses: Vec<String>,
     pub prices: HashMap<u8, PriceConfig>,
     pub preserved_account_groups: HashMap<u32, (Bytes, Vec<u8>)>,
     pub charsets: HashMap<u32, (Bytes, Vec<u8>)>,
@@ -358,7 +363,8 @@ impl TemplateGenerator {
             cell_deps: Vec::new(),
             inputs: Vec::new(),
             outputs: Vec::new(),
-            witnesses: vec![bytes_to_hex(witness)],
+            inner_witnesses: Vec::new(),
+            outer_witnesses: vec![bytes_to_hex(witness)],
             prices,
             preserved_account_groups: HashMap::new(),
             charsets: HashMap::new(),
@@ -382,7 +388,7 @@ impl TemplateGenerator {
         dep_opt: Option<(u32, u32, C)>,
     ) {
         let witness = das_util::wrap_data_witness(data_type, output_opt, input_opt, dep_opt);
-        self.witnesses.push(bytes_to_hex(witness));
+        self.outer_witnesses.push(bytes_to_hex(witness));
     }
 
     pub fn push_witness_with_group<T: Entity>(
@@ -400,7 +406,46 @@ impl TemplateGenerator {
             }
             _ => das_util::wrap_data_witness::<T, T, T>(data_type, None, None, Some(entity)),
         };
-        self.witnesses.push(bytes_to_hex(witness));
+        self.outer_witnesses.push(bytes_to_hex(witness));
+    }
+
+    pub fn push_witness_args(
+        &mut self,
+        lock_opt: Option<&[u8]>,
+        input_type: Option<&[u8]>,
+        output_type: Option<&[u8]>,
+    ) {
+        let mut witness_args_builder = ckb_packed::WitnessArgs::new_builder();
+
+        if let Some(bytes) = lock_opt {
+            witness_args_builder = witness_args_builder.lock(
+                ckb_packed::BytesOpt::new_builder()
+                    .set(Some(bytes.pack()))
+                    .build(),
+            );
+        }
+        if let Some(bytes) = input_type {
+            witness_args_builder = witness_args_builder.input_type(
+                ckb_packed::BytesOpt::new_builder()
+                    .set(Some(bytes.pack()))
+                    .build(),
+            );
+        }
+        if let Some(bytes) = output_type {
+            witness_args_builder = witness_args_builder.output_type(
+                ckb_packed::BytesOpt::new_builder()
+                    .set(Some(bytes.pack()))
+                    .build(),
+            );
+        }
+
+        self.inner_witnesses.push(bytes_to_hex(Bytes::from(
+            witness_args_builder.build().as_bytes(),
+        )));
+    }
+
+    pub fn push_empty_witness(&mut self) {
+        self.inner_witnesses.push(String::from("0x"));
     }
 
     pub fn push_cell(
@@ -948,7 +993,7 @@ impl TemplateGenerator {
 
         if push_witness {
             // Create config cell witness.
-            self.witnesses.push(bytes_to_hex(witness));
+            self.outer_witnesses.push(bytes_to_hex(witness));
         }
     }
 
@@ -1296,7 +1341,13 @@ impl TemplateGenerator {
         }
     }
 
-    pub fn push_das_lock_cell(&mut self, lock_args: &str, capacity: u64, source: Source) {
+    pub fn push_das_lock_cell(
+        &mut self,
+        lock_args: &str,
+        capacity: u64,
+        source: Source,
+        type_data_hash_opt: Option<&str>,
+    ) {
         let lock_script = json!({
           "code_hash": "{{fake-das-lock}}",
           "args": lock_args
@@ -1306,6 +1357,15 @@ impl TemplateGenerator {
         });
 
         self.push_cell(capacity, lock_script, type_script, None, source);
+
+        if let Some(type_data_hash_hex) = type_data_hash_opt {
+            let signature = util::hex_to_bytes("0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000FF");
+            let type_data_hash = util::hex_to_bytes(type_data_hash_hex);
+            let lock = [signature, type_data_hash].concat();
+            self.push_witness_args(Some(&lock), None, None);
+        } else {
+            self.push_empty_witness();
+        }
     }
 
     pub fn push_signall_cell(&mut self, lock_args: &str, capacity: u64, source: Source) {
@@ -1315,16 +1375,18 @@ impl TemplateGenerator {
         });
 
         self.push_cell(capacity, lock_script, json!(null), None, source);
+        self.push_empty_witness();
     }
 
     pub fn gen_header() {}
 
     pub fn as_json(&self) -> serde_json::Value {
+        let witnesses = [self.inner_witnesses.clone(), self.outer_witnesses.clone()].concat();
         json!({
             "cell_deps": self.cell_deps,
             "inputs": self.inputs,
             "outputs": self.outputs,
-            "witnesses": self.witnesses,
+            "witnesses": witnesses,
         })
     }
 
