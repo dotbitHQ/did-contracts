@@ -865,28 +865,7 @@ impl TemplateGenerator {
         //     "The first byte of account hash is {:?}, so {:?} will be chosen.",
         //     first_byte_of_account_hash, config_type
         // );
-        // todo: here we can use `self.push_config_cell instead`
-        let (cell_data, witness) = match self.gen_config_cell_preserved_account(config_type) {
-            Some((cell_data, raw)) => (cell_data, das_util::wrap_raw_witness(config_type, raw)),
-            None => panic!("Can not find preserved account group from the account ..."),
-        };
-
-        // Create config cell.
-        let config_id_hex = hex_string(&(config_type as u32).to_le_bytes()).unwrap();
-        let lock_script = json!({
-          "code_hash": "{{always_success}}",
-          "args": CONFIG_LOCK_ARGS
-        });
-        let type_script = json!({
-          "code_hash": "{{config-cell-type}}",
-          "args": format!("0x{}", config_id_hex),
-        });
-        self.push_cell(capacity, lock_script, type_script, Some(cell_data), source);
-
-        if push_witness {
-            // Create config cell witness.
-            self.witnesses.push(bytes_to_hex(witness));
-        }
+        self.push_config_cell(config_type, push_witness, capacity, source);
     }
 
     pub fn gen_pre_account_cell_data(
