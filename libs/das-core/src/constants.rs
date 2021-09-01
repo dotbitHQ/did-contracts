@@ -52,8 +52,8 @@ pub fn super_lock() -> Script {
     #[cfg(feature = "dev")]
     let super_lock = ScriptLiteral {
         code_hash: [
-            157, 111, 41, 25, 227, 40, 243, 33, 125, 125, 211, 218, 181, 247, 206, 233, 216, 224,
-            98, 190, 230, 168, 13, 93, 5, 205, 73, 92, 163, 65, 99, 120,
+            220, 52, 236, 86, 192, 214, 236, 100, 200, 246, 111, 20, 221, 83, 241, 188, 234, 8, 213, 78, 212, 233, 68,
+            96, 104, 22, 180, 238, 149, 190, 150, 70,
         ],
         hash_type: ScriptHashType::Type,
         args: vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -101,8 +101,8 @@ pub fn das_wallet_lock() -> Script {
     #[cfg(feature = "dev")]
     let das_wallet_lock = ScriptLiteral {
         code_hash: [
-            157, 111, 41, 25, 227, 40, 243, 33, 125, 125, 211, 218, 181, 247, 206, 233, 216, 224,
-            98, 190, 230, 168, 13, 93, 5, 205, 73, 92, 163, 65, 99, 120,
+            220, 52, 236, 86, 192, 214, 236, 100, 200, 246, 111, 20, 221, 83, 241, 188, 234, 8, 213, 78, 212, 233, 68,
+            96, 104, 22, 180, 238, 149, 190, 150, 70,
         ],
         hash_type: ScriptHashType::Type,
         args: vec![3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -410,9 +410,10 @@ pub fn always_success_lock() -> Script {
 pub fn signall_lock() -> Script {
     #[cfg(feature = "dev")]
     let signall_lock = ScriptLiteral {
+        // CAREFUL: If you edit the code_hash here, you need also make the code_hash in fn das_wallet_lock() consistent.
         code_hash: [
-            220, 52, 236, 86, 192, 214, 236, 100, 200, 246, 111, 20, 221, 83, 241, 188, 234, 8,
-            213, 78, 212, 233, 68, 96, 104, 22, 180, 238, 149, 190, 150, 70,
+            220, 52, 236, 86, 192, 214, 236, 100, 200, 246, 111, 20, 221, 83, 241, 188, 234, 8, 213, 78, 212, 233, 68,
+            96, 104, 22, 180, 238, 149, 190, 150, 70,
         ],
         hash_type: ScriptHashType::Type,
         args: Vec::new(),

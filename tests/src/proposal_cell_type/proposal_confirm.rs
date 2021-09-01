@@ -21,14 +21,9 @@ fn gen_proposal_related_cell_at_confirm(
 
         let mut next_of_first_item = "";
         for (item_index, (account, item_type, next_account)) in slice.iter().enumerate() {
-            if *item_type == ProposalSliceItemType::Exist
-                || *item_type == ProposalSliceItemType::Proposed
-            {
+            if *item_type == ProposalSliceItemType::Exist || *item_type == ProposalSliceItemType::Proposed {
                 // Generate old AccountCell in inputs.
-                println!(
-                    "    📥 next_of_first_item: {}",
-                    util::account_to_id_hex(next_account)
-                );
+                println!("    📥 next_of_first_item: {}", util::account_to_id_hex(next_account));
                 next_of_first_item = next_account;
                 let (updated_next_account, _, _) = slice.get(item_index + 1).unwrap();
 
@@ -92,6 +87,8 @@ fn init_confirm(action: &str) -> (TemplateGenerator, u64, u64) {
     let mut template = TemplateGenerator::new(action, None);
 
     template.push_contract_cell("always_success", true);
+    template.push_contract_cell("fake-das-lock", true);
+    template.push_contract_cell("fake-secp256k1-blake160-signhash-all", true);
     template.push_contract_cell("proposal-cell-type", false);
     template.push_contract_cell("account-cell-type", false);
     template.push_contract_cell("pre-account-cell-type", false);
@@ -119,11 +116,7 @@ fn gen_proposal_confirm() {
         ],
         // A slice base on previous modified PreAccountCell
         vec![
-            (
-                "das00004.bit",
-                ProposalSliceItemType::Proposed,
-                "das00011.bit",
-            ),
+            ("das00004.bit", ProposalSliceItemType::Proposed, "das00011.bit"),
             ("das00018.bit", ProposalSliceItemType::New, ""),
             ("das00008.bit", ProposalSliceItemType::New, ""),
         ],
@@ -134,20 +127,11 @@ fn gen_proposal_confirm() {
         ],
     ];
 
-    let (cell_data, entity) = template.gen_proposal_cell_data(
-        "0x0000000000000000000000000000000000002233",
-        height,
-        &slices,
-    );
-    template.push_proposal_cell(
-        cell_data,
-        Some((1, 0, entity)),
-        100_000_000_000,
-        Source::Input,
-    );
+    let (cell_data, entity) =
+        template.gen_proposal_cell_data("0x0000000000000000000000000000000000002233", height, &slices);
+    template.push_proposal_cell(cell_data, Some((1, 0, entity)), 100_000_000_000, Source::Input);
 
-    let (input_index, output_index) =
-        gen_proposal_related_cell_at_confirm(&mut template, slices, timestamp);
+    let (input_index, output_index) = gen_proposal_related_cell_at_confirm(&mut template, slices, timestamp);
 
     let income_records = vec![IncomeRecordParam {
         belong_to: "0x0000000000000000000000000000000000000000".to_string(),
@@ -155,12 +139,7 @@ fn gen_proposal_confirm() {
     }];
     let (cell_data, entity) =
         template.gen_income_cell_data("0x0000000000000000000000000000000000000000", income_records);
-    template.push_income_cell(
-        cell_data,
-        Some((1, input_index, entity)),
-        20_000_000_000,
-        Source::Input,
-    );
+    template.push_income_cell(cell_data, Some((1, input_index, entity)), 20_000_000_000, Source::Input);
 
     let income_records = vec![
         IncomeRecordParam {
@@ -232,8 +211,8 @@ macro_rules! gen_income_cell {
                 capacity: 380_000_000_000,
             },
         ];
-        let (cell_data, entity) = $template
-            .gen_income_cell_data("0x0000000000000000000000000000000000000000", income_records);
+        let (cell_data, entity) =
+            $template.gen_income_cell_data("0x0000000000000000000000000000000000000000", income_records);
         $template.push_income_cell(
             cell_data,
             Some((1, $output_index, entity)),
@@ -262,11 +241,8 @@ challenge_with_generator!(
             ("das00005.bit", ProposalSliceItemType::New, ""),
         ]];
 
-        let (cell_data, entity) = template.gen_proposal_cell_data(
-            "0x0000000000000000000000000000000000002233",
-            height,
-            &slices,
-        );
+        let (cell_data, entity) =
+            template.gen_proposal_cell_data("0x0000000000000000000000000000000000002233", height, &slices);
         template.push_proposal_cell(
             cell_data,
             Some((1, input_index, entity)),
@@ -378,20 +354,11 @@ challenge_with_generator!(
             ("das00005.bit", ProposalSliceItemType::New, ""),
         ]];
 
-        let (cell_data, entity) = template.gen_proposal_cell_data(
-            "0x0000000000000000000000000000000000002233",
-            height,
-            &slices,
-        );
-        template.push_proposal_cell(
-            cell_data,
-            Some((1, 0, entity)),
-            100_000_000_000,
-            Source::Input,
-        );
+        let (cell_data, entity) =
+            template.gen_proposal_cell_data("0x0000000000000000000000000000000000002233", height, &slices);
+        template.push_proposal_cell(cell_data, Some((1, 0, entity)), 100_000_000_000, Source::Input);
 
-        let (_, output_index) =
-            gen_proposal_related_cell_at_confirm(&mut template, slices, timestamp);
+        let (_, output_index) = gen_proposal_related_cell_at_confirm(&mut template, slices, timestamp);
 
         gen_income_cell!(template, output_index);
 
@@ -410,20 +377,11 @@ challenge_with_generator!(
             ("das00005.bit", ProposalSliceItemType::New, ""),
         ]];
 
-        let (cell_data, entity) = template.gen_proposal_cell_data(
-            "0x0000000000000000000000000000000000002233",
-            height,
-            &slices,
-        );
-        template.push_proposal_cell(
-            cell_data,
-            Some((1, 0, entity)),
-            100_000_000_000,
-            Source::Input,
-        );
+        let (cell_data, entity) =
+            template.gen_proposal_cell_data("0x0000000000000000000000000000000000002233", height, &slices);
+        template.push_proposal_cell(cell_data, Some((1, 0, entity)), 100_000_000_000, Source::Input);
 
-        let (_, output_index) =
-            gen_proposal_related_cell_at_confirm(&mut template, slices, timestamp);
+        let (_, output_index) = gen_proposal_related_cell_at_confirm(&mut template, slices, timestamp);
 
         let income_records = vec![
             // Profit to inviter
@@ -447,8 +405,8 @@ challenge_with_generator!(
                 capacity: 380_000_000_000,
             },
         ];
-        let (cell_data, entity) = template
-            .gen_income_cell_data("0x0000000000000000000000000000000000000000", income_records);
+        let (cell_data, entity) =
+            template.gen_income_cell_data("0x0000000000000000000000000000000000000000", income_records);
         template.push_income_cell(
             cell_data,
             Some((1, output_index, entity)),
@@ -471,20 +429,11 @@ challenge_with_generator!(
             ("das00005.bit", ProposalSliceItemType::New, ""),
         ]];
 
-        let (cell_data, entity) = template.gen_proposal_cell_data(
-            "0x0000000000000000000000000000000000002233",
-            height,
-            &slices,
-        );
-        template.push_proposal_cell(
-            cell_data,
-            Some((1, 0, entity)),
-            100_000_000_000,
-            Source::Input,
-        );
+        let (cell_data, entity) =
+            template.gen_proposal_cell_data("0x0000000000000000000000000000000000002233", height, &slices);
+        template.push_proposal_cell(cell_data, Some((1, 0, entity)), 100_000_000_000, Source::Input);
 
-        let (_, output_index) =
-            gen_proposal_related_cell_at_confirm(&mut template, slices, timestamp);
+        let (_, output_index) = gen_proposal_related_cell_at_confirm(&mut template, slices, timestamp);
 
         let income_records = vec![
             // Profit to inviter
@@ -508,8 +457,8 @@ challenge_with_generator!(
                 capacity: 380_000_000_000,
             },
         ];
-        let (cell_data, entity) = template
-            .gen_income_cell_data("0x0000000000000000000000000000000000000000", income_records);
+        let (cell_data, entity) =
+            template.gen_income_cell_data("0x0000000000000000000000000000000000000000", income_records);
         template.push_income_cell(
             cell_data,
             Some((1, output_index, entity)),
@@ -532,17 +481,9 @@ challenge_with_generator!(
             ("das00005.bit", ProposalSliceItemType::New, ""),
         ]];
 
-        let (cell_data, entity) = template.gen_proposal_cell_data(
-            "0x0000000000000000000000000000000000002233",
-            height,
-            &slices,
-        );
-        template.push_proposal_cell(
-            cell_data,
-            Some((1, 0, entity)),
-            100_000_000_000,
-            Source::Input,
-        );
+        let (cell_data, entity) =
+            template.gen_proposal_cell_data("0x0000000000000000000000000000000000002233", height, &slices);
+        template.push_proposal_cell(cell_data, Some((1, 0, entity)), 100_000_000_000, Source::Input);
 
         let old_registered_at = timestamp - 86400;
         let old_expired_at = timestamp + 31536000 - 86400;
@@ -591,17 +532,9 @@ challenge_with_generator!(
             ("das00005.bit", ProposalSliceItemType::New, ""),
         ]];
 
-        let (cell_data, entity) = template.gen_proposal_cell_data(
-            "0x0000000000000000000000000000000000002233",
-            height,
-            &slices,
-        );
-        template.push_proposal_cell(
-            cell_data,
-            Some((1, 0, entity)),
-            100_000_000_000,
-            Source::Input,
-        );
+        let (cell_data, entity) =
+            template.gen_proposal_cell_data("0x0000000000000000000000000000000000002233", height, &slices);
+        template.push_proposal_cell(cell_data, Some((1, 0, entity)), 100_000_000_000, Source::Input);
 
         let old_registered_at = timestamp - 86400;
         let old_expired_at = timestamp + 31536000 - 86400;
@@ -629,10 +562,7 @@ challenge_with_generator!(
             new_expired_at,
             2,
             1,
-            475_000_000_000
-                + 1_200_000_000
-                + ACCOUNT_BASIC_CAPACITY
-                + ACCOUNT_PREPARED_FEE_CAPACITY,
+            475_000_000_000 + 1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
             21_900_000_000 - 1
         );
 

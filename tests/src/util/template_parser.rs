@@ -1,10 +1,8 @@
 use super::{
-    constants::{
-        Source, MULTISIG_TYPE_HASH, SECP_SIGNATURE_SIZE, SIGHASH_TYPE_HASH, TYPE_ID_TABLE,
-    },
+    constants::{Source, MULTISIG_TYPE_HASH, SECP_SIGNATURE_SIZE, SIGHASH_TYPE_HASH, TYPE_ID_TABLE},
     util::{
-        build_signature, deploy_builtin_contract, deploy_dev_contract, get_privkey_signer,
-        hex_to_byte32, hex_to_bytes, hex_to_u64, mock_cell, mock_header_deps, mock_input,
+        build_signature, deploy_builtin_contract, deploy_dev_contract, get_privkey_signer, hex_to_byte32, hex_to_bytes,
+        hex_to_u64, mock_cell_with_outpoint, mock_header_deps, mock_input, mock_out_point,
     },
 };
 use crate::util::constants::MAX_CYCLES;
@@ -212,10 +210,7 @@ impl TemplateParser {
         let input_size = self.inputs.len();
 
         let mut witnesses = if self.witnesses.len() <= 0 {
-            self.inputs
-                .iter()
-                .map(|_| packed::Bytes::default())
-                .collect::<Vec<_>>()
+            self.inputs.iter().map(|_| packed::Bytes::default()).collect::<Vec<_>>()
         } else {
             self.witnesses.clone()
         };
@@ -263,18 +258,9 @@ impl TemplateParser {
     fn group_inputs(&self) -> Result<HashMap<(Byte32, Bytes), Vec<usize>>, Box<dyn Error>> {
         let mut groups: HashMap<(Byte32, Bytes), Vec<usize>> = HashMap::default();
         for (idx, cell_input) in self.inputs.iter().enumerate() {
-            let (cell_output, _) = self
-                .context
-                .get_cell(&cell_input.previous_output())
-                .unwrap();
+            let (cell_output, _) = self.context.get_cell(&cell_input.previous_output()).unwrap();
             let code_hash = cell_output.lock().code_hash();
-            let args = cell_output
-                .lock()
-                .args()
-                .as_slice()
-                .get(4..)
-                .unwrap()
-                .to_owned();
+            let args = cell_output.lock().args().as_slice().get(4..).unwrap().to_owned();
             let lock_args = Bytes::from(args).to_owned();
 
             groups.entry((code_hash, lock_args)).or_default().push(idx);
@@ -298,10 +284,7 @@ impl TemplateParser {
                 let hex = item["number"]
                     .as_str()
                     .ok_or(format!("Field `header_deps[{}].number` is required.", i))?;
-                number = hex_to_u64(hex).expect(&format!(
-                    "Field `header_deps[{}].number` is not valid u64 in hex.",
-                    i
-                ));
+                number = hex_to_u64(hex).expect(&format!("Field `header_deps[{}].number` is not valid u64 in hex.", i));
             }
 
             let timestamp: u64;
@@ -319,37 +302,32 @@ impl TemplateParser {
                 ));
             }
 
-            mock_header_deps(
-                &mut self.context,
-                hex_to_byte32(header_hash)?,
-                number,
-                timestamp,
-            );
+            mock_header_deps(&mut self.context, hex_to_byte32(header_hash)?, number, timestamp);
         }
 
         Ok(())
     }
 
     fn parse_cell_deps(&mut self, cell_deps: Vec<Value>) -> Result<(), Box<dyn Error>> {
-        for item in cell_deps {
+        for (i, item) in cell_deps.into_iter().enumerate() {
             match item["tmp_type"].as_str() {
                 Some("contract") => {
                     let name = item["tmp_file_name"].as_str().unwrap();
-                    let (type_id, _, cell_dep) = deploy_dev_contract(&mut self.context, name);
+                    let (type_id, _, cell_dep) = deploy_dev_contract(&mut self.context, name, Some(i));
                     // println!("{:>30}: {}", name, type_id);
                     self.deps.push(cell_dep);
                     self.contracts.insert(name.to_string(), type_id);
                 }
                 Some("deployed_contract") => {
                     let name = item["tmp_file_name"].as_str().unwrap();
-                    let (type_id, _, cell_dep) = deploy_builtin_contract(&mut self.context, name);
+                    let (type_id, _, cell_dep) = deploy_builtin_contract(&mut self.context, name, Some(i));
                     // println!("{:>30}: {}", name, type_id);
                     self.deps.push(cell_dep);
                     self.contracts.insert(name.to_string(), type_id);
                 }
                 Some("shared_lib") => {
                     let name = item["tmp_file_name"].as_str().unwrap();
-                    let (code_hash, _, cell_dep) = deploy_shared_lib(&mut self.context, name);
+                    let (code_hash, _, cell_dep) = deploy_shared_lib(&mut self.context, name, Some(i));
                     // println!("{:>30}: {}", name, type_id);
                     self.deps.push(cell_dep);
                     self.contracts.insert(name.to_string(), code_hash);
@@ -360,11 +338,18 @@ impl TemplateParser {
                     // contract need to be loaded for calculating hash.
                     let (capacity, lock_script, type_script, data) = self
                         .parse_cell(item.clone(), Source::CellDep)
-                        .map_err(|err| {
-                            format!("Field `cell_deps[]` parse failed: {}", err.to_string())
-                        })?;
-                    let out_point =
-                        mock_cell(&mut self.context, capacity, lock_script, type_script, data);
+                        .map_err(|err| format!("Field `cell_deps[]` parse failed: {}", err.to_string()))?;
+                    // Generate static out point for debugging purposes.
+                    let out_point = mock_out_point(i);
+                    mock_cell_with_outpoint(
+                        &mut self.context,
+                        out_point.clone(),
+                        capacity,
+                        lock_script,
+                        type_script,
+                        data,
+                    );
+
                     let cell_dep = CellDep::new_builder().out_point(out_point).build();
                     self.deps.push(cell_dep);
                 }
@@ -379,20 +364,23 @@ impl TemplateParser {
     }
 
     fn parse_inputs(&mut self, inputs: Vec<Value>) -> Result<(), Box<dyn Error>> {
-        for (_i, item) in inputs.into_iter().enumerate() {
+        for (i, item) in inputs.into_iter().enumerate() {
             match item["previous_output"]["tmp_type"].as_str() {
                 Some("full") => {
                     // parse inputs[].previous_output as a mock cell
                     let (capacity, lock_script, type_script, data) = self
                         .parse_cell(item["previous_output"].clone(), Source::Input)
-                        .map_err(|err| {
-                            format!(
-                                "Field `inputs[].previous_output` parse failed: {}",
-                                err.to_string()
-                            )
-                        })?;
-                    let out_point =
-                        mock_cell(&mut self.context, capacity, lock_script, type_script, data);
+                        .map_err(|err| format!("Field `inputs[].previous_output` parse failed: {}", err.to_string()))?;
+                    // Generate static out point for debugging purposes, and it use the space of 1_000_000 to u64::Max.
+                    let out_point = mock_out_point(i + 1_000_000);
+                    mock_cell_with_outpoint(
+                        &mut self.context,
+                        out_point.clone(),
+                        capacity,
+                        lock_script,
+                        type_script,
+                        data,
+                    );
 
                     // parse input.since
                     let since;
@@ -400,10 +388,8 @@ impl TemplateParser {
                         since = item["since"].as_u64();
                     } else {
                         let hex = item["since"].as_str();
-                        since = hex.map(|hex| {
-                            hex_to_u64(hex)
-                                .expect("Field `inputs[].since` is not valid u64 in hex.")
-                        });
+                        since =
+                            hex.map(|hex| hex_to_u64(hex).expect("Field `inputs[].since` is not valid u64 in hex."));
                     }
 
                     // TODO implement context.link_cell_with_block
@@ -427,9 +413,7 @@ impl TemplateParser {
                     // parse inputs[].previous_output as a mock cell
                     let (capacity, lock_script, type_script, data) = self
                         .parse_cell(item.clone(), Source::Output)
-                        .map_err(|err| {
-                            format!("Field `outputs[]` parse failed: {}", err.to_string())
-                        })?;
+                        .map_err(|err| format!("Field `outputs[]` parse failed: {}", err.to_string()))?;
 
                     let cell: CellOutput = CellOutput::new_builder()
                         .capacity(capacity.pack())
@@ -459,13 +443,9 @@ impl TemplateParser {
         // parse capacity of cell
         let capacity: u64;
         if cell["capacity"].is_number() {
-            capacity = cell["capacity"]
-                .as_u64()
-                .ok_or("Field `cell.capacity` is required.")?;
+            capacity = cell["capacity"].as_u64().ok_or("Field `cell.capacity` is required.")?;
         } else {
-            let hex = cell["capacity"]
-                .as_str()
-                .ok_or("Field `cell.capacity` is required.")?;
+            let hex = cell["capacity"].as_str().ok_or("Field `cell.capacity` is required.")?;
             capacity = hex_to_u64(hex).expect("Field `cell.capacity` is not valid u64 in hex.");
         }
 
@@ -491,11 +471,7 @@ impl TemplateParser {
         Ok((capacity, lock_script.unwrap(), type_script, data))
     }
 
-    fn parse_script(
-        &self,
-        script_val: Value,
-        source: Source,
-    ) -> Result<Option<Script>, Box<dyn Error>> {
+    fn parse_script(&self, script_val: Value, source: Source) -> Result<Option<Script>, Box<dyn Error>> {
         if script_val.is_null() {
             return Ok(None);
         }

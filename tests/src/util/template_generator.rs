@@ -14,7 +14,23 @@ use std::{collections::HashMap, convert::TryFrom, env, fs::OpenOptions, io::Writ
 
 pub fn gen_always_success_lock(lock_args: &str) -> Script {
     Script::new_builder()
-        .code_hash(Hash::try_from(ALWAYS_SUCCESS_CODE_HASH.to_vec()).unwrap())
+        .code_hash(Hash::try_from(util::hex_to_bytes(ALWAYS_SUCCESS_TYPE_HASH)).unwrap())
+        .hash_type(Byte::new(1))
+        .args(Bytes::from(util::hex_to_bytes(lock_args)))
+        .build()
+}
+
+pub fn gen_fake_das_lock(lock_args: &str) -> Script {
+    Script::new_builder()
+        .code_hash(Hash::try_from(util::hex_to_bytes(FAKE_DAS_LOCK_TYPE_HASH)).unwrap())
+        .hash_type(Byte::new(1))
+        .args(Bytes::from(util::hex_to_bytes(lock_args)))
+        .build()
+}
+
+pub fn gen_fake_signhash_all_lock(lock_args: &str) -> Script {
+    Script::new_builder()
+        .code_hash(Hash::try_from(util::hex_to_bytes(FAKE_SIGNHASH_ALL_LOCK_TYPE_HASH)).unwrap())
         .hash_type(Byte::new(1))
         .args(Bytes::from(util::hex_to_bytes(lock_args)))
         .build()
@@ -559,7 +575,7 @@ impl TemplateGenerator {
         let cell_data = Bytes::from(raw);
 
         let lock_script = json!({
-            "code_hash": "{{always_success}}",
+            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
             "args": lock_args
         });
         let type_script = json!({
@@ -982,7 +998,7 @@ impl TemplateGenerator {
         // Create config cell.
         let config_id_hex = hex_string(&(config_type as u32).to_le_bytes()).unwrap();
         let lock_script = json!({
-          "code_hash": "{{always_success}}",
+          "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
           "args": CONFIG_LOCK_ARGS
         });
         let type_script = json!({
@@ -1044,8 +1060,10 @@ impl TemplateGenerator {
         let mut entity_builder = PreAccountCellData::new_builder()
             .account(account_chars.to_owned())
             .owner_lock_args(owner_lock_args)
-            .refund_lock(gen_always_success_lock(refund_lock_args))
-            .channel_lock(ScriptOpt::from(gen_always_success_lock(channel_lock_args)))
+            .refund_lock(gen_fake_signhash_all_lock(refund_lock_args))
+            .channel_lock(ScriptOpt::from(gen_fake_signhash_all_lock(
+                channel_lock_args,
+            )))
             .price(price.to_owned())
             .quote(Uint64::from(quote))
             .invited_discount(Uint32::from(invited_discount as u32))
@@ -1055,8 +1073,9 @@ impl TemplateGenerator {
             entity_builder = entity_builder.inviter_lock(ScriptOpt::default());
             entity_builder = entity_builder.inviter_id(Bytes::default());
         } else {
-            entity_builder = entity_builder
-                .inviter_lock(ScriptOpt::from(gen_always_success_lock(inviter_lock_args)));
+            entity_builder = entity_builder.inviter_lock(ScriptOpt::from(
+                gen_fake_signhash_all_lock(inviter_lock_args),
+            ));
             entity_builder = entity_builder.inviter_id(Bytes::from(vec![
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             ]))
@@ -1065,8 +1084,9 @@ impl TemplateGenerator {
         if channel_lock_args.is_empty() {
             entity_builder = entity_builder.channel_lock(ScriptOpt::default());
         } else {
-            entity_builder = entity_builder
-                .channel_lock(ScriptOpt::from(gen_always_success_lock(channel_lock_args)));
+            entity_builder = entity_builder.channel_lock(ScriptOpt::from(
+                gen_fake_signhash_all_lock(channel_lock_args),
+            ));
         }
 
         let entity = entity_builder.build();
@@ -1238,7 +1258,7 @@ impl TemplateGenerator {
         let args = gen_das_lock_args(owner_lock_args, Some(manager_lock_args));
 
         let lock_script = json!({
-          "code_hash": "{{always_success}}",
+          "code_hash": "{{fake-das-lock}}",
           "args": args
         });
         let type_script = json!({
@@ -1259,7 +1279,7 @@ impl TemplateGenerator {
         slices: &Vec<Vec<(&str, ProposalSliceItemType, &str)>>,
     ) -> (Bytes, ProposalCellData) {
         let entity = ProposalCellData::new_builder()
-            .proposer_lock(gen_always_success_lock(proposer_lock_args))
+            .proposer_lock(gen_fake_signhash_all_lock(proposer_lock_args))
             .created_at_height(Uint64::from(created_at_height))
             .slices(gen_slices(slices))
             .build();
@@ -1298,13 +1318,13 @@ impl TemplateGenerator {
         creator: &str,
         records_param: Vec<IncomeRecordParam>,
     ) -> (Bytes, IncomeCellData) {
-        let creator = gen_always_success_lock(creator);
+        let creator = gen_fake_signhash_all_lock(creator);
 
         let mut records = IncomeRecords::new_builder();
         for record_param in records_param.into_iter() {
             records = records.push(
                 IncomeRecord::new_builder()
-                    .belong_to(gen_always_success_lock(record_param.belong_to.as_str()))
+                    .belong_to(gen_fake_signhash_all_lock(record_param.belong_to.as_str()))
                     .capacity(Uint64::from(record_param.capacity))
                     .build(),
             );

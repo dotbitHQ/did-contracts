@@ -8,6 +8,7 @@ fn init(action: &str) -> (TemplateGenerator, u64, u64) {
     let mut template = TemplateGenerator::new(action, None);
 
     template.push_contract_cell("always_success", true);
+    template.push_contract_cell("fake-secp256k1-blake160-signhash-all", true);
     template.push_contract_cell("apply-register-cell-type", false);
 
     let height = 1_000_000u64;
@@ -66,55 +67,47 @@ challenge_with_generator!(
     }
 );
 
-challenge_with_generator!(
-    challenge_apply_register_data_too_small,
-    Error::InvalidCellData,
-    || {
-        let (mut template, _, _) = init("apply_register");
+challenge_with_generator!(challenge_apply_register_data_too_small, Error::InvalidCellData, || {
+    let (mut template, _, _) = init("apply_register");
 
-        // The size of data is less than 48 bytes.
-        let raw_data = [0u8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    // The size of data is less than 48 bytes.
+    let raw_data = [0u8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
-        let cell_data = Bytes::from(raw_data.as_ref());
-        let lock_script = json!({
-            "code_hash": "{{always_success}}",
-            "args": "0x0000000000000000000000000000000000001111"
-        });
-        let type_script = json!({
-            "code_hash": "{{apply-register-cell-type}}"
-        });
-        template.push_cell(0, lock_script, type_script, Some(cell_data), Source::Output);
+    let cell_data = Bytes::from(raw_data.as_ref());
+    let lock_script = json!({
+        "code_hash": "{{always_success}}",
+        "args": "0x0000000000000000000000000000000000001111"
+    });
+    let type_script = json!({
+        "code_hash": "{{apply-register-cell-type}}"
+    });
+    template.push_cell(0, lock_script, type_script, Some(cell_data), Source::Output);
 
-        template.as_json()
-    }
-);
+    template.as_json()
+});
 
-challenge_with_generator!(
-    challenge_apply_register_data_too_big,
-    Error::InvalidCellData,
-    || {
-        let (mut template, _, _) = init("apply_register");
+challenge_with_generator!(challenge_apply_register_data_too_big, Error::InvalidCellData, || {
+    let (mut template, _, _) = init("apply_register");
 
-        // The size of data is less than 48 bytes.
-        let raw_data = [
-            0u8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        ];
+    // The size of data is less than 48 bytes.
+    let raw_data = [
+        0u8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0,
+    ];
 
-        let cell_data = Bytes::from(raw_data.as_ref());
-        let lock_script = json!({
-            "code_hash": "{{always_success}}",
-            "args": "0x0000000000000000000000000000000000001111"
-        });
-        let type_script = json!({
-            "code_hash": "{{apply-register-cell-type}}"
-        });
-        template.push_cell(0, lock_script, type_script, Some(cell_data), Source::Output);
+    let cell_data = Bytes::from(raw_data.as_ref());
+    let lock_script = json!({
+        "code_hash": "{{always_success}}",
+        "args": "0x0000000000000000000000000000000000001111"
+    });
+    let type_script = json!({
+        "code_hash": "{{apply-register-cell-type}}"
+    });
+    template.push_cell(0, lock_script, type_script, Some(cell_data), Source::Output);
 
-        template.as_json()
-    }
-);
+    template.as_json()
+});
 
 challenge_with_generator!(
     challenge_apply_register_height_equal_to_height_cell,

@@ -6,7 +6,6 @@ use ckb_tool::{
     ckb_chain_spec::consensus::TYPE_ID_CODE_HASH,
     ckb_hash::{blake2b_256, new_blake2b},
     ckb_jsonrpc_types as rpc_types,
-    ckb_types::core::Capacity,
     ckb_types::{
         bytes,
         core::{ScriptHashType, TransactionView},
@@ -86,22 +85,31 @@ pub fn account_to_id_hex(account: &str) -> String {
     format!("0x{}", hex_string(account_to_id(account).as_slice()))
 }
 
-pub fn deploy_dev_contract(context: &mut Context, binary_name: &str) -> (Byte32, OutPoint, CellDep) {
+pub fn deploy_dev_contract(
+    context: &mut Context,
+    binary_name: &str,
+    index_opt: Option<usize>,
+) -> (Byte32, OutPoint, CellDep) {
     let contract_bin: bytes::Bytes = Loader::default().load_binary(binary_name);
 
-    deploy_contract(context, binary_name, contract_bin)
+    deploy_contract(context, binary_name, contract_bin, index_opt)
 }
 
-pub fn deploy_builtin_contract(context: &mut Context, binary_name: &str) -> (Byte32, OutPoint, CellDep) {
+pub fn deploy_builtin_contract(
+    context: &mut Context,
+    binary_name: &str,
+    index_opt: Option<usize>,
+) -> (Byte32, OutPoint, CellDep) {
     let contract_bin: bytes::Bytes = Loader::with_deployed_scripts().load_binary(binary_name);
 
-    deploy_contract(context, binary_name, contract_bin)
+    deploy_contract(context, binary_name, contract_bin, index_opt)
 }
 
 fn deploy_contract(
     context: &mut Context,
     binary_name: &str,
     contract_bin: bytes::Bytes,
+    index_opt: Option<usize>,
 ) -> (Byte32, OutPoint, CellDep) {
     let args = binary_name
         .as_bytes()
@@ -117,17 +125,27 @@ fn deploy_contract(
     let type_id = type_.calc_script_hash();
     // Uncomment the line below can print type ID of each script in unit tests.
     // println!("script: {}, type_id: {}", binary_name, type_id);
-    let cell = CellOutput::new_builder()
-        .capacity(Capacity::bytes(contract_bin.len()).unwrap().pack())
-        .type_(ScriptOpt::new_builder().set(Some(type_)).build())
-        .build();
-    let out_point = context.create_cell(cell, contract_bin);
+
+    let out_point = mock_out_point(index_opt.unwrap_or(rand::random::<usize>()));
+    mock_cell_with_outpoint(
+        context,
+        out_point.clone(),
+        contract_bin.len() as u64,
+        Script::default(),
+        Some(type_),
+        Some(contract_bin.to_vec()),
+    );
+
     let cell_dep = CellDep::new_builder().out_point(out_point.clone()).build();
 
     (type_id, out_point, cell_dep)
 }
 
-pub fn deploy_shared_lib(context: &mut Context, binary_name: &str) -> (Byte32, OutPoint, CellDep) {
+pub fn deploy_shared_lib(
+    context: &mut Context,
+    binary_name: &str,
+    index_opt: Option<usize>,
+) -> (Byte32, OutPoint, CellDep) {
     let file: bytes::Bytes = Loader::default().load_binary(binary_name);
 
     let hash = blake2b_256(file.clone());
@@ -137,10 +155,16 @@ pub fn deploy_shared_lib(context: &mut Context, binary_name: &str) -> (Byte32, O
     }
     let code_hash = Byte32::new_builder().set(inner).build();
 
-    let cell = CellOutput::new_builder()
-        .capacity(Capacity::bytes(file.len()).unwrap().pack())
-        .build();
-    let out_point = context.create_cell(cell, file);
+    let out_point = mock_out_point(index_opt.unwrap_or(rand::random::<usize>()));
+    mock_cell_with_outpoint(
+        context,
+        out_point.clone(),
+        file.len() as u64,
+        Script::default(),
+        None,
+        Some(file.to_vec()),
+    );
+
     let cell_dep = CellDep::new_builder().out_point(out_point.clone()).build();
 
     (code_hash, out_point, cell_dep)
@@ -185,32 +209,37 @@ pub fn mock_cell(
     context.create_cell(cell, bytes::Bytes::from(data))
 }
 
+pub fn mock_out_point(index: usize) -> OutPoint {
+    let index_bytes = (index as u64).to_be_bytes().to_vec();
+    let tx_hash_bytes = [
+        vec![0u8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        index_bytes,
+    ]
+    .concat();
+    let tx_hash = Byte32::from_slice(&tx_hash_bytes).expect("The input of Byte32::from_slice is invalid.");
+
+    OutPoint::new_builder().index(0u32.pack()).tx_hash(tx_hash).build()
+}
+
 pub fn mock_cell_with_outpoint(
     context: &mut Context,
     out_point: OutPoint,
     capacity: u64,
     lock_script: Script,
     type_script: Option<Script>,
-    bytes: Option<bytes::Bytes>,
-) -> OutPoint {
-    let data;
-    if bytes.is_some() {
-        data = bytes.unwrap();
-    } else {
-        data = bytes::Bytes::new();
-    }
+    data_opt: Option<Vec<u8>>,
+) {
+    let data = data_opt.unwrap_or_default();
 
     context.create_cell_with_out_point(
-        out_point.clone(),
+        out_point,
         CellOutput::new_builder()
             .capacity(capacity.pack())
             .lock(lock_script)
             .type_(ScriptOpt::new_builder().set(type_script).build())
             .build(),
-        data,
+        bytes::Bytes::from(data),
     );
-
-    out_point
 }
 
 pub fn mock_input(out_point: OutPoint, since: Option<u64>) -> CellInput {
