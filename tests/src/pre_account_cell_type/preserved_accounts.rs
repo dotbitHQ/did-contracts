@@ -37,11 +37,7 @@ test_with_generator!(test_pre_register_preserved_account_with_super_lock, || {
     template.push_config_cell_derived_by_account("microsoft", true, 0, Source::CellDep);
 
     // 0x0000000000000000000000000000000000000000 is the super lock in dev environment.
-    template.push_signall_cell(
-        "0x0000000000000000000000000000000000000000",
-        0,
-        Source::Input,
-    );
+    template.push_signall_cell("0x0000000000000000000000000000000000000000", 0, Source::Input);
 
     let (cell_data, entity) = template.gen_pre_account_cell_data(
         account,
