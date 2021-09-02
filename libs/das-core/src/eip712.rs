@@ -1,17 +1,28 @@
 use super::{
-    constants::{config_cell_type, das_lock, ScriptType},
+    assert,
+    constants::{config_cell_type, das_lock, ScriptType, CKB_HASH_DIGEST, SECP_SIGNATURE_SIZE},
     data_parser, debug,
     error::Error,
     util,
     witness_parser::WitnessesParser,
 };
 use alloc::{
+    collections::BTreeMap,
     format,
     string::{String, ToString},
     vec::Vec,
 };
 use bech32::{self, ToBase32, Variant};
-use ckb_std::{ckb_constants::Source, ckb_types::prelude::Unpack, error::SysError, high_level};
+use ckb_std::{
+    ckb_constants::Source,
+    ckb_types::{
+        packed as ckb_packed,
+        prelude::{Pack, Unpack},
+    },
+    error::SysError,
+    high_level,
+};
+use core::convert::TryInto;
 use core::ops::Range;
 use das_map::{map::Map, util::add};
 use das_types::{packed as das_packed, prelude::*};
@@ -19,34 +30,157 @@ use eip712::{hash_data, typed_data_v4, types::*};
 use serde_json::Value;
 use std::prelude::v1::*;
 
-pub fn gen_eip712_hash_from_tx(
+pub fn verify_eip712_hashes(
     parser: &WitnessesParser,
     action: das_packed::BytesReader,
     params: &[das_packed::BytesReader],
-) -> Result<Vec<u8>, Error> {
-    let digest = "0x4eb68a6707ae16ce24fde8e5964f9f04c5a4abf9884f67b9425a5e1e65968119";
-    let typed_data = tx_to_eip712_typed_data(&parser, action, &params, digest)?;
+) -> Result<(), Error> {
+    let mut typed_data = tx_to_eip712_typed_data(&parser, action, &params)?;
+    let digest_and_hash = tx_to_digest()?;
+    for index in digest_and_hash.keys() {
+        let item = digest_and_hash.get(index).unwrap();
+        let digest = util::hex_string(&item.digest);
+        typed_data.digest(&digest);
+        let expected_hash = hash_data(&typed_data).unwrap();
 
-    let data = hash_data(typed_data).unwrap();
-    debug!("data = {}", util::hex_string(&data));
+        debug!(
+            "Calculated hash of EIP712 typed data with digest.(digest: {}, hash: {})",
+            digest,
+            util::hex_string(&expected_hash)
+        );
 
-    Ok(data)
+        assert!(
+            &item.typed_data_hash == expected_hash.as_slice(),
+            Error::EIP712SignatureError,
+            "Inputs[{}] The hash of EIP712 typed data is mismatched.(current: {}, expected: {})",
+            index,
+            util::hex_string(&item.typed_data_hash),
+            util::hex_string(&expected_hash)
+        );
+    }
+
+    Ok(())
+}
+
+struct DigestAndHash {
+    digest: [u8; 32],
+    typed_data_hash: [u8; 32],
+}
+
+fn tx_to_digest() -> Result<BTreeMap<usize, DigestAndHash>, Error> {
+    let das_lock = das_lock();
+    let das_lock_reader = das_lock.as_reader();
+
+    let mut i = 0;
+    let mut input_groups_idxs: BTreeMap<Vec<u8>, Vec<usize>> = BTreeMap::new();
+    loop {
+        let ret = high_level::load_cell_lock(i, Source::Input);
+        match ret {
+            Ok(lock) => {
+                let lock_reader = lock.as_reader();
+                // Only take care of inputs with das-lock
+                if util::is_script_equal(das_lock_reader, lock_reader) {
+                    let key = lock_reader.args().raw_data().to_vec();
+                    input_groups_idxs.entry(key).or_default().push(i);
+                }
+            }
+            Err(SysError::IndexOutOfBound) => {
+                break;
+            }
+            Err(err) => {
+                return Err(Error::from(err));
+            }
+        }
+
+        i += 1;
+    }
+
+    let input_size = i + 1;
+    let mut ret: BTreeMap<usize, DigestAndHash> = BTreeMap::new();
+    for (_key, input_group_idxs) in input_groups_idxs {
+        let init_witness_idx = input_group_idxs[0];
+        let witness_bytes = util::load_witnesses(init_witness_idx)?;
+        // CAREFUL: This is only works for secp256k1_blake160_sighash_all, cause das-lock does not support secp256k1_blake160_multisig_all currently.
+        let init_witness =
+            ckb_packed::WitnessArgs::from_slice(&witness_bytes).map_err(|_| Error::EIP712DecodingWitnessArgsError)?;
+
+        // Reset witness_args to empty status for calculation of digest.
+        match init_witness.as_reader().lock().to_opt() {
+            Some(lock_of_witness) => {
+                let empty_signature = ckb_packed::BytesOpt::new_builder()
+                    .set(Some(vec![0u8; SECP_SIGNATURE_SIZE + CKB_HASH_DIGEST].pack()))
+                    .build();
+                let empty_witness = ckb_packed::WitnessArgs::new_builder().lock(empty_signature).build();
+                let tx_hash = high_level::load_tx_hash().map_err(|_| Error::ItemMissing)?;
+
+                let mut blake2b = util::new_blake2b();
+                blake2b.update(&tx_hash);
+                blake2b.update(&(empty_witness.as_bytes().len() as u64).to_le_bytes());
+                blake2b.update(&empty_witness.as_bytes());
+                for idx in input_group_idxs.iter().skip(1).cloned() {
+                    let other_witness_bytes = util::load_witnesses(idx)?;
+                    blake2b.update(&(other_witness_bytes.len() as u64).to_le_bytes());
+                    blake2b.update(&other_witness_bytes);
+                }
+                let mut i = input_size;
+                loop {
+                    let ret = util::load_witnesses(i);
+                    match ret {
+                        Ok(outter_witness_bytes) => {
+                            blake2b.update(&(outter_witness_bytes.len() as u64).to_le_bytes());
+                            blake2b.update(&outter_witness_bytes);
+                        }
+                        Err(Error::IndexOutOfBound) => {
+                            break;
+                        }
+                        Err(err) => {
+                            return Err(err);
+                        }
+                    }
+
+                    i += 1;
+                }
+                let mut message = [0u8; 32];
+                blake2b.finalize(&mut message);
+                debug!(
+                    "Generate digest for inputs[{}].(args: {}, result: {})",
+                    init_witness_idx,
+                    util::hex_string(&_key),
+                    util::hex_string(&message)
+                );
+
+                let typed_data_hash =
+                    &lock_of_witness.raw_data()[SECP_SIGNATURE_SIZE..SECP_SIGNATURE_SIZE + CKB_HASH_DIGEST];
+                ret.insert(
+                    init_witness_idx,
+                    DigestAndHash {
+                        digest: message,
+                        typed_data_hash: typed_data_hash.try_into().unwrap(),
+                    },
+                );
+            }
+            None => {
+                return Err(Error::EIP712SignatureError);
+            }
+        }
+    }
+
+    Ok(ret)
 }
 
 pub fn tx_to_eip712_typed_data(
     parser: &WitnessesParser,
     action: das_packed::BytesReader,
     params: &[das_packed::BytesReader],
-    digest: &str,
 ) -> Result<TypedDataV4, Error> {
     let type_id_table = parser.configs.main()?.type_id_table();
-
     let plain_text = tx_to_plaintext(parser, action, params)?;
     let tx_action = to_typed_action(action, params)?;
     let (inputs_capacity, inputs) = to_typed_cells(parser, type_id_table, Source::Input)?;
     let (outputs_capacity, outputs) = to_typed_cells(parser, type_id_table, Source::Output)?;
     let inputs_capacity_str = to_semantic_capacity(inputs_capacity);
     let outputs_capacity_str = to_semantic_capacity(outputs_capacity);
+
     let fee_str = if outputs_capacity <= inputs_capacity {
         to_semantic_capacity(inputs_capacity - outputs_capacity)
     } else {
@@ -98,7 +232,7 @@ pub fn tx_to_eip712_typed_data(
             fee: fee_str,
             inputs: inputs,
             outputs: outputs,
-            digest: digest
+            digest: ""
         }
     });
 
@@ -187,16 +321,13 @@ fn transfer_to_semantic() -> Result<String, Error> {
 }
 
 fn to_semantic_address(lock_reader: das_packed::ScriptReader, range: Range<usize>) -> Result<String, Error> {
-    let das_lock = das_packed::Script::from(das_lock());
-    let das_lock_reader = das_lock.as_reader();
-
     #[cfg(feature = "mainnet")]
     let hrp = "ckb";
     #[cfg(not(feature = "mainnet"))]
     let hrp = "ckt";
 
     let address;
-    if util::is_reader_eq(das_lock_reader.code_hash(), lock_reader.code_hash()) {
+    if util::is_script_equal(das_lock().as_reader(), lock_reader.into()) {
         // If this is a das-lock, convert it to address base on args.
         let args_in_bytes = lock_reader.args().raw_data();
         match args_in_bytes[0] {
@@ -282,6 +413,7 @@ fn to_typed_cells(
 
                 // Skip normal cells which has no type script and data
                 if type_opt.is_none() && data_in_bytes.len() <= 0 {
+                    i += 1;
                     continue;
                 }
 

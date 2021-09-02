@@ -48,6 +48,8 @@ pub const ACCOUNT_MAX_PRICED_LENGTH: u8 = 8;
 
 pub const CUSTOM_KEYS_NAMESPACE: &[u8] = b"0123456789abcdefghijklmnopqrstuvwxyz_";
 
+pub const SECP_SIGNATURE_SIZE: usize = 65;
+
 pub fn super_lock() -> Script {
     #[cfg(feature = "dev")]
     let super_lock = ScriptLiteral {

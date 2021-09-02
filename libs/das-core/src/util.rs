@@ -2,7 +2,7 @@ use super::{
     assert, constants::*, debug, error::Error, types::ScriptLiteral, warn,
     witness_parser::WitnessesParser,
 };
-use blake2b_ref::Blake2bBuilder;
+use blake2b_ref::{Blake2b, Blake2bBuilder};
 use ckb_std::{
     ckb_constants::{CellField, Source},
     ckb_types::{bytes, packed::*, prelude::*},
@@ -63,6 +63,11 @@ pub fn script_literal_to_script(script: ScriptLiteral) -> Script {
 
 pub fn is_unpacked_bytes_eq(a: &bytes::Bytes, b: &bytes::Bytes) -> bool {
     **a == **b
+}
+
+pub fn is_script_equal(script_a: ScriptReader, script_b: ScriptReader) -> bool {
+    // CAREFUL: It is critical that must ensure both code_hash and hash_type are the same to identify the same script.
+    is_reader_eq(script_a.code_hash(), script_b.code_hash()) && script_a.hash_type() == script_b.hash_type()
 }
 
 pub fn find_cells_by_type_id(
@@ -323,6 +328,23 @@ pub fn trim_empty_bytes(buf: &[u8]) -> &[u8] {
     }
 }
 
+pub fn load_witnesses(index: usize) -> Result<Vec<u8>, Error> {
+    let mut buf = [];
+    let ret = syscalls::load_witness(&mut buf, 0, index, Source::Input);
+
+    match ret {
+        // Data which length is too short to be DAS witnesses, so ignore it.
+        Ok(_) => Ok(buf.to_vec()),
+        Err(SysError::LengthNotEnough(actual_size)) => {
+            // debug!("Load witnesses[{}]: size: {} Bytes", index, actual_size);
+            let mut buf = vec![0u8; actual_size];
+            syscalls::load_witness(&mut buf, 0, index, Source::Input).map_err(|e| Error::from(e))?;
+            Ok(buf)
+        }
+        Err(e) => Err(Error::from(e)),
+    }
+}
+
 pub fn load_das_witnesses(index: usize, data_type: DataType) -> Result<Vec<u8>, Error> {
     let mut buf = [0u8; 7];
     let ret = syscalls::load_witness(&mut buf, 0, index, Source::Input);
@@ -360,7 +382,10 @@ pub fn load_das_witnesses(index: usize, data_type: DataType) -> Result<Vec<u8>, 
             );
 
             if actual_size > 32000 {
-                warn!("The witnesses[{}] should be less than 32KB because the signall lock do not support more than that.", index);
+                warn!(
+                    "The witnesses[{}] should be less than 32KB because the signall lock do not support more than that.",
+                    index
+                );
                 Err(Error::from(SysError::LengthNotEnough(actual_size)))
             } else {
                 let mut buf = vec![0u8; actual_size];
@@ -374,6 +399,12 @@ pub fn load_das_witnesses(index: usize, data_type: DataType) -> Result<Vec<u8>, 
             Err(Error::from(e))
         }
     }
+}
+
+pub fn new_blake2b() -> Blake2b {
+    Blake2bBuilder::new(CKB_HASH_DIGEST)
+        .personal(CKB_HASH_PERSONALIZATION)
+        .build()
 }
 
 pub fn blake2b_256(s: &[u8]) -> [u8; 32] {

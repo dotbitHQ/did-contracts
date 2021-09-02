@@ -26,6 +26,10 @@ impl TypedDataV4 {
             message,
         }
     }
+
+    pub fn digest(&mut self, digest: &str) {
+        self.message.insert(String::from("digest"), Value::from(digest));
+    }
 }
 
 impl fmt::Display for TypedDataV4 {

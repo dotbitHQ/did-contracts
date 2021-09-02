@@ -8,10 +8,10 @@ use super::util::*;
 
 pub fn hash_json(json: &str) -> Result<Vec<u8>, EIP712EncodingError> {
     let data: TypedDataV4 = serde_json::from_str(json).unwrap();
-    hash_data(data)
+    hash_data(&data)
 }
 
-pub fn hash_data(typed_data: TypedDataV4) -> Result<Vec<u8>, EIP712EncodingError> {
+pub fn hash_data(typed_data: &TypedDataV4) -> Result<Vec<u8>, EIP712EncodingError> {
     // The first part of EIP712 hash which is a constant `0x1901`.
     let part1 = vec![25u8, 1];
     let part2 = hash_message(&typed_data.types, "EIP712Domain", &typed_data.domain)?;
@@ -29,7 +29,10 @@ pub fn hash_data(typed_data: TypedDataV4) -> Result<Vec<u8>, EIP712EncodingError
     Ok(keccak256(&bytes))
 }
 
-pub fn hash_type(domain_types: &Map<String, Value>, primary_type: &str) -> Result<(&'static str, Vec<u8>), EIP712EncodingError> {
+pub fn hash_type(
+    domain_types: &Map<String, Value>,
+    primary_type: &str,
+) -> Result<(&'static str, Vec<u8>), EIP712EncodingError> {
     let types_string = encode_type(domain_types, primary_type)?;
     Ok(("bytes32", keccak256(types_string.as_bytes())))
 }
@@ -52,8 +55,12 @@ pub fn encode_type(domain_types: &Map<String, Value>, primary_type: &str) -> Res
         let fields_str = fields
             .iter()
             .map(|field| -> Result<String, EIP712EncodingError> {
-                let name = field["name"].as_str().ok_or(EIP712EncodingError::FailedWhenEncodingTypes)?;
-                let type_ = field["type"].as_str().ok_or(EIP712EncodingError::FailedWhenEncodingTypes)?;
+                let name = field["name"]
+                    .as_str()
+                    .ok_or(EIP712EncodingError::FailedWhenEncodingTypes)?;
+                let type_ = field["type"]
+                    .as_str()
+                    .ok_or(EIP712EncodingError::FailedWhenEncodingTypes)?;
                 return Ok(format!("{} {}", type_, name));
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -81,7 +88,11 @@ fn find_type_dependencies(
     let types_vec = types.as_array().ok_or(EIP712EncodingError::FailedWhenEncodingTypes)?;
 
     for field in types_vec {
-        let sub_type = parse_type(field["type"].as_str().ok_or(EIP712EncodingError::FailedWhenEncodingTypes)?);
+        let sub_type = parse_type(
+            field["type"]
+                .as_str()
+                .ok_or(EIP712EncodingError::FailedWhenEncodingTypes)?,
+        );
         let sub_type_string = String::from(sub_type);
 
         if !results.contains(&sub_type_string) && domain_types.contains_key(sub_type) {
@@ -118,9 +129,15 @@ pub fn encode_message(
         .ok_or(EIP712EncodingError::FailedWhenEncodingMessage)?;
 
     for field in fields {
-        let name = field["name"].as_str().ok_or(EIP712EncodingError::FailedWhenEncodingMessage)?;
-        let type_ = field["type"].as_str().ok_or(EIP712EncodingError::FailedWhenEncodingMessage)?;
-        let value = message.get(name).ok_or(EIP712EncodingError::FailedWhenEncodingMessage)?;
+        let name = field["name"]
+            .as_str()
+            .ok_or(EIP712EncodingError::FailedWhenEncodingMessage)?;
+        let type_ = field["type"]
+            .as_str()
+            .ok_or(EIP712EncodingError::FailedWhenEncodingMessage)?;
+        let value = message
+            .get(name)
+            .ok_or(EIP712EncodingError::FailedWhenEncodingMessage)?;
         let (encoded_type, encoded_data) = encode_field(domain_types, name, type_, value)?;
         // if primary_type == "Transaction" {
         //     println!(
@@ -164,7 +181,11 @@ fn encode_field(
     } else if type_.ends_with("[]") {
         let mut sub_types = Vec::new();
         let mut sub_values = Vec::new();
-        for item in value.as_array().ok_or(EIP712EncodingError::TypeOfValueIsInvalid)?.iter() {
+        for item in value
+            .as_array()
+            .ok_or(EIP712EncodingError::TypeOfValueIsInvalid)?
+            .iter()
+        {
             let (sub_type, sub_bytes) = encode_field(domain_types, name, parse_type(type_), item)?;
             sub_types.push(sub_type);
             sub_values.push(sub_bytes);
@@ -387,7 +408,7 @@ mod test {
         let typed_data = gen_typed_data_v4();
 
         let expected = "1c5494d55a3dc7ef66a9cac5234dca6423230170c6d32483b6a05fc79dafa6ba";
-        let data = hash_data(typed_data).unwrap();
+        let data = hash_data(&typed_data).unwrap();
 
         assert_eq!(hex::encode(data).as_str(), expected);
     }

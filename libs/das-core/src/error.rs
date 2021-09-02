@@ -39,6 +39,8 @@ pub enum Error {
     AccountIsUnAvailable,
     EIP712SerializationError,
     EIP712SematicError,
+    EIP712DecodingWitnessArgsError,
+    EIP712SignatureError,
     WitnessStructureError = 40,
     WitnessEmpty,
     WitnessDataTypeDecodingError,
