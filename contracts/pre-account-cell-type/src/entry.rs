@@ -612,29 +612,27 @@ fn verify_unavailable_accounts(
     let account = pre_account_reader.account().as_readable();
     let account_hash = util::blake2b_256(account.as_slice());
 
-    let first_20_bytes = account_hash.get(..ACCOUNT_ID_LENGTH).unwrap();
+    let account_hash_first_20_bytes = account_hash.get(..ACCOUNT_ID_LENGTH).unwrap();
     let unavailable_accounts = parser.configs.unavailable_account()?;
 
-    // debug!("--------------account {:?}", account);
-    // debug!("--------------account_hash {:?}", account_hash);
-    // debug!("--------------unavailable_accounts {:?}", unavailable_accounts);
-    // debug!("--------------first_20_bytes {:?}", first_20_bytes);
     // todo: maybe a naive traverse is much faster and use less cycles
     if unavailable_accounts.len() > 0 {
         let accounts_total = unavailable_accounts.len() / ACCOUNT_ID_LENGTH;
-        let mut start_account = 0;
-        let mut end_account = accounts_total - 1;
+        let mut start_account_index = 0;
+        let mut end_account_index = accounts_total - 1;
 
         loop {
-            let nth_account = (end_account - start_account) / 2 + start_account;
-            let start_index = nth_account * ACCOUNT_ID_LENGTH;
-            let end_index = (nth_account + 1) * ACCOUNT_ID_LENGTH;
-            let bytes_of_nth_account = unavailable_accounts.get(start_index..end_index).unwrap();
+            let mid_account_index = (start_account_index + end_account_index) / 2;
+            let mid_account_start_byte_index = mid_account_index * ACCOUNT_ID_LENGTH;
+            let mid_account_end_byte_index = (mid_account_index + 1) * ACCOUNT_ID_LENGTH;
+            let mid_account_bytes = unavailable_accounts
+                .get(mid_account_start_byte_index..mid_account_end_byte_index)
+                .unwrap();
 
-            if bytes_of_nth_account < first_20_bytes {
-                start_account = nth_account;
-            } else if bytes_of_nth_account > first_20_bytes {
-                end_account = nth_account;
+            if mid_account_bytes < account_hash_first_20_bytes {
+                start_account_index = mid_account_index + 1;
+            } else if mid_account_bytes > account_hash_first_20_bytes {
+                end_account_index = mid_account_index - 1;
             } else {
                 warn!(
                     "Account 0x{} is unavailable. (hash: 0x{})",
@@ -643,8 +641,7 @@ fn verify_unavailable_accounts(
                 );
                 return Err(Error::AccountIsUnAvailable);
             }
-
-            if end_account - start_account <= 1 {
+            if start_account_index > end_account_index {
                 break;
             }
         }

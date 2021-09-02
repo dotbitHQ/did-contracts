@@ -24,7 +24,7 @@ challenge_with_generator!(
         template.push_pre_account_cell(
             cell_data,
             Some((1, 0, entity)),
-            util::gen_register_fee(9, true),
+            util::gen_register_fee("thiscantr".len(), true),
             Source::Output,
         );
 
