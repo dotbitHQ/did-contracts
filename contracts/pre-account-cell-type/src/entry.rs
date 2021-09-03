@@ -511,7 +511,7 @@ fn verify_preserved_accounts(
         let mut end_account = accounts_total - 1;
 
         loop {
-            let nth_account = (end_account - start_account) / 2 + start_account;
+            let nth_account = (start_account + end_account) / 2;
             // debug!(
             //     "nth_account({:?}) = (end_account({:?}) - start_account({:?})) / 2 + start_account({:?}))",
             //     nth_account, end_account, start_account, start_account
@@ -523,10 +523,10 @@ fn verify_preserved_accounts(
             // debug!("bytes_of_nth_account: {:?}", bytes_of_nth_account);
             if bytes_of_nth_account < first_20_bytes {
                 // debug!("<");
-                start_account = nth_account;
+                start_account = nth_account + 1;
             } else if bytes_of_nth_account > first_20_bytes {
                 // debug!(">");
-                end_account = nth_account;
+                end_account = nth_account - 1;
             } else {
                 warn!(
                     "Account 0x{} is preserved. (hash: 0x{})",
@@ -536,7 +536,7 @@ fn verify_preserved_accounts(
                 return Err(Error::AccountIsPreserved);
             }
 
-            if end_account - start_account <= 1 {
+            if start_account > end_account {
                 break;
             }
         }
