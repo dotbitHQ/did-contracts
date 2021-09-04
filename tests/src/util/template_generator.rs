@@ -37,15 +37,27 @@ pub fn gen_fake_signhash_all_lock(lock_args: &str) -> Script {
 }
 
 pub fn gen_das_lock_args(owner_pubkey_hash: &str, manager_pubkey_hash_opt: Option<&str>) -> String {
-    if let Some(manager_pubkey_hash) = manager_pubkey_hash_opt {
-        format!(
-            "0x00{}00{}",
-            owner_pubkey_hash.trim_start_matches("0x"),
-            manager_pubkey_hash.trim_start_matches("0x")
-        )
+    // TODO Unify format of args into one type.
+
+    let owner_args;
+    if owner_pubkey_hash.len() == 42 {
+        owner_args = format!("00{}", owner_pubkey_hash.trim_start_matches("0x"));
     } else {
-        format!("0x00{}", owner_pubkey_hash.trim_start_matches("0x"),)
+        owner_args = String::from(owner_pubkey_hash.trim_start_matches("0x"));
     }
+
+    let manager_args;
+    if let Some(manager_pubkey_hash) = manager_pubkey_hash_opt {
+        if manager_pubkey_hash.len() == 42 {
+            manager_args = format!("00{}", manager_pubkey_hash.trim_start_matches("0x"));
+        } else {
+            manager_args = String::from(manager_pubkey_hash.trim_start_matches("0x"));
+        }
+    } else {
+        manager_args = owner_args.clone();
+    }
+
+    format!("0x{}{}", owner_args, manager_args)
 }
 
 fn gen_price_config(length: u8, new_price: u64, renew_price: u64) -> PriceConfig {
@@ -1073,9 +1085,7 @@ impl TemplateGenerator {
         };
 
         let price = self.prices.get(&account_length).unwrap();
-        let mut tmp = util::hex_to_bytes(&gen_das_lock_args(owner_lock_args, None));
-        tmp.append(&mut tmp.clone());
-        let owner_lock_args = Bytes::from(tmp);
+        let owner_lock_args = Bytes::from(util::hex_to_bytes(&gen_das_lock_args(owner_lock_args, None)));
         let mut entity_builder = PreAccountCellData::new_builder()
             .account(account_chars.to_owned())
             .owner_lock_args(owner_lock_args)

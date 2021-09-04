@@ -84,6 +84,47 @@ fn gen_account_transfer() {
 
 test_with_template!(test_account_transfer, "account_transfer.json");
 
+test_with_generator!(test_account_transfer_with_eip712, || {
+    let (mut template, timestamp) = init("transfer_account", Some("0x00"));
+
+    let account = "das00001.bit";
+    let next_account = "das00014.bit";
+    let registered_at = timestamp - 86400;
+    let expired_at = timestamp + 31536000 - 86400;
+
+    let (cell_data, old_entity) =
+        template.gen_account_cell_data(account, next_account, registered_at, expired_at, 0, 0, 0, None);
+    template.push_account_cell::<AccountCellData>(
+        "0x051100000000000000000000000000000000001111",
+        "0x052200000000000000000000000000000000002222",
+        cell_data,
+        None,
+        1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
+        Source::Input,
+    );
+    template.push_das_lock_witness("729b4adbbd3913b445c76a08b3d3da181607ee76d071e98b34deff1219ec16d7");
+
+    let (cell_data, new_entity) =
+        template.gen_account_cell_data(account, next_account, registered_at, expired_at, timestamp, 0, 0, None);
+    template.push_account_cell::<AccountCellData>(
+        "0x050000000000000000000000000000000000002222",
+        "0x050000000000000000000000000000000000002222",
+        cell_data,
+        None,
+        1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY - ACCOUNT_OPERATE_FEE,
+        Source::Output,
+    );
+
+    template.push_witness::<AccountCellData, AccountCellData, AccountCellData>(
+        DataType::AccountCellData,
+        Some((2, 0, new_entity)),
+        Some((2, 0, old_entity)),
+        None,
+    );
+
+    template.as_json()
+});
+
 challenge_with_generator!(
     challenge_account_transfer_account_multiple_cells,
     Error::InvalidTransactionStructure,
@@ -293,6 +334,47 @@ fn gen_account_edit_manager() {
 
 test_with_template!(test_account_edit_manager, "account_edit_manager.json");
 
+test_with_generator!(test_account_edit_manager_with_eip712, || {
+    let (mut template, timestamp) = init("edit_manager", Some("0x00"));
+
+    let account = "das00001.bit";
+    let next_account = "das00014.bit";
+    let registered_at = timestamp - 86400;
+    let expired_at = timestamp + 31536000 - 86400;
+
+    let (cell_data, old_entity) =
+        template.gen_account_cell_data(account, next_account, registered_at, expired_at, 0, 0, 0, None);
+    template.push_account_cell::<AccountCellData>(
+        "0x050000000000000000000000000000000000001111",
+        "0x050000000000000000000000000000000000002222",
+        cell_data,
+        None,
+        1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
+        Source::Input,
+    );
+    template.push_das_lock_witness("0x607202fa4c48986d39c4e24c7a1b8a9531532c1017857124f8f5ea52ff35ef8d");
+
+    let (cell_data, new_entity) =
+        template.gen_account_cell_data(account, next_account, registered_at, expired_at, 0, timestamp, 0, None);
+    template.push_account_cell::<AccountCellData>(
+        "0x050000000000000000000000000000000000001111",
+        "0x050000000000000000000000000000000000003333",
+        cell_data,
+        None,
+        1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
+        Source::Output,
+    );
+
+    template.push_witness::<AccountCellData, AccountCellData, AccountCellData>(
+        DataType::AccountCellData,
+        Some((2, 0, new_entity)),
+        Some((2, 0, old_entity)),
+        None,
+    );
+
+    template.as_json()
+});
+
 challenge_with_generator!(
     challenge_account_edit_manager_multiple_cells,
     Error::InvalidTransactionStructure,
@@ -450,6 +532,65 @@ fn gen_account_edit_records() {
 }
 
 test_with_template!(test_account_edit_records, "account_edit_records.json");
+
+test_with_generator!(test_account_edit_records_with_eip712, || {
+    let (mut template, timestamp) = init("edit_records", Some("0x01"));
+
+    template.push_config_cell(DataType::ConfigCellRecordKeyNamespace, true, 0, Source::CellDep);
+
+    let account = "das00001.bit";
+    let next_account = "das00014.bit";
+    let registered_at = timestamp - 86400;
+    let expired_at = timestamp + 31536000 - 86400;
+
+    // inputs
+    let (cell_data, old_entity) =
+        template.gen_account_cell_data(account, next_account, registered_at, expired_at, 0, 0, 0, None);
+    template.push_account_cell::<AccountCellData>(
+        "0x050000000000000000000000000000000000001111",
+        "0x050000000000000000000000000000000000002222",
+        cell_data,
+        None,
+        1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
+        Source::Input,
+    );
+    template.push_das_lock_witness("0xd4e8c5794d1726b6a7adc96381adb816abbc669fc6d59dc38b82825a25d5fe64");
+
+    // outputs
+    let records = vec![AccountRecordParam {
+        type_: "address",
+        key: "eth",
+        label: "Personal",
+        value: hex_to_bytes("0x00000000000000000000"),
+    }];
+    let (cell_data, new_entity) = template.gen_account_cell_data(
+        account,
+        next_account,
+        registered_at,
+        expired_at,
+        0,
+        0,
+        timestamp,
+        Some(gen_account_records(records)),
+    );
+    template.push_account_cell::<AccountCellData>(
+        "0x050000000000000000000000000000000000001111",
+        "0x050000000000000000000000000000000000002222",
+        cell_data,
+        None,
+        1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
+        Source::Output,
+    );
+
+    template.push_witness::<AccountCellData, AccountCellData, AccountCellData>(
+        DataType::AccountCellData,
+        Some((2, 0, new_entity)),
+        Some((2, 0, old_entity)),
+        None,
+    );
+
+    template.as_json()
+});
 
 challenge_with_generator!(
     challenge_account_edit_records_multiple_cells,
@@ -702,6 +843,7 @@ fn gen_account_renew() {
     let registered_at = timestamp - 86400;
     let expired_at = timestamp + 31536000 - 86400;
 
+    // inputs
     let (cell_data, old_entity) =
         template.gen_account_cell_data(account, next_account, registered_at, expired_at, 0, 0, 0, None);
     template.push_account_cell::<AccountCellData>(
@@ -712,6 +854,16 @@ fn gen_account_renew() {
         20_000_000_000,
         Source::Input,
     );
+
+    let income_records = vec![IncomeRecordParam {
+        belong_to: "0x0000000000000000000000000000000000000000".to_string(),
+        capacity: 20_000_000_000,
+    }];
+    let (cell_data, entity) =
+        template.gen_income_cell_data("0x0000000000000000000000000000000000000000", income_records);
+    template.push_income_cell(cell_data, Some((1, 1, entity)), 20_000_000_000, Source::Input);
+
+    // outputs
     let (cell_data, new_entity) = template.gen_account_cell_data(
         account,
         next_account,
@@ -737,14 +889,6 @@ fn gen_account_renew() {
         None,
     );
 
-    let income_records = vec![IncomeRecordParam {
-        belong_to: "0x0000000000000000000000000000000000000000".to_string(),
-        capacity: 20_000_000_000,
-    }];
-    let (cell_data, entity) =
-        template.gen_income_cell_data("0x0000000000000000000000000000000000000000", income_records);
-    template.push_income_cell(cell_data, Some((1, 1, entity)), 20_000_000_000, Source::Input);
-
     let income_records = vec![
         IncomeRecordParam {
             belong_to: "0x0000000000000000000000000000000000000000".to_string(),
@@ -753,17 +897,17 @@ fn gen_account_renew() {
         // Profit to DAS
         IncomeRecordParam {
             belong_to: "0x0300000000000000000000000000000000000000".to_string(),
-            capacity: 50_000_000_000,
+            capacity: 500_000_000_000,
         },
     ];
     let (cell_data, entity) =
         template.gen_income_cell_data("0x0000000000000000000000000000000000000000", income_records);
-    template.push_income_cell(cell_data, Some((1, 1, entity)), 70_000_000_000, Source::Output);
+    template.push_income_cell(cell_data, Some((1, 1, entity)), 520_000_000_000, Source::Output);
 
     template.write_template("account_renew_account.json");
 }
 
-// test_with_template!(test_account_renew, "account_renew_account.json");
+test_with_template!(test_account_renew, "account_renew_account.json");
 
 #[test]
 fn gen_account_recycle_expired_account_by_keeper() {

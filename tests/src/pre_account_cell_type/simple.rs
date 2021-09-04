@@ -167,9 +167,7 @@ challenge_with_generator!(
         let account_chars_raw = "1234567890".chars().map(|c| c.to_string()).collect::<Vec<String>>();
         let account_chars = gen_account_chars(account_chars_raw);
         let price = template.get_price(account_chars.len());
-        let mut tmp = util::hex_to_bytes(&gen_das_lock_args(owner_lock_args, None));
-        tmp.append(&mut tmp.clone());
-        let owner_lock_args = Bytes::from(tmp);
+        let owner_lock_args = Bytes::from(util::hex_to_bytes(&gen_das_lock_args(owner_lock_args, None)));
 
         let entity = PreAccountCellData::new_builder()
             .account(account_chars.to_owned())
@@ -395,9 +393,7 @@ challenge_with_generator!(
         let account_chars_raw = "1234567890".chars().map(|c| c.to_string()).collect::<Vec<String>>();
         let account_chars = gen_account_chars(account_chars_raw);
         let price = template.get_price(4);
-        let mut tmp = util::hex_to_bytes(&gen_das_lock_args(owner_lock_args, None));
-        tmp.append(&mut tmp.clone());
-        let owner_lock_args = Bytes::from(tmp);
+        let owner_lock_args = Bytes::from(util::hex_to_bytes(&gen_das_lock_args(owner_lock_args, None)));
 
         let entity = PreAccountCellData::new_builder()
             .account(account_chars.to_owned())

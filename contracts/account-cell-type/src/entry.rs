@@ -4,6 +4,7 @@ use das_core::{
     assert,
     constants::{das_lock, das_wallet_lock, OracleCellType, ScriptType, TypeScript, CUSTOM_KEYS_NAMESPACE},
     data_parser, debug,
+    eip712::verify_eip712_hashes,
     error::Error,
     parse_account_cell_witness, parse_witness, util, warn,
     witness_parser::WitnessesParser,
@@ -19,9 +20,12 @@ pub fn main() -> Result<(), Error> {
 
     let mut parser = WitnessesParser::new()?;
 
-    let action_data = parser.parse_action()?;
-    let action = action_data.as_reader().action().raw_data();
-    let params = action_data.as_reader().params().raw_data();
+    let (action_raw, params_raw) = parser.parse_action_with_params()?;
+    let action = action_raw.as_reader().raw_data();
+    let params = params_raw
+        .iter()
+        .map(|param| param.as_reader())
+        .collect::<Vec<_>>();
     if action == b"init_account_chain" {
         debug!("Route to init_account_chain action ...");
 
@@ -68,8 +72,10 @@ pub fn main() -> Result<(), Error> {
         util::is_system_off(&mut parser)?;
         let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
-        parser.parse_config(&[DataType::ConfigCellAccount])?;
+        parser.parse_config(&[DataType::ConfigCellMain, DataType::ConfigCellAccount])?;
         parser.parse_cell()?;
+
+        verify_eip712_hashes(&parser, action_raw.as_reader(), &params)?;
 
         let (input_account_cells, output_account_cells) = load_account_cells()?;
         assert!(
@@ -109,7 +115,7 @@ pub fn main() -> Result<(), Error> {
 
             let config_account = parser.configs.account()?;
 
-            verify_unlock_role(params, LockRole::Owner)?;
+            verify_unlock_role(params_raw[0].as_reader(), LockRole::Owner)?;
             verify_transaction_fee_spent_correctly(
                 action,
                 config_account,
@@ -138,7 +144,7 @@ pub fn main() -> Result<(), Error> {
 
             let config_account = parser.configs.account()?;
 
-            verify_unlock_role(params, LockRole::Owner)?;
+            verify_unlock_role(params_raw[0].as_reader(), LockRole::Owner)?;
             verify_transaction_fee_spent_correctly(
                 action,
                 config_account,
@@ -169,7 +175,7 @@ pub fn main() -> Result<(), Error> {
             let config_account = parser.configs.account()?;
             let record_key_namespace = parser.configs.record_key_namespace()?;
 
-            verify_unlock_role(params, LockRole::Manager)?;
+            verify_unlock_role(params_raw[0].as_reader(), LockRole::Manager)?;
             verify_transaction_fee_spent_correctly(
                 action,
                 config_account,
@@ -441,6 +447,7 @@ pub fn main() -> Result<(), Error> {
         );
     } else {
         debug!("Route to other action ...");
+        // TODO Stop unknown transaction occupy AccountCells.
 
         let this_type_script = high_level::load_script().map_err(|e| Error::from(e))?;
         let (input_cells, output_cells) =
@@ -466,11 +473,11 @@ fn load_account_cells() -> Result<(Vec<usize>, Vec<usize>), Error> {
     Ok((input_account_cells, output_account_cells))
 }
 
-fn verify_unlock_role(params: &[u8], lock: LockRole) -> Result<(), Error> {
+fn verify_unlock_role(params: BytesReader, lock: LockRole) -> Result<(), Error> {
     debug!("Check if transaction is unlocked by {:?}.", lock);
 
     assert!(
-        params.len() > 0 && params[0] == lock as u8,
+        params.len() > 0 && params.raw_data()[0] == lock as u8,
         Error::AccountCellPermissionDenied,
         "This transaction should be unlocked by the {:?}'s signature.",
         lock
@@ -590,7 +597,7 @@ fn verify_action_throttle<'a>(
                 current_timestamp,
                 current
             );
-        }}
+        }};
     }
 
     let output_witness_reader = output_witness_reader
@@ -698,7 +705,7 @@ fn verify_account_lock_consistent(
                 data_parser::das_lock_args::get_manager_lock_args(output_args)
                     == data_parser::das_lock_args::get_owner_lock_args(output_args),
                 Error::AccountCellManagerLockShouldBeModified,
-                "The manager lock args in AccountCell.lock should be different in input and output."
+                "The manager lock args in AccountCell.lock should be the same as owner lock args in output."
             );
         } else {
             assert!(
