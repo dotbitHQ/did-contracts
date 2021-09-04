@@ -12,4 +12,3 @@ pub mod types;
 pub mod util;
 
 pub use crate::eip712::hash_data;
-pub use crate::eip712::hash_json;

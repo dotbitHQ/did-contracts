@@ -6,11 +6,6 @@ use super::error::*;
 use super::types::*;
 use super::util::*;
 
-pub fn hash_json(json: &str) -> Result<Vec<u8>, EIP712EncodingError> {
-    let data: TypedDataV4 = serde_json::from_str(json).unwrap();
-    hash_data(&data)
-}
-
 pub fn hash_data(typed_data: &TypedDataV4) -> Result<Vec<u8>, EIP712EncodingError> {
     // The first part of EIP712 hash which is a constant `0x1901`.
     let part1 = vec![25u8, 1];
@@ -338,69 +333,6 @@ mod test {
         });
 
         data
-    }
-
-    #[test]
-    fn test_hash_json() {
-        let json = r#"{
-          "types": {
-            "EIP712Domain": [
-              { "name": "name", "type": "string" },
-              { "name": "version", "type": "string" },
-              { "name": "chainId", "type": "uint256" },
-              { "name": "verifyingContract", "type": "address" }
-            ],
-            "Action": [
-              { "name": "action", "type": "string" },
-              { "name": "params", "type": "string" }
-            ],
-            "Cell": [
-              { "name": "capacity", "type": "string" },
-              { "name": "lock", "type": "string" },
-              { "name": "type", "type": "string" },
-              { "name": "data", "type": "string" },
-              { "name": "extraData", "type": "string" }
-            ],
-            "Transaction": [
-              { "name": "plainText", "type": "string" },
-              { "name": "inputsCapacity", "type": "string" },
-              { "name": "outputsCapacity", "type": "string" },
-              { "name": "fee", "type": "string" },
-              { "name": "action", "type": "Action" },
-              { "name": "inputs", "type": "Cell[]" },
-              { "name": "outputs", "type": "Cell[]" },
-              { "name": "digest", "type": "bytes32" }
-            ]
-          },
-          "primaryType": "Transaction",
-          "domain": {
-            "chainId": 1,
-            "name": "da.systems",
-            "verifyingContract": "0xb3dc32341ee4bae03c85cd663311de0b1b122955",
-            "version": "1"
-          },
-          "message": {
-            "plainText": "Transfer account test.bit from A to B.",
-            "inputsCapacity": "999.99 CKB",
-            "outputsCapacity": "999.99 CKB",
-            "fee": "0.0001 CKB",
-            "action": { "action": "transfer_account", "params": "0x01,0x00" },
-            "inputs": [
-              { "capacity": "999.99 CKB", "lock": "0x123456,0x01,0x123456", "type": "0x123456,0x01,0x123456", "data": "account: test.bit", "extraData": "" },
-              { "capacity": "999.99 CKB", "lock": "0x123456,0x01,0x123456", "type": "0x123456,0x01,0x123456", "data": "", "extraData": "" }
-            ],
-            "outputs": [
-              { "capacity": "999.99 CKB", "lock": "0x123456,0x01,0x123456", "type": "0x123456,0x01,0x123456", "data": "account: test.bit", "extraData": "" },
-              { "capacity": "999.99 CKB", "lock": "0x123456,0x01,0x123456", "type": "0x123456,0x01,0x123456", "data": "", "extraData": "" }
-            ],
-            "digest": "0x4eb68a6707ae16ce24fde8e5964f9f04c5a4abf9884f67b9425a5e1e65968119"
-          }
-        }"#;
-
-        let expected = "1c5494d55a3dc7ef66a9cac5234dca6423230170c6d32483b6a05fc79dafa6ba";
-        let data = hash_json(json).unwrap();
-
-        assert_eq!(hex::encode(data).as_str(), expected);
     }
 
     #[test]

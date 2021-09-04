@@ -1,10 +1,8 @@
 use core::fmt;
-use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::prelude::v1::*;
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug)]
 pub struct TypedDataV4 {
     pub types: Map<String, Value>,
     pub primary_type: String,
@@ -32,6 +30,7 @@ impl TypedDataV4 {
     }
 }
 
+#[cfg(debug_assertions)]
 impl fmt::Display for TypedDataV4 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
@@ -47,8 +46,7 @@ impl fmt::Display for TypedDataV4 {
 
 pub type DomainType = Vec<DomainTypeField>;
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug)]
 pub struct DomainTypeField {
     pub name: String,
     pub type_: String,
