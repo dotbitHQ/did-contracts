@@ -464,6 +464,13 @@ impl TemplateGenerator {
         self.inner_witnesses.push(String::from("0x"));
     }
 
+    pub fn push_das_lock_witness(&mut self, type_data_hash_hex: &str) {
+        let signature = util::hex_to_bytes("0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000FF");
+        let type_data_hash = util::hex_to_bytes(type_data_hash_hex);
+        let lock = [signature, type_data_hash].concat();
+        self.push_witness_args(Some(&lock), None, None);
+    }
+
     pub fn push_cell(
         &mut self,
         capacity: u64,
@@ -471,7 +478,7 @@ impl TemplateGenerator {
         type_script: Value,
         data: Option<Bytes>,
         source: Source,
-    ) {
+    ) -> usize {
         let mut value;
         if let Some(tmp_data) = data {
             value = json!({
@@ -498,10 +505,22 @@ impl TemplateGenerator {
         }
 
         match source {
-            Source::HeaderDep => self.header_deps.push(value),
-            Source::CellDep => self.cell_deps.push(value),
-            Source::Input => self.inputs.push(value),
-            Source::Output => self.outputs.push(value),
+            Source::HeaderDep => {
+                self.header_deps.push(value);
+                self.header_deps.len() - 1
+            }
+            Source::CellDep => {
+                self.cell_deps.push(value);
+                self.cell_deps.len() - 1
+            }
+            Source::Input => {
+                self.inputs.push(value);
+                self.inputs.len() - 1
+            }
+            Source::Output => {
+                self.outputs.push(value);
+                self.outputs.len() - 1
+            }
         }
     }
 
@@ -1254,7 +1273,7 @@ impl TemplateGenerator {
         entity_opt: Option<(u32, u32, T)>,
         capacity: u64,
         source: Source,
-    ) {
+    ) -> usize {
         let args = gen_das_lock_args(owner_lock_args, Some(manager_lock_args));
 
         let lock_script = json!({
@@ -1265,11 +1284,12 @@ impl TemplateGenerator {
           "code_hash": "{{account-cell-type}}"
         });
 
-        self.push_cell(capacity, lock_script, type_script, Some(cell_data), source);
-
+        let index = self.push_cell(capacity, lock_script, type_script, Some(cell_data), source);
         if let Some(entity) = entity_opt {
             self.push_witness_with_group(DataType::AccountCellData, source, entity);
         }
+
+        index
     }
 
     pub fn gen_proposal_cell_data(

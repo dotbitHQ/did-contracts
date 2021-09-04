@@ -57,20 +57,22 @@ pub fn verify_eip712_hashes(
                 let lock_reader = lock.as_reader();
                 // Only take care of inputs with das-lock
                 if util::is_script_equal(das_lock_reader, lock_reader) {
-                    let key;
+                    let type_;
+                    let args;
                     if required_role == LockRole::Manager {
-                        key = data_parser::das_lock_args::get_manager_lock_args(lock_reader.args().raw_data());
+                        type_ = data_parser::das_lock_args::get_manager_type(lock_reader.args().raw_data());
+                        args = data_parser::das_lock_args::get_manager_lock_args(lock_reader.args().raw_data());
                     } else {
-                        key = data_parser::das_lock_args::get_owner_lock_args(lock_reader.args().raw_data());
+                        type_ = data_parser::das_lock_args::get_owner_type(lock_reader.args().raw_data());
+                        args = data_parser::das_lock_args::get_owner_lock_args(lock_reader.args().raw_data());
                     }
-
-                    if key[0] != 5 {
+                    if type_ != 5 {
                         debug!(
                             "Inputs[{}] Found deprecated address type, skip verification for hash.",
                             i
                         );
                     } else {
-                        input_groups_idxs.entry(key.to_vec()).or_default().push(i);
+                        input_groups_idxs.entry(args.to_vec()).or_default().push(i);
                     }
                 }
             }
@@ -289,6 +291,8 @@ fn tx_to_plaintext(
     let ret;
     match action_in_bytes.raw_data() {
         b"transfer_account" => ret = transfer_account_to_semantic()?,
+        b"edit_manager" => ret = edit_manager_to_semantic()?,
+        b"edit_records" => ret = edit_records_to_semantic()?,
         b"transfer" | b"withdraw_from_wallet" => ret = transfer_to_semantic()?,
         _ => return Err(Error::ActionNotSupported),
     }
@@ -317,6 +321,34 @@ fn transfer_account_to_semantic() -> Result<String, Error> {
         "Transfer the account {} from {} to {}.",
         account, from_address, to_address
     ))
+}
+
+fn edit_manager_to_semantic() -> Result<String, Error> {
+    let this_type_script = high_level::load_script().map_err(|e| Error::from(e))?;
+    let (input_cells, _output_cells) =
+        util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
+
+    // Parse account from the data of the AccountCell in inputs.
+    let data_in_bytes = util::load_cell_data(input_cells[0], Source::Input)?;
+    let account_in_bytes = data_parser::account_cell::get_account(&data_in_bytes);
+    let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| Error::EIP712SerializationError)?;
+
+    // TODO Improve semantic message of this transaction.
+    Ok(format!("Edit manager of account {} .", account))
+}
+
+fn edit_records_to_semantic() -> Result<String, Error> {
+    let this_type_script = high_level::load_script().map_err(|e| Error::from(e))?;
+    let (input_cells, _output_cells) =
+        util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
+
+    // Parse account from the data of the AccountCell in inputs.
+    let data_in_bytes = util::load_cell_data(input_cells[0], Source::Input)?;
+    let account_in_bytes = data_parser::account_cell::get_account(&data_in_bytes);
+    let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| Error::EIP712SerializationError)?;
+
+    // TODO Improve semantic message of this transaction.
+    Ok(format!("Edit records of account {} .", account))
 }
 
 fn transfer_to_semantic() -> Result<String, Error> {
@@ -543,8 +575,12 @@ fn to_semantic_capacity(capacity: u64) -> String {
             ret = ret + integer + "." + decimal + " CKB";
         }
     } else {
-        let decimal = capacity_str.trim_end_matches("0");
-        ret = ret + "0." + decimal + " CKB";
+        if capacity_str == "0" {
+            ret = String::from("0");
+        } else {
+            let decimal = capacity_str.trim_end_matches("0");
+            ret = ret + "0." + decimal + " CKB";
+        }
     }
 
     ret
