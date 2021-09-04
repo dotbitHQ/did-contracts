@@ -11,7 +11,7 @@ use ckb_std::{
 };
 use core::convert::{TryFrom, TryInto};
 use das_types::{
-    constants::{DataType, WITNESS_HEADER},
+    constants::{DataType, LockRole, WITNESS_HEADER},
     packed as das_packed,
 };
 #[cfg(test)]
@@ -768,6 +768,14 @@ pub fn require_super_lock() -> Result<(), Error> {
     );
 
     Ok(())
+}
+
+pub fn get_action_required_role(action: das_packed::BytesReader) -> LockRole {
+    // TODO Refactor all places which used LockRole with this function.
+    match action.raw_data() {
+        b"edit_records" => LockRole::Manager,
+        _ => LockRole::Owner,
+    }
 }
 
 #[cfg(test)]

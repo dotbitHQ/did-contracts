@@ -3,7 +3,7 @@ use super::{
     constants::{config_cell_type, das_lock, ScriptType, CKB_HASH_DIGEST, SECP_SIGNATURE_SIZE},
     data_parser, debug,
     error::Error,
-    util,
+    util, warn,
     witness_parser::WitnessesParser,
 };
 use alloc::{
@@ -13,6 +13,7 @@ use alloc::{
     vec::Vec,
 };
 use bech32::{self, ToBase32, Variant};
+use bs58;
 use ckb_std::{
     ckb_constants::Source,
     ckb_types::{
@@ -25,49 +26,25 @@ use ckb_std::{
 use core::convert::TryInto;
 use core::ops::Range;
 use das_map::{map::Map, util::add};
-use das_types::{packed as das_packed, prelude::*};
+use das_types::{constants::LockRole, packed as das_packed, prelude::*};
 use eip712::{hash_data, typed_data_v4, types::*};
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 use std::prelude::v1::*;
+
+#[cfg(feature = "mainnet")]
+const HRP: &str = "ckb";
+#[cfg(not(feature = "mainnet"))]
+const HRP: &str = "ckt";
+
+const TRX_ADDR_PREFIX: u8 = 0x41;
 
 pub fn verify_eip712_hashes(
     parser: &WitnessesParser,
     action: das_packed::BytesReader,
     params: &[das_packed::BytesReader],
 ) -> Result<(), Error> {
-    let mut typed_data = tx_to_eip712_typed_data(&parser, action, &params)?;
-    let digest_and_hash = tx_to_digest()?;
-    for index in digest_and_hash.keys() {
-        let item = digest_and_hash.get(index).unwrap();
-        let digest = util::hex_string(&item.digest);
-        typed_data.digest(&digest);
-        let expected_hash = hash_data(&typed_data).unwrap();
-
-        debug!(
-            "Calculated hash of EIP712 typed data with digest.(digest: {}, hash: {})",
-            digest,
-            util::hex_string(&expected_hash)
-        );
-
-        assert!(
-            &item.typed_data_hash == expected_hash.as_slice(),
-            Error::EIP712SignatureError,
-            "Inputs[{}] The hash of EIP712 typed data is mismatched.(current: {}, expected: {})",
-            index,
-            util::hex_string(&item.typed_data_hash),
-            util::hex_string(&expected_hash)
-        );
-    }
-
-    Ok(())
-}
-
-struct DigestAndHash {
-    digest: [u8; 32],
-    typed_data_hash: [u8; 32],
-}
-
-fn tx_to_digest() -> Result<BTreeMap<usize, DigestAndHash>, Error> {
+    let required_role = util::get_action_required_role(action);
     let das_lock = das_lock();
     let das_lock_reader = das_lock.as_reader();
 
@@ -80,8 +57,21 @@ fn tx_to_digest() -> Result<BTreeMap<usize, DigestAndHash>, Error> {
                 let lock_reader = lock.as_reader();
                 // Only take care of inputs with das-lock
                 if util::is_script_equal(das_lock_reader, lock_reader) {
-                    let key = lock_reader.args().raw_data().to_vec();
-                    input_groups_idxs.entry(key).or_default().push(i);
+                    let key;
+                    if required_role == LockRole::Manager {
+                        key = data_parser::das_lock_args::get_manager_lock_args(lock_reader.args().raw_data());
+                    } else {
+                        key = data_parser::das_lock_args::get_owner_lock_args(lock_reader.args().raw_data());
+                    }
+
+                    if key[0] != 5 {
+                        debug!(
+                            "Inputs[{}] Found deprecated address type, skip verification for hash.",
+                            i
+                        );
+                    } else {
+                        input_groups_idxs.entry(key.to_vec()).or_default().push(i);
+                    }
                 }
             }
             Err(SysError::IndexOutOfBound) => {
@@ -95,14 +85,61 @@ fn tx_to_digest() -> Result<BTreeMap<usize, DigestAndHash>, Error> {
         i += 1;
     }
 
-    let input_size = i + 1;
+    if input_groups_idxs.is_empty() {
+        debug!("There is no cell in inputs has das-lock with correct type byte, skip checking hashes in witnesses ...");
+    } else {
+        debug!("Check if hashes of typed data in witnesses is correct ...");
+
+        let mut typed_data = tx_to_eip712_typed_data(&parser, action, &params)?;
+        let digest_and_hash = tx_to_digest(input_groups_idxs, i + 1)?;
+        for index in digest_and_hash.keys() {
+            let item = digest_and_hash.get(index).unwrap();
+            let digest = util::hex_string(&item.digest);
+            typed_data.digest(&digest);
+            let expected_hash = hash_data(&typed_data).unwrap();
+
+            debug!(
+                "Calculated hash of EIP712 typed data with digest.(digest: {}, hash: {})",
+                digest,
+                util::hex_string(&expected_hash)
+            );
+
+            assert!(
+                &item.typed_data_hash == expected_hash.as_slice(),
+                Error::EIP712SignatureError,
+                "Inputs[{}] The hash of EIP712 typed data is mismatched.(current: {}, expected: {})",
+                index,
+                util::hex_string(&item.typed_data_hash),
+                util::hex_string(&expected_hash)
+            );
+        }
+    }
+
+    Ok(())
+}
+
+struct DigestAndHash {
+    digest: [u8; 32],
+    typed_data_hash: [u8; 32],
+}
+
+fn tx_to_digest(
+    input_groups_idxs: BTreeMap<Vec<u8>, Vec<usize>>,
+    input_size: usize,
+) -> Result<BTreeMap<usize, DigestAndHash>, Error> {
     let mut ret: BTreeMap<usize, DigestAndHash> = BTreeMap::new();
     for (_key, input_group_idxs) in input_groups_idxs {
         let init_witness_idx = input_group_idxs[0];
         let witness_bytes = util::load_witnesses(init_witness_idx)?;
         // CAREFUL: This is only works for secp256k1_blake160_sighash_all, cause das-lock does not support secp256k1_blake160_multisig_all currently.
-        let init_witness =
-            ckb_packed::WitnessArgs::from_slice(&witness_bytes).map_err(|_| Error::EIP712DecodingWitnessArgsError)?;
+        let init_witness = ckb_packed::WitnessArgs::from_slice(&witness_bytes).map_err(|_| {
+            warn!(
+                "Inputs[{}] Witness can not be decoded as WitnessArgs.(data: {})",
+                init_witness_idx,
+                util::hex_string(&witness_bytes)
+            );
+            Error::EIP712DecodingWitnessArgsError
+        })?;
 
         // Reset witness_args to empty status for calculation of digest.
         match init_witness.as_reader().lock().to_opt() {
@@ -236,7 +273,9 @@ pub fn tx_to_eip712_typed_data(
         }
     });
 
+    #[cfg(debug_assertions)]
     debug!("Extracted typed data: {}", typed_data);
+    #[cfg(debug_assertions)]
     debug!("Attention! Because of compiling problem with the serde_json's preserve_order feature, the fields of the JSON needs to be resort manually when debugging.");
 
     Ok(typed_data)
@@ -290,7 +329,7 @@ fn transfer_to_semantic() -> Result<String, Error> {
                 Ok(capacity) => {
                     let lock =
                         das_packed::Script::from(high_level::load_cell_lock(i, source).map_err(|e| Error::from(e))?);
-                    let address = to_semantic_address(lock.as_reader(), 0..1)?;
+                    let address = to_semantic_address(lock.as_reader(), 1..21)?;
                     add(&mut capacity_map, address, capacity);
                 }
                 Err(SysError::IndexOutOfBound) => {
@@ -321,18 +360,13 @@ fn transfer_to_semantic() -> Result<String, Error> {
 }
 
 fn to_semantic_address(lock_reader: das_packed::ScriptReader, range: Range<usize>) -> Result<String, Error> {
-    #[cfg(feature = "mainnet")]
-    let hrp = "ckb";
-    #[cfg(not(feature = "mainnet"))]
-    let hrp = "ckt";
-
     let address;
     if util::is_script_equal(das_lock().as_reader(), lock_reader.into()) {
         // If this is a das-lock, convert it to address base on args.
         let args_in_bytes = lock_reader.args().raw_data();
         match args_in_bytes[0] {
             0 => {
-                let pubkey_hash = args_in_bytes[range].to_vec();
+                let pubkey_hash = args_in_bytes[range.clone()].to_vec();
 
                 // The first byte is address type, 0x01 is for short address.
                 // The second byte is CodeHashIndex, 0x00 is for SECP256K1 + blake160.
@@ -340,12 +374,15 @@ fn to_semantic_address(lock_reader: das_packed::ScriptReader, range: Range<usize
                 // This is the payload of address.
                 data = [data, pubkey_hash].concat();
 
-                let value = bech32::encode(&hrp.to_string(), data.to_base32(), Variant::Bech32)
+                let value = bech32::encode(&HRP.to_string(), data.to_base32(), Variant::Bech32)
                     .map_err(|_| Error::EIP712SematicError)?;
                 address = format!("CKB:{}", value)
             }
             4 => {
-                address = format!("TRX:0x{}", util::hex_string(&args_in_bytes[range]));
+                let mut raw = [0u8; 21];
+                raw[0] = TRX_ADDR_PREFIX;
+                raw[1..21].copy_from_slice(&args_in_bytes[range]);
+                address = format!("TRX:{}", b58encode_check(&raw));
             }
             3 | 5 => {
                 address = format!("ETH:0x{}", util::hex_string(&args_in_bytes[range]));
@@ -365,12 +402,29 @@ fn to_semantic_address(lock_reader: das_packed::ScriptReader, range: Range<usize
         // This is the payload of address.
         let data = [hash_type, code_hash, args].concat();
 
-        let value = bech32::encode(&hrp.to_string(), data.to_base32(), Variant::Bech32)
+        let value = bech32::encode(&HRP.to_string(), data.to_base32(), Variant::Bech32)
             .map_err(|_| Error::EIP712SematicError)?;
         address = format!("CKB:{}", value)
     }
 
     Ok(address)
+}
+
+fn b58encode_check<T: AsRef<[u8]>>(raw: T) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(raw.as_ref());
+    let digest1 = hasher.finalize();
+
+    let mut hasher = Sha256::new();
+    hasher.update(&digest1);
+    let digest = hasher.finalize();
+
+    let mut input = raw.as_ref().to_owned();
+    input.extend(&digest[..4]);
+    let mut output = String::new();
+    bs58::encode(&input).into(&mut output).unwrap();
+
+    output
 }
 
 fn to_typed_action(
@@ -610,12 +664,12 @@ mod test {
         lock = lock
             .as_builder()
             .args(das_packed::Bytes::from(vec![
-                4, 228, 215, 90, 62, 116, 163, 188, 129, 153, 180, 143, 247, 109, 152, 75, 58, 91, 177, 226, 24, 4,
-                228, 215, 90, 62, 116, 163, 188, 129, 153, 180, 143, 247, 109, 152, 75, 58, 91, 177, 226, 24,
+                4, 150, 163, 186, 206, 90, 218, 207, 99, 126, 183, 204, 121, 213, 120, 127, 66, 71, 218, 75, 190, 4,
+                150, 163, 186, 206, 90, 218, 207, 99, 126, 183, 204, 121, 213, 120, 127, 66, 71, 218, 75, 190,
             ]))
             .build();
 
-        let expected = "TRX:0xe4d75a3e74a3bc8199b48ff76d984b3a5bb1e218";
+        let expected = "TRX:TPhiVyQZ5xyvVK2KS2LTke8YvXJU5wxnbN";
         let address = to_semantic_address(lock.as_reader(), 1..21).unwrap();
         assert_eq!(&address, expected);
 
