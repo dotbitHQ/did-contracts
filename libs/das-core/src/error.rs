@@ -37,10 +37,6 @@ pub enum Error {
     AccountStillCanNotBeRegister = 35, // ⚠️ DO NOT CHANGE
     AccountIsPreserved,
     AccountIsUnAvailable,
-    EIP712SerializationError,
-    EIP712SematicError,
-    EIP712DecodingWitnessArgsError,
-    EIP712SignatureError,
     WitnessStructureError = 40,
     WitnessEmpty,
     WitnessDataTypeDecodingError,
@@ -124,6 +120,10 @@ pub enum Error {
     AccountCellChangeCapacityError, // -95
     AccountCellRecordKeyInvalid,
     AccountCellRecordSizeTooLarge,
+    EIP712SerializationError,
+    EIP712SematicError,
+    EIP712DecodingWitnessArgsError,
+    EIP712SignatureError,
     BalanceCellFoundSomeOutputsLackOfType,
     SystemOff = -1,
 }
