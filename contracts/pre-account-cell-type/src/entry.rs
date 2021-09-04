@@ -5,8 +5,7 @@ use ckb_std::{
 use core::convert::TryFrom;
 use core::result::Result;
 use das_core::{
-    assert, constants::*, data_parser, debug, error::Error, parse_witness, util, warn,
-    witness_parser::WitnessesParser,
+    assert, constants::*, data_parser, debug, error::Error, parse_witness, util, warn, witness_parser::WitnessesParser,
 };
 use das_types::{
     constants::{CharSetType, DataType, CHAR_SET_LENGTH, PRESERVED_ACCOUNT_CELL_COUNT},
@@ -38,10 +37,8 @@ pub fn main() -> Result<(), Error> {
 
         // Find out PreAccountCells in current transaction.
         let this_type_script = load_script().map_err(|e| Error::from(e))?;
-        let (input_cells, output_cells) = util::find_cells_by_script_in_inputs_and_outputs(
-            ScriptType::Type,
-            this_type_script.as_reader(),
-        )?;
+        let (input_cells, output_cells) =
+            util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
 
         assert!(
             input_cells.len() == 0,
@@ -93,8 +90,7 @@ pub fn main() -> Result<(), Error> {
             Some(bytes) => bytes,
             _ => return Err(Error::InvalidCellData),
         };
-        let apply_register_lock =
-            load_cell_lock(index.to_owned(), Source::Input).map_err(|e| Error::from(e))?;
+        let apply_register_lock = load_cell_lock(index.to_owned(), Source::Input).map_err(|e| Error::from(e))?;
 
         #[cfg(any(not(feature = "mainnet"), debug_assertions))]
         das_core::inspect::apply_register_cell(Source::Input, index.to_owned(), &data);
@@ -108,8 +104,7 @@ pub fn main() -> Result<(), Error> {
         // Read outputs_data and witness of the PreAccountCell.
         let data = load_cell_data(output_cells[0], Source::Output).map_err(|e| Error::from(e))?;
         let account_id = data_parser::pre_account_cell::get_id(&data);
-        let capacity =
-            load_cell_capacity(output_cells[0], Source::Output).map_err(|e| Error::from(e))?;
+        let capacity = load_cell_capacity(output_cells[0], Source::Output).map_err(|e| Error::from(e))?;
 
         let pre_account_cell_witness;
         let pre_account_cell_witness_reader;
@@ -144,12 +139,7 @@ pub fn main() -> Result<(), Error> {
         let config_price = parser.configs.price()?;
         let config_account = parser.configs.account()?;
         verify_invited_discount(config_price, pre_account_cell_witness_reader)?;
-        verify_price_and_capacity(
-            config_account,
-            config_price,
-            pre_account_cell_witness_reader,
-            capacity,
-        )?;
+        verify_price_and_capacity(config_account, config_price, pre_account_cell_witness_reader, capacity)?;
         verify_account_id(pre_account_cell_witness_reader, account_id)?;
         let timestamp = util::load_oracle_data(OracleCellType::Time)?;
         verify_created_at(timestamp, pre_account_cell_witness_reader)?;
@@ -163,8 +153,7 @@ pub fn main() -> Result<(), Error> {
         match verify_account_length_and_years(pre_account_cell_witness_reader, timestamp) {
             Ok(_) => {}
             Err(code) => {
-                if !(code == Error::AccountStillCanNotBeRegister && cells_with_super_lock.len() > 0)
-                {
+                if !(code == Error::AccountStillCanNotBeRegister && cells_with_super_lock.len() > 0) {
                     return Err(code);
                 }
                 debug!("Skip Error::AccountStillCanNotBeRegister because of super lock.");
@@ -174,8 +163,7 @@ pub fn main() -> Result<(), Error> {
         match verify_account_release_status(pre_account_cell_witness_reader) {
             Ok(_) => {}
             Err(code) => {
-                if !(code == Error::AccountStillCanNotBeRegister && cells_with_super_lock.len() > 0)
-                {
+                if !(code == Error::AccountStillCanNotBeRegister && cells_with_super_lock.len() > 0) {
                     return Err(code);
                 }
                 debug!("Skip Error::AccountStillCanNotBeRegister because of super lock.");
@@ -192,6 +180,8 @@ pub fn main() -> Result<(), Error> {
             }
         }
 
+        verify_unavailable_accounts(&mut parser, pre_account_cell_witness_reader)?;
+
         verify_account_chars(&mut parser, pre_account_cell_witness_reader)?;
     } else {
         return Err(Error::ActionNotSupported);
@@ -200,11 +190,7 @@ pub fn main() -> Result<(), Error> {
     Ok(())
 }
 
-fn verify_apply_height(
-    current_height: u64,
-    config_reader: ConfigCellApplyReader,
-    data: &[u8],
-) -> Result<(), Error> {
+fn verify_apply_height(current_height: u64, config_reader: ConfigCellApplyReader, data: &[u8]) -> Result<(), Error> {
     // Read the apply timestamp from outputs_data of ApplyRegisterCell.
     let apply_height = data_parser::apply_register_cell::get_height(data);
 
@@ -241,11 +227,7 @@ fn verify_apply_height(
 }
 
 fn verify_account_id(reader: PreAccountCellDataReader, account_id: &[u8]) -> Result<(), Error> {
-    let account: Vec<u8> = [
-        reader.account().as_readable(),
-        ACCOUNT_SUFFIX.as_bytes().to_vec(),
-    ]
-    .concat();
+    let account: Vec<u8> = [reader.account().as_readable(), ACCOUNT_SUFFIX.as_bytes().to_vec()].concat();
     let hash = util::blake2b_256(account.as_slice());
 
     assert!(
@@ -283,10 +265,7 @@ fn verify_apply_hash(
     Ok(())
 }
 
-fn verify_created_at(
-    expected_timestamp: u64,
-    reader: PreAccountCellDataReader,
-) -> Result<(), Error> {
+fn verify_created_at(expected_timestamp: u64, reader: PreAccountCellDataReader) -> Result<(), Error> {
     let create_at = u64::from(reader.created_at());
 
     assert!(
@@ -301,9 +280,7 @@ fn verify_created_at(
 }
 
 fn verify_owner_lock_args(reader: PreAccountCellDataReader) -> Result<(), Error> {
-    debug!(
-        "Check if PreAccountCell.witness.owner_lock_args is more than 1 byte and the first byte is 0x00."
-    );
+    debug!("Check if PreAccountCell.witness.owner_lock_args is more than 1 byte and the first byte is 0x00.");
 
     let owner_lock_args = reader.owner_lock_args().raw_data();
 
@@ -334,10 +311,7 @@ fn verify_quote(reader: PreAccountCellDataReader) -> Result<(), Error> {
     Ok(())
 }
 
-fn verify_invited_discount(
-    config: ConfigCellPriceReader,
-    reader: PreAccountCellDataReader,
-) -> Result<(), Error> {
+fn verify_invited_discount(config: ConfigCellPriceReader, reader: PreAccountCellDataReader) -> Result<(), Error> {
     debug!("Check if PreAccountCell.witness.invited_discount is 0 or the same as configuration.");
 
     let zero = Uint32::from(0);
@@ -408,8 +382,7 @@ fn verify_price_and_capacity(
     // Register price for 1 year in CKB = x ÷ y.
     let register_capacity = util::calc_yearly_capacity(new_account_price_in_usd, quote, discount);
     // Storage price in CKB = AccountCell base capacity + RefCell base capacity + account.length
-    let storage_capacity =
-        util::calc_account_storage_capacity(config_account, reader.account().len() as u64 + 4);
+    let storage_capacity = util::calc_account_storage_capacity(config_account, reader.account().len() as u64 + 4);
 
     debug!("Check if PreAccountCell.capacity is enough for registration: {}(paid) <-> {}(1 year registeration fee) + {}(storage fee)",
         capacity,
@@ -428,10 +401,7 @@ fn verify_price_and_capacity(
     Ok(())
 }
 
-fn verify_account_max_length(
-    config: ConfigCellAccountReader,
-    reader: PreAccountCellDataReader,
-) -> Result<(), Error> {
+fn verify_account_max_length(config: ConfigCellAccountReader, reader: PreAccountCellDataReader) -> Result<(), Error> {
     let max_length = u32::from(config.max_length());
     let account_length = reader.account().len() as u32;
 
@@ -446,18 +416,14 @@ fn verify_account_max_length(
     Ok(())
 }
 
-fn verify_account_chars(
-    parser: &mut WitnessesParser,
-    reader: PreAccountCellDataReader,
-) -> Result<(), Error> {
+fn verify_account_chars(parser: &mut WitnessesParser, reader: PreAccountCellDataReader) -> Result<(), Error> {
     debug!("Verify if account chars is available.");
 
     let mut prev_char_set_name: Option<_> = None;
     for account_char in reader.account().iter() {
         // Loading different charset configs on demand.
-        let data_type = das_types_util::char_set_to_data_type(
-            CharSetType::try_from(account_char.char_set_name()).unwrap(),
-        );
+        let data_type =
+            das_types_util::char_set_to_data_type(CharSetType::try_from(account_char.char_set_name()).unwrap());
         parser.parse_config(&[data_type])?;
 
         let char_set_index = das_types_util::data_type_to_char_set(data_type) as usize;
@@ -545,7 +511,7 @@ fn verify_preserved_accounts(
         let mut end_account = accounts_total - 1;
 
         loop {
-            let nth_account = (end_account - start_account) / 2 + start_account;
+            let nth_account = (start_account + end_account) / 2;
             // debug!(
             //     "nth_account({:?}) = (end_account({:?}) - start_account({:?})) / 2 + start_account({:?}))",
             //     nth_account, end_account, start_account, start_account
@@ -557,10 +523,10 @@ fn verify_preserved_accounts(
             // debug!("bytes_of_nth_account: {:?}", bytes_of_nth_account);
             if bytes_of_nth_account < first_20_bytes {
                 // debug!("<");
-                start_account = nth_account;
+                start_account = nth_account + 1;
             } else if bytes_of_nth_account > first_20_bytes {
                 // debug!(">");
-                end_account = nth_account;
+                end_account = nth_account - 1;
             } else {
                 warn!(
                     "Account 0x{} is preserved. (hash: 0x{})",
@@ -570,7 +536,7 @@ fn verify_preserved_accounts(
                 return Err(Error::AccountIsPreserved);
             }
 
-            if end_account - start_account <= 1 {
+            if start_account > end_account {
                 break;
             }
         }
@@ -579,17 +545,11 @@ fn verify_preserved_accounts(
     Ok(())
 }
 
-fn verify_account_length_and_years(
-    reader: PreAccountCellDataReader,
-    current_timestamp: u64,
-) -> Result<(), Error> {
+fn verify_account_length_and_years(reader: PreAccountCellDataReader, current_timestamp: u64) -> Result<(), Error> {
     use chrono::{DateTime, NaiveDateTime, Utc};
 
     let account_length = reader.account().len();
-    let current = DateTime::<Utc>::from_utc(
-        NaiveDateTime::from_timestamp(current_timestamp as i64, 0),
-        Utc,
-    );
+    let current = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(current_timestamp as i64, 0), Utc);
 
     debug!(
         "Check if the account is available for registration now. (length: {}, current: {:#?})",
@@ -597,7 +557,7 @@ fn verify_account_length_and_years(
     );
 
     // On CKB main net, AKA Lina, accounts of less lengths can be registered only after a specific number of years.
-    // TODO Trible check.
+    // CAREFUL Triple check.
     assert!(
         account_length >= 5,
         Error::AccountStillCanNotBeRegister,
@@ -610,17 +570,13 @@ fn verify_account_length_and_years(
 fn verify_account_release_status(reader: PreAccountCellDataReader) -> Result<(), Error> {
     debug!("Check if account is released for registration.");
 
-    let account: Vec<u8> = [
-        reader.account().as_readable(),
-        ACCOUNT_SUFFIX.as_bytes().to_vec(),
-    ]
-    .concat();
+    let account: Vec<u8> = [reader.account().as_readable(), ACCOUNT_SUFFIX.as_bytes().to_vec()].concat();
     let hash = util::blake2b_das(account.as_slice());
     let lucky_num = hash[0];
 
     if cfg!(feature = "mainnet") {
         if reader.account().len() < 10 {
-            // TODO Trible check.
+            // CAREFUL Triple check.
             assert!(
                 lucky_num <= 12,
                 Error::AccountStillCanNotBeRegister,
@@ -636,6 +592,58 @@ fn verify_account_release_status(reader: PreAccountCellDataReader) -> Result<(),
                 "The registration is still not started.(lucky_num: {}, required: <= 200)",
                 lucky_num
             );
+        }
+    }
+
+    Ok(())
+}
+
+/**
+check if the account is an account that can never be registered.
+**/
+fn verify_unavailable_accounts(
+    parser: &mut WitnessesParser,
+    pre_account_reader: PreAccountCellDataReader,
+) -> Result<(), Error> {
+    debug!("Verify if account if unavailable");
+
+    parser.parse_config(&[DataType::ConfigCellUnAvailableAccount])?;
+
+    let account = pre_account_reader.account().as_readable();
+    let account_hash = util::blake2b_256(account.as_slice());
+
+    let account_hash_first_20_bytes = account_hash.get(..ACCOUNT_ID_LENGTH).unwrap();
+    let unavailable_accounts = parser.configs.unavailable_account()?;
+
+    // todo: maybe a naive traverse is much faster and use less cycles
+    if unavailable_accounts.len() > 0 {
+        let accounts_total = unavailable_accounts.len() / ACCOUNT_ID_LENGTH;
+        let mut start_account_index = 0;
+        let mut end_account_index = accounts_total - 1;
+
+        loop {
+            let mid_account_index = (start_account_index + end_account_index) / 2;
+            let mid_account_start_byte_index = mid_account_index * ACCOUNT_ID_LENGTH;
+            let mid_account_end_byte_index = (mid_account_index + 1) * ACCOUNT_ID_LENGTH;
+            let mid_account_bytes = unavailable_accounts
+                .get(mid_account_start_byte_index..mid_account_end_byte_index)
+                .unwrap();
+
+            if mid_account_bytes < account_hash_first_20_bytes {
+                start_account_index = mid_account_index + 1;
+            } else if mid_account_bytes > account_hash_first_20_bytes {
+                end_account_index = mid_account_index - 1;
+            } else {
+                warn!(
+                    "Account 0x{} is unavailable. (hash: 0x{})",
+                    util::hex_string(account.as_slice()),
+                    util::hex_string(&account_hash)
+                );
+                return Err(Error::AccountIsUnAvailable);
+            }
+            if start_account_index > end_account_index {
+                break;
+            }
         }
     }
 

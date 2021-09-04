@@ -2,9 +2,7 @@ use alloc::{boxed::Box, vec, vec::Vec};
 use ckb_std::{ckb_constants::Source, ckb_types::prelude::*, high_level};
 use das_core::{
     assert,
-    constants::{
-        das_lock, das_wallet_lock, OracleCellType, ScriptType, TypeScript, CUSTOM_KEYS_NAMESPACE,
-    },
+    constants::{das_lock, das_wallet_lock, OracleCellType, ScriptType, TypeScript, CUSTOM_KEYS_NAMESPACE},
     data_parser, debug,
     error::Error,
     parse_account_cell_witness, parse_witness, util, warn,
@@ -32,10 +30,8 @@ pub fn main() -> Result<(), Error> {
         util::is_init_day(timestamp)?;
 
         let this_type_script = high_level::load_script().map_err(|e| Error::from(e))?;
-        let (input_cells, output_cells) = util::find_cells_by_script_in_inputs_and_outputs(
-            ScriptType::Type,
-            this_type_script.as_reader(),
-        )?;
+        let (input_cells, output_cells) =
+            util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
 
         assert!(
             input_cells.len() == 0,
@@ -52,11 +48,9 @@ pub fn main() -> Result<(), Error> {
 
         let index = output_cells[0];
         let expected_lock = das_lock();
-        let lock_script =
-            high_level::load_cell_lock(index, Source::Output).map_err(|e| Error::from(e))?;
+        let lock_script = high_level::load_cell_lock(index, Source::Output).map_err(|e| Error::from(e))?;
         assert!(
-            expected_lock.as_reader().code_hash().raw_data()
-                == lock_script.as_reader().code_hash().raw_data(),
+            expected_lock.as_reader().code_hash().raw_data() == lock_script.as_reader().code_hash().raw_data(),
             Error::AccountCellFoundInvalidTransaction,
             "The lock script of AccountCell should be das-lock script."
         );
@@ -70,10 +64,7 @@ pub fn main() -> Result<(), Error> {
             Source::Input,
             Error::ProposalFoundInvalidTransaction,
         )?;
-    } else if action == b"transfer_account"
-        || action == b"edit_manager"
-        || action == b"edit_records"
-    {
+    } else if action == b"transfer_account" || action == b"edit_manager" || action == b"edit_records" {
         util::is_system_off(&mut parser)?;
         let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
@@ -133,16 +124,8 @@ pub fn main() -> Result<(), Error> {
                 timestamp,
             )?;
             verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
-            verify_account_lock_consistent(
-                input_account_cells[0],
-                output_account_cells[0],
-                Some("owner"),
-            )?;
-            verify_account_data_consistent(
-                input_account_cells[0],
-                output_account_cells[0],
-                vec![],
-            )?;
+            verify_account_lock_consistent(input_account_cells[0], output_account_cells[0], Some("owner"))?;
+            verify_account_data_consistent(input_account_cells[0], output_account_cells[0], vec![])?;
             verify_account_witness_consistent(
                 input_account_cells[0],
                 output_account_cells[0],
@@ -170,16 +153,8 @@ pub fn main() -> Result<(), Error> {
                 timestamp,
             )?;
             verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
-            verify_account_lock_consistent(
-                input_account_cells[0],
-                output_account_cells[0],
-                Some("manager"),
-            )?;
-            verify_account_data_consistent(
-                input_account_cells[0],
-                output_account_cells[0],
-                vec![],
-            )?;
+            verify_account_lock_consistent(input_account_cells[0], output_account_cells[0], Some("manager"))?;
+            verify_account_data_consistent(input_account_cells[0], output_account_cells[0], vec![])?;
             verify_account_witness_consistent(
                 input_account_cells[0],
                 output_account_cells[0],
@@ -210,11 +185,7 @@ pub fn main() -> Result<(), Error> {
             )?;
             verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
             verify_account_lock_consistent(input_account_cells[0], output_account_cells[0], None)?;
-            verify_account_data_consistent(
-                input_account_cells[0],
-                output_account_cells[0],
-                vec![],
-            )?;
+            verify_account_data_consistent(input_account_cells[0], output_account_cells[0], vec![])?;
             verify_account_witness_consistent(
                 input_account_cells[0],
                 output_account_cells[0],
@@ -222,15 +193,10 @@ pub fn main() -> Result<(), Error> {
                 &output_cell_witness_reader,
                 vec!["records", "last_edit_records_at"],
             )?;
-            verify_records_keys(
-                config_account,
-                record_key_namespace,
-                &output_cell_witness_reader,
-            )?;
+            verify_records_keys(config_account, record_key_namespace, &output_cell_witness_reader)?;
         }
     } else if action == b"renew_account" {
         debug!("Route to renew_account action ...");
-        return Err(Error::InvalidTransactionStructure);
 
         util::is_system_off(&mut parser)?;
 
@@ -269,11 +235,7 @@ pub fn main() -> Result<(), Error> {
 
         verify_account_capacity_not_decrease(input_account_cells[0], output_account_cells[0])?;
         verify_account_lock_consistent(input_account_cells[0], output_account_cells[0], None)?;
-        verify_account_data_consistent(
-            input_account_cells[0],
-            output_account_cells[0],
-            vec!["expired_at"],
-        )?;
+        verify_account_data_consistent(input_account_cells[0], output_account_cells[0], vec!["expired_at"])?;
         verify_account_witness_consistent(
             input_account_cells[0],
             output_account_cells[0],
@@ -284,10 +246,8 @@ pub fn main() -> Result<(), Error> {
 
         debug!("Check if IncomeCells in this transaction is correct.");
 
-        let input_income_cells =
-            util::find_cells_by_type_id(ScriptType::Type, income_cell_type_id, Source::Input)?;
-        let output_income_cells =
-            util::find_cells_by_type_id(ScriptType::Type, income_cell_type_id, Source::Output)?;
+        let input_income_cells = util::find_cells_by_type_id(ScriptType::Type, income_cell_type_id, Source::Input)?;
+        let output_income_cells = util::find_cells_by_type_id(ScriptType::Type, income_cell_type_id, Source::Output)?;
 
         assert!(
             input_income_cells.len() <= 1,
@@ -327,11 +287,10 @@ pub fn main() -> Result<(), Error> {
         );
 
         let income_cell_capacity =
-            high_level::load_cell_capacity(output_income_cells[0], Source::Output)
-                .map_err(|e| Error::from(e))?;
+            high_level::load_cell_capacity(output_income_cells[0], Source::Output).map_err(|e| Error::from(e))?;
         let (_, _, entity) = parser.verify_and_get(output_income_cells[0], Source::Output)?;
-        let income_cell_witness = IncomeCellData::from_slice(entity.as_reader().raw_data())
-            .map_err(|_| Error::WitnessEntityDecodingError)?;
+        let income_cell_witness =
+            IncomeCellData::from_slice(entity.as_reader().raw_data()).map_err(|_| Error::WitnessEntityDecodingError)?;
         let income_cell_witness_reader = income_cell_witness.as_reader();
 
         let paid;
@@ -419,8 +378,7 @@ pub fn main() -> Result<(), Error> {
         let output_account_witness_reader = output_cell_witness_reader
             .try_into_latest()
             .map_err(|_| Error::NarrowMixerTypeFailed)?;
-        let length_in_price =
-            util::get_length_in_price(output_account_witness_reader.account().len() as u64);
+        let length_in_price = util::get_length_in_price(output_account_witness_reader.account().len() as u64);
 
         // Find out register price in from ConfigCellRegister.
         let price = prices
@@ -485,10 +443,8 @@ pub fn main() -> Result<(), Error> {
         debug!("Route to other action ...");
 
         let this_type_script = high_level::load_script().map_err(|e| Error::from(e))?;
-        let (input_cells, output_cells) = util::find_cells_by_script_in_inputs_and_outputs(
-            ScriptType::Type,
-            this_type_script.as_reader(),
-        )?;
+        let (input_cells, output_cells) =
+            util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
 
         assert!(
             input_cells.len() == output_cells.len(),
@@ -505,10 +461,7 @@ pub fn main() -> Result<(), Error> {
 fn load_account_cells() -> Result<(Vec<usize>, Vec<usize>), Error> {
     let this_type_script = high_level::load_script().map_err(|e| Error::from(e))?;
     let (input_account_cells, output_account_cells) =
-        util::find_cells_by_script_in_inputs_and_outputs(
-            ScriptType::Type,
-            this_type_script.as_reader(),
-        )?;
+        util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
 
     Ok((input_account_cells, output_account_cells))
 }
@@ -534,10 +487,10 @@ fn verify_transaction_fee_spent_correctly(
 ) -> Result<(), Error> {
     debug!("Check if the fee in the AccountCell is spent correctly.");
 
-    let input_capacity = high_level::load_cell_capacity(input_account_index, Source::Input)
-        .map_err(|e| Error::from(e))?;
-    let output_capacity = high_level::load_cell_capacity(output_account_index, Source::Output)
-        .map_err(|e| Error::from(e))?;
+    let input_capacity =
+        high_level::load_cell_capacity(input_account_index, Source::Input).map_err(|e| Error::from(e))?;
+    let output_capacity =
+        high_level::load_cell_capacity(output_account_index, Source::Output).map_err(|e| Error::from(e))?;
 
     // The capacity is not changed, skip the following verification.
     if input_capacity == output_capacity {
@@ -701,16 +654,11 @@ fn verify_action_throttle<'a>(
     Ok(())
 }
 
-fn verify_account_capacity_not_decrease(
-    input_account_index: usize,
-    output_account_index: usize,
-) -> Result<(), Error> {
+fn verify_account_capacity_not_decrease(input_account_index: usize, output_account_index: usize) -> Result<(), Error> {
     debug!("Check if capacity consistent in the AccountCell.");
 
-    let input = high_level::load_cell_capacity(input_account_index, Source::Input)
-        .map_err(|e| Error::from(e))?;
-    let output = high_level::load_cell_capacity(output_account_index, Source::Output)
-        .map_err(|e| Error::from(e))?;
+    let input = high_level::load_cell_capacity(input_account_index, Source::Input).map_err(|e| Error::from(e))?;
+    let output = high_level::load_cell_capacity(output_account_index, Source::Output).map_err(|e| Error::from(e))?;
 
     // ⚠️ Equal is not allowed here because we want to avoid abuse cell.
     assert!(
@@ -732,11 +680,10 @@ fn verify_account_lock_consistent(
     debug!("Check if lock consistent in the AccountCell.");
 
     if let Some(lock) = changed_lock {
-        let input_lock = high_level::load_cell_lock(input_account_index, Source::Input)
-            .map_err(|e| Error::from(e))?;
+        let input_lock = high_level::load_cell_lock(input_account_index, Source::Input).map_err(|e| Error::from(e))?;
         let input_args = input_lock.as_reader().args().raw_data();
-        let output_lock = high_level::load_cell_lock(output_account_index, Source::Output)
-            .map_err(|e| Error::from(e))?;
+        let output_lock =
+            high_level::load_cell_lock(output_account_index, Source::Output).map_err(|e| Error::from(e))?;
         let output_args = output_lock.as_reader().args().raw_data();
 
         if lock == "owner" {
@@ -789,24 +736,21 @@ fn verify_account_data_consistent(
     let output_data = util::load_cell_data(output_account_index, Source::Output)?;
 
     assert!(
-        data_parser::account_cell::get_id(&input_data)
-            == data_parser::account_cell::get_id(&output_data),
+        data_parser::account_cell::get_id(&input_data) == data_parser::account_cell::get_id(&output_data),
         Error::AccountCellDataNotConsistent,
         "The data.id field of inputs[{}] and outputs[{}] should be the same.",
         input_account_index,
         output_account_index
     );
     assert!(
-        data_parser::account_cell::get_next(&input_data)
-            == data_parser::account_cell::get_next(&output_data),
+        data_parser::account_cell::get_next(&input_data) == data_parser::account_cell::get_next(&output_data),
         Error::AccountCellDataNotConsistent,
         "The data.next field of inputs[{}] and outputs[{}] should be the same.",
         input_account_index,
         output_account_index
     );
     assert!(
-        data_parser::account_cell::get_account(&input_data)
-            == data_parser::account_cell::get_account(&output_data),
+        data_parser::account_cell::get_account(&input_data) == data_parser::account_cell::get_account(&output_data),
         Error::AccountCellDataNotConsistent,
         "The data.account field of inputs[{}] and outputs[{}] should be the same.",
         input_account_index,
@@ -909,11 +853,7 @@ fn verify_account_witness_consistent<'a>(
             (status, "status")
         );
 
-        assert_field_consistent_if_not_except!(
-            input_witness_reader,
-            output_witness_reader,
-            (records, "records")
-        );
+        assert_field_consistent_if_not_except!(input_witness_reader, output_witness_reader, (records, "records"));
     } else {
         let input_witness_reader = input_witness_reader
             .try_into_latest()
@@ -983,7 +923,7 @@ fn verify_records_keys<'a>(
         let mut record_type = Vec::from(record.record_type().raw_data());
         let mut record_key = Vec::from(record.record_key().raw_data());
         if record_type == b"custom_key" {
-            // TODO Trible check.
+            // CAREFUL Triple check
             for char in record_key.iter() {
                 assert!(
                     CUSTOM_KEYS_NAMESPACE.contains(char),

@@ -730,6 +730,7 @@ enum DataType {
     ConfigCellPreservedAccount17,
     ConfigCellPreservedAccount18,
     ConfigCellPreservedAccount19, // args: 0x23270000
+    ConfigCellUnAvailableAccount, // args: 0x24270000
     ConfigCellCharSetEmoji = 100000, // args: 0xa0860100
     ConfigCellCharSetDigit, // args: 0xa1860100
     ConfigCellCharSetEn, // args: 0xa2860100
