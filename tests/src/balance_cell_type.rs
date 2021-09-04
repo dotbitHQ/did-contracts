@@ -32,7 +32,7 @@ test_with_generator!(test_balance_only_handle_type_5, || {
         "0x050000000000000000000000000000000000004444",
         10_000_000_000,
         Source::Input,
-        Some("0xbdaab2df14275f411bf0bc41e5e92360731fc78e1441f7752000463ca9686c7f"),
+        Some("9950c4b18f9325b3a34d9de5fc8f6363e6d12300bf0a54b2b6d1cf2d35093803"),
     );
     template.push_das_lock_cell(
         "0x050000000000000000000000000000000000004444",

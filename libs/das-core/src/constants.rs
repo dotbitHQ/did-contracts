@@ -20,9 +20,8 @@ pub enum ScriptType {
 pub enum TypeScript {
     AccountCellType,
     ApplyRegisterCellType,
-    BiddingCellType,
+    BalanceCellType,
     IncomeCellType,
-    OnSaleCellType,
     PreAccountCellType,
     ProposalCellType,
 }
