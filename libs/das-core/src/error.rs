@@ -32,10 +32,11 @@ pub enum Error {
     CellMustUseSuperLock,
     AlwaysSuccessLockIsRequired, // 30
     SignallLockIsRequired,
-    AccountIsPreserved,
     DataTypeUpgradeRequired,
     NarrowMixerTypeFailed,
     AccountStillCanNotBeRegister = 35, // ⚠️ DO NOT CHANGE
+    AccountIsPreserved,
+    AccountIsUnAvailable,
     WitnessStructureError = 40,
     WitnessEmpty,
     WitnessDataTypeDecodingError,
@@ -109,7 +110,7 @@ pub enum Error {
     AccountCellDataNotConsistent,
     AccountCellProtectFieldIsModified,
     AccountCellNoMoreFee,
-    AccountCellThrottle,
+    AccountCellThrottle = -102, // ⚠️ DO NOT CHANGE
     AccountCellRenewDurationMustLongerThanYear,
     AccountCellRenewDurationBiggerThanPayed, // -100
     AccountCellInExpirationGracePeriod,
