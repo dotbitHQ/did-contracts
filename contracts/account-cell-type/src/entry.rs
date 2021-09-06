@@ -1,5 +1,5 @@
 use alloc::{boxed::Box, vec, vec::Vec};
-use ckb_std::{ckb_constants::Source, ckb_types::prelude::*, high_level};
+use ckb_std::{ckb_constants::Source, ckb_types::prelude::*, error::SysError, high_level};
 use das_core::{
     assert,
     constants::{das_lock, das_wallet_lock, OracleCellType, ScriptType, TypeScript, CUSTOM_KEYS_NAMESPACE},
@@ -22,10 +22,7 @@ pub fn main() -> Result<(), Error> {
 
     let (action_raw, params_raw) = parser.parse_action_with_params()?;
     let action = action_raw.as_reader().raw_data();
-    let params = params_raw
-        .iter()
-        .map(|param| param.as_reader())
-        .collect::<Vec<_>>();
+    let params = params_raw.iter().map(|param| param.as_reader()).collect::<Vec<_>>();
     if action == b"init_account_chain" {
         debug!("Route to init_account_chain action ...");
 
@@ -239,6 +236,7 @@ pub fn main() -> Result<(), Error> {
             Source::Output
         );
 
+        verify_cells_with_das_lock()?;
         verify_account_capacity_not_decrease(input_account_cells[0], output_account_cells[0])?;
         verify_account_lock_consistent(input_account_cells[0], output_account_cells[0], None)?;
         verify_account_data_consistent(input_account_cells[0], output_account_cells[0], vec!["expired_at"])?;
@@ -420,6 +418,8 @@ pub fn main() -> Result<(), Error> {
 
         parser.parse_cell()?;
         parser.parse_config(&[DataType::ConfigCellAccount])?;
+
+        verify_cells_with_das_lock()?;
 
         let config_account = parser.configs.account()?;
 
@@ -960,6 +960,46 @@ fn verify_records_keys<'a>(
 
             break;
         }
+    }
+
+    Ok(())
+}
+
+fn verify_cells_with_das_lock() -> Result<(), Error> {
+    let this_script = high_level::load_script().map_err(|e| Error::from(e))?;
+    let this_script_reader = this_script.as_reader();
+
+    let das_lock = das_lock();
+    let das_lock_reader = das_lock.as_reader();
+    let mut i = 0;
+    loop {
+        let ret = high_level::load_cell_lock(i, Source::Input);
+        match ret {
+            Ok(lock) => {
+                // Check if cells with das-lock in inputs can only has account-cell-type.
+                if util::is_script_equal(das_lock_reader, lock.as_reader()) {
+                    let type_opt = high_level::load_cell_type(i, Source::Input).map_err(|e| Error::from(e))?;
+                    match type_opt {
+                        Some(type_) if util::is_reader_eq(this_script_reader, type_.as_reader()) => {}
+                        _ => {
+                            warn!(
+                                "Inputs[{}] This cell has das-lock, normal cells with das-lock is not allowed in this transaction.",
+                                i
+                            );
+                            return Err(Error::InvalidTransactionStructure);
+                        }
+                    }
+                }
+            }
+            Err(SysError::IndexOutOfBound) => {
+                break;
+            }
+            Err(err) => {
+                return Err(Error::from(err));
+            }
+        }
+
+        i += 1;
     }
 
     Ok(())
