@@ -710,6 +710,7 @@ enum DataType {
     ConfigCellProfitRate, // args: 0x6b000000
     ConfigCellRecordKeyNamespace, // args: 0x6c000000
     ConfigCellRelease, // args: 0x6d000000
+    ConfigCellUnAvailableAccount, // args: 0x6e000000
     ConfigCellPreservedAccount00 = 10000, // args: 0x10270000
     ConfigCellPreservedAccount01,
     ConfigCellPreservedAccount02,
@@ -730,7 +731,6 @@ enum DataType {
     ConfigCellPreservedAccount17,
     ConfigCellPreservedAccount18,
     ConfigCellPreservedAccount19, // args: 0x23270000
-    ConfigCellUnAvailableAccount, // args: 0x24270000
     ConfigCellCharSetEmoji = 100000, // args: 0xa0860100
     ConfigCellCharSetDigit, // args: 0xa1860100
     ConfigCellCharSetEn, // args: 0xa2860100
