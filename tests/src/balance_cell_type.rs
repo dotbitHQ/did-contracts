@@ -177,28 +177,28 @@ test_with_generator!(test_balance_work_with_other_type, || {
     let (cell_data, old_entity) =
         template.gen_account_cell_data(account, next_account, registered_at, expired_at, 0, 0, 0, None);
     template.push_account_cell::<AccountCellData>(
-        "0x0000000000000000000000000000000000001111",
-        "0x0000000000000000000000000000000000001111",
+        "0x050000000000000000000000000000000000001111",
+        "0x050000000000000000000000000000000000001111",
         cell_data,
         None,
         1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
         Source::Input,
     );
-    template.push_das_lock_witness("4b16a36e0d544d42966106702e07eacf673b0ce5bd3764d701db3101294f7ecd");
+    template.push_das_lock_witness("38ad15aa23df89caa8389d9b8a4a053d825e8e44b7c4e3efbdd260fffc96421e");
 
     template.push_das_lock_cell(
-        "0x000000000000000000000000000000000000001111",
+        "0x050000000000000000000000000000000000001111",
         10_000_000_000,
         Source::Input,
-        None,
+        Some("38ad15aa23df89caa8389d9b8a4a053d825e8e44b7c4e3efbdd260fffc96421e"),
     );
 
     // outputs
     let (cell_data, new_entity) =
         template.gen_account_cell_data(account, next_account, registered_at, expired_at, timestamp, 0, 0, None);
     template.push_account_cell::<AccountCellData>(
-        "0x0000000000000000000000000000000000002222",
-        "0x0000000000000000000000000000000000002222",
+        "0x050000000000000000000000000000000000002222",
+        "0x050000000000000000000000000000000000002222",
         cell_data,
         None,
         1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY - ACCOUNT_OPERATE_FEE,

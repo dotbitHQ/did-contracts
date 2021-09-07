@@ -73,7 +73,8 @@ pub fn find_cells_by_type_id(
     let mut cell_indexes = Vec::new();
     loop {
         let offset = 16;
-        let mut code_hash = [0u8; 32];
+        // Here we use 33 bytes to store code_hash and hash_type together.
+        let mut code_hash = [0u8; 33];
         let ret = match script_type {
             ScriptType::Lock => syscalls::load_cell_by_field(&mut code_hash, offset, i, source, CellField::Lock),
             ScriptType::Type => syscalls::load_cell_by_field(&mut code_hash, offset, i, source, CellField::Type),
@@ -85,7 +86,13 @@ pub fn find_cells_by_type_id(
                 unreachable!()
             }
             Err(SysError::LengthNotEnough(_)) => {
-                if code_hash == type_id.raw_data() {
+                // Build an array with specific code_hash and hash_type
+                let mut type_id_with_hash_type = [0u8; 33];
+                let (left, _) = type_id_with_hash_type.split_at_mut(32);
+                left.copy_from_slice(type_id.raw_data());
+                type_id_with_hash_type[32] = ScriptType::Type as u8;
+
+                if code_hash == type_id_with_hash_type {
                     cell_indexes.push(i);
                 }
             }

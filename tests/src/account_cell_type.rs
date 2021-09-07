@@ -916,6 +916,7 @@ challenge_with_generator!(
         let (mut template, timestamp) = init("renew_account", None);
 
         template.push_contract_cell("income-cell-type", false);
+        template.push_contract_cell("balance-cell-type", false);
 
         template.push_oracle_cell(1, OracleCellType::Quote, 1000);
         template.push_config_cell(DataType::ConfigCellPrice, true, 0, Source::CellDep);

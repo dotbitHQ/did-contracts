@@ -423,7 +423,8 @@ impl TemplateGenerator {
     pub fn push_das_lock_witness(&mut self, type_data_hash_hex: &str) {
         let signature = util::hex_to_bytes("0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000FF");
         let type_data_hash = util::hex_to_bytes(type_data_hash_hex);
-        let lock = [signature, type_data_hash].concat();
+        let chain_id = util::hex_to_bytes("0x0000000000000001");
+        let lock = [signature, type_data_hash, chain_id].concat();
         self.push_witness_args(Some(&lock), None, None);
     }
 
@@ -1294,7 +1295,8 @@ impl TemplateGenerator {
         if let Some(type_data_hash_hex) = type_data_hash_opt {
             let signature = util::hex_to_bytes("0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000FF");
             let type_data_hash = util::hex_to_bytes(type_data_hash_hex);
-            let lock = [signature, type_data_hash].concat();
+            let chain_id = util::hex_to_bytes("0x0000000000000001");
+            let lock = [signature, type_data_hash, chain_id].concat();
             self.push_witness_args(Some(&lock), None, None);
         } else {
             self.push_empty_witness();

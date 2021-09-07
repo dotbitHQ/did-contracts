@@ -19,6 +19,7 @@ pub fn main() -> Result<(), Error> {
     let params = params_raw.iter().map(|param| param.as_reader()).collect::<Vec<_>>();
 
     parser.parse_config(&[DataType::ConfigCellMain])?;
+    parser.parse_cell()?;
 
     verify_eip712_hashes(&parser, action_raw.as_reader(), &params)?;
 

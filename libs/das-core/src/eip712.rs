@@ -6,6 +6,7 @@ use super::{
     util, warn,
     witness_parser::WitnessesParser,
 };
+use crate::constants::EIP712_CHAINID_SIZE;
 use alloc::{
     collections::BTreeMap,
     format,
@@ -50,6 +51,8 @@ pub fn verify_eip712_hashes(
 
     let mut i = 0;
     let mut input_groups_idxs: BTreeMap<Vec<u8>, Vec<usize>> = BTreeMap::new();
+    let this_type = high_level::load_script().map_err(|e| Error::from(e))?;
+    let this_type_reader = this_type.as_reader();
     loop {
         let ret = high_level::load_cell_lock(i, Source::Input);
         match ret {
@@ -72,7 +75,12 @@ pub fn verify_eip712_hashes(
                             i
                         );
                     } else {
-                        input_groups_idxs.entry(args.to_vec()).or_default().push(i);
+                        let type_opt = high_level::load_cell_type(i, Source::Input).map_err(|e| Error::from(e))?;
+                        if let Some(type_script) = type_opt {
+                            if util::is_script_equal(this_type_reader, type_script.as_reader()) {
+                                input_groups_idxs.entry(args.to_vec()).or_default().push(i);
+                            }
+                        }
                     }
                 }
             }
@@ -87,13 +95,14 @@ pub fn verify_eip712_hashes(
         i += 1;
     }
 
+    debug!("input_groups_idxs = {:?}", input_groups_idxs);
     if input_groups_idxs.is_empty() {
         debug!("There is no cell in inputs has das-lock with correct type byte, skip checking hashes in witnesses ...");
     } else {
         debug!("Check if hashes of typed data in witnesses is correct ...");
 
-        let mut typed_data = tx_to_eip712_typed_data(&parser, action, &params)?;
-        let digest_and_hash = tx_to_digest(input_groups_idxs, i + 1)?;
+        let (digest_and_hash, eip712_chain_id) = tx_to_digest(input_groups_idxs, i + 1)?;
+        let mut typed_data = tx_to_eip712_typed_data(&parser, action, &params, eip712_chain_id)?;
         for index in digest_and_hash.keys() {
             let item = digest_and_hash.get(index).unwrap();
             let digest = util::hex_string(&item.digest);
@@ -128,8 +137,9 @@ struct DigestAndHash {
 fn tx_to_digest(
     input_groups_idxs: BTreeMap<Vec<u8>, Vec<usize>>,
     input_size: usize,
-) -> Result<BTreeMap<usize, DigestAndHash>, Error> {
+) -> Result<(BTreeMap<usize, DigestAndHash>, Vec<u8>), Error> {
     let mut ret: BTreeMap<usize, DigestAndHash> = BTreeMap::new();
+    let mut eip712_chain_id = Vec::new();
     for (_key, input_group_idxs) in input_groups_idxs {
         let init_witness_idx = input_group_idxs[0];
         let witness_bytes = util::load_witnesses(init_witness_idx)?;
@@ -181,12 +191,28 @@ fn tx_to_digest(
                 }
                 let mut message = [0u8; 32];
                 blake2b.finalize(&mut message);
+
                 debug!(
-                    "Generate digest for inputs[{}].(args: {}, result: {})",
+                    "Inputs[{}] Generate digest.(args: {}, result: {})",
                     init_witness_idx,
                     util::hex_string(&_key),
                     util::hex_string(&message)
                 );
+
+                assert!(
+                    lock_of_witness.len() == SECP_SIGNATURE_SIZE + CKB_HASH_DIGEST + EIP712_CHAINID_SIZE,
+                    Error::EIP712SignatureError,
+                    "Inputs[{}] The length of signature is invalid.(current: {}, expected: {})",
+                    init_witness_idx,
+                    lock_of_witness.len(),
+                    SECP_SIGNATURE_SIZE + CKB_HASH_DIGEST + EIP712_CHAINID_SIZE
+                );
+
+                if eip712_chain_id.is_empty() {
+                    let from = SECP_SIGNATURE_SIZE + CKB_HASH_DIGEST;
+                    let to = from + EIP712_CHAINID_SIZE;
+                    eip712_chain_id = lock_of_witness.raw_data()[from..to].to_vec();
+                }
 
                 let typed_data_hash =
                     &lock_of_witness.raw_data()[SECP_SIGNATURE_SIZE..SECP_SIGNATURE_SIZE + CKB_HASH_DIGEST];
@@ -204,16 +230,17 @@ fn tx_to_digest(
         }
     }
 
-    Ok(ret)
+    Ok((ret, eip712_chain_id))
 }
 
 pub fn tx_to_eip712_typed_data(
     parser: &WitnessesParser,
     action: das_packed::BytesReader,
     params: &[das_packed::BytesReader],
+    chain_id: Vec<u8>,
 ) -> Result<TypedDataV4, Error> {
     let type_id_table = parser.configs.main()?.type_id_table();
-    let plain_text = tx_to_plaintext(parser, action, params)?;
+    let plain_text = tx_to_plaintext(parser, type_id_table, action, params)?;
     let tx_action = to_typed_action(action, params)?;
     let (inputs_capacity, inputs) = to_typed_cells(parser, type_id_table, Source::Input)?;
     let (outputs_capacity, outputs) = to_typed_cells(parser, type_id_table, Source::Output)?;
@@ -226,6 +253,7 @@ pub fn tx_to_eip712_typed_data(
         format!("-{}", to_semantic_capacity(outputs_capacity - inputs_capacity))
     };
 
+    let chain_id_num = u64::from_be_bytes(chain_id.try_into().unwrap());
     let typed_data = typed_data_v4!({
         types: {
             EIP712Domain: [
@@ -258,7 +286,7 @@ pub fn tx_to_eip712_typed_data(
         },
         primaryType: "Transaction",
         domain: {
-            chainId: 1,
+            chainId: chain_id_num,
             name: "da.systems",
             verifyingContract: "0xb3dc32341ee4bae03c85cd663311de0b1b122955",
             version: "1"
@@ -285,14 +313,20 @@ pub fn tx_to_eip712_typed_data(
 
 fn tx_to_plaintext(
     _parser: &WitnessesParser,
+    type_id_table_reader: das_packed::TypeIdTableReader,
     action_in_bytes: das_packed::BytesReader,
     _params_in_bytes: &[das_packed::BytesReader],
 ) -> Result<String, Error> {
     let ret;
     match action_in_bytes.raw_data() {
-        b"transfer_account" => ret = transfer_account_to_semantic()?,
-        b"edit_manager" => ret = edit_manager_to_semantic()?,
-        b"edit_records" => ret = edit_records_to_semantic()?,
+        // For account-cell-type only
+        b"transfer_account" | b"edit_manager" | b"edit_records" => match action_in_bytes.raw_data() {
+            b"transfer_account" => ret = transfer_account_to_semantic(type_id_table_reader)?,
+            b"edit_manager" => ret = edit_manager_to_semantic(type_id_table_reader)?,
+            b"edit_records" => ret = edit_records_to_semantic(type_id_table_reader)?,
+            _ => return Err(Error::ActionNotSupported),
+        },
+        // For balance-cell-type only
         b"transfer" | b"withdraw_from_wallet" => ret = transfer_to_semantic()?,
         _ => return Err(Error::ActionNotSupported),
     }
@@ -300,10 +334,9 @@ fn tx_to_plaintext(
     Ok(ret)
 }
 
-fn transfer_account_to_semantic() -> Result<String, Error> {
-    let this_type_script = high_level::load_script().map_err(|e| Error::from(e))?;
+fn transfer_account_to_semantic(type_id_table_reader: das_packed::TypeIdTableReader) -> Result<String, Error> {
     let (input_cells, output_cells) =
-        util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
+        util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, type_id_table_reader.account_cell())?;
 
     // Parse account from the data of the AccountCell in inputs.
     let data_in_bytes = util::load_cell_data(input_cells[0], Source::Input)?;
@@ -323,10 +356,9 @@ fn transfer_account_to_semantic() -> Result<String, Error> {
     ))
 }
 
-fn edit_manager_to_semantic() -> Result<String, Error> {
-    let this_type_script = high_level::load_script().map_err(|e| Error::from(e))?;
+fn edit_manager_to_semantic(type_id_table_reader: das_packed::TypeIdTableReader) -> Result<String, Error> {
     let (input_cells, _output_cells) =
-        util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
+        util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, type_id_table_reader.account_cell())?;
 
     // Parse account from the data of the AccountCell in inputs.
     let data_in_bytes = util::load_cell_data(input_cells[0], Source::Input)?;
@@ -337,10 +369,9 @@ fn edit_manager_to_semantic() -> Result<String, Error> {
     Ok(format!("Edit manager of account {} .", account))
 }
 
-fn edit_records_to_semantic() -> Result<String, Error> {
-    let this_type_script = high_level::load_script().map_err(|e| Error::from(e))?;
+fn edit_records_to_semantic(type_id_table_reader: das_packed::TypeIdTableReader) -> Result<String, Error> {
     let (input_cells, _output_cells) =
-        util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
+        util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, type_id_table_reader.account_cell())?;
 
     // Parse account from the data of the AccountCell in inputs.
     let data_in_bytes = util::load_cell_data(input_cells[0], Source::Input)?;
