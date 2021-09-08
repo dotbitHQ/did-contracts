@@ -634,7 +634,7 @@ fn verify_unavailable_accounts(
         loop {
             let mid_account_index = (start_account_index + end_account_index) / 2;
             let mid_account_start_byte_index = mid_account_index * ACCOUNT_ID_LENGTH;
-            let mid_account_end_byte_index = (mid_account_index + 1) * ACCOUNT_ID_LENGTH;
+            let mid_account_end_byte_index = mid_account_start_byte_index + ACCOUNT_ID_LENGTH;
             let mid_account_bytes = unavailable_accounts
                 .get(mid_account_start_byte_index..mid_account_end_byte_index)
                 .unwrap();
