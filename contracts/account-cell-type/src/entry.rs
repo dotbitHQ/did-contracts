@@ -108,75 +108,35 @@ pub fn main() -> Result<(), Error> {
 
         if action == b"sell_account" {
             debug!("Route to sell_account action ...");
-            let config_account = parser.configs.account()?;
-            verify_unlock_role(params, LockRole::Owner)?;
-            verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
-            verify_account_lock_consistent(input_account_cells[0], output_account_cells[0], None)?;
-            verify_account_data_consistent(input_account_cells[0], output_account_cells[0], vec![])?;
-            verify_account_capacity_not_decrease(input_account_cells[0], output_account_cells[0])?;
-            verify_account_witness_consistent(
-                input_account_cells[0],
-                output_account_cells[0],
-                &input_cell_witness_reader,
-                &output_cell_witness_reader,
-                vec!["status"],
+            util::require_type_script(
+                &mut parser,
+                TypeScript::AccountSaleCellType,
+                Source::Output,
+                Error::AccountSaleCellMissing,
             )?;
-
-            let input_witness_reader = input_cell_witness_reader
-                .try_into_latest()
-                .map_err(|_| Error::NarrowMixerTypeFailed)?;
-            let input_account_status = input_witness_reader.status() as u8;
-            if input_account_status != AccountStatus::Normal {
-                return Err(Error::AccountCellSaleStatusError1);
-            }
-
-            let output_witness_reader = output_cell_witness_reader
-                .try_into_latest()
-                .map_err(|_| Error::NarrowMixerTypeFailed)?;
-            let output_account_status = output_witness_reader.status() as u8;
-            if output_account_status != AccountStatus::Selling {
-                return Err(Error::AccountCellSaleStatusError2);
-            }
         } else if action == b"cancel_account_sale" {
             debug!("Route to cancel_account_sale action ...");
-            let config_account = parser.configs.account()?;
-            verify_unlock_role(params, LockRole::Owner)?;
-            verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
-            verify_account_lock_consistent(input_account_cells[0], output_account_cells[0], None)?;
-            verify_account_data_consistent(input_account_cells[0], output_account_cells[0], vec![])?;
-            verify_account_capacity_not_decrease(input_account_cells[0], output_account_cells[0])?;
-            verify_account_witness_consistent(
-                input_account_cells[0],
-                output_account_cells[0],
-                &input_cell_witness_reader,
-                &output_cell_witness_reader,
-                vec!["status"],
+            util::require_type_script(
+                &mut parser,
+                TypeScript::AccountSaleCellType,
+                Source::Input,
+                Error::AccountSaleCellMissing,
             )?;
-            verify_account_sale_status_selling_to_normal(&input_cell_witness_reader, &output_cell_witness_reader)?;
         } else if action == b"buy_account" {
             debug!("Route to buy_account action ...");
-            let config_account = parser.configs.account()?;
-
-            verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
-            verify_account_lock_consistent(input_account_cells[0], output_account_cells[0], Some("owner"))?;
-            verify_account_data_consistent(input_account_cells[0], output_account_cells[0], vec![])?;
-            verify_account_capacity_not_decrease(input_account_cells[0], output_account_cells[0])?;
-            verify_account_witness_consistent(
-                input_account_cells[0],
-                output_account_cells[0],
-                &input_cell_witness_reader,
-                &output_cell_witness_reader,
-                vec!["status"],
+            util::require_type_script(
+                &mut parser,
+                TypeScript::AccountSaleCellType,
+                Source::Input,
+                Error::AccountSaleCellMissing,
             )?;
-
-            verify_account_sale_status_selling_to_normal(&input_cell_witness_reader, &output_cell_witness_reader)?;
         } else if action == b"transfer_account" {
             debug!("Route to transfer_account action ...");
 
             let config_account = parser.configs.account()?;
 
             verify_unlock_role(params, LockRole::Owner)?;
-            verify_input_account_must_normal_status(&input_cell_witness_reader);
+            verify_input_account_must_normal_status(&input_cell_witness_reader)?;
             verify_transaction_fee_spent_correctly(
                 action,
                 config_account,
@@ -206,7 +166,7 @@ pub fn main() -> Result<(), Error> {
             let config_account = parser.configs.account()?;
 
             verify_unlock_role(params, LockRole::Owner)?;
-            verify_input_account_must_normal_status(&input_cell_witness_reader);
+            verify_input_account_must_normal_status(&input_cell_witness_reader)?;
             verify_transaction_fee_spent_correctly(
                 action,
                 config_account,
@@ -238,7 +198,7 @@ pub fn main() -> Result<(), Error> {
             let record_key_namespace = parser.configs.record_key_namespace()?;
 
             verify_unlock_role(params, LockRole::Manager)?;
-            verify_input_account_must_normal_status(&input_cell_witness_reader);
+            verify_input_account_must_normal_status(&input_cell_witness_reader)?;
             verify_transaction_fee_spent_correctly(
                 action,
                 config_account,
@@ -520,35 +480,14 @@ pub fn main() -> Result<(), Error> {
     Ok(())
 }
 
-fn verify_account_sale_status_selling_to_normal<'a>(
-    input_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
-    output_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
-) -> Result<(), Error> {
-    let input_witness_reader = input_witness_reader
-        .try_into_latest()
-        .map_err(|_| Error::NarrowMixerTypeFailed)?;
-    let input_account_status = input_witness_reader.status() as u8;
-    if input_account_status != AccountStatus::Selling {
-        return Err(Error::AccountCellSaleStatusError1);
-    }
-    let output_witness_reader = output_witness_reader
-        .try_into_latest()
-        .map_err(|_| Error::NarrowMixerTypeFailed)?;
-    let output_account_status = output_witness_reader.status() as u8;
-    if output_account_status != AccountStatus::Normal {
-        return Err(Error::AccountCellSaleStatusError2);
-    }
-    Ok(())
-}
-
 fn verify_input_account_must_normal_status<'a>(
     input_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
 ) -> Result<(), Error> {
     let witness_reader = input_witness_reader
         .try_into_latest()
         .map_err(|_| Error::NarrowMixerTypeFailed)?;
-    let account_status = witness_reader.status() as u8;
-    if account_status != AccountStatus::Normal {
+    let account_status = u8::from(witness_reader.status());
+    if account_status != (AccountStatus::Normal as u8) {
         return Err(Error::AccountCellSaleStatusNotAllow);
     }
     return Ok(());

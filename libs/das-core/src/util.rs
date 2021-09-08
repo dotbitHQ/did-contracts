@@ -690,16 +690,12 @@ pub fn require_type_script(
         TypeScript::ApplyRegisterCellType => config.type_id_table().apply_register_cell(),
         TypeScript::BiddingCellType => config.type_id_table().bidding_cell(),
         TypeScript::IncomeCellType => config.type_id_table().income_cell(),
-        TypeScript::AccountSaleCellType => config.type_id_table().on_sale_cell(),
+        TypeScript::AccountSaleCellType => config.type_id_table().account_sale_cell(),
         TypeScript::PreAccountCellType => config.type_id_table().pre_account_cell(),
         TypeScript::ProposalCellType => config.type_id_table().proposal_cell(),
     };
 
-    debug!(
-        "Require on: 0x{}({:?})",
-        hex_string(type_id.raw_data()),
-        TypeScript::AccountCellType
-    );
+    debug!("Require on: 0x{}({:?})", hex_string(type_id.raw_data()), type_script);
 
     // Find out required cell in current transaction.
     let required_cells = find_cells_by_type_id(ScriptType::Type, type_id, source)?;
@@ -710,7 +706,7 @@ pub fn require_type_script(
         "The cells in {:?} which has type script 0x{}({:?}) is required in this transaction.",
         source,
         hex_string(type_id.raw_data()),
-        TypeScript::AccountCellType
+        type_script
     );
 
     Ok(())

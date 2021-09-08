@@ -50,8 +50,7 @@ impl WitnessesParser {
                         }
                     }
 
-                    let data_type_in_int =
-                        u32::from_le_bytes(buf.get(3..7).unwrap().try_into().unwrap());
+                    let data_type_in_int = u32::from_le_bytes(buf.get(3..7).unwrap().try_into().unwrap());
                     match DataType::try_from(data_type_in_int) {
                         Ok(data_type) => {
                             if !das_witnesses_started {
@@ -98,8 +97,8 @@ impl WitnessesParser {
         let (index, data_type) = self.witnesses[0];
         let raw = util::load_das_witnesses(index, data_type)?;
 
-        let action_data = ActionData::from_slice(raw.get(7..).unwrap())
-            .map_err(|_| Error::WitnessActionDecodingError)?;
+        let action_data =
+            ActionData::from_slice(raw.get(7..).unwrap()).map_err(|_| Error::WitnessActionDecodingError)?;
 
         Ok(action_data)
     }
@@ -121,8 +120,7 @@ impl WitnessesParser {
                     | DataType::ConfigCellCharSetZhHant => {
                         if self.configs.char_set().is_ok() {
                             let char_sets = self.configs.char_set().unwrap();
-                            let char_set_index =
-                                das_types_util::data_type_to_char_set(config_type.to_owned());
+                            let char_set_index = das_types_util::data_type_to_char_set(config_type.to_owned());
                             return char_sets[char_set_index as usize].is_none();
                         }
                         return true;
@@ -137,27 +135,16 @@ impl WitnessesParser {
             return Ok(());
         }
 
-        debug!(
-            "  Load ConfigCells {:?} from cell_deps ...",
-            unloaded_config_types
-        );
+        debug!("  Load ConfigCells {:?} from cell_deps ...", unloaded_config_types);
 
         let config_cell_type = util::script_literal_to_script(CONFIG_CELL_TYPE);
         let mut config_data_types = Vec::new();
         let mut config_entity_hashes = map::Map::new();
         for config_type in unloaded_config_types {
             let args = Bytes::from((config_type.to_owned() as u32).to_le_bytes().to_vec());
-            let type_script = config_cell_type
-                .clone()
-                .as_builder()
-                .args(args.into())
-                .build();
+            let type_script = config_cell_type.clone().as_builder().args(args.into()).build();
             // There must be one ConfigCell in the cell_deps, no more and no less.
-            let ret = util::find_cells_by_script(
-                ScriptType::Type,
-                type_script.as_reader(),
-                Source::CellDep,
-            )?;
+            let ret = util::find_cells_by_script(ScriptType::Type, type_script.as_reader(), Source::CellDep)?;
             assert!(
                 ret.len() == 1,
                 Error::ConfigCellIsRequired,
@@ -189,10 +176,8 @@ impl WitnessesParser {
 
         macro_rules! assign_config_witness {
             ( $property:expr, $witness_type:ty, $entity:expr ) => {
-                $property = Some(
-                    <$witness_type>::from_slice($entity)
-                        .map_err(|_| Error::ConfigCellWitnessDecodingError)?,
-                );
+                $property =
+                    Some(<$witness_type>::from_slice($entity).map_err(|_| Error::ConfigCellWitnessDecodingError)?);
             };
         }
 
@@ -225,9 +210,7 @@ impl WitnessesParser {
             entity: &[u8],
         ) -> Result<(), Error> {
             let entity_hash = util::blake2b_256(entity).to_vec();
-            let ret = config_entity_hashes
-                .find(&entity_hash)
-                .map(|v| v.to_owned());
+            let ret = config_entity_hashes.find(&entity_hash).map(|v| v.to_owned());
 
             // debug!("current: 0x{}", util::hex_string(entity_hash.as_slice()));
             if let Some(key) = ret {
@@ -258,9 +241,7 @@ impl WitnessesParser {
 
             let raw = util::load_das_witnesses(index, data_type)?;
             let raw_trimed = util::trim_empty_bytes(&raw);
-            let entity = raw_trimed
-                .get(7..)
-                .ok_or(Error::ConfigCellWitnessDecodingError)?;
+            let entity = raw_trimed.get(7..).ok_or(Error::ConfigCellWitnessDecodingError)?;
 
             find_and_remove_from_hashes(_i, data_type, &mut config_entity_hashes, entity)?;
 
@@ -295,6 +276,9 @@ impl WitnessesParser {
                 }
                 DataType::ConfigCellRelease => {
                     assign_config_witness!(self.configs.release, ConfigCellRelease, entity)
+                }
+                DataType::ConfigCellSecondaryMarket => {
+                    assign_config_witness!(self.configs.secondary_market, ConfigCellSecondaryMarket, entity)
                 }
                 DataType::ConfigCellRecordKeyNamespace => {
                     self.configs.record_key_namespace = Some(entity.get(4..).unwrap().to_vec());
@@ -436,11 +420,7 @@ impl WitnessesParser {
         Ok((index, version, data_type, hash, entity))
     }
 
-    pub fn verify_and_get(
-        &self,
-        index: usize,
-        source: Source,
-    ) -> Result<(u32, DataType, &Bytes), Error> {
+    pub fn verify_and_get(&self, index: usize, source: Source) -> Result<(u32, DataType, &Bytes), Error> {
         let data = util::load_cell_data(index, source)?;
         let hash = match data.get(..32) {
             Some(bytes) => bytes.to_vec(),
@@ -503,6 +483,7 @@ impl WitnessesParser {
             DataType::ConfigCellProposal,
             DataType::ConfigCellProfitRate,
             DataType::ConfigCellRelease,
+            DataType::ConfigCellSecondaryMarket,
             DataType::ConfigCellRecordKeyNamespace,
             DataType::ConfigCellPreservedAccount00,
             DataType::ConfigCellPreservedAccount01,

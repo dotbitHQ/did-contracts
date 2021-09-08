@@ -362,7 +362,7 @@ Witness 中的主要字段如下：
 #### 结构
 
 ```
-lock: <always_success>
+lock: <das-lock>
 type: <account-sale-cell-type>
 
 data: hash(witness: AccountSaleCellData)
