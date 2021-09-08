@@ -656,6 +656,32 @@ table ConfigCellSecondaryMarket {
 - min_sale_price ，一口价出售账户时的最低售价；
 - sale_expiration_limit ，一口价挂单的到期时间限制；
 
+
+#### ConfigCellAuction
+
+** witness: **
+```
+table ConfigCellAuction {
+  // default 7 days = 7 * 86400 seconds
+  max_duration: Uint64
+  
+  min_bid_price: Uint64
+  
+  // a percentage based on 10000
+  default_increment_ratio: Uint64
+  
+  // the commision rate given to the seller 
+  seller_commision_rate: Uint16
+  
+  // the commision rate given to the last bidder
+  last_bidder_commision_rate: Uint16
+  
+  inviter_commision_rate: Uint16
+  
+  channel_commision_rate: Uint16
+}
+```
+
 #### ConfigCellRecordKeyNamespace
 
 解析记录 key 命名空间。
@@ -737,6 +763,45 @@ data:
 
 `105` Bytes
 
+
+### AccountAuctionCell
+
+这是一个描述账户竞拍信息的 Cell，每一个竞拍中的账户都有一个对应的 AccountAuctionCell。
+
+#### 结构
+```
+lock: <always_success>
+type: <accont-sale-cell-type>
+
+data: hash(witness: AccountAuctionCellData)
+
+======
+table AccountAuctionCellData {
+  // Account ID of corresponding account.
+  account_id: AccountId
+  
+  // A customizable description for the account
+  description: Bytes
+  
+  opening_price: Uint64
+  
+  start_time: Timestamp
+  
+  end_time: Timestamp
+  
+  bidder: Script
+  
+  // current bidder's offer price
+  bid_price: Uint64,
+  
+  // a percentage based on 10000 
+  increment_ratio: Uint16
+}
+```
+
+#### 体积
+
+todo
 
 ## 其他
 
