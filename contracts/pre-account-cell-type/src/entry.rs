@@ -1,3 +1,4 @@
+use alloc::string::String;
 use ckb_std::{
     ckb_constants::Source,
     high_level::{load_cell_capacity, load_cell_data, load_cell_lock, load_script},
@@ -615,6 +616,12 @@ fn verify_unavailable_accounts(
     let account_hash_first_20_bytes = account_hash.get(..ACCOUNT_ID_LENGTH).unwrap();
     let unavailable_accounts = parser.configs.unavailable_account()?;
 
+    debug!(
+        "account {} account_hash {}",
+        String::from_utf8(account.clone()).unwrap(),
+        util::hex_string(&account_hash)
+    );
+
     // todo: maybe a naive traverse is much faster and use less cycles
     if unavailable_accounts.len() > 0 {
         let accounts_total = unavailable_accounts.len() / ACCOUNT_ID_LENGTH;
@@ -624,7 +631,7 @@ fn verify_unavailable_accounts(
         loop {
             let mid_account_index = (start_account_index + end_account_index) / 2;
             let mid_account_start_byte_index = mid_account_index * ACCOUNT_ID_LENGTH;
-            let mid_account_end_byte_index = (mid_account_index + 1) * ACCOUNT_ID_LENGTH;
+            let mid_account_end_byte_index = mid_account_start_byte_index + ACCOUNT_ID_LENGTH;
             let mid_account_bytes = unavailable_accounts
                 .get(mid_account_start_byte_index..mid_account_end_byte_index)
                 .unwrap();
@@ -641,7 +648,7 @@ fn verify_unavailable_accounts(
                 );
                 return Err(Error::AccountIsUnAvailable);
             }
-            if start_account_index > end_account_index {
+            if start_account_index > end_account_index || end_account_index == 0 {
                 break;
             }
         }
