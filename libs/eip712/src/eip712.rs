@@ -2,6 +2,7 @@ use alloc::{format, vec};
 use serde_json::{Map, Value};
 use std::prelude::v1::*;
 
+use super::debug;
 use super::error::*;
 use super::types::*;
 use super::util::*;
@@ -64,7 +65,7 @@ pub fn encode_type(domain_types: &Map<String, Value>, primary_type: &str) -> Res
         result += format!("{}({})", type_, fields_str.join(",")).as_str()
     }
 
-    // println!("Type encoding result: {:?}", result);
+    // debug!("Type encoding result: {:?}", result);
     Ok(result)
 }
 
@@ -135,15 +136,29 @@ pub fn encode_message(
             .ok_or(EIP712EncodingError::FailedWhenEncodingMessage)?;
         let (encoded_type, encoded_data) = encode_field(domain_types, name, type_, value)?;
         // if primary_type == "Transaction" {
-        //     println!(
+        //     debug!(
+        //         "name: {}, type: {}, value: {}, encoded_type: {}, encoded_data: 0x{}",
+        //         field["name"],
+        //         type_,
+        //         value,
+        //         encoded_type,
+        //         hex::encode(encoded_data.clone())
+        //     );
+        // }
+        // else if primary_type == "EIP712Domain" {
+        //     debug!(
         //         "name: {}, type: {}, value: {}, encoded_type: {}, encoded_data: {:?}",
         //         field["name"], type_, value, encoded_type, encoded_data
         //     );
         // }
-        // if primary_type == "EIP712Domain" {
-        //     println!(
-        //         "name: {}, type: {}, value: {}, encoded_type: {}, encoded_data: {:?}",
-        //         field["name"], type_, value, encoded_type, encoded_data
+        // else {
+        //     debug!(
+        //         "  name: {}, type: {}, value: {}, encoded_type: {}, encoded_data: 0x{}",
+        //         field["name"],
+        //         type_,
+        //         value,
+        //         encoded_type,
+        //         hex::encode(encoded_data.clone())
         //     );
         // }
         types.push(encoded_type);
@@ -217,7 +232,7 @@ fn encode_field(
             let num = value.as_u64().ok_or(EIP712EncodingError::TypeOfValueIsInvalid)?;
             return Ok(("uint256", num.to_be_bytes().to_vec()));
         } else {
-            // println!("name: {}, type: {}, value: {:?}", name, type_, value);
+            // debug!("name: {}, type: {}, value: {:?}", name, type_, value);
             return Err(EIP712EncodingError::UndefinedEIP712Type);
         }
     }

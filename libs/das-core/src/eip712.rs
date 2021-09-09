@@ -95,7 +95,7 @@ pub fn verify_eip712_hashes(
         i += 1;
     }
 
-    debug!("input_groups_idxs = {:?}", input_groups_idxs);
+    // debug!("input_groups_idxs = {:?}", input_groups_idxs);
     if input_groups_idxs.is_empty() {
         debug!("There is no cell in inputs has das-lock with correct type byte, skip checking hashes in witnesses ...");
     } else {
@@ -611,9 +611,10 @@ fn to_semantic_capacity(capacity: u64) -> String {
         }
     } else {
         if capacity_str == "0" {
-            ret = String::from("0");
+            ret = String::from("0 CKB");
         } else {
-            let decimal = capacity_str.trim_end_matches("0");
+            let padded_str = format!("{:0>8}", capacity_str);
+            let decimal = padded_str.trim_end_matches("0");
             ret = ret + "0." + decimal + " CKB";
         }
     }
@@ -688,7 +689,7 @@ fn to_semantic_account_witness(
     let records_hash = util::blake2b_256(witness_reader.records().as_slice());
 
     Ok(format!(
-        "{{ status: {}, records_hash: {} }}",
+        "{{ status: {}, records_hash: 0x{} }}",
         status,
         util::hex_string(&records_hash)
     ))
@@ -812,6 +813,29 @@ mod test {
             das_lock.as_reader().code_hash(),
             other_type_script.as_reader(),
         );
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_to_semantic_capacity() {
+        let expected = "0 CKB";
+        let result = to_semantic_capacity(0);
+        assert_eq!(result, expected);
+
+        let expected = "1 CKB";
+        let result = to_semantic_capacity(100_000_000);
+        assert_eq!(result, expected);
+
+        let expected = "0.0001 CKB";
+        let result = to_semantic_capacity(10_000);
+        assert_eq!(result, expected);
+
+        let expected = "1000.0001 CKB";
+        let result = to_semantic_capacity(100_000_010_000);
+        assert_eq!(result, expected);
+
+        let expected = "1000 CKB";
+        let result = to_semantic_capacity(100_000_000_000);
         assert_eq!(result, expected);
     }
 }

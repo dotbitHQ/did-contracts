@@ -1,4 +1,16 @@
 #[macro_export]
+macro_rules! debug {
+    ($fmt:literal) => {
+        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
+        ckb_std::syscalls::debug(alloc::format!($fmt));
+    };
+    ($fmt:literal, $($args:expr),+) => {
+        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
+        ckb_std::syscalls::debug(alloc::format!($fmt, $($args), +));
+    };
+}
+
+#[macro_export]
 macro_rules! typed_data_v4 {
     (@value {$( $type_name:ident: $tail:tt ),+}) => {{
         let mut types = serde_json::Map::new();
