@@ -140,6 +140,12 @@ pub fn encode_message(
         //         field["name"], type_, value, encoded_type, encoded_data
         //     );
         // }
+        // if primary_type == "EIP712Domain" {
+        //     println!(
+        //         "name: {}, type: {}, value: {}, encoded_type: {}, encoded_data: {:?}",
+        //         field["name"], type_, value, encoded_type, encoded_data
+        //     );
+        // }
         types.push(encoded_type);
         values.push(encoded_data);
     }
@@ -211,7 +217,7 @@ fn encode_field(
             let num = value.as_u64().ok_or(EIP712EncodingError::TypeOfValueIsInvalid)?;
             return Ok(("uint256", num.to_be_bytes().to_vec()));
         } else {
-            println!("name: {}, type: {}, value: {:?}", name, type_, value);
+            // println!("name: {}, type: {}, value: {:?}", name, type_, value);
             return Err(EIP712EncodingError::UndefinedEIP712Type);
         }
     }
@@ -261,35 +267,29 @@ mod test {
     use serde_json::Value;
 
     fn gen_typed_data_v4() -> TypedDataV4 {
-        let action: Value = Action::new("transfer_account", "0x01,0x00").into();
-        let inputs = Value::from(vec![
-            Cell::new(
-                "999.99 CKB",
-                "0x123456,0x01,0x123456",
-                "0x123456,0x01,0x123456",
-                "account: test.bit",
-                "",
-            ),
-            Cell::new("999.99 CKB", "0x123456,0x01,0x123456", "0x123456,0x01,0x123456", "", ""),
-        ]);
-        let outputs = Value::from(vec![
-            Cell::new(
-                "999.99 CKB",
-                "0x123456,0x01,0x123456",
-                "0x123456,0x01,0x123456",
-                "account: test.bit",
-                "",
-            ),
-            Cell::new("999.99 CKB", "0x123456,0x01,0x123456", "0x123456,0x01,0x123456", "", ""),
-        ]);
+        let action: Value = Action::new("edit_records", "0x01").into();
+        let inputs = Value::from(vec![Cell::new(
+            "225 CKB",
+            "das-lock,0x01,0x0515a33588908cf8edb27d1abe3852bf287abd38...",
+            "account-cell-type,0x01,0x",
+            "{ account: tangzhihong005.bit, expired_at: 1662629612 }",
+            "{ status: 0, records_hash: 0x55478d76900611eb079b22088081124ed6c8bae21a05dd1a0d197efcc7c114ce }",
+        )]);
+        let outputs = Value::from(vec![Cell::new(
+            "224.9999 CKB",
+            "das-lock,0x01,0x0515a33588908cf8edb27d1abe3852bf287abd38...",
+            "account-cell-type,0x01,0x",
+            "{ account: tangzhihong005.bit, expired_at: 1662629612 }",
+            "{ status: 0, records_hash: 0x75e9c7a4725177c157b31d8a39f73e40ad328be5244a2a2fb6e478a24612c51a }",
+        )]);
 
         let data = typed_data_v4!({
             types: {
                 EIP712Domain: [
-                    name: "string",
-                    version: "string",
                     chainId: "uint256",
-                    verifyingContract: "address"
+                    name: "string",
+                    verifyingContract: "address",
+                    version: "string"
                 ],
                 Action: [
                     action: "string",
@@ -315,20 +315,20 @@ mod test {
             },
             primaryType: "Transaction",
             domain: {
-                chainId: 1,
+                chainId: 5,
                 name: "da.systems",
-                verifyingContract: "0xb3dc32341ee4bae03c85cd663311de0b1b122955",
+                verifyingContract: "0x0000000000000000000000000000000020210722",
                 version: "1"
             },
             message: {
-                plainText: "Transfer account test.bit from A to B.",
-                inputsCapacity: "999.99 CKB",
-                outputsCapacity: "999.99 CKB",
+                plainText: "Edit records of account tangzhihong005.bit .",
+                inputsCapacity: "225 CKB",
+                outputsCapacity: "224.9999 CKB",
                 fee: "0.0001 CKB",
                 action: action,
                 inputs: inputs,
                 outputs: outputs,
-                digest: "0x4eb68a6707ae16ce24fde8e5964f9f04c5a4abf9884f67b9425a5e1e65968119"
+                digest: "01bee5c80a6bd74440f0f96c983b1107f1a419e028bef7b33e77e8f968cbfae7"
             }
         });
 
@@ -339,7 +339,7 @@ mod test {
     fn test_hash_data() {
         let typed_data = gen_typed_data_v4();
 
-        let expected = "1c5494d55a3dc7ef66a9cac5234dca6423230170c6d32483b6a05fc79dafa6ba";
+        let expected = "82d9c08f8e01f6b1334292077e7c7d6828c62d03df1f12bca616a05b134734ab";
         let data = hash_data(&typed_data).unwrap();
 
         assert_eq!(hex::encode(data).as_str(), expected);
