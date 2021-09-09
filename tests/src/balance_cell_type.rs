@@ -32,7 +32,7 @@ test_with_generator!(test_balance_only_handle_type_5, || {
         "0x050000000000000000000000000000000000004444",
         10_000_000_000,
         Source::Input,
-        Some("c260423ae49b00e652342dcd0c2c583d65a05838adcb84784976f6cfba5d992b"),
+        Some("377ab87cc12e5519b9934c9c4d82432051a41cb242a53bcad0a3846138b9031f"),
     );
     template.push_das_lock_cell(
         "0x050000000000000000000000000000000000004444",
@@ -184,13 +184,13 @@ test_with_generator!(test_balance_work_with_other_type, || {
         1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
         Source::Input,
     );
-    template.push_das_lock_witness("0a5b5e689d27864356d71cdd49e1162b815b01838622c092a460435cc77abb72");
+    template.push_das_lock_witness("0582418aa5bc3656ed04e37908e92cd0a67935d49d280a93936abf0b2d3e675f");
 
     template.push_das_lock_cell(
         "0x050000000000000000000000000000000000001111",
         10_000_000_000,
         Source::Input,
-        Some("0a5b5e689d27864356d71cdd49e1162b815b01838622c092a460435cc77abb72"),
+        Some("0582418aa5bc3656ed04e37908e92cd0a67935d49d280a93936abf0b2d3e675f"),
     );
 
     // outputs

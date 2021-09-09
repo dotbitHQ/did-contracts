@@ -278,7 +278,7 @@ pub fn tx_to_eip712_typed_data(
               extraData: "string"
             ],
             Transaction: [
-              plainText: "string",
+              DAS_MESSAGE: "string",
               inputsCapacity: "string",
               outputsCapacity: "string",
               fee: "string",
@@ -296,7 +296,7 @@ pub fn tx_to_eip712_typed_data(
             version: "1"
         },
         message: {
-            plainText: plain_text,
+            DAS_MESSAGE: plain_text,
             action: tx_action,
             inputsCapacity: inputs_capacity_str,
             outputsCapacity: outputs_capacity_str,
@@ -348,16 +348,13 @@ fn transfer_account_to_semantic(type_id_table_reader: das_packed::TypeIdTableRea
     let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| Error::EIP712SerializationError)?;
 
     // Parse from address from the AccountCell's lock script in inputs.
-    let from_lock = high_level::load_cell_lock(input_cells[0], Source::Input).map_err(|e| Error::from(e))?;
-    let from_address = to_semantic_address(from_lock.as_reader().into(), 1..21)?;
+    // let from_lock = high_level::load_cell_lock(input_cells[0], Source::Input).map_err(|e| Error::from(e))?;
+    // let from_address = to_semantic_address(from_lock.as_reader().into(), 1..21)?;
     // Parse to address from the AccountCell's lock script in outputs.
     let to_lock = high_level::load_cell_lock(output_cells[0], Source::Output).map_err(|e| Error::from(e))?;
     let to_address = to_semantic_address(to_lock.as_reader().into(), 1..21)?;
 
-    Ok(format!(
-        "Transfer the account {} from {} to {}.",
-        account, from_address, to_address
-    ))
+    Ok(format!("TRANSFER THE ACCOUNT {} TO {}", account, to_address))
 }
 
 fn edit_manager_to_semantic(type_id_table_reader: das_packed::TypeIdTableReader) -> Result<String, Error> {
@@ -370,7 +367,7 @@ fn edit_manager_to_semantic(type_id_table_reader: das_packed::TypeIdTableReader)
     let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| Error::EIP712SerializationError)?;
 
     // TODO Improve semantic message of this transaction.
-    Ok(format!("Edit manager of account {} .", account))
+    Ok(format!("EDIT MANAGER OF ACCOUNT {}", account))
 }
 
 fn edit_records_to_semantic(type_id_table_reader: das_packed::TypeIdTableReader) -> Result<String, Error> {
@@ -383,7 +380,7 @@ fn edit_records_to_semantic(type_id_table_reader: das_packed::TypeIdTableReader)
     let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| Error::EIP712SerializationError)?;
 
     // TODO Improve semantic message of this transaction.
-    Ok(format!("Edit records of account {} .", account))
+    Ok(format!("EDIT RECORDS OF ACCOUNT {}", account))
 }
 
 fn transfer_to_semantic() -> Result<String, Error> {
@@ -423,7 +420,7 @@ fn transfer_to_semantic() -> Result<String, Error> {
     let inputs = sum_cells(Source::Input)?;
     let outputs = sum_cells(Source::Output)?;
 
-    Ok(format!("Transfer from {} to {}.", inputs, outputs))
+    Ok(format!("TRANSFER FROM {} TO {}", inputs, outputs))
 }
 
 fn to_semantic_address(lock_reader: das_packed::ScriptReader, range: Range<usize>) -> Result<String, Error> {
