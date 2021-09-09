@@ -514,7 +514,6 @@ table ConfigCellMain {
 table TypeIdTable {
     account_cell: Hash,
     apply_register_cell: Hash,
-    bidding_cell: Hash,
     income_cell: Hash,
     on_sale_cell: Hash,
     pre_account_cell: Hash,
@@ -785,9 +784,9 @@ table AccountAuctionCellData {
   
   opening_price: Uint64
   
-  start_time: Timestamp
+  started_at: Timestamp
   
-  end_time: Timestamp
+  ended_at: Timestamp
   
   bidder: Script
   
@@ -829,8 +828,8 @@ enum SystemStatus {
 enum DataType {
     ActionData = 0,
     AccountCellData,
-    OnSaleCellData,
-    BiddingCellData,
+    AccountSaleCellData,
+    AccountAuctionCellData,
     ProposalCellData,
     PreAccountCellData,
     IncomeCellData,

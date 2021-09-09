@@ -405,6 +405,15 @@ pub fn main() -> Result<(), Error> {
             Source::Input,
             Error::AccountCellFoundInvalidTransaction,
         )?;
+    } else if action == b"bid_account_auction" {
+        debug!("Route to buy_account action ...");
+
+        util::require_type_script(
+            &mut parser,
+            TypeScript::AccountAuctionCellType,
+            Source::Input,
+            Error::AccountCellFoundInvalidTransaction,
+        )?;
     } else if action == b"renew_account" {
         debug!("Route to renew_account action ...");
         util::require_type_script(

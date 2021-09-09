@@ -23,6 +23,7 @@ pub enum TypeScript {
     BalanceCellType,
     IncomeCellType,
     AccountSaleCellType,
+    AccountAuctionCellType,
     PreAccountCellType,
     ProposalCellType,
 }

@@ -3,6 +3,17 @@
 version = 3
 
 [[package]]
+name = "account-auction-cell-type"
+version = "1.0.0"
+dependencies = [
+ "chrono",
+ "ckb-std",
+ "das-core",
+ "das-map",
+ "das-types",
+]
+
+[[package]]
 name = "account-cell-type"
 version = "1.2.1"
 dependencies = [

@@ -400,10 +400,7 @@ pub fn load_das_witnesses(index: usize, data_type: DataType) -> Result<Vec<u8>, 
             debug!("Load witnesses[{}]: {:?} size: {} Bytes", index, data_type, actual_size);
 
             if actual_size > 32000 {
-                warn!(
-                    "The witnesses[{}] should be less than 32KB because the signall lock do not support more than that.",
-                    index
-                );
+                warn!("The witnesses[{}] should be less than 32KB because the signall lock do not support more than that.", index);
                 Err(Error::from(SysError::LengthNotEnough(actual_size)))
             } else {
                 let mut buf = vec![0u8; actual_size];
@@ -717,6 +714,7 @@ pub fn require_type_script(
         TypeScript::BalanceCellType => config.type_id_table().balance_cell(),
         TypeScript::IncomeCellType => config.type_id_table().income_cell(),
         TypeScript::AccountSaleCellType => config.type_id_table().account_sale_cell(),
+        TypeScript::AccountAuctionCellType => config.type_id_table().account_auction_cell(),
         TypeScript::PreAccountCellType => config.type_id_table().pre_account_cell(),
         TypeScript::ProposalCellType => config.type_id_table().proposal_cell(),
     };
