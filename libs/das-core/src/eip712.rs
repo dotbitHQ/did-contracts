@@ -101,7 +101,9 @@ pub fn verify_eip712_hashes(
     } else {
         debug!("Check if hashes of typed data in witnesses is correct ...");
 
-        let (digest_and_hash, eip712_chain_id) = tx_to_digest(input_groups_idxs, i + 1)?;
+        // The variable `i` has added 1 at the end of loop above, so do not add 1 again here.
+        let input_size = i;
+        let (digest_and_hash, eip712_chain_id) = tx_to_digest(input_groups_idxs, input_size)?;
         let mut typed_data = tx_to_eip712_typed_data(&parser, action, &params, eip712_chain_id)?;
         for index in digest_and_hash.keys() {
             let item = digest_and_hash.get(index).unwrap();
@@ -156,8 +158,10 @@ fn tx_to_digest(
         // Reset witness_args to empty status for calculation of digest.
         match init_witness.as_reader().lock().to_opt() {
             Some(lock_of_witness) => {
+                // TODO Do not create empty_witness, this is an incorrect way.
+                // The right way is loading it from witnesses array, and set the bytes in its lock to 0u8.
                 let empty_signature = ckb_packed::BytesOpt::new_builder()
-                    .set(Some(vec![0u8; SECP_SIGNATURE_SIZE + CKB_HASH_DIGEST].pack()))
+                    .set(Some(vec![0u8; SECP_SIGNATURE_SIZE].pack()))
                     .build();
                 let empty_witness = ckb_packed::WitnessArgs::new_builder().lock(empty_signature).build();
                 let tx_hash = high_level::load_tx_hash().map_err(|_| Error::ItemMissing)?;

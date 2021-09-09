@@ -102,7 +102,7 @@ test_with_generator!(test_account_transfer_with_eip712, || {
         1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
         Source::Input,
     );
-    template.push_das_lock_witness("493989e7b06bc4f7deddee42b5dabd9e1881c366df3993c6399ef38b57371a70");
+    template.push_das_lock_witness("f5187e5f7a18d01db894eec9e15e4a39276b633de6115cd7153fbaa4f03de18e");
 
     let (cell_data, new_entity) =
         template.gen_account_cell_data(account, next_account, registered_at, expired_at, timestamp, 0, 0, None);
@@ -352,7 +352,7 @@ test_with_generator!(test_account_edit_manager_with_eip712, || {
         1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
         Source::Input,
     );
-    template.push_das_lock_witness("157bded87ca2bdd0b969a921bd2f39ba5f9e867372cf77c1885a3ae10d478358");
+    template.push_das_lock_witness("569b71d97a4d0813b56e94182596e13210119df45087b8983300d3efafab6b0d");
 
     let (cell_data, new_entity) =
         template.gen_account_cell_data(account, next_account, registered_at, expired_at, 0, timestamp, 0, None);
@@ -554,7 +554,7 @@ test_with_generator!(test_account_edit_records_with_eip712, || {
         1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
         Source::Input,
     );
-    template.push_das_lock_witness("e2e91b277b22ee162a088d1b23b2c38795d76ea3fe0d8e727fc64b53867ba2ca");
+    template.push_das_lock_witness("5fc1cc76598e6368dedee798ab3761dbe80b8abb1c98511392ec0ee0f74409ce");
 
     // outputs
     let records = vec![AccountRecordParam {
