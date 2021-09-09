@@ -11,4 +11,5 @@ pub mod inspect;
 pub mod macros;
 pub mod types;
 pub mod util;
+pub mod verifiers;
 pub mod witness_parser;

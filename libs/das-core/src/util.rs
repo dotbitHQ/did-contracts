@@ -121,6 +121,16 @@ pub fn find_cells_by_type_id_in_inputs_and_outputs(
     Ok((input_cells, output_cells))
 }
 
+pub fn find_cells_by_script_in_inputs_and_outputs(
+    script_type: ScriptType,
+    script: ScriptReader,
+) -> Result<(Vec<usize>, Vec<usize>), Error> {
+    let input_cells = find_cells_by_script(script_type, script, Source::Input)?;
+    let output_cells = find_cells_by_script(script_type, script, Source::Output)?;
+
+    Ok((input_cells, output_cells))
+}
+
 pub fn find_only_cell_by_type_id(
     script_type: ScriptType,
     type_id: das_packed::HashReader,
@@ -230,16 +240,6 @@ where
     Ok(cells)
 }
 
-pub fn find_cells_by_script_in_inputs_and_outputs(
-    script_type: ScriptType,
-    script: ScriptReader,
-) -> Result<(Vec<usize>, Vec<usize>), Error> {
-    let input_cells = find_cells_by_script(script_type, script, Source::Input)?;
-    let output_cells = find_cells_by_script(script_type, script, Source::Output)?;
-
-    Ok((input_cells, output_cells))
-}
-
 pub fn load_data<F: Fn(&mut [u8], usize) -> Result<usize, SysError>>(syscall: F) -> Result<Vec<u8>, SysError> {
     // The buffer length should be a little bigger than the size of the biggest data.
     let mut buf = [0u8; 2000];
@@ -333,6 +333,14 @@ pub fn load_oracle_data(type_: OracleCellType) -> Result<u64, Error> {
     };
 
     Ok(data_in_uint as u64)
+}
+
+pub fn load_self_cells_in_inputs_and_outputs() -> Result<(Vec<usize>, Vec<usize>), Error> {
+    let this_type_script = high_level::load_script().map_err(|e| Error::from(e))?;
+    let (input_cell, output_cell) =
+        find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
+
+    Ok((input_cell, output_cell))
 }
 
 pub fn trim_empty_bytes(buf: &[u8]) -> &[u8] {
