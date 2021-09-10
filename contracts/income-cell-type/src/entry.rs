@@ -1,15 +1,9 @@
 use alloc::borrow::ToOwned;
 use alloc::vec::Vec;
-use ckb_std::{
-    ckb_constants::Source,
-    debug,
-    high_level::{load_cell_capacity, load_script},
-};
+use ckb_std::{ckb_constants::Source, debug, high_level};
 use core::result::Result;
 use core::slice::Iter;
-use das_core::{
-    assert, constants::*, error::Error, parse_witness, util, warn, witness_parser::WitnessesParser,
-};
+use das_core::{assert, constants::*, error::Error, parse_witness, util, warn, witness_parser::WitnessesParser};
 use das_types::{constants::DataType, packed::*, prelude::*};
 
 pub fn main() -> Result<(), Error> {
@@ -25,11 +19,9 @@ pub fn main() -> Result<(), Error> {
 
         debug!("Find out IncomeCells ...");
 
-        let this_type_script = load_script().map_err(|e| Error::from(e))?;
-        let (input_cells, output_cells) = util::find_cells_by_script_in_inputs_and_outputs(
-            ScriptType::Type,
-            this_type_script.as_reader(),
-        )?;
+        let this_type_script = high_level::load_script().map_err(|e| Error::from(e))?;
+        let (input_cells, output_cells) =
+            util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
 
         assert!(
             input_cells.len() == 0,
@@ -82,7 +74,7 @@ pub fn main() -> Result<(), Error> {
         );
 
         let cell_capacity =
-            load_cell_capacity(output_cells[0], Source::Output).map_err(|e| Error::from(e))?;
+            high_level::load_cell_capacity(output_cells[0], Source::Output).map_err(|e| Error::from(e))?;
         let basic_capacity = u64::from(config_income.basic_capacity());
         assert!(
             cell_capacity == basic_capacity,
@@ -96,11 +88,9 @@ pub fn main() -> Result<(), Error> {
 
         debug!("Find out IncomeCells ...");
 
-        let this_type_script = load_script().map_err(|e| Error::from(e))?;
-        let (input_cells, output_cells) = util::find_cells_by_script_in_inputs_and_outputs(
-            ScriptType::Type,
-            this_type_script.as_reader(),
-        )?;
+        let this_type_script = high_level::load_script().map_err(|e| Error::from(e))?;
+        let (input_cells, output_cells) =
+            util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
 
         assert!(
             input_cells.len() >= 2,
@@ -113,19 +103,20 @@ pub fn main() -> Result<(), Error> {
             "The number of IncomeCells in the outputs should be lesser than or equal to in the inputs."
         );
 
+        parser.parse_config(&[
+            DataType::ConfigCellMain,
+            DataType::ConfigCellIncome,
+            DataType::ConfigCellProfitRate,
+        ])?;
         parser.parse_cell()?;
-        parser.parse_config(&[DataType::ConfigCellIncome, DataType::ConfigCellProfitRate])?;
 
         let config_income = parser.configs.income()?;
         let income_cell_basic_capacity = u64::from(config_income.basic_capacity());
         let income_cell_max_records = u32::from(config_income.max_records()) as usize;
         let income_cell_min_transfer_capacity = u64::from(config_income.min_transfer_capacity());
-        let income_consolidate_profit_rate =
-            u32::from(parser.configs.profit_rate()?.income_consolidate()) as u64;
+        let income_consolidate_profit_rate = u32::from(parser.configs.profit_rate()?.income_consolidate()) as u64;
 
-        debug!(
-            "Find all income records in inputs and merge them into unique script to capacity pair."
-        );
+        debug!("Find all income records in inputs and merge them into unique script to capacity pair.");
 
         let mut creators = Vec::new();
         let mut input_records = Vec::new();
@@ -135,12 +126,7 @@ pub fn main() -> Result<(), Error> {
                 .map_err(|_| Error::WitnessEntityDecodingError)?;
 
             #[cfg(any(not(feature = "mainnet"), debug_assertions))]
-            das_core::inspect::income_cell(
-                Source::Input,
-                index,
-                None,
-                Some(income_cell_witness.as_reader()),
-            );
+            das_core::inspect::income_cell(Source::Input, index, None, Some(income_cell_witness.as_reader()));
 
             let creator = income_cell_witness.creator();
             let records = income_cell_witness.records();
@@ -222,8 +208,8 @@ pub fn main() -> Result<(), Error> {
                 output_records.push((record.belong_to(), capacity));
             }
 
-            let cell_capacity = load_cell_capacity(cell_index.to_owned(), Source::Output)
-                .map_err(|e| Error::from(e))?;
+            let cell_capacity =
+                high_level::load_cell_capacity(cell_index.to_owned(), Source::Output).map_err(|e| Error::from(e))?;
             assert!(
                 records_total_capacity == cell_capacity,
                 Error::IncomeCellConsolidateError,
@@ -252,11 +238,13 @@ pub fn main() -> Result<(), Error> {
 
         debug!("Check if transfer as expected.");
 
+        let type_id_table = parser.configs.main()?.type_id_table();
+        let das_lock = das_lock();
+        let das_lock_reader = das_lock.as_reader();
         let mut records_used_for_pad = Vec::new();
         for item in records_should_transfer {
             let lock_script = item.0.as_reader();
-            let cells =
-                util::find_cells_by_script(ScriptType::Lock, lock_script.into(), Source::Output)?;
+            let cells = util::find_cells_by_script(ScriptType::Lock, lock_script.into(), Source::Output)?;
             if cells.len() != 1 {
                 if need_pad {
                     // If the IncomeCell needs capacity padding, and the records should be transferred are not transferred at all,
@@ -275,10 +263,8 @@ pub fn main() -> Result<(), Error> {
             }
 
             let capacity_transferred =
-                load_cell_capacity(cells[0], Source::Output).map_err(|e| Error::from(e))?;
-
-            let mut capacity_should_be_transferred =
-                item.1 / RATE_BASE * (RATE_BASE - income_consolidate_profit_rate);
+                high_level::load_cell_capacity(cells[0], Source::Output).map_err(|e| Error::from(e))?;
+            let mut capacity_should_be_transferred = item.1 / RATE_BASE * (RATE_BASE - income_consolidate_profit_rate);
 
             // If the record belongs to a IncomeCell creator, keeper should not take fee from it.
             for creator in creators.iter() {
@@ -287,17 +273,20 @@ pub fn main() -> Result<(), Error> {
                 }
             }
 
-            debug!("Outputs[{}] {{ args: {}, total: {}, capacity_transferred: {}, capacity_should_be_transferred: {} }}",
-                cells[0], item.0.args(), item.1, capacity_transferred, capacity_should_be_transferred
+            debug!(
+                "Outputs[{}] {{ args: {}, total: {}, capacity_transferred: {}, capacity_should_be_transferred: {} }}",
+                cells[0],
+                item.0.args(),
+                item.1,
+                capacity_transferred,
+                capacity_should_be_transferred
             );
 
             if capacity_transferred < capacity_should_be_transferred {
                 if need_pad {
-                    let capacity_should_transferred_with_fee = capacity_transferred
-                        / (RATE_BASE - income_consolidate_profit_rate)
-                        * RATE_BASE;
-                    let capacity_should_remain_for_pad =
-                        item.1 - capacity_should_transferred_with_fee;
+                    let capacity_should_transferred_with_fee =
+                        capacity_transferred / (RATE_BASE - income_consolidate_profit_rate) * RATE_BASE;
+                    let capacity_should_remain_for_pad = item.1 - capacity_should_transferred_with_fee;
 
                     debug!("  Outputs[{}] recalculate fee from transferred part: {{ capacity_transferred: {}, final_fee: {} }}",
                         cells[0], capacity_transferred, capacity_should_transferred_with_fee - capacity_transferred
@@ -320,6 +309,13 @@ pub fn main() -> Result<(), Error> {
                 );
                 return Err(Error::IncomeCellTransferError);
             }
+
+            verify_das_lock_and_balance_type(
+                das_lock_reader.into(),
+                type_id_table.balance_cell(),
+                cells[0],
+                Source::Output,
+            )?;
         }
 
         #[cfg(any(not(feature = "mainnet"), debug_assertions))]
@@ -378,9 +374,7 @@ pub fn main() -> Result<(), Error> {
             assert!(
                 record.2,
                 Error::IncomeCellConsolidateError,
-                "The record should be kept is missing in outputs. (belong_to: {}, wasted: {})",
-                record.0,
-                record.1
+                "The record should be kept is missing in outputs. (belong_to: {}, wasted: {})", record.0, record.1
             );
         }
 
@@ -450,8 +444,7 @@ fn classify_income_records(
     let mut records_should_keep = Vec::new();
 
     for record in input_records.into_iter() {
-        let capacity_after_fee_paid =
-            record.1 / RATE_BASE * (RATE_BASE - income_consolidate_profit_rate);
+        let capacity_after_fee_paid = record.1 / RATE_BASE * (RATE_BASE - income_consolidate_profit_rate);
 
         debug!(
             "  {{ args: {}, capacity_after_fee_paid: {} = {}(record.capacity) - {}(record.capacity) * {}(income_consolidate_profit_rate) / {}(RATE_BASE) }}",
@@ -488,9 +481,35 @@ fn classify_income_records(
         records_should_keep,
         // If the total capacity remains in IncomeCell is not enough, that means the IncomeCell needs padding.
         // If the total capacity remains 0, that means no IncomeCell is needed is outputs.
-        remain_capacity != 0
-            && remain_capacity < (income_cell_basic_capacity * output_income_cell_count),
+        remain_capacity != 0 && remain_capacity < (income_cell_basic_capacity * output_income_cell_count),
     )
+}
+
+fn verify_das_lock_and_balance_type(
+    das_lock_reader: ScriptReader,
+    balance_cell_type_id: HashReader,
+    index: usize,
+    source: Source,
+) -> Result<(), Error> {
+    let lock = high_level::load_cell_lock(index, source).map_err(|e| Error::from(e))?;
+    let lock_reader = lock.as_reader();
+
+    if util::is_script_equal(das_lock_reader.into(), lock_reader) {
+        let type_of_lock = lock_reader.args().raw_data()[0];
+        if type_of_lock == DasLockType::ETHTypedData as u8 {
+            let type_ = high_level::load_cell_lock(index, source).map_err(|e| Error::from(e))?;
+            let type_reader = type_.as_reader();
+            let hash_type = type_reader.hash_type().as_slice()[0];
+            assert!(
+                util::is_reader_eq(type_reader.code_hash().into(), balance_cell_type_id)
+                    && hash_type == ScriptHashType::Type as u8,
+                Error::InvalidTransactionStructure,
+                "The NormalCells in outputs with das-lock type 5 should have balance-cell-type in their type field."
+            )
+        }
+    }
+
+    Ok(())
 }
 
 #[cfg(any(not(feature = "mainnet"), debug_assertions))]

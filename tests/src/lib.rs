@@ -45,7 +45,7 @@ impl FromStr for BinaryVersion {
         match s.to_lowercase().as_str() {
             "debug" => Ok(BinaryVersion::Debug),
             "release" => Ok(BinaryVersion::Release),
-            _ => Err("no match"),
+            _ => Err("Environment variable BINARY_VERSION only support \"debug\" and \"release\"."),
         }
     }
 }
@@ -89,6 +89,8 @@ impl Loader {
     pub fn load_binary(&self, name: &str) -> bytes::Bytes {
         let mut path = self.0.clone();
         path.push(name);
-        fs::read(path).expect("binary").into()
+        fs::read(path.clone())
+            .expect(format!("Can not load binary of {} from path {}.", name, path.to_str().unwrap()).as_str())
+            .into()
     }
 }

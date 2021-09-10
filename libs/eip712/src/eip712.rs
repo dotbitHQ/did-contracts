@@ -2,7 +2,7 @@ use alloc::{format, vec};
 use serde_json::{Map, Value};
 use std::prelude::v1::*;
 
-use super::debug;
+// use super::debug;
 use super::error::*;
 use super::types::*;
 use super::util::*;
@@ -17,9 +17,9 @@ pub fn hash_data(typed_data: &TypedDataV4) -> Result<Vec<u8>, EIP712EncodingErro
         part3 = hash_message(&typed_data.types, &typed_data.primary_type, &typed_data.message)?;
     }
 
-    // println!("part1: {:?}", hex::encode(part1.clone()));
-    // println!("part2: {:?}", hex::encode(part2.clone()));
-    // println!("part3: {:?}", hex::encode(part3.clone()));
+    // debug!("part1: {:?}", hex::encode(part1.clone()));
+    // debug!("part2: {:?}", hex::encode(part2.clone()));
+    // debug!("part3: {:?}", hex::encode(part3.clone()));
 
     let bytes = vec![part1, part2, part3].concat();
     Ok(keccak256(&bytes))
@@ -228,7 +228,7 @@ fn encode_field(
             .map_err(|_| EIP712EncodingError::HexDecodingError)?;
             return Ok(("address", bytes));
         } else if type_ == "uint256" {
-            // ⚠️ Here we can only support uint64 because of serde type limitation.
+            // CAREFUL: Here we can only support uint64 because of serde type limitation.
             let num = value.as_u64().ok_or(EIP712EncodingError::TypeOfValueIsInvalid)?;
             return Ok(("uint256", num.to_be_bytes().to_vec()));
         } else {
@@ -254,7 +254,7 @@ fn eth_abi_encode_single(type_: &str, value: &[u8]) -> Result<Vec<u8>, EIP712Enc
     match type_ {
         "address" => ret = eth_abi_encode_single("uint160", value)?,
         "bool" => ret = eth_abi_encode_single("uint8", value)?,
-        // ⚠️ Because EIP712 encode most type into bytes and the message structure is predefined, so only a sub-set of all solidity types are supported here.
+        // CAREFUL: Because EIP712 encode most type into bytes and the message structure is predefined, so only a sub-set of all solidity types are supported here.
         "uint8" | "uint160" | "uint256" | "bytes32" => {
             let mut tmp = value.to_vec();
             if tmp.len() < 32 {

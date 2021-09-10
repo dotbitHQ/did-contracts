@@ -1227,6 +1227,7 @@ impl TemplateGenerator {
         }
     }
 
+    // TODO Refactor functions to support more flexible params
     pub fn gen_income_cell_data(
         &mut self,
         creator: &str,
@@ -1239,6 +1240,33 @@ impl TemplateGenerator {
             records = records.push(
                 IncomeRecord::new_builder()
                     .belong_to(gen_fake_signhash_all_lock(record_param.belong_to.as_str()))
+                    .capacity(Uint64::from(record_param.capacity))
+                    .build(),
+            );
+        }
+
+        let entity = IncomeCellData::new_builder()
+            .creator(creator)
+            .records(records.build())
+            .build();
+
+        let cell_data = Bytes::from(blake2b_256(entity.as_slice()).to_vec());
+
+        (cell_data, entity)
+    }
+
+    pub fn gen_income_cell_data_with_das_lock(
+        &mut self,
+        creator: &str,
+        records_param: Vec<IncomeRecordParam>,
+    ) -> (Bytes, IncomeCellData) {
+        let creator = gen_fake_das_lock(creator);
+
+        let mut records = IncomeRecords::new_builder();
+        for record_param in records_param.into_iter() {
+            records = records.push(
+                IncomeRecord::new_builder()
+                    .belong_to(gen_fake_das_lock(record_param.belong_to.as_str()))
                     .capacity(Uint64::from(record_param.capacity))
                     .build(),
             );

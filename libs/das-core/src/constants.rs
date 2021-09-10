@@ -2,6 +2,7 @@ use super::types::ScriptLiteral;
 use super::util;
 use alloc::{vec, vec::Vec};
 use ckb_std::ckb_types::packed::*;
+use core::convert::TryFrom;
 
 #[derive(Debug)]
 #[repr(u8)]
@@ -32,6 +33,33 @@ pub enum OracleCellType {
     Quote = 0,
     Time = 1,
     Height = 2,
+}
+
+#[derive(Debug, PartialEq, Copy, Clone)]
+#[repr(u8)]
+pub enum DasLockType {
+    CKBSingle,
+    CKBMulti,
+    XXX,
+    ETH,
+    TRX,
+    ETHTypedData,
+}
+
+impl TryFrom<u8> for DasLockType {
+    type Error = ();
+
+    fn try_from(v: u8) -> Result<Self, Self::Error> {
+        match v {
+            x if x == DasLockType::CKBSingle as u8 => Ok(DasLockType::CKBSingle),
+            x if x == DasLockType::CKBMulti as u8 => Ok(DasLockType::CKBMulti),
+            x if x == DasLockType::XXX as u8 => Ok(DasLockType::XXX),
+            x if x == DasLockType::ETH as u8 => Ok(DasLockType::ETH),
+            x if x == DasLockType::TRX as u8 => Ok(DasLockType::TRX),
+            x if x == DasLockType::ETHTypedData as u8 => Ok(DasLockType::ETHTypedData),
+            _ => Err(()),
+        }
+    }
 }
 
 pub const CKB_HASH_DIGEST: usize = 32;

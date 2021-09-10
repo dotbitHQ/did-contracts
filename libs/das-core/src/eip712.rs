@@ -1,11 +1,4 @@
-use super::{
-    assert,
-    constants::{config_cell_type, das_lock, ScriptType, CKB_HASH_DIGEST, SECP_SIGNATURE_SIZE},
-    data_parser, debug,
-    error::Error,
-    util, warn,
-    witness_parser::WitnessesParser,
-};
+use super::{assert, constants::*, data_parser, debug, error::Error, util, warn, witness_parser::WitnessesParser};
 use crate::constants::EIP712_CHAINID_SIZE;
 use alloc::{
     collections::BTreeMap,
@@ -24,8 +17,10 @@ use ckb_std::{
     error::SysError,
     high_level,
 };
-use core::convert::TryInto;
-use core::ops::Range;
+use core::{
+    convert::{TryFrom, TryInto},
+    ops::Range,
+};
 use das_map::{map::Map, util::add};
 use das_types::{constants::LockRole, packed as das_packed, prelude::*};
 use eip712::{hash_data, typed_data_v4, types::*};
@@ -39,6 +34,8 @@ const HRP: &str = "ckb";
 const HRP: &str = "ckt";
 
 const TRX_ADDR_PREFIX: u8 = 0x41;
+const DATA_OMIT_SIZE: usize = 20;
+const PARAM_OMIT_SIZE: usize = 10;
 
 pub fn verify_eip712_hashes(
     parser: &WitnessesParser,
@@ -69,7 +66,7 @@ pub fn verify_eip712_hashes(
                         type_ = data_parser::das_lock_args::get_owner_type(lock_reader.args().raw_data());
                         args = data_parser::das_lock_args::get_owner_lock_args(lock_reader.args().raw_data());
                     }
-                    if type_ != 5 {
+                    if type_ != DasLockType::ETHTypedData as u8 {
                         debug!(
                             "Inputs[{}] Found deprecated address type, skip verification for hash.",
                             i
@@ -428,8 +425,9 @@ fn to_semantic_address(lock_reader: das_packed::ScriptReader, range: Range<usize
     if util::is_script_equal(das_lock().as_reader(), lock_reader.into()) {
         // If this is a das-lock, convert it to address base on args.
         let args_in_bytes = lock_reader.args().raw_data();
-        match args_in_bytes[0] {
-            0 => {
+        let das_lock_type = DasLockType::try_from(args_in_bytes[0]).map_err(|_| Error::EIP712SerializationError)?;
+        match das_lock_type {
+            DasLockType::CKBSingle => {
                 let pubkey_hash = args_in_bytes[range.clone()].to_vec();
 
                 // The first byte is address type, 0x01 is for short address.
@@ -442,13 +440,13 @@ fn to_semantic_address(lock_reader: das_packed::ScriptReader, range: Range<usize
                     .map_err(|_| Error::EIP712SematicError)?;
                 address = format!("CKB:{}", value)
             }
-            4 => {
+            DasLockType::TRX => {
                 let mut raw = [0u8; 21];
                 raw[0] = TRX_ADDR_PREFIX;
                 raw[1..21].copy_from_slice(&args_in_bytes[range]);
                 address = format!("TRX:{}", b58encode_check(&raw));
             }
-            3 | 5 => {
+            DasLockType::ETH | DasLockType::ETHTypedData => {
                 address = format!("ETH:0x{}", util::hex_string(&args_in_bytes[range]));
             }
             _ => return Err(Error::EIP712SematicError),
@@ -500,7 +498,10 @@ fn to_typed_action(
     let mut params = Vec::new();
     for param in params_in_bytes {
         if param.len() > 10 {
-            params.push(format!("0x{}", util::hex_string(&param.raw_data()[..10])));
+            params.push(format!(
+                "0x{}...",
+                util::hex_string(&param.raw_data()[..PARAM_OMIT_SIZE])
+            ));
         } else {
             params.push(format!("0x{}", util::hex_string(param.raw_data())));
         }
@@ -637,14 +638,14 @@ fn to_typed_script(
         x if util::is_reader_eq(x, das_lock) => String::from("das-lock"),
         _ => format!(
             "0x{}...",
-            util::hex_string(&script.code_hash().raw_data().as_ref()[0..20])
+            util::hex_string(&script.code_hash().raw_data().as_ref()[0..DATA_OMIT_SIZE])
         ),
     };
 
     let hash_type = util::hex_string(script.hash_type().as_slice());
     let args_in_bytes = script.args().raw_data();
-    let args = if args_in_bytes.len() > 20 {
-        util::hex_string(&args_in_bytes[0..20]) + "..."
+    let args = if args_in_bytes.len() > DATA_OMIT_SIZE {
+        util::hex_string(&args_in_bytes[0..DATA_OMIT_SIZE]) + "..."
     } else {
         util::hex_string(args_in_bytes.as_ref())
     };
@@ -653,8 +654,8 @@ fn to_typed_script(
 }
 
 fn to_typed_common_data(data_in_bytes: &[u8]) -> String {
-    if data_in_bytes.len() > 20 {
-        util::hex_string(&data_in_bytes[0..20]) + "..."
+    if data_in_bytes.len() > DATA_OMIT_SIZE {
+        util::hex_string(&data_in_bytes[0..DATA_OMIT_SIZE]) + "..."
     } else {
         util::hex_string(data_in_bytes)
     }

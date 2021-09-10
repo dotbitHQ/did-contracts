@@ -3,6 +3,7 @@ use crate::util::{constants::*, template_generator::*, template_parser::Template
 use ckb_testtool::context::Context;
 use das_core::error::Error;
 use das_types::constants::DataType;
+use serde_json::json;
 
 use super::common::init as common_init;
 
@@ -114,10 +115,7 @@ fn gen_income_consolidate_need_pad_1() {
     template.write_template("income_consolidate.json");
 }
 
-test_with_template!(
-    test_income_consolidate_need_pad_1,
-    "income_consolidate.json"
-);
+test_with_template!(test_income_consolidate_need_pad_1, "income_consolidate.json");
 
 test_with_generator!(test_income_consolidate_need_pad_2, || {
     let mut template = init("consolidate_income");
@@ -665,6 +663,73 @@ challenge_with_generator!(
         template.push_signall_cell(
             "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
             6_300_000_000,
+            Source::Output,
+        );
+
+        template.as_json()
+    }
+);
+
+challenge_with_generator!(
+    challenge_income_consolidate_eip712_cells_without_type_script,
+    Error::InvalidTransactionStructure,
+    || {
+        let mut template = init("consolidate_income");
+
+        template.push_contract_cell("fake-das-lock", true);
+        template.push_contract_cell("balance-cell-type", false);
+
+        // inputs
+        let records_param = vec![
+            IncomeRecordParam {
+                belong_to: "0x050000000000000000000000000000000000000000".to_string(),
+                capacity: 20_000_000_000,
+            },
+            IncomeRecordParam {
+                belong_to: "0x050000000000000000000000000000000000000010".to_string(),
+                capacity: 10_000_000_000,
+            },
+        ];
+        push_income_cell_with_das_lock!(template, records_param, 0, Source::Input);
+
+        let records_param = vec![
+            IncomeRecordParam {
+                belong_to: "0x050000000000000000000000000000000000000000".to_string(),
+                capacity: 20_000_000_000,
+            },
+            IncomeRecordParam {
+                belong_to: "0x050000000000000000000000000000000000000010".to_string(),
+                capacity: 200_000_000,
+            },
+        ];
+        push_income_cell_with_das_lock!(template, records_param, 1, Source::Input);
+
+        // 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF is the keeper who pushed the consolidate_income transaction.
+        template.push_signall_cell(
+            "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+            6_100_000_000,
+            Source::Input,
+        );
+
+        // outputs
+        let lock_script = json!({
+          "code_hash": "{{fake-das-lock}}",
+          "args": "0x050000000000000000000000000000000000000000"
+        });
+        template.push_cell(39_600_000_000, lock_script, json!(null), None, Source::Output);
+        template.push_empty_witness();
+
+        let lock_script = json!({
+          "code_hash": "{{fake-das-lock}}",
+          "args": "0x050000000000000000000000000000000000000010"
+        });
+        template.push_cell(10_098_000_000, lock_script, json!(null), None, Source::Output);
+        template.push_empty_witness();
+
+        // 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF can take some from user as their profit.
+        template.push_signall_cell(
+            "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+            6_162_000_000,
             Source::Output,
         );
 
