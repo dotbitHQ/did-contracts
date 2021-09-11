@@ -672,7 +672,10 @@ challenge_with_generator!(
 
 challenge_with_generator!(
     challenge_income_consolidate_eip712_cells_without_type_script,
-    Error::InvalidTransactionStructure,
+    [
+        Error::InvalidTransactionStructure,
+        Error::BalanceCellFoundSomeOutputsLackOfType
+    ],
     || {
         let mut template = init("consolidate_income");
 
@@ -686,7 +689,7 @@ challenge_with_generator!(
                 capacity: 20_000_000_000,
             },
             IncomeRecordParam {
-                belong_to: "0x050000000000000000000000000000000000000010".to_string(),
+                belong_to: "0x030000000000000000000000000000000000000010".to_string(),
                 capacity: 10_000_000_000,
             },
         ];
@@ -698,7 +701,7 @@ challenge_with_generator!(
                 capacity: 20_000_000_000,
             },
             IncomeRecordParam {
-                belong_to: "0x050000000000000000000000000000000000000010".to_string(),
+                belong_to: "0x030000000000000000000000000000000000000010".to_string(),
                 capacity: 200_000_000,
             },
         ];
@@ -721,9 +724,12 @@ challenge_with_generator!(
 
         let lock_script = json!({
           "code_hash": "{{fake-das-lock}}",
-          "args": "0x050000000000000000000000000000000000000010"
+          "args": "0x030000000000000000000000000000000000000010"
         });
-        template.push_cell(10_098_000_000, lock_script, json!(null), None, Source::Output);
+        let type_script = json!({
+          "code_hash": "{{balance-cell-type}}",
+        });
+        template.push_cell(10_098_000_000, lock_script, type_script, None, Source::Output);
         template.push_empty_witness();
 
         // 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF can take some from user as their profit.

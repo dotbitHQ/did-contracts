@@ -132,7 +132,7 @@ challenge_with_generator!(
         // outputs
         let lock_script = json!({
           "code_hash": "{{fake-das-lock}}",
-          "args": "0x000000000000000000000000000000000000009999"
+          "args": "0x050000000000000000000000000000000000009999"
         });
         let type_script = json!(null);
         template.push_cell(20_000_000_000, lock_script, type_script, None, Source::Output);

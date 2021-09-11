@@ -1,6 +1,7 @@
 use alloc::vec::Vec;
 use ckb_std::{ckb_constants::Source, error::SysError, high_level};
 use das_core::{
+    constants::DasLockType,
     constants::{das_lock, ScriptType},
     debug,
     eip712::verify_eip712_hashes,
@@ -40,15 +41,20 @@ pub fn main() -> Result<(), Error> {
         let ret = high_level::load_cell_lock(i, Source::Output);
         match ret {
             Ok(lock) => {
+                let lock_reader = lock.as_reader();
                 // Check if cells with das-lock in outputs also has the type script named balance-cell-type or account-cell-type.
-                if util::is_script_equal(das_lock_reader, lock.as_reader()) {
-                    let type_opt = high_level::load_cell_type(i, Source::Output).map_err(|e| Error::from(e))?;
-                    match type_opt {
-                        Some(type_) if util::is_reader_eq(this_script_reader, type_.as_reader()) => {}
-                        Some(type_) if util::is_reader_eq(account_cell_type.as_reader(), type_.as_reader().into()) => {}
-                        _ => {
-                            warn!("Outputs[{}] This cell has das-lock, so it should also has the type script named balance-cell-type or account-cell-type.", i);
-                            return Err(Error::BalanceCellFoundSomeOutputsLackOfType);
+                if util::is_script_equal(das_lock_reader, lock_reader) {
+                    let type_of_lock = lock_reader.args().raw_data()[0];
+                    if type_of_lock == DasLockType::ETHTypedData as u8 {
+                        let type_opt = high_level::load_cell_type(i, Source::Output).map_err(|e| Error::from(e))?;
+                        match type_opt {
+                            Some(type_) if util::is_reader_eq(this_script_reader, type_.as_reader()) => {}
+                            Some(type_)
+                                if util::is_reader_eq(account_cell_type.as_reader(), type_.as_reader().into()) => {}
+                            _ => {
+                                warn!("Outputs[{}] This cell has das-lock, so it should also has the type script named balance-cell-type or account-cell-type.", i);
+                                return Err(Error::BalanceCellFoundSomeOutputsLackOfType);
+                            }
                         }
                     }
                 }

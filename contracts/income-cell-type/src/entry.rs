@@ -242,7 +242,7 @@ pub fn main() -> Result<(), Error> {
         let das_lock = das_lock();
         let das_lock_reader = das_lock.as_reader();
         let mut records_used_for_pad = Vec::new();
-        for item in records_should_transfer {
+        for (i, item) in records_should_transfer.into_iter().enumerate() {
             let lock_script = item.0.as_reader();
             let cells = util::find_cells_by_script(ScriptType::Lock, lock_script.into(), Source::Output)?;
             if cells.len() != 1 {
@@ -254,9 +254,10 @@ pub fn main() -> Result<(), Error> {
                 } else {
                     // The length maybe 0, so do not use "Outputs[{}]" here.
                     warn!(
-                        "There should be only one cell for each transfer, but {} found for {}.",
-                        cells.len(),
-                        lock_script
+                        "There should be only one cell for the {}th record(records_should_transfer[{}]), but {} cells are found.",
+                        i,
+                        i,
+                        cells.len()
                     );
                     return Err(Error::IncomeCellTransferError);
                 }
@@ -274,7 +275,8 @@ pub fn main() -> Result<(), Error> {
             }
 
             debug!(
-                "Outputs[{}] {{ args: {}, total: {}, capacity_transferred: {}, capacity_should_be_transferred: {} }}",
+                "records_should_transfer[{}] {{ output_index: {}, args: {}, total: {}, capacity_transferred: {}, capacity_should_be_transferred: {} }}",
+                i,
                 cells[0],
                 item.0.args(),
                 item.1,
@@ -497,15 +499,32 @@ fn verify_das_lock_and_balance_type(
     if util::is_script_equal(das_lock_reader.into(), lock_reader) {
         let type_of_lock = lock_reader.args().raw_data()[0];
         if type_of_lock == DasLockType::ETHTypedData as u8 {
-            let type_ = high_level::load_cell_lock(index, source).map_err(|e| Error::from(e))?;
+            let type_opt = high_level::load_cell_type(index, source).map_err(|e| Error::from(e))?;
+            assert!(
+                type_opt.is_some(),
+                Error::InvalidTransactionStructure,
+                "Outputs[{}] The NormalCells in outputs with das-lock type 5 should have balance-cell-type in their type field.",
+                index
+            );
+
+            let type_ = type_opt.unwrap();
             let type_reader = type_.as_reader();
             let hash_type = type_reader.hash_type().as_slice()[0];
             assert!(
                 util::is_reader_eq(type_reader.code_hash().into(), balance_cell_type_id)
                     && hash_type == ScriptHashType::Type as u8,
                 Error::InvalidTransactionStructure,
-                "The NormalCells in outputs with das-lock type 5 should have balance-cell-type in their type field."
+                "Outputs[{}] The NormalCells in outputs with das-lock type 5 should have balance-cell-type in their type field.",
+                index
             )
+        } else {
+            let type_opt = high_level::load_cell_type(index, source).map_err(|e| Error::from(e))?;
+            assert!(
+                type_opt.is_none(),
+                Error::InvalidTransactionStructure,
+                "Outputs[{}] The NormalCells in outputs with das-lock which type other than 5 should not have balance-cell-type in their type field.",
+                index
+            );
         }
     }
 
