@@ -118,10 +118,10 @@ impl WitnessesParser {
         let (index, data_type) = self.witnesses[0];
         let raw = util::load_das_witnesses(index, data_type)?;
 
-        let action_data = ActionData::from_slice(raw.get(7..).unwrap())
-            .map_err(|_| Error::WitnessActionDecodingError)?;
+        let action_data =
+            ActionData::from_slice(raw.get(7..).unwrap()).map_err(|_| Error::WitnessActionDecodingError)?;
         let params = match action_data.as_reader().action().raw_data() {
-            b"transfer_account" | b"edit_manager" | b"edit_records" => {
+            b"transfer_account" | b"edit_manager" | b"edit_records" | b"withdraw_from_wallet" => {
                 vec![action_data.params()]
             }
             _ => Vec::new(),

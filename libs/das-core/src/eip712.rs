@@ -1,5 +1,4 @@
 use super::{assert, constants::*, data_parser, debug, error::Error, util, warn, witness_parser::WitnessesParser};
-use crate::constants::EIP712_CHAINID_SIZE;
 use alloc::{
     collections::BTreeMap,
     format,
@@ -133,6 +132,12 @@ struct DigestAndHash {
     typed_data_hash: [u8; 32],
 }
 
+struct ScriptTable {
+    das_lock: ckb_packed::Script,
+    signall_lock: ckb_packed::Script,
+    multisign_lock: ckb_packed::Script,
+}
+
 fn tx_to_digest(
     input_groups_idxs: BTreeMap<Vec<u8>, Vec<usize>>,
     input_size: usize,
@@ -241,7 +246,14 @@ pub fn tx_to_eip712_typed_data(
     chain_id: Vec<u8>,
 ) -> Result<TypedDataV4, Error> {
     let type_id_table = parser.configs.main()?.type_id_table();
-    let plain_text = tx_to_plaintext(parser, type_id_table, action, params)?;
+    // TODO Refactor with a static function
+    let script_table = ScriptTable {
+        das_lock: das_lock(),
+        signall_lock: signall_lock(),
+        multisign_lock: multisign_lock(),
+    };
+
+    let plain_text = tx_to_plaintext(parser, type_id_table, &script_table, action, params)?;
     let tx_action = to_typed_action(action, params)?;
     let (inputs_capacity, inputs) = to_typed_cells(parser, type_id_table, Source::Input)?;
     let (outputs_capacity, outputs) = to_typed_cells(parser, type_id_table, Source::Output)?;
@@ -315,6 +327,7 @@ pub fn tx_to_eip712_typed_data(
 fn tx_to_plaintext(
     _parser: &WitnessesParser,
     type_id_table_reader: das_packed::TypeIdTableReader,
+    script_table: &ScriptTable,
     action_in_bytes: das_packed::BytesReader,
     _params_in_bytes: &[das_packed::BytesReader],
 ) -> Result<String, Error> {
@@ -322,20 +335,23 @@ fn tx_to_plaintext(
     match action_in_bytes.raw_data() {
         // For account-cell-type only
         b"transfer_account" | b"edit_manager" | b"edit_records" => match action_in_bytes.raw_data() {
-            b"transfer_account" => ret = transfer_account_to_semantic(type_id_table_reader)?,
+            b"transfer_account" => ret = transfer_account_to_semantic(script_table, type_id_table_reader)?,
             b"edit_manager" => ret = edit_manager_to_semantic(type_id_table_reader)?,
             b"edit_records" => ret = edit_records_to_semantic(type_id_table_reader)?,
             _ => return Err(Error::ActionNotSupported),
         },
         // For balance-cell-type only
-        b"transfer" | b"withdraw_from_wallet" => ret = transfer_to_semantic()?,
+        b"transfer" | b"withdraw_from_wallet" => ret = transfer_to_semantic(script_table)?,
         _ => return Err(Error::ActionNotSupported),
     }
 
     Ok(ret)
 }
 
-fn transfer_account_to_semantic(type_id_table_reader: das_packed::TypeIdTableReader) -> Result<String, Error> {
+fn transfer_account_to_semantic(
+    script_table: &ScriptTable,
+    type_id_table_reader: das_packed::TypeIdTableReader,
+) -> Result<String, Error> {
     let (input_cells, output_cells) =
         util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, type_id_table_reader.account_cell())?;
 
@@ -349,7 +365,7 @@ fn transfer_account_to_semantic(type_id_table_reader: das_packed::TypeIdTableRea
     // let from_address = to_semantic_address(from_lock.as_reader().into(), 1..21)?;
     // Parse to address from the AccountCell's lock script in outputs.
     let to_lock = high_level::load_cell_lock(output_cells[0], Source::Output).map_err(|e| Error::from(e))?;
-    let to_address = to_semantic_address(to_lock.as_reader().into(), 1..21)?;
+    let to_address = to_semantic_address(script_table, to_lock.as_reader().into(), 1..21)?;
 
     Ok(format!("TRANSFER THE ACCOUNT {} TO {}", account, to_address))
 }
@@ -380,8 +396,8 @@ fn edit_records_to_semantic(type_id_table_reader: das_packed::TypeIdTableReader)
     Ok(format!("EDIT RECORDS OF ACCOUNT {}", account))
 }
 
-fn transfer_to_semantic() -> Result<String, Error> {
-    fn sum_cells(source: Source) -> Result<String, Error> {
+fn transfer_to_semantic(script_table: &ScriptTable) -> Result<String, Error> {
+    fn sum_cells(script_table: &ScriptTable, source: Source) -> Result<String, Error> {
         let mut i = 0;
         let mut capacity_map = Map::new();
         loop {
@@ -390,7 +406,7 @@ fn transfer_to_semantic() -> Result<String, Error> {
                 Ok(capacity) => {
                     let lock =
                         das_packed::Script::from(high_level::load_cell_lock(i, source).map_err(|e| Error::from(e))?);
-                    let address = to_semantic_address(lock.as_reader(), 1..21)?;
+                    let address = to_semantic_address(script_table, lock.as_reader(), 1..21)?;
                     add(&mut capacity_map, address, capacity);
                 }
                 Err(SysError::IndexOutOfBound) => {
@@ -414,62 +430,88 @@ fn transfer_to_semantic() -> Result<String, Error> {
         Ok(ret)
     }
 
-    let inputs = sum_cells(Source::Input)?;
-    let outputs = sum_cells(Source::Output)?;
+    let inputs = sum_cells(script_table, Source::Input)?;
+    let outputs = sum_cells(script_table, Source::Output)?;
 
     Ok(format!("TRANSFER FROM {} TO {}", inputs, outputs))
 }
 
-fn to_semantic_address(lock_reader: das_packed::ScriptReader, range: Range<usize>) -> Result<String, Error> {
+fn to_semantic_address(
+    script_table: &ScriptTable,
+    lock_reader: das_packed::ScriptReader,
+    range: Range<usize>,
+) -> Result<String, Error> {
     let address;
-    if util::is_script_equal(das_lock().as_reader(), lock_reader.into()) {
-        // If this is a das-lock, convert it to address base on args.
-        let args_in_bytes = lock_reader.args().raw_data();
-        let das_lock_type = DasLockType::try_from(args_in_bytes[0]).map_err(|_| Error::EIP712SerializationError)?;
-        match das_lock_type {
-            DasLockType::CKBSingle => {
-                let pubkey_hash = args_in_bytes[range.clone()].to_vec();
 
-                // The first byte is address type, 0x01 is for short address.
-                // The second byte is CodeHashIndex, 0x00 is for SECP256K1 + blake160.
-                let mut data = vec![1u8, 0];
-                // This is the payload of address.
-                data = [data, pubkey_hash].concat();
+    match lock_reader {
+        x if util::is_script_equal(script_table.das_lock.as_reader(), x.into()) => {
+            // If this is a das-lock, convert it to address base on args.
+            let args_in_bytes = lock_reader.args().raw_data();
+            let das_lock_type = DasLockType::try_from(args_in_bytes[0]).map_err(|_| Error::EIP712SerializationError)?;
+            match das_lock_type {
+                DasLockType::CKBSingle => {
+                    let pubkey_hash = args_in_bytes[range.clone()].to_vec();
 
-                let value = bech32::encode(&HRP.to_string(), data.to_base32(), Variant::Bech32)
-                    .map_err(|_| Error::EIP712SematicError)?;
-                address = format!("CKB:{}", value)
+                    // The first byte is address type, 0x01 is for short address.
+                    // The second byte is CodeHashIndex, 0x00 is for SECP256K1 + blake160.
+                    let mut data = vec![1u8, 0];
+                    // This is the payload of address.
+                    data = [data, pubkey_hash].concat();
+
+                    let value = bech32::encode(&HRP.to_string(), data.to_base32(), Variant::Bech32)
+                        .map_err(|_| Error::EIP712SematicError)?;
+                    address = format!("CKB:{}", value)
+                }
+                DasLockType::TRX => {
+                    let mut raw = [0u8; 21];
+                    raw[0] = TRX_ADDR_PREFIX;
+                    raw[1..21].copy_from_slice(&args_in_bytes[range]);
+                    address = format!("TRX:{}", b58encode_check(&raw));
+                }
+                DasLockType::ETH | DasLockType::ETHTypedData => {
+                    address = format!("ETH:0x{}", util::hex_string(&args_in_bytes[range]));
+                }
+                _ => return Err(Error::EIP712SematicError),
             }
-            DasLockType::TRX => {
-                let mut raw = [0u8; 21];
-                raw[0] = TRX_ADDR_PREFIX;
-                raw[1..21].copy_from_slice(&args_in_bytes[range]);
-                address = format!("TRX:{}", b58encode_check(&raw));
-            }
-            DasLockType::ETH | DasLockType::ETHTypedData => {
-                address = format!("ETH:0x{}", util::hex_string(&args_in_bytes[range]));
-            }
-            _ => return Err(Error::EIP712SematicError),
         }
-    } else {
-        // If this is a unknown lock, convert it to full address.
-        let hash_type: Vec<u8> = if lock_reader.hash_type().as_slice()[0] == 0 {
-            vec![2]
-        } else {
-            vec![4]
-        };
-        let code_hash = lock_reader.code_hash().raw_data().to_vec();
-        let args = lock_reader.args().raw_data().to_vec();
+        x if util::is_script_equal(script_table.signall_lock.as_reader(), x.into()) => {
+            // If this is a secp256k1_blake160_sighash_all lock, convert it to short address.
+            let hash_type: Vec<u8> = vec![1];
+            let code_index = vec![0];
+            let args = lock_reader.args().raw_data().to_vec();
 
-        // This is the payload of address.
-        let data = [hash_type, code_hash, args].concat();
+            address = format!("CKB:{}", script_to_address(code_index, hash_type, args)?)
+        }
+        x if util::is_script_equal(script_table.multisign_lock.as_reader(), x.into()) => {
+            // If this is a secp256k1_blake160_sighash_all lock, convert it to short address.
+            let hash_type: Vec<u8> = vec![1];
+            let code_index = vec![1];
+            let args = lock_reader.args().raw_data().to_vec();
 
-        let value = bech32::encode(&HRP.to_string(), data.to_base32(), Variant::Bech32)
-            .map_err(|_| Error::EIP712SematicError)?;
-        address = format!("CKB:{}", value)
+            address = format!("CKB:{}", script_to_address(code_index, hash_type, args)?)
+        }
+        _ => {
+            // If this is a unknown lock, convert it to full address.
+            let hash_type: Vec<u8> = if lock_reader.hash_type().as_slice()[0] == 0 {
+                vec![2]
+            } else {
+                vec![4]
+            };
+            let code_hash = lock_reader.code_hash().raw_data().to_vec();
+            let args = lock_reader.args().raw_data().to_vec();
+
+            address = format!("CKB:{}", script_to_address(code_hash, hash_type, args)?)
+        }
     }
 
     Ok(address)
+}
+
+fn script_to_address(code_hash: Vec<u8>, hash_type: Vec<u8>, args: Vec<u8>) -> Result<String, Error> {
+    // This is the payload of address.
+    let data = [hash_type, code_hash, args].concat();
+
+    bech32::encode(&HRP.to_string(), data.to_base32(), Variant::Bech32).map_err(|_| Error::EIP712SematicError)
 }
 
 fn b58encode_check<T: AsRef<[u8]>>(raw: T) -> String {
@@ -634,6 +676,7 @@ fn to_typed_script(
         x if util::is_reader_eq(x, type_id_table_reader.account_cell()) => String::from("account-cell-type"),
         x if util::is_reader_eq(x, type_id_table_reader.proposal_cell()) => String::from("proposal-cell-type"),
         x if util::is_reader_eq(x, type_id_table_reader.income_cell()) => String::from("income-cell-type"),
+        x if util::is_reader_eq(x, type_id_table_reader.balance_cell()) => String::from("balance-cell-type"),
         x if util::is_reader_eq(x, config_cell_type) => String::from("config-cell-type"),
         x if util::is_reader_eq(x, das_lock) => String::from("das-lock"),
         _ => format!(
@@ -701,6 +744,13 @@ mod test {
 
     #[test]
     fn test_to_semantic_address() {
+        // TODO Refactor with a static function
+        let script_table = ScriptTable {
+            das_lock: das_lock(),
+            signall_lock: signall_lock(),
+            multisign_lock: multisign_lock(),
+        };
+
         // 0x00/cde11acafefadb5cb437eb33ab8bbca958ad2a86/00/cde11acafefadb5cb437eb33ab8bbca958ad2a86
         let mut lock: das_packed::Script = das_lock().into();
         lock = lock
@@ -712,7 +762,7 @@ mod test {
             .build();
 
         let expected = "CKB:ckt1qyqvmcg6etl04k6uksm7kvat3w72jk9d92rq5tn6px";
-        let address = to_semantic_address(lock.as_reader(), 1..21).unwrap();
+        let address = to_semantic_address(&script_table, lock.as_reader(), 1..21).unwrap();
         assert_eq!(&address, expected);
 
         // 0x03/94770827e8897417a2bbaf072c71c12f5a003278/03/94770827e8897417a2bbaf072c71c12f5a003278
@@ -726,7 +776,7 @@ mod test {
             .build();
 
         let expected = "ETH:0x94770827e8897417a2bbaf072c71c12f5a003278";
-        let address = to_semantic_address(lock.as_reader(), 1..21).unwrap();
+        let address = to_semantic_address(&script_table, lock.as_reader(), 1..21).unwrap();
         assert_eq!(&address, expected);
 
         // 0x04/e4d75a3e74a3bc8199b48ff76d984b3a5bb1e218/04/e4d75a3e74a3bc8199b48ff76d984b3a5bb1e218
@@ -740,7 +790,7 @@ mod test {
             .build();
 
         let expected = "TRX:TPhiVyQZ5xyvVK2KS2LTke8YvXJU5wxnbN";
-        let address = to_semantic_address(lock.as_reader(), 1..21).unwrap();
+        let address = to_semantic_address(&script_table, lock.as_reader(), 1..21).unwrap();
         assert_eq!(&address, expected);
 
         // 0x05/94770827e8897417a2bbaf072c71c12f5a003278/05/94770827e8897417a2bbaf072c71c12f5a003278
@@ -754,7 +804,7 @@ mod test {
             .build();
 
         let expected = "ETH:0x94770827e8897417a2bbaf072c71c12f5a003278";
-        let address = to_semantic_address(lock.as_reader(), 1..21).unwrap();
+        let address = to_semantic_address(&script_table, lock.as_reader(), 1..21).unwrap();
         assert_eq!(&address, expected);
     }
 
