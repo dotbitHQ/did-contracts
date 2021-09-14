@@ -8,6 +8,8 @@ fn init_recycle() -> (TemplateGenerator, u64) {
     let height = 1000u64;
 
     template.push_contract_cell("always_success", true);
+    template.push_contract_cell("fake-das-lock", true);
+    template.push_contract_cell("fake-secp256k1-blake160-signhash-all", true);
     template.push_contract_cell("proposal-cell-type", false);
 
     template.push_oracle_cell(1, OracleCellType::Height, height);
@@ -30,17 +32,9 @@ fn gen_proposal_recycle() {
     ];
 
     // inputs
-    let (cell_data, entity) = template.gen_proposal_cell_data(
-        "0x0000000000000000000000000000000000002233",
-        height - 10,
-        &slices,
-    );
-    template.push_proposal_cell(
-        cell_data,
-        Some((1, 0, entity)),
-        100_000_000_000,
-        Source::Input,
-    );
+    let (cell_data, entity) =
+        template.gen_proposal_cell_data("0x0000000000000000000000000000000000002233", height - 10, &slices);
+    template.push_proposal_cell(cell_data, Some((1, 0, entity)), 100_000_000_000, Source::Input);
 
     // outputs
     template.push_signall_cell(
@@ -69,17 +63,9 @@ challenge_with_generator!(
         ];
 
         // inputs
-        let (cell_data, entity) = template.gen_proposal_cell_data(
-            "0x0000000000000000000000000000000000002233",
-            height - 5,
-            &slices,
-        );
-        template.push_proposal_cell(
-            cell_data,
-            Some((1, 0, entity)),
-            100_000_000_000,
-            Source::Input,
-        );
+        let (cell_data, entity) =
+            template.gen_proposal_cell_data("0x0000000000000000000000000000000000002233", height - 5, &slices);
+        template.push_proposal_cell(cell_data, Some((1, 0, entity)), 100_000_000_000, Source::Input);
 
         // outputs
         template.push_signall_cell(
@@ -107,17 +93,9 @@ challenge_with_generator!(
             ],
         ];
 
-        let (cell_data, entity) = template.gen_proposal_cell_data(
-            "0x0000000000000000000000000000000000002233",
-            height - 10,
-            &slices,
-        );
-        template.push_proposal_cell(
-            cell_data,
-            Some((1, 0, entity)),
-            100_000_000_000,
-            Source::Input,
-        );
+        let (cell_data, entity) =
+            template.gen_proposal_cell_data("0x0000000000000000000000000000000000002233", height - 10, &slices);
+        template.push_proposal_cell(cell_data, Some((1, 0, entity)), 100_000_000_000, Source::Input);
 
         // outputs
         template.push_signall_cell(
@@ -145,17 +123,9 @@ challenge_with_generator!(
             ],
         ];
 
-        let (cell_data, entity) = template.gen_proposal_cell_data(
-            "0x0000000000000000000000000000000000002233",
-            height - 10,
-            &slices,
-        );
-        template.push_proposal_cell(
-            cell_data,
-            Some((1, 0, entity)),
-            100_000_000_000,
-            Source::Input,
-        );
+        let (cell_data, entity) =
+            template.gen_proposal_cell_data("0x0000000000000000000000000000000000002233", height - 10, &slices);
+        template.push_proposal_cell(cell_data, Some((1, 0, entity)), 100_000_000_000, Source::Input);
 
         template.as_json()
     }

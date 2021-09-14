@@ -6,6 +6,7 @@ fn init() -> TemplateGenerator {
     let mut template = TemplateGenerator::new("config", None);
 
     template.push_contract_cell("always_success", true);
+    template.push_contract_cell("fake-secp256k1-blake160-signhash-all", true);
     template.push_contract_cell("config-cell-type", false);
 
     let timestamp = 1611200000u64;
@@ -18,11 +19,7 @@ fn init() -> TemplateGenerator {
 fn gen_config_create() {
     let mut template = init();
 
-    template.push_signall_cell(
-        "0x0000000000000000000000000000000000000000",
-        0,
-        Source::Input,
-    );
+    template.push_signall_cell("0x0000000000000000000000000000000000000000", 0, Source::Input);
 
     template.push_config_cell(DataType::ConfigCellAccount, true, 0, Source::Output);
     template.push_config_cell(DataType::ConfigCellApply, true, 0, Source::Output);
@@ -48,11 +45,7 @@ test_with_template!(test_config_create, "config_create.json");
 fn gen_config_edit() {
     let mut template = init();
 
-    template.push_signall_cell(
-        "0x0000000000000000000000000000000000000000",
-        0,
-        Source::Input,
-    );
+    template.push_signall_cell("0x0000000000000000000000000000000000000000", 0, Source::Input);
 
     template.push_config_cell(DataType::ConfigCellAccount, true, 0, Source::Input);
     template.push_config_cell(DataType::ConfigCellApply, true, 0, Source::Input);

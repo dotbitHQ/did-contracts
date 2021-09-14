@@ -2,7 +2,7 @@ use super::common::{init, init_without_apply};
 use crate::util;
 use crate::util::{
     constants::*,
-    template_generator::{gen_account_chars, gen_always_success_lock, gen_das_lock_args},
+    template_generator::{gen_account_chars, gen_das_lock_args, gen_fake_signhash_all_lock},
     template_parser::TemplateParser,
 };
 use ckb_testtool::context::Context;
@@ -167,19 +167,17 @@ challenge_with_generator!(
         let account_chars_raw = "1234567890".chars().map(|c| c.to_string()).collect::<Vec<String>>();
         let account_chars = gen_account_chars(account_chars_raw);
         let price = template.get_price(account_chars.len());
-        let mut tmp = util::hex_to_bytes(&gen_das_lock_args(owner_lock_args, None));
-        tmp.append(&mut tmp.clone());
-        let owner_lock_args = Bytes::from(tmp);
+        let owner_lock_args = Bytes::from(util::hex_to_bytes(&gen_das_lock_args(owner_lock_args, None)));
 
         let entity = PreAccountCellData::new_builder()
             .account(account_chars.to_owned())
             .owner_lock_args(owner_lock_args)
-            .refund_lock(gen_always_success_lock(refund_lock_args))
+            .refund_lock(gen_fake_signhash_all_lock(refund_lock_args))
             .inviter_id(Bytes::from(vec![
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             ]))
-            .inviter_lock(ScriptOpt::from(gen_always_success_lock(inviter_lock_args)))
-            .channel_lock(ScriptOpt::from(gen_always_success_lock(channel_lock_args)))
+            .inviter_lock(ScriptOpt::from(gen_fake_signhash_all_lock(inviter_lock_args)))
+            .channel_lock(ScriptOpt::from(gen_fake_signhash_all_lock(channel_lock_args)))
             .price(price.to_owned())
             .quote(Uint64::from(quote))
             .invited_discount(Uint32::from(invited_discount as u32))
@@ -395,19 +393,17 @@ challenge_with_generator!(
         let account_chars_raw = "1234567890".chars().map(|c| c.to_string()).collect::<Vec<String>>();
         let account_chars = gen_account_chars(account_chars_raw);
         let price = template.get_price(4);
-        let mut tmp = util::hex_to_bytes(&gen_das_lock_args(owner_lock_args, None));
-        tmp.append(&mut tmp.clone());
-        let owner_lock_args = Bytes::from(tmp);
+        let owner_lock_args = Bytes::from(util::hex_to_bytes(&gen_das_lock_args(owner_lock_args, None)));
 
         let entity = PreAccountCellData::new_builder()
             .account(account_chars.to_owned())
             .owner_lock_args(owner_lock_args)
-            .refund_lock(gen_always_success_lock(refund_lock_args))
+            .refund_lock(gen_fake_signhash_all_lock(refund_lock_args))
             .inviter_id(Bytes::from(vec![
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             ]))
-            .inviter_lock(ScriptOpt::from(gen_always_success_lock(inviter_lock_args)))
-            .channel_lock(ScriptOpt::from(gen_always_success_lock(channel_lock_args)))
+            .inviter_lock(ScriptOpt::from(gen_fake_signhash_all_lock(inviter_lock_args)))
+            .channel_lock(ScriptOpt::from(gen_fake_signhash_all_lock(channel_lock_args)))
             .price(price.to_owned())
             .quote(Uint64::from(quote))
             .invited_discount(Uint32::from(invited_discount as u32))

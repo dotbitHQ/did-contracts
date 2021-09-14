@@ -21,10 +21,8 @@ pub fn main() -> Result<(), Error> {
 
         // Finding out ConfigCells in current transaction.
         let this_type_script = load_script().map_err(|e| Error::from(e))?;
-        let (input_cells, output_cells) = util::find_cells_by_script_in_inputs_and_outputs(
-            ScriptType::Type,
-            this_type_script.as_reader(),
-        )?;
+        let (input_cells, output_cells) =
+            util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
 
         assert!(
             output_cells.len() >= 1,
@@ -42,10 +40,7 @@ pub fn main() -> Result<(), Error> {
             );
         } else {
             // Create new ConfigCells will require super lock to execute after the initialization day of DAS.
-            let timestamp = util::load_oracle_data(OracleCellType::Time)?;
-            if util::is_init_day(timestamp).is_err() {
-                util::require_super_lock()?;
-            }
+            util::require_super_lock()?;
         }
 
         // Define DAS official super lock.
@@ -55,8 +50,7 @@ pub fn main() -> Result<(), Error> {
             // The ConfigCell in outputs must has the same lock script as super lock.
             // Why we do not limit the input ConfigCell's lock script is because when super lock need to be updated,
             // we need to update this type script at first, then update the ConfigCell after type script deployed.
-            let cell_lock_hash = load_cell_lock_hash(output_cell_index, Source::Output)
-                .map_err(|e| Error::from(e))?;
+            let cell_lock_hash = load_cell_lock_hash(output_cell_index, Source::Output).map_err(|e| Error::from(e))?;
 
             assert!(
                 cell_lock_hash == super_lock_hash,
@@ -86,17 +80,14 @@ pub fn main() -> Result<(), Error> {
 }
 
 fn get_config_id(cell_index: usize, source: Source) -> Result<DataType, Error> {
-    let cell_type = load_cell_type(cell_index, source)
-        .map_err(|e| Error::from(e))?
-        .unwrap();
+    let cell_type = load_cell_type(cell_index, source).map_err(|e| Error::from(e))?.unwrap();
     let args: [u8; 4] = cell_type
         .as_reader()
         .args()
         .raw_data()
         .try_into()
         .map_err(|_| Error::Encoding)?;
-    let config_type =
-        DataType::try_from(u32::from_le_bytes(args)).map_err(|_| Error::ConfigTypeIsUndefined)?;
+    let config_type = DataType::try_from(u32::from_le_bytes(args)).map_err(|_| Error::ConfigTypeIsUndefined)?;
 
     Ok(config_type)
 }

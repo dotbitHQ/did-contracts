@@ -120,6 +120,11 @@ pub enum Error {
     AccountCellChangeCapacityError, // -95
     AccountCellRecordKeyInvalid,
     AccountCellRecordSizeTooLarge,
+    EIP712SerializationError = -90,
+    EIP712SematicError,
+    EIP712DecodingWitnessArgsError,
+    EIP712SignatureError,
+    BalanceCellFoundSomeOutputsLackOfType = -80,
     SystemOff = -1,
 }
 
