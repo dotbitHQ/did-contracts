@@ -18,6 +18,8 @@ mod always_success;
 #[cfg(test)]
 mod apply_register_cell_type;
 #[cfg(test)]
+mod balance_cell_type;
+#[cfg(test)]
 mod config_cell_type;
 #[cfg(test)]
 mod income_cell_type;
@@ -43,7 +45,7 @@ impl FromStr for BinaryVersion {
         match s.to_lowercase().as_str() {
             "debug" => Ok(BinaryVersion::Debug),
             "release" => Ok(BinaryVersion::Release),
-            _ => Err("no match"),
+            _ => Err("Environment variable BINARY_VERSION only support \"debug\" and \"release\"."),
         }
     }
 }
@@ -53,9 +55,7 @@ pub struct Loader(PathBuf);
 impl Default for Loader {
     fn default() -> Self {
         let test_env = match env::var(BINARY_VERSION) {
-            Ok(val) => val
-                .parse()
-                .expect("Binary version should be one of debug and release."),
+            Ok(val) => val.parse().expect("Binary version should be one of debug and release."),
             Err(_) => BinaryVersion::Debug,
         };
         Self::with_test_env(test_env)
@@ -89,6 +89,8 @@ impl Loader {
     pub fn load_binary(&self, name: &str) -> bytes::Bytes {
         let mut path = self.0.clone();
         path.push(name);
-        fs::read(path).expect("binary").into()
+        fs::read(path.clone())
+            .expect(format!("Can not load binary of {} from path {}.", name, path.to_str().unwrap()).as_str())
+            .into()
     }
 }

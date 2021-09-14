@@ -8,6 +8,8 @@ pub fn init(action: &str) -> (TemplateGenerator, u64, u64) {
     let timestamp = 1611200090u64;
 
     template.push_contract_cell("always_success", true);
+    template.push_contract_cell("fake-das-lock", true);
+    template.push_contract_cell("fake-secp256k1-blake160-signhash-all", true);
     template.push_contract_cell("proposal-cell-type", false);
 
     template.push_oracle_cell(1, OracleCellType::Height, height);
@@ -37,13 +39,8 @@ pub fn gen_proposal_related_cell_at_create(
             );
 
             if *item_type == ProposalSliceItemType::Exist {
-                let (cell_data, entity) = template.gen_account_cell_data_v1(
-                    account,
-                    next_account,
-                    old_registered_at,
-                    old_expired_at,
-                    None,
-                );
+                let (cell_data, entity) =
+                    template.gen_account_cell_data_v1(account, next_account, old_registered_at, old_expired_at, None);
                 template.push_account_cell::<AccountCellDataV1>(
                     "0x0000000000000000000000000000000000001111",
                     "0x0000000000000000000000000000000000001111",
@@ -91,13 +88,8 @@ macro_rules! gen_account_cells {
         );
 
         // Generate AccountCell in outputs
-        let (cell_data, new_entity) = $template.gen_account_cell_data_v1(
-            $account,
-            $updated_next,
-            $registered_at,
-            $expired_at,
-            None,
-        );
+        let (cell_data, new_entity) =
+            $template.gen_account_cell_data_v1($account, $updated_next, $registered_at, $expired_at, None);
         $template.push_account_cell::<AccountCellData>(
             "0x0000000000000000000000000000000000001111",
             "0x0000000000000000000000000000000000001111",
@@ -132,16 +124,8 @@ macro_rules! gen_account_cells_edit_capacity {
         );
 
         // Generate AccountCell in outputs
-        let (cell_data, new_entity) = $template.gen_account_cell_data(
-            $account,
-            $updated_next,
-            $registered_at,
-            $expired_at,
-            0,
-            0,
-            0,
-            None,
-        );
+        let (cell_data, new_entity) =
+            $template.gen_account_cell_data($account, $updated_next, $registered_at, $expired_at, 0, 0, 0, None);
         $template.push_account_cell::<AccountCellData>(
             "0x0000000000000000000000000000000000001111",
             "0x0000000000000000000000000000000000001111",
@@ -182,16 +166,8 @@ macro_rules! gen_account_and_pre_account_cells {
         );
 
         // Generate new AccountCell in outputs.
-        let (cell_data, entity) = $template.gen_account_cell_data(
-            $account,
-            $next,
-            $registered_at,
-            $expired_at,
-            0,
-            0,
-            0,
-            None,
-        );
+        let (cell_data, entity) =
+            $template.gen_account_cell_data($account, $next, $registered_at, $expired_at, 0, 0, 0, None);
         $template.push_account_cell::<AccountCellData>(
             "0x0000000000000000000000000000000000001100",
             "0x0000000000000000000000000000000000001100",
@@ -224,16 +200,8 @@ macro_rules! gen_account_and_pre_account_cells_edit_capacity {
         );
 
         // Generate new AccountCell in outputs.
-        let (cell_data, entity) = $template.gen_account_cell_data(
-            $account,
-            $next,
-            $registered_at,
-            $expired_at,
-            0,
-            0,
-            0,
-            None,
-        );
+        let (cell_data, entity) =
+            $template.gen_account_cell_data($account, $next, $registered_at, $expired_at, 0, 0, 0, None);
         $template.push_account_cell::<AccountCellData>(
             "0x0000000000000000000000000000000000001100",
             "0x0000000000000000000000000000000000001100",

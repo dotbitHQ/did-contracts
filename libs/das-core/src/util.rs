@@ -1,8 +1,5 @@
-use super::{
-    assert, constants::*, debug, error::Error, types::ScriptLiteral, warn,
-    witness_parser::WitnessesParser,
-};
-use blake2b_ref::Blake2bBuilder;
+use super::{assert, constants::*, debug, error::Error, types::ScriptLiteral, warn, witness_parser::WitnessesParser};
+use blake2b_ref::{Blake2b, Blake2bBuilder};
 use ckb_std::{
     ckb_constants::{CellField, Source},
     ckb_types::{bytes, packed::*, prelude::*},
@@ -11,7 +8,7 @@ use ckb_std::{
 };
 use core::convert::{TryFrom, TryInto};
 use das_types::{
-    constants::{DataType, WITNESS_HEADER},
+    constants::{DataType, LockRole, WITNESS_HEADER},
     packed as das_packed,
 };
 #[cfg(test)]
@@ -43,10 +40,7 @@ pub fn hex_to_bytes(input: &str) -> Result<Bytes, FromHexError> {
 #[cfg(test)]
 pub fn hex_to_byte32(input: &str) -> Result<Byte32, FromHexError> {
     let hex = input.trim_start_matches("0x");
-    let data = hex::decode(hex)?
-        .into_iter()
-        .map(Byte::new)
-        .collect::<Vec<_>>();
+    let data = hex::decode(hex)?.into_iter().map(Byte::new).collect::<Vec<_>>();
     let mut inner = [Byte::new(0); 32];
     inner.copy_from_slice(&data);
 
@@ -65,6 +59,11 @@ pub fn is_unpacked_bytes_eq(a: &bytes::Bytes, b: &bytes::Bytes) -> bool {
     **a == **b
 }
 
+pub fn is_script_equal(script_a: ScriptReader, script_b: ScriptReader) -> bool {
+    // CAREFUL: It is critical that must ensure both code_hash and hash_type are the same to identify the same script.
+    is_reader_eq(script_a.code_hash(), script_b.code_hash()) && script_a.hash_type() == script_b.hash_type()
+}
+
 pub fn find_cells_by_type_id(
     script_type: ScriptType,
     type_id: das_packed::HashReader,
@@ -74,14 +73,11 @@ pub fn find_cells_by_type_id(
     let mut cell_indexes = Vec::new();
     loop {
         let offset = 16;
-        let mut code_hash = [0u8; 32];
+        // Here we use 33 bytes to store code_hash and hash_type together.
+        let mut code_hash = [0u8; 33];
         let ret = match script_type {
-            ScriptType::Lock => {
-                syscalls::load_cell_by_field(&mut code_hash, offset, i, source, CellField::Lock)
-            }
-            ScriptType::Type => {
-                syscalls::load_cell_by_field(&mut code_hash, offset, i, source, CellField::Type)
-            }
+            ScriptType::Lock => syscalls::load_cell_by_field(&mut code_hash, offset, i, source, CellField::Lock),
+            ScriptType::Type => syscalls::load_cell_by_field(&mut code_hash, offset, i, source, CellField::Type),
         };
 
         match ret {
@@ -90,7 +86,13 @@ pub fn find_cells_by_type_id(
                 unreachable!()
             }
             Err(SysError::LengthNotEnough(_)) => {
-                if code_hash == type_id.raw_data() {
+                // Build an array with specific code_hash and hash_type
+                let mut type_id_with_hash_type = [0u8; 33];
+                let (left, _) = type_id_with_hash_type.split_at_mut(32);
+                left.copy_from_slice(type_id.raw_data());
+                type_id_with_hash_type[32] = ScriptType::Type as u8;
+
+                if code_hash == type_id_with_hash_type {
                     cell_indexes.push(i);
                 }
             }
@@ -208,9 +210,7 @@ pub fn find_cells_by_script_in_inputs_and_outputs(
     Ok((input_cells, output_cells))
 }
 
-pub fn load_data<F: Fn(&mut [u8], usize) -> Result<usize, SysError>>(
-    syscall: F,
-) -> Result<Vec<u8>, SysError> {
+pub fn load_data<F: Fn(&mut [u8], usize) -> Result<usize, SysError>>(syscall: F) -> Result<Vec<u8>, SysError> {
     // The buffer length should be a little bigger than the size of the biggest data.
     let mut buf = [0u8; 2000];
     let extend_buf = [0u8; 5000];
@@ -252,20 +252,7 @@ pub fn load_data<F: Fn(&mut [u8], usize) -> Result<usize, SysError>>(
 }
 
 pub fn load_cell_data(index: usize, source: Source) -> Result<Vec<u8>, Error> {
-    load_data(|buf, offset| syscalls::load_cell_data(buf, offset, index, source))
-        .map_err(|err| Error::from(err))
-}
-
-pub fn load_cell_data_and_entity(
-    parser: &WitnessesParser,
-    index: usize,
-    source: Source,
-) -> Result<(Vec<u8>, &das_packed::Bytes), Error> {
-    let data = load_data(|buf, offset| syscalls::load_cell_data(buf, offset, index, source))
-        .map_err(|err| Error::from(err))?;
-    let (_, _, entity) = parser.verify_and_get(index, source)?;
-
-    Ok((data, entity))
+    load_data(|buf, offset| syscalls::load_cell_data(buf, offset, index, source)).map_err(|err| Error::from(err))
 }
 
 pub fn load_oracle_data(type_: OracleCellType) -> Result<u64, Error> {
@@ -310,10 +297,7 @@ pub fn load_oracle_data(type_: OracleCellType) -> Result<u64, Error> {
             u64::from_be_bytes(bytes.try_into().unwrap())
         }
         _ => {
-            warn!(
-                "Decoding data from cell of {:?} failed, data is missing.",
-                type_
-            );
+            warn!("Decoding data from cell of {:?} failed, data is missing.", type_);
             return Err(Error::OracleCellDataDecodingError);
         }
     };
@@ -332,6 +316,23 @@ pub fn trim_empty_bytes(buf: &[u8]) -> &[u8] {
         buf.get(..(7 + length.unwrap())).unwrap()
     } else {
         buf
+    }
+}
+
+pub fn load_witnesses(index: usize) -> Result<Vec<u8>, Error> {
+    let mut buf = [];
+    let ret = syscalls::load_witness(&mut buf, 0, index, Source::Input);
+
+    match ret {
+        // Data which length is too short to be DAS witnesses, so ignore it.
+        Ok(_) => Ok(buf.to_vec()),
+        Err(SysError::LengthNotEnough(actual_size)) => {
+            // debug!("Load witnesses[{}]: size: {} Bytes", index, actual_size);
+            let mut buf = vec![0u8; actual_size];
+            syscalls::load_witness(&mut buf, 0, index, Source::Input).map_err(|e| Error::from(e))?;
+            Ok(buf)
+        }
+        Err(e) => Err(Error::from(e)),
     }
 }
 
@@ -366,18 +367,17 @@ pub fn load_das_witnesses(index: usize, data_type: DataType) -> Result<Vec<u8>, 
                 parsed_data_type
             );
 
-            debug!(
-                "Load witnesses[{}]: {:?} size: {} Bytes",
-                index, data_type, actual_size
-            );
+            debug!("Load witnesses[{}]: {:?} size: {} Bytes", index, data_type, actual_size);
 
             if actual_size > 32000 {
-                warn!("The witnesses[{}] should be less than 32KB because the signall lock do not support more than that.", index);
+                warn!(
+                    "The witnesses[{}] should be less than 32KB because the signall lock do not support more than that.",
+                    index
+                );
                 Err(Error::from(SysError::LengthNotEnough(actual_size)))
             } else {
                 let mut buf = vec![0u8; actual_size];
-                syscalls::load_witness(&mut buf, 0, index, Source::Input)
-                    .map_err(|e| Error::from(e))?;
+                syscalls::load_witness(&mut buf, 0, index, Source::Input).map_err(|e| Error::from(e))?;
                 Ok(buf)
             }
         }
@@ -386,6 +386,12 @@ pub fn load_das_witnesses(index: usize, data_type: DataType) -> Result<Vec<u8>, 
             Err(Error::from(e))
         }
     }
+}
+
+pub fn new_blake2b() -> Blake2b {
+    Blake2bBuilder::new(CKB_HASH_DIGEST)
+        .personal(CKB_HASH_PERSONALIZATION)
+        .build()
 }
 
 pub fn blake2b_256(s: &[u8]) -> [u8; 32] {
@@ -421,10 +427,7 @@ pub fn is_cell_consistent(cell_a: (usize, Source), cell_b: (usize, Source)) -> R
     Ok(())
 }
 
-pub fn is_cell_only_lock_changed(
-    cell_a: (usize, Source),
-    cell_b: (usize, Source),
-) -> Result<(), Error> {
+pub fn is_cell_only_lock_changed(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
     debug!(
         "Compare if only the cells' lock script are different: {:?}[{}] & {:?}[{}]",
         cell_a.1, cell_a.0, cell_b.1, cell_b.0
@@ -438,10 +441,8 @@ pub fn is_cell_only_lock_changed(
 }
 
 pub fn is_cell_lock_equal(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
-    let a_lock_script =
-        high_level::load_cell_lock_hash(cell_a.0, cell_a.1).map_err(|e| Error::from(e))?;
-    let b_lock_script =
-        high_level::load_cell_lock_hash(cell_b.0, cell_b.1).map_err(|e| Error::from(e))?;
+    let a_lock_script = high_level::load_cell_lock_hash(cell_a.0, cell_a.1).map_err(|e| Error::from(e))?;
+    let b_lock_script = high_level::load_cell_lock_hash(cell_b.0, cell_b.1).map_err(|e| Error::from(e))?;
 
     assert!(
         a_lock_script == b_lock_script,
@@ -501,10 +502,8 @@ pub fn is_cell_data_equal(cell_a: (usize, Source), cell_b: (usize, Source)) -> R
 }
 
 pub fn is_cell_capacity_lt(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
-    let a_capacity =
-        high_level::load_cell_capacity(cell_a.0, cell_a.1).map_err(|e| Error::from(e))?;
-    let b_capacity =
-        high_level::load_cell_capacity(cell_b.0, cell_b.1).map_err(|e| Error::from(e))?;
+    let a_capacity = high_level::load_cell_capacity(cell_a.0, cell_a.1).map_err(|e| Error::from(e))?;
+    let b_capacity = high_level::load_cell_capacity(cell_b.0, cell_b.1).map_err(|e| Error::from(e))?;
 
     // ⚠️ Equal is not allowed here because we want to avoid abuse cell.
     assert!(
@@ -523,10 +522,8 @@ pub fn is_cell_capacity_lt(cell_a: (usize, Source), cell_b: (usize, Source)) -> 
 }
 
 pub fn is_cell_capacity_gt(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
-    let a_capacity =
-        high_level::load_cell_capacity(cell_a.0, cell_a.1).map_err(|e| Error::from(e))?;
-    let b_capacity =
-        high_level::load_cell_capacity(cell_b.0, cell_b.1).map_err(|e| Error::from(e))?;
+    let a_capacity = high_level::load_cell_capacity(cell_a.0, cell_a.1).map_err(|e| Error::from(e))?;
+    let b_capacity = high_level::load_cell_capacity(cell_b.0, cell_b.1).map_err(|e| Error::from(e))?;
 
     // ⚠️ Equal is not allowed here because we want to avoid abuse cell.
     assert!(
@@ -544,14 +541,9 @@ pub fn is_cell_capacity_gt(cell_a: (usize, Source), cell_b: (usize, Source)) -> 
     Ok(())
 }
 
-pub fn is_cell_capacity_equal(
-    cell_a: (usize, Source),
-    cell_b: (usize, Source),
-) -> Result<(), Error> {
-    let a_capacity =
-        high_level::load_cell_capacity(cell_a.0, cell_a.1).map_err(|e| Error::from(e))?;
-    let b_capacity =
-        high_level::load_cell_capacity(cell_b.0, cell_b.1).map_err(|e| Error::from(e))?;
+pub fn is_cell_capacity_equal(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
+    let a_capacity = high_level::load_cell_capacity(cell_a.0, cell_a.1).map_err(|e| Error::from(e))?;
+    let b_capacity = high_level::load_cell_capacity(cell_b.0, cell_b.1).map_err(|e| Error::from(e))?;
 
     assert!(
         a_capacity == b_capacity,
@@ -568,20 +560,11 @@ pub fn is_cell_capacity_equal(
     Ok(())
 }
 
-pub fn is_inputs_and_outputs_consistent(
-    inputs_cells: Vec<usize>,
-    outputs_cells: Vec<usize>,
-) -> Result<(), Error> {
+pub fn is_inputs_and_outputs_consistent(inputs_cells: Vec<usize>, outputs_cells: Vec<usize>) -> Result<(), Error> {
     for (i, input_cell_index) in inputs_cells.into_iter().enumerate() {
         let output_cell_index = outputs_cells[i];
-        is_cell_capacity_equal(
-            (input_cell_index, Source::Input),
-            (output_cell_index, Source::Output),
-        )?;
-        is_cell_consistent(
-            (input_cell_index, Source::Input),
-            (output_cell_index, Source::Output),
-        )?;
+        is_cell_capacity_equal((input_cell_index, Source::Input), (output_cell_index, Source::Output))?;
+        is_cell_consistent((input_cell_index, Source::Input), (output_cell_index, Source::Output))?;
     }
 
     Ok(())
@@ -594,10 +577,8 @@ pub fn is_cell_use_always_success_lock(index: usize, source: Source) -> Result<(
     let always_success_lock_reader = always_success_lock.as_reader();
 
     assert!(
-        is_reader_eq(
-            lock_reader.code_hash(),
-            always_success_lock_reader.code_hash()
-        ) && lock_reader.hash_type() == always_success_lock_reader.hash_type(),
+        is_reader_eq(lock_reader.code_hash(), always_success_lock_reader.code_hash())
+            && lock_reader.hash_type() == always_success_lock_reader.hash_type(),
         Error::AlwaysSuccessLockIsRequired,
         "The cell at {:?}[{}] should use always-success lock.(expected_code_hash: {})",
         source,
@@ -613,10 +594,7 @@ pub fn is_cell_use_signall_lock(index: usize, source: Source) -> Result<(), Erro
     let signall_lock = signall_lock();
 
     assert!(
-        is_reader_eq(
-            lock.as_reader().code_hash(),
-            signall_lock.as_reader().code_hash()
-        ),
+        is_reader_eq(lock.as_reader().code_hash(), signall_lock.as_reader().code_hash()),
         Error::SignallLockIsRequired,
         "The cell at {:?}[{}] should use signall lock.(expected_code_hash: {})",
         source,
@@ -650,10 +628,7 @@ pub fn get_length_in_price(account_length: u64) -> u8 {
 pub fn is_init_day(current_timestamp: u64) -> Result<(), Error> {
     use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 
-    let current = DateTime::<Utc>::from_utc(
-        NaiveDateTime::from_timestamp(current_timestamp as i64, 0),
-        Utc,
-    );
+    let current = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(current_timestamp as i64, 0), Utc);
 
     // On CKB main net, AKA Lina, some actions can be only executed at or before the initialization day of DAS.
     if cfg!(feature = "mainnet") {
@@ -709,9 +684,8 @@ pub fn require_type_script(
     let type_id = match type_script {
         TypeScript::AccountCellType => config.type_id_table().account_cell(),
         TypeScript::ApplyRegisterCellType => config.type_id_table().apply_register_cell(),
-        TypeScript::BiddingCellType => config.type_id_table().bidding_cell(),
+        TypeScript::BalanceCellType => config.type_id_table().balance_cell(),
         TypeScript::IncomeCellType => config.type_id_table().income_cell(),
-        TypeScript::OnSaleCellType => config.type_id_table().on_sale_cell(),
         TypeScript::PreAccountCellType => config.type_id_table().pre_account_cell(),
         TypeScript::ProposalCellType => config.type_id_table().proposal_cell(),
     };
@@ -739,16 +713,19 @@ pub fn require_type_script(
 
 pub fn require_super_lock() -> Result<(), Error> {
     let super_lock = super_lock();
-    let has_super_lock =
-        find_cells_by_script(ScriptType::Lock, super_lock.as_reader(), Source::Input)?.len() > 0;
+    let has_super_lock = find_cells_by_script(ScriptType::Lock, super_lock.as_reader(), Source::Input)?.len() > 0;
 
-    assert!(
-        has_super_lock,
-        Error::SuperLockIsRequired,
-        "Super lock is required."
-    );
+    assert!(has_super_lock, Error::SuperLockIsRequired, "Super lock is required.");
 
     Ok(())
+}
+
+pub fn get_action_required_role(action: das_packed::BytesReader) -> LockRole {
+    // TODO Refactor all places which used LockRole with this function.
+    match action.raw_data() {
+        b"edit_records" => LockRole::Manager,
+        _ => LockRole::Owner,
+    }
 }
 
 #[cfg(test)]
@@ -783,14 +760,12 @@ mod test {
 
     #[test]
     fn test_hex_to_byte32() {
-        let result =
-            hex_to_byte32("0xe683b04139344768348499c23eb1326d5a52d6db006c0d2fece00a831f3660d7")
-                .unwrap();
+        let result = hex_to_byte32("0xe683b04139344768348499c23eb1326d5a52d6db006c0d2fece00a831f3660d7").unwrap();
 
         let mut data = [Byte::new(0); 32];
         let v = vec![
-            230, 131, 176, 65, 57, 52, 71, 104, 52, 132, 153, 194, 62, 177, 50, 109, 90, 82, 214,
-            219, 0, 108, 13, 47, 236, 224, 10, 131, 31, 54, 96, 215,
+            230, 131, 176, 65, 57, 52, 71, 104, 52, 132, 153, 194, 62, 177, 50, 109, 90, 82, 214, 219, 0, 108, 13, 47,
+            236, 224, 10, 131, 31, 54, 96, 215,
         ]
         .into_iter()
         .map(Byte::new)

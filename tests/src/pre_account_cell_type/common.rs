@@ -9,6 +9,8 @@ pub fn init_without_apply(account: &str) -> (TemplateGenerator, &str, u64, u64) 
     let height = 1000000u64;
 
     template.push_contract_cell("always_success", true);
+    template.push_contract_cell("fake-das-lock", true);
+    template.push_contract_cell("fake-secp256k1-blake160-signhash-all", true);
     template.push_contract_cell("apply-register-cell-type", false);
     template.push_contract_cell("pre-account-cell-type", false);
 

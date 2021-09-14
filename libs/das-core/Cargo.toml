@@ -4,7 +4,7 @@ version = "1.0.0"
 edition = "2018"
 
 [features]
-default = ["mainnet"]
+default = ["dev"]
 std = ["no-std-compat/std"]
 dev = []
 local = []
@@ -15,9 +15,14 @@ mainnet = []
 ckb-std = "0.7.1"
 blake2b-ref = "0.3"
 das-types = { path = "../../../das-types/rust", default-features = false }
+eip712 = { path = "../../libs/eip712" }
 no-std-compat = { version = "0.4", features = [ "alloc", "compat_macros" ] }
 chrono = { version = "0.4", default-features = false }
 das-map = { path = "../das-map", default-features = false }
+serde_json = { version = "1.0", default-features = false, features = [ "alloc" ] }
+bech32 = { version = "0.8.1", default-features = false }
+bs58 = { version = "0.4.0", default-features = false, features = [ "alloc" ] }
+sha2 = { version = "0.9.6", default-features = false }
 
 [dev-dependencies]
 hex = { version = "0.4", default-features = false }
