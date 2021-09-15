@@ -6,7 +6,6 @@ use ckb_tool::{
     ckb_chain_spec::consensus::TYPE_ID_CODE_HASH,
     ckb_hash::{blake2b_256, new_blake2b},
     ckb_jsonrpc_types as rpc_types,
-    ckb_types::core::Capacity,
     ckb_types::{
         bytes,
         core::{ScriptHashType, TransactionView},
@@ -48,10 +47,7 @@ pub fn hex_to_bytes(input: &str) -> Vec<u8> {
 
 pub fn hex_to_byte32(input: &str) -> Result<Byte32, Box<dyn Error>> {
     let hex = input.trim_start_matches("0x");
-    let data = hex::decode(hex)?
-        .into_iter()
-        .map(Byte::new)
-        .collect::<Vec<_>>();
+    let data = hex::decode(hex)?.into_iter().map(Byte::new).collect::<Vec<_>>();
     let mut inner = [Byte::new(0); 32];
     inner.copy_from_slice(&data);
 
@@ -60,10 +56,7 @@ pub fn hex_to_byte32(input: &str) -> Result<Byte32, Box<dyn Error>> {
 
 pub fn hex_to_hash(input: &str) -> Result<das_packed::Hash, Box<dyn Error>> {
     let hex = input.trim_start_matches("0x");
-    let data = hex::decode(hex)?
-        .into_iter()
-        .map(Byte::new)
-        .collect::<Vec<_>>();
+    let data = hex::decode(hex)?.into_iter().map(Byte::new).collect::<Vec<_>>();
     let mut inner = [Byte::new(0); 32];
     inner.copy_from_slice(&data);
 
@@ -95,25 +88,28 @@ pub fn account_to_id_hex(account: &str) -> String {
 pub fn deploy_dev_contract(
     context: &mut Context,
     binary_name: &str,
+    index_opt: Option<usize>,
 ) -> (Byte32, OutPoint, CellDep) {
     let contract_bin: bytes::Bytes = Loader::default().load_binary(binary_name);
 
-    deploy_contract(context, binary_name, contract_bin)
+    deploy_contract(context, binary_name, contract_bin, index_opt)
 }
 
 pub fn deploy_builtin_contract(
     context: &mut Context,
     binary_name: &str,
+    index_opt: Option<usize>,
 ) -> (Byte32, OutPoint, CellDep) {
     let contract_bin: bytes::Bytes = Loader::with_deployed_scripts().load_binary(binary_name);
 
-    deploy_contract(context, binary_name, contract_bin)
+    deploy_contract(context, binary_name, contract_bin, index_opt)
 }
 
 fn deploy_contract(
     context: &mut Context,
     binary_name: &str,
     contract_bin: bytes::Bytes,
+    index_opt: Option<usize>,
 ) -> (Byte32, OutPoint, CellDep) {
     let args = binary_name
         .as_bytes()
@@ -122,24 +118,34 @@ fn deploy_contract(
         .map(Byte::new)
         .collect::<Vec<_>>();
     let type_ = Script::new_builder()
-        .code_hash(Byte32::new_unchecked(bytes::Bytes::from(
-            TYPE_ID_CODE_HASH.as_bytes(),
-        )))
+        .code_hash(Byte32::new_unchecked(bytes::Bytes::from(TYPE_ID_CODE_HASH.as_bytes())))
         .hash_type(ScriptHashType::Type.into())
         .args(Bytes::new_builder().set(args).build())
         .build();
     let type_id = type_.calc_script_hash();
-    let cell = CellOutput::new_builder()
-        .capacity(Capacity::bytes(contract_bin.len()).unwrap().pack())
-        .type_(ScriptOpt::new_builder().set(Some(type_)).build())
-        .build();
-    let out_point = context.create_cell(cell, contract_bin);
+    // Uncomment the line below can print type ID of each script in unit tests.
+    // println!("script: {}, type_id: {}", binary_name, type_id);
+
+    let out_point = mock_out_point(index_opt.unwrap_or(rand::random::<usize>()));
+    mock_cell_with_outpoint(
+        context,
+        out_point.clone(),
+        contract_bin.len() as u64,
+        Script::default(),
+        Some(type_),
+        Some(contract_bin.to_vec()),
+    );
+
     let cell_dep = CellDep::new_builder().out_point(out_point.clone()).build();
 
     (type_id, out_point, cell_dep)
 }
 
-pub fn deploy_shared_lib(context: &mut Context, binary_name: &str) -> (Byte32, OutPoint, CellDep) {
+pub fn deploy_shared_lib(
+    context: &mut Context,
+    binary_name: &str,
+    index_opt: Option<usize>,
+) -> (Byte32, OutPoint, CellDep) {
     let file: bytes::Bytes = Loader::default().load_binary(binary_name);
 
     let hash = blake2b_256(file.clone());
@@ -149,10 +155,16 @@ pub fn deploy_shared_lib(context: &mut Context, binary_name: &str) -> (Byte32, O
     }
     let code_hash = Byte32::new_builder().set(inner).build();
 
-    let cell = CellOutput::new_builder()
-        .capacity(Capacity::bytes(file.len()).unwrap().pack())
-        .build();
-    let out_point = context.create_cell(cell, file);
+    let out_point = mock_out_point(index_opt.unwrap_or(rand::random::<usize>()));
+    mock_cell_with_outpoint(
+        context,
+        out_point.clone(),
+        file.len() as u64,
+        Script::default(),
+        None,
+        Some(file.to_vec()),
+    );
+
     let cell_dep = CellDep::new_builder().out_point(out_point.clone()).build();
 
     (code_hash, out_point, cell_dep)
@@ -197,32 +209,37 @@ pub fn mock_cell(
     context.create_cell(cell, bytes::Bytes::from(data))
 }
 
+pub fn mock_out_point(index: usize) -> OutPoint {
+    let index_bytes = (index as u64).to_be_bytes().to_vec();
+    let tx_hash_bytes = [
+        vec![0u8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        index_bytes,
+    ]
+    .concat();
+    let tx_hash = Byte32::from_slice(&tx_hash_bytes).expect("The input of Byte32::from_slice is invalid.");
+
+    OutPoint::new_builder().index(0u32.pack()).tx_hash(tx_hash).build()
+}
+
 pub fn mock_cell_with_outpoint(
     context: &mut Context,
     out_point: OutPoint,
     capacity: u64,
     lock_script: Script,
     type_script: Option<Script>,
-    bytes: Option<bytes::Bytes>,
-) -> OutPoint {
-    let data;
-    if bytes.is_some() {
-        data = bytes.unwrap();
-    } else {
-        data = bytes::Bytes::new();
-    }
+    data_opt: Option<Vec<u8>>,
+) {
+    let data = data_opt.unwrap_or_default();
 
     context.create_cell_with_out_point(
-        out_point.clone(),
+        out_point,
         CellOutput::new_builder()
             .capacity(capacity.pack())
             .lock(lock_script)
             .type_(ScriptOpt::new_builder().set(type_script).build())
             .build(),
-        data,
+        bytes::Bytes::from(data),
     );
-
-    out_point
 }
 
 pub fn mock_input(out_point: OutPoint, since: Option<u64>) -> CellInput {
@@ -251,15 +268,13 @@ pub fn serialize_signature(signature: &secp256k1::recovery::RecoverableSignature
     signature_bytes
 }
 
-pub type SignerFn = Box<
-    dyn FnMut(&HashSet<H160>, &H256, &rpc_types::Transaction) -> Result<Option<[u8; 65]>, String>,
->;
+pub type SignerFn = Box<dyn FnMut(&HashSet<H160>, &H256, &rpc_types::Transaction) -> Result<Option<[u8; 65]>, String>>;
 
 pub fn get_privkey_signer(input: &str) -> SignerFn {
     let privkey = secp256k1::SecretKey::from_str(input.trim_start_matches("0x")).unwrap();
     let pubkey = secp256k1::PublicKey::from_secret_key(&SECP256K1, &privkey);
-    let lock_arg = H160::from_slice(&blake2b_256(&pubkey.serialize()[..])[0..20])
-        .expect("Generate hash(H160) from pubkey failed");
+    let lock_arg =
+        H160::from_slice(&blake2b_256(&pubkey.serialize()[..])[0..20]).expect("Generate hash(H160) from pubkey failed");
     Box::new(
         move |lock_args: &HashSet<H160>, message: &H256, _tx: &rpc_types::Transaction| {
             if lock_args.contains(&lock_arg) {
@@ -278,9 +293,7 @@ pub fn get_privkey_signer(input: &str) -> SignerFn {
     )
 }
 
-pub fn build_signature<
-    S: FnMut(&H256, &rpc_types::Transaction) -> Result<[u8; SECP_SIGNATURE_SIZE], String>,
->(
+pub fn build_signature<S: FnMut(&H256, &rpc_types::Transaction) -> Result<[u8; SECP_SIGNATURE_SIZE], String>>(
     tx: &TransactionView,
     input_size: usize,
     input_group_idxs: &[usize],
@@ -291,8 +304,7 @@ pub fn build_signature<
     let init_witness = if witnesses[init_witness_idx].raw_data().is_empty() {
         WitnessArgs::default()
     } else {
-        WitnessArgs::from_slice(witnesses[init_witness_idx].raw_data().as_ref())
-            .map_err(|err| err.to_string())?
+        WitnessArgs::from_slice(witnesses[init_witness_idx].raw_data().as_ref()).map_err(|err| err.to_string())?
     };
 
     let init_witness = init_witness
@@ -340,8 +352,8 @@ pub fn read_lines(file_name: &str) -> io::Result<Lines<BufReader<File>>> {
 }
 
 pub fn gen_timestamp(datetime: &str) -> u64 {
-    let navie_datetime = NaiveDateTime::parse_from_str(datetime, "%Y-%m-%d %H:%M:%S")
-        .expect("Invalid datetime format.");
+    let navie_datetime =
+        NaiveDateTime::parse_from_str(datetime, "%Y-%m-%d %H:%M:%S").expect("Invalid datetime format.");
     let datetime = DateTime::<Utc>::from_utc(navie_datetime, Utc);
     datetime.timestamp() as u64
 }

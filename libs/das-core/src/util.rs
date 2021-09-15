@@ -1,5 +1,5 @@
 use super::{assert, constants::*, debug, error::Error, types::ScriptLiteral, warn, witness_parser::WitnessesParser};
-use blake2b_ref::Blake2bBuilder;
+use blake2b_ref::{Blake2b, Blake2bBuilder};
 use ckb_std::{
     ckb_constants::{CellField, Source},
     ckb_types::{bytes, packed::*, prelude::*},
@@ -8,7 +8,7 @@ use ckb_std::{
 };
 use core::convert::{TryFrom, TryInto};
 use das_types::{
-    constants::{DataType, WITNESS_HEADER},
+    constants::{DataType, LockRole, WITNESS_HEADER},
     packed as das_packed,
 };
 #[cfg(test)]
@@ -59,6 +59,11 @@ pub fn is_unpacked_bytes_eq(a: &bytes::Bytes, b: &bytes::Bytes) -> bool {
     **a == **b
 }
 
+pub fn is_script_equal(script_a: ScriptReader, script_b: ScriptReader) -> bool {
+    // CAREFUL: It is critical that must ensure both code_hash and hash_type are the same to identify the same script.
+    is_reader_eq(script_a.code_hash(), script_b.code_hash()) && script_a.hash_type() == script_b.hash_type()
+}
+
 pub fn find_cells_by_type_id(
     script_type: ScriptType,
     type_id: das_packed::HashReader,
@@ -68,7 +73,8 @@ pub fn find_cells_by_type_id(
     let mut cell_indexes = Vec::new();
     loop {
         let offset = 16;
-        let mut code_hash = [0u8; 32];
+        // Here we use 33 bytes to store code_hash and hash_type together.
+        let mut code_hash = [0u8; 33];
         let ret = match script_type {
             ScriptType::Lock => syscalls::load_cell_by_field(&mut code_hash, offset, i, source, CellField::Lock),
             ScriptType::Type => syscalls::load_cell_by_field(&mut code_hash, offset, i, source, CellField::Type),
@@ -80,7 +86,13 @@ pub fn find_cells_by_type_id(
                 unreachable!()
             }
             Err(SysError::LengthNotEnough(_)) => {
-                if code_hash == type_id.raw_data() {
+                // Build an array with specific code_hash and hash_type
+                let mut type_id_with_hash_type = [0u8; 33];
+                let (left, _) = type_id_with_hash_type.split_at_mut(32);
+                left.copy_from_slice(type_id.raw_data());
+                type_id_with_hash_type[32] = ScriptType::Type as u8;
+
+                if code_hash == type_id_with_hash_type {
                     cell_indexes.push(i);
                 }
             }
@@ -273,18 +285,6 @@ pub fn load_cell_data(index: usize, source: Source) -> Result<Vec<u8>, Error> {
     load_data(|buf, offset| syscalls::load_cell_data(buf, offset, index, source)).map_err(|err| Error::from(err))
 }
 
-pub fn load_cell_data_and_entity(
-    parser: &WitnessesParser,
-    index: usize,
-    source: Source,
-) -> Result<(Vec<u8>, &das_packed::Bytes), Error> {
-    let data = load_data(|buf, offset| syscalls::load_cell_data(buf, offset, index, source))
-        .map_err(|err| Error::from(err))?;
-    let (_, _, entity) = parser.verify_and_get(index, source)?;
-
-    Ok((data, entity))
-}
-
 pub fn load_oracle_data(type_: OracleCellType) -> Result<u64, Error> {
     let type_script;
     match type_ {
@@ -349,6 +349,23 @@ pub fn trim_empty_bytes(buf: &[u8]) -> &[u8] {
     }
 }
 
+pub fn load_witnesses(index: usize) -> Result<Vec<u8>, Error> {
+    let mut buf = [];
+    let ret = syscalls::load_witness(&mut buf, 0, index, Source::Input);
+
+    match ret {
+        // Data which length is too short to be DAS witnesses, so ignore it.
+        Ok(_) => Ok(buf.to_vec()),
+        Err(SysError::LengthNotEnough(actual_size)) => {
+            // debug!("Load witnesses[{}]: size: {} Bytes", index, actual_size);
+            let mut buf = vec![0u8; actual_size];
+            syscalls::load_witness(&mut buf, 0, index, Source::Input).map_err(|e| Error::from(e))?;
+            Ok(buf)
+        }
+        Err(e) => Err(Error::from(e)),
+    }
+}
+
 pub fn load_das_witnesses(index: usize, data_type: DataType) -> Result<Vec<u8>, Error> {
     let mut buf = [0u8; 7];
     let ret = syscalls::load_witness(&mut buf, 0, index, Source::Input);
@@ -383,7 +400,10 @@ pub fn load_das_witnesses(index: usize, data_type: DataType) -> Result<Vec<u8>, 
             debug!("Load witnesses[{}]: {:?} size: {} Bytes", index, data_type, actual_size);
 
             if actual_size > 32000 {
-                warn!("The witnesses[{}] should be less than 32KB because the signall lock do not support more than that.", index);
+                warn!(
+                    "The witnesses[{}] should be less than 32KB because the signall lock do not support more than that.",
+                    index
+                );
                 Err(Error::from(SysError::LengthNotEnough(actual_size)))
             } else {
                 let mut buf = vec![0u8; actual_size];
@@ -396,6 +416,12 @@ pub fn load_das_witnesses(index: usize, data_type: DataType) -> Result<Vec<u8>, 
             Err(Error::from(e))
         }
     }
+}
+
+pub fn new_blake2b() -> Blake2b {
+    Blake2bBuilder::new(CKB_HASH_DIGEST)
+        .personal(CKB_HASH_PERSONALIZATION)
+        .build()
 }
 
 pub fn blake2b_256(s: &[u8]) -> [u8; 32] {
@@ -688,7 +714,7 @@ pub fn require_type_script(
     let type_id = match type_script {
         TypeScript::AccountCellType => config.type_id_table().account_cell(),
         TypeScript::ApplyRegisterCellType => config.type_id_table().apply_register_cell(),
-        TypeScript::BiddingCellType => config.type_id_table().bidding_cell(),
+        TypeScript::BalanceCellType => config.type_id_table().balance_cell(),
         TypeScript::IncomeCellType => config.type_id_table().income_cell(),
         TypeScript::AccountSaleCellType => config.type_id_table().account_sale_cell(),
         TypeScript::PreAccountCellType => config.type_id_table().pre_account_cell(),
@@ -719,6 +745,14 @@ pub fn require_super_lock() -> Result<(), Error> {
     assert!(has_super_lock, Error::SuperLockIsRequired, "Super lock is required.");
 
     Ok(())
+}
+
+pub fn get_action_required_role(action: das_packed::BytesReader) -> LockRole {
+    // TODO Refactor all places which used LockRole with this function.
+    match action.raw_data() {
+        b"edit_records" => LockRole::Manager,
+        _ => LockRole::Owner,
+    }
 }
 
 #[cfg(test)]

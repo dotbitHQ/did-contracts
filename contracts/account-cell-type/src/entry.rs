@@ -1,15 +1,16 @@
 use alloc::{boxed::Box, vec, vec::Vec};
-use ckb_std::{ckb_constants::Source, ckb_types::prelude::*, debug, high_level};
+use ckb_std::{ckb_constants::Source, ckb_types::prelude::*, error::SysError, high_level};
 use das_core::{
     assert,
     constants::{das_lock, das_wallet_lock, OracleCellType, ScriptType, TypeScript, CUSTOM_KEYS_NAMESPACE},
-    data_parser,
+    data_parser, debug,
+    eip712::verify_eip712_hashes,
     error::Error,
     parse_account_cell_witness, parse_witness, util, warn,
     witness_parser::WitnessesParser,
 };
 use das_types::{
-    constants::{AccountStatus, DataType, LockRole},
+    constants::{DataType, LockRole},
     mixer::*,
     packed::*,
 };
@@ -19,10 +20,9 @@ pub fn main() -> Result<(), Error> {
 
     let mut parser = WitnessesParser::new()?;
 
-    let action_data = parser.parse_action()?;
-    let action = action_data.as_reader().action().raw_data();
-    let params = action_data.as_reader().params().raw_data();
-
+    let (action_raw, params_raw) = parser.parse_action_with_params()?;
+    let action = action_raw.as_reader().raw_data();
+    let params = params_raw.iter().map(|param| param.as_reader()).collect::<Vec<_>>();
     if action == b"init_account_chain" {
         debug!("Route to init_account_chain action ...");
 
@@ -75,10 +75,17 @@ pub fn main() -> Result<(), Error> {
         util::is_system_off(&mut parser)?;
         let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
-        parser.parse_config(&[DataType::ConfigCellAccount])?;
+        parser.parse_config(&[DataType::ConfigCellMain, DataType::ConfigCellAccount])?;
         parser.parse_cell()?;
 
+        verify_eip712_hashes(&parser, action_raw.as_reader(), &params)?;
+
         let (input_account_cells, output_account_cells) = load_account_cells()?;
+        assert!(
+            input_account_cells.len() == 1 && output_account_cells.len() == 1,
+            Error::InvalidTransactionStructure,
+            "There should be only one AccountCell in inputs and outputs."
+        );
 
         let input_cell_witness: Box<dyn AccountCellDataMixer>;
         let input_cell_witness_reader;
@@ -135,7 +142,7 @@ pub fn main() -> Result<(), Error> {
 
             let config_account = parser.configs.account()?;
 
-            verify_unlock_role(params, LockRole::Owner)?;
+            verify_unlock_role(params_raw[0].as_reader(), LockRole::Owner)?;
             verify_input_account_must_normal_status(&input_cell_witness_reader)?;
             verify_transaction_fee_spent_correctly(
                 action,
@@ -165,7 +172,7 @@ pub fn main() -> Result<(), Error> {
 
             let config_account = parser.configs.account()?;
 
-            verify_unlock_role(params, LockRole::Owner)?;
+            verify_unlock_role(params_raw[0].as_reader(), LockRole::Owner)?;
             verify_input_account_must_normal_status(&input_cell_witness_reader)?;
             verify_transaction_fee_spent_correctly(
                 action,
@@ -197,8 +204,7 @@ pub fn main() -> Result<(), Error> {
             let config_account = parser.configs.account()?;
             let record_key_namespace = parser.configs.record_key_namespace()?;
 
-            verify_unlock_role(params, LockRole::Manager)?;
-            verify_input_account_must_normal_status(&input_cell_witness_reader)?;
+            verify_unlock_role(params_raw[0].as_reader(), LockRole::Manager)?;
             verify_transaction_fee_spent_correctly(
                 action,
                 config_account,
@@ -236,6 +242,12 @@ pub fn main() -> Result<(), Error> {
         let income_cell_type_id = parser.configs.main()?.type_id_table().income_cell();
 
         let (input_account_cells, output_account_cells) = load_account_cells()?;
+        assert!(
+            input_account_cells.len() == 1 && output_account_cells.len() == 1,
+            Error::InvalidTransactionStructure,
+            "There should be only one AccountCell in inputs and outputs."
+        );
+
         let input_cell_witness: Box<dyn AccountCellDataMixer>;
         let input_cell_witness_reader;
         parse_account_cell_witness!(
@@ -256,6 +268,7 @@ pub fn main() -> Result<(), Error> {
             Source::Output
         );
 
+        verify_cells_with_das_lock()?;
         verify_account_capacity_not_decrease(input_account_cells[0], output_account_cells[0])?;
         verify_account_lock_consistent(input_account_cells[0], output_account_cells[0], None)?;
         verify_account_data_consistent(input_account_cells[0], output_account_cells[0], vec!["expired_at"])?;
@@ -430,12 +443,15 @@ pub fn main() -> Result<(), Error> {
         // The AccountCell can be used as long as it is not modified.
     } else if action == b"recycle_expired_account_by_keeper" {
         debug!("Route to recycle_expired_account_by_keeper action ...");
+        return Err(Error::InvalidTransactionStructure);
 
         util::is_system_off(&mut parser)?;
         let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
         parser.parse_cell()?;
         parser.parse_config(&[DataType::ConfigCellAccount])?;
+
+        verify_cells_with_das_lock()?;
 
         let config_account = parser.configs.account()?;
 
@@ -463,6 +479,7 @@ pub fn main() -> Result<(), Error> {
         );
     } else {
         debug!("Route to other action ...");
+        // TODO Stop unknown transaction occupy AccountCells.
 
         let this_type_script = high_level::load_script().map_err(|e| Error::from(e))?;
         let (input_cells, output_cells) =
@@ -501,11 +518,11 @@ fn load_account_cells() -> Result<(Vec<usize>, Vec<usize>), Error> {
     Ok((input_account_cells, output_account_cells))
 }
 
-fn verify_unlock_role(params: &[u8], lock: LockRole) -> Result<(), Error> {
+fn verify_unlock_role(params: BytesReader, lock: LockRole) -> Result<(), Error> {
     debug!("Check if transaction is unlocked by {:?}.", lock);
 
     assert!(
-        params.len() > 0 && params[0] == lock as u8,
+        params.len() > 0 && params.raw_data()[0] == lock as u8,
         Error::AccountCellPermissionDenied,
         "This transaction should be unlocked by the {:?}'s signature.",
         lock
@@ -537,8 +554,8 @@ fn verify_transaction_fee_spent_correctly(
 
     let fee = match action {
         b"transfer_account" => u64::from(config.transfer_account_fee()),
-        b"edit_manager" => u64::from(config.transfer_account_fee()),
-        b"edit_records" => u64::from(config.transfer_account_fee()),
+        b"edit_manager" => u64::from(config.edit_manager_fee()),
+        b"edit_records" => u64::from(config.edit_records_fee()),
         _ => return Err(Error::ActionNotSupported),
     };
     let storage_capacity = u64::from(config.basic_capacity()) + account_length * 100_000_000;
@@ -625,7 +642,7 @@ fn verify_action_throttle<'a>(
                 current_timestamp,
                 current
             );
-        }}
+        }};
     }
 
     let output_witness_reader = output_witness_reader
@@ -733,7 +750,7 @@ fn verify_account_lock_consistent(
                 data_parser::das_lock_args::get_manager_lock_args(output_args)
                     == data_parser::das_lock_args::get_owner_lock_args(output_args),
                 Error::AccountCellManagerLockShouldBeModified,
-                "The manager lock args in AccountCell.lock should be different in input and output."
+                "The manager lock args in AccountCell.lock should be the same as owner lock args in output."
             );
         } else {
             assert!(
@@ -958,7 +975,7 @@ fn verify_records_keys<'a>(
         let mut record_type = Vec::from(record.record_type().raw_data());
         let mut record_key = Vec::from(record.record_key().raw_data());
         if record_type == b"custom_key" {
-            // TODO Trible check.
+            // CAREFUL Triple check
             for char in record_key.iter() {
                 assert!(
                     CUSTOM_KEYS_NAMESPACE.contains(char),
@@ -988,6 +1005,46 @@ fn verify_records_keys<'a>(
 
             break;
         }
+    }
+
+    Ok(())
+}
+
+fn verify_cells_with_das_lock() -> Result<(), Error> {
+    let this_script = high_level::load_script().map_err(|e| Error::from(e))?;
+    let this_script_reader = this_script.as_reader();
+
+    let das_lock = das_lock();
+    let das_lock_reader = das_lock.as_reader();
+    let mut i = 0;
+    loop {
+        let ret = high_level::load_cell_lock(i, Source::Input);
+        match ret {
+            Ok(lock) => {
+                // Check if cells with das-lock in inputs can only has account-cell-type.
+                if util::is_script_equal(das_lock_reader, lock.as_reader()) {
+                    let type_opt = high_level::load_cell_type(i, Source::Input).map_err(|e| Error::from(e))?;
+                    match type_opt {
+                        Some(type_) if util::is_reader_eq(this_script_reader, type_.as_reader()) => {}
+                        _ => {
+                            warn!(
+                                "Inputs[{}] This cell has das-lock, normal cells with das-lock is not allowed in this transaction.",
+                                i
+                            );
+                            return Err(Error::InvalidTransactionStructure);
+                        }
+                    }
+                }
+            }
+            Err(SysError::IndexOutOfBound) => {
+                break;
+            }
+            Err(err) => {
+                return Err(Error::from(err));
+            }
+        }
+
+        i += 1;
     }
 
     Ok(())

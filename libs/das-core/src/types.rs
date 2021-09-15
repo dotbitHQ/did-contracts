@@ -45,6 +45,7 @@ pub struct Configs {
     pub secondary_market: Option<ConfigCellSecondaryMarket>,
     pub record_key_namespace: Option<Vec<u8>>,
     pub preserved_account: Option<Vec<u8>>,
+    pub unavailable_account: Option<Vec<u8>>,
 }
 
 impl Configs {
@@ -72,10 +73,12 @@ impl Configs {
     }
 
     pub fn preserved_account(&self) -> Result<&[u8], Error> {
-        let reader = self
-            .preserved_account
-            .as_ref()
-            .ok_or(Error::ConfigIsPartialMissing)?;
+        let reader = self.preserved_account.as_ref().ok_or(Error::ConfigIsPartialMissing)?;
+        Ok(reader)
+    }
+
+    pub fn unavailable_account(&self) -> Result<&[u8], Error> {
+        let reader = self.unavailable_account.as_ref().ok_or(Error::ConfigIsPartialMissing)?;
         Ok(reader)
     }
 

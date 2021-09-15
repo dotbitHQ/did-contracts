@@ -1,6 +1,6 @@
 [package]
-name = "income-cell-type"
-version = "1.1.2"
+name = "balance-cell-type"
+version = "1.0.0"
 edition = "2018"
 
 [features]
@@ -11,6 +11,6 @@ mainnet = ["das-core/mainnet"]
 
 [dependencies]
 ckb-std = "0.7.1"
-hex = { default-features = false, version = "0.4.2"}
 das-core = { path = "../../libs/das-core", default-features = false }
+eip712 = { path = "../../libs/eip712" }
 das-types = { path = "../../../das-types/rust", default-features = false }
