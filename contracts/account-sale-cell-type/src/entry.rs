@@ -3,7 +3,7 @@ use ckb_std::high_level::load_cell_capacity;
 use ckb_std::{ckb_constants::Source, ckb_types::prelude::*, debug, high_level};
 use core::mem::MaybeUninit;
 use das_core::{
-    assert, constants::*, data_parser, error::Error, parse_account_cell_witness, parse_witness, util, verifiers, warn,
+    assert, constants::*, data_parser, error::Error, parse_account_cell_witness, parse_witness, util, verifiers,
     witness_parser::WitnessesParser,
 };
 use das_map::{map::Map, util as map_util};
@@ -457,7 +457,7 @@ fn load_account_cells(config_main: ConfigCellMainReader) -> Result<(Vec<usize>, 
     let account_cell_type_id = config_main.type_id_table().account_cell();
 
     let (input_account_cells, output_account_cells) =
-        util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, account_cell_type_id);
+        util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, account_cell_type_id)?;
     Ok((input_account_cells, output_account_cells))
 }
 
@@ -588,7 +588,7 @@ fn verify_account_sale_cell_field(
 
     // check price
     let sale_price = u64::from(output_cell_witness_reader.price());
-    let min_price = u64::from(secondary_market.min_sale_price());
+    let min_price = u64::from(secondary_market.sale_min_price());
     assert!(
         sale_price >= min_price,
         Error::AccountSaleCellPriceTooSmall,

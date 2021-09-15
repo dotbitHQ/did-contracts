@@ -2,6 +2,7 @@ use super::types::ScriptLiteral;
 use super::util;
 use alloc::{vec, vec::Vec};
 use ckb_std::ckb_types::packed::*;
+use core::convert::TryFrom;
 
 #[derive(Debug)]
 #[repr(u8)]

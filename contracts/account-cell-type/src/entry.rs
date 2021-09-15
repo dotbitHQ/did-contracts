@@ -158,10 +158,10 @@ pub fn main() -> Result<(), Error> {
                 &output_cell_witness_reader,
                 timestamp,
             )?;
-            verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
-            verify_account_lock_consistent(input_account_cells[0], output_account_cells[0], Some("owner"))?;
-            verify_account_data_consistent(input_account_cells[0], output_account_cells[0], vec![])?;
-            verify_account_witness_consistent(
+            verifiers::verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
+            verifiers::verify_account_lock_consistent(input_account_cells[0], output_account_cells[0], Some("owner"))?;
+            verifiers::verify_account_data_consistent(input_account_cells[0], output_account_cells[0], vec![])?;
+            verifiers::verify_account_witness_consistent(
                 input_account_cells[0],
                 output_account_cells[0],
                 &input_cell_witness_reader,
@@ -188,10 +188,14 @@ pub fn main() -> Result<(), Error> {
                 &output_cell_witness_reader,
                 timestamp,
             )?;
-            verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
-            verify_account_lock_consistent(input_account_cells[0], output_account_cells[0], Some("manager"))?;
-            verify_account_data_consistent(input_account_cells[0], output_account_cells[0], vec![])?;
-            verify_account_witness_consistent(
+            verifiers::verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
+            verifiers::verify_account_lock_consistent(
+                input_account_cells[0],
+                output_account_cells[0],
+                Some("manager"),
+            )?;
+            verifiers::verify_account_data_consistent(input_account_cells[0], output_account_cells[0], vec![])?;
+            verifiers::verify_account_witness_consistent(
                 input_account_cells[0],
                 output_account_cells[0],
                 &input_cell_witness_reader,
@@ -220,10 +224,10 @@ pub fn main() -> Result<(), Error> {
                 &output_cell_witness_reader,
                 timestamp,
             )?;
-            verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
-            verify_account_lock_consistent(input_account_cells[0], output_account_cells[0], None)?;
-            verify_account_data_consistent(input_account_cells[0], output_account_cells[0], vec![])?;
-            verify_account_witness_consistent(
+            verifiers::verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
+            verifiers::verify_account_lock_consistent(input_account_cells[0], output_account_cells[0], None)?;
+            verifiers::verify_account_data_consistent(input_account_cells[0], output_account_cells[0], vec![])?;
+            verifiers::verify_account_witness_consistent(
                 input_account_cells[0],
                 output_account_cells[0],
                 &input_cell_witness_reader,
@@ -271,10 +275,10 @@ pub fn main() -> Result<(), Error> {
         );
 
         verify_cells_with_das_lock()?;
-        verify_account_capacity_not_decrease(input_account_cells[0], output_account_cells[0])?;
-        verify_account_lock_consistent(input_account_cells[0], output_account_cells[0], None)?;
-        verify_account_data_consistent(input_account_cells[0], output_account_cells[0], vec!["expired_at"])?;
-        verify_account_witness_consistent(
+        verifiers::verify_account_capacity_not_decrease(input_account_cells[0], output_account_cells[0])?;
+        verifiers::verify_account_lock_consistent(input_account_cells[0], output_account_cells[0], None)?;
+        verifiers::verify_account_data_consistent(input_account_cells[0], output_account_cells[0], vec!["expired_at"])?;
+        verifiers::verify_account_witness_consistent(
             input_account_cells[0],
             output_account_cells[0],
             &input_cell_witness_reader,

@@ -375,7 +375,7 @@ table AccountSaleCellData {
     price: Uint64,
     // A customizable description for the account.
     description: Bytes,
-    // timestamp of sale start.
+    // timestamp of account sale start.
     started_at: Uint64,
 }
 ```
@@ -388,7 +388,55 @@ Witness 中的主要字段如下：
 
 #### 体积
 
-`106` Bytes
+`148` Bytes
+
+### AccountAuctionCell
+
+这是一个描述账户竞拍信息的 Cell，每一个竞拍中的账户都有一个对应的 AccountAuctionCell。
+
+#### 结构
+```
+lock: <das-lock>
+type: <accont-sale-cell-type>
+
+data: hash(witness: AccountAuctionCellData)
+
+======
+table AccountAuctionCellData {
+    // The account ID of associated account.
+    account_id: AccountId,
+    // The description of the auction.
+    description: Bytes,
+    // The opening price of the auction in shannon.
+    opening_price: Uint64,
+    // The bid increment rate.
+    increment_rate_each_bid: Uint32,
+    // The start timestamp of auction, unit in seconds.
+    started_at: Uint64,
+    // The end timestamp of auction, unit in seconds.
+    ended_at: Uint64,
+    // The current bidder's lock script.
+    current_bidder_lock: Script,
+    // The current bidder's bid price.
+    current_bid_price: Uint64,
+    // The profit rate for previous bidder in each bid, the seller will be treated as the first bidder.
+    prev_bidder_profit_rate: Uint32,
+}
+```
+
+- account_id ，拍卖账户的账户 ID；
+- description ，拍卖的描述信息；
+- opening_price ，起拍价；
+- increment_rate_each_bid ，每次出价的加价比例；
+- started_at ，竞拍的起始时间；
+- ended_at ，竞拍的结束时间；
+- current_bidder_lock ，当前出价人的 lock script；
+- current_bid_price ，当前的出价；
+- prev_bidder_profit_rate ，每轮出价后，前一个拍卖者的可获得的利润；
+
+#### 体积
+
+`148` Bytes
 
 ### ConfigCell
 
@@ -681,6 +729,40 @@ table ConfigCellAuction {
 }
 ```
 
+#### ConfigCellSecondaryMarket
+
+**witness：**
+
+```
+table ConfigCellSecondaryMarket {
+    // Minimum price for selling an account.
+    sale_min_price: Uint64,
+    // Expiration time limit for selling accounts.
+    sale_expiration_limit: Uint32,
+    // Bytes size limitation of the description for account sale.
+    sale_description_bytes_limit: Uint32,
+    // The maximum extendable duration time for an auction, unit in seconds.
+    auction_max_extendable_duration: Uint32,
+    // The increment of duration brought by each bid in the auction, unit in seconds.
+    auction_duration_increment_each_bid: Uint32,
+    // The minimum opening price for an auction.
+    auction_min_opening_price: Uint64,
+    // The minimum bid increment rate of each bid.
+    auction_min_increment_rate_each_bid: Uint32,
+    // Bytes size limitation of the description for an auction.
+    auction_description_bytes_limit: Uint32,
+}
+```
+
+- sale_min_price ，一口价出售账户时的最低售价；
+- sale_expiration_limit ，一口价挂单的到期时间限制；
+- sale_description_bytes_limit ，一口价挂单时的描述信息字节限制；
+- auction_max_duration ，竞拍中**等待出价时间**可达到的最大值；
+- auction_duration_increment ，每次出价可以为**等待出价时间**带来的增量；
+- auction_min_opening_price ，竞拍的起拍价最小值；
+- auction_min_increment_rate_each_bid ，每次出价的最小加价率；
+- auction_description_bytes_limit ，竞拍挂单时的描述信息字节限制；
+
 #### ConfigCellRecordKeyNamespace
 
 解析记录 key 命名空间。
@@ -762,45 +844,6 @@ data:
 
 `105` Bytes
 
-
-### AccountAuctionCell
-
-这是一个描述账户竞拍信息的 Cell，每一个竞拍中的账户都有一个对应的 AccountAuctionCell。
-
-#### 结构
-```
-lock: <always_success>
-type: <accont-sale-cell-type>
-
-data: hash(witness: AccountAuctionCellData)
-
-======
-table AccountAuctionCellData {
-  // Account ID of corresponding account.
-  account_id: AccountId
-  
-  // A customizable description for the account
-  description: Bytes
-  
-  opening_price: Uint64
-  
-  started_at: Timestamp
-  
-  ended_at: Timestamp
-  
-  bidder: Script
-  
-  // current bidder's offer price
-  bid_price: Uint64,
-  
-  // a percentage based on 10000 
-  increment_ratio: Uint16
-}
-```
-
-#### 体积
-
-todo
 
 ## 其他
 

@@ -25,6 +25,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "account-sale-cell-type"
+version = "1.0.0"
+dependencies = [
+ "chrono",
+ "ckb-std",
+ "das-core",
+ "das-map",
+ "das-types",
+]
+
+[[package]]
 name = "adler"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -32,8 +32,8 @@ pub fn main() -> Result<(), Error> {
         || action == b"confirm_account_auction"
     {
         let timestamp = util::load_oracle_data(OracleCellType::Time)?;
-        let config_main = parser.configs.main()?;
-        let auction_config = parser.configs.auction()?;
+        let config_main_reader = parser.configs.main()?;
+        let config_secondary_market_reader = parser.configs.secondary_market()?;
         // let (input_auction_cell, output_auction_cell) = load_auction_cell()?;
 
         if action == b"start_account_auction" {
