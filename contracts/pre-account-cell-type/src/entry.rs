@@ -2,8 +2,7 @@ use ckb_std::{
     ckb_constants::Source,
     high_level::{load_cell_capacity, load_cell_data, load_cell_lock, load_script},
 };
-use core::convert::TryFrom;
-use core::result::Result;
+use core::{convert::TryFrom, convert::TryInto, result::Result};
 use das_core::{
     assert, constants::*, data_parser, debug, error::Error, parse_witness, util, warn, witness_parser::WitnessesParser,
 };
@@ -572,25 +571,29 @@ fn verify_account_release_status(reader: PreAccountCellDataReader) -> Result<(),
 
     let account: Vec<u8> = [reader.account().as_readable(), ACCOUNT_SUFFIX.as_bytes().to_vec()].concat();
     let hash = util::blake2b_das(account.as_slice());
-    let lucky_num = hash[0];
+    let lucky_num = u32::from_be_bytes((&hash[0..4]).try_into().unwrap());
 
     if cfg!(feature = "mainnet") {
         if reader.account().len() < 10 {
             // CAREFUL Triple check.
+            let threshold = 1503238553;
             assert!(
-                lucky_num <= 12,
+                lucky_num <= threshold,
                 Error::AccountStillCanNotBeRegister,
-                "The registration is still not started.(lucky_num: {}, required: <= 12)",
-                lucky_num
+                "The registration is still not started.(lucky_num: {}, required: <= {})",
+                lucky_num,
+                threshold
             );
         }
     } else {
         if reader.account().len() < 10 {
+            let threshold = 3435973836;
             assert!(
-                lucky_num <= 200,
+                lucky_num <= threshold,
                 Error::AccountStillCanNotBeRegister,
-                "The registration is still not started.(lucky_num: {}, required: <= 200)",
-                lucky_num
+                "The registration is still not started.(lucky_num: {}, required: <= {})",
+                lucky_num,
+                threshold
             );
         }
     }
