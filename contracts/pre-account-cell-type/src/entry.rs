@@ -559,9 +559,9 @@ fn verify_account_length_and_years(reader: PreAccountCellDataReader, current_tim
     // On CKB main net, AKA Lina, accounts of less lengths can be registered only after a specific number of years.
     // CAREFUL Triple check.
     assert!(
-        account_length >= 5,
+        account_length >= 4,
         Error::AccountStillCanNotBeRegister,
-        "The account less than 5 characters can not be registered now."
+        "The account less than 4 characters can not be registered now."
     );
 
     Ok(())
