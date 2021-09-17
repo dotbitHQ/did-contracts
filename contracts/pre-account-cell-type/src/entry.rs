@@ -526,7 +526,7 @@ fn verify_preserved_accounts(
                 start_account = nth_account + 1;
             } else if bytes_of_nth_account > first_20_bytes {
                 // debug!(">");
-                end_account = nth_account - 1;
+                end_account = if nth_account > 1 { nth_account - 1 } else { 0 };
             } else {
                 warn!(
                     "Account 0x{} is preserved. (hash: 0x{})",
@@ -536,7 +536,7 @@ fn verify_preserved_accounts(
                 return Err(Error::AccountIsPreserved);
             }
 
-            if start_account > end_account {
+            if start_account > end_account || end_account == 0 {
                 break;
             }
         }
@@ -642,7 +642,11 @@ fn verify_unavailable_accounts(
             if mid_account_bytes < account_hash_first_20_bytes {
                 start_account_index = mid_account_index + 1;
             } else if mid_account_bytes > account_hash_first_20_bytes {
-                end_account_index = mid_account_index - 1;
+                end_account_index = if mid_account_index > 1 {
+                    mid_account_index - 1
+                } else {
+                    0
+                };
             } else {
                 warn!(
                     "Account 0x{} is unavailable. (hash: 0x{})",
