@@ -110,20 +110,36 @@ impl WitnessesParser {
         Ok(action_data)
     }
 
-    pub fn parse_action_with_params(&self) -> Result<(Bytes, Vec<Bytes>), Error> {
+    pub fn parse_action_with_params(&self) -> Result<Option<(Bytes, Vec<Bytes>)>, Error> {
+        if self.witnesses.is_empty() {
+            return Ok(None);
+        }
+
         let (index, data_type) = self.witnesses[0];
         let raw = util::load_das_witnesses(index, data_type)?;
 
         let action_data =
             ActionData::from_slice(raw.get(7..).unwrap()).map_err(|_| Error::WitnessActionDecodingError)?;
         let params = match action_data.as_reader().action().raw_data() {
-            b"transfer_account" | b"edit_manager" | b"edit_records" | b"withdraw_from_wallet" => {
+            b"transfer_account"
+            | b"edit_manager"
+            | b"edit_records"
+            | b"withdraw_from_wallet"
+            | b"sell_account"
+            | b"cancel_account_sale"
+            | b"start_account_auction"
+            | b"cancel_account_auction" => {
                 vec![action_data.params()]
+            }
+            b"buy_account" => {
+                // TODO implement params parsing
+                // let bytes = action_data.params();
+                vec![]
             }
             _ => Vec::new(),
         };
 
-        Ok((action_data.action(), params))
+        Ok(Some((action_data.action(), params)))
     }
 
     pub fn parse_config(&mut self, config_types: &[DataType]) -> Result<(), Error> {

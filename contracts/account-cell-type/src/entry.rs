@@ -1,4 +1,4 @@
-use alloc::{boxed::Box, vec, vec::Vec};
+use alloc::{boxed::Box, string::String, vec, vec::Vec};
 use ckb_std::{ckb_constants::Source, ckb_types::prelude::*, error::SysError, high_level};
 use das_core::{
     assert,
@@ -19,13 +19,25 @@ pub fn main() -> Result<(), Error> {
     debug!("====== Running account-cell-type ======");
 
     let mut parser = WitnessesParser::new()?;
+    let action_opt = parser.parse_action_with_params()?;
 
-    let (action_raw, params_raw) = parser.parse_action_with_params()?;
+    if action_opt.is_none() {
+        return Err(Error::ActionNotSupported);
+    }
+
+    let (action_raw, params_raw) = action_opt.unwrap();
     let action = action_raw.as_reader().raw_data();
     let params = params_raw.iter().map(|param| param.as_reader()).collect::<Vec<_>>();
-    if action == b"init_account_chain" {
-        debug!("Route to init_account_chain action ...");
 
+    if action != b"init_account_chain" {
+        util::is_system_off(&mut parser)?;
+    }
+
+    debug!(
+        "Route to {:?} action ...",
+        String::from_utf8(action.to_vec()).map_err(|_| Error::ActionNotSupported)?
+    );
+    if action == b"init_account_chain" {
         // No Root AccountCell can be created after the initialization day of DAS.
         let timestamp = util::load_oracle_data(OracleCellType::Time)?;
         util::is_init_day(timestamp)?;

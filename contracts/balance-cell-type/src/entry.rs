@@ -15,8 +15,14 @@ pub fn main() -> Result<(), Error> {
     debug!("====== Running balance-cell-type ======");
 
     let mut parser = WitnessesParser::new()?;
+    let action_opt = parser.parse_action_with_params()?;
 
-    let (action_raw, params_raw) = parser.parse_action_with_params()?;
+    if action_opt.is_none() {
+        return Err(Error::ActionNotSupported);
+    }
+
+    let (action_raw, params_raw) = action_opt.unwrap();
+    let _action = action_raw.as_reader().raw_data();
     let params = params_raw.iter().map(|param| param.as_reader()).collect::<Vec<_>>();
 
     parser.parse_config(&[DataType::ConfigCellMain])?;
