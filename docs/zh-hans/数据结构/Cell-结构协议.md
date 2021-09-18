@@ -272,10 +272,14 @@ witness:
 table AccountCellData {
     // The first 160 bits of the hash of account.
     id: AccountId,
-    // Separate chars of account. not include .bit
+    // Separate chars of account.
     account: AccountChars,
     // AccountCell register timestamp.
     registered_at: Uint64,
+    // AccountCell last action timestamp.
+    last_transfer_account_at: Timestamp,
+    last_edit_manager_at: Timestamp,
+    last_edit_records_at: Timestamp,
     // The status of the account, 0x00 means normal, 0x01 means being sold, 0x02 means being auctioned.
     status: Uint8,
     records: Records,
@@ -688,50 +692,6 @@ table ReleaseRule {
 - release_end ，释放结束时间，单位 秒；
 
 #### ConfigCellSecondaryMarket
-
-**witness：**
-
-```
-table ConfigCellSecondaryMarket {
-    // Minimum price for selling an account.
-    min_sale_price: Uint64,
-    // Expiration time limit for selling accounts.
-    sale_expiration_limit: Uint64,
-}
-```
-
-- min_sale_price ，一口价出售账户时的最低售价；
-- sale_expiration_limit ，一口价挂单的到期时间限制；
-
-
-#### ConfigCellAuction
-
-** witness: **
-```
-table ConfigCellAuction {
-  // default 7 days = 7 * 86400 seconds
-  max_duration: Uint64
-  
-  min_bid_price: Uint64
-  
-  // a percentage based on 10000
-  default_increment_ratio: Uint64
-  
-  // the commision rate given to the seller 
-  seller_commision_rate: Uint16
-  
-  // the commision rate given to the last bidder
-  last_bidder_commision_rate: Uint16
-  
-  inviter_commision_rate: Uint16
-  
-  channel_commision_rate: Uint16
-}
-```
-
-#### ConfigCellSecondaryMarket
-
-**witness：**
 
 ```
 table ConfigCellSecondaryMarket {
