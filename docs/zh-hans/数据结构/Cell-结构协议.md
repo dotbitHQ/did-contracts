@@ -375,6 +375,8 @@ data: hash(witness: AccountSaleCellData)
 table AccountSaleCellData {
     // Account ID of associated account.
     account_id: AccountId,
+    // Account name of associated account.
+    account: Bytes,
     // The price user willing to sell the account.
     price: Uint64,
     // A customizable description for the account.
@@ -387,8 +389,10 @@ table AccountSaleCellData {
 Witness 中的主要字段如下：
 
 - account_id ，关联的账户 ID；
+- account ，账户名；
 - price ，账户售价；
 - description ，用户自定义的简介信息；
+- started_at ，账户开始出售时的时间戳；
 
 #### 体积
 
@@ -409,6 +413,8 @@ data: hash(witness: AccountAuctionCellData)
 table AccountAuctionCellData {
     // The account ID of associated account.
     account_id: AccountId,
+    // Account name of associated account.
+    account: Bytes,
     // The description of the auction.
     description: Bytes,
     // The opening price of the auction in shannon.
@@ -429,6 +435,7 @@ table AccountAuctionCellData {
 ```
 
 - account_id ，拍卖账户的账户 ID；
+- account ，拍卖账户的账户名；
 - description ，拍卖的描述信息；
 - opening_price ，起拍价；
 - increment_rate_each_bid ，每次出价的加价比例；
