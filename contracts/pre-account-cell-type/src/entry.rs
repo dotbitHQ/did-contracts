@@ -314,8 +314,12 @@ fn verify_quote(reader: PreAccountCellDataReader) -> Result<(), Error> {
 fn verify_invited_discount(config: ConfigCellPriceReader, reader: PreAccountCellDataReader) -> Result<(), Error> {
     debug!("Check if PreAccountCell.witness.invited_discount is 0 or the same as configuration.");
 
+    let default_lock = Script::default();
+    let default_lock_reader = default_lock.as_reader();
+
     let zero = Uint32::from(0);
     let expected_discount;
+
     if reader.inviter_lock().is_none() {
         assert!(
             reader.inviter_id().is_empty(),
@@ -330,20 +334,37 @@ fn verify_invited_discount(config: ConfigCellPriceReader, reader: PreAccountCell
             "The invited_discount should be 0 when inviter does not exist."
         );
     } else {
-        assert!(
-            reader.inviter_id().len() == ACCOUNT_ID_LENGTH,
-            Error::PreRegisterFoundInvalidTransaction,
-            "The inviter_id should be 20 bytes when inviter exists."
-        );
+        let inviter_lock_reader = reader.inviter_lock().to_opt().unwrap();
+        // Skip default value for supporting transactions treat default value as None.
+        if util::is_reader_eq(default_lock_reader, inviter_lock_reader) {
+            assert!(
+                reader.inviter_id().is_empty(),
+                Error::PreRegisterFoundInvalidTransaction,
+                "The inviter_id should be empty when inviter do not exist."
+            );
 
-        expected_discount = config.discount().invited_discount();
-        assert!(
-            util::is_reader_eq(expected_discount, reader.invited_discount()),
-            Error::PreRegisterDiscountIsInvalid,
-            "The invited_discount should greater than 0 when inviter exist. (expected: {}, current: {})",
-            u32::from(expected_discount),
-            u32::from(reader.invited_discount())
-        );
+            expected_discount = zero.as_reader();
+            assert!(
+                util::is_reader_eq(expected_discount, reader.invited_discount()),
+                Error::PreRegisterDiscountIsInvalid,
+                "The invited_discount should be 0 when inviter does not exist."
+            );
+        } else {
+            assert!(
+                reader.inviter_id().len() == ACCOUNT_ID_LENGTH,
+                Error::PreRegisterFoundInvalidTransaction,
+                "The inviter_id should be 20 bytes when inviter exists."
+            );
+
+            expected_discount = config.discount().invited_discount();
+            assert!(
+                util::is_reader_eq(expected_discount, reader.invited_discount()),
+                Error::PreRegisterDiscountIsInvalid,
+                "The invited_discount should greater than 0 when inviter exist. (expected: {}, current: {})",
+                u32::from(expected_discount),
+                u32::from(reader.invited_discount())
+            );
+        }
     }
 
     Ok(())
@@ -526,7 +547,7 @@ fn verify_preserved_accounts(
                 start_account = nth_account + 1;
             } else if bytes_of_nth_account > first_20_bytes {
                 // debug!(">");
-                end_account = nth_account - 1;
+                end_account = if nth_account > 1 { nth_account - 1 } else { 0 };
             } else {
                 warn!(
                     "Account 0x{} is preserved. (hash: 0x{})",
@@ -536,7 +557,7 @@ fn verify_preserved_accounts(
                 return Err(Error::AccountIsPreserved);
             }
 
-            if start_account > end_account {
+            if start_account > end_account || end_account == 0 {
                 break;
             }
         }
@@ -559,9 +580,9 @@ fn verify_account_length_and_years(reader: PreAccountCellDataReader, current_tim
     // On CKB main net, AKA Lina, accounts of less lengths can be registered only after a specific number of years.
     // CAREFUL Triple check.
     assert!(
-        account_length >= 5,
+        account_length >= 4,
         Error::AccountStillCanNotBeRegister,
-        "The account less than 5 characters can not be registered now."
+        "The account less than 4 characters can not be registered now."
     );
 
     Ok(())
@@ -642,7 +663,11 @@ fn verify_unavailable_accounts(
             if mid_account_bytes < account_hash_first_20_bytes {
                 start_account_index = mid_account_index + 1;
             } else if mid_account_bytes > account_hash_first_20_bytes {
-                end_account_index = mid_account_index - 1;
+                end_account_index = if mid_account_index > 1 {
+                    mid_account_index - 1
+                } else {
+                    0
+                };
             } else {
                 warn!(
                     "Account 0x{} is unavailable. (hash: 0x{})",
