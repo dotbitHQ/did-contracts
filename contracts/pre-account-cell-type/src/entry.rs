@@ -314,8 +314,12 @@ fn verify_quote(reader: PreAccountCellDataReader) -> Result<(), Error> {
 fn verify_invited_discount(config: ConfigCellPriceReader, reader: PreAccountCellDataReader) -> Result<(), Error> {
     debug!("Check if PreAccountCell.witness.invited_discount is 0 or the same as configuration.");
 
+    let default_lock = Script::default();
+    let default_lock_reader = default_lock.as_reader();
+
     let zero = Uint32::from(0);
     let expected_discount;
+
     if reader.inviter_lock().is_none() {
         assert!(
             reader.inviter_id().is_empty(),
@@ -330,20 +334,37 @@ fn verify_invited_discount(config: ConfigCellPriceReader, reader: PreAccountCell
             "The invited_discount should be 0 when inviter does not exist."
         );
     } else {
-        assert!(
-            reader.inviter_id().len() == ACCOUNT_ID_LENGTH,
-            Error::PreRegisterFoundInvalidTransaction,
-            "The inviter_id should be 20 bytes when inviter exists."
-        );
+        let inviter_lock_reader = reader.inviter_lock().to_opt().unwrap();
+        // Skip default value for supporting transactions treat default value as None.
+        if util::is_reader_eq(default_lock_reader, inviter_lock_reader) {
+            assert!(
+                reader.inviter_id().is_empty(),
+                Error::PreRegisterFoundInvalidTransaction,
+                "The inviter_id should be empty when inviter do not exist."
+            );
 
-        expected_discount = config.discount().invited_discount();
-        assert!(
-            util::is_reader_eq(expected_discount, reader.invited_discount()),
-            Error::PreRegisterDiscountIsInvalid,
-            "The invited_discount should greater than 0 when inviter exist. (expected: {}, current: {})",
-            u32::from(expected_discount),
-            u32::from(reader.invited_discount())
-        );
+            expected_discount = zero.as_reader();
+            assert!(
+                util::is_reader_eq(expected_discount, reader.invited_discount()),
+                Error::PreRegisterDiscountIsInvalid,
+                "The invited_discount should be 0 when inviter does not exist."
+            );
+        } else {
+            assert!(
+                reader.inviter_id().len() == ACCOUNT_ID_LENGTH,
+                Error::PreRegisterFoundInvalidTransaction,
+                "The inviter_id should be 20 bytes when inviter exists."
+            );
+
+            expected_discount = config.discount().invited_discount();
+            assert!(
+                util::is_reader_eq(expected_discount, reader.invited_discount()),
+                Error::PreRegisterDiscountIsInvalid,
+                "The invited_discount should greater than 0 when inviter exist. (expected: {}, current: {})",
+                u32::from(expected_discount),
+                u32::from(reader.invited_discount())
+            );
+        }
     }
 
     Ok(())
