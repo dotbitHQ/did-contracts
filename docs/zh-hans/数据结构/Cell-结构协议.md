@@ -702,12 +702,18 @@ table ReleaseRule {
 
 ```
 table ConfigCellSecondaryMarket {
+    // The common fee for every transactions AccountSaleCell and AccountAuctionCell involved.
+    common_fee: Uint64,
     // Minimum price for selling an account.
     sale_min_price: Uint64,
     // Expiration time limit for selling accounts.
     sale_expiration_limit: Uint32,
     // Bytes size limitation of the description for account sale.
     sale_description_bytes_limit: Uint32,
+    // The basic capacity AccountSaleCell required, it is bigger than or equal to AccountSaleCell occupied capacity.
+    sale_cell_basic_capacity: Uint64,
+    // The fees prepared for various transactions.
+    sale_cell_prepared_fee_capacity: Uint64,
     // The maximum extendable duration time for an auction, unit in seconds.
     auction_max_extendable_duration: Uint32,
     // The increment of duration brought by each bid in the auction, unit in seconds.
@@ -718,17 +724,26 @@ table ConfigCellSecondaryMarket {
     auction_min_increment_rate_each_bid: Uint32,
     // Bytes size limitation of the description for an auction.
     auction_description_bytes_limit: Uint32,
+    // The basic capacity AccountAuctionCell required, it is bigger than or equal to AccountAuctionCell occupied capacity.
+    auction_cell_basic_capacity: Uint64,
+    // The fees prepared for various transactions.
+    auction_cell_prepared_fee_capacity: Uint64,
 }
 ```
 
+- common_fee ，涉及消费 AccountSaleCell 和 AccountAuctionCell 的交易中，可从这两个 Cell 拿取的手续费；
 - sale_min_price ，一口价出售账户时的最低售价；
 - sale_expiration_limit ，一口价挂单的到期时间限制；
 - sale_description_bytes_limit ，一口价挂单时的描述信息字节限制；
+- sale_cell_basic_capacity ，AccountSaleCell 的基础存储费；
+- sale_cell_prepared_fee_capacity ，AccountSaleCell 中应携带的手续费；
 - auction_max_duration ，竞拍中**等待出价时间**可达到的最大值；
 - auction_duration_increment ，每次出价可以为**等待出价时间**带来的增量；
 - auction_min_opening_price ，竞拍的起拍价最小值；
 - auction_min_increment_rate_each_bid ，每次出价的最小加价率；
 - auction_description_bytes_limit ，竞拍挂单时的描述信息字节限制；
+- auction_cell_basic_capacity ，AccountAuctionCell 的基础存储费；
+- auction_cell_prepared_fee_capacity ，AccountAuctionCell 中应携带的手续费；
 
 #### ConfigCellRecordKeyNamespace
 
