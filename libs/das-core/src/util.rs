@@ -182,36 +182,6 @@ pub fn find_cells_by_script(
     Ok(cell_indexes)
 }
 
-pub fn find_only_lock_cell_by_script(script: ScriptReader, source: Source) -> Result<Vec<usize>, Error> {
-    let mut i = 0;
-    let mut cell_indexes = Vec::new();
-    let expected_hash = blake2b_256(script.as_slice());
-    loop {
-        let lock_ret = high_level::load_cell_lock_hash(i, source).map(Some);
-        let type_ret = high_level::load_cell_type_hash(i, source);
-        match lock_ret {
-            Ok(Some(hash)) if hash == expected_hash => match type_ret {
-                Ok(None) => {
-                    cell_indexes.push(i);
-                }
-                _ => {
-                    break;
-                }
-            },
-            Ok(_) => {}
-            Err(SysError::IndexOutOfBound) => {
-                break;
-            }
-            Err(err) => {
-                return Err(Error::from(err));
-            }
-        }
-        i += 1;
-    }
-
-    Ok(cell_indexes)
-}
-
 pub fn find_cells<F>(f: F, source: Source) -> Result<Vec<(CellOutput, usize)>, Error>
 where
     F: Fn(&CellOutput, usize) -> bool,
