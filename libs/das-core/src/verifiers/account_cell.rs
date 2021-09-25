@@ -1,13 +1,7 @@
-use alloc::prelude::v1::Vec;
-
-use ckb_std::ckb_constants::Source;
-use ckb_std::{debug, high_level};
-use das_types::constants::LockRole;
-use das_types::packed::ConfigCellAccountReader;
-
 use crate::{assert, data_parser, error::Error, util, warn};
-use alloc::boxed::Box;
-use das_types::mixer::AccountCellDataReaderMixer;
+use alloc::{boxed::Box, vec::Vec};
+use ckb_std::{ckb_constants::Source, debug, high_level};
+use das_types::{constants::LockRole, mixer::AccountCellDataReaderMixer, packed::ConfigCellAccountReader};
 
 pub fn verify_unlock_role(params: &[u8], lock: LockRole) -> Result<(), Error> {
     debug!("Check if transaction is unlocked by {:?}.", lock);
@@ -235,8 +229,7 @@ pub fn verify_account_witness_consistent<'a>(
             output_witness_reader,
             (id, "id"),
             (account, "account"),
-            (registered_at, "registered_at"),
-            (status, "status")
+            (registered_at, "registered_at")
         );
 
         assert_field_consistent_if_not_except!(
@@ -245,7 +238,8 @@ pub fn verify_account_witness_consistent<'a>(
             (records, "records"),
             (last_transfer_account_at, "last_transfer_account_at"),
             (last_edit_manager_at, "last_edit_manager_at"),
-            (last_edit_records_at, "last_edit_records_at")
+            (last_edit_records_at, "last_edit_records_at"),
+            (status, "status")
         );
     }
 

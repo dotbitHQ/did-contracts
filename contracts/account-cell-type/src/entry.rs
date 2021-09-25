@@ -1,5 +1,13 @@
 use alloc::{boxed::Box, string::String, vec, vec::Vec};
+
 use ckb_std::{ckb_constants::Source, ckb_types::prelude::*, error::SysError, high_level};
+use das_types::{
+    constants::{AccountStatus, DataType, LockRole},
+    mixer::*,
+    packed::*,
+};
+
+use das_core::verifiers::account_cell;
 use das_core::{
     assert,
     constants::{das_lock, das_wallet_lock, OracleCellType, ScriptType, TypeScript, CUSTOM_KEYS_NAMESPACE},
@@ -8,11 +16,6 @@ use das_core::{
     error::Error,
     parse_account_cell_witness, parse_witness, util, verifiers, warn,
     witness_parser::WitnessesParser,
-};
-use das_types::{
-    constants::{AccountStatus, DataType, LockRole},
-    mixer::*,
-    packed::*,
 };
 
 pub fn main() -> Result<(), Error> {
@@ -48,12 +51,12 @@ pub fn main() -> Result<(), Error> {
 
         assert!(
             input_cells.len() == 0,
-            Error::AccountCellFoundInvalidTransaction,
+            Error::InvalidTransactionStructure,
             "There should be no AccountCells in inputs."
         );
         assert!(
             output_cells.len() == 1,
-            Error::AccountCellFoundInvalidTransaction,
+            Error::InvalidTransactionStructure,
             "There should be only one AccountCells in outputs."
         );
 
@@ -64,27 +67,10 @@ pub fn main() -> Result<(), Error> {
         let lock_script = high_level::load_cell_lock(index, Source::Output).map_err(|e| Error::from(e))?;
         assert!(
             expected_lock.as_reader().code_hash().raw_data() == lock_script.as_reader().code_hash().raw_data(),
-            Error::AccountCellFoundInvalidTransaction,
+            Error::InvalidTransactionStructure,
             "The lock script of AccountCell should be das-lock script."
         );
-    } else if action == b"confirm_proposal" {
-        debug!("Route to confirm_proposal action ...");
-        util::is_system_off(&mut parser)?;
-        // Loading DAS witnesses and parsing the action.
-        util::require_type_script(
-            &mut parser,
-            TypeScript::ProposalCellType,
-            Source::Input,
-            Error::ProposalFoundInvalidTransaction,
-        )?;
-    } else if action == b"transfer_account"
-        || action == b"edit_manager"
-        || action == b"edit_records"
-        || action == b"sell_account"
-        || action == b"cancel_account_sale"
-        || action == b"buy_account"
-    {
-        util::is_system_off(&mut parser)?;
+    } else if action == b"transfer_account" || action == b"edit_manager" || action == b"edit_records" {
         let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
         parser.parse_config(&[DataType::ConfigCellMain, DataType::ConfigCellAccount])?;
@@ -125,36 +111,10 @@ pub fn main() -> Result<(), Error> {
             "The witness of the AccountCell in outputs should be upgrade to version 2."
         );
 
-        if action == b"sell_account" {
-            debug!("Route to sell_account action ...");
-            util::require_type_script(
-                &mut parser,
-                TypeScript::AccountSaleCellType,
-                Source::Output,
-                Error::AccountSaleCellMissing,
-            )?;
-        } else if action == b"cancel_account_sale" {
-            debug!("Route to cancel_account_sale action ...");
-            util::require_type_script(
-                &mut parser,
-                TypeScript::AccountSaleCellType,
-                Source::Input,
-                Error::AccountSaleCellMissing,
-            )?;
-        } else if action == b"buy_account" {
-            debug!("Route to buy_account action ...");
-            util::require_type_script(
-                &mut parser,
-                TypeScript::AccountSaleCellType,
-                Source::Input,
-                Error::AccountSaleCellMissing,
-            )?;
-        } else if action == b"transfer_account" {
-            debug!("Route to transfer_account action ...");
-
+        if action == b"transfer_account" {
             let config_account = parser.configs.account()?;
 
-            verify_unlock_role(params_raw[0].as_reader(), LockRole::Owner)?;
+            account_cell::verify_unlock_role(params[0].raw_data(), LockRole::Owner)?;
             // TODO: here is complicated, should be fixed by @link
             verify_input_account_must_normal_status(&input_cell_witness_reader)?;
             verify_transaction_fee_spent_correctly(
@@ -170,10 +130,14 @@ pub fn main() -> Result<(), Error> {
                 &output_cell_witness_reader,
                 timestamp,
             )?;
-            verifiers::verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
-            verifiers::verify_account_lock_consistent(input_account_cells[0], output_account_cells[0], Some("owner"))?;
-            verifiers::verify_account_data_consistent(input_account_cells[0], output_account_cells[0], vec![])?;
-            verifiers::verify_account_witness_consistent(
+            account_cell::verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
+            account_cell::verify_account_lock_consistent(
+                input_account_cells[0],
+                output_account_cells[0],
+                Some("owner"),
+            )?;
+            account_cell::verify_account_data_consistent(input_account_cells[0], output_account_cells[0], vec![])?;
+            account_cell::verify_account_witness_consistent(
                 input_account_cells[0],
                 output_account_cells[0],
                 &input_cell_witness_reader,
@@ -181,11 +145,9 @@ pub fn main() -> Result<(), Error> {
                 vec!["last_transfer_account_at"],
             )?;
         } else if action == b"edit_manager" {
-            debug!("Route to edit_manager action ...");
-
             let config_account = parser.configs.account()?;
 
-            verify_unlock_role(params_raw[0].as_reader(), LockRole::Owner)?;
+            account_cell::verify_unlock_role(params[0].raw_data(), LockRole::Owner)?;
             verify_input_account_must_normal_status(&input_cell_witness_reader)?;
             verify_transaction_fee_spent_correctly(
                 action,
@@ -200,14 +162,14 @@ pub fn main() -> Result<(), Error> {
                 &output_cell_witness_reader,
                 timestamp,
             )?;
-            verifiers::verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
-            verifiers::verify_account_lock_consistent(
+            account_cell::verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
+            account_cell::verify_account_lock_consistent(
                 input_account_cells[0],
                 output_account_cells[0],
                 Some("manager"),
             )?;
-            verifiers::verify_account_data_consistent(input_account_cells[0], output_account_cells[0], vec![])?;
-            verifiers::verify_account_witness_consistent(
+            account_cell::verify_account_data_consistent(input_account_cells[0], output_account_cells[0], vec![])?;
+            account_cell::verify_account_witness_consistent(
                 input_account_cells[0],
                 output_account_cells[0],
                 &input_cell_witness_reader,
@@ -215,13 +177,11 @@ pub fn main() -> Result<(), Error> {
                 vec!["last_edit_manager_at"],
             )?;
         } else if action == b"edit_records" {
-            debug!("Route to edit_records action ...");
-
             parser.parse_config(&[DataType::ConfigCellRecordKeyNamespace])?;
             let config_account = parser.configs.account()?;
             let record_key_namespace = parser.configs.record_key_namespace()?;
 
-            verify_unlock_role(params_raw[0].as_reader(), LockRole::Manager)?;
+            account_cell::verify_unlock_role(params[0].raw_data(), LockRole::Manager)?;
             verify_input_account_must_normal_status(&input_cell_witness_reader)?;
             verify_transaction_fee_spent_correctly(
                 action,
@@ -236,10 +196,10 @@ pub fn main() -> Result<(), Error> {
                 &output_cell_witness_reader,
                 timestamp,
             )?;
-            verifiers::verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
-            verifiers::verify_account_lock_consistent(input_account_cells[0], output_account_cells[0], None)?;
-            verifiers::verify_account_data_consistent(input_account_cells[0], output_account_cells[0], vec![])?;
-            verifiers::verify_account_witness_consistent(
+            account_cell::verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
+            account_cell::verify_account_lock_consistent(input_account_cells[0], output_account_cells[0], None)?;
+            account_cell::verify_account_data_consistent(input_account_cells[0], output_account_cells[0], vec![])?;
+            account_cell::verify_account_witness_consistent(
                 input_account_cells[0],
                 output_account_cells[0],
                 &input_cell_witness_reader,
@@ -249,10 +209,6 @@ pub fn main() -> Result<(), Error> {
             verify_records_keys(config_account, record_key_namespace, &output_cell_witness_reader)?;
         }
     } else if action == b"renew_account" {
-        debug!("Route to renew_account action ...");
-
-        util::is_system_off(&mut parser)?;
-
         parser.parse_cell()?;
         parser.parse_config(&[DataType::ConfigCellAccount, DataType::ConfigCellPrice])?;
 
@@ -287,10 +243,14 @@ pub fn main() -> Result<(), Error> {
         );
 
         verify_cells_with_das_lock()?;
-        verifiers::verify_account_capacity_not_decrease(input_account_cells[0], output_account_cells[0])?;
-        verifiers::verify_account_lock_consistent(input_account_cells[0], output_account_cells[0], None)?;
-        verifiers::verify_account_data_consistent(input_account_cells[0], output_account_cells[0], vec!["expired_at"])?;
-        verifiers::verify_account_witness_consistent(
+        account_cell::verify_account_capacity_not_decrease(input_account_cells[0], output_account_cells[0])?;
+        account_cell::verify_account_lock_consistent(input_account_cells[0], output_account_cells[0], None)?;
+        account_cell::verify_account_data_consistent(
+            input_account_cells[0],
+            output_account_cells[0],
+            vec!["expired_at"],
+        )?;
+        account_cell::verify_account_witness_consistent(
             input_account_cells[0],
             output_account_cells[0],
             &input_cell_witness_reader,
@@ -459,11 +419,16 @@ pub fn main() -> Result<(), Error> {
         );
 
         // The AccountCell can be used as long as it is not modified.
+    } else if action == b"confirm_proposal" {
+        util::require_type_script(
+            &mut parser,
+            TypeScript::ProposalCellType,
+            Source::Input,
+            Error::InvalidTransactionStructure,
+        )?;
     } else if action == b"recycle_expired_account_by_keeper" {
-        debug!("Route to recycle_expired_account_by_keeper action ...");
         return Err(Error::InvalidTransactionStructure);
 
-        util::is_system_off(&mut parser)?;
         let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
         parser.parse_cell()?;
@@ -477,7 +442,7 @@ pub fn main() -> Result<(), Error> {
         let (input_account_cells, output_account_cells) = load_account_cells()?;
         assert!(
             input_account_cells.len() == 1 && output_account_cells.len() == 0,
-            Error::AccountCellFoundInvalidTransaction,
+            Error::InvalidTransactionStructure,
             "There should be 1 AccountCell in inputs and none in outputs."
         );
 
@@ -495,21 +460,15 @@ pub fn main() -> Result<(), Error> {
             expired_at,
             expiration_grace_period
         );
+    } else if action == b"start_account_sale" || action == b"cancel_account_sale" || action == b"buy_account" {
+        util::require_type_script(
+            &mut parser,
+            TypeScript::AccountSaleCellType,
+            Source::Input,
+            Error::InvalidTransactionStructure,
+        )?;
     } else {
-        debug!("Route to other action ...");
-        // TODO Stop unknown transaction occupy AccountCells.
-
-        let this_type_script = high_level::load_script().map_err(|e| Error::from(e))?;
-        let (input_cells, output_cells) =
-            util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
-
-        assert!(
-            input_cells.len() == output_cells.len(),
-            Error::CellsMustHaveSameOrderAndNumber,
-            "The AccountCells in inputs should have the same number and order as those in outputs."
-        );
-
-        util::is_inputs_and_outputs_consistent(input_cells, output_cells)?;
+        return Err(Error::ActionNotSupported);
     }
 
     Ok(())
@@ -523,7 +482,7 @@ fn verify_input_account_must_normal_status<'a>(
         .map_err(|_| Error::NarrowMixerTypeFailed)?;
     let account_status = u8::from(witness_reader.status());
     if account_status != (AccountStatus::Normal as u8) {
-        return Err(Error::AccountCellSaleStatusNotAllow);
+        return Err(Error::AccountCellStatusLocked);
     }
     return Ok(());
 }
@@ -534,19 +493,6 @@ fn load_account_cells() -> Result<(Vec<usize>, Vec<usize>), Error> {
         util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
 
     Ok((input_account_cells, output_account_cells))
-}
-
-fn verify_unlock_role(params: BytesReader, lock: LockRole) -> Result<(), Error> {
-    debug!("Check if transaction is unlocked by {:?}.", lock);
-
-    assert!(
-        params.len() > 0 && params.raw_data()[0] == lock as u8,
-        Error::AccountCellPermissionDenied,
-        "This transaction should be unlocked by the {:?}'s signature.",
-        lock
-    );
-
-    Ok(())
 }
 
 fn verify_transaction_fee_spent_correctly(

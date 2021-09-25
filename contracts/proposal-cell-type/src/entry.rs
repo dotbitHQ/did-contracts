@@ -12,6 +12,7 @@ use das_core::{
     debug,
     error::Error,
     parse_witness, util,
+    verifiers::income_cell,
     witness_parser::WitnessesParser,
 };
 use das_map::{map::Map, util as map_util};
@@ -879,8 +880,8 @@ fn verify_proposal_execution_result(
     debug!("Check if the IncomeCell in inputs is a newly created IncomeCell with only one record.");
 
     let income_cell_type_id = config_main.type_id_table().income_cell();
-    let input_income_cells = util::find_cells_by_type_id(ScriptType::Type, income_cell_type_id, Source::Input)?;
-    let output_income_cells = util::find_cells_by_type_id(ScriptType::Type, income_cell_type_id, Source::Output)?;
+    let (input_income_cells, output_income_cells) =
+        util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, income_cell_type_id)?;
 
     assert!(
         input_income_cells.len() <= 1,
@@ -890,26 +891,10 @@ fn verify_proposal_execution_result(
     );
 
     if input_income_cells.len() == 1 {
-        let input_income_cell_witness;
-        let input_income_cell_witness_reader;
-        parse_witness!(
-            input_income_cell_witness,
-            input_income_cell_witness_reader,
-            parser,
-            input_income_cells[0],
-            Source::Input,
-            IncomeCellData
-        );
-
-        // The IncomeCell should be a newly created cell with only one record which is belong to the creator, but we do not need to check everything here, so we only check the length.
-        assert!(
-            input_income_cell_witness_reader.records().len() == 1,
-            Error::ProposalFoundInvalidTransaction,
-            "The IncomeCell in inputs should be a newly created cell with only one record which is belong to the creator."
-        );
+        let input_income_cell_witness = income_cell::verify_newly_created(&parser, input_income_cells[0])?;
 
         // Add the original record into profit_map to bypass later verification.
-        let first_record = input_income_cell_witness_reader.records().get(0).unwrap();
+        let first_record = input_income_cell_witness.as_reader().records().get(0).unwrap();
         profit_map.insert(
             first_record.belong_to().as_slice().to_vec(),
             u64::from(first_record.capacity()),
@@ -962,8 +947,8 @@ fn verify_proposal_execution_result(
             record.belong_to()
         );
 
-        profit_map.remove(&key);
         expected_capacity += recorded_profit;
+        profit_map.remove(&key);
     }
 
     assert!(
@@ -977,7 +962,7 @@ fn verify_proposal_execution_result(
     assert!(
         expected_capacity == current_capacity,
         Error::ProposalConfirmIncomeError,
-        "The capacity of the IncomeCell shoulde be {}, but {} found.",
+        "The capacity of the IncomeCell should be {}, but {} found.",
         expected_capacity,
         current_capacity
     );
