@@ -1,29 +1,20 @@
-use alloc::{boxed::Box, vec, vec::Vec};
-use ckb_std::high_level::{load_cell_capacity, load_cell_type};
-use ckb_std::{ckb_constants::Source, ckb_types::prelude::*, debug, high_level};
-use core::mem::{size_of, MaybeUninit};
-use das_core::{
-    assert, constants::*, data_parser, error::Error, parse_account_cell_witness, parse_witness, util, warn,
-    witness_parser::WitnessesParser,
-};
-use das_map::{map::Map, util as map_util};
-use das_types::{
-    constants::{AccountStatus, DataType, LockRole},
-    mixer::*,
-    packed::*,
-    prelude::*,
-};
+use ckb_std::debug;
+use das_core::{error::Error, util, witness_parser::WitnessesParser};
 
 pub fn main() -> Result<(), Error> {
     debug!("====== Running account-auction-cell-type ======");
     let mut parser = WitnessesParser::new()?;
+    let action_opt = parser.parse_action_with_params()?;
+    if action_opt.is_none() {
+        return Err(Error::ActionNotSupported);
+    }
+
+    let (action_raw, params_raw) = action_opt.unwrap();
+    let action = action_raw.as_reader().raw_data();
+    // let params = params_raw.iter().map(|param| param.as_reader()).collect::<Vec<_>>();
 
     util::is_system_off(&mut parser)?;
     parser.parse_cell()?;
-
-    let action_data = parser.parse_action()?;
-    let action = action_data.as_reader().action().raw_data();
-    let params = action_data.as_reader().params().raw_data();
 
     if action == b"start_account_auction"
         || action == b"edit_account_auction"
@@ -31,9 +22,9 @@ pub fn main() -> Result<(), Error> {
         || action == b"bid_account_auction"
         || action == b"confirm_account_auction"
     {
-        let timestamp = util::load_oracle_data(OracleCellType::Time)?;
-        let config_main_reader = parser.configs.main()?;
-        let config_secondary_market_reader = parser.configs.secondary_market()?;
+        // let timestamp = util::load_oracle_data(OracleCellType::Time)?;
+        // let config_main_reader = parser.configs.main()?;
+        // let config_secondary_market_reader = parser.configs.secondary_market()?;
         // let (input_auction_cell, output_auction_cell) = load_auction_cell()?;
 
         if action == b"start_account_auction" {

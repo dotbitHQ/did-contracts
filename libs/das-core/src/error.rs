@@ -38,12 +38,11 @@ pub enum Error {
     AccountIsPreserved,
     AccountIsUnAvailable,
     WitnessStructureError = 40,
-    WitnessEmpty,
     WitnessDataTypeDecodingError,
     WitnessReadingError,
     WitnessActionDecodingError,
-    WitnessDataParseLengthHeaderFailed, // 45
-    WitnessDataReadDataBodyFailed,
+    WitnessDataParseLengthHeaderFailed,
+    WitnessDataReadDataBodyFailed, // 45
     WitnessDataDecodingError,
     WitnessDataHashMissMatch,
     WitnessDataIndexMissMatch,

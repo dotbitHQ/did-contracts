@@ -1,21 +1,20 @@
 use alloc::{boxed::Box, string::String, vec, vec::Vec};
-
 use ckb_std::{ckb_constants::Source, ckb_types::prelude::*, error::SysError, high_level};
-use das_types::{
-    constants::{AccountStatus, DataType, LockRole},
-    mixer::*,
-    packed::*,
-};
-
-use das_core::verifiers::account_cell;
 use das_core::{
     assert,
     constants::{das_lock, das_wallet_lock, OracleCellType, ScriptType, TypeScript, CUSTOM_KEYS_NAMESPACE},
     data_parser, debug,
     eip712::verify_eip712_hashes,
     error::Error,
-    parse_account_cell_witness, parse_witness, util, verifiers, warn,
+    parse_account_cell_witness, parse_witness, util,
+    verifiers::account_cell,
+    warn,
     witness_parser::WitnessesParser,
+};
+use das_types::{
+    constants::{AccountStatus, DataType, LockRole},
+    mixer::*,
+    packed::*,
 };
 
 pub fn main() -> Result<(), Error> {
@@ -23,7 +22,6 @@ pub fn main() -> Result<(), Error> {
 
     let mut parser = WitnessesParser::new()?;
     let action_opt = parser.parse_action_with_params()?;
-
     if action_opt.is_none() {
         return Err(Error::ActionNotSupported);
     }

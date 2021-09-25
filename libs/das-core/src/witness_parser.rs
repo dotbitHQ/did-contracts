@@ -87,10 +87,6 @@ impl WitnessesParser {
             }
         }
 
-        if witnesses.is_empty() {
-            return Err(Error::WitnessEmpty);
-        }
-
         Ok(WitnessesParser {
             witnesses,
             configs: Configs::new(),
@@ -98,16 +94,6 @@ impl WitnessesParser {
             old: Vec::new(),
             new: Vec::new(),
         })
-    }
-
-    pub fn parse_action(&self) -> Result<ActionData, Error> {
-        let (index, data_type) = self.witnesses[0];
-        let raw = util::load_das_witnesses(index, data_type)?;
-
-        let action_data = ActionData::from_slice(raw.get(HEADER_BYTES_7..).unwrap())
-            .map_err(|_| Error::WitnessActionDecodingError)?;
-
-        Ok(action_data)
     }
 
     pub fn parse_action_with_params(&self) -> Result<Option<(Bytes, Vec<Bytes>)>, Error> {

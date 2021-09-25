@@ -26,8 +26,6 @@ pub fn main() -> Result<(), Error> {
     debug!("====== Running account-sale-cell-type ======");
 
     let mut parser = WitnessesParser::new()?;
-    util::is_system_off(&mut parser)?;
-
     let action_opt = parser.parse_action_with_params()?;
     if action_opt.is_none() {
         return Err(Error::ActionNotSupported);
@@ -36,6 +34,8 @@ pub fn main() -> Result<(), Error> {
     let (action_raw, params_raw) = action_opt.unwrap();
     let action = action_raw.as_reader().raw_data();
     let params = params_raw.iter().map(|param| param.as_reader()).collect::<Vec<_>>();
+
+    util::is_system_off(&mut parser)?;
 
     debug!(
         "Route to {:?} action ...",
@@ -193,7 +193,7 @@ pub fn main() -> Result<(), Error> {
             );
 
             verify_sale_cell_account_and_id(input_account_cells[0], input_sale_cell_witness_reader)?;
-            verify_refund_correctly(config_main, config_secondary_market, input_sale_cells[0])?;
+            verify_refund_correctly(config_secondary_market, input_sale_cells[0])?;
 
             // The NormalCells in outputs should always have balance-cell-type in their type field.
             util::require_type_script(
@@ -820,7 +820,6 @@ fn verify_tx_fee_spent_correctly(
 }
 
 fn verify_refund_correctly(
-    config_main: ConfigCellMainReader,
     config_secondary_market: ConfigCellSecondaryMarketReader,
     input_sale_cell: usize,
 ) -> Result<(), Error> {

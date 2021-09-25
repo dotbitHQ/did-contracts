@@ -23,6 +23,14 @@ pub fn main() -> Result<(), Error> {
     debug!("====== Running proposal-cell-type ======");
 
     let mut parser = WitnessesParser::new()?;
+    let action_opt = parser.parse_action_with_params()?;
+    if action_opt.is_none() {
+        return Err(Error::ActionNotSupported);
+    }
+
+    let (action_raw, _) = action_opt.unwrap();
+    let action = action_raw.as_reader().raw_data();
+
     util::is_system_off(&mut parser)?;
 
     debug!("Find out ProposalCell ...");
@@ -34,8 +42,6 @@ pub fn main() -> Result<(), Error> {
         util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script_reader)?;
     let dep_cells = util::find_cells_by_script(ScriptType::Type, this_type_script_reader, Source::CellDep)?;
 
-    let action_data = parser.parse_action()?;
-    let action = action_data.as_reader().action().raw_data();
     if action == b"propose" {
         debug!("Route to propose action ...");
 
