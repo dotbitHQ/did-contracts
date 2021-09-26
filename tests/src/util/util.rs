@@ -1,5 +1,5 @@
-use super::super::Loader;
-use super::constants::*;
+use super::{constants::*, error};
+use crate::Loader;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use ckb_testtool::context::Context;
 use ckb_tool::{
@@ -15,15 +15,18 @@ use ckb_tool::{
         H160, H256,
     },
 };
-use das_core::error;
 use das_types::{packed as das_packed, util as das_types_util};
 use lazy_static::lazy_static;
-use std::collections::HashSet;
-use std::error::Error;
-use std::fs::File;
-use std::io::{BufRead, BufReader, Lines};
-use std::str::FromStr;
-use std::{env, io, path::PathBuf};
+use std::{
+    collections::HashSet,
+    env,
+    error::Error,
+    fs::File,
+    io,
+    io::{BufRead, BufReader, Lines},
+    path::PathBuf,
+    str::FromStr,
+};
 
 lazy_static! {
     pub static ref SECP256K1: secp256k1::Secp256k1<secp256k1::All> = secp256k1::Secp256k1::new();

@@ -1,6 +1,5 @@
-use super::util::{constants::*, hex_to_bytes, template_generator::*, template_parser::TemplateParser};
+use crate::util::{constants::*, error::Error, hex_to_bytes, template_generator::*, template_parser::TemplateParser};
 use ckb_testtool::context::Context;
-use das_core::error::Error;
 use das_types::{constants::DataType, packed::*};
 use serde_json::json;
 

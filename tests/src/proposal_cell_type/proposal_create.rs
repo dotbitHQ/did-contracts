@@ -1,6 +1,5 @@
-use super::super::util::{constants::*, template_parser::TemplateParser};
+use crate::util::{constants::*, error::Error, template_parser::TemplateParser};
 use ckb_testtool::context::Context;
-use das_core::error::Error;
 use das_types::constants::*;
 
 use super::common::*;
@@ -21,11 +20,8 @@ fn gen_proposal_create() {
         ],
     ];
 
-    let (cell_data, entity) = template.gen_proposal_cell_data(
-        "0x0100000000000000000000000000000000000000",
-        height,
-        &slices,
-    );
+    let (cell_data, entity) =
+        template.gen_proposal_cell_data("0x0100000000000000000000000000000000000000", height, &slices);
     template.push_proposal_cell(cell_data, Some((1, 0, entity)), 1000, Source::Output);
 
     gen_proposal_related_cell_at_create(&mut template, slices, timestamp);
@@ -46,11 +42,8 @@ challenge_with_generator!(
             ("das00005.bit", ProposalSliceItemType::New, ""),
         ]];
 
-        let (cell_data, entity) = template.gen_proposal_cell_data(
-            "0x0100000000000000000000000000000000000000",
-            height,
-            &slices,
-        );
+        let (cell_data, entity) =
+            template.gen_proposal_cell_data("0x0100000000000000000000000000000000000000", height, &slices);
         template.push_proposal_cell(cell_data, Some((1, 0, entity)), 0, Source::Output);
 
         gen_proposal_related_cell_at_create(&mut template, slices, timestamp);
@@ -76,11 +69,8 @@ challenge_with_generator!(
             ],
         ];
 
-        let (cell_data, entity) = template.gen_proposal_cell_data(
-            "0x0100000000000000000000000000000000000000",
-            height,
-            &slices,
-        );
+        let (cell_data, entity) =
+            template.gen_proposal_cell_data("0x0100000000000000000000000000000000000000", height, &slices);
         template.push_proposal_cell(cell_data, Some((1, 0, entity)), 0, Source::Output);
 
         gen_proposal_related_cell_at_create(&mut template, slices, timestamp);
@@ -103,11 +93,8 @@ test_with_generator!(test_proposal_exist_account_misunderstand, || {
         ],
     ];
 
-    let (cell_data, entity) = template.gen_proposal_cell_data(
-        "0x0100000000000000000000000000000000000000",
-        height,
-        &slices,
-    );
+    let (cell_data, entity) =
+        template.gen_proposal_cell_data("0x0100000000000000000000000000000000000000", height, &slices);
     template.push_proposal_cell(cell_data, Some((1, 0, entity)), 0, Source::Output);
 
     gen_proposal_related_cell_at_create(&mut template, slices, timestamp);

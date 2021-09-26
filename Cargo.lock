@@ -2958,7 +2958,6 @@ dependencies = [
  "chrono",
  "ckb-testtool",
  "ckb-tool",
- "das-core",
  "das-sorted-list",
  "das-types",
  "hex",
