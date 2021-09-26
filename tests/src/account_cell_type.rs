@@ -334,6 +334,46 @@ fn gen_account_edit_manager() {
 
 test_with_template!(test_account_edit_manager, "account_edit_manager.json");
 
+test_with_generator!(test_account_edit_manager_and_upgrade_lock_type, || {
+    let (mut template, timestamp) = init("edit_manager", Some("0x00"));
+
+    let account = "das00001.bit";
+    let next_account = "das00014.bit";
+    let registered_at = timestamp - 86400;
+    let expired_at = timestamp + 31536000 - 86400;
+
+    let (cell_data, old_entity) =
+        template.gen_account_cell_data(account, next_account, registered_at, expired_at, 0, 0, 0, None);
+    template.push_account_cell::<AccountCellData>(
+        "0x030000000000000000000000000000000000001111",
+        "0x030000000000000000000000000000000000002222",
+        cell_data,
+        None,
+        1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
+        Source::Input,
+    );
+
+    let (cell_data, new_entity) =
+        template.gen_account_cell_data(account, next_account, registered_at, expired_at, 0, timestamp, 0, None);
+    template.push_account_cell::<AccountCellData>(
+        "0x050000000000000000000000000000000000001111",
+        "0x050000000000000000000000000000000000003333",
+        cell_data,
+        None,
+        1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
+        Source::Output,
+    );
+
+    template.push_witness::<AccountCellData, AccountCellData, AccountCellData>(
+        DataType::AccountCellData,
+        Some((2, 0, new_entity)),
+        Some((2, 0, old_entity)),
+        None,
+    );
+
+    template.as_json()
+});
+
 test_with_generator!(test_account_edit_manager_with_eip712, || {
     let (mut template, timestamp) = init("edit_manager", Some("0x00"));
 
@@ -555,6 +595,64 @@ test_with_generator!(test_account_edit_records_with_eip712, || {
         Source::Input,
     );
     template.push_das_lock_witness("c2086ed140b4803850d52577ab656f6f2234454ac6787084506424b94d75cdb4");
+
+    // outputs
+    let records = vec![AccountRecordParam {
+        type_: "address",
+        key: "eth",
+        label: "Personal",
+        value: hex_to_bytes("0x00000000000000000000"),
+    }];
+    let (cell_data, new_entity) = template.gen_account_cell_data(
+        account,
+        next_account,
+        registered_at,
+        expired_at,
+        0,
+        0,
+        timestamp,
+        Some(gen_account_records(records)),
+    );
+    template.push_account_cell::<AccountCellData>(
+        "0x050000000000000000000000000000000000001111",
+        "0x050000000000000000000000000000000000002222",
+        cell_data,
+        None,
+        1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
+        Source::Output,
+    );
+
+    template.push_witness::<AccountCellData, AccountCellData, AccountCellData>(
+        DataType::AccountCellData,
+        Some((2, 0, new_entity)),
+        Some((2, 0, old_entity)),
+        None,
+    );
+
+    template.as_json()
+});
+
+test_with_generator!(test_account_edit_records_and_upgrade_lock_type, || {
+    let (mut template, timestamp) = init("edit_records", Some("0x01"));
+
+    template.push_config_cell(DataType::ConfigCellRecordKeyNamespace, true, 0, Source::CellDep);
+
+    let account = "das00001.bit";
+    let next_account = "das00014.bit";
+    let registered_at = timestamp - 86400;
+    let expired_at = timestamp + 31536000 - 86400;
+
+    // inputs
+    let (cell_data, old_entity) =
+        template.gen_account_cell_data(account, next_account, registered_at, expired_at, 0, 0, 0, None);
+    template.push_account_cell::<AccountCellData>(
+        "0x030000000000000000000000000000000000001111",
+        "0x030000000000000000000000000000000000002222",
+        cell_data,
+        None,
+        1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
+        Source::Input,
+    );
 
     // outputs
     let records = vec![AccountRecordParam {

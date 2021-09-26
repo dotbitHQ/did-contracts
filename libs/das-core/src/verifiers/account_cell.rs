@@ -1,4 +1,4 @@
-use crate::{assert, data_parser, error::Error, util, warn};
+use crate::{assert, constants::DasLockType, data_parser, error::Error, util, warn};
 use alloc::{boxed::Box, vec::Vec};
 use ckb_std::{ckb_constants::Source, debug, high_level};
 use das_types::{constants::LockRole, mixer::AccountCellDataReaderMixer, packed::ConfigCellAccountReader};
@@ -48,10 +48,9 @@ pub fn verify_account_lock_consistent(
     debug!("Check if lock consistent in the AccountCell.");
 
     if let Some(lock) = changed_lock {
-        let input_lock = high_level::load_cell_lock(input_account_index, Source::Input).map_err(|e| Error::from(e))?;
+        let input_lock = high_level::load_cell_lock(input_account_index, Source::Input).map_err(Error::from)?;
         let input_args = input_lock.as_reader().args().raw_data();
-        let output_lock =
-            high_level::load_cell_lock(output_account_index, Source::Output).map_err(|e| Error::from(e))?;
+        let output_lock = high_level::load_cell_lock(output_account_index, Source::Output).map_err(Error::from)?;
         let output_args = output_lock.as_reader().args().raw_data();
 
         if lock == "owner" {
@@ -59,35 +58,84 @@ pub fn verify_account_lock_consistent(
                 data_parser::das_lock_args::get_owner_lock_args(input_args)
                     != data_parser::das_lock_args::get_owner_lock_args(output_args),
                 Error::AccountCellOwnerLockShouldBeModified,
-                "The owner lock args in AccountCell.lock should be different in input and output."
+                "The owner lock args in AccountCell.lock should be different in inputs and outputs."
             );
 
+            let input_lock_type = data_parser::das_lock_args::get_manager_type(input_args);
+            let input_pubkey_hash = data_parser::das_lock_args::get_manager_lock_args(input_args);
+            let output_lock_type = data_parser::das_lock_args::get_manager_type(output_args);
+            let output_pubkey_hash = data_parser::das_lock_args::get_manager_lock_args(output_args);
+
+            let lock_type_consistent = if input_lock_type == DasLockType::ETH as u8 {
+                output_lock_type == input_lock_type || output_lock_type == DasLockType::ETHTypedData as u8
+            } else {
+                output_lock_type == input_lock_type
+            };
             assert!(
-                data_parser::das_lock_args::get_manager_lock_args(output_args)
-                    == data_parser::das_lock_args::get_owner_lock_args(output_args),
+                lock_type_consistent && input_pubkey_hash == output_pubkey_hash,
                 Error::AccountCellManagerLockShouldBeModified,
-                "The manager lock args in AccountCell.lock should be different in input and output."
+                "The manager lock args in AccountCell.lock should be consistent in inputs and outputs."
             );
         } else {
+            let input_lock_type = data_parser::das_lock_args::get_owner_type(input_args);
+            let input_pubkey_hash = data_parser::das_lock_args::get_owner_lock_args(input_args);
+            let output_lock_type = data_parser::das_lock_args::get_owner_type(output_args);
+            let output_pubkey_hash = data_parser::das_lock_args::get_owner_lock_args(output_args);
+
+            debug!("input_lock_type = {:?}", input_lock_type);
+            debug!("output_lock_type = {:?}", output_lock_type);
+            let lock_type_consistent = if input_lock_type == DasLockType::ETH as u8 {
+                output_lock_type == input_lock_type || output_lock_type == DasLockType::ETHTypedData as u8
+            } else {
+                output_lock_type == input_lock_type
+            };
             assert!(
-                data_parser::das_lock_args::get_owner_lock_args(input_args)
-                    == data_parser::das_lock_args::get_owner_lock_args(output_args),
+                lock_type_consistent && input_pubkey_hash == output_pubkey_hash,
                 Error::AccountCellOwnerLockShouldNotBeModified,
-                "The owner lock args in AccountCell.lock should be consistent in input and output."
+                "The owner lock args in AccountCell.lock should be consistent in inputs and outputs."
             );
 
             assert!(
                 data_parser::das_lock_args::get_manager_lock_args(input_args)
                     != data_parser::das_lock_args::get_manager_lock_args(output_args),
                 Error::AccountCellManagerLockShouldBeModified,
-                "The manager lock args in AccountCell.lock should be different in input and output."
+                "The manager lock args in AccountCell.lock should be different in inputs and outputs."
             );
         }
     } else {
-        util::is_cell_lock_equal(
-            (input_account_index, Source::Input),
-            (output_account_index, Source::Output),
-        )?;
+        let input_lock = high_level::load_cell_lock(input_account_index, Source::Input).map_err(Error::from)?;
+        let input_args = input_lock.as_reader().args().raw_data();
+        let output_lock = high_level::load_cell_lock(output_account_index, Source::Output).map_err(Error::from)?;
+        let output_args = output_lock.as_reader().args().raw_data();
+
+        assert!(
+            util::is_script_equal(input_lock.as_reader(), output_lock.as_reader()),
+            Error::CellLockCanNotBeModified,
+            "The AccountCell.lock should be consistent in inputs and outputs."
+        );
+
+        macro_rules! verify_lock_consistent {
+            ($role:expr, $fn_get_type:ident, $fn_get_args:ident) => {{
+                let input_lock_type = data_parser::das_lock_args::$fn_get_type(input_args);
+                let input_pubkey_hash = data_parser::das_lock_args::$fn_get_args(input_args);
+                let output_lock_type = data_parser::das_lock_args::$fn_get_type(output_args);
+                let output_pubkey_hash = data_parser::das_lock_args::$fn_get_args(output_args);
+
+                let lock_type_consistent = if input_lock_type == DasLockType::ETH as u8 {
+                    output_lock_type == input_lock_type || output_lock_type == DasLockType::ETHTypedData as u8
+                } else {
+                    output_lock_type == input_lock_type
+                };
+                assert!(
+                    lock_type_consistent && input_pubkey_hash == output_pubkey_hash,
+                    Error::CellLockCanNotBeModified,
+                    "The pubkey hash of AccountCell's owner should be consistent in inputs and outputs."
+                );
+            }};
+        }
+
+        verify_lock_consistent!("owner", get_owner_type, get_owner_lock_args);
+        verify_lock_consistent!("manager", get_manager_type, get_manager_lock_args);
     }
 
     Ok(())
@@ -144,8 +192,8 @@ pub fn verify_account_capacity_not_decrease(
 ) -> Result<(), Error> {
     debug!("Check if capacity consistent in the AccountCell.");
 
-    let input = high_level::load_cell_capacity(input_account_index, Source::Input).map_err(|e| Error::from(e))?;
-    let output = high_level::load_cell_capacity(output_account_index, Source::Output).map_err(|e| Error::from(e))?;
+    let input = high_level::load_cell_capacity(input_account_index, Source::Input).map_err(Error::from)?;
+    let output = high_level::load_cell_capacity(output_account_index, Source::Output).map_err(Error::from)?;
 
     // ⚠️ Equal is not allowed here because we want to avoid abuse cell.
     assert!(
