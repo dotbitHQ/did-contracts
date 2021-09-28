@@ -55,6 +55,13 @@ pub fn script_literal_to_script(script: ScriptLiteral) -> Script {
         .build()
 }
 
+pub fn type_id_to_script(type_id: das_packed::HashReader) -> das_packed::Script {
+    das_packed::Script::new_builder()
+        .code_hash(type_id.to_entity())
+        .hash_type(das_packed::Byte::new(ScriptType::Type as u8))
+        .build()
+}
+
 pub fn is_unpacked_bytes_eq(a: &bytes::Bytes, b: &bytes::Bytes) -> bool {
     **a == **b
 }

@@ -187,7 +187,13 @@ impl WitnessesParser {
             let data = util::load_cell_data(expected_cell_index, Source::CellDep)?;
             let expected_entity_hash = match data.get(..32) {
                 Some(bytes) => bytes.to_owned(),
-                _ => return Err(Error::InvalidCellData),
+                _ => {
+                    warn!(
+                        "  CellDeps[{}] Can not get entity hash from outputs_data.",
+                        expected_cell_index
+                    );
+                    return Err(Error::InvalidCellData);
+                }
             };
 
             // debug!(
@@ -461,7 +467,10 @@ impl WitnessesParser {
         let data = util::load_cell_data(index, source)?;
         let hash = match data.get(..32) {
             Some(bytes) => bytes.to_vec(),
-            _ => return Err(Error::InvalidCellData),
+            _ => {
+                warn!("  {:?}[{}] Can not get entity hash from outputs_data.", source, index);
+                return Err(Error::InvalidCellData);
+            }
         };
 
         self.verify_with_hash_and_get(&hash, index, source)
