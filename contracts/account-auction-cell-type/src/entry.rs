@@ -9,7 +9,7 @@ pub fn main() -> Result<(), Error> {
         return Err(Error::ActionNotSupported);
     }
 
-    let (action_raw, params_raw) = action_opt.unwrap();
+    let (action_raw, _params_raw) = action_opt.unwrap();
     let action = action_raw.as_reader().raw_data();
     // let params = params_raw.iter().map(|param| param.as_reader()).collect::<Vec<_>>();
 

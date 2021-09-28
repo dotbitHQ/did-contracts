@@ -8,6 +8,7 @@ use das_core::{
     assert,
     constants::*,
     data_parser,
+    eip712::verify_eip712_hashes,
     error::Error,
     inspect, parse_account_cell_witness, parse_witness, util,
     util::find_cells_by_script,
@@ -53,6 +54,8 @@ pub fn main() -> Result<(), Error> {
         if action == b"buy_account" {
             parser.parse_config(&[DataType::ConfigCellProfitRate])?;
         }
+
+        verify_eip712_hashes(&parser, action_raw.as_reader(), &params)?;
 
         let config_main = parser.configs.main()?;
         let config_account = parser.configs.account()?;
@@ -310,6 +313,8 @@ pub fn main() -> Result<(), Error> {
         parser.parse_config(&[DataType::ConfigCellSecondaryMarket])?;
         parser.parse_cell()?;
 
+        verify_eip712_hashes(&parser, action_raw.as_reader(), &params)?;
+
         let config_secondary_market_reader = parser.configs.secondary_market()?;
 
         account_cell::verify_unlock_role(params[0].raw_data(), LockRole::Owner)?;
@@ -385,168 +390,6 @@ pub fn main() -> Result<(), Error> {
     }
     Ok(())
 }
-
-fn verify_profit_distribution(
-    parser: &WitnessesParser,
-    config_main: ConfigCellMainReader,
-    config_profit_rate: ConfigCellProfitRateReader,
-    seller_lock_reader: ckb_packed::ScriptReader,
-    inviter_lock_reader: ckb_packed::ScriptReader,
-    channel_lock_reader: ckb_packed::ScriptReader,
-    price: u64,
-    account_sale_cell_capacity: u64,
-    common_fee: u64,
-) -> Result<(), Error> {
-    let default_script = ckb_packed::Script::default();
-    let default_script_reader = default_script.as_reader();
-
-    let income_cell_type_id = config_main.type_id_table().income_cell();
-    let (input_income_cells, output_income_cells) =
-        util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, income_cell_type_id)?;
-
-    assert!(
-        output_income_cells.len() == 1 && output_income_cells[0] == 1,
-        Error::InvalidTransactionStructure,
-        "There should be 1 IncomeCell at outputs[1]."
-    );
-
-    let mut profit_map = Map::new();
-
-    debug!("Check if there is a newly created IncomeCell in inputs.");
-
-    if input_income_cells.len() == 1 {
-        let input_income_cell_witness = income_cell::verify_newly_created(parser, input_income_cells[0])?;
-
-        // Add the original record into profit_map to bypass later verification.
-        let first_record = input_income_cell_witness.as_reader().records().get(0).unwrap();
-        profit_map.insert(
-            first_record.belong_to().as_slice().to_vec(),
-            u64::from(first_record.capacity()),
-        );
-    }
-
-    debug!("Calculate profit distribution for all roles.");
-
-    let mut profit_of_seller = price;
-
-    if !util::is_reader_eq(default_script_reader, inviter_lock_reader) {
-        let profit_rate = u32::from(config_profit_rate.sale_inviter()) as u64;
-        let profit = price * profit_rate / RATE_BASE;
-
-        profit_map.insert(inviter_lock_reader.as_slice().to_vec(), profit);
-        profit_of_seller -= profit;
-    }
-
-    if !util::is_reader_eq(default_script_reader, channel_lock_reader) {
-        let profit_rate = u32::from(config_profit_rate.sale_channel()) as u64;
-        let profit = price * profit_rate / RATE_BASE;
-
-        profit_map.insert(channel_lock_reader.as_slice().to_vec(), profit);
-        profit_of_seller -= profit;
-    }
-
-    let profit_rate = u32::from(config_profit_rate.sale_das()) as u64;
-    let profit = price * profit_rate / RATE_BASE;
-    let das_wallet_lock = das_wallet_lock();
-
-    profit_map.insert(das_wallet_lock.as_slice().to_vec(), profit);
-    profit_of_seller -= profit;
-
-    debug!("Check if seller get his profit properly.");
-
-    let seller_balance_cells = find_cells_by_script(ScriptType::Lock, seller_lock_reader, Source::Output)?;
-    assert!(
-        seller_balance_cells.len() == 1,
-        Error::InvalidTransactionStructure,
-        "There should only 1 cell used to carry profit and refund, but {} found.",
-        seller_balance_cells.len()
-    );
-
-    let seller_balance_cell_capacity =
-        high_level::load_cell_capacity(seller_balance_cells[0], Source::Output).map_err(Error::from)?;
-    let expected_capacity = profit_of_seller + account_sale_cell_capacity - common_fee;
-    assert!(
-        seller_balance_cell_capacity >= expected_capacity,
-        Error::AccountSaleCellProfitError,
-        "The capacity of seller's NormalCell should be equal to or more than {} shannon, but {} shannon found.(profit: {}, refund: {}, common_fee: {})",
-        expected_capacity,
-        seller_balance_cell_capacity,
-        profit_of_seller,
-        account_sale_cell_capacity,
-        common_fee
-    );
-
-    debug!("Check if other roles get their profit properly.");
-
-    let output_income_cell_witness;
-    let output_income_cell_witness_reader;
-    parse_witness!(
-        output_income_cell_witness,
-        output_income_cell_witness_reader,
-        parser,
-        output_income_cells[0],
-        Source::Output,
-        IncomeCellData
-    );
-
-    #[cfg(any(not(feature = "mainnet"), debug_assertions))]
-    inspect::income_cell(
-        Source::Output,
-        output_income_cells[0],
-        None,
-        Some(output_income_cell_witness_reader),
-    );
-
-    let mut expected_income_cell_capacity = 0;
-    for (i, record) in output_income_cell_witness_reader.records().iter().enumerate() {
-        let key = record.belong_to().as_slice().to_vec();
-        let recorded_capacity = u64::from(record.capacity());
-        let result = profit_map.get(&key);
-
-        assert!(
-            result.is_some(),
-            Error::AccountSaleCellProfitError,
-            "IncomeCell.records[{}] Found a profit record which should not be in the IncomeCell.records, please compare the records with the locks of all roles. (belong_to: {})",
-            i,
-            record.belong_to()
-        );
-
-        let expected_capacity = result.unwrap();
-        assert!(
-            &recorded_capacity == expected_capacity,
-            Error::AccountSaleCellProfitError,
-            "IncomeCell.records[{}] The capacity of a profit record is incorrect. (expected: {}, current: {}, belong_to: {})",
-            i,
-            expected_capacity,
-            recorded_capacity,
-            record.belong_to()
-        );
-
-        expected_income_cell_capacity += expected_capacity;
-        profit_map.remove(&key);
-    }
-
-    assert!(
-        profit_map.is_empty(),
-        Error::AccountSaleCellProfitError,
-        "The IncomeCell in outputs should contains everyone's profit. (missing: {})",
-        profit_map.len()
-    );
-
-    let current_capacity =
-        high_level::load_cell_capacity(output_income_cells[0], Source::Output).map_err(Error::from)?;
-    assert!(
-        expected_income_cell_capacity == current_capacity,
-        Error::AccountSaleCellProfitError,
-        "The capacity of the IncomeCell should be {}, but {} found.",
-        expected_income_cell_capacity,
-        current_capacity
-    );
-
-    Ok(())
-}
-
-// ================
 
 fn decode_scripts_from_params(params: Vec<BytesReader>) -> Result<(ckb_packed::Script, ckb_packed::Script), Error> {
     macro_rules! decode_script {
@@ -845,6 +688,170 @@ fn verify_refund_correctly(
         "The refund should be equal to or more than {} shannon, but {} shannon found.",
         refund_capacity,
         input_capacity
+    );
+
+    Ok(())
+}
+
+fn verify_profit_distribution(
+    parser: &WitnessesParser,
+    config_main: ConfigCellMainReader,
+    config_profit_rate: ConfigCellProfitRateReader,
+    seller_lock_reader: ckb_packed::ScriptReader,
+    inviter_lock_reader: ckb_packed::ScriptReader,
+    channel_lock_reader: ckb_packed::ScriptReader,
+    price: u64,
+    account_sale_cell_capacity: u64,
+    common_fee: u64,
+) -> Result<(), Error> {
+    let default_script = ckb_packed::Script::default();
+    let default_script_reader = default_script.as_reader();
+
+    let income_cell_type_id = config_main.type_id_table().income_cell();
+    let (input_income_cells, output_income_cells) =
+        util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, income_cell_type_id)?;
+
+    assert!(
+        output_income_cells.len() == 1 && output_income_cells[0] == 1,
+        Error::InvalidTransactionStructure,
+        "There should be 1 IncomeCell at outputs[1]."
+    );
+
+    let mut profit_map = Map::new();
+
+    debug!("Check if there is a newly created IncomeCell in inputs.");
+
+    if input_income_cells.len() == 1 {
+        let input_income_cell_witness = income_cell::verify_newly_created(parser, input_income_cells[0])?;
+
+        // Add the original record into profit_map to bypass later verification.
+        let first_record = input_income_cell_witness.as_reader().records().get(0).unwrap();
+        profit_map.insert(
+            first_record.belong_to().as_slice().to_vec(),
+            u64::from(first_record.capacity()),
+        );
+    }
+
+    debug!("Calculate profit distribution for all roles.");
+
+    let mut profit_of_seller = price;
+    let mut profit_rate_of_das = u32::from(config_profit_rate.sale_das()) as u64;
+
+    if !util::is_reader_eq(default_script_reader, inviter_lock_reader) {
+        let profit_rate = u32::from(config_profit_rate.sale_buyer_inviter()) as u64;
+        let profit = price * profit_rate / RATE_BASE;
+
+        profit_map.insert(inviter_lock_reader.as_slice().to_vec(), profit);
+        profit_of_seller -= profit;
+    } else {
+        profit_rate_of_das += u32::from(config_profit_rate.sale_buyer_inviter()) as u64;
+    }
+
+    if !util::is_reader_eq(default_script_reader, channel_lock_reader) {
+        let profit_rate = u32::from(config_profit_rate.sale_buyer_channel()) as u64;
+        let profit = price * profit_rate / RATE_BASE;
+
+        profit_map.insert(channel_lock_reader.as_slice().to_vec(), profit);
+        profit_of_seller -= profit;
+    } else {
+        profit_rate_of_das += u32::from(config_profit_rate.sale_buyer_inviter()) as u64;
+    }
+
+    let profit = price * profit_rate_of_das / RATE_BASE;
+    let das_wallet_lock = das_wallet_lock();
+
+    profit_map.insert(das_wallet_lock.as_slice().to_vec(), profit);
+    profit_of_seller -= profit;
+
+    debug!("Check if seller get his profit properly.");
+
+    let seller_balance_cells = find_cells_by_script(ScriptType::Lock, seller_lock_reader, Source::Output)?;
+    assert!(
+        seller_balance_cells.len() == 1,
+        Error::InvalidTransactionStructure,
+        "There should only 1 cell used to carry profit and refund, but {} found.",
+        seller_balance_cells.len()
+    );
+
+    let seller_balance_cell_capacity =
+        high_level::load_cell_capacity(seller_balance_cells[0], Source::Output).map_err(Error::from)?;
+    let expected_capacity = profit_of_seller + account_sale_cell_capacity - common_fee;
+    assert!(
+        seller_balance_cell_capacity >= expected_capacity,
+        Error::AccountSaleCellProfitError,
+        "The capacity of seller's NormalCell should be equal to or more than {} shannon, but {} shannon found.(profit: {}, refund: {}, common_fee: {})",
+        expected_capacity,
+        seller_balance_cell_capacity,
+        profit_of_seller,
+        account_sale_cell_capacity,
+        common_fee
+    );
+
+    debug!("Check if other roles get their profit properly.");
+
+    let output_income_cell_witness;
+    let output_income_cell_witness_reader;
+    parse_witness!(
+        output_income_cell_witness,
+        output_income_cell_witness_reader,
+        parser,
+        output_income_cells[0],
+        Source::Output,
+        IncomeCellData
+    );
+
+    #[cfg(any(not(feature = "mainnet"), debug_assertions))]
+    inspect::income_cell(
+        Source::Output,
+        output_income_cells[0],
+        None,
+        Some(output_income_cell_witness_reader),
+    );
+
+    let mut expected_income_cell_capacity = 0;
+    for (i, record) in output_income_cell_witness_reader.records().iter().enumerate() {
+        let key = record.belong_to().as_slice().to_vec();
+        let recorded_capacity = u64::from(record.capacity());
+        let result = profit_map.get(&key);
+
+        assert!(
+            result.is_some(),
+            Error::AccountSaleCellProfitError,
+            "IncomeCell.records[{}] Found a profit record which should not be in the IncomeCell.records, please compare the records with the locks of all roles. (belong_to: {})",
+            i,
+            record.belong_to()
+        );
+
+        let expected_capacity = result.unwrap();
+        assert!(
+            &recorded_capacity == expected_capacity,
+            Error::AccountSaleCellProfitError,
+            "IncomeCell.records[{}] The capacity of a profit record is incorrect. (expected: {}, current: {}, belong_to: {})",
+            i,
+            expected_capacity,
+            recorded_capacity,
+            record.belong_to()
+        );
+
+        expected_income_cell_capacity += expected_capacity;
+        profit_map.remove(&key);
+    }
+
+    assert!(
+        profit_map.is_empty(),
+        Error::AccountSaleCellProfitError,
+        "The IncomeCell in outputs should contains everyone's profit. (missing: {})",
+        profit_map.len()
+    );
+
+    let current_capacity =
+        high_level::load_cell_capacity(output_income_cells[0], Source::Output).map_err(Error::from)?;
+    assert!(
+        expected_income_cell_capacity == current_capacity,
+        Error::AccountSaleCellProfitError,
+        "The capacity of the IncomeCell should be {}, but {} found.",
+        expected_income_cell_capacity,
+        current_capacity
     );
 
     Ok(())
