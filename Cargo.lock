@@ -2956,6 +2956,7 @@ name = "tests"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "ckb-std",
  "ckb-testtool",
  "ckb-tool",
  "das-sorted-list",

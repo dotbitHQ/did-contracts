@@ -1,5 +1,7 @@
 use ckb_tool::ckb_types::{h256, H256};
 
+pub use ckb_std::ckb_constants::Source;
+
 // ⚠️ The maximum cycles on-chain is 70_000_000.
 pub const MAX_CYCLES: u64 = u64::MAX;
 
@@ -17,6 +19,10 @@ pub const ACCOUNT_PRICE_5_CHAR: u64 = 5_000_000;
 pub const INVITED_DISCOUNT: u64 = 500;
 pub const CONSOLIDATING_FEE: u64 = 100;
 pub const CKB_QUOTE: u64 = 1000;
+
+pub const DAY_SEC: u64 = 86400;
+pub const MONTH_SEC: u64 = DAY_SEC * 30;
+pub const YEAR_SEC: u64 = DAY_SEC * 365;
 
 pub const RATE_BASE: u64 = 10_000;
 
@@ -40,10 +46,18 @@ pub const QUOTE_LOCK_ARGS: &str = "0x0100000000000000000000000000000000000000";
 // The type IDs here are testing only.
 // fake-das-lock: 0xcd289a6d68ca96b6b8df89e721aeb09350db5769a5e46908dfc797dbbf2a835f
 // fake-secp256k1-blake160-signhash-all: 0xdc34ec56c0d6ec64c8f66f14dd53f1bcea08d54ed4e944606816b4ee95be9646
-pub const TYPE_ID_TABLE: [(&str, &str); 8] = [
+pub const TYPE_ID_TABLE: [(&str, &str); 10] = [
     (
         "account-cell-type",
         "0x3d216e5bfb54b9e2ec0f0fbb1cdf23703f550a7ec7c35264742fce69308482e1",
+    ),
+    (
+        "account-sale-cell-type",
+        "0xde12ceb3f906179bf0591519d110b47f091688d69de301474bf998471fd8738e",
+    ),
+    (
+        "account-auction-cell-type",
+        "0x3acbbdc4c0f0dc7433f5aac30b079a3fd3bfaaf3aeeea904af830dad99da1e49",
     ),
     (
         "always-success",
@@ -74,15 +88,6 @@ pub const TYPE_ID_TABLE: [(&str, &str); 8] = [
         "0x071ee1a005b5bc1a619aed290c39bbb613ac93991eabab8418d6b0a9bdd220eb",
     ),
 ];
-
-#[derive(Eq, PartialEq, Debug, Clone, Copy)]
-#[repr(u64)]
-pub enum Source {
-    Input = 1,
-    Output,
-    CellDep,
-    HeaderDep,
-}
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 #[repr(u8)]

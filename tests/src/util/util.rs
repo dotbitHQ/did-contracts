@@ -88,6 +88,10 @@ pub fn account_to_id_hex(account: &str) -> String {
     format!("0x{}", hex_string(account_to_id(account).as_slice()))
 }
 
+pub fn calc_account_cell_capacity(length: u64) -> u64 {
+    (length * 100_000_000) + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY
+}
+
 pub fn deploy_dev_contract(
     context: &mut Context,
     binary_name: &str,
