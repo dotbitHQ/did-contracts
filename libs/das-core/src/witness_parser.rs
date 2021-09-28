@@ -111,10 +111,15 @@ impl WitnessesParser {
             | b"edit_manager"
             | b"edit_records"
             | b"withdraw_from_wallet"
-            | b"sell_account"
+            | b"start_account_sale"
+            | b"edit_account_sale"
             | b"cancel_account_sale"
             | b"start_account_auction"
+            | b"edit_account_auction"
             | b"cancel_account_auction" => {
+                if action_data.params().is_empty() {
+                    return Err(Error::ParamsDecodingError);
+                }
                 vec![action_data.params()]
             }
             b"buy_account" => {

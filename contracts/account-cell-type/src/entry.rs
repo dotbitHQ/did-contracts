@@ -458,7 +458,14 @@ pub fn main() -> Result<(), Error> {
             expired_at,
             expiration_grace_period
         );
-    } else if action == b"start_account_sale" || action == b"cancel_account_sale" || action == b"buy_account" {
+    } else if action == b"start_account_sale" {
+        util::require_type_script(
+            &mut parser,
+            TypeScript::AccountSaleCellType,
+            Source::Output,
+            Error::InvalidTransactionStructure,
+        )?;
+    } else if action == b"cancel_account_sale" || action == b"buy_account" {
         util::require_type_script(
             &mut parser,
             TypeScript::AccountSaleCellType,

@@ -48,8 +48,6 @@ pub fn verify_eip712_hashes(
 
     let mut i = 0;
     let mut input_groups_idxs: BTreeMap<Vec<u8>, Vec<usize>> = BTreeMap::new();
-    let this_type = high_level::load_script().map_err(|e| Error::from(e))?;
-    let this_type_reader = this_type.as_reader();
     loop {
         let ret = high_level::load_cell_lock(i, Source::Input);
         match ret {
@@ -72,12 +70,7 @@ pub fn verify_eip712_hashes(
                             i
                         );
                     } else {
-                        let type_opt = high_level::load_cell_type(i, Source::Input).map_err(|e| Error::from(e))?;
-                        if let Some(type_script) = type_opt {
-                            if util::is_script_equal(this_type_reader, type_script.as_reader()) {
-                                input_groups_idxs.entry(args.to_vec()).or_default().push(i);
-                            }
-                        }
+                        input_groups_idxs.entry(args.to_vec()).or_default().push(i);
                     }
                 }
             }
@@ -428,13 +421,13 @@ fn start_account_sale_to_semantic(
     let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| Error::EIP712SerializationError)?;
 
     let (_, _, witness) = parser.verify_and_get(account_sale_cells[0], Source::Output)?;
-    let entity = AccountSaleCellData::from_slice(witness.as_reader().raw_data())
-        .map_err(|_| Error::WitnessEntityDecodingError)?;
+    let entity = AccountSaleCellData::from_slice(witness.as_reader().raw_data()).map_err(|_| {
+        warn!("EIP712 decoding AccountSaleCellData failed");
+        Error::WitnessEntityDecodingError
+    })?;
     let price = to_semantic_capacity(u64::from(entity.price()));
 
-    let msg = format!("SELL ACCOUNT {} in {}", account, price);
-    debug!("msg = {:?}", msg);
-    Ok(format!("SELL {} in {}", account, price))
+    Ok(format!("SELL {} FOR {}", account, price))
 }
 
 fn edit_account_sale_to_semantic(
@@ -448,13 +441,13 @@ fn edit_account_sale_to_semantic(
     )?;
 
     let (_, _, witness) = parser.verify_and_get(account_sale_cells[0], Source::Output)?;
-    let entity = AccountSaleCellData::from_slice(witness.as_reader().raw_data())
-        .map_err(|_| Error::WitnessEntityDecodingError)?;
+    let entity = AccountSaleCellData::from_slice(witness.as_reader().raw_data()).map_err(|_| {
+        warn!("EIP712 decoding AccountSaleCellData failed");
+        Error::WitnessEntityDecodingError
+    })?;
     let price = to_semantic_capacity(u64::from(entity.price()));
 
-    let msg = format!("EDIT ACCOUNT SALE INFO, NEW PRICE IS {}", price);
-    debug!("msg = {:?}", msg);
-    Ok(format!("EDIT SALE INFO, NEW PRICE IS {}", price))
+    Ok(format!("EDIT SALE INFO, CURRENT PRICE IS {}", price))
 }
 
 fn cancel_account_sale_to_semantic(type_id_table_reader: das_packed::TypeIdTableReader) -> Result<String, Error> {
@@ -466,8 +459,6 @@ fn cancel_account_sale_to_semantic(type_id_table_reader: das_packed::TypeIdTable
     let account_in_bytes = data_parser::account_cell::get_account(&data_in_bytes);
     let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| Error::EIP712SerializationError)?;
 
-    let msg = format!("CANCEL SALE OF {}", account);
-    debug!("msg = {:?}", msg);
     Ok(format!("CANCEL SALE OF {}", account))
 }
 
@@ -489,12 +480,12 @@ fn buy_account_to_semantic(
     let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| Error::EIP712SerializationError)?;
 
     let (_, _, witness) = parser.verify_and_get(account_sale_cells[0], Source::Input)?;
-    let entity = AccountSaleCellData::from_slice(witness.as_reader().raw_data())
-        .map_err(|_| Error::WitnessEntityDecodingError)?;
+    let entity = AccountSaleCellData::from_slice(witness.as_reader().raw_data()).map_err(|_| {
+        warn!("EIP712 decoding AccountSaleCellData failed");
+        Error::WitnessEntityDecodingError
+    })?;
     let price = to_semantic_capacity(u64::from(entity.price()));
 
-    let msg = format!("BUY {} WITH {}", account, price);
-    debug!("msg = {:?}", msg);
     Ok(format!("BUY {} WITH {}", account, price))
 }
 
@@ -824,8 +815,10 @@ fn to_semantic_account_witness(
     source: Source,
 ) -> Result<String, Error> {
     let (_, _, entity) = parser.verify_with_hash_and_get(expected_hash, index, source)?;
-    let witness = das_packed::AccountCellData::from_slice(entity.as_reader().raw_data())
-        .map_err(|_| Error::WitnessEntityDecodingError)?;
+    let witness = das_packed::AccountCellData::from_slice(entity.as_reader().raw_data()).map_err(|_| {
+        warn!("EIP712 decoding AccountCellData failed");
+        Error::WitnessEntityDecodingError
+    })?;
     let witness_reader = witness.as_reader();
 
     let status = u8::from(witness_reader.status());

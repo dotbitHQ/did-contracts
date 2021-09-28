@@ -570,7 +570,7 @@ fn verify_description(
 fn verify_started_at(current_timestamp: u64, witness_reader: AccountSaleCellDataReader) -> Result<(), Error> {
     let started_at = u64::from(witness_reader.started_at());
     assert!(
-        current_timestamp != started_at,
+        current_timestamp == started_at,
         Error::AccountSaleCellStartedAtInvalid,
         "The AccountSaleCell.witness.started_at should be equal to the timestamp in TimeCell.(expected: {}, current: {})",
         current_timestamp,
