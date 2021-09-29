@@ -197,7 +197,7 @@ test_with_generator!(test_balance_work_with_other_type, || {
         template.gen_account_cell_data(account, next_account, registered_at, expired_at, timestamp, 0, 0, None);
     template.push_account_cell::<AccountCellData>(
         "0x050000000000000000000000000000000000002222",
-        "0x050000000000000000000000000000000000002222",
+        "0x050000000000000000000000000000000000001111",
         cell_data,
         None,
         1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY - ACCOUNT_OPERATE_FEE,

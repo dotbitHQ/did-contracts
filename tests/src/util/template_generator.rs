@@ -307,6 +307,84 @@ fn parse_json_hex(field_name: &str, field: &Value) -> Vec<u8> {
     }
 }
 
+/// Parse struct Script and fill optional fields
+///
+/// Example:
+/// ```json
+/// // input
+/// {
+///     code_hash: "{{xxx-cell-type}}"
+///     hash_type: "type", // could be omit if it is "type"    
+///     args: "" // could be omit if it it empty
+/// }
+/// // output
+/// {
+///     code_hash: "{{xxx-cell-type}}",
+///     hash_type: "type",
+///     args: ""
+/// }
+/// ```
+fn parse_json_script(field_name: &str, field: &Value) -> Value {
+    let code_hash = field["code_hash"]
+        .as_str()
+        .expect(&format!("{} is missing", field_name));
+    let hash_type = match field["hash_type"].as_str() {
+        Some("data") => "data",
+        _ => "type",
+    };
+    let args = match field["args"].as_str() {
+        Some(val) => val,
+        _ => "",
+    };
+
+    json!({
+        "code_hash": code_hash,
+        "hash_type": hash_type,
+        "args": args
+    })
+}
+
+/// Parse struct Script to hex of molecule encoding, if field is null will return Script::default()
+///
+/// Example:
+/// ```json
+/// {
+///     code_hash: "{{xxx-cell-type}}"
+///     hash_type: "type", // could be omit if it is "type"
+///     args: "" // could be omit if it it empty
+/// }
+/// ```
+fn parse_json_script_to_mol(field_name: &str, field: &Value) -> Script {
+    if field.is_null() {
+        return Script::default();
+    }
+
+    let code_hash = field["code_hash"]
+        .as_str()
+        .expect(&format!("{} is missing", field_name));
+    let code_hash_bytes = if let Some(caps) = RE_VARIABLE.captures(code_hash) {
+        let cap = caps.get(1).expect("The captures[1] should always exist.");
+        util::get_type_id_bytes(cap.as_str())
+    } else {
+        util::hex_to_bytes(code_hash)
+    };
+
+    let hash_type = match field["hash_type"].as_str() {
+        Some("data") => ScriptHashType::Data,
+        _ => ScriptHashType::Type,
+    };
+    let args = match field["args"].as_str() {
+        Some(val) => util::hex_to_bytes(val),
+        _ => Vec::new(),
+    };
+
+    Script::new_builder()
+        .code_hash(Hash::try_from(code_hash_bytes).unwrap().into())
+        .hash_type(Byte::new(hash_type as u8))
+        .args(Bytes::from(args))
+        .build()
+}
+
 #[derive(Debug, Clone)]
 pub struct AccountRecordParam {
     pub type_: &'static str,
@@ -1410,18 +1488,20 @@ impl TemplateGenerator {
     // ======
 
     pub fn push_cell_v2(&mut self, cell: Value, source: Source, version_opt: Option<u32>) -> usize {
-        macro_rules! push_data_and_witness {
-            ($data_type:expr, $capacity:expr, $lock_script:expr, $type_script:expr, $outputs_data:expr, $entity_opt:expr) => {{
-                let outputs_data_bytes = Bytes::from($outputs_data);
+        macro_rules! push_cell {
+            ($data_type:expr, $gen_fn:ident, $cell:expr) => {{
+                let (capacity, lock_script, type_script, outputs_data, entity_opt) = self.$gen_fn($cell);
+
+                let outputs_data_bytes = Bytes::from(outputs_data);
                 let index = self.push_cell(
-                    $capacity,
-                    $lock_script,
-                    $type_script,
+                    capacity,
+                    lock_script,
+                    type_script,
                     Some(outputs_data_bytes),
                     source,
                 );
 
-                if let Some(entity) = $entity_opt {
+                if let Some(entity) = entity_opt {
                     let version = if let Some(version) = version_opt {
                         version
                     } else {
@@ -1444,52 +1524,57 @@ impl TemplateGenerator {
             }};
         }
 
-        let type_script = cell.get("type").expect("cell.type is missing");
-        let code_hash = type_script
-            .get("code_hash")
-            .expect("cell.type.code_hash is missing")
-            .as_str()
-            .expect("cell.type.code_hash should be a string");
+        if let Some(type_script) = cell.get("type") {
+            let code_hash = type_script
+                .get("code_hash")
+                .expect("cell.type.code_hash is missing")
+                .as_str()
+                .expect("cell.type.code_hash should be a string");
 
-        if let Some(caps) = TYPE_ID.captures(code_hash) {
-            let type_id = caps
-                .get(1)
-                .map(|m| m.as_str())
-                .expect("type.code_hash is something like '{{...}}'");
-            let index = match type_id {
-                "account-cell-type" => {
-                    let (capacity, lock_script, type_script, outputs_data, entity_opt) = self.gen_account_cell(cell);
-                    push_data_and_witness!(
-                        DataType::AccountCellData,
-                        capacity,
-                        lock_script,
-                        type_script,
-                        outputs_data,
-                        entity_opt
-                    )
-                }
-                "account-sale-cell-type" => {
-                    let (capacity, lock_script, type_script, outputs_data, entity_opt) =
-                        self.gen_account_sale_cell(cell);
-                    push_data_and_witness!(
-                        DataType::AccountSaleCellData,
-                        capacity,
-                        lock_script,
-                        type_script,
-                        outputs_data,
-                        entity_opt
-                    )
-                }
-                _ => panic!("Unknown type ID {}", type_id),
+            if let Some(caps) = RE_VARIABLE.captures(code_hash) {
+                let type_id = caps
+                    .get(1)
+                    .map(|m| m.as_str())
+                    .expect("type.code_hash is something like '{{...}}'");
+                let index = match type_id {
+                    "account-cell-type" => push_cell!(DataType::AccountCellData, gen_account_cell, cell),
+                    "account-sale-cell-type" => push_cell!(DataType::AccountSaleCellData, gen_account_sale_cell, cell),
+                    "income-cell-type" => push_cell!(DataType::IncomeCellData, gen_income_cell, cell),
+                    "balance-cell-type" => {
+                        let (capacity, lock_script, type_script, outputs_data_opt) = self.gen_balance_cell(cell);
+                        let outputs_data_bytes_opt = if let Some(outputs_data) = outputs_data_opt {
+                            Some(Bytes::from(outputs_data))
+                        } else {
+                            None
+                        };
+
+                        self.push_cell(capacity, lock_script, type_script, outputs_data_bytes_opt, source)
+                    }
+                    _ => panic!("Unknown type ID {}", type_id),
+                };
+
+                index
+            } else {
+                panic!("{}", "type.code_hash is something like '{{...}}'")
+            }
+        } else {
+            let (capacity, lock_script, type_script, outputs_data_opt) = self.gen_normal_cell(cell);
+            let outputs_data_bytes_opt = if let Some(outputs_data) = outputs_data_opt {
+                Some(Bytes::from(outputs_data))
+            } else {
+                None
             };
 
+            let index = self.push_cell(capacity, lock_script, type_script, outputs_data_bytes_opt, source);
+
             index
-        } else {
-            panic!("{}", "type.code_hash is something like '{{...}}'")
         }
     }
 
-    /// Cell: json!({
+    /// Cell structure:
+    ///
+    /// ```json
+    /// json!({
     ///     "capacity": u64,
     ///     "lock": {
     ///         "owner_lock_args": "0x...",
@@ -1515,6 +1600,7 @@ impl TemplateGenerator {
     ///         "status": u8
     ///     }
     /// })
+    /// ```
     fn gen_account_cell(&mut self, cell: Value) -> (u64, Value, Value, Vec<u8>, Option<AccountCellData>) {
         let capacity: u64 = parse_json_u64("cell.capacity", &cell["capacity"]);
 
@@ -1603,7 +1689,10 @@ impl TemplateGenerator {
         (capacity, lock_script, type_script, outputs_data, entity_opt)
     }
 
-    /// Cell: json!({
+    /// Cell structure:
+    ///
+    /// ```json
+    /// json!({
     ///     "capacity": u64,
     ///     "lock": {
     ///         "owner_lock_args": "0x...",
@@ -1621,6 +1710,7 @@ impl TemplateGenerator {
     ///         "started_at": u64
     ///     }
     /// })
+    /// ```
     fn gen_account_sale_cell(&mut self, cell: Value) -> (u64, Value, Value, Vec<u8>, Option<AccountSaleCellData>) {
         let capacity: u64 = parse_json_u64("cell.capacity", &cell["capacity"]);
 
@@ -1669,6 +1759,151 @@ impl TemplateGenerator {
         }
 
         (capacity, lock_script, type_script, outputs_data, entity_opt)
+    }
+
+    /// Cell structure:
+    ///
+    /// ```json
+    /// json!({
+    ///     "capacity": u64 | null, // if this is null, will be calculated from sum of records.
+    ///     "lock": {
+    ///         "code_hash": "{{always_success}}",
+    ///     },
+    ///     "type": {
+    ///         "code_hash": "{{account-sale-cell-type}}"
+    ///     },
+    ///     "data": null | "0x...", // if this is null, will be Script::default().
+    ///     "witness": {
+    ///         "creator": null | Script, // if this is null, will be calculated from account.
+    ///         "records": [
+    ///             {
+    ///                 "belong_to": Script,
+    ///                 "capacity": u64
+    ///             },
+    ///             {
+    ///                 "belong_to": Script,
+    ///                 "capacity": u64
+    ///             },
+    ///             ...
+    ///         ]
+    ///     }
+    /// })
+    /// ```
+    fn gen_income_cell(&mut self, cell: Value) -> (u64, Value, Value, Vec<u8>, Option<IncomeCellData>) {
+        let lock_script = parse_json_script("cell.lock", &cell["lock"]);
+        let type_script = parse_json_script("cell.type", &cell["type"]);
+
+        let outputs_data: Vec<u8>;
+        let mut entity_opt = None;
+        let mut capacity_of_records = 0;
+        if !cell["witness"].is_null() {
+            let witness = &cell["witness"];
+            let creator = parse_json_script_to_mol("cell.witness.creator", &witness["creator"]);
+            let mut records_builder = IncomeRecords::new_builder();
+
+            if let Some(records) = witness["records"].as_array() {
+                for (i, item) in records.iter().enumerate() {
+                    let belong_to =
+                        parse_json_script_to_mol(&format!("cell.winess.records[{}].belong_to", i), &item["belong_to"]);
+                    let capacity = parse_json_u64(&format!("cell.winess.records[{}].capacity", i), &item["capacity"]);
+
+                    capacity_of_records += capacity;
+                    records_builder = records_builder.push(
+                        IncomeRecord::new_builder()
+                            .belong_to(belong_to)
+                            .capacity(Uint64::from(capacity))
+                            .build(),
+                    );
+                }
+            }
+
+            let entity = IncomeCellData::new_builder()
+                .creator(creator)
+                .records(records_builder.build())
+                .build();
+
+            let hash = blake2b_256(entity.as_slice());
+            outputs_data = hash.to_vec();
+            entity_opt = Some(entity);
+        } else {
+            outputs_data = parse_json_hex("cell.data", &cell["data"]);
+        }
+
+        let capacity: u64 = if cell["capacity"].is_null() {
+            capacity_of_records
+        } else {
+            parse_json_u64("cell.capacity", &cell["capacity"])
+        };
+
+        (capacity, lock_script, type_script, outputs_data, entity_opt)
+    }
+
+    /// Cell structure:
+    ///
+    /// ```json
+    /// json!({
+    ///     "capacity": u64,
+    ///     "lock": {
+    ///         "args": "0x...",
+    ///     },
+    ///     "type": null,
+    ///     "data": null | "0x..."
+    /// })
+    /// ```
+    fn gen_normal_cell(&mut self, cell: Value) -> (u64, Value, Value, Option<Vec<u8>>) {
+        let capacity: u64 = parse_json_u64("cell.capacity", &cell["capacity"]);
+
+        let lock = cell.get("lock").expect("cell.lock is missing");
+        let args = parse_json_str("cell.lock.args", &lock["owner_lock_args"]);
+        let lock_script = json!({
+          "code_hash": "{{fake-das-lock}}",
+          "args": args
+        });
+
+        let outputs_data_opt = if !cell["data"].is_null() {
+            Some(parse_json_hex("cell.data", &cell["data"]))
+        } else {
+            None
+        };
+
+        (capacity, lock_script, Value::Null, outputs_data_opt)
+    }
+
+    /// Cell structure:
+    ///
+    /// ```json
+    /// json!({
+    ///     "capacity": u64,
+    ///     "lock": {
+    ///         "owner_lock_args": "0x...",
+    ///         "manager_lock_args": "0x...",
+    ///     },
+    ///     "type": {
+    ///         "code_hash": "{{balance-cell-type}}"
+    ///     },
+    ///     "data": null | "0x..."
+    /// })
+    /// ```
+    fn gen_balance_cell(&mut self, cell: Value) -> (u64, Value, Value, Option<Vec<u8>>) {
+        let capacity: u64 = parse_json_u64("cell.capacity", &cell["capacity"]);
+
+        let lock = cell.get("lock").expect("cell.lock is missing");
+        let owner_lock_args = parse_json_str("cell.lock.owner_lock_args", &lock["owner_lock_args"]);
+        let manager_lock_args = parse_json_str("cell.lock.manager_lock_args", &lock["manager_lock_args"]);
+        let lock_script = json!({
+          "code_hash": "{{fake-das-lock}}",
+          "args": gen_das_lock_args(owner_lock_args, Some(manager_lock_args))
+        });
+
+        let type_script = cell.get("type").expect("cell.type is missing").to_owned();
+
+        let outputs_data_opt = if !cell["data"].is_null() {
+            Some(parse_json_hex("cell.data", &cell["data"]))
+        } else {
+            None
+        };
+
+        (capacity, lock_script, type_script, outputs_data_opt)
     }
 
     // ======
