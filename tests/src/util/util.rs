@@ -75,6 +75,14 @@ pub fn hex_to_u64(input: &str) -> Result<u64, Box<dyn Error>> {
     }
 }
 
+pub fn get_type_id_bytes(name: &str) -> Vec<u8> {
+    hex_to_bytes(
+        TYPE_ID_TABLE
+            .get(name)
+            .expect(&format!("Can not find type ID for {}", name)),
+    )
+}
+
 pub fn account_to_id(account: &str) -> Vec<u8> {
     let hash = blake2b_256(account);
     hash.get(..ACCOUNT_ID_LENGTH).unwrap().to_vec()

@@ -16,8 +16,6 @@ mod account_cell_type;
 #[cfg(test)]
 mod account_sale_cell_type;
 #[cfg(test)]
-mod always_success;
-#[cfg(test)]
 mod apply_register_cell_type;
 #[cfg(test)]
 mod balance_cell_type;

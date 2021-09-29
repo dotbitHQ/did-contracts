@@ -12,17 +12,9 @@ use regex::Regex;
 use serde_json::{json, Value};
 use std::{collections::HashMap, convert::TryFrom, env, fs::OpenOptions, io::Write, str};
 
-pub fn gen_always_success_lock(lock_args: &str) -> Script {
-    Script::new_builder()
-        .code_hash(Hash::try_from(util::hex_to_bytes(ALWAYS_SUCCESS_TYPE_HASH)).unwrap())
-        .hash_type(Byte::new(1))
-        .args(Bytes::from(util::hex_to_bytes(lock_args)))
-        .build()
-}
-
 pub fn gen_fake_das_lock(lock_args: &str) -> Script {
     Script::new_builder()
-        .code_hash(Hash::try_from(util::hex_to_bytes(FAKE_DAS_LOCK_TYPE_HASH)).unwrap())
+        .code_hash(Hash::try_from(util::get_type_id_bytes("fake-das-lock")).unwrap())
         .hash_type(Byte::new(1))
         .args(Bytes::from(util::hex_to_bytes(lock_args)))
         .build()
@@ -30,7 +22,7 @@ pub fn gen_fake_das_lock(lock_args: &str) -> Script {
 
 pub fn gen_fake_signhash_all_lock(lock_args: &str) -> Script {
     Script::new_builder()
-        .code_hash(Hash::try_from(util::hex_to_bytes(FAKE_SIGNHASH_ALL_LOCK_TYPE_HASH)).unwrap())
+        .code_hash(Hash::try_from(util::get_type_id_bytes("fake-secp256k1-blake160-signhash-all")).unwrap())
         .hash_type(Byte::new(1))
         .args(Bytes::from(util::hex_to_bytes(lock_args)))
         .build()
@@ -66,25 +58,6 @@ fn gen_price_config(length: u8, new_price: u64, renew_price: u64) -> PriceConfig
         .new(Uint64::from(new_price))
         .renew(Uint64::from(renew_price))
         .build()
-}
-
-fn gen_type_id_table() -> TypeIdTable {
-    let mut builder = TypeIdTable::new_builder();
-    for (key, val) in TYPE_ID_TABLE.iter() {
-        builder = match *key {
-            "account-cell-type" => builder.account_cell(util::hex_to_hash(val).unwrap()),
-            "apply-register-cell-type" => builder.apply_register_cell(util::hex_to_hash(val).unwrap()),
-            "balance-cell-type" => builder.balance_cell(util::hex_to_hash(val).unwrap()),
-            "income-cell-type" => builder.income_cell(util::hex_to_hash(val).unwrap()),
-            "account-sale-cell-type" => builder.account_sale_cell(util::hex_to_hash(val).unwrap()),
-            "account-auction-cell-type" => builder.account_auction_cell(util::hex_to_hash(val).unwrap()),
-            "pre-account-cell-type" => builder.pre_account_cell(util::hex_to_hash(val).unwrap()),
-            "proposal-cell-type" => builder.proposal_cell(util::hex_to_hash(val).unwrap()),
-            _ => builder,
-        }
-    }
-
-    builder.build()
 }
 
 fn gen_account_char(char: &str, char_set_type: CharSetType) -> AccountChar {
@@ -654,9 +627,20 @@ impl TemplateGenerator {
     }
 
     fn gen_config_cell_main(&mut self) -> (Bytes, ConfigCellMain) {
+        let type_id_table = TypeIdTable::new_builder()
+            .account_cell(Hash::try_from(util::get_type_id_bytes("account-cell-type")).unwrap())
+            .apply_register_cell(Hash::try_from(util::get_type_id_bytes("apply-register-cell-type")).unwrap())
+            .account_sale_cell(Hash::try_from(util::get_type_id_bytes("account-sale-cell-type")).unwrap())
+            .account_auction_cell(Hash::try_from(util::get_type_id_bytes("account-auction-cell-type")).unwrap())
+            .balance_cell(Hash::try_from(util::get_type_id_bytes("balance-cell-type")).unwrap())
+            .income_cell(Hash::try_from(util::get_type_id_bytes("income-cell-type")).unwrap())
+            .pre_account_cell(Hash::try_from(util::get_type_id_bytes("pre-account-cell-type")).unwrap())
+            .proposal_cell(Hash::try_from(util::get_type_id_bytes("proposal-cell-type")).unwrap())
+            .build();
+
         let entity = ConfigCellMain::new_builder()
             .status(Uint8::from(1))
-            .type_id_table(gen_type_id_table())
+            .type_id_table(type_id_table)
             .das_lock_out_point_table(DasLockOutPointTable::default())
             .build();
 

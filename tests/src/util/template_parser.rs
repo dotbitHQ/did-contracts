@@ -1,12 +1,11 @@
 use super::{
-    constants::{Source, MULTISIG_TYPE_HASH, SECP_SIGNATURE_SIZE, SIGHASH_TYPE_HASH, TYPE_ID_TABLE},
+    constants::*,
+    util::deploy_shared_lib,
     util::{
         build_signature, deploy_builtin_contract, deploy_dev_contract, get_privkey_signer, hex_to_byte32, hex_to_bytes,
         hex_to_u64, mock_cell_with_outpoint, mock_header_deps, mock_input, mock_out_point,
     },
 };
-use crate::util::constants::MAX_CYCLES;
-use crate::util::deploy_shared_lib;
 use ckb_testtool::context::Context;
 use ckb_tool::{
     ckb_error, ckb_jsonrpc_types as rpc_types,
@@ -23,11 +22,12 @@ use ckb_tool::{
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde_json::Value;
-use std::collections::hash_map::RandomState;
-use std::collections::{HashMap, HashSet};
-use std::error::Error;
-use std::fs::File;
-use std::io::Read;
+use std::{
+    collections::{hash_map::RandomState, HashMap, HashSet},
+    error::Error,
+    fs::File,
+    io::Read,
+};
 
 lazy_static! {
     static ref VARIABLE_REG: Regex = Regex::new(r"\{\{([\w\-\.]+)\}\}").unwrap();
@@ -108,7 +108,7 @@ impl TemplateParser {
     fn init_contracts() -> HashMap<String, Byte32, RandomState> {
         // The type IDs here are testing only.
         let mut contracts = HashMap::new();
-        for (key, val) in TYPE_ID_TABLE.iter() {
+        for (&key, &val) in TYPE_ID_TABLE.iter() {
             contracts.insert(key.to_string(), hex_to_byte32(val).unwrap());
         }
 
@@ -198,6 +198,7 @@ impl TemplateParser {
     }
 
     pub fn sign_by_keys(&mut self, private_keys: Vec<&str>) -> Result<(), Box<dyn Error>> {
+        // TODO Support sign transaction in tests
         for key in private_keys {
             self.sign_by_key(key)?
         }
@@ -206,6 +207,7 @@ impl TemplateParser {
     }
 
     pub fn sign_by_key(&mut self, private_key: &str) -> Result<(), Box<dyn Error>> {
+        // TODO Support sign transaction in tests
         let mut signer = get_privkey_signer(private_key);
         let input_size = self.inputs.len();
 
