@@ -1,5 +1,6 @@
 use ckb_tool::ckb_types::{h256, H256};
 use lazy_static::lazy_static;
+use regex::Regex;
 use std::collections::HashMap;
 
 pub use ckb_std::ckb_constants::Source;
@@ -42,6 +43,13 @@ pub const DAO_TYPE_HASH: H256 = h256!("0x82d76d1b75fe2fd9a27dfbaa65a039221a380d7
 
 pub const CONFIG_LOCK_ARGS: &str = "0x0000000000000000000000000000000000000000";
 pub const QUOTE_LOCK_ARGS: &str = "0x0100000000000000000000000000000000000000";
+
+#[derive(Debug)]
+#[repr(u8)]
+pub enum ScriptHashType {
+    Data = 0,
+    Type = 1,
+}
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 #[repr(u8)]
@@ -104,4 +112,6 @@ lazy_static! {
         );
         map
     };
+    pub static ref RE_VARIABLE: Regex = Regex::new(r"\{\{([\w\-\.]+)\}\}").unwrap();
+    pub static ref RE_ZH_CHAR: Regex = Regex::new(r"^[\u4E00-\u9FA5]+$").unwrap();
 }

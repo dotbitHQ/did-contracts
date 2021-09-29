@@ -7,8 +7,6 @@ use ckb_tool::{
 use das_sorted_list::DasSortedList;
 use das_types::{constants::*, packed::*, prelude::*, util as das_util};
 use hex;
-use lazy_static::lazy_static;
-use regex::Regex;
 use serde_json::{json, Value};
 use std::{collections::HashMap, convert::TryFrom, env, fs::OpenOptions, io::Write, str};
 
@@ -135,10 +133,6 @@ pub fn gen_account_records(records_param: Vec<AccountRecordParam>) -> Records {
 }
 
 pub fn gen_account_chars(chars: Vec<impl AsRef<str>>) -> AccountChars {
-    lazy_static! {
-        static ref RE_ZH: Regex = Regex::new(r"^[\u4E00-\u9FA5]+$").unwrap();
-    }
-
     let mut builder = AccountChars::new_builder();
     for char in chars {
         let char = char.as_ref();
@@ -149,7 +143,7 @@ pub fn gen_account_chars(chars: Vec<impl AsRef<str>>) -> AccountChars {
 
         // ⚠️ For testing only, the judgement is not accurate, DO NOT support multiple emoji with more than 4 bytes.
         if char.len() != 1 {
-            if RE_ZH.is_match(char) {
+            if RE_ZH_CHAR.is_match(char) {
                 builder = builder.push(gen_account_char(char, CharSetType::ZhHans))
             } else {
                 builder = builder.push(gen_account_char(char, CharSetType::Emoji))
@@ -1416,10 +1410,6 @@ impl TemplateGenerator {
     // ======
 
     pub fn push_cell_v2(&mut self, cell: Value, source: Source, version_opt: Option<u32>) -> usize {
-        lazy_static! {
-            static ref TYPE_ID: Regex = Regex::new(r"\{\{([\w\-\.]+)\}\}").unwrap();
-        }
-
         macro_rules! push_data_and_witness {
             ($data_type:expr, $capacity:expr, $lock_script:expr, $type_script:expr, $outputs_data:expr, $entity_opt:expr) => {{
                 let outputs_data_bytes = Bytes::from($outputs_data);

@@ -12,8 +12,6 @@ use ckb_tool::{
         H160, H256,
     },
 };
-use lazy_static::lazy_static;
-use regex::Regex;
 use serde_json::Value;
 use std::{
     collections::{hash_map::RandomState, HashMap, HashSet},
@@ -21,10 +19,6 @@ use std::{
     fs::File,
     io::Read,
 };
-
-lazy_static! {
-    static ref VARIABLE_REG: Regex = Regex::new(r"\{\{([\w\-\.]+)\}\}").unwrap();
-}
 
 pub struct TemplateParser {
     pub context: Context,
@@ -473,7 +467,7 @@ impl TemplateParser {
         if let Some(code_hash) = script_val["code_hash"].as_str() {
             // If code_hash is variable like {{xxx}}, then parse script field as deployed contract,
             let real_code_hash;
-            if let Some(caps) = VARIABLE_REG.captures(code_hash) {
+            if let Some(caps) = RE_VARIABLE.captures(code_hash) {
                 let script_name = caps.get(1).map(|m| m.as_str()).unwrap();
                 real_code_hash = match self.contracts.get(script_name) {
                     Some(code_hash) => code_hash.to_owned(),
@@ -499,7 +493,7 @@ impl TemplateParser {
             let mut args: String = script_val["args"].as_str().unwrap_or("").to_string();
             if !args.is_empty() {
                 // If args is not empty, try to find and replace variables in args.
-                if let Some(caps) = VARIABLE_REG.captures(&args) {
+                if let Some(caps) = RE_VARIABLE.captures(&args) {
                     let script_name = caps.get(1).map(|m| m.as_str()).unwrap();
                     let code_hash = if source == Source::CellDep {
                         Byte32::default()
