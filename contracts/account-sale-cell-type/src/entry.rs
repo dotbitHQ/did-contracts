@@ -55,8 +55,6 @@ pub fn main() -> Result<(), Error> {
             parser.parse_config(&[DataType::ConfigCellProfitRate])?;
         }
 
-        verify_eip712_hashes(&parser, action_raw.as_reader(), &params)?;
-
         let config_main = parser.configs.main()?;
         let config_account = parser.configs.account()?;
         let config_secondary_market = parser.configs.secondary_market()?;
@@ -147,6 +145,15 @@ pub fn main() -> Result<(), Error> {
             verify_price(config_secondary_market, output_sale_cell_witness_reader)?;
             verify_description(config_secondary_market, output_sale_cell_witness_reader)?;
             verify_started_at(timestamp, output_sale_cell_witness_reader)?;
+
+            // CAREFUL This is require to trigger EIP712 verification, DO NOT REMOVE.
+            // The balance-cell-type will call verify_eip712_hashes internally, so if it is not exist, call verify_eip712_hashes manually.
+            let balance_cell_type_id = config_main.type_id_table().balance_cell();
+            let (input_balance_cells, output_balance_cells) =
+                util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, balance_cell_type_id)?;
+            if input_balance_cells.len() <= 0 && output_balance_cells.len() <= 0 {
+                verify_eip712_hashes(&parser, action_raw.as_reader(), &params)?;
+            }
         } else if action == b"cancel_account_sale" {
             account_cell::verify_unlock_role(params[0].raw_data(), LockRole::Owner)?;
 
@@ -196,8 +203,9 @@ pub fn main() -> Result<(), Error> {
             );
 
             verify_sale_cell_account_and_id(input_account_cells[0], input_sale_cell_witness_reader)?;
-            verify_refund_correctly(config_secondary_market, input_sale_cells[0])?;
+            verify_refund_correctly(config_main, config_secondary_market, input_sale_cells[0])?;
 
+            // CAREFUL This is require to trigger EIP712 verification, DO NOT REMOVE.
             // The NormalCells in outputs should always have balance-cell-type in their type field.
             util::require_type_script(
                 &mut parser,
@@ -301,6 +309,7 @@ pub fn main() -> Result<(), Error> {
                 common_fee,
             )?;
 
+            // CAREFUL This is require to trigger EIP712 verification, DO NOT REMOVE.
             // The NormalCells in outputs should always have balance-cell-type in their type field.
             util::require_type_script(
                 &mut parser,
@@ -663,20 +672,30 @@ fn verify_tx_fee_spent_correctly(
 }
 
 fn verify_refund_correctly(
+    config_main: ConfigCellMainReader,
     config_secondary_market: ConfigCellSecondaryMarketReader,
     input_sale_cell: usize,
 ) -> Result<(), Error> {
     debug!("Verify if the AccountSaleCell has been refund correctly.");
 
-    // Build expected refund lock.
-    let expected_refund_lock = derive_lock_of_balance_cell(input_sale_cell)?;
-    let expected_refund_lock_reader = expected_refund_lock.as_reader();
-    let refund_cells = util::find_cells_by_script(ScriptType::Lock, expected_refund_lock_reader, Source::Output)?;
+    let balance_cell_type_id = config_main.type_id_table().balance_cell();
+    let refund_cells = util::find_cells_by_type_id(ScriptType::Type, balance_cell_type_id, Source::Output)?;
     assert!(
         refund_cells.len() == 1,
         Error::InvalidTransactionStructure,
         "There should only 1 cell used to refund, but {} found.",
         refund_cells.len()
+    );
+
+    let refund_lock = high_level::load_cell_lock(refund_cells[0], Source::Output).map_err(Error::from)?;
+    // Build expected refund lock.
+    let expected_refund_lock = derive_lock_of_balance_cell(input_sale_cell)?;
+    assert!(
+        util::is_entity_eq(&refund_lock, &expected_refund_lock),
+        Error::InvalidTransactionStructure,
+        "The NormalCell for refunding should have the owner's lock script.(expected: {}, current: {})",
+        expected_refund_lock,
+        refund_lock
     );
 
     let input_capacity = high_level::load_cell_capacity(input_sale_cell, Source::Input).map_err(Error::from)?;

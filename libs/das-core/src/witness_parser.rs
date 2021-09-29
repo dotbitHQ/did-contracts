@@ -1,8 +1,11 @@
-use super::constants::*;
-use super::error::Error;
-use super::types::{CharSet, Configs};
-use super::util;
-use super::{assert, debug, warn};
+use super::{
+    assert,
+    constants::*,
+    debug,
+    error::Error,
+    types::{CharSet, Configs},
+    util, warn,
+};
 use ckb_std::{ckb_constants::Source, error::SysError, syscalls};
 use core::convert::{TryFrom, TryInto};
 use das_map::map;
@@ -123,9 +126,20 @@ impl WitnessesParser {
                 vec![action_data.params()]
             }
             b"buy_account" => {
-                // TODO implement params parsing
-                // let bytes = action_data.params();
-                vec![]
+                let bytes = action_data.as_reader().params().raw_data();
+                assert!(
+                    bytes.len() > 4,
+                    Error::InvalidTransactionStructure,
+                    "The params of this action should contains two Script struct."
+                );
+
+                let length_of_inviter_lock = u32::from_le_bytes((&bytes[..4]).try_into().unwrap()) as usize;
+                let bytes_of_inviter_lock = &bytes[..length_of_inviter_lock];
+                let bytes_of_channel_lock = &bytes[length_of_inviter_lock..];
+                // debug!("bytes_of_inviter_lock = 0x{}", util::hex_string(bytes_of_inviter_lock));
+                // debug!("bytes_of_channel_lock = 0x{}", util::hex_string(bytes_of_channel_lock));
+
+                vec![Bytes::from(bytes_of_inviter_lock), Bytes::from(bytes_of_channel_lock)]
             }
             _ => Vec::new(),
         };

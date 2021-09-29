@@ -102,7 +102,7 @@ pub fn verify_eip712_hashes(
             let expected_hash = hash_data(&typed_data).unwrap();
 
             debug!(
-                "Calculated hash of EIP712 typed data with digest.(digest: {}, hash: {})",
+                "Calculated hash of EIP712 typed data with digest.(digest: 0x{}, hash: 0x{})",
                 digest,
                 util::hex_string(&expected_hash)
             );
@@ -112,7 +112,7 @@ pub fn verify_eip712_hashes(
                 assert!(
                     &item.typed_data_hash == expected_hash.as_slice(),
                     Error::EIP712SignatureError,
-                    "Inputs[{}] The hash of EIP712 typed data is mismatched.(current: {}, expected: {})",
+                    "Inputs[{}] The hash of EIP712 typed data is mismatched.(current: 0x{}, expected: 0x{})",
                     index,
                     util::hex_string(&item.typed_data_hash),
                     util::hex_string(&expected_hash)
@@ -147,7 +147,7 @@ fn tx_to_digest(
         // CAREFUL: This is only works for secp256k1_blake160_sighash_all, cause das-lock does not support secp256k1_blake160_multisig_all currently.
         let init_witness = ckb_packed::WitnessArgs::from_slice(&witness_bytes).map_err(|_| {
             warn!(
-                "Inputs[{}] Witness can not be decoded as WitnessArgs.(data: {})",
+                "Inputs[{}] Witness can not be decoded as WitnessArgs.(data: 0x{})",
                 init_witness_idx,
                 util::hex_string(&witness_bytes)
             );
@@ -196,7 +196,7 @@ fn tx_to_digest(
                 blake2b.finalize(&mut message);
 
                 debug!(
-                    "Inputs[{}] Generate digest.(args: {}, result: {})",
+                    "Inputs[{}] Generate digest.(args: 0x{}, result: 0x{})",
                     init_witness_idx,
                     util::hex_string(&_key),
                     util::hex_string(&message)
@@ -767,6 +767,10 @@ fn to_typed_script(
             String::from("apply-register-cell-type")
         }
         x if util::is_reader_eq(x, type_id_table_reader.account_cell()) => String::from("account-cell-type"),
+        x if util::is_reader_eq(x, type_id_table_reader.account_sale_cell()) => String::from("account-sale-cell-type"),
+        x if util::is_reader_eq(x, type_id_table_reader.account_auction_cell()) => {
+            String::from("account-auction-cell-type")
+        }
         x if util::is_reader_eq(x, type_id_table_reader.proposal_cell()) => String::from("proposal-cell-type"),
         x if util::is_reader_eq(x, type_id_table_reader.income_cell()) => String::from("income-cell-type"),
         x if util::is_reader_eq(x, type_id_table_reader.balance_cell()) => String::from("balance-cell-type"),
@@ -791,9 +795,11 @@ fn to_typed_script(
 
 fn to_typed_common_data(data_in_bytes: &[u8]) -> String {
     if data_in_bytes.len() > DATA_OMIT_SIZE {
-        util::hex_string(&data_in_bytes[0..DATA_OMIT_SIZE]) + "..."
+        format!("0x{}", util::hex_string(&data_in_bytes[0..DATA_OMIT_SIZE]) + "...")
+    } else if !data_in_bytes.is_empty() {
+        format!("0x{}", util::hex_string(data_in_bytes))
     } else {
-        util::hex_string(data_in_bytes)
+        String::new()
     }
 }
 
