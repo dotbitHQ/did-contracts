@@ -193,7 +193,7 @@ pub fn gen_account_list() {
     let mut account_id_map = HashMap::new();
     let mut account_id_list = Vec::new();
     for account in accounts.into_iter() {
-        let account_id = util::account_to_id_bytes(account);
+        let account_id = util::account_to_id(account);
         account_id_map.insert(account_id.clone(), account);
         account_id_list.push(account_id);
     }
@@ -743,8 +743,8 @@ impl TemplateGenerator {
             .sale_min_price(Uint64::from(20_000_000_000))
             .sale_expiration_limit(Uint32::from(86400 * 30))
             .sale_description_bytes_limit(Uint32::from(5000))
-            .sale_cell_basic_capacity(Uint64::from(20_000_000_000))
-            .sale_cell_prepared_fee_capacity(Uint64::from(100_000_000))
+            .sale_cell_basic_capacity(Uint64::from(ACCOUNT_SALE_CELL_BASIC_CAPACITY))
+            .sale_cell_prepared_fee_capacity(Uint64::from(ACCOUNT_SALE_CELL_PREPARED_FEE_CAPACITY))
             .auction_max_extendable_duration(Uint32::from(86400 * 7))
             .auction_duration_increment_each_bid(Uint32::from(600))
             .auction_min_opening_price(Uint64::from(200_000_000_000))
