@@ -45,7 +45,10 @@ pub fn verify_account_lock_consistent(
     output_account_index: usize,
     changed_lock: Option<&str>,
 ) -> Result<(), Error> {
-    debug!("Check if lock consistent in the AccountCell.");
+    debug!(
+        "Check if lock consistent in the AccountCell.(changed_lock: {:?})",
+        changed_lock
+    );
 
     if let Some(lock) = changed_lock {
         let input_lock = high_level::load_cell_lock(input_account_index, Source::Input).map_err(Error::from)?;
@@ -61,29 +64,13 @@ pub fn verify_account_lock_consistent(
                 "The owner lock args in AccountCell.lock should be different in inputs and outputs."
             );
 
-            let input_lock_type = data_parser::das_lock_args::get_manager_type(input_args);
-            let input_pubkey_hash = data_parser::das_lock_args::get_manager_lock_args(input_args);
-            let output_lock_type = data_parser::das_lock_args::get_manager_type(output_args);
-            let output_pubkey_hash = data_parser::das_lock_args::get_manager_lock_args(output_args);
-
-            let lock_type_consistent = if input_lock_type == DasLockType::ETH as u8 {
-                output_lock_type == input_lock_type || output_lock_type == DasLockType::ETHTypedData as u8
-            } else {
-                output_lock_type == input_lock_type
-            };
-            assert!(
-                lock_type_consistent && input_pubkey_hash == output_pubkey_hash,
-                Error::AccountCellManagerLockShouldBeModified,
-                "The manager lock args in AccountCell.lock should be consistent in inputs and outputs."
-            );
+            // When owner is changed, there is no need to verify the manager's consistent any more.
         } else {
             let input_lock_type = data_parser::das_lock_args::get_owner_type(input_args);
             let input_pubkey_hash = data_parser::das_lock_args::get_owner_lock_args(input_args);
             let output_lock_type = data_parser::das_lock_args::get_owner_type(output_args);
             let output_pubkey_hash = data_parser::das_lock_args::get_owner_lock_args(output_args);
 
-            debug!("input_lock_type = {:?}", input_lock_type);
-            debug!("output_lock_type = {:?}", output_lock_type);
             let lock_type_consistent = if input_lock_type == DasLockType::ETH as u8 {
                 output_lock_type == input_lock_type || output_lock_type == DasLockType::ETHTypedData as u8
             } else {

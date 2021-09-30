@@ -704,7 +704,12 @@ pub fn require_type_script(
         TypeScript::ProposalCellType => config.type_id_table().proposal_cell(),
     };
 
-    debug!("Require on: 0x{}({:?})", hex_string(type_id.raw_data()), type_script);
+    debug!(
+        "Require on: 0x{}({:?}) in {:?}",
+        hex_string(type_id.raw_data()),
+        type_script,
+        source
+    );
 
     // Find out required cell in current transaction.
     let required_cells = find_cells_by_type_id(ScriptType::Type, type_id, source)?;

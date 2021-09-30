@@ -1,8 +1,7 @@
 use alloc::vec::Vec;
 use ckb_std::{ckb_constants::Source, high_level};
 use das_core::{
-    constants::DasLockType,
-    constants::{das_lock, ScriptType},
+    constants::{das_lock, DasLockType, ScriptType, TypeScript},
     data_parser, debug,
     eip712::verify_eip712_hashes,
     error::Error,
@@ -34,6 +33,15 @@ pub fn main() -> Result<(), Error> {
 
         parser.parse_config(&[DataType::ConfigCellMain])?;
         parser.parse_cell()?;
+
+        if action_raw.as_reader().raw_data() == b"buy_account" {
+            util::require_type_script(
+                &mut parser,
+                TypeScript::AccountSaleCellType,
+                Source::Input,
+                Error::InvalidTransactionStructure,
+            )?;
+        }
 
         verify_eip712_hashes(&parser, action_raw.as_reader(), &params)?;
     } else {
