@@ -1487,6 +1487,14 @@ impl TemplateGenerator {
 
     // ======
 
+    pub fn push_input(&mut self, cell: Value, version_opt: Option<u32>) -> usize {
+        self.push_cell_v2(cell, Source::Input, version_opt)
+    }
+
+    pub fn push_output(&mut self, cell: Value, version_opt: Option<u32>) -> usize {
+        self.push_cell_v2(cell, Source::Output, version_opt)
+    }
+
     pub fn push_cell_v2(&mut self, cell: Value, source: Source, version_opt: Option<u32>) -> usize {
         macro_rules! push_cell {
             ($data_type:expr, $gen_fn:ident, $cell:expr) => {{
