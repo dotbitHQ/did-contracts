@@ -185,7 +185,7 @@ pub fn verify_account_capacity_not_decrease(
     // ⚠️ Equal is not allowed here because we want to avoid abuse cell.
     assert!(
         input <= output,
-        Error::CellLockCanNotBeModified,
+        Error::AccountCellChangeCapacityError,
         "The capacity of the AccountCell should be consistent or increased.(input: {}, output: {})",
         input,
         output

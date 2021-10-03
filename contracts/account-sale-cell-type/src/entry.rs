@@ -73,21 +73,21 @@ pub fn main() -> Result<(), Error> {
             "The AccountCells should only appear in inputs[0] and outputs[0]."
         );
 
-        let input_cell_witness: Box<dyn AccountCellDataMixer>;
-        let input_cell_witness_reader;
+        let input_account_cell_witness: Box<dyn AccountCellDataMixer>;
+        let input_account_cell_witness_reader;
         parse_account_cell_witness!(
-            input_cell_witness,
-            input_cell_witness_reader,
+            input_account_cell_witness,
+            input_account_cell_witness_reader,
             parser,
             input_account_cells[0],
             Source::Input
         );
 
-        let output_cell_witness: Box<dyn AccountCellDataMixer>;
-        let output_cell_witness_reader;
+        let output_account_cell_witness: Box<dyn AccountCellDataMixer>;
+        let output_account_cell_witness_reader;
         parse_account_cell_witness!(
-            output_cell_witness,
-            output_cell_witness_reader,
+            output_account_cell_witness,
+            output_account_cell_witness_reader,
             parser,
             output_account_cells[0],
             Source::Output
@@ -115,14 +115,14 @@ pub fn main() -> Result<(), Error> {
                 timestamp,
                 input_account_cells[0],
                 output_account_cells[0],
-                &input_cell_witness_reader,
-                &output_cell_witness_reader,
+                &input_account_cell_witness_reader,
+                &output_account_cell_witness_reader,
             )?;
 
             // If a user willing to sell owned account, the AccountCell should be in AccountStatus::Normal status.
             verify_account_cell_status_update_correctly(
-                &input_cell_witness_reader,
-                &output_cell_witness_reader,
+                &input_account_cell_witness_reader,
+                &output_account_cell_witness_reader,
                 AccountStatus::Normal,
                 AccountStatus::Selling,
             )?;
@@ -177,14 +177,14 @@ pub fn main() -> Result<(), Error> {
                 timestamp,
                 input_account_cells[0],
                 output_account_cells[0],
-                &input_cell_witness_reader,
-                &output_cell_witness_reader,
+                &input_account_cell_witness_reader,
+                &output_account_cell_witness_reader,
             )?;
 
             // If a user want to cancel account sale, the AccountCell should be in AccountStatus::Selling status.
             verify_account_cell_status_update_correctly(
-                &input_cell_witness_reader,
-                &output_cell_witness_reader,
+                &input_account_cell_witness_reader,
+                &output_account_cell_witness_reader,
                 AccountStatus::Selling,
                 AccountStatus::Normal,
             )?;
@@ -235,15 +235,15 @@ pub fn main() -> Result<(), Error> {
             account_cell::verify_account_witness_consistent(
                 input_account_cells[0],
                 output_account_cells[0],
-                &input_cell_witness_reader,
-                &output_cell_witness_reader,
+                &input_account_cell_witness_reader,
+                &output_account_cell_witness_reader,
                 vec!["status"],
             )?;
 
             // If a user willing to buy the account, the AccountCell should be in AccountStatus::Selling status.
             verify_account_cell_status_update_correctly(
-                &input_cell_witness_reader,
-                &output_cell_witness_reader,
+                &input_account_cell_witness_reader,
+                &output_account_cell_witness_reader,
                 AccountStatus::Selling,
                 AccountStatus::Normal,
             )?;
@@ -682,7 +682,7 @@ fn verify_refund_correctly(
     let refund_cells = util::find_cells_by_type_id(ScriptType::Type, balance_cell_type_id, Source::Output)?;
     assert!(
         refund_cells.len() == 1,
-        Error::InvalidTransactionStructure,
+        Error::AccountSaleCellRefundError,
         "There should only 1 cell used to refund, but {} found.",
         refund_cells.len()
     );
@@ -692,7 +692,7 @@ fn verify_refund_correctly(
     let expected_refund_lock = derive_lock_of_balance_cell(input_sale_cell)?;
     assert!(
         util::is_entity_eq(&refund_lock, &expected_refund_lock),
-        Error::InvalidTransactionStructure,
+        Error::AccountSaleCellRefundError,
         "The NormalCell for refunding should have the owner's lock script.(expected: {}, current: {})",
         expected_refund_lock,
         refund_lock
@@ -714,7 +714,7 @@ fn verify_refund_correctly(
 
 fn verify_profit_distribution(
     _parser: &WitnessesParser,
-    _config_main: ConfigCellMainReader,
+    config_main: ConfigCellMainReader,
     _config_profit_rate: ConfigCellProfitRateReader,
     seller_lock_reader: ckb_packed::ScriptReader,
     _inviter_lock_reader: ckb_packed::ScriptReader,
@@ -784,12 +784,23 @@ fn verify_profit_distribution(
 
     let profit_of_seller = price;
 
-    debug!("Check if seller get his profit properly.");
+    debug!("Check if seller get their profit properly.");
 
-    let seller_balance_cells = find_cells_by_script(ScriptType::Lock, seller_lock_reader, Source::Output)?;
+    let balance_cell_type_id = config_main.type_id_table().balance_cell();
+    let balance_cell_type = util::type_id_to_script(balance_cell_type_id);
+    let das_lock_cells = find_cells_by_script(ScriptType::Lock, seller_lock_reader, Source::Output)?;
+    let mut seller_balance_cells = Vec::new();
+    for i in das_lock_cells {
+        let type_script_opt = high_level::load_cell_type(i, Source::Output).map_err(Error::from)?;
+        if let Some(type_script) = type_script_opt {
+            if util::is_script_equal(balance_cell_type.as_reader().into(), type_script.as_reader()) {
+                seller_balance_cells.push(i);
+            }
+        }
+    }
     assert!(
         seller_balance_cells.len() == 1,
-        Error::InvalidTransactionStructure,
+        Error::AccountSaleCellProfitError,
         "There should only 1 cell used to carry profit and refund, but {} found.",
         seller_balance_cells.len()
     );
