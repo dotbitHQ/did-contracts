@@ -12,7 +12,7 @@ use das_core::{
     witness_parser::WitnessesParser,
 };
 use das_types::{
-    constants::{AccountStatus, DataType, LockRole},
+    constants::{AccountStatus, DataType},
     mixer::*,
     packed::*,
 };
@@ -69,6 +69,8 @@ pub fn main() -> Result<(), Error> {
             "The lock script of AccountCell should be das-lock script."
         );
     } else if action == b"transfer_account" || action == b"edit_manager" || action == b"edit_records" {
+        account_cell::verify_unlock_role(action_raw.as_reader(), &params)?;
+
         let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
         parser.parse_config(&[DataType::ConfigCellMain, DataType::ConfigCellAccount])?;
@@ -112,8 +114,6 @@ pub fn main() -> Result<(), Error> {
         if action == b"transfer_account" {
             let config_account = parser.configs.account()?;
 
-            account_cell::verify_unlock_role(params[0].raw_data(), LockRole::Owner)?;
-            // TODO: here is complicated, should be fixed by @link
             verify_input_account_must_normal_status(&input_cell_witness_reader)?;
             verify_transaction_fee_spent_correctly(
                 action,
@@ -145,7 +145,6 @@ pub fn main() -> Result<(), Error> {
         } else if action == b"edit_manager" {
             let config_account = parser.configs.account()?;
 
-            account_cell::verify_unlock_role(params[0].raw_data(), LockRole::Owner)?;
             verify_input_account_must_normal_status(&input_cell_witness_reader)?;
             verify_transaction_fee_spent_correctly(
                 action,
@@ -179,7 +178,6 @@ pub fn main() -> Result<(), Error> {
             let config_account = parser.configs.account()?;
             let record_key_namespace = parser.configs.record_key_namespace()?;
 
-            account_cell::verify_unlock_role(params[0].raw_data(), LockRole::Manager)?;
             verify_input_account_must_normal_status(&input_cell_witness_reader)?;
             verify_transaction_fee_spent_correctly(
                 action,

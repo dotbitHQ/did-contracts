@@ -42,7 +42,7 @@ pub fn verify_eip712_hashes(
     action: das_packed::BytesReader,
     params: &[das_packed::BytesReader],
 ) -> Result<(), Error> {
-    let required_role = util::get_action_required_role(action);
+    let required_role_opt = util::get_action_required_role(action);
     let das_lock = das_lock();
     let das_lock_reader = das_lock.as_reader();
 
@@ -63,12 +63,12 @@ pub fn verify_eip712_hashes(
                 // Only take care of inputs with das-lock
                 if util::is_script_equal(das_lock_reader, lock_reader) {
                     let args = lock_reader.args().raw_data().to_vec();
-                    let type_ = if required_role == LockRole::Manager {
+                    let type_of_args = if required_role_opt.is_some() && required_role_opt == Some(LockRole::Manager) {
                         data_parser::das_lock_args::get_manager_type(lock_reader.args().raw_data())
                     } else {
                         data_parser::das_lock_args::get_owner_type(lock_reader.args().raw_data())
                     };
-                    if type_ != DasLockType::ETHTypedData as u8 {
+                    if type_of_args != DasLockType::ETHTypedData as u8 {
                         debug!(
                             "Inputs[{}] Found deprecated address type, skip verification for hash.",
                             i

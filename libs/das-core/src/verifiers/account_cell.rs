@@ -1,16 +1,31 @@
 use crate::{assert, constants::DasLockType, data_parser, error::Error, util, warn};
 use alloc::{boxed::Box, vec::Vec};
 use ckb_std::{ckb_constants::Source, debug, high_level};
-use das_types::{constants::LockRole, mixer::AccountCellDataReaderMixer, packed::ConfigCellAccountReader};
+use das_types::{mixer::AccountCellDataReaderMixer, packed::*};
 
-pub fn verify_unlock_role(params: &[u8], lock: LockRole) -> Result<(), Error> {
-    debug!("Check if transaction is unlocked by {:?}.", lock);
+pub fn verify_unlock_role(action: BytesReader, params: &[BytesReader]) -> Result<(), Error> {
+    let required_role_opt = util::get_action_required_role(action);
+    if required_role_opt.is_none() {
+        debug!("Skip checking the required role of the transaction.");
+        return Ok(());
+    }
+
+    debug!("Check if the transaction is unlocked by expected role.");
 
     assert!(
-        params.len() > 0 && params[0] == lock as u8,
+        params.len() > 0,
+        Error::AccountCellPermissionDenied,
+        "This transaction should have a role param."
+    );
+
+    let required_role = required_role_opt.unwrap();
+    let current_role = params[0].raw_data()[0];
+
+    assert!(
+        current_role == required_role as u8,
         Error::AccountCellPermissionDenied,
         "This transaction should be unlocked by the {:?}'s signature.",
-        lock
+        required_role
     );
 
     Ok(())

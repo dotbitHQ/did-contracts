@@ -735,11 +735,18 @@ pub fn require_super_lock() -> Result<(), Error> {
     Ok(())
 }
 
-pub fn get_action_required_role(action: das_packed::BytesReader) -> LockRole {
-    // TODO Refactor all places which used LockRole with this function.
+/// Get the role required by each action
+pub fn get_action_required_role(action: das_packed::BytesReader) -> Option<LockRole> {
     match action.raw_data() {
-        b"edit_records" => LockRole::Manager,
-        _ => LockRole::Owner,
+        // account-cell-type
+        b"transfer_account" => Some(LockRole::Owner),
+        b"edit_manager" => Some(LockRole::Owner),
+        b"edit_records" => Some(LockRole::Manager),
+        // account-sale-cell-type
+        b"start_account_sale" => Some(LockRole::Owner),
+        b"edit_account_sale" => Some(LockRole::Owner),
+        b"cancel_account_sale" => Some(LockRole::Owner),
+        _ => None,
     }
 }
 

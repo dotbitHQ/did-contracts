@@ -5,20 +5,12 @@ use ckb_std::{
     debug, high_level,
 };
 use das_core::{
-    assert,
-    constants::*,
-    data_parser,
-    eip712::verify_eip712_hashes,
-    error::Error,
-    inspect, parse_account_cell_witness, parse_witness, util,
-    util::find_cells_by_script,
-    verifiers::{account_cell, income_cell},
-    warn,
-    witness_parser::WitnessesParser,
+    assert, constants::*, data_parser, eip712::verify_eip712_hashes, error::Error, inspect, parse_account_cell_witness,
+    parse_witness, util, util::find_cells_by_script, verifiers::account_cell, warn, witness_parser::WitnessesParser,
 };
 use das_map::map::Map;
 use das_types::{
-    constants::{AccountStatus, DataType, LockRole},
+    constants::{AccountStatus, DataType},
     mixer::*,
     packed::*,
 };
@@ -37,6 +29,7 @@ pub fn main() -> Result<(), Error> {
     let params = params_raw.iter().map(|param| param.as_reader()).collect::<Vec<_>>();
 
     util::is_system_off(&mut parser)?;
+    account_cell::verify_unlock_role(action_raw.as_reader(), &params)?;
 
     debug!(
         "Route to {:?} action ...",
@@ -94,8 +87,6 @@ pub fn main() -> Result<(), Error> {
         );
 
         if action == b"start_account_sale" {
-            account_cell::verify_unlock_role(params[0].raw_data(), LockRole::Owner)?;
-
             assert!(
                 input_sale_cells.len() == 0 && output_sale_cells.len() == 1,
                 Error::InvalidTransactionStructure,
@@ -155,8 +146,6 @@ pub fn main() -> Result<(), Error> {
                 verify_eip712_hashes(&parser, action_raw.as_reader(), &params)?;
             }
         } else if action == b"cancel_account_sale" {
-            account_cell::verify_unlock_role(params[0].raw_data(), LockRole::Owner)?;
-
             assert!(
                 input_sale_cells.len() == 1 && output_sale_cells.len() == 0,
                 Error::InvalidTransactionStructure,
@@ -325,8 +314,6 @@ pub fn main() -> Result<(), Error> {
         verify_eip712_hashes(&parser, action_raw.as_reader(), &params)?;
 
         let config_secondary_market_reader = parser.configs.secondary_market()?;
-
-        account_cell::verify_unlock_role(params[0].raw_data(), LockRole::Owner)?;
 
         let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
         assert!(
