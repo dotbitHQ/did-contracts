@@ -67,7 +67,7 @@ pub fn is_unpacked_bytes_eq(a: &bytes::Bytes, b: &bytes::Bytes) -> bool {
 }
 
 pub fn is_script_equal(script_a: ScriptReader, script_b: ScriptReader) -> bool {
-    // CAREFUL: It is critical that must ensure both code_hash and hash_type are the same to identify the same script.
+    // CAREFUL: It is critical that must ensure both code_hash and hash_type are consistent to identify the same script.
     is_reader_eq(script_a.code_hash(), script_b.code_hash()) && script_a.hash_type() == script_b.hash_type()
 }
 

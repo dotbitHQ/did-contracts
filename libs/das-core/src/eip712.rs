@@ -112,16 +112,16 @@ pub fn verify_eip712_hashes(
             );
 
             // CAREFUL We need to skip the final verification here because transactions are often change when developing, that will break all tests contains EIP712 verification.
-            // if cfg!(not(feature = "dev")) {
-            //     assert!(
-            //         &item.typed_data_hash == expected_hash.as_slice(),
-            //         Error::EIP712SignatureError,
-            //         "Inputs[{}] The hash of EIP712 typed data is mismatched.(current: 0x{}, expected: 0x{})",
-            //         index,
-            //         util::hex_string(&item.typed_data_hash),
-            //         util::hex_string(&expected_hash)
-            //     );
-            // }
+            if cfg!(not(feature = "dev")) {
+                assert!(
+                    &item.typed_data_hash == expected_hash.as_slice(),
+                    Error::EIP712SignatureError,
+                    "Inputs[{}] The hash of EIP712 typed data is mismatched.(current: 0x{}, expected: 0x{})",
+                    index,
+                    util::hex_string(&item.typed_data_hash),
+                    util::hex_string(&expected_hash)
+                );
+            }
         }
     }
 
@@ -694,6 +694,11 @@ fn to_typed_cells(
                 match type_opt {
                     Some(type_script) => {
                         let type_script_reader = das_packed::ScriptReader::from(type_script.as_reader());
+                        if util::is_reader_eq(type_script_reader.code_hash(), type_id_table_reader.balance_cell()) {
+                            i += 1;
+                            continue;
+                        }
+
                         let type_ = to_typed_script(
                             type_id_table_reader,
                             config_cell_type.as_reader().code_hash(),
