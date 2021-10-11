@@ -746,6 +746,7 @@ pub fn get_action_required_role(action: das_packed::BytesReader) -> Option<LockR
         b"start_account_sale" => Some(LockRole::Owner),
         b"edit_account_sale" => Some(LockRole::Owner),
         b"cancel_account_sale" => Some(LockRole::Owner),
+        b"buy_account" => Some(LockRole::Owner),
         _ => None,
     }
 }

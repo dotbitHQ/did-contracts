@@ -135,11 +135,22 @@ impl WitnessesParser {
 
                 let length_of_inviter_lock = u32::from_le_bytes((&bytes[..4]).try_into().unwrap()) as usize;
                 let bytes_of_inviter_lock = &bytes[..length_of_inviter_lock];
-                let bytes_of_channel_lock = &bytes[length_of_inviter_lock..];
+                let length_of_channel_lock = u32::from_le_bytes(
+                    (&bytes[length_of_inviter_lock..(length_of_inviter_lock + 4)])
+                        .try_into()
+                        .unwrap(),
+                ) as usize;
+                let bytes_of_channel_lock =
+                    &bytes[length_of_inviter_lock..(length_of_inviter_lock + length_of_channel_lock)];
+                let bytes_of_role = &bytes[(length_of_inviter_lock + length_of_channel_lock)..];
                 // debug!("bytes_of_inviter_lock = 0x{}", util::hex_string(bytes_of_inviter_lock));
                 // debug!("bytes_of_channel_lock = 0x{}", util::hex_string(bytes_of_channel_lock));
 
-                vec![Bytes::from(bytes_of_inviter_lock), Bytes::from(bytes_of_channel_lock)]
+                vec![
+                    Bytes::from(bytes_of_inviter_lock),
+                    Bytes::from(bytes_of_channel_lock),
+                    Bytes::from(bytes_of_role),
+                ]
             }
             _ => Vec::new(),
         };

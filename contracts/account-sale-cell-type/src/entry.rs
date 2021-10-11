@@ -8,7 +8,7 @@ use das_core::{
     assert, constants::*, data_parser, eip712::verify_eip712_hashes, error::Error, inspect, parse_account_cell_witness,
     parse_witness, util, util::find_cells_by_script, verifiers::account_cell, warn, witness_parser::WitnessesParser,
 };
-use das_map::map::Map;
+use das_map::{map::Map, util as map_util};
 use das_types::{
     constants::{AccountStatus, DataType},
     mixer::*,
@@ -742,7 +742,7 @@ fn verify_profit_distribution(
         let profit_rate = u32::from(config_profit_rate.sale_buyer_inviter()) as u64;
         let profit = price * profit_rate / RATE_BASE;
 
-        profit_map.insert(inviter_lock_reader.as_slice().to_vec(), profit);
+        map_util::add(&mut profit_map, inviter_lock_reader.as_slice().to_vec(), profit);
         profit_of_seller -= profit;
         debug!("  The profit of the invitor: {}", profit);
     } else {
@@ -753,7 +753,7 @@ fn verify_profit_distribution(
         let profit_rate = u32::from(config_profit_rate.sale_buyer_channel()) as u64;
         let profit = price * profit_rate / RATE_BASE;
 
-        profit_map.insert(channel_lock_reader.as_slice().to_vec(), profit);
+        map_util::add(&mut profit_map, channel_lock_reader.as_slice().to_vec(), profit);
         profit_of_seller -= profit;
         debug!("  The profit of the channel: {}", profit);
     } else {
@@ -763,9 +763,11 @@ fn verify_profit_distribution(
     let profit = price * profit_rate_of_das / RATE_BASE;
     let das_wallet_lock = das_wallet_lock();
 
-    profit_map.insert(das_wallet_lock.as_slice().to_vec(), profit);
+    map_util::add(&mut profit_map, das_wallet_lock.as_slice().to_vec(), profit);
     profit_of_seller -= profit;
     debug!("  The profit of DAS: {}", profit);
+
+    debug!("profit_map = {:?}", profit_map);
 
     debug!("Check if seller get their profit properly.");
 
@@ -824,6 +826,11 @@ fn verify_profit_distribution(
     );
 
     for (i, record) in output_income_cell_witness_reader.records().iter().enumerate() {
+        // Skip the first record, because it is a convention that the first always belong to the IncomeCell creator in this transaction.
+        if i == 0 {
+            continue;
+        }
+
         let key = record.belong_to().as_slice().to_vec();
         let recorded_capacity = u64::from(record.capacity());
         let result = profit_map.get(&key);

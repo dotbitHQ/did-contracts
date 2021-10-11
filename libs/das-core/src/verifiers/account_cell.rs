@@ -19,7 +19,8 @@ pub fn verify_unlock_role(action: BytesReader, params: &[BytesReader]) -> Result
     );
 
     let required_role = required_role_opt.unwrap();
-    let current_role = params[0].raw_data()[0];
+    // It is a convention that the param of role should always be the last param.
+    let current_role = params[params.len() - 1].raw_data()[0];
 
     assert!(
         current_role == required_role as u8,
