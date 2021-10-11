@@ -658,6 +658,7 @@ fn to_typed_cells(
     let mut cells: Vec<Cell> = Vec::new();
     let mut total_capacity = 0;
     let das_lock = das_packed::Script::from(das_lock());
+    let always_success_lock = das_packed::Script::from(always_success_lock());
     let config_cell_type = das_packed::Script::from(config_cell_type());
     loop {
         let ret = high_level::load_cell(i, source);
@@ -680,6 +681,7 @@ fn to_typed_cells(
                     type_id_table_reader,
                     config_cell_type.as_reader().code_hash(),
                     das_lock.as_reader().code_hash(),
+                    always_success_lock.as_reader().code_hash(),
                     das_packed::ScriptReader::from(cell.lock().as_reader()),
                 );
 
@@ -703,6 +705,7 @@ fn to_typed_cells(
                             type_id_table_reader,
                             config_cell_type.as_reader().code_hash(),
                             das_lock.as_reader().code_hash(),
+                            always_success_lock.as_reader().code_hash(),
                             das_packed::ScriptReader::from(type_script.as_reader()),
                         );
                         match type_script_reader.code_hash() {
@@ -768,6 +771,7 @@ fn to_typed_script(
     type_id_table_reader: das_packed::TypeIdTableReader,
     config_cell_type: das_packed::HashReader,
     das_lock: das_packed::HashReader,
+    always_success_lock: das_packed::HashReader,
     script: das_packed::ScriptReader,
 ) -> String {
     let code_hash = match script.code_hash() {
@@ -785,6 +789,7 @@ fn to_typed_script(
         x if util::is_reader_eq(x, type_id_table_reader.balance_cell()) => String::from("balance-cell-type"),
         x if util::is_reader_eq(x, config_cell_type) => String::from("config-cell-type"),
         x if util::is_reader_eq(x, das_lock) => String::from("das-lock"),
+        x if util::is_reader_eq(x, always_success_lock) => String::from("always-success"),
         _ => format!(
             "0x{}...",
             util::hex_string(&script.code_hash().raw_data().as_ref()[0..DATA_OMIT_SIZE])
@@ -925,6 +930,7 @@ mod test {
             .account_cell(account_cell_type_id.clone())
             .build();
         let das_lock = das_packed::Script::from(das_lock());
+        let always_success_lock = das_packed::Script::from(always_success_lock());
         let config_cell_type = das_packed::Script::from(config_cell_type());
 
         let account_type_script = das_packed::Script::new_builder()
@@ -938,6 +944,7 @@ mod test {
             table_id_table.as_reader(),
             config_cell_type.as_reader().code_hash(),
             das_lock.as_reader().code_hash(),
+            always_success_lock.as_reader().code_hash(),
             account_type_script.as_reader(),
         );
         assert_eq!(result, expected);
@@ -954,6 +961,7 @@ mod test {
             table_id_table.as_reader(),
             config_cell_type.as_reader().code_hash(),
             das_lock.as_reader().code_hash(),
+            always_success_lock.as_reader().code_hash(),
             other_type_script.as_reader(),
         );
         assert_eq!(result, expected);
@@ -969,6 +977,7 @@ mod test {
             table_id_table.as_reader(),
             config_cell_type.as_reader().code_hash(),
             das_lock.as_reader().code_hash(),
+            always_success_lock.as_reader().code_hash(),
             other_type_script.as_reader(),
         );
         assert_eq!(result, expected);
