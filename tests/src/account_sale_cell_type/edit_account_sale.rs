@@ -1,7 +1,6 @@
 use super::common::*;
-use crate::util::{self, constants::*, error::Error, template_generator::*, template_parser::TemplateParser};
+use crate::util::{error::Error, template_generator::*, template_parser::TemplateParser};
 use ckb_testtool::context::Context;
-use das_types::constants::*;
 use serde_json::json;
 
 fn push_input_account_sale_cell(template: &mut TemplateGenerator, timestamp: u64) {

@@ -114,6 +114,14 @@ fn push_output_income_cell(template: &mut TemplateGenerator) {
             },
             "witness": {
                 "records": [
+                    // It is a conversion in this transaction that the first record always belong to the creator of the IncomeCell.
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-das-lock}}",
+                            "args": "0x0000000000000000000000000000000000000000"
+                        },
+                        "capacity": "20_000_000_000"
+                    },
                     {
                         "belong_to": {
                             "code_hash": "{{fake-das-lock}}",
@@ -145,7 +153,7 @@ fn push_output_income_cell(template: &mut TemplateGenerator) {
 fn push_output_receive_cell(template: &mut TemplateGenerator) {
     template.push_output(
         json!({
-            "capacity": "40_099_990_000",
+            "capacity": "39_499_990_000",
             "lock": {
                 "owner_lock_args": "0x050000000000000000000000000000000000001111",
                 "manager_lock_args": "0x050000000000000000000000000000000000001111",
@@ -168,7 +176,7 @@ fn gen_params(inviter_args: &str, channel_args: &str) -> String {
     let (inviter_lock, channel_lock) = gen_inviter_and_channel_locks(inviter_args, channel_args);
 
     format!(
-        "0x{}{}",
+        "0x{}{}00",
         util::bytes_to_hex(inviter_lock.as_slice()),
         util::bytes_to_hex(channel_lock.as_slice())
     )
@@ -471,7 +479,7 @@ challenge_with_generator!(
 
         template.push_output(
             json!({
-                "capacity": "40_099_990_000",
+                "capacity": "39_499_990_000",
                 "lock": {
                     // Simulate the lock of the cell which carrying profit and refund to seller is wrong in outputs.
                     "owner_lock_args": "0x050000000000000000000000000000000000003333",
@@ -501,7 +509,7 @@ challenge_with_generator!(
         template.push_output(
             json!({
                 // Simulate the capacity of the cell which carrying profit and refund to seller is wrong in outputs.
-                "capacity": "40_099_980_000",
+                "capacity": "39_499_980_000",
                 "lock": {
                     "owner_lock_args": "0x050000000000000000000000000000000000001111",
                     "manager_lock_args": "0x050000000000000000000000000000000000001111",

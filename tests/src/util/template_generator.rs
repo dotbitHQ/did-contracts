@@ -269,6 +269,21 @@ fn parse_json_u64(field_name: &str, field: &Value) -> u64 {
     }
 }
 
+/// Parse u32 in JSON
+///
+/// Support both **number** and **string** format.
+fn parse_json_u32(field_name: &str, field: &Value) -> u32 {
+    if let Some(val) = field.as_u64() {
+        val as u32
+    } else if let Some(val) = field.as_str() {
+        val.replace("_", "")
+            .parse()
+            .expect(&format!("{} should be u32 in string", field_name))
+    } else {
+        panic!("{} is missing", field_name);
+    }
+}
+
 /// Parse u8 in JSON
 fn parse_json_u8(field_name: &str, field: &Value) -> u8 {
     let value = field.as_u64().expect(&format!("{} is missing", field_name));
@@ -305,6 +320,11 @@ fn parse_json_hex(field_name: &str, field: &Value) -> Vec<u8> {
     } else {
         hex::decode(hex).expect(&format!("{} is should be hex string", field_name))
     }
+}
+
+/// Parse array in JSON
+fn parse_json_array<'a>(field_name: &str, field: &'a Value) -> &'a Vec<Value> {
+    field.as_array().expect(&format!("{} is missing", field_name))
 }
 
 /// Parse struct Script and fill optional fields
@@ -1605,7 +1625,16 @@ impl TemplateGenerator {
     ///         "last_transfer_account_at": u64,
     ///         "last_edit_manager_at": u64,
     ///         "last_edit_records_at": u64,
-    ///         "status": u8
+    ///         "status": u8,
+    ///         "records": [
+    ///             {
+    ///                 "type": "xxxxx",
+    ///                 "key": ""yyyyy,
+    ///                 "label": "zzzzz",
+    ///                 "value": "0x...",
+    ///                 "ttl": null | u32
+    ///             }
+    ///         ]
     ///     }
     /// })
     /// ```
@@ -1653,6 +1682,38 @@ impl TemplateGenerator {
                 &witness["last_edit_records_at"],
             ));
             let status = Uint8::from(parse_json_u8("cell.witness.status", &witness["status"]));
+            // TODO Find the correct way to handle the return type of &Vec.
+            let tmp = Vec::new();
+            let mut records = &tmp;
+            if !witness["records"].is_null() {
+                records = parse_json_array("cell.witness.records", &witness["records"])
+            };
+
+            let mut records_builder = Records::new_builder();
+            for (_i, record) in records.iter().enumerate() {
+                let ttl = if !record["ttl"].is_null() {
+                    Uint32::from(parse_json_u32("cell.witness.records[].ttl", &record["ttl"]))
+                } else {
+                    Uint32::from(300)
+                };
+                let record = Record::new_builder()
+                    .record_type(Bytes::from(
+                        parse_json_str("cell.witness.records[].type", &record["type"]).as_bytes(),
+                    ))
+                    .record_key(Bytes::from(
+                        parse_json_str("cell.witness.records[].key", &record["key"]).as_bytes(),
+                    ))
+                    .record_label(Bytes::from(
+                        parse_json_str("cell.witness.records[].label", &record["label"]).as_bytes(),
+                    ))
+                    .record_value(Bytes::from(parse_json_hex(
+                        "cell.witness.records[].value",
+                        &record["value"],
+                    )))
+                    .record_ttl(ttl)
+                    .build();
+                records_builder = records_builder.push(record);
+            }
 
             let entity = AccountCellData::new_builder()
                 .id(account_id)
@@ -1662,6 +1723,7 @@ impl TemplateGenerator {
                 .last_edit_manager_at(last_edit_manager_at)
                 .last_edit_records_at(last_edit_records_at)
                 .status(status)
+                .records(records_builder.build())
                 .build();
 
             let data = &cell["data"];
@@ -1862,7 +1924,7 @@ impl TemplateGenerator {
         let capacity: u64 = parse_json_u64("cell.capacity", &cell["capacity"]);
 
         let lock = cell.get("lock").expect("cell.lock is missing");
-        let args = parse_json_str("cell.lock.args", &lock["owner_lock_args"]);
+        let args = parse_json_str("cell.lock.args", &lock["args"]);
         let lock_script = json!({
           "code_hash": "{{fake-das-lock}}",
           "args": args
