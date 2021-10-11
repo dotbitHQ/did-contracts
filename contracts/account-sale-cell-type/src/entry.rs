@@ -767,8 +767,6 @@ fn verify_profit_distribution(
     profit_of_seller -= profit;
     debug!("  The profit of DAS: {}", profit);
 
-    debug!("profit_map = {:?}", profit_map);
-
     debug!("Check if seller get their profit properly.");
 
     let balance_cell_type_id = config_main.type_id_table().balance_cell();

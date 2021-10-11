@@ -127,22 +127,27 @@ impl WitnessesParser {
             }
             b"buy_account" => {
                 let bytes = action_data.as_reader().params().raw_data();
+                let first_header = bytes.get(..4).ok_or(Error::ParamsDecodingError)?;
+                let length_of_inviter_lock = u32::from_le_bytes(first_header.try_into().unwrap()) as usize;
+                let bytes_of_inviter_lock = bytes.get(..length_of_inviter_lock).ok_or(Error::ParamsDecodingError)?;
+
+                let second_header = bytes
+                    .get(length_of_inviter_lock..(length_of_inviter_lock + 4))
+                    .ok_or(Error::ParamsDecodingError)?;
+                let length_of_channel_lock = u32::from_le_bytes(second_header.try_into().unwrap()) as usize;
+                let bytes_of_channel_lock = bytes
+                    .get(length_of_inviter_lock..(length_of_inviter_lock + length_of_channel_lock))
+                    .ok_or(Error::ParamsDecodingError)?;
+                let bytes_of_role = bytes
+                    .get((length_of_inviter_lock + length_of_channel_lock)..)
+                    .ok_or(Error::ParamsDecodingError)?;
+
                 assert!(
-                    bytes.len() > 4,
-                    Error::InvalidTransactionStructure,
-                    "The params of this action should contains two Script struct."
+                    bytes_of_role.len() == 1,
+                    Error::ParamsDecodingError,
+                    "The params of this action should contains a param of role at the end."
                 );
 
-                let length_of_inviter_lock = u32::from_le_bytes((&bytes[..4]).try_into().unwrap()) as usize;
-                let bytes_of_inviter_lock = &bytes[..length_of_inviter_lock];
-                let length_of_channel_lock = u32::from_le_bytes(
-                    (&bytes[length_of_inviter_lock..(length_of_inviter_lock + 4)])
-                        .try_into()
-                        .unwrap(),
-                ) as usize;
-                let bytes_of_channel_lock =
-                    &bytes[length_of_inviter_lock..(length_of_inviter_lock + length_of_channel_lock)];
-                let bytes_of_role = &bytes[(length_of_inviter_lock + length_of_channel_lock)..];
                 // debug!("bytes_of_inviter_lock = 0x{}", util::hex_string(bytes_of_inviter_lock));
                 // debug!("bytes_of_channel_lock = 0x{}", util::hex_string(bytes_of_channel_lock));
 
