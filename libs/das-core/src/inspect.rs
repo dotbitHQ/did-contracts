@@ -1,8 +1,10 @@
 #![allow(unused_imports)]
 #![allow(unused_variables)]
 
-use super::data_parser::{account_cell, apply_register_cell, pre_account_cell};
-use super::debug;
+use super::{
+    data_parser::{account_cell, apply_register_cell, pre_account_cell},
+    debug,
+};
 use alloc::string::String;
 use ckb_std::ckb_constants::Source;
 use core::convert::TryInto;

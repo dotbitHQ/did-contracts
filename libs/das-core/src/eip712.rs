@@ -694,10 +694,10 @@ fn to_typed_cells(
                 match type_opt {
                     Some(type_script) => {
                         let type_script_reader = das_packed::ScriptReader::from(type_script.as_reader());
-                        if util::is_reader_eq(type_script_reader.code_hash(), type_id_table_reader.balance_cell()) {
-                            i += 1;
-                            continue;
-                        }
+                        // if util::is_reader_eq(type_script_reader.code_hash(), type_id_table_reader.balance_cell()) {
+                        //     i += 1;
+                        //     continue;
+                        // }
 
                         let type_ = to_typed_script(
                             type_id_table_reader,
