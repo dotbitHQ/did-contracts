@@ -34,7 +34,7 @@ fn push_input_account_cell(template: &mut TemplateGenerator, timestamp: u64) {
     template.push_empty_witness();
 }
 
-fn push_input_account_sale_cell(template: &mut TemplateGenerator, timestamp: u64) {
+fn push_input_account_sale_cell(template: &mut TemplateGenerator, timestamp: u64, price: u64) {
     template.push_input(
         json!({
             "capacity": "20_100_000_000",
@@ -47,7 +47,7 @@ fn push_input_account_sale_cell(template: &mut TemplateGenerator, timestamp: u64
             },
             "witness": {
                 "account": "xxxxx.bit",
-                "price": "20_000_000_000",
+                "price": price.to_string(),
                 "description": "This is some account description.",
                 "started_at": timestamp
             }
@@ -150,10 +150,10 @@ fn push_output_income_cell(template: &mut TemplateGenerator) {
     );
 }
 
-fn push_output_receive_cell(template: &mut TemplateGenerator) {
+fn push_output_receive_cell(template: &mut TemplateGenerator, capacity: u64) {
     template.push_output(
         json!({
-            "capacity": "39_499_990_000",
+            "capacity": capacity.to_string(),
             "lock": {
                 "owner_lock_args": "0x050000000000000000000000000000000000001111",
                 "manager_lock_args": "0x050000000000000000000000000000000000001111",
@@ -182,7 +182,7 @@ fn gen_params(inviter_args: &str, channel_args: &str) -> String {
     )
 }
 
-fn before_each() -> (TemplateGenerator, u64) {
+fn before_each(price: u64) -> (TemplateGenerator, u64) {
     let params = gen_params(
         "0x050000000000000000000000000000000000008888",
         "0x050000000000000000000000000000000000009999",
@@ -191,19 +191,67 @@ fn before_each() -> (TemplateGenerator, u64) {
 
     // inputs
     push_input_account_cell(&mut template, timestamp);
-    push_input_account_sale_cell(&mut template, timestamp);
+    push_input_account_sale_cell(&mut template, timestamp, price);
     push_input_fee_cell(&mut template);
 
     (template, timestamp)
 }
 
-test_with_generator!(test_account_sale_buy, || {
-    let (mut template, timestamp) = before_each();
+test_with_generator!(test_account_sale_buy_create_income_cell, || {
+    let (mut template, timestamp) = before_each(20_000_000_000);
 
     // outputs
     push_output_account_cell(&mut template, timestamp);
     push_output_income_cell(&mut template);
-    push_output_receive_cell(&mut template);
+    push_output_receive_cell(&mut template, 39_499_990_000);
+
+    template.as_json()
+});
+
+test_with_generator!(test_account_sale_buy_not_create_income_cell, || {
+    let (mut template, timestamp) = before_each(1_000_000_000_000);
+
+    // outputs
+    push_output_account_cell(&mut template, timestamp);
+
+    template.push_output(
+        json!({
+            "lock": {
+                "code_hash": "{{always_success}}"
+            },
+            "type": {
+                "code_hash": "{{income-cell-type}}"
+            },
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-das-lock}}",
+                            "args": gen_das_lock_args("0x050000000000000000000000000000000000008888", None)
+                        },
+                        "capacity": "10_000_000_000"
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-das-lock}}",
+                            "args": gen_das_lock_args("0x050000000000000000000000000000000000009999", None)
+                        },
+                        "capacity": "10_000_000_000"
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": DAS_WALLET_LOCK_ARGS
+                        },
+                        "capacity": "10_000_000_000"
+                    }
+                ]
+            }
+        }),
+        None,
+    );
+
+    push_output_receive_cell(&mut template, 990099990000);
 
     template.as_json()
 });
@@ -232,6 +280,7 @@ challenge_with_generator!(
                 "data": {
                     "account": "xxxxx.bit",
                     "next": "yyyyy.bit",
+                    // Simulate the situation AccountCell has expired.
                     "expired_at": (timestamp - 1),
                 },
                 "witness": {
@@ -247,7 +296,7 @@ challenge_with_generator!(
         );
         template.push_empty_witness();
 
-        push_input_account_sale_cell(&mut template, timestamp);
+        push_input_account_sale_cell(&mut template, timestamp, 20_000_000_000);
         push_input_fee_cell(&mut template);
 
         // outputs
@@ -279,7 +328,7 @@ challenge_with_generator!(
         );
 
         push_output_income_cell(&mut template);
-        push_output_receive_cell(&mut template);
+        push_output_receive_cell(&mut template, 39_499_990_000);
 
         template.as_json()
     }
@@ -289,7 +338,7 @@ challenge_with_generator!(
     challenge_account_sale_buy_account_capacity,
     Error::AccountCellChangeCapacityError,
     || {
-        let (mut template, timestamp) = before_each();
+        let (mut template, timestamp) = before_each(20_000_000_000);
 
         // outputs
         template.push_output(
@@ -321,7 +370,7 @@ challenge_with_generator!(
         );
 
         push_output_income_cell(&mut template);
-        push_output_receive_cell(&mut template);
+        push_output_receive_cell(&mut template, 39_499_990_000);
 
         template.as_json()
     }
@@ -367,13 +416,13 @@ challenge_with_generator!(
         );
         template.push_empty_witness();
 
-        push_input_account_sale_cell(&mut template, timestamp);
+        push_input_account_sale_cell(&mut template, timestamp, 20_000_000_000);
         push_input_fee_cell(&mut template);
 
         // outputs
         push_output_account_cell(&mut template, timestamp);
         push_output_income_cell(&mut template);
-        push_output_receive_cell(&mut template);
+        push_output_receive_cell(&mut template, 39_499_990_000);
 
         template.as_json()
     }
@@ -383,7 +432,7 @@ challenge_with_generator!(
     challenge_account_sale_buy_output_account_status,
     Error::AccountCellStatusLocked,
     || {
-        let (mut template, timestamp) = before_each();
+        let (mut template, timestamp) = before_each(20_000_000_000);
 
         // outputs
         template.push_output(
@@ -415,7 +464,7 @@ challenge_with_generator!(
         );
 
         push_output_income_cell(&mut template);
-        push_output_receive_cell(&mut template);
+        push_output_receive_cell(&mut template, 39_499_990_000);
 
         template.as_json()
     }
@@ -461,7 +510,7 @@ challenge_with_generator!(
         // outputs
         push_output_account_cell(&mut template, timestamp);
         push_output_income_cell(&mut template);
-        push_output_receive_cell(&mut template);
+        push_output_receive_cell(&mut template, 39_499_990_000);
 
         template.as_json()
     }
@@ -471,7 +520,7 @@ challenge_with_generator!(
     challenge_account_sale_buy_seller_profit_owner,
     Error::AccountSaleCellProfitError,
     || {
-        let (mut template, timestamp) = before_each();
+        let (mut template, timestamp) = before_each(20_000_000_000);
 
         // outputs
         push_output_account_cell(&mut template, timestamp);
@@ -500,7 +549,7 @@ challenge_with_generator!(
     challenge_account_sale_buy_seller_profit_capacity,
     Error::AccountSaleCellProfitError,
     || {
-        let (mut template, timestamp) = before_each();
+        let (mut template, timestamp) = before_each(20_000_000_000);
 
         // outputs
         push_output_account_cell(&mut template, timestamp);

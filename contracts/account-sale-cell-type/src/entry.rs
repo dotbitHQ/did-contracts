@@ -45,7 +45,7 @@ pub fn main() -> Result<(), Error> {
             DataType::ConfigCellSecondaryMarket,
         ])?;
         if action == b"buy_account" {
-            parser.parse_config(&[DataType::ConfigCellProfitRate])?;
+            parser.parse_config(&[DataType::ConfigCellProfitRate, DataType::ConfigCellIncome])?;
         }
 
         let config_main = parser.configs.main()?;
@@ -710,6 +710,8 @@ fn verify_profit_distribution(
     account_sale_cell_capacity: u64,
     common_fee: u64,
 ) -> Result<(), Error> {
+    let income_cell_basic_capacity = u64::from(parser.configs.income()?.basic_capacity());
+
     let default_script = ckb_packed::Script::default();
     let default_script_reader = default_script.as_reader();
 
@@ -823,6 +825,14 @@ fn verify_profit_distribution(
         Some(output_income_cell_witness_reader),
     );
 
+    let total_profit_in_income = price - profit_of_seller;
+    let skip = if total_profit_in_income > income_cell_basic_capacity {
+        false
+    } else {
+        // If the profit is sufficient for IncomeCell's basic capacity skip the first record, because it is a convention that the first
+        // always belong to the IncomeCell creator in this transaction.
+        true
+    };
     for (i, record) in output_income_cell_witness_reader.records().iter().enumerate() {
         // Skip the first record, because it is a convention that the first always belong to the IncomeCell creator in this transaction.
         if i == 0 {

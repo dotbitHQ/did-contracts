@@ -24,6 +24,7 @@ pub fn init_with_profit_rate(action: &str, params_opt: Option<&str>) -> (Templat
     let (mut template, timestamp) = init(action, params_opt);
     template.push_contract_cell("income-cell-type", false);
     template.push_config_cell(DataType::ConfigCellProfitRate, true, 0, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellIncome, true, 0, Source::CellDep);
 
     (template, timestamp)
 }
