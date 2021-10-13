@@ -470,6 +470,171 @@ pub fn main() -> Result<(), Error> {
             Source::Input,
             Error::InvalidTransactionStructure,
         )?;
+    } else if action == b"force_recover_account_status" {
+        parser.parse_config(&[DataType::ConfigCellMain])?;
+        parser.parse_cell()?;
+
+        let config_main = parser.configs.main()?;
+        let timestamp = util::load_oracle_data(OracleCellType::Time)?;
+
+        let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
+        assert!(
+            input_cells.len() == 1 && output_cells.len() == 1,
+            Error::InvalidTransactionStructure,
+            "There should be one AccountCell in outputs and one in inputs."
+        );
+        assert!(
+            input_cells[0] == 0 && output_cells[0] == 0,
+            Error::InvalidTransactionStructure,
+            "The AccountCells should only appear at inputs[0] and outputs[0]."
+        );
+
+        let input_cell_witness: Box<dyn AccountCellDataMixer>;
+        let input_cell_witness_reader;
+        parse_account_cell_witness!(
+            input_cell_witness,
+            input_cell_witness_reader,
+            parser,
+            input_cells[0],
+            Source::Input
+        );
+
+        let output_cell_witness: Box<dyn AccountCellDataMixer>;
+        let output_cell_witness_reader;
+        parse_account_cell_witness!(
+            output_cell_witness,
+            output_cell_witness_reader,
+            parser,
+            output_cells[0],
+            Source::Output
+        );
+
+        debug!("Verify if the AccountCell is consistent in inputs and outputs.");
+
+        account_cell::verify_account_data_consistent(input_cells[0], output_cells[0], vec![])?;
+        account_cell::verify_account_capacity_not_decrease(input_cells[0], output_cells[0])?;
+        account_cell::verify_account_witness_consistent(
+            input_cells[0],
+            output_cells[0],
+            &input_cell_witness_reader,
+            &output_cell_witness_reader,
+            vec!["status"],
+        )?;
+
+        if input_cell_witness_reader.version() == 1 {
+            // There is no version 1 AccountCell in mainnet, so we simply disable them here.
+            return Err(Error::InvalidTransactionStructure);
+        } else {
+            debug!("Verify if the AccountCell status updated correctly.");
+
+            let input_cell_witness_reader = input_cell_witness_reader
+                .try_into_latest()
+                .map_err(|_| Error::NarrowMixerTypeFailed)?;
+            let input_status = u8::from(input_cell_witness_reader.status());
+            assert!(
+                input_status != AccountStatus::Normal as u8,
+                Error::InvalidTransactionStructure,
+                "The AccountCell in inputs should not be in NORMAL status."
+            );
+
+            let output_cell_witness_reader = output_cell_witness_reader
+                .try_into_latest()
+                .map_err(|_| Error::NarrowMixerTypeFailed)?;
+            let output_status = u8::from(output_cell_witness_reader.status());
+            assert!(
+                output_status == AccountStatus::Normal as u8,
+                Error::InvalidTransactionStructure,
+                "The AccountCell in outputs should be in NORMAL status."
+            );
+
+            debug!("Verify if the AccountCell is actually expired.");
+
+            let input_cell_data = high_level::load_cell_data(input_cells[0], Source::Input).map_err(Error::from)?;
+            let expired_at = data_parser::account_cell::get_expired_at(&input_cell_data);
+            let account = data_parser::account_cell::get_account(&input_cell_data);
+
+            // It is a convention that the deal can be canceled immediately when expiring.
+            assert!(
+                timestamp > expired_at,
+                Error::AccountCellIsNotExpired,
+                "The AccountCell is still not expired."
+            );
+
+            let capacity_should_recycle;
+            let cell;
+            if input_status == AccountStatus::Selling as u8 {
+                let type_id = parser.configs.main()?.type_id_table().account_sale_cell();
+                cell = util::find_only_cell_by_type_id(ScriptType::Type, type_id, Source::Input)?;
+                assert!(
+                    cell == 1,
+                    Error::InvalidTransactionStructure,
+                    "There should be an AccountSaleCell at inputs[1]."
+                );
+
+                let cell_witness;
+                let cell_witness_reader;
+                parse_witness!(
+                    cell_witness,
+                    cell_witness_reader,
+                    parser,
+                    cell,
+                    Source::Input,
+                    AccountSaleCellData
+                );
+
+                assert!(
+                    account == cell_witness_reader.account().raw_data(),
+                    Error::AccountSaleCellAccountIdInvalid,
+                    "The account in AccountCell and AccountSaleCell should be the same."
+                )
+            } else {
+                let type_id = parser.configs.main()?.type_id_table().account_auction_cell();
+                cell = util::find_only_cell_by_type_id(ScriptType::Type, type_id, Source::Input)?;
+                assert!(
+                    cell == 1,
+                    Error::InvalidTransactionStructure,
+                    "There should be an AccountAuctionCell at inputs[1]."
+                );
+
+                // TODO Verify the account in AccountCell and AccountAuctionCell is the same.
+            }
+            capacity_should_recycle = high_level::load_cell_capacity(cell, Source::Input).map_err(Error::from)?;
+
+            debug!(
+                "Found the capacity should be recycled is {} shannon.",
+                capacity_should_recycle
+            );
+
+            let balance_cell_type_id = config_main.type_id_table().balance_cell();
+            let (input_balance_cells, outputs_balance_cells) =
+                util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, balance_cell_type_id)?;
+            assert!(
+                input_balance_cells.len() == 0 && outputs_balance_cells.len() == 1 && outputs_balance_cells[0] == 1,
+                Error::InvalidTransactionStructure,
+                "There should be no BalanceCell in inputs and only one BalanceCell at outputs[1]"
+            );
+
+            let expected_lock = util::derive_owner_lock_from_cell(input_cells[0], Source::Input)?;
+            let current_lock = high_level::load_cell_lock(outputs_balance_cells[0], Source::Output)?.into();
+            assert!(
+                util::is_entity_eq(&expected_lock, &current_lock),
+                Error::AccountSaleCellRefundError,
+                "The lock receiving the refund is incorrect.(expected: {}, current: {})",
+                expected_lock,
+                current_lock
+            );
+
+            let expected_capacity = capacity_should_recycle - 10_000;
+            let current_capacity =
+                high_level::load_cell_capacity(outputs_balance_cells[0], Source::Output).map_err(Error::from)?;
+            assert!(
+                current_capacity >= expected_capacity,
+                Error::AccountSaleCellRefundError,
+                "The capacity refunding is incorrect.(expected: {}, current: {})",
+                expected_capacity,
+                current_capacity
+            );
+        }
     } else {
         return Err(Error::ActionNotSupported);
     }

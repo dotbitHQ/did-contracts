@@ -2,11 +2,12 @@ use alloc::{boxed::Box, string::String, vec, vec::Vec};
 use ckb_std::{
     ckb_constants::Source,
     ckb_types::{packed as ckb_packed, prelude::*},
-    debug, high_level,
+    high_level,
 };
 use das_core::{
-    assert, constants::*, data_parser, eip712::verify_eip712_hashes, error::Error, inspect, parse_account_cell_witness,
-    parse_witness, util, util::find_cells_by_script, verifiers::account_cell, warn, witness_parser::WitnessesParser,
+    assert, constants::*, data_parser, debug, eip712::verify_eip712_hashes, error::Error, inspect,
+    parse_account_cell_witness, parse_witness, util, util::find_cells_by_script, verifiers::account_cell, warn,
+    witness_parser::WitnessesParser,
 };
 use das_map::{map::Map, util as map_util};
 use das_types::{
@@ -111,7 +112,7 @@ pub fn main() -> Result<(), Error> {
             )?;
 
             // If a user willing to sell owned account, the AccountCell should be in AccountStatus::Normal status.
-            verify_account_cell_status_update_correctly(
+            account_cell::verify_account_cell_status_update_correctly(
                 &input_account_cell_witness_reader,
                 &output_account_cell_witness_reader,
                 AccountStatus::Normal,
@@ -171,7 +172,7 @@ pub fn main() -> Result<(), Error> {
             )?;
 
             // If a user want to cancel account sale, the AccountCell should be in AccountStatus::Selling status.
-            verify_account_cell_status_update_correctly(
+            account_cell::verify_account_cell_status_update_correctly(
                 &input_account_cell_witness_reader,
                 &output_account_cell_witness_reader,
                 AccountStatus::Selling,
@@ -230,7 +231,7 @@ pub fn main() -> Result<(), Error> {
             )?;
 
             // If a user willing to buy the account, the AccountCell should be in AccountStatus::Selling status.
-            verify_account_cell_status_update_correctly(
+            account_cell::verify_account_cell_status_update_correctly(
                 &input_account_cell_witness_reader,
                 &output_account_cell_witness_reader,
                 AccountStatus::Selling,
@@ -279,7 +280,7 @@ pub fn main() -> Result<(), Error> {
 
             debug!("Verify if the profit is distribute correctly.");
 
-            let seller_lock = derive_lock_of_balance_cell(input_account_cells[0])?;
+            let seller_lock = util::derive_owner_lock_from_cell(input_account_cells[0], Source::Input)?;
             let (inviter_lock, channel_lock) = decode_scripts_from_params(params)?;
             let price = u64::from(input_sale_cell_witness_reader.price());
             let account_sale_cell_capacity =
@@ -319,12 +320,12 @@ pub fn main() -> Result<(), Error> {
         assert!(
             input_cells.len() == 1 && output_cells.len() == 1,
             Error::InvalidTransactionStructure,
-            "There should be one AccountSaleCell in output and one AccountSaleCell in input."
+            "There should be one AccountSaleCell in outputs and one AccountSaleCell in inputs."
         );
         assert!(
             input_cells[0] == 0 && output_cells[0] == 0,
             Error::InvalidTransactionStructure,
-            "The AccountSaleCells should only appear in inputs[0] and outputs[0]."
+            "The AccountSaleCells should only appear at inputs[0] and outputs[0]."
         );
 
         let input_cell_witness;
@@ -381,6 +382,13 @@ pub fn main() -> Result<(), Error> {
             Error::InvalidTransactionStructure,
             "Either price or description should be modified."
         );
+    } else if action == b"force_recover_account_status" {
+        util::require_type_script(
+            &mut parser,
+            TypeScript::AccountCellType,
+            Source::Input,
+            Error::InvalidTransactionStructure,
+        )?;
     } else {
         return Err(Error::ActionNotSupported);
     }
@@ -414,17 +422,6 @@ fn load_account_cells(config_main: ConfigCellMainReader) -> Result<(Vec<usize>, 
     Ok((input_account_cells, output_account_cells))
 }
 
-fn derive_lock_of_balance_cell(input_cell: usize) -> Result<ckb_packed::Script, Error> {
-    let lock = high_level::load_cell_lock(input_cell, Source::Input).map_err(Error::from)?;
-    let owner_lock_args = data_parser::das_lock_args::get_owner_lock_args(lock.as_reader().args().raw_data());
-
-    // Build expected refund lock.
-    let args = Bytes::from([vec![5], owner_lock_args.to_vec(), vec![5], owner_lock_args.to_vec()].concat());
-    let lock_of_balance_cell = lock.as_builder().args(args.into()).build();
-
-    Ok(lock_of_balance_cell)
-}
-
 fn verify_account_cell_consistent_except_status<'a>(
     config_account: ConfigCellAccountReader,
     timestamp: u64,
@@ -444,43 +441,6 @@ fn verify_account_cell_consistent_except_status<'a>(
         &output_account_cell_witness_reader,
         vec!["status"],
     )?;
-
-    Ok(())
-}
-
-fn verify_account_cell_status_update_correctly<'a>(
-    input_account_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
-    output_account_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
-    expected_input_status: AccountStatus,
-    expected_output_status: AccountStatus,
-) -> Result<(), Error> {
-    if input_account_cell_witness_reader.version() == 1 {
-        // There is no version 1 AccountCell in mainnet, so we simply disable them here.
-        return Err(Error::InvalidTransactionStructure);
-    } else {
-        let input_account_cell_witness_reader = input_account_cell_witness_reader
-            .try_into_latest()
-            .map_err(|_| Error::NarrowMixerTypeFailed)?;
-        let output_account_cell_witness_reader = output_account_cell_witness_reader
-            .try_into_latest()
-            .map_err(|_| Error::NarrowMixerTypeFailed)?;
-
-        let input_status = u8::from(input_account_cell_witness_reader.status());
-        let output_status = u8::from(output_account_cell_witness_reader.status());
-
-        assert!(
-            input_status == expected_input_status as u8,
-            Error::AccountCellStatusLocked,
-            "The AccountCell.witness.status should be {:?} in inputs.",
-            expected_input_status
-        );
-        assert!(
-            output_status == expected_output_status as u8,
-            Error::AccountCellStatusLocked,
-            "The AccountCell.witness.status should be {:?} in outputs.",
-            expected_output_status
-        );
-    }
 
     Ok(())
 }
@@ -676,7 +636,7 @@ fn verify_refund_correctly(
 
     let refund_lock = high_level::load_cell_lock(refund_cells[0], Source::Output).map_err(Error::from)?;
     // Build expected refund lock.
-    let expected_refund_lock = derive_lock_of_balance_cell(input_sale_cell)?;
+    let expected_refund_lock = util::derive_owner_lock_from_cell(input_sale_cell, Source::Input)?;
     assert!(
         util::is_entity_eq(&refund_lock, &expected_refund_lock),
         Error::AccountSaleCellRefundError,
@@ -834,8 +794,7 @@ fn verify_profit_distribution(
         true
     };
     for (i, record) in output_income_cell_witness_reader.records().iter().enumerate() {
-        // Skip the first record, because it is a convention that the first always belong to the IncomeCell creator in this transaction.
-        if i == 0 {
+        if skip && i == 0 {
             continue;
         }
 
@@ -876,6 +835,11 @@ fn verify_profit_distribution(
 
     let current_capacity =
         high_level::load_cell_capacity(output_income_cells[0], Source::Output).map_err(Error::from)?;
+    assert!(
+        current_capacity >= income_cell_basic_capacity,
+        Error::InvalidTransactionStructure,
+        "The IncomeCell should have capacity bigger than or equal to the value in ConfigCellIncome.basic_capacity."
+    );
     assert!(
         current_capacity == expected_income_cell_capacity,
         Error::AccountSaleCellProfitError,

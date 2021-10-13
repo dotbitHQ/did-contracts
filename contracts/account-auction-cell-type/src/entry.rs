@@ -1,5 +1,5 @@
-use ckb_std::debug;
-use das_core::{error::Error, util, witness_parser::WitnessesParser};
+use ckb_std::ckb_constants::Source;
+use das_core::{constants::*, debug, error::Error, util, witness_parser::WitnessesParser};
 
 pub fn main() -> Result<(), Error> {
     debug!("====== Running account-auction-cell-type ======");
@@ -36,6 +36,13 @@ pub fn main() -> Result<(), Error> {
         } else if action == b"confirm_account_auction" {
             debug!("Route to confirm_account_auction action ...");
         }
+    } else if action == b"force_recover_account_status" {
+        util::require_type_script(
+            &mut parser,
+            TypeScript::AccountCellType,
+            Source::Input,
+            Error::InvalidTransactionStructure,
+        )?;
     } else {
         return Err(Error::ActionNotSupported);
     }

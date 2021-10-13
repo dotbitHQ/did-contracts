@@ -1,7 +1,7 @@
 use crate::{assert, constants::DasLockType, data_parser, error::Error, util, warn};
 use alloc::{boxed::Box, vec::Vec};
 use ckb_std::{ckb_constants::Source, debug, high_level};
-use das_types::{mixer::AccountCellDataReaderMixer, packed::*};
+use das_types::{constants::AccountStatus, mixer::AccountCellDataReaderMixer, packed::*};
 
 pub fn verify_unlock_role(action: BytesReader, params: &[BytesReader]) -> Result<(), Error> {
     let required_role_opt = util::get_action_required_role(action);
@@ -291,6 +291,43 @@ pub fn verify_account_witness_consistent<'a>(
             (last_edit_manager_at, "last_edit_manager_at"),
             (last_edit_records_at, "last_edit_records_at"),
             (status, "status")
+        );
+    }
+
+    Ok(())
+}
+
+pub fn verify_account_cell_status_update_correctly<'a>(
+    input_account_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
+    output_account_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
+    expected_input_status: AccountStatus,
+    expected_output_status: AccountStatus,
+) -> Result<(), Error> {
+    if input_account_cell_witness_reader.version() == 1 {
+        // There is no version 1 AccountCell in mainnet, so we simply disable them here.
+        return Err(Error::InvalidTransactionStructure);
+    } else {
+        let input_account_cell_witness_reader = input_account_cell_witness_reader
+            .try_into_latest()
+            .map_err(|_| Error::NarrowMixerTypeFailed)?;
+        let output_account_cell_witness_reader = output_account_cell_witness_reader
+            .try_into_latest()
+            .map_err(|_| Error::NarrowMixerTypeFailed)?;
+
+        let input_status = u8::from(input_account_cell_witness_reader.status());
+        let output_status = u8::from(output_account_cell_witness_reader.status());
+
+        assert!(
+            input_status == expected_input_status as u8,
+            Error::AccountCellStatusLocked,
+            "The AccountCell.witness.status should be {:?} in inputs.",
+            expected_input_status
+        );
+        assert!(
+            output_status == expected_output_status as u8,
+            Error::AccountCellStatusLocked,
+            "The AccountCell.witness.status should be {:?} in outputs.",
+            expected_output_status
         );
     }
 

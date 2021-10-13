@@ -1,4 +1,6 @@
-use super::{assert, constants::*, debug, error::Error, types::ScriptLiteral, warn, witness_parser::WitnessesParser};
+use super::{
+    assert, constants::*, data_parser, debug, error::Error, types::ScriptLiteral, warn, witness_parser::WitnessesParser,
+};
 use blake2b_ref::{Blake2b, Blake2bBuilder};
 use ckb_std::{
     ckb_constants::{CellField, Source},
@@ -11,9 +13,10 @@ use das_types::{
     constants::{DataType, LockRole, WITNESS_HEADER},
     packed as das_packed,
 };
+use std::prelude::v1::*;
+
 #[cfg(test)]
 use hex::FromHexError;
-use std::prelude::v1::*;
 
 pub use das_types::util::{hex_string, is_entity_eq, is_reader_eq};
 
@@ -749,6 +752,27 @@ pub fn get_action_required_role(action: das_packed::BytesReader) -> Option<LockR
         b"buy_account" => Some(LockRole::Owner),
         _ => None,
     }
+}
+
+pub fn derive_owner_lock_from_cell(input_cell: usize, source: Source) -> Result<Script, Error> {
+    let lock = high_level::load_cell_lock(input_cell, source).map_err(Error::from)?;
+    let lock_bytes = lock.as_reader().args().raw_data();
+    let owner_lock_type = data_parser::das_lock_args::get_owner_type(lock_bytes);
+    let owner_lock_args = data_parser::das_lock_args::get_owner_lock_args(lock_bytes);
+
+    // Build expected refund lock.
+    let args = das_packed::Bytes::from(
+        [
+            vec![owner_lock_type],
+            owner_lock_args.to_vec(),
+            vec![owner_lock_type],
+            owner_lock_args.to_vec(),
+        ]
+        .concat(),
+    );
+    let lock_of_balance_cell = lock.as_builder().args(args.into()).build();
+
+    Ok(lock_of_balance_cell)
 }
 
 #[cfg(test)]
