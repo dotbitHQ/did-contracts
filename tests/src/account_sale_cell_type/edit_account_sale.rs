@@ -3,7 +3,7 @@ use crate::util::{error::Error, template_generator::*, template_parser::Template
 use ckb_testtool::context::Context;
 use serde_json::json;
 
-fn push_input_account_sale_cell(template: &mut TemplateGenerator, timestamp: u64) {
+fn push_input_account_sale_cell(template: &mut TemplateGenerator, timestamp: u64, account: &str, price: u64) {
     template.push_input(
         json!({
             "capacity": "20_100_000_000",
@@ -15,8 +15,8 @@ fn push_input_account_sale_cell(template: &mut TemplateGenerator, timestamp: u64
                 "code_hash": "{{account-sale-cell-type}}"
             },
             "witness": {
-                "account": "xxxxx.bit",
-                "price": "20_000_000_000",
+                "account": account,
+                "price": price.to_string(),
                 "description": "This is some account description.",
                 "started_at": timestamp
             }
@@ -26,7 +26,7 @@ fn push_input_account_sale_cell(template: &mut TemplateGenerator, timestamp: u64
     template.push_das_lock_witness("0000000000000000000000000000000000000000000000000000000000000000");
 }
 
-fn push_output_account_sale_cell(template: &mut TemplateGenerator, timestamp: u64) {
+fn push_output_account_sale_cell(template: &mut TemplateGenerator, timestamp: u64, account: &str, price: u64) {
     template.push_output(
         json!({
             "capacity": "20_099_990_000",
@@ -38,8 +38,8 @@ fn push_output_account_sale_cell(template: &mut TemplateGenerator, timestamp: u6
                 "code_hash": "{{account-sale-cell-type}}"
             },
             "witness": {
-                "account": "xxxxx.bit",
-                "price": "40_000_000_000",
+                "account": account,
+                "price": price.to_string(),
                 "description": "This is another account description.",
                 "started_at": timestamp
             }
@@ -51,7 +51,7 @@ fn push_output_account_sale_cell(template: &mut TemplateGenerator, timestamp: u6
 fn before_each() -> (TemplateGenerator, u64) {
     let (mut template, timestamp) = init("edit_account_sale", Some("0x00"));
 
-    push_input_account_sale_cell(&mut template, timestamp);
+    push_input_account_sale_cell(&mut template, timestamp, "xxxxx.bit", 200_000_000_000);
 
     (template, timestamp)
 }
@@ -60,7 +60,7 @@ test_with_generator!(test_account_sale_edit, || {
     let (mut template, timestamp) = before_each();
 
     // outputs
-    push_output_account_sale_cell(&mut template, timestamp);
+    push_output_account_sale_cell(&mut template, timestamp, "xxxxx.bit", 400_000_000_000);
 
     template.as_json()
 });
@@ -72,10 +72,10 @@ challenge_with_generator!(
         let (mut template, timestamp) = init("edit_account_sale", Some("0x01"));
 
         // inputs
-        push_input_account_sale_cell(&mut template, timestamp);
+        push_input_account_sale_cell(&mut template, timestamp, "xxxxx.bit", 200_000_000_000);
 
         // outputs
-        push_output_account_sale_cell(&mut template, timestamp);
+        push_output_account_sale_cell(&mut template, timestamp, "xxxxx.bit", 400_000_000_000);
 
         template.as_json()
     }
@@ -295,6 +295,38 @@ challenge_with_generator!(
                     // Simulate modify the price to lower than the minimum requirement.
                     "price": "19_900_000_000",
                     "description": "This is another account description.",
+                    "started_at": timestamp
+                }
+            }),
+            None,
+        );
+
+        template.as_json()
+    }
+);
+
+challenge_with_generator!(
+    challenge_account_sale_edit_no_change,
+    Error::InvalidTransactionStructure,
+    || {
+        let (mut template, timestamp) = before_each();
+
+        // outputs
+        template.push_output(
+            json!({
+                "capacity": "20_100_000_000",
+                "lock": {
+                    "owner_lock_args": "0x050000000000000000000000000000000000001111",
+                    "manager_lock_args": "0x050000000000000000000000000000000000001111"
+                },
+                "type": {
+                    "code_hash": "{{account-sale-cell-type}}"
+                },
+                "witness": {
+                    "account": "xxxxx.bit",
+                    // Simulate neither price nor description is changed.
+                    "price": "200_000_000_000",
+                    "description": "This is some account description.",
                     "started_at": timestamp
                 }
             }),

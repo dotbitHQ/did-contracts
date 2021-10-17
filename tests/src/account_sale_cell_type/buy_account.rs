@@ -57,10 +57,10 @@ fn push_input_account_sale_cell(template: &mut TemplateGenerator, timestamp: u64
     template.push_empty_witness();
 }
 
-fn push_input_fee_cell(template: &mut TemplateGenerator) {
+fn push_input_fee_cell(template: &mut TemplateGenerator, price: u64) {
     template.push_input(
         json!({
-            "capacity": "20_000_000_000",
+            "capacity": price.to_string(),
             "lock": {
                 "owner_lock_args": "0x050000000000000000000000000000000000002222",
                 "manager_lock_args": "0x050000000000000000000000000000000000002222",
@@ -192,7 +192,7 @@ fn before_each(price: u64) -> (TemplateGenerator, u64) {
     // inputs
     push_input_account_cell(&mut template, timestamp);
     push_input_account_sale_cell(&mut template, timestamp, price);
-    push_input_fee_cell(&mut template);
+    push_input_fee_cell(&mut template, price);
 
     (template, timestamp)
 }
@@ -297,7 +297,7 @@ challenge_with_generator!(
         template.push_empty_witness();
 
         push_input_account_sale_cell(&mut template, timestamp, 20_000_000_000);
-        push_input_fee_cell(&mut template);
+        push_input_fee_cell(&mut template, 20_000_000_000);
 
         // outputs
         template.push_output(
@@ -417,7 +417,7 @@ challenge_with_generator!(
         template.push_empty_witness();
 
         push_input_account_sale_cell(&mut template, timestamp, 20_000_000_000);
-        push_input_fee_cell(&mut template);
+        push_input_fee_cell(&mut template, 20_000_000_000);
 
         // outputs
         push_output_account_cell(&mut template, timestamp);
@@ -505,12 +505,80 @@ challenge_with_generator!(
         );
         template.push_empty_witness();
 
-        push_input_fee_cell(&mut template);
+        push_input_fee_cell(&mut template, 20_000_000_000);
 
         // outputs
         push_output_account_cell(&mut template, timestamp);
         push_output_income_cell(&mut template);
         push_output_receive_cell(&mut template, 39_499_990_000);
+
+        template.as_json()
+    }
+);
+
+challenge_with_generator!(
+    challenge_account_sale_buy_wrong_owner,
+    Error::AccountSaleCellNewOwnerError,
+    || {
+        let (mut template, timestamp) = before_each(20_000_000_000);
+
+        // outputs
+        template.push_output(
+            json!({
+                "capacity": util::gen_account_cell_capacity(5),
+                "lock": {
+                    // Simulate transferring AccountCell to unknown owner.
+                    "owner_lock_args": "0x050000000000000000000000000000000000003333",
+                    "manager_lock_args": "0x050000000000000000000000000000000000003333"
+                },
+                "type": {
+                    "code_hash": "{{account-cell-type}}"
+                },
+                "data": {
+                    "account": "xxxxx.bit",
+                    "next": "yyyyy.bit",
+                    "expired_at": (timestamp + YEAR_SEC),
+                },
+                "witness": {
+                    "account": "xxxxx.bit",
+                    "registered_at": (timestamp - MONTH_SEC),
+                    "last_transfer_account_at": 0,
+                    "last_edit_manager_at": 0,
+                    "last_edit_records_at": 0,
+                    "status": (AccountStatus::Normal as u8)
+                }
+            }),
+            Some(2),
+        );
+
+        push_output_income_cell(&mut template);
+        push_output_receive_cell(&mut template, 39_499_990_000);
+
+        template.as_json()
+    }
+);
+
+challenge_with_generator!(
+    challenge_account_sale_buy_change_error,
+    Error::AccountSaleCellChangeError,
+    || {
+        let params = gen_params(
+            "0x050000000000000000000000000000000000008888",
+            "0x050000000000000000000000000000000000009999",
+        );
+        let (mut template, timestamp) = init_with_profit_rate("buy_account", Some(&params));
+
+        // inputs
+        push_input_account_cell(&mut template, timestamp);
+        push_input_account_sale_cell(&mut template, timestamp, 20_000_000_000);
+        push_input_fee_cell(&mut template, 40_000_000_000);
+
+        // outputs
+        push_output_account_cell(&mut template, timestamp);
+        push_output_income_cell(&mut template);
+        push_output_receive_cell(&mut template, 39_499_990_000);
+
+        // Simulate no change for buyer.
 
         template.as_json()
     }

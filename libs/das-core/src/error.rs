@@ -133,6 +133,8 @@ pub enum Error {
     AccountSaleCellPriceTooSmall,
     AccountSaleCellDescriptionTooLarge,
     AccountSaleCellNewOwnerError,
+    AccountSaleCellNotPayEnough,
+    AccountSaleCellChangeError,
     AccountSaleCellProfitError,
     SystemOff = -1,
 }

@@ -89,7 +89,7 @@ pub fn main() -> Result<(), Error> {
                             }
 
                             for script in available_type_scripts.iter() {
-                                if util::is_script_equal(script.as_reader().into(), type_.as_reader()) {
+                                if util::is_type_id_equal(script.as_reader().into(), type_.as_reader()) {
                                     pass = true;
                                 }
                             }

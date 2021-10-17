@@ -112,7 +112,7 @@ pub fn verify_account_lock_consistent(
         let output_args = output_lock.as_reader().args().raw_data();
 
         assert!(
-            util::is_script_equal(input_lock.as_reader(), output_lock.as_reader()),
+            util::is_type_id_equal(input_lock.as_reader(), output_lock.as_reader()),
             Error::CellLockCanNotBeModified,
             "The AccountCell.lock should be consistent in inputs and outputs."
         );

@@ -69,7 +69,7 @@ pub fn is_unpacked_bytes_eq(a: &bytes::Bytes, b: &bytes::Bytes) -> bool {
     **a == **b
 }
 
-pub fn is_script_equal(script_a: ScriptReader, script_b: ScriptReader) -> bool {
+pub fn is_type_id_equal(script_a: ScriptReader, script_b: ScriptReader) -> bool {
     // CAREFUL: It is critical that must ensure both code_hash and hash_type are consistent to identify the same script.
     is_reader_eq(script_a.code_hash(), script_b.code_hash()) && script_a.hash_type() == script_b.hash_type()
 }
@@ -131,14 +131,21 @@ pub fn find_cells_by_type_id_in_inputs_and_outputs(
     Ok((input_cells, output_cells))
 }
 
-pub fn find_cells_by_script_in_inputs_and_outputs(
+pub fn find_cells_by_type_id_and_filter<F: Fn(usize, Source) -> Result<bool, Error>>(
     script_type: ScriptType,
-    script: ScriptReader,
-) -> Result<(Vec<usize>, Vec<usize>), Error> {
-    let input_cells = find_cells_by_script(script_type, script, Source::Input)?;
-    let output_cells = find_cells_by_script(script_type, script, Source::Output)?;
+    type_id: das_packed::HashReader,
+    source: Source,
+    filter: F,
+) -> Result<Vec<usize>, Error> {
+    let cell_indexes = find_cells_by_type_id(script_type, type_id, source)?;
+    let mut ret = Vec::new();
+    for i in cell_indexes {
+        if filter(i, source)? {
+            ret.push(i);
+        }
+    }
 
-    Ok((input_cells, output_cells))
+    Ok(ret)
 }
 
 pub fn find_only_cell_by_type_id(
@@ -192,32 +199,31 @@ pub fn find_cells_by_script(
     Ok(cell_indexes)
 }
 
-pub fn find_cells<F>(f: F, source: Source) -> Result<Vec<(CellOutput, usize)>, Error>
-where
-    F: Fn(&CellOutput, usize) -> bool,
-{
-    let mut i = 0;
-    let mut cells = Vec::new();
-    loop {
-        let ret = high_level::load_cell(i, source);
-        if let Err(e) = ret {
-            if e == SysError::IndexOutOfBound {
-                break;
-            } else {
-                return Err(Error::from(e));
-            }
-        }
+pub fn find_cells_by_script_in_inputs_and_outputs(
+    script_type: ScriptType,
+    script: ScriptReader,
+) -> Result<(Vec<usize>, Vec<usize>), Error> {
+    let input_cells = find_cells_by_script(script_type, script, Source::Input)?;
+    let output_cells = find_cells_by_script(script_type, script, Source::Output)?;
 
-        let cell = ret.unwrap();
-        // debug!("{}", util::cmp_script(&input_lock, &super_lock));
-        if f(&cell, i) {
-            cells.push((cell, i));
-        }
+    Ok((input_cells, output_cells))
+}
 
-        i += 1;
+pub fn find_cells_by_script_and_filter<F: Fn(usize, Source) -> Result<bool, Error>>(
+    script_type: ScriptType,
+    script: ScriptReader,
+    source: Source,
+    filter: F,
+) -> Result<Vec<usize>, Error> {
+    let cell_indexes = find_cells_by_script(script_type, script, source)?;
+    let mut ret = Vec::new();
+    for i in cell_indexes {
+        if filter(i, source)? {
+            ret.push(i);
+        }
     }
 
-    Ok(cells)
+    Ok(ret)
 }
 
 pub fn load_data<F: Fn(&mut [u8], usize) -> Result<usize, SysError>>(syscall: F) -> Result<Vec<u8>, SysError> {

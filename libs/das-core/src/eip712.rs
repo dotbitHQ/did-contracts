@@ -61,7 +61,7 @@ pub fn verify_eip712_hashes(
             Ok(lock) => {
                 let lock_reader = lock.as_reader();
                 // Only take care of inputs with das-lock
-                if util::is_script_equal(das_lock_reader, lock_reader) {
+                if util::is_type_id_equal(das_lock_reader, lock_reader) {
                     let args = lock_reader.args().raw_data().to_vec();
                     let type_of_args = if required_role_opt.is_some() && required_role_opt == Some(LockRole::Manager) {
                         data_parser::das_lock_args::get_manager_type(lock_reader.args().raw_data())
@@ -126,6 +126,22 @@ pub fn verify_eip712_hashes(
     }
 
     Ok(())
+}
+
+pub fn verify_eip712_hashes_if_no_balance_cell(
+    parser: &WitnessesParser,
+    action: das_packed::BytesReader,
+    params: &[das_packed::BytesReader],
+) -> Result<(), Error> {
+    let config_main = parser.configs.main()?;
+    let balance_cell_type_id = config_main.type_id_table().balance_cell();
+    let (input_balance_cells, output_balance_cells) =
+        util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, balance_cell_type_id)?;
+    if input_balance_cells.len() <= 0 && output_balance_cells.len() <= 0 {
+        verify_eip712_hashes(parser, action, params)
+    } else {
+        Ok(())
+    }
 }
 
 struct DigestAndHash {
@@ -541,7 +557,7 @@ fn to_semantic_address(
     let address;
 
     match lock_reader {
-        x if util::is_script_equal(script_table.das_lock.as_reader(), x.into()) => {
+        x if util::is_type_id_equal(script_table.das_lock.as_reader(), x.into()) => {
             // If this is a das-lock, convert it to address base on args.
             let args_in_bytes = lock_reader.args().raw_data();
             let das_lock_type = DasLockType::try_from(args_in_bytes[0]).map_err(|_| Error::EIP712SerializationError)?;
@@ -571,7 +587,7 @@ fn to_semantic_address(
                 _ => return Err(Error::EIP712SematicError),
             }
         }
-        x if util::is_script_equal(script_table.signall_lock.as_reader(), x.into()) => {
+        x if util::is_type_id_equal(script_table.signall_lock.as_reader(), x.into()) => {
             // If this is a secp256k1_blake160_sighash_all lock, convert it to short address.
             let hash_type: Vec<u8> = vec![1];
             let code_index = vec![0];
@@ -579,7 +595,7 @@ fn to_semantic_address(
 
             address = format!("CKB:{}", script_to_address(code_index, hash_type, args)?)
         }
-        x if util::is_script_equal(script_table.multisign_lock.as_reader(), x.into()) => {
+        x if util::is_type_id_equal(script_table.multisign_lock.as_reader(), x.into()) => {
             // If this is a secp256k1_blake160_sighash_all lock, convert it to short address.
             let hash_type: Vec<u8> = vec![1];
             let code_index = vec![1];

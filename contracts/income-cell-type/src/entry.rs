@@ -519,7 +519,7 @@ fn verify_das_lock_and_balance_type(
     let lock = high_level::load_cell_lock(index, source).map_err(|e| Error::from(e))?;
     let lock_reader = lock.as_reader();
 
-    if util::is_script_equal(das_lock_reader.into(), lock_reader) {
+    if util::is_type_id_equal(das_lock_reader.into(), lock_reader) {
         let type_of_lock = lock_reader.args().raw_data()[0];
         if type_of_lock == DasLockType::ETHTypedData as u8 {
             let type_opt = high_level::load_cell_type(index, source).map_err(|e| Error::from(e))?;

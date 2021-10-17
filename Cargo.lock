@@ -2960,6 +2960,7 @@ dependencies = [
  "ckb-std",
  "ckb-testtool",
  "ckb-tool",
+ "das-core",
  "das-sorted-list",
  "das-types",
  "hex",

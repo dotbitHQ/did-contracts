@@ -96,7 +96,7 @@ pub fn main() -> Result<(), Error> {
             assert!(
                 output_sale_cells[0] == 1,
                 Error::InvalidTransactionStructure,
-                "The AccountSaleCell should only appear in outputs[0]."
+                "The AccountSaleCell should only appear in outputs[1]."
             );
 
             debug!("Verify if the AccountCell is consistent in inputs and outputs.");
@@ -137,15 +137,6 @@ pub fn main() -> Result<(), Error> {
             verify_price(config_secondary_market, output_sale_cell_witness_reader)?;
             verify_description(config_secondary_market, output_sale_cell_witness_reader)?;
             verify_started_at(timestamp, output_sale_cell_witness_reader)?;
-
-            // CAREFUL This is required to trigger EIP712 verification, DO NOT REMOVE.
-            // The balance-cell-type will call verify_eip712_hashes internally, so if it is not exist, call verify_eip712_hashes manually.
-            let balance_cell_type_id = config_main.type_id_table().balance_cell();
-            let (input_balance_cells, output_balance_cells) =
-                util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, balance_cell_type_id)?;
-            if input_balance_cells.len() <= 0 && output_balance_cells.len() <= 0 {
-                verify_eip712_hashes(&parser, action_raw.as_reader(), &params)?;
-            }
         } else if action == b"cancel_account_sale" {
             assert!(
                 input_sale_cells.len() == 1 && output_sale_cells.len() == 0,
@@ -155,7 +146,7 @@ pub fn main() -> Result<(), Error> {
             assert!(
                 input_sale_cells[0] == 1,
                 Error::InvalidTransactionStructure,
-                "The AccountSaleCell should only appear in inputs[0]."
+                "The AccountSaleCell should only appear in inputs[1]."
             );
 
             debug!(
@@ -194,15 +185,6 @@ pub fn main() -> Result<(), Error> {
 
             verify_sale_cell_account_and_id(input_account_cells[0], input_sale_cell_witness_reader)?;
             verify_refund_correctly(config_main, config_secondary_market, input_sale_cells[0])?;
-
-            // CAREFUL This is required to trigger EIP712 verification, DO NOT REMOVE.
-            // The NormalCells in outputs should always have balance-cell-type in their type field.
-            util::require_type_script(
-                &mut parser,
-                TypeScript::BalanceCellType,
-                Source::Output,
-                Error::InvalidTransactionStructure,
-            )?;
         } else if action == b"buy_account" {
             assert!(
                 input_sale_cells.len() == 1 && output_sale_cells.len() == 0,
@@ -278,11 +260,56 @@ pub fn main() -> Result<(), Error> {
                 output_account_cell_lock
             );
 
+            debug!("Verify if the changes for buyer is correctly");
+
+            let mut paied_capacity = 0;
+            for i in balance_cells {
+                let lock = high_level::load_cell_lock(i, Source::Input)?;
+                if util::is_entity_eq(&lock, &new_owner_lock) {
+                    paied_capacity += high_level::load_cell_capacity(i, Source::Input).map_err(Error::from)?;
+                }
+            }
+
+            let change_cells = util::find_cells_by_type_id_and_filter(
+                ScriptType::Type,
+                balance_cell_type_id,
+                Source::Output,
+                |i, source| {
+                    let lock = high_level::load_cell_lock(i, source)?;
+                    Ok(util::is_entity_eq(&lock, &new_owner_lock))
+                },
+            )?;
+            let mut change_capacity = 0;
+            for i in change_cells {
+                change_capacity += high_level::load_cell_capacity(i, Source::Output).map_err(Error::from)?;
+            }
+
+            let price = u64::from(input_sale_cell_witness_reader.price());
+            assert!(
+                paied_capacity >= price,
+                Error::AccountSaleCellNotPayEnough,
+                "The buyer not pay enough to buy the account.(expected: {}, current: {})",
+                price,
+                paied_capacity
+            );
+
+            let expected_change_capacity = paied_capacity - price;
+            assert!(
+                change_capacity == expected_change_capacity,
+                Error::AccountSaleCellChangeError,
+                "The buyer({}) has paied {} shannon and the price is {} shannon, so the change should be {} shannon.(expected: {}, current: {})",
+                new_owner_lock.as_reader().args(),
+                paied_capacity,
+                price,
+                expected_change_capacity,
+                expected_change_capacity,
+                change_capacity
+            );
+
             debug!("Verify if the profit is distribute correctly.");
 
             let seller_lock = util::derive_owner_lock_from_cell(input_account_cells[0], Source::Input)?;
             let (inviter_lock, channel_lock) = decode_scripts_from_params(params)?;
-            let price = u64::from(input_sale_cell_witness_reader.price());
             let account_sale_cell_capacity =
                 high_level::load_cell_capacity(input_sale_cells[0], Source::Input).map_err(Error::from)?;
             let common_fee = u64::from(config_secondary_market.common_fee());
@@ -297,15 +324,6 @@ pub fn main() -> Result<(), Error> {
                 price,
                 account_sale_cell_capacity,
                 common_fee,
-            )?;
-
-            // CAREFUL This is required to trigger EIP712 verification, DO NOT REMOVE.
-            // The NormalCells in outputs should always have balance-cell-type in their type field.
-            util::require_type_script(
-                &mut parser,
-                TypeScript::BalanceCellType,
-                Source::Output,
-                Error::InvalidTransactionStructure,
             )?;
         }
     } else if action == b"edit_account_sale" {
@@ -371,7 +389,7 @@ pub fn main() -> Result<(), Error> {
 
         let input_description = input_cell_witness_reader.description();
         let output_description = output_cell_witness_reader.description();
-        if util::is_reader_eq(input_description, output_description) {
+        if !util::is_reader_eq(input_description, output_description) {
             debug!("Description has been changed, verify if its size is less than ConfigCellSecondaryMarket.sale_description_bytes_limit.");
             verify_description(config_secondary_market_reader, output_cell_witness_reader)?;
             changed = true;
@@ -702,7 +720,7 @@ fn verify_profit_distribution(
 
     if !util::is_reader_eq(default_script_reader, inviter_lock_reader) {
         let profit_rate = u32::from(config_profit_rate.sale_buyer_inviter()) as u64;
-        let profit = price * profit_rate / RATE_BASE;
+        let profit = price / RATE_BASE * profit_rate;
 
         map_util::add(&mut profit_map, inviter_lock_reader.as_slice().to_vec(), profit);
         profit_of_seller -= profit;
@@ -713,16 +731,16 @@ fn verify_profit_distribution(
 
     if !util::is_reader_eq(default_script_reader, channel_lock_reader) {
         let profit_rate = u32::from(config_profit_rate.sale_buyer_channel()) as u64;
-        let profit = price * profit_rate / RATE_BASE;
+        let profit = price / RATE_BASE * profit_rate;
 
         map_util::add(&mut profit_map, channel_lock_reader.as_slice().to_vec(), profit);
         profit_of_seller -= profit;
         debug!("  The profit of the channel: {}", profit);
     } else {
-        profit_rate_of_das += u32::from(config_profit_rate.sale_buyer_inviter()) as u64;
+        profit_rate_of_das += u32::from(config_profit_rate.sale_buyer_channel()) as u64;
     }
 
-    let profit = price * profit_rate_of_das / RATE_BASE;
+    let profit = price / RATE_BASE * profit_rate_of_das;
     let das_wallet_lock = das_wallet_lock();
 
     map_util::add(&mut profit_map, das_wallet_lock.as_slice().to_vec(), profit);
@@ -738,7 +756,7 @@ fn verify_profit_distribution(
     for i in das_lock_cells {
         let type_script_opt = high_level::load_cell_type(i, Source::Output).map_err(Error::from)?;
         if let Some(type_script) = type_script_opt {
-            if util::is_script_equal(balance_cell_type.as_reader().into(), type_script.as_reader()) {
+            if util::is_type_id_equal(balance_cell_type.as_reader().into(), type_script.as_reader()) {
                 seller_balance_cells.push(i);
             }
         }

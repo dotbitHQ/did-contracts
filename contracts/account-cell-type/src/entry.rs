@@ -1,5 +1,6 @@
 use alloc::{boxed::Box, string::String, vec, vec::Vec};
 use ckb_std::{ckb_constants::Source, ckb_types::prelude::*, error::SysError, high_level};
+use das_core::eip712::verify_eip712_hashes_if_no_balance_cell;
 use das_core::{
     assert,
     constants::{das_lock, das_wallet_lock, OracleCellType, ScriptType, TypeScript, CUSTOM_KEYS_NAMESPACE},
@@ -457,13 +458,22 @@ pub fn main() -> Result<(), Error> {
             expiration_grace_period
         );
     } else if action == b"start_account_sale" {
+        verify_eip712_hashes_if_no_balance_cell(&parser, action_raw.as_reader(), &params)?;
         util::require_type_script(
             &mut parser,
             TypeScript::AccountSaleCellType,
             Source::Output,
             Error::InvalidTransactionStructure,
         )?;
-    } else if action == b"cancel_account_sale" || action == b"buy_account" {
+    } else if action == b"cancel_account_sale" {
+        verify_eip712_hashes_if_no_balance_cell(&parser, action_raw.as_reader(), &params)?;
+        util::require_type_script(
+            &mut parser,
+            TypeScript::AccountSaleCellType,
+            Source::Input,
+            Error::InvalidTransactionStructure,
+        )?;
+    } else if action == b"buy_account" {
         util::require_type_script(
             &mut parser,
             TypeScript::AccountSaleCellType,
@@ -564,11 +574,12 @@ pub fn main() -> Result<(), Error> {
             let cell;
             if input_status == AccountStatus::Selling as u8 {
                 let type_id = parser.configs.main()?.type_id_table().account_sale_cell();
-                cell = util::find_only_cell_by_type_id(ScriptType::Type, type_id, Source::Input)?;
+                let (input_sale_cells, output_sale_cells) =
+                    util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, type_id)?;
                 assert!(
-                    cell == 1,
+                    input_sale_cells.len() == 1 && output_sale_cells.len() == 0 && input_sale_cells[0] == 1,
                     Error::InvalidTransactionStructure,
-                    "There should be an AccountSaleCell at inputs[1]."
+                    "There should be only one AccountSaleCell at inputs[1]."
                 );
 
                 let cell_witness;
@@ -577,7 +588,7 @@ pub fn main() -> Result<(), Error> {
                     cell_witness,
                     cell_witness_reader,
                     parser,
-                    cell,
+                    input_sale_cells[0],
                     Source::Input,
                     AccountSaleCellData
                 );
@@ -586,17 +597,12 @@ pub fn main() -> Result<(), Error> {
                     account == cell_witness_reader.account().raw_data(),
                     Error::AccountSaleCellAccountIdInvalid,
                     "The account in AccountCell and AccountSaleCell should be the same."
-                )
-            } else {
-                let type_id = parser.configs.main()?.type_id_table().account_auction_cell();
-                cell = util::find_only_cell_by_type_id(ScriptType::Type, type_id, Source::Input)?;
-                assert!(
-                    cell == 1,
-                    Error::InvalidTransactionStructure,
-                    "There should be an AccountAuctionCell at inputs[1]."
                 );
 
+                cell = input_sale_cells[0];
+            } else {
                 // TODO Verify the account in AccountCell and AccountAuctionCell is the same.
+                cell = 0;
             }
             capacity_should_recycle = high_level::load_cell_capacity(cell, Source::Input).map_err(Error::from)?;
 
@@ -927,7 +933,7 @@ fn verify_cells_with_das_lock() -> Result<(), Error> {
         match ret {
             Ok(lock) => {
                 // Check if cells with das-lock in inputs can only has account-cell-type.
-                if util::is_script_equal(das_lock_reader, lock.as_reader()) {
+                if util::is_type_id_equal(das_lock_reader, lock.as_reader()) {
                     let type_opt = high_level::load_cell_type(i, Source::Input).map_err(|e| Error::from(e))?;
                     match type_opt {
                         Some(type_) if util::is_reader_eq(this_script_reader, type_.as_reader()) => {}
