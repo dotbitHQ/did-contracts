@@ -1,7 +1,5 @@
-use super::super::util;
-use super::super::util::{constants::*, template_generator::*, template_parser::TemplateParser};
+use super::super::util::{self, constants::*, error::Error, template_generator::*, template_parser::TemplateParser};
 use ckb_testtool::context::Context;
-use das_core::error::Error;
 use das_types::{constants::*, packed::*};
 
 fn gen_proposal_related_cell_at_confirm(

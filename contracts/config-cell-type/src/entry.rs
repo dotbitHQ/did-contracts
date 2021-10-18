@@ -12,10 +12,16 @@ pub fn main() -> Result<(), Error> {
     debug!("====== Running config-cell-type ======");
 
     let parser = WitnessesParser::new()?;
+    let action_opt = parser.parse_action_with_params()?;
+    if action_opt.is_none() {
+        return Err(Error::ActionNotSupported);
+    }
+
+    let (action_raw, _) = action_opt.unwrap();
+    let action = action_raw.as_reader().raw_data();
+
     // ⚠️ NEVER use util::is_system_off here! That will make it impossible to turn the system back on by updating the ConfigCellMain. ⚠️
 
-    let action_data = parser.parse_action()?;
-    let action = action_data.as_reader().action().raw_data();
     if action == b"config" {
         debug!("Route to config action ...");
 
@@ -54,7 +60,7 @@ pub fn main() -> Result<(), Error> {
 
             assert!(
                 cell_lock_hash == super_lock_hash,
-                Error::CellMustUseSuperLock,
+                Error::SuperLockIsRequired,
                 "The ConfigCells in outputs must use super lock."
             );
 

@@ -40,8 +40,10 @@ macro_rules! assert {
 macro_rules! parse_witness {
     ($entity:expr, $entity_reader:expr, $parser:expr, $index:expr, $source:expr, $entity_type:ty) => {{
         let (_, _, mol_bytes) = $parser.verify_and_get($index, $source)?;
-        $entity = <$entity_type>::from_slice(mol_bytes.as_reader().raw_data())
-            .map_err(|_| Error::WitnessEntityDecodingError)?;
+        $entity = <$entity_type>::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
+            $crate::warn!("Decoding {} failed", stringify!($entity_type));
+            Error::WitnessEntityDecodingError
+        })?;
         $entity_reader = $entity.as_reader();
     }};
 }
@@ -52,14 +54,18 @@ macro_rules! parse_account_cell_witness {
         let (version, _, mol_bytes) = $parser.verify_and_get($index, $source)?;
         if version == 1 {
             $entity = Box::new(
-                AccountCellDataV1::from_slice(mol_bytes.as_reader().raw_data())
-                    .map_err(|_| Error::WitnessEntityDecodingError)?,
+                AccountCellDataV1::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
+                    $crate::warn!("Decoding AccountCellDataV1 failed");
+                    Error::WitnessEntityDecodingError
+                })?,
             );
             $entity_reader = $entity.as_reader();
         } else {
             $entity = Box::new(
-                AccountCellData::from_slice(mol_bytes.as_reader().raw_data())
-                    .map_err(|_| Error::WitnessEntityDecodingError)?,
+                AccountCellData::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
+                    $crate::warn!("Decoding AccountCellData failed");
+                    Error::WitnessEntityDecodingError
+                })?,
             );
             $entity_reader = $entity.as_reader();
         }

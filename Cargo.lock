@@ -3,14 +3,36 @@
 version = 3
 
 [[package]]
+name = "account-auction-cell-type"
+version = "1.0.0"
+dependencies = [
+ "chrono",
+ "ckb-std",
+ "das-core",
+ "das-map",
+ "das-types",
+]
+
+[[package]]
 name = "account-cell-type"
-version = "1.2.1"
+version = "1.3.1"
 dependencies = [
  "chrono",
  "ckb-std",
  "das-core",
  "das-types",
  "eip712",
+]
+
+[[package]]
+name = "account-sale-cell-type"
+version = "1.0.0"
+dependencies = [
+ "chrono",
+ "ckb-std",
+ "das-core",
+ "das-map",
+ "das-types",
 ]
 
 [[package]]
@@ -113,7 +135,7 @@ checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 
 [[package]]
 name = "balance-cell-type"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "ckb-std",
  "das-core",
@@ -975,9 +997,9 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-channel"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dca26ee1f8d361640700bde38b2c37d8c22b3ce2d360e1fc1c74ea4b0aa7d775"
+checksum = "06ed27e177f16d65f0f0c22a213e17c696ace5dd64b14258b52f9417ccb52db4"
 dependencies = [
  "cfg-if 1.0.0",
  "crossbeam-utils 0.8.1",
@@ -1060,7 +1082,7 @@ dependencies = [
 
 [[package]]
 name = "das-core"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "bech32",
  "blake2b-ref 0.3.0",
@@ -1096,9 +1118,10 @@ dependencies = [
 
 [[package]]
 name = "das-types"
-version = "1.3.0"
+version = "1.4.0"
 dependencies = [
  "ckb-std",
+ "ckb-types",
  "molecule",
  "no-std-compat",
 ]
@@ -1956,9 +1979,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.5.2"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13bd41f508810a131401606d54ac32a467c97172d74ba7662562ebba5ad07fa0"
+checksum = "692fcb63b64b1758029e0a96ee63e049ce8c5948587f2f7208df04625e5f6b56"
 
 [[package]]
 name = "opaque-debug"
@@ -2455,7 +2478,7 @@ version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ab346ac5921dc62ffa9f89b7a773907511cdfa5490c572ae9be1be33e8afa4a"
 dependencies = [
- "crossbeam-channel 0.5.0",
+ "crossbeam-channel 0.5.1",
  "crossbeam-deque",
  "crossbeam-utils 0.8.1",
  "lazy_static",
@@ -2934,6 +2957,7 @@ name = "tests"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "ckb-std",
  "ckb-testtool",
  "ckb-tool",
  "das-core",

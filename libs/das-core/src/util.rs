@@ -1,4 +1,6 @@
-use super::{assert, constants::*, debug, error::Error, types::ScriptLiteral, warn, witness_parser::WitnessesParser};
+use super::{
+    assert, constants::*, data_parser, debug, error::Error, types::ScriptLiteral, warn, witness_parser::WitnessesParser,
+};
 use blake2b_ref::{Blake2b, Blake2bBuilder};
 use ckb_std::{
     ckb_constants::{CellField, Source},
@@ -11,9 +13,10 @@ use das_types::{
     constants::{DataType, LockRole, WITNESS_HEADER},
     packed as das_packed,
 };
+use std::prelude::v1::*;
+
 #[cfg(test)]
 use hex::FromHexError;
-use std::prelude::v1::*;
 
 pub use das_types::util::{hex_string, is_entity_eq, is_reader_eq};
 
@@ -55,12 +58,19 @@ pub fn script_literal_to_script(script: ScriptLiteral) -> Script {
         .build()
 }
 
+pub fn type_id_to_script(type_id: das_packed::HashReader) -> das_packed::Script {
+    das_packed::Script::new_builder()
+        .code_hash(type_id.to_entity())
+        .hash_type(das_packed::Byte::new(ScriptType::Type as u8))
+        .build()
+}
+
 pub fn is_unpacked_bytes_eq(a: &bytes::Bytes, b: &bytes::Bytes) -> bool {
     **a == **b
 }
 
-pub fn is_script_equal(script_a: ScriptReader, script_b: ScriptReader) -> bool {
-    // CAREFUL: It is critical that must ensure both code_hash and hash_type are the same to identify the same script.
+pub fn is_type_id_equal(script_a: ScriptReader, script_b: ScriptReader) -> bool {
+    // CAREFUL: It is critical that must ensure both code_hash and hash_type are consistent to identify the same script.
     is_reader_eq(script_a.code_hash(), script_b.code_hash()) && script_a.hash_type() == script_b.hash_type()
 }
 
@@ -121,6 +131,23 @@ pub fn find_cells_by_type_id_in_inputs_and_outputs(
     Ok((input_cells, output_cells))
 }
 
+pub fn find_cells_by_type_id_and_filter<F: Fn(usize, Source) -> Result<bool, Error>>(
+    script_type: ScriptType,
+    type_id: das_packed::HashReader,
+    source: Source,
+    filter: F,
+) -> Result<Vec<usize>, Error> {
+    let cell_indexes = find_cells_by_type_id(script_type, type_id, source)?;
+    let mut ret = Vec::new();
+    for i in cell_indexes {
+        if filter(i, source)? {
+            ret.push(i);
+        }
+    }
+
+    Ok(ret)
+}
+
 pub fn find_only_cell_by_type_id(
     script_type: ScriptType,
     type_id: das_packed::HashReader,
@@ -172,34 +199,6 @@ pub fn find_cells_by_script(
     Ok(cell_indexes)
 }
 
-pub fn find_cells<F>(f: F, source: Source) -> Result<Vec<(CellOutput, usize)>, Error>
-where
-    F: Fn(&CellOutput, usize) -> bool,
-{
-    let mut i = 0;
-    let mut cells = Vec::new();
-    loop {
-        let ret = high_level::load_cell(i, source);
-        if let Err(e) = ret {
-            if e == SysError::IndexOutOfBound {
-                break;
-            } else {
-                return Err(Error::from(e));
-            }
-        }
-
-        let cell = ret.unwrap();
-        // debug!("{}", util::cmp_script(&input_lock, &super_lock));
-        if f(&cell, i) {
-            cells.push((cell, i));
-        }
-
-        i += 1;
-    }
-
-    Ok(cells)
-}
-
 pub fn find_cells_by_script_in_inputs_and_outputs(
     script_type: ScriptType,
     script: ScriptReader,
@@ -208,6 +207,23 @@ pub fn find_cells_by_script_in_inputs_and_outputs(
     let output_cells = find_cells_by_script(script_type, script, Source::Output)?;
 
     Ok((input_cells, output_cells))
+}
+
+pub fn find_cells_by_script_and_filter<F: Fn(usize, Source) -> Result<bool, Error>>(
+    script_type: ScriptType,
+    script: ScriptReader,
+    source: Source,
+    filter: F,
+) -> Result<Vec<usize>, Error> {
+    let cell_indexes = find_cells_by_script(script_type, script, source)?;
+    let mut ret = Vec::new();
+    for i in cell_indexes {
+        if filter(i, source)? {
+            ret.push(i);
+        }
+    }
+
+    Ok(ret)
 }
 
 pub fn load_data<F: Fn(&mut [u8], usize) -> Result<usize, SysError>>(syscall: F) -> Result<Vec<u8>, SysError> {
@@ -305,6 +321,14 @@ pub fn load_oracle_data(type_: OracleCellType) -> Result<u64, Error> {
     Ok(data_in_uint as u64)
 }
 
+pub fn load_self_cells_in_inputs_and_outputs() -> Result<(Vec<usize>, Vec<usize>), Error> {
+    let this_type_script = high_level::load_script().map_err(|e| Error::from(e))?;
+    let (input_cell, output_cell) =
+        find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
+
+    Ok((input_cell, output_cell))
+}
+
 pub fn trim_empty_bytes(buf: &[u8]) -> &[u8] {
     let header = buf.get(..3);
     let length = buf
@@ -370,10 +394,7 @@ pub fn load_das_witnesses(index: usize, data_type: DataType) -> Result<Vec<u8>, 
             debug!("Load witnesses[{}]: {:?} size: {} Bytes", index, data_type, actual_size);
 
             if actual_size > 32000 {
-                warn!(
-                    "The witnesses[{}] should be less than 32KB because the signall lock do not support more than that.",
-                    index
-                );
+                warn!("The witnesses[{}] should be less than 32KB because the signall lock do not support more than that.", index);
                 Err(Error::from(SysError::LengthNotEnough(actual_size)))
             } else {
                 let mut buf = vec![0u8; actual_size];
@@ -686,14 +707,17 @@ pub fn require_type_script(
         TypeScript::ApplyRegisterCellType => config.type_id_table().apply_register_cell(),
         TypeScript::BalanceCellType => config.type_id_table().balance_cell(),
         TypeScript::IncomeCellType => config.type_id_table().income_cell(),
+        TypeScript::AccountSaleCellType => config.type_id_table().account_sale_cell(),
+        TypeScript::AccountAuctionCellType => config.type_id_table().account_auction_cell(),
         TypeScript::PreAccountCellType => config.type_id_table().pre_account_cell(),
         TypeScript::ProposalCellType => config.type_id_table().proposal_cell(),
     };
 
     debug!(
-        "Require on: 0x{}({:?})",
+        "Require on: 0x{}({:?}) in {:?}",
         hex_string(type_id.raw_data()),
-        TypeScript::AccountCellType
+        type_script,
+        source
     );
 
     // Find out required cell in current transaction.
@@ -705,7 +729,7 @@ pub fn require_type_script(
         "The cells in {:?} which has type script 0x{}({:?}) is required in this transaction.",
         source,
         hex_string(type_id.raw_data()),
-        TypeScript::AccountCellType
+        type_script
     );
 
     Ok(())
@@ -720,12 +744,41 @@ pub fn require_super_lock() -> Result<(), Error> {
     Ok(())
 }
 
-pub fn get_action_required_role(action: das_packed::BytesReader) -> LockRole {
-    // TODO Refactor all places which used LockRole with this function.
+/// Get the role required by each action
+pub fn get_action_required_role(action: das_packed::BytesReader) -> Option<LockRole> {
     match action.raw_data() {
-        b"edit_records" => LockRole::Manager,
-        _ => LockRole::Owner,
+        // account-cell-type
+        b"transfer_account" => Some(LockRole::Owner),
+        b"edit_manager" => Some(LockRole::Owner),
+        b"edit_records" => Some(LockRole::Manager),
+        // account-sale-cell-type
+        b"start_account_sale" => Some(LockRole::Owner),
+        b"edit_account_sale" => Some(LockRole::Owner),
+        b"cancel_account_sale" => Some(LockRole::Owner),
+        b"buy_account" => Some(LockRole::Owner),
+        _ => None,
     }
+}
+
+pub fn derive_owner_lock_from_cell(input_cell: usize, source: Source) -> Result<Script, Error> {
+    let lock = high_level::load_cell_lock(input_cell, source).map_err(Error::from)?;
+    let lock_bytes = lock.as_reader().args().raw_data();
+    let owner_lock_type = data_parser::das_lock_args::get_owner_type(lock_bytes);
+    let owner_lock_args = data_parser::das_lock_args::get_owner_lock_args(lock_bytes);
+
+    // Build expected refund lock.
+    let args = das_packed::Bytes::from(
+        [
+            vec![owner_lock_type],
+            owner_lock_args.to_vec(),
+            vec![owner_lock_type],
+            owner_lock_args.to_vec(),
+        ]
+        .concat(),
+    );
+    let lock_of_balance_cell = lock.as_builder().args(args.into()).build();
+
+    Ok(lock_of_balance_cell)
 }
 
 #[cfg(test)]

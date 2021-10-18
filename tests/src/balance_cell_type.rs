@@ -1,6 +1,5 @@
-use super::util::{constants::*, hex_to_bytes, template_generator::*, template_parser::TemplateParser};
+use crate::util::{constants::*, error::Error, hex_to_bytes, template_generator::*, template_parser::TemplateParser};
 use ckb_testtool::context::Context;
-use das_core::error::Error;
 use das_types::{constants::DataType, packed::*};
 use serde_json::json;
 
@@ -32,7 +31,7 @@ test_with_generator!(test_balance_only_handle_type_5, || {
         "0x050000000000000000000000000000000000004444",
         10_000_000_000,
         Source::Input,
-        Some("5d32b6300242a0fc9426232d22f0ab932ba705650cec1188a9c2fc4e6f37fcd3"),
+        Some("64f4a12df8ec6ab8ea6ae10896b24f40eb5588fab1709d3d2a17dfb244bcae72"),
     );
     template.push_das_lock_cell(
         "0x050000000000000000000000000000000000004444",
@@ -184,13 +183,13 @@ test_with_generator!(test_balance_work_with_other_type, || {
         1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
         Source::Input,
     );
-    template.push_das_lock_witness("f84f9a273546319adf7cf837b744c6a608b9d7558f5c061cbb32df26bcaa30d1");
+    template.push_das_lock_witness("9f6c52989eceae6d76a7cc34b0c82815958830051359615d4b703b10fc2df27b");
 
     template.push_das_lock_cell(
         "0x050000000000000000000000000000000000001111",
         10_000_000_000,
         Source::Input,
-        Some("f84f9a273546319adf7cf837b744c6a608b9d7558f5c061cbb32df26bcaa30d1"),
+        Some("9f6c52989eceae6d76a7cc34b0c82815958830051359615d4b703b10fc2df27b"),
     );
 
     // outputs
@@ -198,7 +197,7 @@ test_with_generator!(test_balance_work_with_other_type, || {
         template.gen_account_cell_data(account, next_account, registered_at, expired_at, timestamp, 0, 0, None);
     template.push_account_cell::<AccountCellData>(
         "0x050000000000000000000000000000000000002222",
-        "0x050000000000000000000000000000000000002222",
+        "0x050000000000000000000000000000000000001111",
         cell_data,
         None,
         1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY - ACCOUNT_OPERATE_FEE,

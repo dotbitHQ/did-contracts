@@ -1,17 +1,17 @@
 #![allow(unused_imports)]
 #![allow(unused_variables)]
 
-use super::data_parser::{account_cell, apply_register_cell, pre_account_cell};
-use super::debug;
+use super::{
+    data_parser::{account_cell, apply_register_cell, pre_account_cell},
+    debug,
+};
+use alloc::string::String;
 use ckb_std::ckb_constants::Source;
 use core::convert::TryInto;
 use das_types::{packed::*, prelude::*, util::hex_string};
 
 pub fn apply_register_cell(source: Source, index: usize, data: &Vec<u8>) {
-    debug!(
-        "  ====== {:?}[{}] ApplyRegisterCell ↓ ======",
-        source, index
-    );
+    debug!("  ====== {:?}[{}] ApplyRegisterCell ↓ ======", source, index);
 
     debug!(
         "    data: {{ hash: 0x{}, height: {}, timestamp: {} }}",
@@ -30,10 +30,7 @@ pub fn pre_account_cell(
 ) {
     debug!("  ====== {:?}[{}] PreAccountCell ↓ ======", source, index);
 
-    debug!(
-        "    data: {{ id: 0x{} }}",
-        hex_string(pre_account_cell::get_id(&data))
-    );
+    debug!("    data: {{ id: 0x{} }}", hex_string(pre_account_cell::get_id(&data)));
 
     let witness_reader;
     if raw_witness.is_some() {
@@ -55,18 +52,15 @@ pub fn account_cell(
     raw_witness: Option<BytesReader>,
     witness_reader_opt: Option<AccountCellDataReader>,
 ) {
-    debug!(
-        "  ====== {:?}[{}] AccountCell(v{}) ↓ ======",
-        source, index, version
-    );
+    debug!("  ====== {:?}[{}] AccountCell(v{}) ↓ ======", source, index, version);
 
     debug!(
-        "    data: {{ hash: 0x{}, id: 0x{}, next: 0x{}, expired_at: {}, account: 0x{} }}",
+        "    data: {{ hash: 0x{}, id: 0x{}, next: 0x{}, expired_at: {}, account: {} }}",
         hex_string(data.get(..32).unwrap()),
         hex_string(account_cell::get_id(&data)),
         hex_string(account_cell::get_next(&data)),
         account_cell::get_expired_at(&data),
-        hex_string(account_cell::get_account(&data))
+        String::from_utf8(account_cell::get_account(&data).to_vec()).unwrap()
     );
 
     let mut witness_reader: Option<AccountCellDataReader> = None;
@@ -74,15 +68,13 @@ pub fn account_cell(
     if raw_witness.is_some() {
         if version == 1 {
             witness_reader_v1 = Some(
-                AccountCellDataV1Reader::from_slice(raw_witness.unwrap().raw_data()).expect(
-                    "Failed to decode witness, please check the version of the AccountCell.",
-                ),
+                AccountCellDataV1Reader::from_slice(raw_witness.unwrap().raw_data())
+                    .expect("Failed to decode witness, please check the version of the AccountCell."),
             );
         } else {
             witness_reader = Some(
-                AccountCellDataReader::from_slice(raw_witness.unwrap().raw_data()).expect(
-                    "Failed to decode witness, please check the version of the AccountCell.",
-                ),
+                AccountCellDataReader::from_slice(raw_witness.unwrap().raw_data())
+                    .expect("Failed to decode witness, please check the version of the AccountCell."),
             );
         }
     } else if witness_reader_opt.is_some() {
@@ -116,10 +108,7 @@ pub fn income_cell(
     }
 
     debug!("    witness.creator: {}", witness_reader.creator());
-    debug!(
-        "    witness.records: {} total",
-        witness_reader.records().len()
-    );
+    debug!("    witness.records: {} total", witness_reader.records().len());
     for (i, record) in witness_reader.records().iter().enumerate() {
         debug!(
             "      {{ index: {}, belong_to.args: {}, capacity: {} }}",
