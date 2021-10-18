@@ -1,13 +1,13 @@
 use super::common::{init, init_without_apply};
-use crate::util;
 use crate::util::{
+    self,
     constants::*,
+    error::Error,
     template_generator::{gen_account_chars, gen_das_lock_args, gen_fake_signhash_all_lock},
     template_parser::TemplateParser,
 };
 use ckb_testtool::context::Context;
 use ckb_tool::ckb_hash::blake2b_256;
-use das_core::error::Error;
 use das_types::{packed::*, prelude::*};
 use std::convert::TryFrom;
 

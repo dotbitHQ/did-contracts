@@ -1,12 +1,4 @@
-use super::{
-    constants::{Source, MULTISIG_TYPE_HASH, SECP_SIGNATURE_SIZE, SIGHASH_TYPE_HASH, TYPE_ID_TABLE},
-    util::{
-        build_signature, deploy_builtin_contract, deploy_dev_contract, get_privkey_signer, hex_to_byte32, hex_to_bytes,
-        hex_to_u64, mock_cell_with_outpoint, mock_header_deps, mock_input, mock_out_point,
-    },
-};
-use crate::util::constants::MAX_CYCLES;
-use crate::util::deploy_shared_lib;
+use super::{constants::*, util};
 use ckb_testtool::context::Context;
 use ckb_tool::{
     ckb_error, ckb_jsonrpc_types as rpc_types,
@@ -20,18 +12,13 @@ use ckb_tool::{
         H160, H256,
     },
 };
-use lazy_static::lazy_static;
-use regex::Regex;
 use serde_json::Value;
-use std::collections::hash_map::RandomState;
-use std::collections::{HashMap, HashSet};
-use std::error::Error;
-use std::fs::File;
-use std::io::Read;
-
-lazy_static! {
-    static ref VARIABLE_REG: Regex = Regex::new(r"\{\{([\w\-\.]+)\}\}").unwrap();
-}
+use std::{
+    collections::{hash_map::RandomState, HashMap, HashSet},
+    error::Error,
+    fs::File,
+    io::Read,
+};
 
 pub struct TemplateParser {
     pub context: Context,
@@ -108,8 +95,8 @@ impl TemplateParser {
     fn init_contracts() -> HashMap<String, Byte32, RandomState> {
         // The type IDs here are testing only.
         let mut contracts = HashMap::new();
-        for (key, val) in TYPE_ID_TABLE.iter() {
-            contracts.insert(key.to_string(), hex_to_byte32(val).unwrap());
+        for (&key, &val) in TYPE_ID_TABLE.iter() {
+            contracts.insert(key.to_string(), util::hex_to_byte32(val).unwrap());
         }
 
         contracts
@@ -198,6 +185,7 @@ impl TemplateParser {
     }
 
     pub fn sign_by_keys(&mut self, private_keys: Vec<&str>) -> Result<(), Box<dyn Error>> {
+        // TODO Support sign transaction in tests
         for key in private_keys {
             self.sign_by_key(key)?
         }
@@ -206,7 +194,8 @@ impl TemplateParser {
     }
 
     pub fn sign_by_key(&mut self, private_key: &str) -> Result<(), Box<dyn Error>> {
-        let mut signer = get_privkey_signer(private_key);
+        // TODO Support sign transaction in tests
+        let mut signer = util::get_privkey_signer(private_key);
         let input_size = self.inputs.len();
 
         let mut witnesses = if self.witnesses.len() <= 0 {
@@ -228,7 +217,7 @@ impl TemplateParser {
 
             if signer(&lock_args, &h256!("0x0"), &Transaction::default().into())?.is_some() {
                 let transaction = self.build_tx();
-                let signature = build_signature(
+                let signature = util::build_signature(
                     &transaction,
                     input_size,
                     &idxs,
@@ -284,7 +273,8 @@ impl TemplateParser {
                 let hex = item["number"]
                     .as_str()
                     .ok_or(format!("Field `header_deps[{}].number` is required.", i))?;
-                number = hex_to_u64(hex).expect(&format!("Field `header_deps[{}].number` is not valid u64 in hex.", i));
+                number = util::hex_to_u64(hex)
+                    .expect(&format!("Field `header_deps[{}].number` is not valid u64 in hex.", i));
             }
 
             let timestamp: u64;
@@ -296,13 +286,13 @@ impl TemplateParser {
                 let hex = item["timestamp"]
                     .as_str()
                     .ok_or(format!("Field `header_deps[{}].timestamp` is required.", i))?;
-                timestamp = hex_to_u64(hex).expect(&format!(
+                timestamp = util::hex_to_u64(hex).expect(&format!(
                     "Field `header_deps[{}].timestamp` is not valid u64 in hex.",
                     i
                 ));
             }
 
-            mock_header_deps(&mut self.context, hex_to_byte32(header_hash)?, number, timestamp);
+            util::mock_header_deps(&mut self.context, util::hex_to_byte32(header_hash)?, number, timestamp);
         }
 
         Ok(())
@@ -313,21 +303,21 @@ impl TemplateParser {
             match item["tmp_type"].as_str() {
                 Some("contract") => {
                     let name = item["tmp_file_name"].as_str().unwrap();
-                    let (type_id, _, cell_dep) = deploy_dev_contract(&mut self.context, name, Some(i));
+                    let (type_id, _, cell_dep) = util::deploy_dev_contract(&mut self.context, name, Some(i));
                     // println!("{:>30}: {}", name, type_id);
                     self.deps.push(cell_dep);
                     self.contracts.insert(name.to_string(), type_id);
                 }
                 Some("deployed_contract") => {
                     let name = item["tmp_file_name"].as_str().unwrap();
-                    let (type_id, _, cell_dep) = deploy_builtin_contract(&mut self.context, name, Some(i));
+                    let (type_id, _, cell_dep) = util::deploy_builtin_contract(&mut self.context, name, Some(i));
                     // println!("{:>30}: {}", name, type_id);
                     self.deps.push(cell_dep);
                     self.contracts.insert(name.to_string(), type_id);
                 }
                 Some("shared_lib") => {
                     let name = item["tmp_file_name"].as_str().unwrap();
-                    let (code_hash, _, cell_dep) = deploy_shared_lib(&mut self.context, name, Some(i));
+                    let (code_hash, _, cell_dep) = util::deploy_shared_lib(&mut self.context, name, Some(i));
                     // println!("{:>30}: {}", name, type_id);
                     self.deps.push(cell_dep);
                     self.contracts.insert(name.to_string(), code_hash);
@@ -340,8 +330,8 @@ impl TemplateParser {
                         .parse_cell(item.clone(), Source::CellDep)
                         .map_err(|err| format!("Field `cell_deps[]` parse failed: {}", err.to_string()))?;
                     // Generate static out point for debugging purposes.
-                    let out_point = mock_out_point(i);
-                    mock_cell_with_outpoint(
+                    let out_point = util::mock_out_point(i);
+                    util::mock_cell_with_outpoint(
                         &mut self.context,
                         out_point.clone(),
                         capacity,
@@ -372,8 +362,8 @@ impl TemplateParser {
                         .parse_cell(item["previous_output"].clone(), Source::Input)
                         .map_err(|err| format!("Field `inputs[].previous_output` parse failed: {}", err.to_string()))?;
                     // Generate static out point for debugging purposes, and it use the space of 1_000_000 to u64::Max.
-                    let out_point = mock_out_point(i + 1_000_000);
-                    mock_cell_with_outpoint(
+                    let out_point = util::mock_out_point(i + 1_000_000);
+                    util::mock_cell_with_outpoint(
                         &mut self.context,
                         out_point.clone(),
                         capacity,
@@ -388,13 +378,13 @@ impl TemplateParser {
                         since = item["since"].as_u64();
                     } else {
                         let hex = item["since"].as_str();
-                        since =
-                            hex.map(|hex| hex_to_u64(hex).expect("Field `inputs[].since` is not valid u64 in hex."));
+                        since = hex
+                            .map(|hex| util::hex_to_u64(hex).expect("Field `inputs[].since` is not valid u64 in hex."));
                     }
 
                     // TODO implement context.link_cell_with_block
 
-                    self.inputs.push(mock_input(out_point, since));
+                    self.inputs.push(util::mock_input(out_point, since));
                 }
                 _ => {
                     return Err("Unsupported inputs type.".into());
@@ -446,7 +436,7 @@ impl TemplateParser {
             capacity = cell["capacity"].as_u64().ok_or("Field `cell.capacity` is required.")?;
         } else {
             let hex = cell["capacity"].as_str().ok_or("Field `cell.capacity` is required.")?;
-            capacity = hex_to_u64(hex).expect("Field `cell.capacity` is not valid u64 in hex.");
+            capacity = util::hex_to_u64(hex).expect("Field `cell.capacity` is not valid u64 in hex.");
         }
 
         // parse lock script and type script of cell
@@ -460,10 +450,7 @@ impl TemplateParser {
         // parse data of cell
         let data;
         if let Some(hex) = cell["tmp_data"].as_str() {
-            data = Some(hex_to_bytes(hex))
-            // data = Some(hex_to_bytes(hex).map_err(|err| {
-            //     format!("Field `cell.tmp_data` parse failed: {}", err.to_string())
-            // })?)
+            data = Some(util::hex_to_bytes(hex))
         } else {
             data = None;
         }
@@ -480,7 +467,7 @@ impl TemplateParser {
         if let Some(code_hash) = script_val["code_hash"].as_str() {
             // If code_hash is variable like {{xxx}}, then parse script field as deployed contract,
             let real_code_hash;
-            if let Some(caps) = VARIABLE_REG.captures(code_hash) {
+            if let Some(caps) = RE_VARIABLE.captures(code_hash) {
                 let script_name = caps.get(1).map(|m| m.as_str()).unwrap();
                 real_code_hash = match self.contracts.get(script_name) {
                     Some(code_hash) => code_hash.to_owned(),
@@ -500,13 +487,13 @@ impl TemplateParser {
                 let code_hash_str: &str = script_val["code_hash"]
                     .as_str()
                     .expect("The code_hash field is required.");
-                real_code_hash = hex_to_byte32(code_hash_str)?;
+                real_code_hash = util::hex_to_byte32(code_hash_str)?;
             }
 
             let mut args: String = script_val["args"].as_str().unwrap_or("").to_string();
             if !args.is_empty() {
                 // If args is not empty, try to find and replace variables in args.
-                if let Some(caps) = VARIABLE_REG.captures(&args) {
+                if let Some(caps) = RE_VARIABLE.captures(&args) {
                     let script_name = caps.get(1).map(|m| m.as_str()).unwrap();
                     let code_hash = if source == Source::CellDep {
                         Byte32::default()
@@ -533,7 +520,7 @@ impl TemplateParser {
                 Script::new_builder()
                     .code_hash(real_code_hash)
                     .hash_type(hash_type.into())
-                    .args(bytes::Bytes::from(hex_to_bytes(&args)).pack())
+                    .args(bytes::Bytes::from(util::hex_to_bytes(&args)).pack())
                     .build(),
             );
         } else {
@@ -547,13 +534,7 @@ impl TemplateParser {
         for (_i, witness) in witnesses.into_iter().enumerate() {
             let data = witness
                 .as_str()
-                .map(|hex| {
-                    bytes::Bytes::from(hex_to_bytes(hex))
-                    // hex_to_bytes(hex).expect(&format!(
-                    //     "Field `witnesses[{}]` is not valid u64 in hex.",
-                    //     i
-                    // ))
-                })
+                .map(|hex| bytes::Bytes::from(util::hex_to_bytes(hex)))
                 .unwrap();
 
             self.witnesses.push(data.pack());

@@ -1,8 +1,6 @@
-use super::super::util;
-use super::super::util::{constants::*, template_parser::TemplateParser};
 use super::common::init;
+use crate::util::{self, constants::*, error::Error, template_parser::TemplateParser};
 use ckb_testtool::context::Context;
-use das_core::error::Error;
 use das_types::constants::*;
 
 test_with_generator!(test_pre_register_char_set, || {

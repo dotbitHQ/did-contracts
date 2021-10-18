@@ -272,10 +272,14 @@ witness:
 table AccountCellData {
     // The first 160 bits of the hash of account.
     id: AccountId,
-    // Separate chars of account. not include .bit
+    // Separate chars of account.
     account: AccountChars,
     // AccountCell register timestamp.
     registered_at: Uint64,
+    // AccountCell last action timestamp.
+    last_transfer_account_at: Timestamp,
+    last_edit_manager_at: Timestamp,
+    last_edit_records_at: Timestamp,
     // The status of the account, 0x00 means normal, 0x01 means being sold, 0x02 means being auctioned.
     status: Uint8,
     records: Records,
@@ -355,6 +359,95 @@ Witness 中的主要字段如下：
 
 `106` Bytes
 
+### AccountSaleCell
+
+这是一种用来描述账户出售信息的 Cell ，每一个出售中的账户都有一个对应的 AccountSaleCell。
+
+#### 结构
+
+```
+lock: <das-lock>
+type: <account-sale-cell-type>
+
+data: hash(witness: AccountSaleCellData)
+
+======
+table AccountSaleCellData {
+    // Account ID of associated account.
+    account_id: AccountId,
+    // Account name of associated account.
+    account: Bytes,
+    // The price user willing to sell the account.
+    price: Uint64,
+    // A customizable description for the account.
+    description: Bytes,
+    // timestamp of account sale start.
+    started_at: Uint64,
+}
+```
+
+Witness 中的主要字段如下：
+
+- account_id ，关联的账户 ID；
+- account ，账户名；
+- price ，账户售价；
+- description ，用户自定义的简介信息；
+- started_at ，账户开始出售时的时间戳；
+
+#### 体积
+
+`148` Bytes
+
+### AccountAuctionCell
+
+这是一个描述账户竞拍信息的 Cell，每一个竞拍中的账户都有一个对应的 AccountAuctionCell。
+
+#### 结构
+```
+lock: <das-lock>
+type: <accont-sale-cell-type>
+
+data: hash(witness: AccountAuctionCellData)
+
+======
+table AccountAuctionCellData {
+    // The account ID of associated account.
+    account_id: AccountId,
+    // Account name of associated account.
+    account: Bytes,
+    // The description of the auction.
+    description: Bytes,
+    // The opening price of the auction in shannon.
+    opening_price: Uint64,
+    // The bid increment rate.
+    increment_rate_each_bid: Uint32,
+    // The start timestamp of auction, unit in seconds.
+    started_at: Uint64,
+    // The end timestamp of auction, unit in seconds.
+    ended_at: Uint64,
+    // The current bidder's lock script.
+    current_bidder_lock: Script,
+    // The current bidder's bid price.
+    current_bid_price: Uint64,
+    // The profit rate for previous bidder in each bid, the seller will be treated as the first bidder.
+    prev_bidder_profit_rate: Uint32,
+}
+```
+
+- account_id ，拍卖账户的账户 ID；
+- account ，拍卖账户的账户名；
+- description ，拍卖的描述信息；
+- opening_price ，起拍价；
+- increment_rate_each_bid ，每次出价的加价比例；
+- started_at ，竞拍的起始时间；
+- ended_at ，竞拍的结束时间；
+- current_bidder_lock ，当前出价人的 lock script；
+- current_bid_price ，当前的出价；
+- prev_bidder_profit_rate ，每轮出价后，前一个拍卖者的可获得的利润；
+
+#### 体积
+
+`148` Bytes
 
 ### ConfigCell
 
@@ -390,10 +483,23 @@ table ConfigCellAccount {
     max_length: Uint32,
     // The basic capacity AccountCell required, it is bigger than or equal to AccountCell occupied capacity.
     basic_capacity: Uint64,
+    // The fees prepared for various transactions for operating an account.
+    prepared_fee_capacity: Uint64,
     // The grace period for account expiration in seconds
     expiration_grace_period: Uint32,
     // The minimum ttl of record in seconds
     record_min_ttl: Uint32,
+    // The maximum size of all records in molecule encoding
+    record_size_limit: Uint32,
+    // The fee of each action
+    transfer_account_fee: Uint64,
+    edit_manager_fee: Uint64,
+    edit_records_fee: Uint64,
+    force_recover_fee: Uint64,
+    // The frequency limit of actions which manipulating account
+    transfer_account_throttle: Uint32,
+    edit_manager_throttle: Uint32,
+    edit_records_throttle: Uint32,
 }
 ```
 
@@ -467,7 +573,6 @@ table ConfigCellMain {
 table TypeIdTable {
     account_cell: Hash,
     apply_register_cell: Hash,
-    bidding_cell: Hash,
     income_cell: Hash,
     on_sale_cell: Hash,
     pre_account_cell: Hash,
@@ -547,14 +652,19 @@ table ConfigCellProfitRate {
     inviter: Uint32,
     // The profit rate of channels who support people to create DAS accounts.
     channel: Uint32,
-    // The profit rate of DAS itself.
-    das: Uint32,
     // The profit rate for who created proposal
     proposal_create: Uint32,
     // The profit rate for who confirmed proposal
     proposal_confirm: Uint32,
-    // The profit rate for consolidate IncomeCells
+    // The profit rate for consolidating IncomeCells
     income_consolidate: Uint32,
+    // The profit rate for inviter in account sale.
+    sale_inviter: Uint32,
+    // The profit rate for channel in account sale.
+    sale_channel: Uint32,
+    // The profit rate for DAS in account sale.
+    sale_das: Uint32,
+    
 }
 ```
 
@@ -587,6 +697,53 @@ table ReleaseRule {
 - length ，账户名长度，0 表示除了列举长度以外的所有长度；
 - release_start ，释放开始时间，单位 秒；
 - release_end ，释放结束时间，单位 秒；
+
+#### ConfigCellSecondaryMarket
+
+```
+table ConfigCellSecondaryMarket {
+    // The common fee for every transactions AccountSaleCell and AccountAuctionCell involved.
+    common_fee: Uint64,
+    // Minimum price for selling an account.
+    sale_min_price: Uint64,
+    // Expiration time limit for selling accounts.
+    sale_expiration_limit: Uint32,
+    // Bytes size limitation of the description for account sale.
+    sale_description_bytes_limit: Uint32,
+    // The basic capacity AccountSaleCell required, it is bigger than or equal to AccountSaleCell occupied capacity.
+    sale_cell_basic_capacity: Uint64,
+    // The fees prepared for various transactions.
+    sale_cell_prepared_fee_capacity: Uint64,
+    // The maximum extendable duration time for an auction, unit in seconds.
+    auction_max_extendable_duration: Uint32,
+    // The increment of duration brought by each bid in the auction, unit in seconds.
+    auction_duration_increment_each_bid: Uint32,
+    // The minimum opening price for an auction.
+    auction_min_opening_price: Uint64,
+    // The minimum bid increment rate of each bid.
+    auction_min_increment_rate_each_bid: Uint32,
+    // Bytes size limitation of the description for an auction.
+    auction_description_bytes_limit: Uint32,
+    // The basic capacity AccountAuctionCell required, it is bigger than or equal to AccountAuctionCell occupied capacity.
+    auction_cell_basic_capacity: Uint64,
+    // The fees prepared for various transactions.
+    auction_cell_prepared_fee_capacity: Uint64,
+}
+```
+
+- common_fee ，涉及消费 AccountSaleCell 和 AccountAuctionCell 的交易中，可从这两个 Cell 拿取的手续费；
+- sale_min_price ，一口价出售账户时的最低售价；
+- sale_expiration_limit ，一口价挂单的到期时间限制；
+- sale_description_bytes_limit ，一口价挂单时的描述信息字节限制；
+- sale_cell_basic_capacity ，AccountSaleCell 的基础存储费；
+- sale_cell_prepared_fee_capacity ，AccountSaleCell 中应携带的手续费；
+- auction_max_duration ，竞拍中**等待出价时间**可达到的最大值；
+- auction_duration_increment ，每次出价可以为**等待出价时间**带来的增量；
+- auction_min_opening_price ，竞拍的起拍价最小值；
+- auction_min_increment_rate_each_bid ，每次出价的最小加价率；
+- auction_description_bytes_limit ，竞拍挂单时的描述信息字节限制；
+- auction_cell_basic_capacity ，AccountAuctionCell 的基础存储费；
+- auction_cell_prepared_fee_capacity ，AccountAuctionCell 中应携带的手续费；
 
 #### ConfigCellRecordKeyNamespace
 
@@ -696,8 +853,8 @@ enum SystemStatus {
 enum DataType {
     ActionData = 0,
     AccountCellData,
-    OnSaleCellData,
-    BiddingCellData,
+    AccountSaleCellData,
+    AccountAuctionCellData,
     ProposalCellData,
     PreAccountCellData,
     IncomeCellData,
@@ -711,6 +868,7 @@ enum DataType {
     ConfigCellRecordKeyNamespace, // args: 0x6c000000
     ConfigCellRelease, // args: 0x6d000000
     ConfigCellUnAvailableAccount, // args: 0x6e000000
+    ConfigCellSecondaryMarket, // args: 0x6f000000
     ConfigCellPreservedAccount00 = 10000, // args: 0x10270000
     ConfigCellPreservedAccount01,
     ConfigCellPreservedAccount02,

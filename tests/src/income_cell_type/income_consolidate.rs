@@ -1,7 +1,5 @@
-use crate::util;
-use crate::util::{constants::*, template_generator::*, template_parser::TemplateParser};
+use crate::util::{self, constants::*, error::Error, template_generator::*, template_parser::TemplateParser};
 use ckb_testtool::context::Context;
-use das_core::error::Error;
 use das_types::constants::DataType;
 use serde_json::json;
 

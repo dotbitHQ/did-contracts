@@ -15,19 +15,23 @@ pub fn main() -> Result<(), Error> {
     debug!("====== Running apply-register-cell-type ======");
 
     let mut parser = WitnessesParser::new()?;
+    let action_opt = parser.parse_action_with_params()?;
+    if action_opt.is_none() {
+        return Err(Error::ActionNotSupported);
+    }
+
+    let (action_raw, _) = action_opt.unwrap();
+    let action = action_raw.as_reader().raw_data();
+
     util::is_system_off(&mut parser)?;
 
-    let action_data = parser.parse_action()?;
-    let action = action_data.as_reader().action().raw_data();
     if action == b"apply_register" {
         debug!("Route to apply_register action ...");
 
         // Find out ApplyRegisterCells in current transaction.
         let this_type_script = high_level::load_script().map_err(|e| Error::from(e))?;
-        let (input_cells, output_cells) = util::find_cells_by_script_in_inputs_and_outputs(
-            ScriptType::Type,
-            this_type_script.as_reader(),
-        )?;
+        let (input_cells, output_cells) =
+            util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
 
         assert!(
             input_cells.len() == 0 && output_cells.len() == 1,
@@ -72,10 +76,8 @@ pub fn main() -> Result<(), Error> {
 
         // Find out ApplyRegisterCells in current transaction.
         let this_type_script = high_level::load_script().map_err(|e| Error::from(e))?;
-        let (input_cells, output_cells) = util::find_cells_by_script_in_inputs_and_outputs(
-            ScriptType::Type,
-            this_type_script.as_reader(),
-        )?;
+        let (input_cells, output_cells) =
+            util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
 
         assert!(
             input_cells.len() == 1 && output_cells.len() == 0,
@@ -109,21 +111,18 @@ pub fn main() -> Result<(), Error> {
 
         debug!("Check if the capacity of refund is correct ...");
 
-        let lock_script = high_level::load_cell_lock(input_cells[0], Source::Input)
-            .map_err(|e| Error::from(e))?;
-        let transfer_cells =
-            util::find_cells_by_script(ScriptType::Lock, lock_script.as_reader(), Source::Output)?;
+        let lock_script = high_level::load_cell_lock(input_cells[0], Source::Input).map_err(|e| Error::from(e))?;
+        let transfer_cells = util::find_cells_by_script(ScriptType::Lock, lock_script.as_reader(), Source::Output)?;
         assert!(
             transfer_cells.len() == 1,
             Error::InvalidTransactionStructure,
             "There should be one cell in outputs which refund the capacity of the ApplyRegisterCell."
         );
 
-        let expected_capacity = high_level::load_cell_capacity(input_cells[0], Source::Input)
-            .map_err(|e| Error::from(e))?;
+        let expected_capacity =
+            high_level::load_cell_capacity(input_cells[0], Source::Input).map_err(|e| Error::from(e))?;
         let transferred_capacity =
-            high_level::load_cell_capacity(transfer_cells[0], Source::Output)
-                .map_err(|e| Error::from(e))?;
+            high_level::load_cell_capacity(transfer_cells[0], Source::Output).map_err(|e| Error::from(e))?;
         assert!(
             transferred_capacity >= expected_capacity - 100_000_000,
             Error::ApplyRegisterRefundCapacityError,

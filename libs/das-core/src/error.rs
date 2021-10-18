@@ -28,8 +28,8 @@ pub enum Error {
     CellCapacityMustConsistent, // 25
     CellsMustHaveSameOrderAndNumber,
     ActionNotSupported,
+    ParamsDecodingError,
     SuperLockIsRequired,
-    CellMustUseSuperLock,
     AlwaysSuccessLockIsRequired, // 30
     SignallLockIsRequired,
     DataTypeUpgradeRequired,
@@ -38,16 +38,15 @@ pub enum Error {
     AccountIsPreserved,
     AccountIsUnAvailable,
     WitnessStructureError = 40,
-    WitnessEmpty,
     WitnessDataTypeDecodingError,
     WitnessReadingError,
     WitnessActionDecodingError,
-    WitnessDataParseLengthHeaderFailed, // 45
-    WitnessDataReadDataBodyFailed,
+    WitnessDataParseLengthHeaderFailed,
+    WitnessDataReadDataBodyFailed, // 45
     WitnessDataDecodingError,
     WitnessDataHashMissMatch,
     WitnessDataIndexMissMatch,
-    WitnessEntityDecodingError, // 50
+    WitnessEntityDecodingError,
     ApplyRegisterCellDataDecodingError = 60,
     ApplyRegisterCellHeightInvalid,
     ApplyRegisterCellTimeInvalid,
@@ -120,11 +119,23 @@ pub enum Error {
     AccountCellChangeCapacityError, // -95
     AccountCellRecordKeyInvalid,
     AccountCellRecordSizeTooLarge,
+    AccountCellStatusLocked,
     EIP712SerializationError = -90,
     EIP712SematicError,
     EIP712DecodingWitnessArgsError,
     EIP712SignatureError,
     BalanceCellFoundSomeOutputsLackOfType = -80,
+    AccountSaleCellCapacityError,
+    AccountSaleCellFeeError,
+    AccountSaleCellRefundError,
+    AccountSaleCellAccountIdInvalid,
+    AccountSaleCellStartedAtInvalid,
+    AccountSaleCellPriceTooSmall,
+    AccountSaleCellDescriptionTooLarge,
+    AccountSaleCellNewOwnerError,
+    AccountSaleCellNotPayEnough,
+    AccountSaleCellChangeError,
+    AccountSaleCellProfitError,
     SystemOff = -1,
 }
 

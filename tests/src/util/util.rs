@@ -1,5 +1,5 @@
-use super::super::Loader;
-use super::constants::*;
+use super::{constants::*, error};
+use crate::Loader;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use ckb_testtool::context::Context;
 use ckb_tool::{
@@ -15,15 +15,19 @@ use ckb_tool::{
         H160, H256,
     },
 };
-use das_core::error;
 use das_types::{packed as das_packed, util as das_types_util};
 use lazy_static::lazy_static;
-use std::collections::HashSet;
-use std::error::Error;
-use std::fs::File;
-use std::io::{BufRead, BufReader, Lines};
-use std::str::FromStr;
-use std::{env, io, path::PathBuf};
+use std::{
+    collections::HashSet,
+    convert::TryFrom,
+    env,
+    error::Error,
+    fs::File,
+    io,
+    io::{BufRead, BufReader, Lines},
+    path::PathBuf,
+    str::FromStr,
+};
 
 lazy_static! {
     pub static ref SECP256K1: secp256k1::Secp256k1<secp256k1::All> = secp256k1::Secp256k1::new();
@@ -45,22 +49,19 @@ pub fn hex_to_bytes(input: &str) -> Vec<u8> {
     }
 }
 
-pub fn hex_to_byte32(input: &str) -> Result<Byte32, Box<dyn Error>> {
-    let hex = input.trim_start_matches("0x");
-    let data = hex::decode(hex)?.into_iter().map(Byte::new).collect::<Vec<_>>();
-    let mut inner = [Byte::new(0); 32];
-    inner.copy_from_slice(&data);
-
-    Ok(Byte32::new_builder().set(inner).build())
+pub fn bytes_to_hex(input: &[u8]) -> String {
+    if input.is_empty() {
+        String::from("0x")
+    } else {
+        hex::encode(input)
+    }
 }
 
-pub fn hex_to_hash(input: &str) -> Result<das_packed::Hash, Box<dyn Error>> {
-    let hex = input.trim_start_matches("0x");
-    let data = hex::decode(hex)?.into_iter().map(Byte::new).collect::<Vec<_>>();
-    let mut inner = [Byte::new(0); 32];
-    inner.copy_from_slice(&data);
+pub fn hex_to_byte32(input: &str) -> Result<Byte32, Box<dyn Error>> {
+    let bytes = hex_to_bytes(input);
+    let hash = das_packed::Hash::try_from(bytes).expect("Expect input to have length of 32 bytes.");
 
-    Ok(das_packed::Hash::new_builder().set(inner).build())
+    Ok(hash.into())
 }
 
 pub fn hex_to_u64(input: &str) -> Result<u64, Box<dyn Error>> {
@@ -72,13 +73,17 @@ pub fn hex_to_u64(input: &str) -> Result<u64, Box<dyn Error>> {
     }
 }
 
+pub fn get_type_id_bytes(name: &str) -> Vec<u8> {
+    hex_to_bytes(
+        TYPE_ID_TABLE
+            .get(name)
+            .expect(&format!("Can not find type ID for {}", name)),
+    )
+}
+
 pub fn account_to_id(account: &str) -> Vec<u8> {
     let hash = blake2b_256(account);
     hash.get(..ACCOUNT_ID_LENGTH).unwrap().to_vec()
-}
-
-pub fn account_to_id_bytes(account: &str) -> Vec<u8> {
-    account_to_id(account)
 }
 
 pub fn account_to_id_hex(account: &str) -> String {
@@ -380,4 +385,8 @@ pub fn gen_register_fee(account_length: usize, has_inviter: bool) -> u64 {
             + ACCOUNT_PREPARED_FEE_CAPACITY
             + (account_length as u64 + 4) * 100_000_000
     }
+}
+
+pub fn gen_account_cell_capacity(length: u64) -> u64 {
+    (length * 100_000_000) + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY
 }

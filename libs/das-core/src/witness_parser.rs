@@ -1,8 +1,11 @@
-use super::constants::*;
-use super::error::Error;
-use super::types::{CharSet, Configs};
-use super::util;
-use super::{assert, debug, warn};
+use super::{
+    assert,
+    constants::*,
+    debug,
+    error::Error,
+    types::{CharSet, Configs},
+    util, warn,
+};
 use ckb_std::{ckb_constants::Source, error::SysError, syscalls};
 use core::convert::{TryFrom, TryInto};
 use das_map::map;
@@ -56,12 +59,8 @@ impl WitnessesParser {
                         }
                     }
 
-                    let data_type_in_int = u32::from_le_bytes(
-                        buf.get(DAS_BYTES_3..HEADER_BYTES_7)
-                            .unwrap()
-                            .try_into()
-                            .unwrap(),
-                    );
+                    let data_type_in_int =
+                        u32::from_le_bytes(buf.get(DAS_BYTES_3..HEADER_BYTES_7).unwrap().try_into().unwrap());
                     match DataType::try_from(data_type_in_int) {
                         Ok(data_type) => {
                             if !das_witnesses_started {
@@ -91,10 +90,6 @@ impl WitnessesParser {
             }
         }
 
-        if witnesses.is_empty() {
-            return Err(Error::WitnessEmpty);
-        }
-
         Ok(WitnessesParser {
             witnesses,
             configs: Configs::new(),
@@ -104,30 +99,68 @@ impl WitnessesParser {
         })
     }
 
-    pub fn parse_action(&self) -> Result<ActionData, Error> {
-        let (index, data_type) = self.witnesses[0];
-        let raw = util::load_das_witnesses(index, data_type)?;
+    pub fn parse_action_with_params(&self) -> Result<Option<(Bytes, Vec<Bytes>)>, Error> {
+        if self.witnesses.is_empty() {
+            return Ok(None);
+        }
 
-        let action_data = ActionData::from_slice(raw.get(HEADER_BYTES_7..).unwrap())
-            .map_err(|_| Error::WitnessActionDecodingError)?;
-
-        Ok(action_data)
-    }
-
-    pub fn parse_action_with_params(&self) -> Result<(Bytes, Vec<Bytes>), Error> {
         let (index, data_type) = self.witnesses[0];
         let raw = util::load_das_witnesses(index, data_type)?;
 
         let action_data =
             ActionData::from_slice(raw.get(7..).unwrap()).map_err(|_| Error::WitnessActionDecodingError)?;
         let params = match action_data.as_reader().action().raw_data() {
-            b"transfer_account" | b"edit_manager" | b"edit_records" | b"withdraw_from_wallet" => {
+            b"transfer_account"
+            | b"edit_manager"
+            | b"edit_records"
+            | b"withdraw_from_wallet"
+            | b"start_account_sale"
+            | b"edit_account_sale"
+            | b"cancel_account_sale"
+            | b"start_account_auction"
+            | b"edit_account_auction"
+            | b"cancel_account_auction" => {
+                if action_data.params().is_empty() {
+                    return Err(Error::ParamsDecodingError);
+                }
                 vec![action_data.params()]
+            }
+            b"buy_account" => {
+                let bytes = action_data.as_reader().params().raw_data();
+                let first_header = bytes.get(..4).ok_or(Error::ParamsDecodingError)?;
+                let length_of_inviter_lock = u32::from_le_bytes(first_header.try_into().unwrap()) as usize;
+                let bytes_of_inviter_lock = bytes.get(..length_of_inviter_lock).ok_or(Error::ParamsDecodingError)?;
+
+                let second_header = bytes
+                    .get(length_of_inviter_lock..(length_of_inviter_lock + 4))
+                    .ok_or(Error::ParamsDecodingError)?;
+                let length_of_channel_lock = u32::from_le_bytes(second_header.try_into().unwrap()) as usize;
+                let bytes_of_channel_lock = bytes
+                    .get(length_of_inviter_lock..(length_of_inviter_lock + length_of_channel_lock))
+                    .ok_or(Error::ParamsDecodingError)?;
+                let bytes_of_role = bytes
+                    .get((length_of_inviter_lock + length_of_channel_lock)..)
+                    .ok_or(Error::ParamsDecodingError)?;
+
+                assert!(
+                    bytes_of_role.len() == 1,
+                    Error::ParamsDecodingError,
+                    "The params of this action should contains a param of role at the end."
+                );
+
+                // debug!("bytes_of_inviter_lock = 0x{}", util::hex_string(bytes_of_inviter_lock));
+                // debug!("bytes_of_channel_lock = 0x{}", util::hex_string(bytes_of_channel_lock));
+
+                vec![
+                    Bytes::from(bytes_of_inviter_lock),
+                    Bytes::from(bytes_of_channel_lock),
+                    Bytes::from(bytes_of_role),
+                ]
             }
             _ => Vec::new(),
         };
 
-        Ok((action_data.action(), params))
+        Ok(Some((action_data.action(), params)))
     }
 
     pub fn parse_config(&mut self, config_types: &[DataType]) -> Result<(), Error> {
@@ -147,8 +180,7 @@ impl WitnessesParser {
                     | DataType::ConfigCellCharSetZhHant => {
                         if self.configs.char_set().is_ok() {
                             let char_sets = self.configs.char_set().unwrap();
-                            let char_set_index =
-                                das_types_util::data_type_to_char_set(config_type.to_owned());
+                            let char_set_index = das_types_util::data_type_to_char_set(config_type.to_owned());
                             return char_sets[char_set_index as usize].is_none();
                         }
                         return true;
@@ -163,27 +195,16 @@ impl WitnessesParser {
             return Ok(());
         }
 
-        debug!(
-            "  Load ConfigCells {:?} from cell_deps ...",
-            unloaded_config_types
-        );
+        debug!("  Load ConfigCells {:?} from cell_deps ...", unloaded_config_types);
 
         let config_cell_type = util::script_literal_to_script(CONFIG_CELL_TYPE);
         let mut config_data_types = Vec::new();
         let mut config_entity_hashes = map::Map::new();
         for config_type in unloaded_config_types {
             let args = Bytes::from((config_type.to_owned() as u32).to_le_bytes().to_vec());
-            let type_script = config_cell_type
-                .clone()
-                .as_builder()
-                .args(args.into())
-                .build();
+            let type_script = config_cell_type.clone().as_builder().args(args.into()).build();
             // There must be one ConfigCell in the cell_deps, no more and no less.
-            let ret = util::find_cells_by_script(
-                ScriptType::Type,
-                type_script.as_reader(),
-                Source::CellDep,
-            )?;
+            let ret = util::find_cells_by_script(ScriptType::Type, type_script.as_reader(), Source::CellDep)?;
             assert!(
                 ret.len() == 1,
                 Error::ConfigCellIsRequired,
@@ -196,7 +217,13 @@ impl WitnessesParser {
             let data = util::load_cell_data(expected_cell_index, Source::CellDep)?;
             let expected_entity_hash = match data.get(..32) {
                 Some(bytes) => bytes.to_owned(),
-                _ => return Err(Error::InvalidCellData),
+                _ => {
+                    warn!(
+                        "  CellDeps[{}] Can not get entity hash from outputs_data.",
+                        expected_cell_index
+                    );
+                    return Err(Error::InvalidCellData);
+                }
             };
 
             // debug!(
@@ -227,6 +254,7 @@ impl WitnessesParser {
                 let index = $char_set_type as usize;
                 let char_set = CharSet {
                     name: $char_set_type,
+                    // TODO make the meaning of following codes more clear
                     // skip 7 bytes das header, 4 bytes length
                     global: $entity.get(LENGTH_BYTES_4).unwrap() == &1u8,
                     data: $entity.get(5..).unwrap().to_vec(),
@@ -251,9 +279,7 @@ impl WitnessesParser {
             entity: &[u8],
         ) -> Result<(), Error> {
             let entity_hash = util::blake2b_256(entity).to_vec();
-            let ret = config_entity_hashes
-                .find(&entity_hash)
-                .map(|v| v.to_owned());
+            let ret = config_entity_hashes.find(&entity_hash).map(|v| v.to_owned());
 
             // debug!("current: 0x{}", util::hex_string(entity_hash.as_slice()));
             if let Some(key) = ret {
@@ -284,9 +310,7 @@ impl WitnessesParser {
 
             let raw = util::load_das_witnesses(index, data_type)?;
             let raw_trimmed = util::trim_empty_bytes(&raw);
-            let entity = raw_trimmed
-                .get(HEADER_BYTES_7..)
-                .ok_or(Error::ConfigCellWitnessDecodingError)?;
+            let entity = raw_trimmed.get(7..).ok_or(Error::ConfigCellWitnessDecodingError)?;
 
             find_and_remove_from_hashes(_i, data_type, &mut config_entity_hashes, entity)?;
 
@@ -322,9 +346,11 @@ impl WitnessesParser {
                 DataType::ConfigCellRelease => {
                     assign_config_witness!(self.configs.release, ConfigCellRelease, entity)
                 }
+                DataType::ConfigCellSecondaryMarket => {
+                    assign_config_witness!(self.configs.secondary_market, ConfigCellSecondaryMarket, entity)
+                }
                 DataType::ConfigCellRecordKeyNamespace => {
-                    self.configs.record_key_namespace =
-                        Some(entity.get(LENGTH_BYTES_4..).unwrap().to_vec());
+                    self.configs.record_key_namespace = Some(entity.get(LENGTH_BYTES_4..).unwrap().to_vec());
                 }
                 DataType::ConfigCellPreservedAccount00
                 | DataType::ConfigCellPreservedAccount01
@@ -348,13 +374,11 @@ impl WitnessesParser {
                 | DataType::ConfigCellPreservedAccount19 => {
                     // debug!("length: {}", entity.get(4..).unwrap().len());
                     // self.configs.preserved_account = None;
-                    self.configs.preserved_account =
-                        Some(entity.get(LENGTH_BYTES_4..).unwrap().to_vec());
+                    self.configs.preserved_account = Some(entity.get(LENGTH_BYTES_4..).unwrap().to_vec());
                 }
                 DataType::ConfigCellUnAvailableAccount => {
                     // debug!("length: {}", entity.get(LENGTH_BYTES_4..).unwrap().len());
-                    self.configs.unavailable_account =
-                        Some(entity.get(LENGTH_BYTES_4..).unwrap().to_vec());
+                    self.configs.unavailable_account = Some(entity.get(LENGTH_BYTES_4..).unwrap().to_vec());
                 }
                 DataType::ConfigCellCharSetEmoji
                 | DataType::ConfigCellCharSetDigit
@@ -469,15 +493,14 @@ impl WitnessesParser {
         Ok((index, version, data_type, hash, entity))
     }
 
-    pub fn verify_and_get(
-        &self,
-        index: usize,
-        source: Source,
-    ) -> Result<(u32, DataType, &Bytes), Error> {
+    pub fn verify_and_get(&self, index: usize, source: Source) -> Result<(u32, DataType, &Bytes), Error> {
         let data = util::load_cell_data(index, source)?;
         let hash = match data.get(..32) {
             Some(bytes) => bytes.to_vec(),
-            _ => return Err(Error::InvalidCellData),
+            _ => {
+                warn!("  {:?}[{}] Can not get entity hash from outputs_data.", source, index);
+                return Err(Error::InvalidCellData);
+            }
         };
 
         self.verify_with_hash_and_get(&hash, index, source)
@@ -545,8 +568,9 @@ impl WitnessesParser {
             DataType::ConfigCellProposal,
             DataType::ConfigCellProfitRate,
             DataType::ConfigCellRelease,
-            DataType::ConfigCellRecordKeyNamespace,
             DataType::ConfigCellUnAvailableAccount,
+            DataType::ConfigCellSecondaryMarket,
+            DataType::ConfigCellRecordKeyNamespace,
             DataType::ConfigCellPreservedAccount00,
             DataType::ConfigCellPreservedAccount01,
             DataType::ConfigCellPreservedAccount02,

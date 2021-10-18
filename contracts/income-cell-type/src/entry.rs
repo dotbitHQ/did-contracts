@@ -10,10 +10,16 @@ pub fn main() -> Result<(), Error> {
     debug!("====== Running income-cell-type ======");
 
     let mut parser = WitnessesParser::new()?;
+    let action_opt = parser.parse_action_with_params()?;
+    if action_opt.is_none() {
+        return Err(Error::ActionNotSupported);
+    }
+
+    let (action_raw, _) = action_opt.unwrap();
+    let action = action_raw.as_reader().raw_data();
+
     util::is_system_off(&mut parser)?;
 
-    let action_data = parser.parse_action()?;
-    let action = action_data.as_reader().action().raw_data();
     if action == b"create_income" {
         debug!("Route to create_income action ...");
 
@@ -397,6 +403,23 @@ pub fn main() -> Result<(), Error> {
             Source::Input,
             Error::ProposalFoundInvalidTransaction,
         )?;
+    } else if action == b"buy_account" {
+        debug!("Route to buy_account action ...");
+        util::require_type_script(
+            &mut parser,
+            TypeScript::AccountSaleCellType,
+            Source::Input,
+            Error::AccountCellFoundInvalidTransaction,
+        )?;
+    } else if action == b"bid_account_auction" {
+        debug!("Route to buy_account action ...");
+
+        util::require_type_script(
+            &mut parser,
+            TypeScript::AccountAuctionCellType,
+            Source::Input,
+            Error::AccountCellFoundInvalidTransaction,
+        )?;
     } else if action == b"renew_account" {
         debug!("Route to renew_account action ...");
         util::require_type_script(
@@ -496,7 +519,7 @@ fn verify_das_lock_and_balance_type(
     let lock = high_level::load_cell_lock(index, source).map_err(|e| Error::from(e))?;
     let lock_reader = lock.as_reader();
 
-    if util::is_script_equal(das_lock_reader.into(), lock_reader) {
+    if util::is_type_id_equal(das_lock_reader.into(), lock_reader) {
         let type_of_lock = lock_reader.args().raw_data()[0];
         if type_of_lock == DasLockType::ETHTypedData as u8 {
             let type_opt = high_level::load_cell_type(index, source).map_err(|e| Error::from(e))?;

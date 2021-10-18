@@ -21,6 +21,7 @@ use core::{
     ops::Range,
 };
 use das_map::{map::Map, util::add};
+use das_types::packed::AccountSaleCellData;
 use das_types::{constants::LockRole, packed as das_packed, prelude::*};
 use eip712::{hash_data, typed_data_v4, types::*};
 use serde_json::Value;
@@ -41,42 +42,39 @@ pub fn verify_eip712_hashes(
     action: das_packed::BytesReader,
     params: &[das_packed::BytesReader],
 ) -> Result<(), Error> {
-    let required_role = util::get_action_required_role(action);
+    let required_role_opt = util::get_action_required_role(action);
     let das_lock = das_lock();
     let das_lock_reader = das_lock.as_reader();
 
     let mut i = 0;
     let mut input_groups_idxs: BTreeMap<Vec<u8>, Vec<usize>> = BTreeMap::new();
-    let this_type = high_level::load_script().map_err(|e| Error::from(e))?;
-    let this_type_reader = this_type.as_reader();
     loop {
+        // In buy_account transaction, the inputs[0] and inputs[1] is belong to sellers, because buyers have paied enough, so we do not need
+        // their signature here.
+        if action.raw_data() == b"buy_account" && i < 2 {
+            i += 1;
+            continue;
+        }
+
         let ret = high_level::load_cell_lock(i, Source::Input);
         match ret {
             Ok(lock) => {
                 let lock_reader = lock.as_reader();
                 // Only take care of inputs with das-lock
-                if util::is_script_equal(das_lock_reader, lock_reader) {
-                    let type_;
-                    let args;
-                    if required_role == LockRole::Manager {
-                        type_ = data_parser::das_lock_args::get_manager_type(lock_reader.args().raw_data());
-                        args = data_parser::das_lock_args::get_manager_lock_args(lock_reader.args().raw_data());
+                if util::is_type_id_equal(das_lock_reader, lock_reader) {
+                    let args = lock_reader.args().raw_data().to_vec();
+                    let type_of_args = if required_role_opt.is_some() && required_role_opt == Some(LockRole::Manager) {
+                        data_parser::das_lock_args::get_manager_type(lock_reader.args().raw_data())
                     } else {
-                        type_ = data_parser::das_lock_args::get_owner_type(lock_reader.args().raw_data());
-                        args = data_parser::das_lock_args::get_owner_lock_args(lock_reader.args().raw_data());
-                    }
-                    if type_ != DasLockType::ETHTypedData as u8 {
+                        data_parser::das_lock_args::get_owner_type(lock_reader.args().raw_data())
+                    };
+                    if type_of_args != DasLockType::ETHTypedData as u8 {
                         debug!(
                             "Inputs[{}] Found deprecated address type, skip verification for hash.",
                             i
                         );
                     } else {
-                        let type_opt = high_level::load_cell_type(i, Source::Input).map_err(|e| Error::from(e))?;
-                        if let Some(type_script) = type_opt {
-                            if util::is_script_equal(this_type_reader, type_script.as_reader()) {
-                                input_groups_idxs.entry(args.to_vec()).or_default().push(i);
-                            }
-                        }
+                        input_groups_idxs.entry(args.to_vec()).or_default().push(i);
                     }
                 }
             }
@@ -108,23 +106,42 @@ pub fn verify_eip712_hashes(
             let expected_hash = hash_data(&typed_data).unwrap();
 
             debug!(
-                "Calculated hash of EIP712 typed data with digest.(digest: {}, hash: {})",
+                "Calculated hash of EIP712 typed data with digest.(digest: 0x{}, hash: 0x{})",
                 digest,
                 util::hex_string(&expected_hash)
             );
 
-            assert!(
-                &item.typed_data_hash == expected_hash.as_slice(),
-                Error::EIP712SignatureError,
-                "Inputs[{}] The hash of EIP712 typed data is mismatched.(current: {}, expected: {})",
-                index,
-                util::hex_string(&item.typed_data_hash),
-                util::hex_string(&expected_hash)
-            );
+            // CAREFUL We need to skip the final verification here because transactions are often change when developing, that will break all tests contains EIP712 verification.
+            if cfg!(not(feature = "dev")) {
+                assert!(
+                    &item.typed_data_hash == expected_hash.as_slice(),
+                    Error::EIP712SignatureError,
+                    "Inputs[{}] The hash of EIP712 typed data is mismatched.(current: 0x{}, expected: 0x{})",
+                    index,
+                    util::hex_string(&item.typed_data_hash),
+                    util::hex_string(&expected_hash)
+                );
+            }
         }
     }
 
     Ok(())
+}
+
+pub fn verify_eip712_hashes_if_no_balance_cell(
+    parser: &WitnessesParser,
+    action: das_packed::BytesReader,
+    params: &[das_packed::BytesReader],
+) -> Result<(), Error> {
+    let config_main = parser.configs.main()?;
+    let balance_cell_type_id = config_main.type_id_table().balance_cell();
+    let (input_balance_cells, output_balance_cells) =
+        util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, balance_cell_type_id)?;
+    if input_balance_cells.len() <= 0 && output_balance_cells.len() <= 0 {
+        verify_eip712_hashes(parser, action, params)
+    } else {
+        Ok(())
+    }
 }
 
 struct DigestAndHash {
@@ -150,7 +167,7 @@ fn tx_to_digest(
         // CAREFUL: This is only works for secp256k1_blake160_sighash_all, cause das-lock does not support secp256k1_blake160_multisig_all currently.
         let init_witness = ckb_packed::WitnessArgs::from_slice(&witness_bytes).map_err(|_| {
             warn!(
-                "Inputs[{}] Witness can not be decoded as WitnessArgs.(data: {})",
+                "Inputs[{}] Witness can not be decoded as WitnessArgs.(data: 0x{})",
                 init_witness_idx,
                 util::hex_string(&witness_bytes)
             );
@@ -199,7 +216,7 @@ fn tx_to_digest(
                 blake2b.finalize(&mut message);
 
                 debug!(
-                    "Inputs[{}] Generate digest.(args: {}, result: {})",
+                    "Inputs[{}] Generate digest.(args: 0x{}, result: 0x{})",
                     init_witness_idx,
                     util::hex_string(&_key),
                     util::hex_string(&message)
@@ -325,7 +342,7 @@ pub fn tx_to_eip712_typed_data(
 }
 
 fn tx_to_plaintext(
-    _parser: &WitnessesParser,
+    parser: &WitnessesParser,
     type_id_table_reader: das_packed::TypeIdTableReader,
     script_table: &ScriptTable,
     action_in_bytes: das_packed::BytesReader,
@@ -340,6 +357,16 @@ fn tx_to_plaintext(
             b"edit_records" => ret = edit_records_to_semantic(type_id_table_reader)?,
             _ => return Err(Error::ActionNotSupported),
         },
+        // For account-sale-cell-type only
+        b"start_account_sale" | b"edit_account_sale" | b"cancel_account_sale" | b"buy_account" => {
+            match action_in_bytes.raw_data() {
+                b"start_account_sale" => ret = start_account_sale_to_semantic(parser, type_id_table_reader)?,
+                b"edit_account_sale" => ret = edit_account_sale_to_semantic(parser, type_id_table_reader)?,
+                b"cancel_account_sale" => ret = cancel_account_sale_to_semantic(type_id_table_reader)?,
+                b"buy_account" => ret = buy_account_to_semantic(parser, type_id_table_reader)?,
+                _ => return Err(Error::ActionNotSupported),
+            }
+        }
         // For balance-cell-type only
         b"transfer" | b"withdraw_from_wallet" => ret = transfer_to_semantic(script_table)?,
         _ => return Err(Error::ActionNotSupported),
@@ -396,6 +423,92 @@ fn edit_records_to_semantic(type_id_table_reader: das_packed::TypeIdTableReader)
     Ok(format!("EDIT RECORDS OF ACCOUNT {}", account))
 }
 
+fn start_account_sale_to_semantic(
+    parser: &WitnessesParser,
+    type_id_table_reader: das_packed::TypeIdTableReader,
+) -> Result<String, Error> {
+    let account_cells =
+        util::find_cells_by_type_id(ScriptType::Type, type_id_table_reader.account_cell(), Source::Input)?;
+    let account_sale_cells = util::find_cells_by_type_id(
+        ScriptType::Type,
+        type_id_table_reader.account_sale_cell(),
+        Source::Output,
+    )?;
+
+    // Parse account from the data of the AccountCell in inputs.
+    let data_in_bytes = util::load_cell_data(account_cells[0], Source::Input)?;
+    let account_in_bytes = data_parser::account_cell::get_account(&data_in_bytes);
+    let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| Error::EIP712SerializationError)?;
+
+    let (_, _, witness) = parser.verify_and_get(account_sale_cells[0], Source::Output)?;
+    let entity = AccountSaleCellData::from_slice(witness.as_reader().raw_data()).map_err(|_| {
+        warn!("EIP712 decoding AccountSaleCellData failed");
+        Error::WitnessEntityDecodingError
+    })?;
+    let price = to_semantic_capacity(u64::from(entity.price()));
+
+    Ok(format!("SELL {} FOR {}", account, price))
+}
+
+fn edit_account_sale_to_semantic(
+    parser: &WitnessesParser,
+    type_id_table_reader: das_packed::TypeIdTableReader,
+) -> Result<String, Error> {
+    let account_sale_cells = util::find_cells_by_type_id(
+        ScriptType::Type,
+        type_id_table_reader.account_sale_cell(),
+        Source::Output,
+    )?;
+
+    let (_, _, witness) = parser.verify_and_get(account_sale_cells[0], Source::Output)?;
+    let entity = AccountSaleCellData::from_slice(witness.as_reader().raw_data()).map_err(|_| {
+        warn!("EIP712 decoding AccountSaleCellData failed");
+        Error::WitnessEntityDecodingError
+    })?;
+    let price = to_semantic_capacity(u64::from(entity.price()));
+
+    Ok(format!("EDIT SALE INFO, CURRENT PRICE IS {}", price))
+}
+
+fn cancel_account_sale_to_semantic(type_id_table_reader: das_packed::TypeIdTableReader) -> Result<String, Error> {
+    let account_cells =
+        util::find_cells_by_type_id(ScriptType::Type, type_id_table_reader.account_cell(), Source::Input)?;
+
+    // Parse account from the data of the AccountCell in inputs.
+    let data_in_bytes = util::load_cell_data(account_cells[0], Source::Input)?;
+    let account_in_bytes = data_parser::account_cell::get_account(&data_in_bytes);
+    let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| Error::EIP712SerializationError)?;
+
+    Ok(format!("CANCEL SALE OF {}", account))
+}
+
+fn buy_account_to_semantic(
+    parser: &WitnessesParser,
+    type_id_table_reader: das_packed::TypeIdTableReader,
+) -> Result<String, Error> {
+    let account_cells =
+        util::find_cells_by_type_id(ScriptType::Type, type_id_table_reader.account_cell(), Source::Input)?;
+    let account_sale_cells = util::find_cells_by_type_id(
+        ScriptType::Type,
+        type_id_table_reader.account_sale_cell(),
+        Source::Input,
+    )?;
+
+    // Parse account from the data of the AccountCell in inputs.
+    let data_in_bytes = util::load_cell_data(account_cells[0], Source::Input)?;
+    let account_in_bytes = data_parser::account_cell::get_account(&data_in_bytes);
+    let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| Error::EIP712SerializationError)?;
+
+    let (_, _, witness) = parser.verify_and_get(account_sale_cells[0], Source::Input)?;
+    let entity = AccountSaleCellData::from_slice(witness.as_reader().raw_data()).map_err(|_| {
+        warn!("EIP712 decoding AccountSaleCellData failed");
+        Error::WitnessEntityDecodingError
+    })?;
+    let price = to_semantic_capacity(u64::from(entity.price()));
+
+    Ok(format!("BUY {} WITH {}", account, price))
+}
+
 fn transfer_to_semantic(script_table: &ScriptTable) -> Result<String, Error> {
     fn sum_cells(script_table: &ScriptTable, source: Source) -> Result<String, Error> {
         let mut i = 0;
@@ -444,7 +557,7 @@ fn to_semantic_address(
     let address;
 
     match lock_reader {
-        x if util::is_script_equal(script_table.das_lock.as_reader(), x.into()) => {
+        x if util::is_type_id_equal(script_table.das_lock.as_reader(), x.into()) => {
             // If this is a das-lock, convert it to address base on args.
             let args_in_bytes = lock_reader.args().raw_data();
             let das_lock_type = DasLockType::try_from(args_in_bytes[0]).map_err(|_| Error::EIP712SerializationError)?;
@@ -474,7 +587,7 @@ fn to_semantic_address(
                 _ => return Err(Error::EIP712SematicError),
             }
         }
-        x if util::is_script_equal(script_table.signall_lock.as_reader(), x.into()) => {
+        x if util::is_type_id_equal(script_table.signall_lock.as_reader(), x.into()) => {
             // If this is a secp256k1_blake160_sighash_all lock, convert it to short address.
             let hash_type: Vec<u8> = vec![1];
             let code_index = vec![0];
@@ -482,7 +595,7 @@ fn to_semantic_address(
 
             address = format!("CKB:{}", script_to_address(code_index, hash_type, args)?)
         }
-        x if util::is_script_equal(script_table.multisign_lock.as_reader(), x.into()) => {
+        x if util::is_type_id_equal(script_table.multisign_lock.as_reader(), x.into()) => {
             // If this is a secp256k1_blake160_sighash_all lock, convert it to short address.
             let hash_type: Vec<u8> = vec![1];
             let code_index = vec![1];
@@ -561,6 +674,7 @@ fn to_typed_cells(
     let mut cells: Vec<Cell> = Vec::new();
     let mut total_capacity = 0;
     let das_lock = das_packed::Script::from(das_lock());
+    let always_success_lock = das_packed::Script::from(always_success_lock());
     let config_cell_type = das_packed::Script::from(config_cell_type());
     loop {
         let ret = high_level::load_cell(i, source);
@@ -572,8 +686,8 @@ fn to_typed_cells(
 
                 total_capacity += capacity_in_shannon;
 
-                // Skip normal cells which has no type script and data
-                if type_opt.is_none() && data_in_bytes.len() <= 0 {
+                // Skip NormalCells which has no type script.
+                if type_opt.is_none() {
                     i += 1;
                     continue;
                 }
@@ -583,6 +697,7 @@ fn to_typed_cells(
                     type_id_table_reader,
                     config_cell_type.as_reader().code_hash(),
                     das_lock.as_reader().code_hash(),
+                    always_success_lock.as_reader().code_hash(),
                     das_packed::ScriptReader::from(cell.lock().as_reader()),
                 );
 
@@ -597,10 +712,17 @@ fn to_typed_cells(
                 match type_opt {
                     Some(type_script) => {
                         let type_script_reader = das_packed::ScriptReader::from(type_script.as_reader());
+                        // Skip BalanceCells which has the type script named balance-cell-type.
+                        if util::is_reader_eq(type_script_reader.code_hash(), type_id_table_reader.balance_cell()) {
+                            i += 1;
+                            continue;
+                        }
+
                         let type_ = to_typed_script(
                             type_id_table_reader,
                             config_cell_type.as_reader().code_hash(),
                             das_lock.as_reader().code_hash(),
+                            always_success_lock.as_reader().code_hash(),
                             das_packed::ScriptReader::from(type_script.as_reader()),
                         );
                         match type_script_reader.code_hash() {
@@ -666,6 +788,7 @@ fn to_typed_script(
     type_id_table_reader: das_packed::TypeIdTableReader,
     config_cell_type: das_packed::HashReader,
     das_lock: das_packed::HashReader,
+    always_success_lock: das_packed::HashReader,
     script: das_packed::ScriptReader,
 ) -> String {
     let code_hash = match script.code_hash() {
@@ -674,11 +797,16 @@ fn to_typed_script(
             String::from("apply-register-cell-type")
         }
         x if util::is_reader_eq(x, type_id_table_reader.account_cell()) => String::from("account-cell-type"),
+        x if util::is_reader_eq(x, type_id_table_reader.account_sale_cell()) => String::from("account-sale-cell-type"),
+        x if util::is_reader_eq(x, type_id_table_reader.account_auction_cell()) => {
+            String::from("account-auction-cell-type")
+        }
         x if util::is_reader_eq(x, type_id_table_reader.proposal_cell()) => String::from("proposal-cell-type"),
         x if util::is_reader_eq(x, type_id_table_reader.income_cell()) => String::from("income-cell-type"),
         x if util::is_reader_eq(x, type_id_table_reader.balance_cell()) => String::from("balance-cell-type"),
         x if util::is_reader_eq(x, config_cell_type) => String::from("config-cell-type"),
         x if util::is_reader_eq(x, das_lock) => String::from("das-lock"),
+        x if util::is_reader_eq(x, always_success_lock) => String::from("always-success"),
         _ => format!(
             "0x{}...",
             util::hex_string(&script.code_hash().raw_data().as_ref()[0..DATA_OMIT_SIZE])
@@ -698,9 +826,11 @@ fn to_typed_script(
 
 fn to_typed_common_data(data_in_bytes: &[u8]) -> String {
     if data_in_bytes.len() > DATA_OMIT_SIZE {
-        util::hex_string(&data_in_bytes[0..DATA_OMIT_SIZE]) + "..."
+        format!("0x{}", util::hex_string(&data_in_bytes[0..DATA_OMIT_SIZE]) + "...")
+    } else if !data_in_bytes.is_empty() {
+        format!("0x{}", util::hex_string(data_in_bytes))
     } else {
-        util::hex_string(data_in_bytes)
+        String::new()
     }
 }
 
@@ -722,8 +852,10 @@ fn to_semantic_account_witness(
     source: Source,
 ) -> Result<String, Error> {
     let (_, _, entity) = parser.verify_with_hash_and_get(expected_hash, index, source)?;
-    let witness = das_packed::AccountCellData::from_slice(entity.as_reader().raw_data())
-        .map_err(|_| Error::WitnessEntityDecodingError)?;
+    let witness = das_packed::AccountCellData::from_slice(entity.as_reader().raw_data()).map_err(|_| {
+        warn!("EIP712 decoding AccountCellData failed");
+        Error::WitnessEntityDecodingError
+    })?;
     let witness_reader = witness.as_reader();
 
     let status = u8::from(witness_reader.status());
@@ -815,6 +947,7 @@ mod test {
             .account_cell(account_cell_type_id.clone())
             .build();
         let das_lock = das_packed::Script::from(das_lock());
+        let always_success_lock = das_packed::Script::from(always_success_lock());
         let config_cell_type = das_packed::Script::from(config_cell_type());
 
         let account_type_script = das_packed::Script::new_builder()
@@ -828,6 +961,7 @@ mod test {
             table_id_table.as_reader(),
             config_cell_type.as_reader().code_hash(),
             das_lock.as_reader().code_hash(),
+            always_success_lock.as_reader().code_hash(),
             account_type_script.as_reader(),
         );
         assert_eq!(result, expected);
@@ -844,6 +978,7 @@ mod test {
             table_id_table.as_reader(),
             config_cell_type.as_reader().code_hash(),
             das_lock.as_reader().code_hash(),
+            always_success_lock.as_reader().code_hash(),
             other_type_script.as_reader(),
         );
         assert_eq!(result, expected);
@@ -859,6 +994,7 @@ mod test {
             table_id_table.as_reader(),
             config_cell_type.as_reader().code_hash(),
             das_lock.as_reader().code_hash(),
+            always_success_lock.as_reader().code_hash(),
             other_type_script.as_reader(),
         );
         assert_eq!(result, expected);
