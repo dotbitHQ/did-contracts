@@ -101,6 +101,25 @@ test_with_generator!(test_account_transfer_with_eip712, || {
     template.as_json()
 });
 
+test_with_generator!(test_account_transfer_with_only_type, || {
+    let (mut template, timestamp) = init("transfer_account", Some("0x00"));
+
+    push_input_account_cell(
+        &mut template,
+        timestamp,
+        "0x030000000000000000000000000000000000001111",
+        "0x030000000000000000000000000000000000001111",
+    );
+    push_output_account_cell(
+        &mut template,
+        timestamp,
+        "0x050000000000000000000000000000000000002222",
+        "0x030000000000000000000000000000000000002222",
+    );
+
+    template.as_json()
+});
+
 challenge_with_generator!(
     challenge_account_transfer_account_multiple_cells,
     Error::InvalidTransactionStructure,

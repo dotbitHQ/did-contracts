@@ -74,8 +74,10 @@ pub fn verify_account_lock_consistent(
 
         if lock == "owner" {
             assert!(
-                data_parser::das_lock_args::get_owner_lock_args(input_args)
-                    != data_parser::das_lock_args::get_owner_lock_args(output_args),
+                data_parser::das_lock_args::get_owner_type(input_args)
+                    != data_parser::das_lock_args::get_owner_type(output_args)
+                    || data_parser::das_lock_args::get_owner_lock_args(input_args)
+                        != data_parser::das_lock_args::get_owner_lock_args(output_args),
                 Error::AccountCellOwnerLockShouldBeModified,
                 "The owner lock args in AccountCell.lock should be different in inputs and outputs."
             );
@@ -99,8 +101,10 @@ pub fn verify_account_lock_consistent(
             );
 
             assert!(
-                data_parser::das_lock_args::get_manager_lock_args(input_args)
-                    != data_parser::das_lock_args::get_manager_lock_args(output_args),
+                data_parser::das_lock_args::get_manager_type(input_args)
+                    != data_parser::das_lock_args::get_manager_type(output_args)
+                    || data_parser::das_lock_args::get_manager_lock_args(input_args)
+                        != data_parser::das_lock_args::get_manager_lock_args(output_args),
                 Error::AccountCellManagerLockShouldBeModified,
                 "The manager lock args in AccountCell.lock should be different in inputs and outputs."
             );
