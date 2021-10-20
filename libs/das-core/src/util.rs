@@ -322,11 +322,11 @@ pub fn load_oracle_data(type_: OracleCellType) -> Result<u64, Error> {
 }
 
 pub fn load_self_cells_in_inputs_and_outputs() -> Result<(Vec<usize>, Vec<usize>), Error> {
-    let this_type_script = high_level::load_script().map_err(|e| Error::from(e))?;
-    let (input_cell, output_cell) =
+    let this_type_script = high_level::load_script().map_err(Error::from)?;
+    let (input_cells, output_cells) =
         find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
 
-    Ok((input_cell, output_cell))
+    Ok((input_cells, output_cells))
 }
 
 pub fn trim_empty_bytes(buf: &[u8]) -> &[u8] {
@@ -353,7 +353,7 @@ pub fn load_witnesses(index: usize) -> Result<Vec<u8>, Error> {
         Err(SysError::LengthNotEnough(actual_size)) => {
             // debug!("Load witnesses[{}]: size: {} Bytes", index, actual_size);
             let mut buf = vec![0u8; actual_size];
-            syscalls::load_witness(&mut buf, 0, index, Source::Input).map_err(|e| Error::from(e))?;
+            syscalls::load_witness(&mut buf, 0, index, Source::Input).map_err(Error::from)?;
             Ok(buf)
         }
         Err(e) => Err(Error::from(e)),
@@ -398,7 +398,7 @@ pub fn load_das_witnesses(index: usize, data_type: DataType) -> Result<Vec<u8>, 
                 Err(Error::from(SysError::LengthNotEnough(actual_size)))
             } else {
                 let mut buf = vec![0u8; actual_size];
-                syscalls::load_witness(&mut buf, 0, index, Source::Input).map_err(|e| Error::from(e))?;
+                syscalls::load_witness(&mut buf, 0, index, Source::Input).map_err(Error::from)?;
                 Ok(buf)
             }
         }
@@ -462,8 +462,8 @@ pub fn is_cell_only_lock_changed(cell_a: (usize, Source), cell_b: (usize, Source
 }
 
 pub fn is_cell_lock_equal(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
-    let a_lock_script = high_level::load_cell_lock_hash(cell_a.0, cell_a.1).map_err(|e| Error::from(e))?;
-    let b_lock_script = high_level::load_cell_lock_hash(cell_b.0, cell_b.1).map_err(|e| Error::from(e))?;
+    let a_lock_script = high_level::load_cell_lock_hash(cell_a.0, cell_a.1).map_err(Error::from)?;
+    let b_lock_script = high_level::load_cell_lock_hash(cell_b.0, cell_b.1).map_err(Error::from)?;
 
     assert!(
         a_lock_script == b_lock_script,
@@ -482,10 +482,10 @@ pub fn is_cell_lock_equal(cell_a: (usize, Source), cell_b: (usize, Source)) -> R
 
 pub fn is_cell_type_equal(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
     let a_type_script = high_level::load_cell_type_hash(cell_a.0, cell_a.1)
-        .map_err(|e| Error::from(e))?
+        .map_err(Error::from)?
         .unwrap();
     let b_type_script = high_level::load_cell_type_hash(cell_b.0, cell_b.1)
-        .map_err(|e| Error::from(e))?
+        .map_err(Error::from)?
         .unwrap();
 
     assert!(
@@ -504,8 +504,8 @@ pub fn is_cell_type_equal(cell_a: (usize, Source), cell_b: (usize, Source)) -> R
 }
 
 pub fn is_cell_data_equal(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
-    let a_data = high_level::load_cell_data(cell_a.0, cell_a.1).map_err(|e| Error::from(e))?;
-    let b_data = high_level::load_cell_data(cell_b.0, cell_b.1).map_err(|e| Error::from(e))?;
+    let a_data = high_level::load_cell_data(cell_a.0, cell_a.1).map_err(Error::from)?;
+    let b_data = high_level::load_cell_data(cell_b.0, cell_b.1).map_err(Error::from)?;
 
     assert!(
         a_data == b_data,
@@ -523,8 +523,8 @@ pub fn is_cell_data_equal(cell_a: (usize, Source), cell_b: (usize, Source)) -> R
 }
 
 pub fn is_cell_capacity_lt(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
-    let a_capacity = high_level::load_cell_capacity(cell_a.0, cell_a.1).map_err(|e| Error::from(e))?;
-    let b_capacity = high_level::load_cell_capacity(cell_b.0, cell_b.1).map_err(|e| Error::from(e))?;
+    let a_capacity = high_level::load_cell_capacity(cell_a.0, cell_a.1).map_err(Error::from)?;
+    let b_capacity = high_level::load_cell_capacity(cell_b.0, cell_b.1).map_err(Error::from)?;
 
     // ⚠️ Equal is not allowed here because we want to avoid abuse cell.
     assert!(
@@ -543,8 +543,8 @@ pub fn is_cell_capacity_lt(cell_a: (usize, Source), cell_b: (usize, Source)) -> 
 }
 
 pub fn is_cell_capacity_gt(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
-    let a_capacity = high_level::load_cell_capacity(cell_a.0, cell_a.1).map_err(|e| Error::from(e))?;
-    let b_capacity = high_level::load_cell_capacity(cell_b.0, cell_b.1).map_err(|e| Error::from(e))?;
+    let a_capacity = high_level::load_cell_capacity(cell_a.0, cell_a.1).map_err(Error::from)?;
+    let b_capacity = high_level::load_cell_capacity(cell_b.0, cell_b.1).map_err(Error::from)?;
 
     // ⚠️ Equal is not allowed here because we want to avoid abuse cell.
     assert!(
@@ -563,8 +563,8 @@ pub fn is_cell_capacity_gt(cell_a: (usize, Source), cell_b: (usize, Source)) -> 
 }
 
 pub fn is_cell_capacity_equal(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
-    let a_capacity = high_level::load_cell_capacity(cell_a.0, cell_a.1).map_err(|e| Error::from(e))?;
-    let b_capacity = high_level::load_cell_capacity(cell_b.0, cell_b.1).map_err(|e| Error::from(e))?;
+    let a_capacity = high_level::load_cell_capacity(cell_a.0, cell_a.1).map_err(Error::from)?;
+    let b_capacity = high_level::load_cell_capacity(cell_b.0, cell_b.1).map_err(Error::from)?;
 
     assert!(
         a_capacity == b_capacity,
@@ -592,7 +592,7 @@ pub fn is_inputs_and_outputs_consistent(inputs_cells: Vec<usize>, outputs_cells:
 }
 
 pub fn is_cell_use_always_success_lock(index: usize, source: Source) -> Result<(), Error> {
-    let lock = high_level::load_cell_lock(index, source).map_err(|e| Error::from(e))?;
+    let lock = high_level::load_cell_lock(index, source).map_err(Error::from)?;
     let lock_reader = lock.as_reader();
     let always_success_lock = always_success_lock();
     let always_success_lock_reader = always_success_lock.as_reader();
@@ -611,7 +611,7 @@ pub fn is_cell_use_always_success_lock(index: usize, source: Source) -> Result<(
 }
 
 pub fn is_cell_use_signall_lock(index: usize, source: Source) -> Result<(), Error> {
-    let lock = high_level::load_cell_lock(index, source).map_err(|e| Error::from(e))?;
+    let lock = high_level::load_cell_lock(index, source).map_err(Error::from)?;
     let signall_lock = signall_lock();
 
     assert!(

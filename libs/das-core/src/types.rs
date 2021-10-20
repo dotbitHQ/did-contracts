@@ -43,6 +43,7 @@ pub struct Configs {
     pub profit_rate: Option<ConfigCellProfitRate>,
     pub release: Option<ConfigCellRelease>,
     pub secondary_market: Option<ConfigCellSecondaryMarket>,
+    pub reverse_resolution: Option<ConfigCellReverseResolution>,
     pub record_key_namespace: Option<Vec<u8>>,
     pub preserved_account: Option<Vec<u8>>,
     pub unavailable_account: Option<Vec<u8>>,
@@ -62,6 +63,7 @@ impl Configs {
     config_getter!(profit_rate, ConfigCellProfitRateReader);
     config_getter!(release, ConfigCellReleaseReader);
     config_getter!(secondary_market, ConfigCellSecondaryMarketReader);
+    config_getter!(reverse_resolution, ConfigCellReverseResolutionReader);
 
     pub fn record_key_namespace(&self) -> Result<&Vec<u8>, Error> {
         let reader = self

@@ -136,6 +136,10 @@ pub enum Error {
     AccountSaleCellNotPayEnough,
     AccountSaleCellChangeError,
     AccountSaleCellProfitError,
+    ReverseRecordCellLockError = -60,
+    ReverseRecordCellCapacityError,
+    ReverseRecordCellAccountError,
+    ReverseRecordCellChangeError,
     SystemOff = -1,
 }
 

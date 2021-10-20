@@ -119,7 +119,10 @@ impl WitnessesParser {
             | b"cancel_account_sale"
             | b"start_account_auction"
             | b"edit_account_auction"
-            | b"cancel_account_auction" => {
+            | b"cancel_account_auction"
+            | b"declare_reverse_record"
+            | b"redeclare_reverse_record"
+            | b"retract_reverse_record" => {
                 if action_data.params().is_empty() {
                     return Err(Error::ParamsDecodingError);
                 }
@@ -349,6 +352,9 @@ impl WitnessesParser {
                 DataType::ConfigCellSecondaryMarket => {
                     assign_config_witness!(self.configs.secondary_market, ConfigCellSecondaryMarket, entity)
                 }
+                DataType::ConfigCellReverseResolution => {
+                    assign_config_witness!(self.configs.reverse_resolution, ConfigCellReverseResolution, entity)
+                }
                 DataType::ConfigCellRecordKeyNamespace => {
                     self.configs.record_key_namespace = Some(entity.get(LENGTH_BYTES_4..).unwrap().to_vec());
                 }
@@ -450,10 +456,7 @@ impl WitnessesParser {
             // Because of the redundancy of the witness, appropriate trimming is performed here.
             let length = u32::from_le_bytes(raw.try_into().unwrap()) as usize;
 
-            // debug!(
-            //     "witness[7..11] = 0x{}",
-            //     util::hex_string(witness.get(7..11).unwrap())
-            // );
+            // debug!("witness[7..11] = 0x{}", util::hex_string(witness.get(7..11).unwrap()));
             // debug!("stored data length: {}", length);
             // debug!("real data length: {}", witness.get(7..).unwrap().len());
 
@@ -570,6 +573,7 @@ impl WitnessesParser {
             DataType::ConfigCellRelease,
             DataType::ConfigCellUnAvailableAccount,
             DataType::ConfigCellSecondaryMarket,
+            DataType::ConfigCellReverseResolution,
             DataType::ConfigCellRecordKeyNamespace,
             DataType::ConfigCellPreservedAccount00,
             DataType::ConfigCellPreservedAccount01,

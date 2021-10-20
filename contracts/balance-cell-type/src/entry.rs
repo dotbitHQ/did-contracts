@@ -86,6 +86,7 @@ pub fn main() -> Result<(), Error> {
                                 push_type_script!(account_cell);
                                 push_type_script!(account_sale_cell);
                                 push_type_script!(account_auction_cell);
+                                push_type_script!(reverse_record_cell);
                             }
 
                             for script in available_type_scripts.iter() {

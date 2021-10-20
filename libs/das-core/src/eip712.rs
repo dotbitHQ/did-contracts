@@ -16,12 +16,9 @@ use ckb_std::{
     error::SysError,
     high_level,
 };
-use core::{
-    convert::{TryFrom, TryInto},
-    ops::Range,
-};
+use core::convert::{TryFrom, TryInto};
 use das_map::{map::Map, util::add};
-use das_types::packed::AccountSaleCellData;
+use das_types::packed::{AccountSaleCellData, TypeIdTableReader};
 use das_types::{constants::LockRole, packed as das_packed, prelude::*};
 use eip712::{hash_data, typed_data_v4, types::*};
 use serde_json::Value;
@@ -367,6 +364,21 @@ fn tx_to_plaintext(
                 _ => return Err(Error::ActionNotSupported),
             }
         }
+        // For reverse-record-cell-type only
+        b"declare_reverse_record" | b"redeclare_reverse_record" | b"retract_reverse_record" => {
+            match action_in_bytes.raw_data() {
+                b"declare_reverse_record" => {
+                    ret = declare_reverse_record_to_semantic(script_table, type_id_table_reader)?
+                }
+                b"redeclare_reverse_record" => {
+                    ret = redeclare_reverse_record_to_semantic(script_table, type_id_table_reader)?
+                }
+                b"retract_reverse_record" => {
+                    ret = retract_reverse_record_to_semantic(script_table, type_id_table_reader)?
+                }
+                _ => return Err(Error::ActionNotSupported),
+            }
+        }
         // For balance-cell-type only
         b"transfer" | b"withdraw_from_wallet" => ret = transfer_to_semantic(script_table)?,
         _ => return Err(Error::ActionNotSupported),
@@ -392,7 +404,7 @@ fn transfer_account_to_semantic(
     // let from_address = to_semantic_address(from_lock.as_reader().into(), 1..21)?;
     // Parse to address from the AccountCell's lock script in outputs.
     let to_lock = high_level::load_cell_lock(output_cells[0], Source::Output).map_err(|e| Error::from(e))?;
-    let to_address = to_semantic_address(script_table, to_lock.as_reader().into(), 1..21)?;
+    let to_address = to_semantic_address(script_table, to_lock.as_reader().into(), LockRole::Owner)?;
 
     Ok(format!("TRANSFER THE ACCOUNT {} TO {}", account, to_address))
 }
@@ -509,6 +521,62 @@ fn buy_account_to_semantic(
     Ok(format!("BUY {} WITH {}", account, price))
 }
 
+fn reverse_record_to_semantic(
+    script_table: &ScriptTable,
+    type_id_table_reader: TypeIdTableReader,
+    source: Source,
+) -> Result<(String, String), Error> {
+    let reverse_record_cells =
+        util::find_cells_by_type_id(ScriptType::Type, type_id_table_reader.reverse_record_cell(), source)?;
+    debug!(
+        "type_id_table_reader.reverse_record_cell() = {:?}",
+        type_id_table_reader.reverse_record_cell()
+    );
+    assert!(
+        reverse_record_cells.len() == 1,
+        Error::InvalidTransactionStructure,
+        "There should be 1 ReverseRecordCell in transaction."
+    );
+
+    let data = high_level::load_cell_data(reverse_record_cells[0], source).map_err(Error::from)?;
+    let account = String::from_utf8(data).map_err(|_| Error::EIP712SerializationError)?;
+    let lock =
+        das_packed::Script::from(high_level::load_cell_lock(reverse_record_cells[0], source).map_err(Error::from)?);
+    let address = to_semantic_address(script_table, lock.as_reader(), LockRole::Owner)?;
+
+    Ok((address, account))
+}
+
+fn declare_reverse_record_to_semantic(
+    script_table: &ScriptTable,
+    type_id_table_reader: TypeIdTableReader,
+) -> Result<String, Error> {
+    let (address, account) = reverse_record_to_semantic(script_table, type_id_table_reader, Source::Output)?;
+    Ok(format!("DECLARE A REVERSE RECORD FROM {} TO {}.", address, account))
+}
+
+fn redeclare_reverse_record_to_semantic(
+    script_table: &ScriptTable,
+    type_id_table_reader: TypeIdTableReader,
+) -> Result<String, Error> {
+    let (address, account) = reverse_record_to_semantic(script_table, type_id_table_reader, Source::Output)?;
+    Ok(format!("REDECLARE A REVERSE RECORD FROM {} TO {}.", address, account))
+}
+
+fn retract_reverse_record_to_semantic(
+    script_table: &ScriptTable,
+    type_id_table_reader: TypeIdTableReader,
+) -> Result<String, Error> {
+    let source = Source::Input;
+    let reverse_record_cells =
+        util::find_cells_by_type_id(ScriptType::Type, type_id_table_reader.reverse_record_cell(), source)?;
+    let lock =
+        das_packed::Script::from(high_level::load_cell_lock(reverse_record_cells[0], source).map_err(Error::from)?);
+    let address = to_semantic_address(script_table, lock.as_reader(), LockRole::Owner)?;
+
+    Ok(format!("RETRACT REVERSE RECORDS ON {}.", address))
+}
+
 fn transfer_to_semantic(script_table: &ScriptTable) -> Result<String, Error> {
     fn sum_cells(script_table: &ScriptTable, source: Source) -> Result<String, Error> {
         let mut i = 0;
@@ -519,7 +587,7 @@ fn transfer_to_semantic(script_table: &ScriptTable) -> Result<String, Error> {
                 Ok(capacity) => {
                     let lock =
                         das_packed::Script::from(high_level::load_cell_lock(i, source).map_err(|e| Error::from(e))?);
-                    let address = to_semantic_address(script_table, lock.as_reader(), 1..21)?;
+                    let address = to_semantic_address(script_table, lock.as_reader(), LockRole::Owner)?;
                     add(&mut capacity_map, address, capacity);
                 }
                 Err(SysError::IndexOutOfBound) => {
@@ -552,7 +620,7 @@ fn transfer_to_semantic(script_table: &ScriptTable) -> Result<String, Error> {
 fn to_semantic_address(
     script_table: &ScriptTable,
     lock_reader: das_packed::ScriptReader,
-    range: Range<usize>,
+    role: LockRole,
 ) -> Result<String, Error> {
     let address;
 
@@ -563,7 +631,11 @@ fn to_semantic_address(
             let das_lock_type = DasLockType::try_from(args_in_bytes[0]).map_err(|_| Error::EIP712SerializationError)?;
             match das_lock_type {
                 DasLockType::CKBSingle => {
-                    let pubkey_hash = args_in_bytes[range.clone()].to_vec();
+                    let pubkey_hash = if role == LockRole::Owner {
+                        data_parser::das_lock_args::get_owner_lock_args(args_in_bytes).to_vec()
+                    } else {
+                        data_parser::das_lock_args::get_manager_lock_args(args_in_bytes).to_vec()
+                    };
 
                     // The first byte is address type, 0x01 is for short address.
                     // The second byte is CodeHashIndex, 0x00 is for SECP256K1 + blake160.
@@ -578,11 +650,20 @@ fn to_semantic_address(
                 DasLockType::TRX => {
                     let mut raw = [0u8; 21];
                     raw[0] = TRX_ADDR_PREFIX;
-                    raw[1..21].copy_from_slice(&args_in_bytes[range]);
+                    if role == LockRole::Owner {
+                        raw[1..21].copy_from_slice(data_parser::das_lock_args::get_owner_lock_args(args_in_bytes));
+                    } else {
+                        raw[1..21].copy_from_slice(data_parser::das_lock_args::get_manager_lock_args(args_in_bytes));
+                    }
                     address = format!("TRX:{}", b58encode_check(&raw));
                 }
                 DasLockType::ETH | DasLockType::ETHTypedData => {
-                    address = format!("ETH:0x{}", util::hex_string(&args_in_bytes[range]));
+                    let pubkey_hash = if role == LockRole::Owner {
+                        data_parser::das_lock_args::get_owner_lock_args(args_in_bytes).to_vec()
+                    } else {
+                        data_parser::das_lock_args::get_manager_lock_args(args_in_bytes).to_vec()
+                    };
+                    address = format!("ETH:0x{}", util::hex_string(&pubkey_hash));
                 }
                 _ => return Err(Error::EIP712SematicError),
             }
@@ -894,7 +975,7 @@ mod test {
             .build();
 
         let expected = "CKB:ckt1qyqvmcg6etl04k6uksm7kvat3w72jk9d92rq5tn6px";
-        let address = to_semantic_address(&script_table, lock.as_reader(), 1..21).unwrap();
+        let address = to_semantic_address(&script_table, lock.as_reader(), LockRole::Owner).unwrap();
         assert_eq!(&address, expected);
 
         // 0x03/94770827e8897417a2bbaf072c71c12f5a003278/03/94770827e8897417a2bbaf072c71c12f5a003278
@@ -908,7 +989,7 @@ mod test {
             .build();
 
         let expected = "ETH:0x94770827e8897417a2bbaf072c71c12f5a003278";
-        let address = to_semantic_address(&script_table, lock.as_reader(), 1..21).unwrap();
+        let address = to_semantic_address(&script_table, lock.as_reader(), LockRole::Owner).unwrap();
         assert_eq!(&address, expected);
 
         // 0x04/e4d75a3e74a3bc8199b48ff76d984b3a5bb1e218/04/e4d75a3e74a3bc8199b48ff76d984b3a5bb1e218
@@ -922,7 +1003,7 @@ mod test {
             .build();
 
         let expected = "TRX:TPhiVyQZ5xyvVK2KS2LTke8YvXJU5wxnbN";
-        let address = to_semantic_address(&script_table, lock.as_reader(), 1..21).unwrap();
+        let address = to_semantic_address(&script_table, lock.as_reader(), LockRole::Owner).unwrap();
         assert_eq!(&address, expected);
 
         // 0x05/94770827e8897417a2bbaf072c71c12f5a003278/05/94770827e8897417a2bbaf072c71c12f5a003278
@@ -936,7 +1017,7 @@ mod test {
             .build();
 
         let expected = "ETH:0x94770827e8897417a2bbaf072c71c12f5a003278";
-        let address = to_semantic_address(&script_table, lock.as_reader(), 1..21).unwrap();
+        let address = to_semantic_address(&script_table, lock.as_reader(), LockRole::Owner).unwrap();
         assert_eq!(&address, expected);
     }
 
