@@ -62,6 +62,7 @@ pub enum OracleCellType {
 
 lazy_static! {
     pub static ref TYPE_ID_TABLE: HashMap<&'static str, &'static str> = {
+        // For calculation of these type ID, you need uncomment a line of debug code in the funtion **deploy_contract** in src/util.rs.
         let mut map = HashMap::new();
         map.insert(
             "fake-das-lock",
@@ -110,6 +111,10 @@ lazy_static! {
         map.insert(
             "proposal-cell-type",
             "0x071ee1a005b5bc1a619aed290c39bbb613ac93991eabab8418d6b0a9bdd220eb",
+        );
+        map.insert(
+            "reverse-record-cell-type",
+            "0x666163a5626501ca714b96cbcb4730b0a111ec2640fb432d0ba7f4ba5fa2855b",
         );
         map
     };

@@ -728,6 +728,7 @@ impl TemplateGenerator {
             .income_cell(Hash::try_from(util::get_type_id_bytes("income-cell-type")).unwrap())
             .pre_account_cell(Hash::try_from(util::get_type_id_bytes("pre-account-cell-type")).unwrap())
             .proposal_cell(Hash::try_from(util::get_type_id_bytes("proposal-cell-type")).unwrap())
+            .reverse_record_cell(Hash::try_from(util::get_type_id_bytes("reverse-record-cell-type")).unwrap())
             .build();
 
         let entity = ConfigCellMain::new_builder()
@@ -844,6 +845,17 @@ impl TemplateGenerator {
             .auction_description_bytes_limit(Uint32::from(5000))
             .auction_cell_basic_capacity(Uint64::from(20_000_000_000))
             .auction_cell_prepared_fee_capacity(Uint64::from(100_000_000))
+            .build();
+        let cell_data = Bytes::from(blake2b_256(entity.as_slice()).to_vec());
+
+        (cell_data, entity)
+    }
+
+    fn gen_config_cell_reverse_resolution(&mut self) -> (Bytes, ConfigCellReverseResolution) {
+        let entity = ConfigCellReverseResolution::new_builder()
+            .record_basic_capacity(Uint64::from(20_000_000_000))
+            .record_prepared_fee_capacity(Uint64::from(100_000_000))
+            .common_fee(Uint64::from(10_000))
             .build();
         let cell_data = Bytes::from(blake2b_256(entity.as_slice()).to_vec());
 
@@ -974,108 +986,94 @@ impl TemplateGenerator {
     );
 
     pub fn push_config_cell(&mut self, config_type: DataType, push_witness: bool, capacity: u64, source: Source) {
-        macro_rules! gen_config_data_and_entity_witness {
-            ( $method:ident, $config_type:expr ) => {{
-                let (cell_data, entity) = self.$method();
-                (cell_data, das_util::wrap_entity_witness($config_type, entity))
-            }};
+        macro_rules! match_entity {
+            ( $var:expr, { $($type:pat => $gen_fn:ident, $config_type:expr),+ } ) => {
+                match $var {
+                    $($type => {
+                        let (cell_data, entity) = self.$gen_fn();
+                        Some((cell_data, das_util::wrap_entity_witness($config_type, entity)))
+                    }),*
+                    _ => None
+                }
+            };
         }
 
-        macro_rules! gen_config_data_and_raw_witness {
-            ( $gen_fn:ident, $config_type:expr ) => {{
-                let (cell_data, raw) = self.$gen_fn();
-                (cell_data, das_util::wrap_raw_witness($config_type, raw))
-            }};
+        macro_rules! match_raw {
+            ( $var:expr, { $($type:pat => $gen_fn:ident, $config_type:expr),+ } ) => {
+                match $var {
+                    $($type => {
+                        let (cell_data, raw) = self.$gen_fn();
+                        Some((cell_data, das_util::wrap_raw_witness($config_type, raw)))
+                    }),*
+                    _ => None
+                }
+            };
         }
 
-        let (cell_data, witness) = match config_type {
-            DataType::ConfigCellApply => {
-                gen_config_data_and_entity_witness!(gen_config_cell_apply, DataType::ConfigCellApply)
+        // 646173700000001c0000000c0000001400000000c817a8040000008096980000000000
+        let cell_data;
+        let witness;
+        if let Some((_data, _witness)) = match_entity!(config_type, {
+            DataType::ConfigCellApply => gen_config_cell_apply, DataType::ConfigCellApply,
+            DataType::ConfigCellIncome => gen_config_cell_income, DataType::ConfigCellIncome,
+            DataType::ConfigCellMain => gen_config_cell_main, DataType::ConfigCellMain,
+            DataType::ConfigCellAccount => gen_config_cell_account, DataType::ConfigCellAccount,
+            DataType::ConfigCellPrice => gen_config_cell_price, DataType::ConfigCellPrice,
+            DataType::ConfigCellProposal => gen_config_cell_proposal, DataType::ConfigCellProposal,
+            DataType::ConfigCellProfitRate => gen_config_cell_profit_rate, DataType::ConfigCellProfitRate,
+            DataType::ConfigCellRelease => gen_config_cell_release, DataType::ConfigCellRelease,
+            DataType::ConfigCellSecondaryMarket => gen_config_cell_secondary_market, DataType::ConfigCellSecondaryMarket,
+            DataType::ConfigCellReverseResolution => gen_config_cell_reverse_resolution, DataType::ConfigCellReverseResolution
+        }) {
+            cell_data = _data;
+            witness = _witness;
+        } else {
+            if let Some((_data, _witness)) = match_raw!(config_type, {
+                DataType::ConfigCellCharSetEmoji => gen_config_cell_char_set_emoji, DataType::ConfigCellCharSetEmoji,
+                DataType::ConfigCellCharSetDigit => gen_config_cell_char_set_digit, DataType::ConfigCellCharSetDigit,
+                DataType::ConfigCellCharSetEn => gen_config_cell_char_set_en, DataType::ConfigCellCharSetEn,
+                DataType::ConfigCellCharSetZhHans => gen_config_cell_char_set_zh_hans, DataType::ConfigCellCharSetZhHans,
+                DataType::ConfigCellCharSetZhHant => gen_config_cell_char_set_zh_hant, DataType::ConfigCellCharSetZhHant,
+                DataType::ConfigCellRecordKeyNamespace => gen_config_cell_record_key_namespace, DataType::ConfigCellRecordKeyNamespace,
+                DataType::ConfigCellUnAvailableAccount => gen_config_cell_unavailable_account, DataType::ConfigCellUnAvailableAccount
+            }) {
+                cell_data = _data;
+                witness = _witness;
+            } else {
+                let (_data, _witness) = match config_type {
+                    DataType::ConfigCellPreservedAccount00
+                    | DataType::ConfigCellPreservedAccount01
+                    | DataType::ConfigCellPreservedAccount02
+                    | DataType::ConfigCellPreservedAccount03
+                    | DataType::ConfigCellPreservedAccount04
+                    | DataType::ConfigCellPreservedAccount05
+                    | DataType::ConfigCellPreservedAccount06
+                    | DataType::ConfigCellPreservedAccount07
+                    | DataType::ConfigCellPreservedAccount08
+                    | DataType::ConfigCellPreservedAccount09
+                    | DataType::ConfigCellPreservedAccount10
+                    | DataType::ConfigCellPreservedAccount11
+                    | DataType::ConfigCellPreservedAccount12
+                    | DataType::ConfigCellPreservedAccount13
+                    | DataType::ConfigCellPreservedAccount14
+                    | DataType::ConfigCellPreservedAccount15
+                    | DataType::ConfigCellPreservedAccount16
+                    | DataType::ConfigCellPreservedAccount17
+                    | DataType::ConfigCellPreservedAccount18
+                    | DataType::ConfigCellPreservedAccount19 => {
+                        match self.gen_config_cell_preserved_account(config_type) {
+                            Some((cell_data, raw)) => (cell_data, das_util::wrap_raw_witness(config_type, raw)),
+                            None => panic!("Load preserved accounts from file failed ..."),
+                        }
+                    }
+                    _ => {
+                        panic!("Not config cell data type.")
+                    }
+                };
+                cell_data = _data;
+                witness = _witness;
             }
-            DataType::ConfigCellIncome => {
-                gen_config_data_and_entity_witness!(gen_config_cell_income, DataType::ConfigCellIncome)
-            }
-            DataType::ConfigCellMain => {
-                gen_config_data_and_entity_witness!(gen_config_cell_main, DataType::ConfigCellMain)
-            }
-            DataType::ConfigCellAccount => {
-                gen_config_data_and_entity_witness!(gen_config_cell_account, DataType::ConfigCellAccount)
-            }
-            DataType::ConfigCellPrice => {
-                gen_config_data_and_entity_witness!(gen_config_cell_price, DataType::ConfigCellPrice)
-            }
-            DataType::ConfigCellProposal => {
-                gen_config_data_and_entity_witness!(gen_config_cell_proposal, DataType::ConfigCellProposal)
-            }
-            DataType::ConfigCellProfitRate => {
-                gen_config_data_and_entity_witness!(gen_config_cell_profit_rate, DataType::ConfigCellProfitRate)
-            }
-            DataType::ConfigCellRelease => {
-                gen_config_data_and_entity_witness!(gen_config_cell_release, DataType::ConfigCellRelease)
-            }
-            DataType::ConfigCellSecondaryMarket => {
-                gen_config_data_and_entity_witness!(
-                    gen_config_cell_secondary_market,
-                    DataType::ConfigCellSecondaryMarket
-                )
-            }
-            DataType::ConfigCellRecordKeyNamespace => {
-                let (cell_data, raw) = self.gen_config_cell_record_key_namespace();
-                (
-                    cell_data,
-                    das_util::wrap_raw_witness(DataType::ConfigCellRecordKeyNamespace, raw),
-                )
-            }
-            DataType::ConfigCellPreservedAccount00
-            | DataType::ConfigCellPreservedAccount01
-            | DataType::ConfigCellPreservedAccount02
-            | DataType::ConfigCellPreservedAccount03
-            | DataType::ConfigCellPreservedAccount04
-            | DataType::ConfigCellPreservedAccount05
-            | DataType::ConfigCellPreservedAccount06
-            | DataType::ConfigCellPreservedAccount07
-            | DataType::ConfigCellPreservedAccount08
-            | DataType::ConfigCellPreservedAccount09
-            | DataType::ConfigCellPreservedAccount10
-            | DataType::ConfigCellPreservedAccount11
-            | DataType::ConfigCellPreservedAccount12
-            | DataType::ConfigCellPreservedAccount13
-            | DataType::ConfigCellPreservedAccount14
-            | DataType::ConfigCellPreservedAccount15
-            | DataType::ConfigCellPreservedAccount16
-            | DataType::ConfigCellPreservedAccount17
-            | DataType::ConfigCellPreservedAccount18
-            | DataType::ConfigCellPreservedAccount19 => match self.gen_config_cell_preserved_account(config_type) {
-                Some((cell_data, raw)) => (cell_data, das_util::wrap_raw_witness(config_type, raw)),
-                None => panic!("Load preserved accounts from file failed ..."),
-            },
-            DataType::ConfigCellUnAvailableAccount => {
-                let (cell_data, raw) = self.gen_config_cell_unavailable_account();
-
-                (
-                    cell_data,
-                    das_util::wrap_raw_witness(DataType::ConfigCellUnAvailableAccount, raw),
-                )
-            }
-            DataType::ConfigCellCharSetEmoji => {
-                gen_config_data_and_raw_witness!(gen_config_cell_char_set_emoji, DataType::ConfigCellCharSetEmoji)
-            }
-            DataType::ConfigCellCharSetDigit => {
-                gen_config_data_and_raw_witness!(gen_config_cell_char_set_digit, DataType::ConfigCellCharSetDigit)
-            }
-            DataType::ConfigCellCharSetEn => {
-                gen_config_data_and_raw_witness!(gen_config_cell_char_set_en, DataType::ConfigCellCharSetEn)
-            }
-            DataType::ConfigCellCharSetZhHans => {
-                gen_config_data_and_raw_witness!(gen_config_cell_char_set_zh_hans, DataType::ConfigCellCharSetZhHans)
-            }
-            DataType::ConfigCellCharSetZhHant => {
-                gen_config_data_and_raw_witness!(gen_config_cell_char_set_zh_hant, DataType::ConfigCellCharSetZhHant)
-            }
-            _ => {
-                panic!("Not config cell data type.")
-            }
-        };
+        }
 
         // Create config cell.
         let config_id_hex = hex_string(&(config_type as u32).to_le_bytes()).unwrap();
@@ -1507,6 +1505,10 @@ impl TemplateGenerator {
 
     // ======
 
+    pub fn push_dep(&mut self, cell: Value, version_opt: Option<u32>) -> usize {
+        self.push_cell_v2(cell, Source::CellDep, version_opt)
+    }
+
     pub fn push_input(&mut self, cell: Value, version_opt: Option<u32>) -> usize {
         self.push_cell_v2(cell, Source::Input, version_opt)
     }
@@ -1517,6 +1519,23 @@ impl TemplateGenerator {
 
     pub fn push_cell_v2(&mut self, cell: Value, source: Source, version_opt: Option<u32>) -> usize {
         macro_rules! push_cell {
+            ($gen_fn:ident, $cell:expr) => {{
+                let (capacity, lock_script, type_script, outputs_data) = self.$gen_fn($cell);
+
+                let outputs_data_bytes = Bytes::from(outputs_data);
+                let index = self.push_cell(
+                    capacity,
+                    lock_script,
+                    type_script,
+                    Some(outputs_data_bytes),
+                    source,
+                );
+
+                index
+            }};
+        }
+
+        macro_rules! push_cell_with_witness {
             ($data_type:expr, $gen_fn:ident, $cell:expr) => {{
                 let (capacity, lock_script, type_script, outputs_data, entity_opt) = self.$gen_fn($cell);
 
@@ -1565,9 +1584,12 @@ impl TemplateGenerator {
                     .map(|m| m.as_str())
                     .expect("type.code_hash is something like '{{...}}'");
                 let index = match type_id {
-                    "account-cell-type" => push_cell!(DataType::AccountCellData, gen_account_cell, cell),
-                    "account-sale-cell-type" => push_cell!(DataType::AccountSaleCellData, gen_account_sale_cell, cell),
-                    "income-cell-type" => push_cell!(DataType::IncomeCellData, gen_income_cell, cell),
+                    "account-cell-type" => push_cell_with_witness!(DataType::AccountCellData, gen_account_cell, cell),
+                    "account-sale-cell-type" => {
+                        push_cell_with_witness!(DataType::AccountSaleCellData, gen_account_sale_cell, cell)
+                    }
+                    "income-cell-type" => push_cell_with_witness!(DataType::IncomeCellData, gen_income_cell, cell),
+                    "reverse-record-cell-type" => push_cell!(gen_reverse_record_cell, cell),
                     "balance-cell-type" => {
                         let (capacity, lock_script, type_script, outputs_data_opt) = self.gen_balance_cell(cell);
                         let outputs_data_bytes_opt = if let Some(outputs_data) = outputs_data_opt {
@@ -1906,6 +1928,26 @@ impl TemplateGenerator {
         };
 
         (capacity, lock_script, type_script, outputs_data, entity_opt)
+    }
+
+    fn gen_reverse_record_cell(&mut self, cell: Value) -> (u64, Value, Value, Vec<u8>) {
+        let capacity: u64 = parse_json_u64("cell.capacity", &cell["capacity"]);
+
+        let lock = cell.get("lock").expect("cell.lock is missing");
+        let owner_lock_args = parse_json_str("cell.lock.owner_lock_args", &lock["owner_lock_args"]);
+        let manager_lock_args = parse_json_str("cell.lock.manager_lock_args", &lock["manager_lock_args"]);
+        let lock_script = json!({
+          "code_hash": "{{fake-das-lock}}",
+          "args": gen_das_lock_args(owner_lock_args, Some(manager_lock_args))
+        });
+
+        let type_script = parse_json_script("cell.type", &cell["type"]);
+
+        let data = &cell["data"];
+        let account = parse_json_str("cell.data.account", &data["account"]);
+        let outputs_data = account.as_bytes().to_vec();
+
+        (capacity, lock_script, type_script, outputs_data)
     }
 
     /// Cell structure:
