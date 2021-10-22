@@ -2,7 +2,7 @@ use alloc::string::String;
 use ckb_std::{ckb_constants::Source, high_level};
 use core::result::Result;
 use das_core::{
-    assert, constants::das_lock, constants::ScriptType, data_parser, debug, error::Error, util, warn,
+    assert, constants::das_lock, constants::ScriptType, data_parser, debug, error::Error, util,
     witness_parser::WitnessesParser,
 };
 use das_types::constants::DataType;
@@ -130,13 +130,7 @@ pub fn main() -> Result<(), Error> {
 
             // Stop transaction builder to spend users other cells in this transaction.
             // TODO 支持放入额外的 Cell 来解决手续费完全用光后的情况
-            match high_level::load_cell_capacity(1, Source::Input).map_err(Error::from) {
-                Err(Error::IndexOutOfBound) => {} // This is Ok.
-                _ => {
-                    warn!("There should be only 1 ReverseRecordCell in inputs.");
-                    return Err(Error::InvalidTransactionStructure);
-                }
-            }
+            util::is_cell_the_last(input_cells[0], Source::Input)?;
 
             debug!("Verify if the fee paied by ReverseRecordCell.capacity is not out of limitation.");
 
@@ -176,10 +170,90 @@ pub fn main() -> Result<(), Error> {
             verify_account_exist(config_main, output_cells[0])?;
         }
         b"retract_reverse_record" => {
+            parser.parse_config(&[DataType::ConfigCellMain, DataType::ConfigCellReverseResolution])?;
+            let config_main = parser.configs.main()?;
+            let config_reverse_resolution = parser.configs.reverse_resolution()?;
+
             assert!(
                 input_cells.len() >= 1 && output_cells.len() == 0,
                 Error::InvalidTransactionStructure,
                 "There should be at least 1 ReverseRecordCell in inputs."
+            );
+            assert!(
+                input_cells[0] == 0,
+                Error::InvalidTransactionStructure,
+                "The first ReverseRecordCell should be started at inputs[0]."
+            );
+
+            let mut prev_index = 0;
+            for i in input_cells.iter().skip(1) {
+                assert!(
+                    *i == prev_index + 1,
+                    Error::InvalidTransactionStructure,
+                    "All ReverseRecordCells in inputs should be continuous."
+                );
+                prev_index = *i
+            }
+
+            let last_cell = input_cells.last().unwrap();
+            util::is_cell_the_last(*last_cell, Source::Input)?;
+
+            debug!(
+                "Verify if all ReverseRecordCells in inputs has the same lock script with the first ReverseRecordCell."
+            );
+
+            let expected_lock_hash =
+                high_level::load_cell_lock_hash(input_cells[0], Source::Input).map_err(Error::from)?;
+            let mut total_input_capacity = 0;
+            for i in input_cells.iter() {
+                let lock_hash = high_level::load_cell_lock_hash(*i, Source::Input).map_err(Error::from)?;
+                assert!(
+                    expected_lock_hash == lock_hash,
+                    Error::InvalidTransactionStructure,
+                    "Inputs[{}] The ReverseRecordCell should has the same lock script with others.",
+                    i
+                );
+
+                total_input_capacity += high_level::load_cell_capacity(*i, Source::Input).map_err(Error::from)?;
+            }
+
+            debug!("Verify if all capacity have been refund to user correctly.");
+
+            let expected_lock = high_level::load_cell_lock(input_cells[0], Source::Input).map_err(Error::from)?;
+            let mut total_output_capacity = 0;
+            let balance_cell_type = util::type_id_to_script(config_main.type_id_table().balance_cell());
+            // CAREFUL The codes below just support das-lock.
+            let balance_cells =
+                util::find_cells_by_script(ScriptType::Lock, expected_lock.as_reader(), Source::Output)?;
+            for i in balance_cells {
+                let type_script_opt = high_level::load_cell_type(i, Source::Output).map_err(Error::from)?;
+                assert!(
+                    type_script_opt.is_some(),
+                    Error::InvalidTransactionStructure,
+                    "Outputs[{}] The BalanceCell in outputs should have balance-cell-type.",
+                    i
+                );
+
+                let type_script = type_script_opt.unwrap();
+                assert!(
+                    util::is_type_id_equal(balance_cell_type.as_reader().into(), type_script.as_reader()),
+                    Error::InvalidTransactionStructure,
+                    "Outputs[{}] The BalanceCell in outputs should have balance-cell-type.",
+                    i
+                );
+
+                total_output_capacity += high_level::load_cell_capacity(i, Source::Output).map_err(Error::from)?;
+            }
+
+            let expected_fee = u64::from(config_reverse_resolution.common_fee());
+            assert!(
+                total_output_capacity >= total_input_capacity - expected_fee,
+                Error::ReverseRecordCellChangeError,
+                "The change of the transaction should be {} shannon.({} = {} - {})",
+                total_input_capacity - expected_fee,
+                total_input_capacity - expected_fee,
+                total_input_capacity,
+                expected_fee
             );
         }
         _ => return Err(Error::ActionNotSupported),

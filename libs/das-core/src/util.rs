@@ -626,6 +626,21 @@ pub fn is_cell_use_signall_lock(index: usize, source: Source) -> Result<(), Erro
     Ok(())
 }
 
+pub fn is_cell_the_last(index: usize, source: Source) -> Result<(), Error> {
+    match high_level::load_cell_capacity(index + 1, source).map_err(Error::from) {
+        Err(Error::IndexOutOfBound) => {} // This is Ok.
+        _ => {
+            warn!(
+                "{:?}[{}] The cell should be the last cell in {:?}.",
+                source, index, source
+            );
+            return Err(Error::InvalidTransactionStructure);
+        }
+    }
+
+    Ok(())
+}
+
 pub fn is_system_off(parser: &mut WitnessesParser) -> Result<(), Error> {
     parser.parse_config(&[DataType::ConfigCellMain])?;
     let config_main = parser.configs.main()?;
