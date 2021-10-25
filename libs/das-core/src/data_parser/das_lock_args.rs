@@ -1,4 +1,4 @@
-use alloc::prelude::v1::ToOwned;
+use alloc::borrow::ToOwned;
 
 pub fn get_owner_type(data: &[u8]) -> u8 {
     data.get(0)
