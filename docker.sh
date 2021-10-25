@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Docker image name
-DOCKER_IMAGE="jjy0/ckb-capsule-recipe-rust:2020-9-28"
+DOCKER_IMAGE="thewawar/ckb-capsule:2021-08-16"
 # Docker container name
 DOCKER_CONTAINER="capsule-dev-"`whoami`
 # Name of capsule cache volume
