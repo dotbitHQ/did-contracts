@@ -466,6 +466,37 @@ data:
 
 `x` Bytes
 
+### OfferCell
+
+报价 Cell ，用户可以通过此 Cell 给出任意账户名的报价，甚至尚未注册的账户名也可以。
+
+#### 结构
+
+```
+lock: <das-lock>
+type: <offer-cell-type>
+data: hash(witness: OfferCellData)
+
+======
+table OfferCellData {
+    // The account of the offer .
+    account: Bytes,
+    // The price of the offer.
+    price: Uint64,
+    // The message from the offer maker to the seller.
+    message: Bytes,
+    // The lock script of inviter.
+    inviter_lock: Script,
+    // The lock script of channel.
+    channel_lock: Script,
+}
+```
+
+#### 体积
+
+`x` Bytes
+
+
 ## ConfigCell
 
 这是一个在链上保存 DAS 配置的 Cell，目前只通过 DAS 超级私钥手动更新。因为 CKB VM 在加载数据时存在性能存在数据越大开销急剧增大的问题，所以采用了将不同配置分散到多个 ConfigCell 中的保存方式。
