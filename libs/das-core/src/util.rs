@@ -719,11 +719,12 @@ pub fn require_type_script(
 
     let type_id = match type_script {
         TypeScript::AccountCellType => config.type_id_table().account_cell(),
+        TypeScript::AccountSaleCellType => config.type_id_table().account_sale_cell(),
+        TypeScript::AccountAuctionCellType => config.type_id_table().account_auction_cell(),
         TypeScript::ApplyRegisterCellType => config.type_id_table().apply_register_cell(),
         TypeScript::BalanceCellType => config.type_id_table().balance_cell(),
         TypeScript::IncomeCellType => config.type_id_table().income_cell(),
-        TypeScript::AccountSaleCellType => config.type_id_table().account_sale_cell(),
-        TypeScript::AccountAuctionCellType => config.type_id_table().account_auction_cell(),
+        TypeScript::OfferCellType => config.type_id_table().offer_cell(),
         TypeScript::PreAccountCellType => config.type_id_table().pre_account_cell(),
         TypeScript::ProposalCellType => config.type_id_table().proposal_cell(),
     };

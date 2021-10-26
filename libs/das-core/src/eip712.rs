@@ -1,4 +1,6 @@
-use super::{assert, constants::*, data_parser, debug, error::Error, util, warn, witness_parser::WitnessesParser};
+use super::{
+    assert, constants::*, data_parser, debug, error::Error, parse_witness, util, warn, witness_parser::WitnessesParser,
+};
 use alloc::{
     collections::BTreeMap,
     format,
@@ -364,6 +366,13 @@ fn tx_to_plaintext(
                 _ => return Err(Error::ActionNotSupported),
             }
         }
+        // For offer-cell-type only
+        b"make_offer" | b"cancel_offer" | b"accept_offer" => match action_in_bytes.raw_data() {
+            b"make_offer" => ret = make_offer_to_semantic(parser, type_id_table_reader)?,
+            b"cancel_offer" => ret = cancel_offer_to_semantic(parser, type_id_table_reader)?,
+            b"accept_offer" => ret = accept_offer_to_semantic(parser, type_id_table_reader)?,
+            _ => return Err(Error::ActionNotSupported),
+        },
         // For reverse-record-cell-type only
         b"declare_reverse_record" | b"redeclare_reverse_record" | b"retract_reverse_record" => {
             match action_in_bytes.raw_data() {
@@ -519,6 +528,57 @@ fn buy_account_to_semantic(
     let price = to_semantic_capacity(u64::from(entity.price()));
 
     Ok(format!("BUY {} WITH {}", account, price))
+}
+
+fn offer_to_semantic(
+    parser: &WitnessesParser,
+    type_id_table_reader: das_packed::TypeIdTableReader,
+    source: Source,
+) -> Result<(String, String), Error> {
+    let offer_cells = util::find_cells_by_type_id(ScriptType::Type, type_id_table_reader.offer_cell(), source)?;
+    let witness;
+    let witness_reader;
+    parse_witness!(
+        witness,
+        witness_reader,
+        parser,
+        offer_cells[0],
+        source,
+        das_packed::OfferCellData
+    );
+
+    let account = String::from_utf8(witness_reader.account().raw_data().to_vec()).map_err(|_| {
+        warn!("EIP712 decoding OfferCellData failed");
+        Error::WitnessEntityDecodingError
+    })?;
+    let amount = to_semantic_capacity(high_level::load_cell_capacity(offer_cells[0], source).map_err(Error::from)?);
+
+    Ok((account, amount))
+}
+
+fn make_offer_to_semantic(
+    parser: &WitnessesParser,
+    type_id_table_reader: das_packed::TypeIdTableReader,
+) -> Result<String, Error> {
+    let (account, amount) = offer_to_semantic(parser, type_id_table_reader, Source::Output)?;
+    Ok(format!("MAKE AN OFFER ON {} WITH {}", account, amount))
+}
+
+fn cancel_offer_to_semantic(
+    _parser: &WitnessesParser,
+    type_id_table_reader: das_packed::TypeIdTableReader,
+) -> Result<String, Error> {
+    let offer_cells = util::find_cells_by_type_id(ScriptType::Type, type_id_table_reader.offer_cell(), Source::Input)?;
+
+    Ok(format!("CANCEL {} OFFERS", offer_cells.len()))
+}
+
+fn accept_offer_to_semantic(
+    parser: &WitnessesParser,
+    type_id_table_reader: das_packed::TypeIdTableReader,
+) -> Result<String, Error> {
+    let (account, amount) = offer_to_semantic(parser, type_id_table_reader, Source::Input)?;
+    Ok(format!("ACCEPT THE OFFER ON {} WITH {}", account, amount))
 }
 
 fn reverse_record_to_semantic(
