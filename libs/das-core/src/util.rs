@@ -226,6 +226,21 @@ pub fn find_cells_by_script_and_filter<F: Fn(usize, Source) -> Result<bool, Erro
     Ok(ret)
 }
 
+pub fn find_balance_cells(
+    config_main: das_packed::ConfigCellMainReader,
+    user_lock_reader: ScriptReader,
+) -> Result<Vec<usize>, Error> {
+    find_cells_by_type_id_and_filter(
+        ScriptType::Type,
+        config_main.type_id_table().balance_cell(),
+        Source::Input,
+        |i, source| {
+            let lock = high_level::load_cell_lock(i, source)?;
+            Ok(is_reader_eq(lock.as_reader(), user_lock_reader))
+        },
+    )
+}
+
 pub fn load_data<F: Fn(&mut [u8], usize) -> Result<usize, SysError>>(syscall: F) -> Result<Vec<u8>, SysError> {
     // The buffer length should be a little bigger than the size of the biggest data.
     let mut buf = [0u8; 2000];
@@ -622,21 +637,6 @@ pub fn is_cell_use_signall_lock(index: usize, source: Source) -> Result<(), Erro
         index,
         signall_lock.as_reader().code_hash()
     );
-
-    Ok(())
-}
-
-pub fn is_cell_the_last(index: usize, source: Source) -> Result<(), Error> {
-    match high_level::load_cell_capacity(index + 1, source).map_err(Error::from) {
-        Err(Error::IndexOutOfBound) => {} // This is Ok.
-        _ => {
-            warn!(
-                "{:?}[{}] The cell should be the last cell in {:?}.",
-                source, index, source
-            );
-            return Err(Error::InvalidTransactionStructure);
-        }
-    }
 
     Ok(())
 }

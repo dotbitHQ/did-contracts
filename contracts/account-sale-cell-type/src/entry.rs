@@ -5,8 +5,8 @@ use ckb_std::{
     high_level,
 };
 use das_core::{
-    assert, constants::*, data_parser, debug, eip712::verify_eip712_hashes, error::Error, inspect,
-    parse_account_cell_witness, parse_witness, util, util::find_cells_by_script, verifiers::account_cell, warn,
+    assert, constants::*, data_parser, debug, eip712::verify_eip712_hashes, error::Error, parse_account_cell_witness,
+    parse_witness, util, util::find_cells_by_script, verifiers, verifiers::account_cell, warn,
     witness_parser::WitnessesParser,
 };
 use das_map::{map::Map, util as map_util};
@@ -36,380 +36,380 @@ pub fn main() -> Result<(), Error> {
         "Route to {:?} action ...",
         String::from_utf8(action.to_vec()).map_err(|_| Error::ActionNotSupported)?
     );
-    if action == b"start_account_sale" || action == b"cancel_account_sale" || action == b"buy_account" {
-        let timestamp = util::load_oracle_data(OracleCellType::Time)?;
+    match action {
+        b"start_account_sale" | b"cancel_account_sale" | b"buy_account" => {
+            let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
-        parser.parse_cell()?;
-        parser.parse_config(&[
-            DataType::ConfigCellMain,
-            DataType::ConfigCellAccount,
-            DataType::ConfigCellSecondaryMarket,
-        ])?;
-        if action == b"buy_account" {
-            parser.parse_config(&[DataType::ConfigCellProfitRate, DataType::ConfigCellIncome])?;
-        }
+            parser.parse_cell()?;
+            parser.parse_config(&[
+                DataType::ConfigCellMain,
+                DataType::ConfigCellAccount,
+                DataType::ConfigCellSecondaryMarket,
+            ])?;
+            if action == b"buy_account" {
+                parser.parse_config(&[DataType::ConfigCellProfitRate, DataType::ConfigCellIncome])?;
+            }
 
-        let config_main = parser.configs.main()?;
-        let config_account = parser.configs.account()?;
-        let config_secondary_market = parser.configs.secondary_market()?;
+            let config_main = parser.configs.main()?;
+            let config_account = parser.configs.account()?;
+            let config_secondary_market = parser.configs.secondary_market()?;
 
-        let (input_account_cells, output_account_cells) = load_account_cells(config_main)?;
-        let (input_sale_cells, output_sale_cells) = util::load_self_cells_in_inputs_and_outputs()?;
+            let (input_account_cells, output_account_cells) = load_account_cells(config_main)?;
+            let (input_sale_cells, output_sale_cells) = util::load_self_cells_in_inputs_and_outputs()?;
 
-        assert!(
-            input_account_cells.len() == 1 && output_account_cells.len() == 1,
-            Error::InvalidTransactionStructure,
-            "There should be 1 AccountCell in both inputs and outputs."
-        );
-        assert!(
-            input_account_cells[0] == 0 && output_account_cells[0] == 0,
-            Error::InvalidTransactionStructure,
-            "The AccountCells should only appear in inputs[0] and outputs[0]."
-        );
-
-        let input_account_cell_witness: Box<dyn AccountCellDataMixer>;
-        let input_account_cell_witness_reader;
-        parse_account_cell_witness!(
-            input_account_cell_witness,
-            input_account_cell_witness_reader,
-            parser,
-            input_account_cells[0],
-            Source::Input
-        );
-
-        let output_account_cell_witness: Box<dyn AccountCellDataMixer>;
-        let output_account_cell_witness_reader;
-        parse_account_cell_witness!(
-            output_account_cell_witness,
-            output_account_cell_witness_reader,
-            parser,
-            output_account_cells[0],
-            Source::Output
-        );
-
-        if action == b"start_account_sale" {
             assert!(
-                input_sale_cells.len() == 0 && output_sale_cells.len() == 1,
+                input_account_cells.len() == 1 && output_account_cells.len() == 1,
                 Error::InvalidTransactionStructure,
-                "There should be 0 AccountSaleCell in inputs and 1 AccountSaleCell in outputs."
+                "There should be 1 AccountCell in both inputs and outputs."
             );
             assert!(
-                output_sale_cells[0] == 1,
+                input_account_cells[0] == 0 && output_account_cells[0] == 0,
                 Error::InvalidTransactionStructure,
-                "The AccountSaleCell should only appear in outputs[1]."
+                "The AccountCells should only appear in inputs[0] and outputs[0]."
             );
 
-            debug!("Verify if the AccountCell is consistent in inputs and outputs.");
-
-            // The AccountCell should be consistent in inputs and outputs except the status field.
-            verify_account_cell_consistent_except_status(
-                config_account,
-                timestamp,
-                input_account_cells[0],
-                output_account_cells[0],
-                &input_account_cell_witness_reader,
-                &output_account_cell_witness_reader,
-            )?;
-
-            // If a user willing to sell owned account, the AccountCell should be in AccountStatus::Normal status.
-            account_cell::verify_account_cell_status_update_correctly(
-                &input_account_cell_witness_reader,
-                &output_account_cell_witness_reader,
-                AccountStatus::Normal,
-                AccountStatus::Selling,
-            )?;
-
-            debug!("Verify if all fields of AccountSaleCell is properly set.");
-
-            let output_sale_cell_witness;
-            let output_sale_cell_witness_reader;
-            parse_witness!(
-                output_sale_cell_witness,
-                output_sale_cell_witness_reader,
+            let input_account_cell_witness: Box<dyn AccountCellDataMixer>;
+            let input_account_cell_witness_reader;
+            parse_account_cell_witness!(
+                input_account_cell_witness,
+                input_account_cell_witness_reader,
                 parser,
-                output_sale_cells[0],
-                Source::Output,
-                AccountSaleCellData
-            );
-
-            verify_sale_cell_capacity(config_secondary_market, output_sale_cells[0])?;
-            verify_sale_cell_account_and_id(input_account_cells[0], output_sale_cell_witness_reader)?;
-            verify_price(config_secondary_market, output_sale_cell_witness_reader)?;
-            verify_description(config_secondary_market, output_sale_cell_witness_reader)?;
-            verify_started_at(timestamp, output_sale_cell_witness_reader)?;
-        } else if action == b"cancel_account_sale" {
-            assert!(
-                input_sale_cells.len() == 1 && output_sale_cells.len() == 0,
-                Error::InvalidTransactionStructure,
-                "There should be 0 AccountSaleCell in outputs and 1 AccountSaleCell in inputs."
-            );
-            assert!(
-                input_sale_cells[0] == 1,
-                Error::InvalidTransactionStructure,
-                "The AccountSaleCell should only appear in inputs[1]."
-            );
-
-            debug!(
-                "Verify if the AccountCell is consistent in inputs and outputs and its status is updated correctly."
-            );
-
-            verify_account_cell_consistent_except_status(
-                config_account,
-                timestamp,
                 input_account_cells[0],
-                output_account_cells[0],
-                &input_account_cell_witness_reader,
-                &output_account_cell_witness_reader,
-            )?;
+                Source::Input
+            );
 
-            // If a user want to cancel account sale, the AccountCell should be in AccountStatus::Selling status.
-            account_cell::verify_account_cell_status_update_correctly(
-                &input_account_cell_witness_reader,
-                &output_account_cell_witness_reader,
-                AccountStatus::Selling,
-                AccountStatus::Normal,
-            )?;
-
-            debug!("Verify if the AccountSaleCell has the same account ID with the AccountCell inputs.");
-
-            let input_sale_cell_witness;
-            let input_sale_cell_witness_reader;
-            parse_witness!(
-                input_sale_cell_witness,
-                input_sale_cell_witness_reader,
+            let output_account_cell_witness: Box<dyn AccountCellDataMixer>;
+            let output_account_cell_witness_reader;
+            parse_account_cell_witness!(
+                output_account_cell_witness,
+                output_account_cell_witness_reader,
                 parser,
-                input_sale_cells[0],
-                Source::Input,
-                AccountSaleCellData
-            );
-
-            verify_sale_cell_account_and_id(input_account_cells[0], input_sale_cell_witness_reader)?;
-            verify_refund_correctly(config_main, config_secondary_market, input_sale_cells[0])?;
-        } else if action == b"buy_account" {
-            assert!(
-                input_sale_cells.len() == 1 && output_sale_cells.len() == 0,
-                Error::InvalidTransactionStructure,
-                "There should be 0 AccountSaleCell in outputs and 1 AccountSaleCell in inputs."
-            );
-            assert!(
-                input_sale_cells[0] == 1,
-                Error::InvalidTransactionStructure,
-                "The AccountSaleCell should only appear in inputs[0]."
-            );
-
-            let config_profit_rate = parser.configs.profit_rate()?;
-
-            debug!("Verify if the AccountCell is consistent in inputs and outputs.");
-
-            account_cell::verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
-            account_cell::verify_account_data_consistent(input_account_cells[0], output_account_cells[0], vec![])?;
-            account_cell::verify_account_capacity_not_decrease(input_account_cells[0], output_account_cells[0])?;
-            account_cell::verify_account_witness_consistent(
-                input_account_cells[0],
                 output_account_cells[0],
-                &input_account_cell_witness_reader,
-                &output_account_cell_witness_reader,
-                vec!["status"],
-            )?;
-
-            // If a user willing to buy the account, the AccountCell should be in AccountStatus::Selling status.
-            account_cell::verify_account_cell_status_update_correctly(
-                &input_account_cell_witness_reader,
-                &output_account_cell_witness_reader,
-                AccountStatus::Selling,
-                AccountStatus::Normal,
-            )?;
-
-            debug!("Verify if the AccountSaleCell is belong to the AccountCell.");
-
-            let input_sale_cell_witness;
-            let input_sale_cell_witness_reader;
-            parse_witness!(
-                input_sale_cell_witness,
-                input_sale_cell_witness_reader,
-                parser,
-                input_sale_cells[0],
-                Source::Input,
-                AccountSaleCellData
+                Source::Output
             );
 
-            verify_sale_cell_account_and_id(input_account_cells[0], input_sale_cell_witness_reader)?;
-            // The cell carry refund capacity should be combined with the cell carry profit capacity, so skip checking refund here.
-            // verify_refund_correctly(config_main, config_secondary_market, input_sale_cells[0])?;
+            match action {
+                b"start_account_sale" => {
+                    assert!(
+                        input_sale_cells.len() == 0 && output_sale_cells.len() == 1,
+                        Error::InvalidTransactionStructure,
+                        "There should be 0 AccountSaleCell in inputs and 1 AccountSaleCell in outputs."
+                    );
+                    assert!(
+                        output_sale_cells[0] == 1,
+                        Error::InvalidTransactionStructure,
+                        "The AccountSaleCell should only appear in outputs[1]."
+                    );
 
-            debug!("Verify if the AccountCell.lock is changed to new owner's lock properly.");
+                    debug!("Verify if the AccountCell is consistent in inputs and outputs.");
 
-            let balance_cell_type_id = config_main.type_id_table().balance_cell();
-            let balance_cells = util::find_cells_by_type_id(ScriptType::Type, balance_cell_type_id, Source::Input)?;
+                    // The AccountCell should be consistent in inputs and outputs except the status field.
+                    verify_account_cell_consistent_except_status(
+                        config_account,
+                        timestamp,
+                        input_account_cells[0],
+                        output_account_cells[0],
+                        &input_account_cell_witness_reader,
+                        &output_account_cell_witness_reader,
+                    )?;
 
-            assert!(
-                balance_cells.len() > 0,
-                Error::InvalidTransactionStructure,
-                "There should be some BalanceCell in inputs to pay for the deal, but none found."
-            );
+                    // If a user willing to sell owned account, the AccountCell should be in AccountStatus::Normal status.
+                    account_cell::verify_account_cell_status_update_correctly(
+                        &input_account_cell_witness_reader,
+                        &output_account_cell_witness_reader,
+                        AccountStatus::Normal,
+                        AccountStatus::Selling,
+                    )?;
 
-            let new_owner_lock = high_level::load_cell_lock(balance_cells[0], Source::Input).map_err(Error::from)?;
-            let output_account_cell_lock =
-                high_level::load_cell_lock(output_account_cells[0], Source::Output).map_err(Error::from)?;
+                    debug!("Verify if all fields of AccountSaleCell is properly set.");
 
-            assert!(
-                util::is_entity_eq(&new_owner_lock, &output_account_cell_lock),
-                Error::AccountSaleCellNewOwnerError,
-                "The new owner's lock of AccountCell is mismatch with the BalanceCell in inputs.(expected: {}, current: {})",
-                new_owner_lock,
-                output_account_cell_lock
-            );
+                    let output_sale_cell_witness;
+                    let output_sale_cell_witness_reader;
+                    parse_witness!(
+                        output_sale_cell_witness,
+                        output_sale_cell_witness_reader,
+                        parser,
+                        output_sale_cells[0],
+                        Source::Output,
+                        AccountSaleCellData
+                    );
 
-            debug!("Verify if the changes for buyer is correctly");
-
-            let mut paied_capacity = 0;
-            for i in balance_cells {
-                let lock = high_level::load_cell_lock(i, Source::Input)?;
-                if util::is_entity_eq(&lock, &new_owner_lock) {
-                    paied_capacity += high_level::load_cell_capacity(i, Source::Input).map_err(Error::from)?;
+                    verify_sale_cell_capacity(config_secondary_market, output_sale_cells[0])?;
+                    verify_sale_cell_account_and_id(input_account_cells[0], output_sale_cell_witness_reader)?;
+                    verify_price(config_secondary_market, output_sale_cell_witness_reader)?;
+                    verify_description(config_secondary_market, output_sale_cell_witness_reader)?;
+                    verify_started_at(timestamp, output_sale_cell_witness_reader)?;
                 }
-            }
+                b"cancel_account_sale" => {
+                    assert!(
+                        input_sale_cells.len() == 1 && output_sale_cells.len() == 0,
+                        Error::InvalidTransactionStructure,
+                        "There should be 0 AccountSaleCell in outputs and 1 AccountSaleCell in inputs."
+                    );
+                    assert!(
+                        input_sale_cells[0] == 1,
+                        Error::InvalidTransactionStructure,
+                        "The AccountSaleCell should only appear in inputs[1]."
+                    );
 
-            let change_cells = util::find_cells_by_type_id_and_filter(
-                ScriptType::Type,
-                balance_cell_type_id,
+                    debug!(
+                        "Verify if the AccountCell is consistent in inputs and outputs and its status is updated correctly."
+                    );
+
+                    verify_account_cell_consistent_except_status(
+                        config_account,
+                        timestamp,
+                        input_account_cells[0],
+                        output_account_cells[0],
+                        &input_account_cell_witness_reader,
+                        &output_account_cell_witness_reader,
+                    )?;
+
+                    // If a user want to cancel account sale, the AccountCell should be in AccountStatus::Selling status.
+                    account_cell::verify_account_cell_status_update_correctly(
+                        &input_account_cell_witness_reader,
+                        &output_account_cell_witness_reader,
+                        AccountStatus::Selling,
+                        AccountStatus::Normal,
+                    )?;
+
+                    debug!("Verify if the AccountSaleCell has the same account ID with the AccountCell inputs.");
+
+                    let input_sale_cell_witness;
+                    let input_sale_cell_witness_reader;
+                    parse_witness!(
+                        input_sale_cell_witness,
+                        input_sale_cell_witness_reader,
+                        parser,
+                        input_sale_cells[0],
+                        Source::Input,
+                        AccountSaleCellData
+                    );
+
+                    verify_sale_cell_account_and_id(input_account_cells[0], input_sale_cell_witness_reader)?;
+                    verify_refund_correctly(config_main, config_secondary_market, input_sale_cells[0])?;
+                }
+                b"buy_account" => {
+                    assert!(
+                        input_sale_cells.len() == 1 && output_sale_cells.len() == 0,
+                        Error::InvalidTransactionStructure,
+                        "There should be 0 AccountSaleCell in outputs and 1 AccountSaleCell in inputs."
+                    );
+                    assert!(
+                        input_sale_cells[0] == 1,
+                        Error::InvalidTransactionStructure,
+                        "The AccountSaleCell should only appear in inputs[0]."
+                    );
+
+                    let config_profit_rate = parser.configs.profit_rate()?;
+
+                    debug!("Verify if the AccountCell is consistent in inputs and outputs.");
+
+                    account_cell::verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
+                    account_cell::verify_account_data_consistent(
+                        input_account_cells[0],
+                        output_account_cells[0],
+                        vec![],
+                    )?;
+                    account_cell::verify_account_capacity_not_decrease(
+                        input_account_cells[0],
+                        output_account_cells[0],
+                    )?;
+                    account_cell::verify_account_witness_consistent(
+                        input_account_cells[0],
+                        output_account_cells[0],
+                        &input_account_cell_witness_reader,
+                        &output_account_cell_witness_reader,
+                        vec!["status"],
+                    )?;
+
+                    // If a user willing to buy the account, the AccountCell should be in AccountStatus::Selling status.
+                    account_cell::verify_account_cell_status_update_correctly(
+                        &input_account_cell_witness_reader,
+                        &output_account_cell_witness_reader,
+                        AccountStatus::Selling,
+                        AccountStatus::Normal,
+                    )?;
+
+                    debug!("Verify if the AccountSaleCell is belong to the AccountCell.");
+
+                    let input_sale_cell_witness;
+                    let input_sale_cell_witness_reader;
+                    parse_witness!(
+                        input_sale_cell_witness,
+                        input_sale_cell_witness_reader,
+                        parser,
+                        input_sale_cells[0],
+                        Source::Input,
+                        AccountSaleCellData
+                    );
+
+                    verify_sale_cell_account_and_id(input_account_cells[0], input_sale_cell_witness_reader)?;
+                    // The cell carry refund capacity should be combined with the cell carry profit capacity, so skip checking refund here.
+                    // verify_refund_correctly(config_main, config_secondary_market, input_sale_cells[0])?;
+
+                    debug!("Verify if the AccountCell.lock is changed to new owner's lock properly.");
+
+                    let balance_cell_type_id = config_main.type_id_table().balance_cell();
+                    let balance_cells =
+                        util::find_cells_by_type_id(ScriptType::Type, balance_cell_type_id, Source::Input)?;
+
+                    assert!(
+                        balance_cells.len() > 0,
+                        Error::InvalidTransactionStructure,
+                        "There should be some BalanceCell in inputs to pay for the deal, but none found."
+                    );
+
+                    let new_owner_lock =
+                        high_level::load_cell_lock(balance_cells[0], Source::Input).map_err(Error::from)?;
+                    let output_account_cell_lock =
+                        high_level::load_cell_lock(output_account_cells[0], Source::Output).map_err(Error::from)?;
+
+                    assert!(
+                        util::is_entity_eq(&new_owner_lock, &output_account_cell_lock),
+                        Error::AccountSaleCellNewOwnerError,
+                        "The new owner's lock of AccountCell is mismatch with the BalanceCell in inputs.(expected: {}, current: {})",
+                        new_owner_lock,
+                        output_account_cell_lock
+                    );
+
+                    debug!("Verify if the changes for buyer is correctly");
+
+                    let mut paied_capacity = 0;
+                    for i in balance_cells {
+                        let lock = high_level::load_cell_lock(i, Source::Input)?;
+                        if util::is_entity_eq(&lock, &new_owner_lock) {
+                            paied_capacity += high_level::load_cell_capacity(i, Source::Input).map_err(Error::from)?;
+                        }
+                    }
+
+                    let price = u64::from(input_sale_cell_witness_reader.price());
+                    assert!(
+                        paied_capacity >= price,
+                        Error::AccountSaleCellNotPayEnough,
+                        "The buyer not pay enough to buy the account.(expected: {}, current: {})",
+                        price,
+                        paied_capacity
+                    );
+
+                    let expected_change_capacity = paied_capacity - price;
+                    verifiers::misc::verify_user_get_change(
+                        config_main,
+                        new_owner_lock.as_reader(),
+                        expected_change_capacity,
+                    )?;
+
+                    debug!("Verify if the profit is distribute correctly.");
+
+                    let seller_lock = util::derive_owner_lock_from_cell(input_account_cells[0], Source::Input)?;
+                    let (inviter_lock, channel_lock) = decode_scripts_from_params(params)?;
+                    let account_sale_cell_capacity =
+                        high_level::load_cell_capacity(input_sale_cells[0], Source::Input).map_err(Error::from)?;
+                    let common_fee = u64::from(config_secondary_market.common_fee());
+
+                    verify_profit_distribution(
+                        &parser,
+                        config_main,
+                        config_profit_rate,
+                        seller_lock.as_reader(),
+                        inviter_lock.as_reader(),
+                        channel_lock.as_reader(),
+                        price,
+                        account_sale_cell_capacity,
+                        common_fee,
+                    )?;
+                }
+                _ => unreachable!(),
+            }
+        }
+        b"edit_account_sale" => {
+            parser.parse_config(&[DataType::ConfigCellSecondaryMarket])?;
+            parser.parse_cell()?;
+
+            verify_eip712_hashes(&parser, action_raw.as_reader(), &params)?;
+
+            let config_secondary_market_reader = parser.configs.secondary_market()?;
+
+            let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
+            assert!(
+                input_cells.len() == 1 && output_cells.len() == 1,
+                Error::InvalidTransactionStructure,
+                "There should be one AccountSaleCell in outputs and one AccountSaleCell in inputs."
+            );
+            assert!(
+                input_cells[0] == 0 && output_cells[0] == 0,
+                Error::InvalidTransactionStructure,
+                "The AccountSaleCells should only appear at inputs[0] and outputs[0]."
+            );
+
+            let input_cell_witness;
+            let input_cell_witness_reader;
+            parse_witness!(
+                input_cell_witness,
+                input_cell_witness_reader,
+                parser,
+                input_cells[0],
+                Source::Input,
+                AccountSaleCellData
+            );
+
+            let output_cell_witness;
+            let output_cell_witness_reader;
+            parse_witness!(
+                output_cell_witness,
+                output_cell_witness_reader,
+                parser,
+                output_cells[0],
                 Source::Output,
-                |i, source| {
-                    let lock = high_level::load_cell_lock(i, source)?;
-                    Ok(util::is_entity_eq(&lock, &new_owner_lock))
-                },
+                AccountSaleCellData
+            );
+
+            verify_account_sale_cell_consistent(
+                input_cells[0],
+                output_cells[0],
+                input_cell_witness_reader,
+                output_cell_witness_reader,
             )?;
-            let mut change_capacity = 0;
-            for i in change_cells {
-                change_capacity += high_level::load_cell_capacity(i, Source::Output).map_err(Error::from)?;
+
+            verify_tx_fee_spent_correctly(config_secondary_market_reader, input_cells[0], output_cells[0])?;
+
+            let mut changed = false;
+
+            let input_sale_price = u64::from(input_cell_witness_reader.price());
+            let output_sale_price = u64::from(output_cell_witness_reader.price());
+            if input_sale_price != output_sale_price {
+                debug!(
+                    "Sale price has been changed, verify if it higher than ConfigCellSecondaryMarket.sale_min_price."
+                );
+                verify_price(config_secondary_market_reader, output_cell_witness_reader)?;
+                changed = true;
             }
 
-            let price = u64::from(input_sale_cell_witness_reader.price());
+            let input_description = input_cell_witness_reader.description();
+            let output_description = output_cell_witness_reader.description();
+            if !util::is_reader_eq(input_description, output_description) {
+                debug!("Description has been changed, verify if its size is less than ConfigCellSecondaryMarket.sale_description_bytes_limit.");
+                verify_description(config_secondary_market_reader, output_cell_witness_reader)?;
+                changed = true;
+            }
+
             assert!(
-                paied_capacity >= price,
-                Error::AccountSaleCellNotPayEnough,
-                "The buyer not pay enough to buy the account.(expected: {}, current: {})",
-                price,
-                paied_capacity
+                changed,
+                Error::InvalidTransactionStructure,
+                "Either price or description should be modified."
             );
-
-            let expected_change_capacity = paied_capacity - price;
-            assert!(
-                change_capacity == expected_change_capacity,
-                Error::AccountSaleCellChangeError,
-                "The buyer({}) has paied {} shannon and the price is {} shannon, so the change should be {} shannon.(expected: {}, current: {})",
-                new_owner_lock.as_reader().args(),
-                paied_capacity,
-                price,
-                expected_change_capacity,
-                expected_change_capacity,
-                change_capacity
-            );
-
-            debug!("Verify if the profit is distribute correctly.");
-
-            let seller_lock = util::derive_owner_lock_from_cell(input_account_cells[0], Source::Input)?;
-            let (inviter_lock, channel_lock) = decode_scripts_from_params(params)?;
-            let account_sale_cell_capacity =
-                high_level::load_cell_capacity(input_sale_cells[0], Source::Input).map_err(Error::from)?;
-            let common_fee = u64::from(config_secondary_market.common_fee());
-
-            verify_profit_distribution(
-                &parser,
-                config_main,
-                config_profit_rate,
-                seller_lock.as_reader(),
-                inviter_lock.as_reader(),
-                channel_lock.as_reader(),
-                price,
-                account_sale_cell_capacity,
-                common_fee,
+        }
+        b"force_recover_account_status" => {
+            util::require_type_script(
+                &mut parser,
+                TypeScript::AccountCellType,
+                Source::Input,
+                Error::InvalidTransactionStructure,
             )?;
         }
-    } else if action == b"edit_account_sale" {
-        parser.parse_config(&[DataType::ConfigCellSecondaryMarket])?;
-        parser.parse_cell()?;
-
-        verify_eip712_hashes(&parser, action_raw.as_reader(), &params)?;
-
-        let config_secondary_market_reader = parser.configs.secondary_market()?;
-
-        let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
-        assert!(
-            input_cells.len() == 1 && output_cells.len() == 1,
-            Error::InvalidTransactionStructure,
-            "There should be one AccountSaleCell in outputs and one AccountSaleCell in inputs."
-        );
-        assert!(
-            input_cells[0] == 0 && output_cells[0] == 0,
-            Error::InvalidTransactionStructure,
-            "The AccountSaleCells should only appear at inputs[0] and outputs[0]."
-        );
-
-        let input_cell_witness;
-        let input_cell_witness_reader;
-        parse_witness!(
-            input_cell_witness,
-            input_cell_witness_reader,
-            parser,
-            input_cells[0],
-            Source::Input,
-            AccountSaleCellData
-        );
-
-        let output_cell_witness;
-        let output_cell_witness_reader;
-        parse_witness!(
-            output_cell_witness,
-            output_cell_witness_reader,
-            parser,
-            output_cells[0],
-            Source::Output,
-            AccountSaleCellData
-        );
-
-        verify_account_sale_cell_consistent(
-            input_cells[0],
-            output_cells[0],
-            input_cell_witness_reader,
-            output_cell_witness_reader,
-        )?;
-
-        verify_tx_fee_spent_correctly(config_secondary_market_reader, input_cells[0], output_cells[0])?;
-
-        let mut changed = false;
-
-        let input_sale_price = u64::from(input_cell_witness_reader.price());
-        let output_sale_price = u64::from(output_cell_witness_reader.price());
-        if input_sale_price != output_sale_price {
-            debug!("Sale price has been changed, verify if it higher than ConfigCellSecondaryMarket.sale_min_price.");
-            verify_price(config_secondary_market_reader, output_cell_witness_reader)?;
-            changed = true;
-        }
-
-        let input_description = input_cell_witness_reader.description();
-        let output_description = output_cell_witness_reader.description();
-        if !util::is_reader_eq(input_description, output_description) {
-            debug!("Description has been changed, verify if its size is less than ConfigCellSecondaryMarket.sale_description_bytes_limit.");
-            verify_description(config_secondary_market_reader, output_cell_witness_reader)?;
-            changed = true;
-        }
-
-        assert!(
-            changed,
-            Error::InvalidTransactionStructure,
-            "Either price or description should be modified."
-        );
-    } else if action == b"force_recover_account_status" {
-        util::require_type_script(
-            &mut parser,
-            TypeScript::AccountCellType,
-            Source::Input,
-            Error::InvalidTransactionStructure,
-        )?;
-    } else {
-        return Err(Error::ActionNotSupported);
+        _ => return Err(Error::ActionNotSupported),
     }
+
     Ok(())
 }
 
@@ -688,8 +688,6 @@ fn verify_profit_distribution(
     account_sale_cell_capacity: u64,
     common_fee: u64,
 ) -> Result<(), Error> {
-    let income_cell_basic_capacity = u64::from(parser.configs.income()?.basic_capacity());
-
     let default_script = ckb_packed::Script::default();
     let default_script_reader = default_script.as_reader();
 
@@ -749,40 +747,12 @@ fn verify_profit_distribution(
 
     debug!("Check if seller get their profit properly.");
 
-    let balance_cell_type_id = config_main.type_id_table().balance_cell();
-    let balance_cell_type = util::type_id_to_script(balance_cell_type_id);
-    let das_lock_cells = find_cells_by_script(ScriptType::Lock, seller_lock_reader, Source::Output)?;
-    let mut seller_balance_cells = Vec::new();
-    for i in das_lock_cells {
-        let type_script_opt = high_level::load_cell_type(i, Source::Output).map_err(Error::from)?;
-        if let Some(type_script) = type_script_opt {
-            if util::is_type_id_equal(balance_cell_type.as_reader().into(), type_script.as_reader()) {
-                seller_balance_cells.push(i);
-            }
-        }
-    }
-    assert!(
-        seller_balance_cells.len() == 1,
-        Error::AccountSaleCellProfitError,
-        "There should only 1 cell used to carry profit and refund, but {} found.",
-        seller_balance_cells.len()
-    );
-
-    let seller_balance_cell_capacity =
-        high_level::load_cell_capacity(seller_balance_cells[0], Source::Output).map_err(Error::from)?;
     let expected_capacity = profit_of_seller + account_sale_cell_capacity - common_fee;
-    assert!(
-        seller_balance_cell_capacity >= expected_capacity,
-        Error::AccountSaleCellProfitError,
-        "The capacity of seller's NormalCell should be equal to or more than {} shannon, but {} shannon found.(profit: {}, refund: {}, common_fee: {})",
-        expected_capacity,
-        seller_balance_cell_capacity,
-        profit_of_seller,
-        account_sale_cell_capacity,
-        common_fee
-    );
+    verifiers::misc::verify_user_get_change(config_main, seller_lock_reader, expected_capacity)?;
 
     debug!("Check if other roles get their profit properly.");
+
+    let total_profit_in_income = price - profit_of_seller;
 
     let output_income_cell_witness;
     let output_income_cell_witness_reader;
@@ -795,76 +765,14 @@ fn verify_profit_distribution(
         IncomeCellData
     );
 
-    #[cfg(any(not(feature = "mainnet"), debug_assertions))]
-    inspect::income_cell(
-        Source::Output,
+    verifiers::income_cell::verify_records_match_with_creating(
+        parser.configs.income()?,
         output_income_cells[0],
-        None,
-        Some(output_income_cell_witness_reader),
-    );
-
-    let total_profit_in_income = price - profit_of_seller;
-    let skip = if total_profit_in_income > income_cell_basic_capacity {
-        false
-    } else {
-        // If the profit is sufficient for IncomeCell's basic capacity skip the first record, because it is a convention that the first
-        // always belong to the IncomeCell creator in this transaction.
-        true
-    };
-    for (i, record) in output_income_cell_witness_reader.records().iter().enumerate() {
-        if skip && i == 0 {
-            continue;
-        }
-
-        let key = record.belong_to().as_slice().to_vec();
-        let recorded_capacity = u64::from(record.capacity());
-        let result = profit_map.get(&key);
-
-        // This will allow creating IncomeCell will NormalCells in inputs.
-        if result.is_none() {
-            continue;
-        }
-
-        let expected_capacity = result.unwrap();
-        assert!(
-            &recorded_capacity == expected_capacity,
-            Error::AccountSaleCellProfitError,
-            "IncomeCell.records[{}] The capacity of a profit record is incorrect. (expected: {}, current: {}, belong_to: {})",
-            i,
-            expected_capacity,
-            recorded_capacity,
-            record.belong_to()
-        );
-
-        profit_map.remove(&key);
-    }
-
-    assert!(
-        profit_map.is_empty(),
-        Error::AccountSaleCellProfitError,
-        "The IncomeCell in outputs should contains everyone's profit. (missing: {})",
-        profit_map.len()
-    );
-
-    let mut expected_income_cell_capacity = 0;
-    for record in output_income_cell_witness_reader.records().iter() {
-        expected_income_cell_capacity += u64::from(record.capacity());
-    }
-
-    let current_capacity =
-        high_level::load_cell_capacity(output_income_cells[0], Source::Output).map_err(Error::from)?;
-    assert!(
-        current_capacity >= income_cell_basic_capacity,
-        Error::InvalidTransactionStructure,
-        "The IncomeCell should have capacity bigger than or equal to the value in ConfigCellIncome.basic_capacity."
-    );
-    assert!(
-        current_capacity == expected_income_cell_capacity,
-        Error::AccountSaleCellProfitError,
-        "The capacity of the IncomeCell should be {} shannon, but {} shannon found.",
-        expected_income_cell_capacity,
-        current_capacity
-    );
+        Source::Output,
+        output_income_cell_witness_reader,
+        total_profit_in_income,
+        profit_map,
+    )?;
 
     Ok(())
 }

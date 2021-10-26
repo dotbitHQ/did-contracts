@@ -101,6 +101,7 @@ pub enum Error {
     IncomeCellConsolidateWaste,
     IncomeCellTransferError,
     IncomeCellCapacityError,
+    IncomeCellProfitMismatch,
     AccountCellFoundInvalidTransaction = -110,
     AccountCellPermissionDenied,
     AccountCellOwnerLockShouldNotBeModified,

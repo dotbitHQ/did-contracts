@@ -2,7 +2,7 @@ use alloc::string::String;
 use ckb_std::{ckb_constants::Source, high_level};
 use core::result::Result;
 use das_core::{
-    assert, constants::das_lock, constants::ScriptType, data_parser, debug, error::Error, util,
+    assert, constants::das_lock, constants::ScriptType, data_parser, debug, error::Error, util, verifiers,
     witness_parser::WitnessesParser,
 };
 use das_types::constants::DataType;
@@ -45,36 +45,25 @@ pub fn main() -> Result<(), Error> {
                 "There should be only 1 ReverseRecordCell at outputs[0]."
             );
 
+            let sender_lock = high_level::load_cell_lock(0, Source::Input).map_err(Error::from)?;
+
+            let balance_cells = util::find_balance_cells(config_main, sender_lock.as_reader())?;
+            verifiers::misc::verify_no_more_cells(&balance_cells, Source::Input)?;
+
             debug!("Verify if the change is transferred back to the sender properly.");
 
-            let sender_lock = high_level::load_cell_lock(0, Source::Input).map_err(Error::from)?;
-            let (input_balance_cells, output_balance_cells) =
-                util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Lock, sender_lock.as_reader())?;
             let mut total_input_capacity = 0;
-            for i in input_balance_cells {
+            for i in balance_cells {
                 total_input_capacity += high_level::load_cell_capacity(i, Source::Input).map_err(Error::from)?;
             }
-            let mut total_output_capacity = 0;
-            // Skip the first cell because it is the new ReverseRecordCell.
-            for i in output_balance_cells.iter().skip(1) {
-                total_output_capacity += high_level::load_cell_capacity(*i, Source::Output).map_err(Error::from)?;
-            }
-
             let reverse_record_cell_capacity = u64::from(config_reverse_resolution.record_basic_capacity())
                 + u64::from(config_reverse_resolution.record_prepared_fee_capacity());
-            let expected_fee = u64::from(config_reverse_resolution.common_fee());
-            let result = total_input_capacity - reverse_record_cell_capacity - expected_fee;
-
-            assert!(
-                total_output_capacity >= result,
-                Error::ReverseRecordCellChangeError,
-                "The change of the transaction should be {} shannon.({} = {} - {} - {})",
-                result,
-                result,
-                total_input_capacity,
-                reverse_record_cell_capacity,
-                expected_fee
-            );
+            let common_fee = u64::from(config_reverse_resolution.common_fee());
+            verifiers::misc::verify_user_get_change(
+                config_main,
+                sender_lock.as_reader(),
+                total_input_capacity - reverse_record_cell_capacity - common_fee,
+            )?;
 
             debug!("Verify if the ReverseRecordCell.capacity is correct.");
 
@@ -129,8 +118,8 @@ pub fn main() -> Result<(), Error> {
             );
 
             // Stop transaction builder to spend users other cells in this transaction.
-            // TODO 支持放入额外的 Cell 来解决手续费完全用光后的情况
-            util::is_cell_the_last(input_cells[0], Source::Input)?;
+            // TODO Support extra cells to pay for transaction fees.
+            verifiers::misc::verify_no_more_cells(&input_cells, Source::Input)?;
 
             debug!("Verify if the fee paied by ReverseRecordCell.capacity is not out of limitation.");
 
@@ -185,18 +174,7 @@ pub fn main() -> Result<(), Error> {
                 "The first ReverseRecordCell should be started at inputs[0]."
             );
 
-            let mut prev_index = 0;
-            for i in input_cells.iter().skip(1) {
-                assert!(
-                    *i == prev_index + 1,
-                    Error::InvalidTransactionStructure,
-                    "All ReverseRecordCells in inputs should be continuous."
-                );
-                prev_index = *i
-            }
-
-            let last_cell = input_cells.last().unwrap();
-            util::is_cell_the_last(*last_cell, Source::Input)?;
+            verifiers::misc::verify_no_more_cells(&input_cells, Source::Input)?;
 
             debug!(
                 "Verify if all ReverseRecordCells in inputs has the same lock script with the first ReverseRecordCell."
@@ -220,41 +198,12 @@ pub fn main() -> Result<(), Error> {
             debug!("Verify if all capacity have been refund to user correctly.");
 
             let expected_lock = high_level::load_cell_lock(input_cells[0], Source::Input).map_err(Error::from)?;
-            let mut total_output_capacity = 0;
-            let balance_cell_type = util::type_id_to_script(config_main.type_id_table().balance_cell());
-            // CAREFUL The codes below just support das-lock.
-            let balance_cells =
-                util::find_cells_by_script(ScriptType::Lock, expected_lock.as_reader(), Source::Output)?;
-            for i in balance_cells {
-                let type_script_opt = high_level::load_cell_type(i, Source::Output).map_err(Error::from)?;
-                assert!(
-                    type_script_opt.is_some(),
-                    Error::InvalidTransactionStructure,
-                    "Outputs[{}] The BalanceCell in outputs should have balance-cell-type.",
-                    i
-                );
-
-                let type_script = type_script_opt.unwrap();
-                assert!(
-                    util::is_type_id_equal(balance_cell_type.as_reader().into(), type_script.as_reader()),
-                    Error::InvalidTransactionStructure,
-                    "Outputs[{}] The BalanceCell in outputs should have balance-cell-type.",
-                    i
-                );
-
-                total_output_capacity += high_level::load_cell_capacity(i, Source::Output).map_err(Error::from)?;
-            }
-
-            let expected_fee = u64::from(config_reverse_resolution.common_fee());
-            assert!(
-                total_output_capacity >= total_input_capacity - expected_fee,
-                Error::ReverseRecordCellChangeError,
-                "The change of the transaction should be {} shannon.({} = {} - {})",
-                total_input_capacity - expected_fee,
-                total_input_capacity - expected_fee,
-                total_input_capacity,
-                expected_fee
-            );
+            let common_fee = u64::from(config_reverse_resolution.common_fee());
+            verifiers::misc::verify_user_get_change(
+                config_main,
+                expected_lock.as_reader(),
+                total_input_capacity - common_fee,
+            )?;
         }
         _ => return Err(Error::ActionNotSupported),
     }
