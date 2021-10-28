@@ -2,8 +2,8 @@ use alloc::string::String;
 use ckb_std::{ckb_constants::Source, high_level};
 use core::result::Result;
 use das_core::{
-    assert, constants::das_lock, constants::ScriptType, data_parser, debug, error::Error, util, verifiers,
-    witness_parser::WitnessesParser,
+    assert, assert_lock_equal, constants::das_lock, constants::ScriptType, data_parser, debug, error::Error, util,
+    verifiers, witness_parser::WitnessesParser,
 };
 use das_types::constants::DataType;
 use das_types::packed::ConfigCellMainReader;
@@ -79,12 +79,9 @@ pub fn main() -> Result<(), Error> {
 
             debug!("Verify if the ReverseRecordCell.lock is the same as the lock of inputs[0].");
 
-            let expected_lock_hash =
-                high_level::load_cell_lock_hash(output_cells[0], Source::Output).map_err(Error::from)?;
-            let current_lock_hash =
-                high_level::load_cell_lock_hash(output_cells[0], Source::Output).map_err(Error::from)?;
-            assert!(
-                expected_lock_hash == current_lock_hash,
+            assert_lock_equal!(
+                (input_cells[0], Source::Input),
+                (output_cells[0], Source::Output),
                 Error::ReverseRecordCellLockError,
                 "The ReverseRecordCell.lock should be the same as the lock of inputs[0]."
             );
@@ -136,12 +133,9 @@ pub fn main() -> Result<(), Error> {
 
             debug!("Verify if the ReverseRecordCell.lock is consistent.");
 
-            let expected_lock_hash =
-                high_level::load_cell_lock_hash(input_cells[0], Source::Input).map_err(Error::from)?;
-            let current_lock_hash =
-                high_level::load_cell_lock_hash(output_cells[0], Source::Output).map_err(Error::from)?;
-            assert!(
-                expected_lock_hash == current_lock_hash,
+            assert_lock_equal!(
+                (input_cells[0], Source::Input),
+                (output_cells[0], Source::Output),
                 Error::ReverseRecordCellLockError,
                 "The ReverseRecordCell.lock should be consistent in inputs and outputs."
             );

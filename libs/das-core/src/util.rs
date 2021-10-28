@@ -477,19 +477,19 @@ pub fn is_cell_only_lock_changed(cell_a: (usize, Source), cell_b: (usize, Source
 }
 
 pub fn is_cell_lock_equal(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
-    let a_lock_script = high_level::load_cell_lock_hash(cell_a.0, cell_a.1).map_err(Error::from)?;
-    let b_lock_script = high_level::load_cell_lock_hash(cell_b.0, cell_b.1).map_err(Error::from)?;
+    let a_lock_hash = high_level::load_cell_lock_hash(cell_a.0, cell_a.1).map_err(Error::from)?;
+    let b_lock_hash = high_level::load_cell_lock_hash(cell_b.0, cell_b.1).map_err(Error::from)?;
 
     assert!(
-        a_lock_script == b_lock_script,
+        a_lock_hash == b_lock_hash,
         Error::CellLockCanNotBeModified,
         "The lock script of {:?}[{}]({}) and {:?}[{}]({}) should be the same.",
         cell_a.1,
         cell_a.0,
-        hex_string(&a_lock_script),
+        hex_string(&a_lock_hash),
         cell_b.1,
         cell_b.0,
-        hex_string(&b_lock_script)
+        hex_string(&b_lock_hash)
     );
 
     Ok(())

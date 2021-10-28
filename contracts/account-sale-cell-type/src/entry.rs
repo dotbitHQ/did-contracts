@@ -5,9 +5,9 @@ use ckb_std::{
     high_level,
 };
 use das_core::{
-    assert, constants::*, data_parser, debug, eip712::verify_eip712_hashes, error::Error, parse_account_cell_witness,
-    parse_witness, util, util::find_cells_by_script, verifiers, verifiers::account_cell, warn,
-    witness_parser::WitnessesParser,
+    assert, assert_lock_equal, constants::*, data_parser, debug, eip712::verify_eip712_hashes, error::Error,
+    parse_account_cell_witness, parse_witness, util, util::find_cells_by_script, verifiers, verifiers::account_cell,
+    warn, witness_parser::WitnessesParser,
 };
 use das_map::{map::Map, util as map_util};
 use das_types::{
@@ -562,10 +562,9 @@ fn verify_account_sale_cell_consistent(
 ) -> Result<(), Error> {
     debug!("Verify if AccountSaleCell consistent in inputs and outputs.");
 
-    let input_lock_hash = high_level::load_cell_lock_hash(input_cell, Source::Input).map_err(Error::from)?;
-    let output_lock_hash = high_level::load_cell_lock_hash(output_cell, Source::Output).map_err(Error::from)?;
-    assert!(
-        input_lock_hash == output_lock_hash,
+    assert_lock_equal!(
+        (input_cell, Source::Input),
+        (output_cell, Source::Output),
         Error::InvalidTransactionStructure,
         "The AccountSaleCell.lock should be consistent in inputs and outputs."
     );
