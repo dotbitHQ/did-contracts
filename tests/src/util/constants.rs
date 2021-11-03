@@ -49,6 +49,8 @@ pub const DAO_TYPE_HASH: H256 = h256!("0x82d76d1b75fe2fd9a27dfbaa65a039221a380d7
 pub const CONFIG_LOCK_ARGS: &str = "0x0000000000000000000000000000000000000000";
 pub const DAS_WALLET_LOCK_ARGS: &str = "0x0300000000000000000000000000000000000000";
 pub const QUOTE_LOCK_ARGS: &str = "0x0100000000000000000000000000000000000000";
+pub const INVITER_LOCK_ARGS: &str = "0x050000000000000000000000000000000000007777";
+pub const CHANNEL_LOCK_ARGS: &str = "0x050000000000000000000000000000000000008888";
 
 #[derive(Debug)]
 #[repr(u8)]
@@ -108,6 +110,10 @@ lazy_static! {
         map.insert(
             "income-cell-type",
             "0x3ff05cd948339d6b841487a288fbfa137e0f66c9eda15b62e71f3d3676d6395e",
+        );
+        map.insert(
+            "offer-cell-type",
+            "0xc1fee5148199d7a38eaa8ccc59fe81f0d83a1c96a5865112a49a6937ec1b5ba7",
         );
         map.insert(
             "pre-account-cell-type",

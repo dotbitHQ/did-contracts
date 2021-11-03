@@ -726,6 +726,7 @@ impl TemplateGenerator {
             .account_auction_cell(Hash::try_from(util::get_type_id_bytes("account-auction-cell-type")).unwrap())
             .balance_cell(Hash::try_from(util::get_type_id_bytes("balance-cell-type")).unwrap())
             .income_cell(Hash::try_from(util::get_type_id_bytes("income-cell-type")).unwrap())
+            .offer_cell(Hash::try_from(util::get_type_id_bytes("offer-cell-type")).unwrap())
             .pre_account_cell(Hash::try_from(util::get_type_id_bytes("pre-account-cell-type")).unwrap())
             .proposal_cell(Hash::try_from(util::get_type_id_bytes("proposal-cell-type")).unwrap())
             .reverse_record_cell(Hash::try_from(util::get_type_id_bytes("reverse-record-cell-type")).unwrap())
@@ -845,7 +846,7 @@ impl TemplateGenerator {
             .auction_description_bytes_limit(Uint32::from(5000))
             .auction_cell_basic_capacity(Uint64::from(20_000_000_000))
             .auction_cell_prepared_fee_capacity(Uint64::from(100_000_000))
-            .offer_min_price(Uint64::from(1_000_000_000_000))
+            .offer_min_price(Uint64::from(1_00_000_000_000))
             .offer_cell_basic_capacity(Uint64::from(20_000_000_000))
             .offer_cell_prepared_fee_capacity(Uint64::from(100_000_000))
             .offer_message_bytes_limit(Uint32::from(5000))
@@ -1108,10 +1109,10 @@ impl TemplateGenerator {
         let index = (first_byte_of_account_hash % PRESERVED_ACCOUNT_CELL_COUNT) as usize;
         let config_type = das_util::preserved_accounts_group_to_data_type(index);
 
-        // println!(
-        //     "The first byte of account hash is {:?}, so {:?} will be chosen.",
-        //     first_byte_of_account_hash, config_type
-        // );
+        println!(
+            "The first byte of account hash is {:?}, so {:?} will be chosen.",
+            first_byte_of_account_hash, config_type
+        );
         self.push_config_cell(config_type, push_witness, capacity, source);
     }
 
@@ -1593,6 +1594,7 @@ impl TemplateGenerator {
                         push_cell_with_witness!(DataType::AccountSaleCellData, gen_account_sale_cell, cell)
                     }
                     "income-cell-type" => push_cell_with_witness!(DataType::IncomeCellData, gen_income_cell, cell),
+                    "offer-cell-type" => push_cell_with_witness!(DataType::OfferCellData, gen_offer_cell, cell),
                     "reverse-record-cell-type" => push_cell!(gen_reverse_record_cell, cell),
                     "balance-cell-type" => {
                         let (capacity, lock_script, type_script, outputs_data_opt) = self.gen_balance_cell(cell);
@@ -1991,7 +1993,10 @@ impl TemplateGenerator {
     ///     "data": null | "0x...", // if this is null, will be calculated from witness.
     ///     "witness": {
     ///         "account": "xxxx.bit",
-    ///         "message": "some utf8 string"
+    ///         "price": u64,
+    ///         "message": "some utf8 string",
+    ///         "inviter_lock": Script,
+    ///         "channel_lock": Script
     ///     }
     /// })
     /// ```
@@ -2013,11 +2018,17 @@ impl TemplateGenerator {
         if !cell["witness"].is_null() {
             let witness = &cell["witness"];
             let account = parse_json_str("cell.witness.account", &witness["account"]);
+            let price = parse_json_u64("cell.witness.price", &witness["price"]);
             let message = parse_json_str("cell.witness.message", &witness["message"]);
+            let inviter_lock = parse_json_script_to_mol("cell.witness.inviter_lock", &witness["inviter_lock"]);
+            let channel_lock = parse_json_script_to_mol("cell.witness.channel_lock", &witness["channel_lock"]);
 
             let entity = OfferCellData::new_builder()
                 .account(Bytes::from(account.as_bytes()))
-                // .message(Bytes::from(message.as_bytes()))
+                .price(Uint64::from(price))
+                .message(Bytes::from(message.as_bytes()))
+                .inviter_lock(inviter_lock)
+                .channel_lock(channel_lock)
                 .build();
 
             if !cell["data"].is_null() {

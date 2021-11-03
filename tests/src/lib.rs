@@ -24,6 +24,8 @@ mod config_cell_type;
 #[cfg(test)]
 mod income_cell_type;
 #[cfg(test)]
+mod offer_cell_type;
+#[cfg(test)]
 mod pre_account_cell_type;
 #[cfg(test)]
 mod proposal_cell_type;
