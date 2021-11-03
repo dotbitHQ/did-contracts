@@ -480,6 +480,13 @@ pub fn main() -> Result<(), Error> {
             Source::Input,
             Error::InvalidTransactionStructure,
         )?;
+    } else if action == b"accept_offer" {
+        util::require_type_script(
+            &mut parser,
+            TypeScript::OfferCellType,
+            Source::Input,
+            Error::InvalidTransactionStructure,
+        )?;
     } else if action == b"force_recover_account_status" {
         parser.parse_config(&[DataType::ConfigCellMain])?;
         parser.parse_cell()?;

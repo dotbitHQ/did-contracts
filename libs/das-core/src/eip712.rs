@@ -48,11 +48,24 @@ pub fn verify_eip712_hashes(
     let mut i = 0;
     let mut input_groups_idxs: BTreeMap<Vec<u8>, Vec<usize>> = BTreeMap::new();
     loop {
-        // In buy_account transaction, the inputs[0] and inputs[1] is belong to sellers, because buyers have paied enough, so we do not need
-        // their signature here.
-        if action.raw_data() == b"buy_account" && i < 2 {
-            i += 1;
-            continue;
+        match action.raw_data() {
+            b"buy_account" => {
+                // In buy_account transaction, inputs[0] and inputs[1] are cells belong to sellers, because buyers have paid CKB to them,
+                // so buyers can take the cells without signature.
+                if i < 2 {
+                    i += 1;
+                    continue;
+                }
+            }
+            b"accept_offer" => {
+                // In accept_offer transaction, inputs[0] is a cell belong to buyers, because sellers have provided the account they want,
+                // so sellers can take the cell without signature.
+                if i == 0 {
+                    i += 1;
+                    continue;
+                }
+            }
+            _ => {}
         }
 
         let ret = high_level::load_cell_lock(i, Source::Input);
@@ -538,6 +551,13 @@ fn offer_to_semantic(
     let offer_cells = util::find_cells_by_type_id(ScriptType::Type, type_id_table_reader.offer_cell(), source)?;
     let witness;
     let witness_reader;
+
+    assert!(
+        offer_cells.len() > 0,
+        Error::InvalidTransactionStructure,
+        "There should be at least 1 OfferCell in transaction."
+    );
+
     parse_witness!(
         witness,
         witness_reader,

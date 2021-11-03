@@ -401,7 +401,7 @@ pub fn main() -> Result<(), Error> {
             &mut parser,
             TypeScript::ProposalCellType,
             Source::Input,
-            Error::ProposalFoundInvalidTransaction,
+            Error::InvalidTransactionStructure,
         )?;
     } else if action == b"buy_account" {
         debug!("Route to buy_account action ...");
@@ -409,7 +409,15 @@ pub fn main() -> Result<(), Error> {
             &mut parser,
             TypeScript::AccountSaleCellType,
             Source::Input,
-            Error::AccountCellFoundInvalidTransaction,
+            Error::InvalidTransactionStructure,
+        )?;
+    } else if action == b"accept_offer" {
+        debug!("Route to accept_offer action ...");
+        util::require_type_script(
+            &mut parser,
+            TypeScript::OfferCellType,
+            Source::Input,
+            Error::InvalidTransactionStructure,
         )?;
     } else if action == b"bid_account_auction" {
         debug!("Route to buy_account action ...");
@@ -418,7 +426,7 @@ pub fn main() -> Result<(), Error> {
             &mut parser,
             TypeScript::AccountAuctionCellType,
             Source::Input,
-            Error::AccountCellFoundInvalidTransaction,
+            Error::InvalidTransactionStructure,
         )?;
     } else if action == b"renew_account" {
         debug!("Route to renew_account action ...");
@@ -426,7 +434,7 @@ pub fn main() -> Result<(), Error> {
             &mut parser,
             TypeScript::AccountCellType,
             Source::Input,
-            Error::AccountCellFoundInvalidTransaction,
+            Error::InvalidTransactionStructure,
         )?;
     } else {
         warn!("The ActionData in witness has an undefine action.");
