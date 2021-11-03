@@ -109,6 +109,16 @@ function build_all() {
 function switch_target_dir() {
   local expected=$1
 
+  # If none cache directory found, rename the target directory as the first cache directory.
+  if [[ ! -d target_test && ! -d target_build ]]; then
+    if [[ $expected == "target_test" ]]; then
+      mv target target_build
+    else
+      mv target target_test
+    fi
+  fi
+
+  # If the expected cache directory exist, recover it as target directory.
   if [[ -d $expected ]]; then
     echo "Switching ${expected} to ./target ..."
     if [[ $expected == "target_test" ]]; then
@@ -175,10 +185,10 @@ test)
   echo "Run test with name: $2"
   docker exec -it -w /code $DOCKER_CONTAINER bash -c "cargo test -p tests $2"
   ;;
-run)
+test-release)
   switch_target_dir target_test
-  echo "Run command: $2"
-  docker exec -it -w /code $DOCKER_CONTAINER bash -c $2
+  echo "Run test with name: $2"
+  docker exec -it -w /code -e BINARY_VERSION=release $DOCKER_CONTAINER bash -c "cargo test -p tests $2"
   ;;
 *)
   echo "Unsupported capsule command."

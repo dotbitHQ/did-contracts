@@ -20,11 +20,12 @@ pub enum ScriptType {
 #[derive(Debug)]
 pub enum TypeScript {
     AccountCellType,
+    AccountSaleCellType,
+    AccountAuctionCellType,
     ApplyRegisterCellType,
     BalanceCellType,
     IncomeCellType,
-    AccountSaleCellType,
-    AccountAuctionCellType,
+    OfferCellType,
     PreAccountCellType,
     ProposalCellType,
 }
