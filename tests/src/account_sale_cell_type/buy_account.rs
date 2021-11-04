@@ -1,27 +1,29 @@
 use super::common::*;
-use crate::util::{self, constants::*, error::Error, template_generator::*, template_parser::TemplateParser};
+use crate::util::{
+    self, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::TemplateParser,
+};
 use ckb_testtool::context::Context;
 use das_types::{constants::*, packed::*, prelude::*};
 use serde_json::json;
 
-fn push_input_account_cell(template: &mut TemplateGenerator, timestamp: u64) {
+fn push_input_account_cell(template: &mut TemplateGenerator, owner: &str, account: &str, timestamp: u64) {
     template.push_input(
         json!({
             "capacity": util::gen_account_cell_capacity(5),
             "lock": {
-                "owner_lock_args": "0x050000000000000000000000000000000000001111",
-                "manager_lock_args": "0x050000000000000000000000000000000000001111"
+                "owner_lock_args": owner,
+                "manager_lock_args": owner
             },
             "type": {
                 "code_hash": "{{account-cell-type}}"
             },
             "data": {
-                "account": "xxxxx.bit",
+                "account": account,
                 "next": "yyyyy.bit",
                 "expired_at": (timestamp + YEAR_SEC),
             },
             "witness": {
-                "account": "xxxxx.bit",
+                "account": account,
                 "registered_at": (timestamp - MONTH_SEC),
                 "last_transfer_account_at": 0,
                 "last_edit_manager_at": 0,
@@ -34,19 +36,25 @@ fn push_input_account_cell(template: &mut TemplateGenerator, timestamp: u64) {
     template.push_empty_witness();
 }
 
-fn push_input_account_sale_cell(template: &mut TemplateGenerator, timestamp: u64, price: u64) {
+fn push_input_account_sale_cell(
+    template: &mut TemplateGenerator,
+    owner: &str,
+    account: &str,
+    price: u64,
+    timestamp: u64,
+) {
     template.push_input(
         json!({
             "capacity": "20_100_000_000",
             "lock": {
-                "owner_lock_args": "0x050000000000000000000000000000000000001111",
-                "manager_lock_args": "0x050000000000000000000000000000000000001111"
+                "owner_lock_args": owner,
+                "manager_lock_args": owner
             },
             "type": {
                 "code_hash": "{{account-sale-cell-type}}"
             },
             "witness": {
-                "account": "xxxxx.bit",
+                "account": account,
                 "price": price.to_string(),
                 "description": "This is some account description.",
                 "started_at": timestamp
@@ -57,41 +65,24 @@ fn push_input_account_sale_cell(template: &mut TemplateGenerator, timestamp: u64
     template.push_empty_witness();
 }
 
-fn push_input_fee_cell(template: &mut TemplateGenerator, price: u64) {
-    template.push_input(
-        json!({
-            "capacity": price.to_string(),
-            "lock": {
-                "owner_lock_args": "0x050000000000000000000000000000000000002222",
-                "manager_lock_args": "0x050000000000000000000000000000000000002222",
-            },
-            "type": {
-                "code_hash": "{{balance-cell-type}}"
-            }
-        }),
-        None,
-    );
-    template.push_das_lock_witness("0000000000000000000000000000000000000000000000000000000000000000");
-}
-
-fn push_output_account_cell(template: &mut TemplateGenerator, timestamp: u64) {
+fn push_output_account_cell(template: &mut TemplateGenerator, owner: &str, account: &str, timestamp: u64) {
     template.push_output(
         json!({
             "capacity": util::gen_account_cell_capacity(5),
             "lock": {
-                "owner_lock_args": "0x050000000000000000000000000000000000002222",
-                "manager_lock_args": "0x050000000000000000000000000000000000002222"
+                "owner_lock_args": owner,
+                "manager_lock_args": owner
             },
             "type": {
                 "code_hash": "{{account-cell-type}}"
             },
             "data": {
-                "account": "xxxxx.bit",
+                "account": account,
                 "next": "yyyyy.bit",
                 "expired_at": (timestamp + YEAR_SEC),
             },
             "witness": {
-                "account": "xxxxx.bit",
+                "account": account,
                 "registered_at": (timestamp - MONTH_SEC),
                 "last_transfer_account_at": 0,
                 "last_edit_manager_at": 0,
@@ -150,22 +141,6 @@ fn push_output_income_cell(template: &mut TemplateGenerator) {
     );
 }
 
-fn push_output_receive_cell(template: &mut TemplateGenerator, capacity: u64) {
-    template.push_output(
-        json!({
-            "capacity": capacity.to_string(),
-            "lock": {
-                "owner_lock_args": "0x050000000000000000000000000000000000001111",
-                "manager_lock_args": "0x050000000000000000000000000000000000001111",
-            },
-            "type": {
-                "code_hash": "{{balance-cell-type}}"
-            }
-        }),
-        None,
-    );
-}
-
 fn gen_inviter_and_channel_locks(inviter_args: &str, channel_args: &str) -> (Script, Script) {
     let inviter_lock = gen_fake_das_lock(&gen_das_lock_args(inviter_args, None));
     let channel_lock = gen_fake_das_lock(&gen_das_lock_args(channel_args, None));
@@ -182,37 +157,42 @@ fn gen_params(inviter_args: &str, channel_args: &str) -> String {
     )
 }
 
-fn before_each(price: u64) -> (TemplateGenerator, u64) {
+fn before_each(price: u64, paied: u64) -> (TemplateGenerator, u64, &'static str, &'static str, &'static str) {
     let params = gen_params(
         "0x050000000000000000000000000000000000008888",
         "0x050000000000000000000000000000000000009999",
     );
     let (mut template, timestamp) = init_with_profit_rate("buy_account", Some(&params));
+    let seller = "0x050000000000000000000000000000000000001111";
+    let buyer = "0x050000000000000000000000000000000000002222";
+    let account = "xxxxx.bit";
 
     // inputs
-    push_input_account_cell(&mut template, timestamp);
-    push_input_account_sale_cell(&mut template, timestamp, price);
-    push_input_fee_cell(&mut template, price);
+    push_input_account_cell(&mut template, seller, account, timestamp);
+    push_input_account_sale_cell(&mut template, seller, account, price, timestamp);
+    push_input_balance_cell(&mut template, paied, buyer);
 
-    (template, timestamp)
+    (template, timestamp, seller, buyer, account)
 }
 
 test_with_generator!(test_account_sale_buy_create_income_cell, || {
-    let (mut template, timestamp) = before_each(20_000_000_000);
+    let (mut template, timestamp, seller, buyer, account) = before_each(20_000_000_000, 40_000_000_000);
 
     // outputs
-    push_output_account_cell(&mut template, timestamp);
+    push_output_account_cell(&mut template, buyer, account, timestamp);
     push_output_income_cell(&mut template);
-    push_output_receive_cell(&mut template, 39_499_990_000);
+    // 194 CKB(price) + 20_099_990_000(refund of AccountSaleCell)
+    push_output_balance_cell(&mut template, 39_499_990_000, seller);
+    push_output_balance_cell(&mut template, 20_000_000_000, buyer);
 
     template.as_json()
 });
 
 test_with_generator!(test_account_sale_buy_not_create_income_cell, || {
-    let (mut template, timestamp) = before_each(1_000_000_000_000);
+    let (mut template, timestamp, seller, buyer, account) = before_each(1_000_000_000_000, 2_000_000_000_000);
 
     // outputs
-    push_output_account_cell(&mut template, timestamp);
+    push_output_account_cell(&mut template, buyer, account, timestamp);
 
     template.push_output(
         json!({
@@ -251,7 +231,8 @@ test_with_generator!(test_account_sale_buy_not_create_income_cell, || {
         None,
     );
 
-    push_output_receive_cell(&mut template, 990099990000);
+    push_output_balance_cell(&mut template, 990099990000, seller);
+    push_output_balance_cell(&mut template, 1_000_000_000_000, buyer);
 
     template.as_json()
 });
@@ -265,26 +246,29 @@ challenge_with_generator!(
             "0x050000000000000000000000000000000000009999",
         );
         let (mut template, timestamp) = init_with_profit_rate("buy_account", Some(&params));
+        let seller = "0x050000000000000000000000000000000000001111";
+        let buyer = "0x050000000000000000000000000000000000002222";
+        let account = "xxxxx.bit";
 
         // inputs
         template.push_input(
             json!({
                 "capacity": util::gen_account_cell_capacity(5),
                 "lock": {
-                    "owner_lock_args": "0x050000000000000000000000000000000000001111",
-                    "manager_lock_args": "0x050000000000000000000000000000000000001111"
+                    "owner_lock_args": seller,
+                    "manager_lock_args": seller
                 },
                 "type": {
                     "code_hash": "{{account-cell-type}}"
                 },
                 "data": {
-                    "account": "xxxxx.bit",
+                    "account": account,
                     "next": "yyyyy.bit",
                     // Simulate the situation AccountCell has expired.
                     "expired_at": (timestamp - 1),
                 },
                 "witness": {
-                    "account": "xxxxx.bit",
+                    "account": account,
                     "registered_at": (timestamp - YEAR_SEC),
                     "last_transfer_account_at": 0,
                     "last_edit_manager_at": 0,
@@ -296,27 +280,27 @@ challenge_with_generator!(
         );
         template.push_empty_witness();
 
-        push_input_account_sale_cell(&mut template, timestamp, 20_000_000_000);
-        push_input_fee_cell(&mut template, 20_000_000_000);
+        push_input_account_sale_cell(&mut template, seller, account, 20_000_000_000, timestamp);
+        push_input_balance_cell(&mut template, 20_000_000_000, buyer);
 
         // outputs
         template.push_output(
             json!({
                 "capacity": util::gen_account_cell_capacity(5),
                 "lock": {
-                    "owner_lock_args": "0x050000000000000000000000000000000000002222",
-                    "manager_lock_args": "0x050000000000000000000000000000000000002222"
+                    "owner_lock_args": buyer,
+                    "manager_lock_args": buyer
                 },
                 "type": {
                     "code_hash": "{{account-cell-type}}"
                 },
                 "data": {
-                    "account": "xxxxx.bit",
+                    "account": account,
                     "next": "yyyyy.bit",
                     "expired_at": (timestamp - 1),
                 },
                 "witness": {
-                    "account": "xxxxx.bit",
+                    "account": account,
                     "registered_at": (timestamp - YEAR_SEC),
                     "last_transfer_account_at": 0,
                     "last_edit_manager_at": 0,
@@ -328,7 +312,7 @@ challenge_with_generator!(
         );
 
         push_output_income_cell(&mut template);
-        push_output_receive_cell(&mut template, 39_499_990_000);
+        push_output_balance_cell(&mut template, 39_499_990_000, seller);
 
         template.as_json()
     }
@@ -338,7 +322,7 @@ challenge_with_generator!(
     challenge_account_sale_buy_account_capacity,
     Error::AccountCellChangeCapacityError,
     || {
-        let (mut template, timestamp) = before_each(20_000_000_000);
+        let (mut template, timestamp, seller, buyer, account) = before_each(20_000_000_000, 40_000_000_000);
 
         // outputs
         template.push_output(
@@ -346,19 +330,19 @@ challenge_with_generator!(
                 // Simulate the AccountCell.capacity has been modified accidentally.
                 "capacity": util::gen_account_cell_capacity(5) - 1,
                 "lock": {
-                    "owner_lock_args": "0x050000000000000000000000000000000000002222",
-                    "manager_lock_args": "0x050000000000000000000000000000000000002222"
+                    "owner_lock_args": buyer,
+                    "manager_lock_args": buyer
                 },
                 "type": {
                     "code_hash": "{{account-cell-type}}"
                 },
                 "data": {
-                    "account": "xxxxx.bit",
+                    "account": account,
                     "next": "yyyyy.bit",
                     "expired_at": (timestamp + YEAR_SEC),
                 },
                 "witness": {
-                    "account": "xxxxx.bit",
+                    "account": account,
                     "registered_at": (timestamp - MONTH_SEC),
                     "last_transfer_account_at": 0,
                     "last_edit_manager_at": 0,
@@ -370,7 +354,8 @@ challenge_with_generator!(
         );
 
         push_output_income_cell(&mut template);
-        push_output_receive_cell(&mut template, 39_499_990_000);
+        push_output_balance_cell(&mut template, 39_499_990_000, seller);
+        push_output_balance_cell(&mut template, 20_000_000_000, buyer);
 
         template.as_json()
     }
@@ -385,25 +370,28 @@ challenge_with_generator!(
             "0x050000000000000000000000000000000000009999",
         );
         let (mut template, timestamp) = init_with_profit_rate("buy_account", Some(&params));
+        let seller = "0x050000000000000000000000000000000000001111";
+        let buyer = "0x050000000000000000000000000000000000002222";
+        let account = "xxxxx.bit";
 
         // inputs
         template.push_input(
             json!({
                 "capacity": util::gen_account_cell_capacity(5),
                 "lock": {
-                    "owner_lock_args": "0x050000000000000000000000000000000000001111",
-                    "manager_lock_args": "0x050000000000000000000000000000000000001111"
+                    "owner_lock_args": seller,
+                    "manager_lock_args": seller
                 },
                 "type": {
                     "code_hash": "{{account-cell-type}}"
                 },
                 "data": {
-                    "account": "xxxxx.bit",
+                    "account": account,
                     "next": "yyyyy.bit",
                     "expired_at": (timestamp + YEAR_SEC),
                 },
                 "witness": {
-                    "account": "xxxxx.bit",
+                    "account": account,
                     "registered_at": (timestamp - MONTH_SEC),
                     "last_transfer_account_at": 0,
                     "last_edit_manager_at": 0,
@@ -416,13 +404,13 @@ challenge_with_generator!(
         );
         template.push_empty_witness();
 
-        push_input_account_sale_cell(&mut template, timestamp, 20_000_000_000);
-        push_input_fee_cell(&mut template, 20_000_000_000);
+        push_input_account_sale_cell(&mut template, seller, account, 20_000_000_000, timestamp);
+        push_input_balance_cell(&mut template, 20_000_000_000, buyer);
 
         // outputs
-        push_output_account_cell(&mut template, timestamp);
+        push_output_account_cell(&mut template, buyer, account, timestamp);
         push_output_income_cell(&mut template);
-        push_output_receive_cell(&mut template, 39_499_990_000);
+        push_output_balance_cell(&mut template, 39_499_990_000, seller);
 
         template.as_json()
     }
@@ -432,26 +420,26 @@ challenge_with_generator!(
     challenge_account_sale_buy_output_account_status,
     Error::AccountCellStatusLocked,
     || {
-        let (mut template, timestamp) = before_each(20_000_000_000);
+        let (mut template, timestamp, seller, buyer, account) = before_each(20_000_000_000, 40_000_000_000);
 
         // outputs
         template.push_output(
             json!({
                 "capacity": util::gen_account_cell_capacity(5),
                 "lock": {
-                    "owner_lock_args": "0x050000000000000000000000000000000000002222",
-                    "manager_lock_args": "0x050000000000000000000000000000000000002222"
+                    "owner_lock_args": buyer,
+                    "manager_lock_args": buyer
                 },
                 "type": {
                     "code_hash": "{{account-cell-type}}"
                 },
                 "data": {
-                    "account": "xxxxx.bit",
+                    "account": account,
                     "next": "yyyyy.bit",
                     "expired_at": (timestamp + YEAR_SEC),
                 },
                 "witness": {
-                    "account": "xxxxx.bit",
+                    "account": account,
                     "registered_at": (timestamp - MONTH_SEC),
                     "last_transfer_account_at": 0,
                     "last_edit_manager_at": 0,
@@ -464,7 +452,8 @@ challenge_with_generator!(
         );
 
         push_output_income_cell(&mut template);
-        push_output_receive_cell(&mut template, 39_499_990_000);
+        push_output_balance_cell(&mut template, 39_499_990_000, seller);
+        push_output_balance_cell(&mut template, 20_000_000_000, buyer);
 
         template.as_json()
     }
@@ -479,16 +468,19 @@ challenge_with_generator!(
             "0x050000000000000000000000000000000000009999",
         );
         let (mut template, timestamp) = init_with_profit_rate("buy_account", Some(&params));
+        let seller = "0x050000000000000000000000000000000000001111";
+        let buyer = "0x050000000000000000000000000000000000002222";
+        let account = "xxxxx.bit";
 
         // inputs
-        push_input_account_cell(&mut template, timestamp);
+        push_input_account_cell(&mut template, seller, account, timestamp);
 
         template.push_input(
             json!({
                 "capacity": "20_100_000_000",
                 "lock": {
-                    "owner_lock_args": "0x050000000000000000000000000000000000001111",
-                    "manager_lock_args": "0x050000000000000000000000000000000000001111"
+                    "owner_lock_args": seller,
+                    "manager_lock_args": seller
                 },
                 "type": {
                     "code_hash": "{{account-sale-cell-type}}"
@@ -505,12 +497,12 @@ challenge_with_generator!(
         );
         template.push_empty_witness();
 
-        push_input_fee_cell(&mut template, 20_000_000_000);
+        push_input_balance_cell(&mut template, 20_000_000_000, buyer);
 
         // outputs
-        push_output_account_cell(&mut template, timestamp);
+        push_output_account_cell(&mut template, buyer, account, timestamp);
         push_output_income_cell(&mut template);
-        push_output_receive_cell(&mut template, 39_499_990_000);
+        push_output_balance_cell(&mut template, 39_499_990_000, seller);
 
         template.as_json()
     }
@@ -520,7 +512,7 @@ challenge_with_generator!(
     challenge_account_sale_buy_wrong_owner,
     Error::AccountSaleCellNewOwnerError,
     || {
-        let (mut template, timestamp) = before_each(20_000_000_000);
+        let (mut template, timestamp, seller, buyer, account) = before_each(20_000_000_000, 40_000_000_000);
 
         // outputs
         template.push_output(
@@ -535,12 +527,12 @@ challenge_with_generator!(
                     "code_hash": "{{account-cell-type}}"
                 },
                 "data": {
-                    "account": "xxxxx.bit",
+                    "account": account,
                     "next": "yyyyy.bit",
                     "expired_at": (timestamp + YEAR_SEC),
                 },
                 "witness": {
-                    "account": "xxxxx.bit",
+                    "account": account,
                     "registered_at": (timestamp - MONTH_SEC),
                     "last_transfer_account_at": 0,
                     "last_edit_manager_at": 0,
@@ -552,62 +544,59 @@ challenge_with_generator!(
         );
 
         push_output_income_cell(&mut template);
-        push_output_receive_cell(&mut template, 39_499_990_000);
+        push_output_balance_cell(&mut template, 39_499_990_000, seller);
+        push_output_balance_cell(&mut template, 20_000_000_000, buyer);
 
         template.as_json()
     }
 );
 
-challenge_with_generator!(
-    challenge_account_sale_buy_change_error,
-    Error::AccountSaleCellChangeError,
-    || {
-        let params = gen_params(
-            "0x050000000000000000000000000000000000008888",
-            "0x050000000000000000000000000000000000009999",
-        );
-        let (mut template, timestamp) = init_with_profit_rate("buy_account", Some(&params));
+challenge_with_generator!(challenge_account_sale_buy_change_owner, Error::ChangeError, || {
+    let (mut template, timestamp, seller, buyer, account) = before_each(20_000_000_000, 40_000_000_000);
 
-        // inputs
-        push_input_account_cell(&mut template, timestamp);
-        push_input_account_sale_cell(&mut template, timestamp, 20_000_000_000);
-        push_input_fee_cell(&mut template, 40_000_000_000);
+    // outputs
+    push_output_account_cell(&mut template, buyer, account, timestamp);
+    push_output_income_cell(&mut template);
+    push_output_balance_cell(&mut template, 39_499_990_000, seller);
+    // Simulate transfer changes to another lock.
+    push_output_balance_cell(
+        &mut template,
+        20_000_000_000,
+        "0x050000000000000000000000000000000000003333",
+    );
 
-        // outputs
-        push_output_account_cell(&mut template, timestamp);
-        push_output_income_cell(&mut template);
-        push_output_receive_cell(&mut template, 39_499_990_000);
+    template.as_json()
+});
 
-        // Simulate no change for buyer.
+challenge_with_generator!(challenge_account_sale_buy_change_capacity, Error::ChangeError, || {
+    let (mut template, timestamp, seller, buyer, account) = before_each(20_000_000_000, 40_000_000_000);
 
-        template.as_json()
-    }
-);
+    // outputs
+    push_output_account_cell(&mut template, buyer, account, timestamp);
+    push_output_income_cell(&mut template);
+    push_output_balance_cell(&mut template, 39_499_990_000, seller);
+    // Simulate transfer changes less than the user should get.
+    push_output_balance_cell(&mut template, 20_000_000_000 - 1, buyer);
+
+    template.as_json()
+});
 
 challenge_with_generator!(
     challenge_account_sale_buy_seller_profit_owner,
-    Error::AccountSaleCellProfitError,
+    Error::ChangeError,
     || {
-        let (mut template, timestamp) = before_each(20_000_000_000);
+        let (mut template, timestamp, seller, buyer, account) = before_each(20_000_000_000, 40_000_000_000);
 
         // outputs
-        push_output_account_cell(&mut template, timestamp);
+        push_output_account_cell(&mut template, buyer, account, timestamp);
         push_output_income_cell(&mut template);
-
-        template.push_output(
-            json!({
-                "capacity": "39_499_990_000",
-                "lock": {
-                    // Simulate the lock of the cell which carrying profit and refund to seller is wrong in outputs.
-                    "owner_lock_args": "0x050000000000000000000000000000000000003333",
-                    "manager_lock_args": "0x050000000000000000000000000000000000003333",
-                },
-                "type": {
-                    "code_hash": "{{balance-cell-type}}"
-                }
-            }),
-            None,
+        // Simulate transfer profit to another lock.
+        push_output_balance_cell(
+            &mut template,
+            39_499_990_000,
+            "0x050000000000000000000000000000000000003333",
         );
+        push_output_balance_cell(&mut template, 20_000_000_000, buyer);
 
         template.as_json()
     }
@@ -615,28 +604,16 @@ challenge_with_generator!(
 
 challenge_with_generator!(
     challenge_account_sale_buy_seller_profit_capacity,
-    Error::AccountSaleCellProfitError,
+    Error::ChangeError,
     || {
-        let (mut template, timestamp) = before_each(20_000_000_000);
+        let (mut template, timestamp, seller, buyer, account) = before_each(20_000_000_000, 40_000_000_000);
 
         // outputs
-        push_output_account_cell(&mut template, timestamp);
+        push_output_account_cell(&mut template, buyer, account, timestamp);
         push_output_income_cell(&mut template);
-
-        template.push_output(
-            json!({
-                // Simulate the capacity of the cell which carrying profit and refund to seller is wrong in outputs.
-                "capacity": "39_499_980_000",
-                "lock": {
-                    "owner_lock_args": "0x050000000000000000000000000000000000001111",
-                    "manager_lock_args": "0x050000000000000000000000000000000000001111",
-                },
-                "type": {
-                    "code_hash": "{{balance-cell-type}}"
-                }
-            }),
-            None,
-        );
+        // Simulate transfer profit less than the seller should get.
+        push_output_balance_cell(&mut template, 39_499_980_000, seller);
+        push_output_balance_cell(&mut template, 20_000_000_000, buyer);
 
         template.as_json()
     }

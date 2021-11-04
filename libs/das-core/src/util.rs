@@ -229,14 +229,42 @@ pub fn find_cells_by_script_and_filter<F: Fn(usize, Source) -> Result<bool, Erro
 pub fn find_balance_cells(
     config_main: das_packed::ConfigCellMainReader,
     user_lock_reader: ScriptReader,
+    source: Source,
 ) -> Result<Vec<usize>, Error> {
+    let das_lock = das_lock();
+    let mut lock_type_opt = None;
+    let mut lock_args_opt = None;
+    if is_type_id_equal(das_lock.as_reader(), user_lock_reader) {
+        let args = user_lock_reader.args().raw_data();
+        lock_type_opt = Some(data_parser::das_lock_args::get_owner_type(args));
+        lock_args_opt = Some(data_parser::das_lock_args::get_owner_lock_args(args));
+    };
+
+    debug!("config_main.type_id_table() = {}", config_main.type_id_table());
+
     find_cells_by_type_id_and_filter(
         ScriptType::Type,
         config_main.type_id_table().balance_cell(),
-        Source::Input,
+        source,
         |i, source| {
             let lock = high_level::load_cell_lock(i, source)?;
-            Ok(is_reader_eq(lock.as_reader(), user_lock_reader))
+            if let Some(lock_type) = lock_type_opt {
+                let lock_args = lock_args_opt.as_ref().unwrap();
+                let args = lock.as_reader().args().raw_data();
+                let item_lock_type = data_parser::das_lock_args::get_owner_type(args);
+                let item_lock_args = data_parser::das_lock_args::get_owner_lock_args(args);
+
+                // If the lock is das-lock only compare the part of owner and treat DasLockType::ETH and DasLockType::ETHTypedData as same lock type.
+                if (lock_type == DasLockType::ETH as u8 || lock_type == DasLockType::ETHTypedData as u8)
+                    && (item_lock_type == DasLockType::ETH as u8 || item_lock_type == DasLockType::ETHTypedData as u8)
+                {
+                    Ok(*lock_args == item_lock_args)
+                } else {
+                    Ok(lock_type == item_lock_type && *lock_args == item_lock_args)
+                }
+            } else {
+                Ok(is_reader_eq(lock.as_reader(), user_lock_reader))
+            }
         },
     )
 }

@@ -1,12 +1,12 @@
-use crate::{assert, constants::*, error::Error, util, warn};
+use crate::{assert, constants::*, error::Error, util, util::find_cells_by_script, warn};
 use ckb_std::{ckb_constants::Source, ckb_types::packed as ckb_packed, high_level};
-use das_types::packed::ConfigCellMainReader;
+use das_types::packed::*;
 
 pub fn verify_no_more_cells(cells: &[usize], source: Source) -> Result<(), Error> {
     assert!(
         cells[0] == 0,
         Error::InvalidTransactionStructure,
-        "{:?}[{}] The cell should be the last cell in {:?}.",
+        "{:?}[{}] The cell should be the first cell in {:?}.",
         source,
         cells[0],
         source
@@ -47,6 +47,22 @@ pub fn verify_no_more_cells(cells: &[usize], source: Source) -> Result<(), Error
     }
 }
 
+pub fn verify_no_more_cells_with_same_lock(
+    lock: ckb_packed::ScriptReader,
+    cells: &[usize],
+    source: Source,
+) -> Result<(), Error> {
+    let cells_with_same_lock = find_cells_by_script(ScriptType::Lock, lock, source)?;
+
+    for i in cells_with_same_lock {
+        if !cells.contains(&i) {
+            return Err(Error::InvalidTransactionStructure);
+        }
+    }
+
+    Ok(())
+}
+
 /// CAREFUL The codes below just support das-lock.
 pub fn verify_user_get_change(
     config_main: ConfigCellMainReader,
@@ -55,26 +71,18 @@ pub fn verify_user_get_change(
 ) -> Result<(), Error> {
     let mut current_capacity = 0;
 
-    let balance_cells = util::find_cells_by_type_id_and_filter(
-        ScriptType::Type,
-        config_main.type_id_table().balance_cell(),
-        Source::Output,
-        |i, source| {
-            let lock = high_level::load_cell_lock(i, source)?;
-            Ok(util::is_reader_eq(lock.as_reader(), user_lock_reader))
-        },
-    )?;
-
+    let balance_cells = util::find_balance_cells(config_main, user_lock_reader, Source::Output)?;
     for i in balance_cells {
-        current_capacity += high_level::load_cell_capacity(i, Source::Output).map_err(Error::from)?;
+        current_capacity += high_level::load_cell_capacity(i, Source::Output)?;
     }
 
     assert!(
         current_capacity >= expected_balance,
-        Error::ReverseRecordCellChangeError,
-        "The change of the transaction should be {} shannon.(current: {})",
+        Error::ChangeError,
+        "The change should be {} shannon in outputs.(current: {}, user_lock: {})",
         expected_balance,
-        current_capacity
+        current_capacity,
+        user_lock_reader
     );
 
     Ok(())

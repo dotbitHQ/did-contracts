@@ -34,6 +34,7 @@ pub enum Error {
     SignallLockIsRequired,
     DataTypeUpgradeRequired,
     NarrowMixerTypeFailed,
+    ChangeError,
     AccountStillCanNotBeRegister = 35, // ⚠️ DO NOT CHANGE
     AccountIsPreserved,
     AccountIsUnAvailable,

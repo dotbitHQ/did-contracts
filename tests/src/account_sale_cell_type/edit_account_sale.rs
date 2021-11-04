@@ -3,13 +3,19 @@ use crate::util::{error::Error, template_generator::*, template_parser::Template
 use ckb_testtool::context::Context;
 use serde_json::json;
 
-fn push_input_account_sale_cell(template: &mut TemplateGenerator, timestamp: u64, account: &str, price: u64) {
+fn push_input_account_sale_cell(
+    template: &mut TemplateGenerator,
+    owner: &str,
+    account: &str,
+    price: u64,
+    timestamp: u64,
+) {
     template.push_input(
         json!({
             "capacity": "20_100_000_000",
             "lock": {
-                "owner_lock_args": "0x050000000000000000000000000000000000001111",
-                "manager_lock_args": "0x050000000000000000000000000000000000001111"
+                "owner_lock_args": owner,
+                "manager_lock_args": owner
             },
             "type": {
                 "code_hash": "{{account-sale-cell-type}}"
@@ -26,13 +32,19 @@ fn push_input_account_sale_cell(template: &mut TemplateGenerator, timestamp: u64
     template.push_das_lock_witness("0000000000000000000000000000000000000000000000000000000000000000");
 }
 
-fn push_output_account_sale_cell(template: &mut TemplateGenerator, timestamp: u64, account: &str, price: u64) {
+fn push_output_account_sale_cell(
+    template: &mut TemplateGenerator,
+    owner: &str,
+    account: &str,
+    price: u64,
+    timestamp: u64,
+) {
     template.push_output(
         json!({
             "capacity": "20_099_990_000",
             "lock": {
-                "owner_lock_args": "0x050000000000000000000000000000000000001111",
-                "manager_lock_args": "0x050000000000000000000000000000000000001111"
+                "owner_lock_args": owner,
+                "manager_lock_args": owner
             },
             "type": {
                 "code_hash": "{{account-sale-cell-type}}"
@@ -48,19 +60,21 @@ fn push_output_account_sale_cell(template: &mut TemplateGenerator, timestamp: u6
     );
 }
 
-fn before_each() -> (TemplateGenerator, u64) {
+fn before_each() -> (TemplateGenerator, u64, &'static str, &'static str) {
     let (mut template, timestamp) = init("edit_account_sale", Some("0x00"));
+    let owner = "0x050000000000000000000000000000000000001111";
+    let account = "xxxxx.bit";
 
-    push_input_account_sale_cell(&mut template, timestamp, "xxxxx.bit", 200_000_000_000);
+    push_input_account_sale_cell(&mut template, owner, account, 200_000_000_000, timestamp);
 
-    (template, timestamp)
+    (template, timestamp, owner, account)
 }
 
 test_with_generator!(test_account_sale_edit, || {
-    let (mut template, timestamp) = before_each();
+    let (mut template, timestamp, owner, account) = before_each();
 
     // outputs
-    push_output_account_sale_cell(&mut template, timestamp, "xxxxx.bit", 400_000_000_000);
+    push_output_account_sale_cell(&mut template, owner, account, 400_000_000_000, timestamp);
 
     template.as_json()
 });
@@ -70,12 +84,14 @@ challenge_with_generator!(
     Error::AccountCellPermissionDenied,
     || {
         let (mut template, timestamp) = init("edit_account_sale", Some("0x01"));
+        let owner = "0x050000000000000000000000000000000000001111";
+        let account = "xxxxx.bit";
 
         // inputs
-        push_input_account_sale_cell(&mut template, timestamp, "xxxxx.bit", 200_000_000_000);
+        push_input_account_sale_cell(&mut template, owner, account, 200_000_000_000, timestamp);
 
         // outputs
-        push_output_account_sale_cell(&mut template, timestamp, "xxxxx.bit", 400_000_000_000);
+        push_output_account_sale_cell(&mut template, owner, account, 400_000_000_000, timestamp);
 
         template.as_json()
     }
@@ -84,7 +100,7 @@ challenge_with_generator!(
     challenge_account_sale_edit_lock_consistent,
     Error::InvalidTransactionStructure,
     || {
-        let (mut template, timestamp) = before_each();
+        let (mut template, timestamp, owner, account) = before_each();
 
         // outputs
         template.push_output(
@@ -93,13 +109,13 @@ challenge_with_generator!(
                 "lock": {
                     // Simulate the owner lock has been modified accidentally.
                     "owner_lock_args": "0x050000000000000000000000000000000000002222",
-                    "manager_lock_args": "0x050000000000000000000000000000000000001111"
+                    "manager_lock_args": owner
                 },
                 "type": {
                     "code_hash": "{{account-sale-cell-type}}"
                 },
                 "witness": {
-                    "account": "xxxxx.bit",
+                    "account": account,
                     "price": "40_000_000_000",
                     "description": "This is another account description.",
                     "started_at": timestamp
@@ -116,15 +132,15 @@ challenge_with_generator!(
     challenge_account_sale_edit_account_consistent,
     Error::AccountSaleCellAccountIdInvalid,
     || {
-        let (mut template, timestamp) = before_each();
+        let (mut template, timestamp, owner, _) = before_each();
 
         // outputs
         template.push_output(
             json!({
                 "capacity": "20_099_990_000",
                 "lock": {
-                    "owner_lock_args": "0x050000000000000000000000000000000000001111",
-                    "manager_lock_args": "0x050000000000000000000000000000000000001111"
+                    "owner_lock_args": owner,
+                    "manager_lock_args": owner
                 },
                 "type": {
                     "code_hash": "{{account-sale-cell-type}}"
@@ -148,15 +164,15 @@ challenge_with_generator!(
     challenge_account_sale_edit_account_id_consistent,
     Error::AccountSaleCellAccountIdInvalid,
     || {
-        let (mut template, timestamp) = before_each();
+        let (mut template, timestamp, owner, _) = before_each();
 
         // outputs
         template.push_output(
             json!({
                 "capacity": "20_099_990_000",
                 "lock": {
-                    "owner_lock_args": "0x050000000000000000000000000000000000001111",
-                    "manager_lock_args": "0x050000000000000000000000000000000000001111"
+                    "owner_lock_args": owner,
+                    "manager_lock_args": owner
                 },
                 "type": {
                     "code_hash": "{{account-sale-cell-type}}"
@@ -181,21 +197,21 @@ challenge_with_generator!(
     challenge_account_sale_edit_started_at_consistent,
     Error::AccountSaleCellStartedAtInvalid,
     || {
-        let (mut template, timestamp) = before_each();
+        let (mut template, timestamp, owner, account) = before_each();
 
         // outputs
         template.push_output(
             json!({
                 "capacity": "20_099_990_000",
                 "lock": {
-                    "owner_lock_args": "0x050000000000000000000000000000000000001111",
-                    "manager_lock_args": "0x050000000000000000000000000000000000001111"
+                    "owner_lock_args": owner,
+                    "manager_lock_args": owner
                 },
                 "type": {
                     "code_hash": "{{account-sale-cell-type}}"
                 },
                 "witness": {
-                    "account": "xxxxx.bit",
+                    "account": account,
                     "price": "40_000_000_000",
                     "description": "This is another account description.",
                     // Simulate the started_at field has been modified accidentally.
@@ -213,7 +229,7 @@ challenge_with_generator!(
     challenge_account_sale_edit_fee_spent,
     Error::AccountSaleCellFeeError,
     || {
-        let (mut template, timestamp) = before_each();
+        let (mut template, timestamp, owner, account) = before_each();
 
         // outputs
         template.push_output(
@@ -221,14 +237,14 @@ challenge_with_generator!(
                 // Simulate too much fee has been spent.
                 "capacity": "20_099_980_000",
                 "lock": {
-                    "owner_lock_args": "0x050000000000000000000000000000000000001111",
-                    "manager_lock_args": "0x050000000000000000000000000000000000001111"
+                    "owner_lock_args": owner,
+                    "manager_lock_args": owner
                 },
                 "type": {
                     "code_hash": "{{account-sale-cell-type}}"
                 },
                 "witness": {
-                    "account": "xxxxx.bit",
+                    "account": account,
                     "price": "40_000_000_000",
                     "description": "This is another account description.",
                     "started_at": timestamp
@@ -245,7 +261,7 @@ challenge_with_generator!(
     challenge_account_sale_edit_fee_empty,
     Error::AccountSaleCellFeeError,
     || {
-        let (mut template, timestamp) = before_each();
+        let (mut template, timestamp, owner, account) = before_each();
 
         // outputs
         template.push_output(
@@ -253,14 +269,14 @@ challenge_with_generator!(
                 // Simulate spend basic capacity as fee.
                 "capacity": "19_999_990_000",
                 "lock": {
-                    "owner_lock_args": "0x050000000000000000000000000000000000001111",
-                    "manager_lock_args": "0x050000000000000000000000000000000000001111"
+                    "owner_lock_args": owner,
+                    "manager_lock_args": owner
                 },
                 "type": {
                     "code_hash": "{{account-sale-cell-type}}"
                 },
                 "witness": {
-                    "account": "xxxxx.bit",
+                    "account": account,
                     "price": "40_000_000_000",
                     "description": "This is another account description.",
                     "started_at": timestamp
@@ -277,21 +293,21 @@ challenge_with_generator!(
     challenge_account_sale_edit_price,
     Error::AccountSaleCellPriceTooSmall,
     || {
-        let (mut template, timestamp) = before_each();
+        let (mut template, timestamp, owner, account) = before_each();
 
         // outputs
         template.push_output(
             json!({
                 "capacity": "20_099_990_000",
                 "lock": {
-                    "owner_lock_args": "0x050000000000000000000000000000000000001111",
-                    "manager_lock_args": "0x050000000000000000000000000000000000001111"
+                    "owner_lock_args": owner,
+                    "manager_lock_args": owner
                 },
                 "type": {
                     "code_hash": "{{account-sale-cell-type}}"
                 },
                 "witness": {
-                    "account": "xxxxx.bit",
+                    "account": account,
                     // Simulate modify the price to lower than the minimum requirement.
                     "price": "19_900_000_000",
                     "description": "This is another account description.",
@@ -309,21 +325,21 @@ challenge_with_generator!(
     challenge_account_sale_edit_no_change,
     Error::InvalidTransactionStructure,
     || {
-        let (mut template, timestamp) = before_each();
+        let (mut template, timestamp, owner, account) = before_each();
 
         // outputs
         template.push_output(
             json!({
                 "capacity": "20_100_000_000",
                 "lock": {
-                    "owner_lock_args": "0x050000000000000000000000000000000000001111",
-                    "manager_lock_args": "0x050000000000000000000000000000000000001111"
+                    "owner_lock_args": owner,
+                    "manager_lock_args": owner
                 },
                 "type": {
                     "code_hash": "{{account-sale-cell-type}}"
                 },
                 "witness": {
-                    "account": "xxxxx.bit",
+                    "account": account,
                     // Simulate neither price nor description is changed.
                     "price": "200_000_000_000",
                     "description": "This is some account description.",
