@@ -612,7 +612,7 @@ fn declare_reverse_record_to_semantic(
     type_id_table_reader: TypeIdTableReader,
 ) -> Result<String, Error> {
     let (address, account) = reverse_record_to_semantic(script_table, type_id_table_reader, Source::Output)?;
-    Ok(format!("DECLARE A REVERSE RECORD FROM {} TO {}.", address, account))
+    Ok(format!("DECLARE A REVERSE RECORD FROM {} TO {}", address, account))
 }
 
 fn redeclare_reverse_record_to_semantic(
@@ -620,7 +620,7 @@ fn redeclare_reverse_record_to_semantic(
     type_id_table_reader: TypeIdTableReader,
 ) -> Result<String, Error> {
     let (address, account) = reverse_record_to_semantic(script_table, type_id_table_reader, Source::Output)?;
-    Ok(format!("REDECLARE A REVERSE RECORD FROM {} TO {}.", address, account))
+    Ok(format!("REDECLARE A REVERSE RECORD FROM {} TO {}", address, account))
 }
 
 fn retract_reverse_record_to_semantic(
@@ -634,7 +634,7 @@ fn retract_reverse_record_to_semantic(
         das_packed::Script::from(high_level::load_cell_lock(reverse_record_cells[0], source).map_err(Error::from)?);
     let address = to_semantic_address(script_table, lock.as_reader(), LockRole::Owner)?;
 
-    Ok(format!("RETRACT REVERSE RECORDS ON {}.", address))
+    Ok(format!("RETRACT REVERSE RECORDS ON {}", address))
 }
 
 fn transfer_to_semantic(script_table: &ScriptTable) -> Result<String, Error> {
