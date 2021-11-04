@@ -45,20 +45,27 @@ pub fn main() -> Result<(), Error> {
                 "There should be only 1 ReverseRecordCell at outputs[0]."
             );
 
-            let sender_lock = high_level::load_cell_lock(0, Source::Input).map_err(Error::from)?;
+            let sender_lock = high_level::load_cell_lock(0, Source::Input)?;
 
-            let balance_cells = util::find_balance_cells(config_main, sender_lock.as_reader())?;
+            let balance_cells = util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Input)?;
+            debug!("balance_cells = {:?}", balance_cells);
             verifiers::misc::verify_no_more_cells(&balance_cells, Source::Input)?;
 
             debug!("Verify if the change is transferred back to the sender properly.");
 
             let mut total_input_capacity = 0;
-            for i in balance_cells {
-                total_input_capacity += high_level::load_cell_capacity(i, Source::Input).map_err(Error::from)?;
+            for i in balance_cells.iter() {
+                total_input_capacity += high_level::load_cell_capacity(*i, Source::Input)?;
             }
             let reverse_record_cell_capacity = u64::from(config_reverse_resolution.record_basic_capacity())
                 + u64::from(config_reverse_resolution.record_prepared_fee_capacity());
             let common_fee = u64::from(config_reverse_resolution.common_fee());
+            assert!(
+                total_input_capacity >= reverse_record_cell_capacity + common_fee,
+                Error::InvalidTransactionStructure,
+                "There is no enough capacity to satisfied the basic requirement.(require_at_least: {})",
+                reverse_record_cell_capacity + common_fee
+            );
             verifiers::misc::verify_user_get_change(
                 config_main,
                 sender_lock.as_reader(),
@@ -67,8 +74,7 @@ pub fn main() -> Result<(), Error> {
 
             debug!("Verify if the ReverseRecordCell.capacity is correct.");
 
-            let current_capacity =
-                high_level::load_cell_capacity(output_cells[0], Source::Output).map_err(Error::from)?;
+            let current_capacity = high_level::load_cell_capacity(output_cells[0], Source::Output)?;
             assert!(
                 reverse_record_cell_capacity == current_capacity,
                 Error::ReverseRecordCellCapacityError,
@@ -80,7 +86,7 @@ pub fn main() -> Result<(), Error> {
             debug!("Verify if the ReverseRecordCell.lock is the same as the lock of inputs[0].");
 
             assert_lock_equal!(
-                (input_cells[0], Source::Input),
+                (balance_cells[0], Source::Input),
                 (output_cells[0], Source::Output),
                 Error::ReverseRecordCellLockError,
                 "The ReverseRecordCell.lock should be the same as the lock of inputs[0]."
@@ -89,7 +95,7 @@ pub fn main() -> Result<(), Error> {
             debug!("Verify if the ReverseRecordCell.lock is the das-lock.");
 
             let expected_lock = das_lock();
-            let current_lock = high_level::load_cell_lock(output_cells[0], Source::Output).map_err(Error::from)?;
+            let current_lock = high_level::load_cell_lock(output_cells[0], Source::Output)?;
             assert!(
                 util::is_type_id_equal(expected_lock.as_reader(), current_lock.as_reader()),
                 Error::ReverseRecordCellLockError,
@@ -121,8 +127,8 @@ pub fn main() -> Result<(), Error> {
             debug!("Verify if the fee paied by ReverseRecordCell.capacity is not out of limitation.");
 
             let expected_fee = u64::from(config_reverse_resolution.common_fee());
-            let input_capacity = high_level::load_cell_capacity(0, Source::Input).map_err(Error::from)?;
-            let output_capacity = high_level::load_cell_capacity(0, Source::Output).map_err(Error::from)?;
+            let input_capacity = high_level::load_cell_capacity(0, Source::Input)?;
+            let output_capacity = high_level::load_cell_capacity(0, Source::Output)?;
             assert!(
                 output_capacity >= input_capacity - expected_fee,
                 Error::ReverseRecordCellCapacityError,
@@ -142,8 +148,8 @@ pub fn main() -> Result<(), Error> {
 
             debug!("Verify if the ReverseRecordCell.data.account has been modified.");
 
-            let input_account = high_level::load_cell_data(input_cells[0], Source::Input).map_err(Error::from)?;
-            let output_account = high_level::load_cell_data(output_cells[0], Source::Output).map_err(Error::from)?;
+            let input_account = high_level::load_cell_data(input_cells[0], Source::Input)?;
+            let output_account = high_level::load_cell_data(output_cells[0], Source::Output)?;
             assert!(
                 input_account != output_account,
                 Error::InvalidTransactionStructure,
@@ -162,11 +168,6 @@ pub fn main() -> Result<(), Error> {
                 Error::InvalidTransactionStructure,
                 "There should be at least 1 ReverseRecordCell in inputs."
             );
-            assert!(
-                input_cells[0] == 0,
-                Error::InvalidTransactionStructure,
-                "The first ReverseRecordCell should be started at inputs[0]."
-            );
 
             verifiers::misc::verify_no_more_cells(&input_cells, Source::Input)?;
 
@@ -174,11 +175,10 @@ pub fn main() -> Result<(), Error> {
                 "Verify if all ReverseRecordCells in inputs has the same lock script with the first ReverseRecordCell."
             );
 
-            let expected_lock_hash =
-                high_level::load_cell_lock_hash(input_cells[0], Source::Input).map_err(Error::from)?;
+            let expected_lock_hash = high_level::load_cell_lock_hash(input_cells[0], Source::Input)?;
             let mut total_input_capacity = 0;
             for i in input_cells.iter() {
-                let lock_hash = high_level::load_cell_lock_hash(*i, Source::Input).map_err(Error::from)?;
+                let lock_hash = high_level::load_cell_lock_hash(*i, Source::Input)?;
                 assert!(
                     expected_lock_hash == lock_hash,
                     Error::InvalidTransactionStructure,
@@ -186,12 +186,12 @@ pub fn main() -> Result<(), Error> {
                     i
                 );
 
-                total_input_capacity += high_level::load_cell_capacity(*i, Source::Input).map_err(Error::from)?;
+                total_input_capacity += high_level::load_cell_capacity(*i, Source::Input)?;
             }
 
             debug!("Verify if all capacity have been refund to user correctly.");
 
-            let expected_lock = high_level::load_cell_lock(input_cells[0], Source::Input).map_err(Error::from)?;
+            let expected_lock = high_level::load_cell_lock(input_cells[0], Source::Input)?;
             let common_fee = u64::from(config_reverse_resolution.common_fee());
             verifiers::misc::verify_user_get_change(
                 config_main,
@@ -216,9 +216,9 @@ fn verify_account_exist(config_main: ConfigCellMainReader, output_cell: usize) -
         "There should be only 1 AccountCell in cell_deps."
     );
 
-    let account_cell_data = high_level::load_cell_data(account_cells[0], Source::CellDep).map_err(Error::from)?;
+    let account_cell_data = high_level::load_cell_data(account_cells[0], Source::CellDep)?;
     let expected_account = data_parser::account_cell::get_account(&account_cell_data);
-    let current_account = high_level::load_cell_data(output_cell, Source::Output).map_err(Error::from)?;
+    let current_account = high_level::load_cell_data(output_cell, Source::Output)?;
     assert!(
         expected_account == current_account.as_slice(),
         Error::ReverseRecordCellAccountError,

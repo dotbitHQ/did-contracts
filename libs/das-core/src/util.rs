@@ -232,41 +232,64 @@ pub fn find_balance_cells(
     source: Source,
 ) -> Result<Vec<usize>, Error> {
     let das_lock = das_lock();
-    let mut lock_type_opt = None;
-    let mut lock_args_opt = None;
     if is_type_id_equal(das_lock.as_reader(), user_lock_reader) {
         let args = user_lock_reader.args().raw_data();
-        lock_type_opt = Some(data_parser::das_lock_args::get_owner_type(args));
-        lock_args_opt = Some(data_parser::das_lock_args::get_owner_lock_args(args));
-    };
+        let lock_type = data_parser::das_lock_args::get_owner_type(args);
+        let lock_args = data_parser::das_lock_args::get_owner_lock_args(args);
 
-    debug!("config_main.type_id_table() = {}", config_main.type_id_table());
+        let all_cells;
+        if lock_type == DasLockType::ETH as u8 || lock_type == DasLockType::ETHTypedData as u8 {
+            // If the lock type is DasLockType::ETH or DasLockType::ETHTypedData treat the different types as the same lock.
+            let cells = find_cells_by_script(ScriptType::Lock, user_lock_reader, source)?;
+            let compatible_args;
+            if lock_type == DasLockType::ETH as u8 {
+                compatible_args = [
+                    vec![DasLockType::ETHTypedData as u8],
+                    lock_args.to_vec(),
+                    vec![DasLockType::ETHTypedData as u8],
+                    lock_args.to_vec(),
+                ]
+                .concat();
+            } else {
+                compatible_args = [
+                    vec![DasLockType::ETH as u8],
+                    lock_args.to_vec(),
+                    vec![DasLockType::ETH as u8],
+                    lock_args.to_vec(),
+                ]
+                .concat();
+            }
+            let compatible_lock = user_lock_reader
+                .to_entity()
+                .as_builder()
+                .args(das_packed::Bytes::from(compatible_args).into())
+                .build();
+            let cells_with_compatible_lock =
+                find_cells_by_script(ScriptType::Lock, compatible_lock.as_reader(), source)?;
 
-    find_cells_by_type_id_and_filter(
-        ScriptType::Type,
-        config_main.type_id_table().balance_cell(),
-        source,
-        |i, source| {
-            let lock = high_level::load_cell_lock(i, source)?;
-            if let Some(lock_type) = lock_type_opt {
-                let lock_args = lock_args_opt.as_ref().unwrap();
-                let args = lock.as_reader().args().raw_data();
-                let item_lock_type = data_parser::das_lock_args::get_owner_type(args);
-                let item_lock_args = data_parser::das_lock_args::get_owner_lock_args(args);
+            all_cells = [cells, cells_with_compatible_lock].concat();
+        } else {
+            all_cells = find_cells_by_script(ScriptType::Lock, user_lock_reader, source)?;
+        }
 
-                // If the lock is das-lock only compare the part of owner and treat DasLockType::ETH and DasLockType::ETHTypedData as same lock type.
-                if (lock_type == DasLockType::ETH as u8 || lock_type == DasLockType::ETHTypedData as u8)
-                    && (item_lock_type == DasLockType::ETH as u8 || item_lock_type == DasLockType::ETHTypedData as u8)
-                {
-                    Ok(*lock_args == item_lock_args)
-                } else {
-                    Ok(lock_type == item_lock_type && *lock_args == item_lock_args)
+        let balance_cell_type_script = type_id_to_script(config_main.type_id_table().balance_cell());
+        let mut cells = Vec::new();
+        for i in all_cells {
+            let type_script_opt = high_level::load_cell_type(i, source)?;
+            if let Some(type_script) = type_script_opt {
+                if is_type_id_equal(type_script.as_reader(), balance_cell_type_script.as_reader().into()) {
+                    cells.push(i);
                 }
             } else {
-                Ok(is_reader_eq(lock.as_reader(), user_lock_reader))
+                cells.push(i);
             }
-        },
-    )
+        }
+
+        Ok(cells)
+    } else {
+        // Currently only BalanceCells with das-lock is supported.
+        unreachable!();
+    }
 }
 
 pub fn load_data<F: Fn(&mut [u8], usize) -> Result<usize, SysError>>(syscall: F) -> Result<Vec<u8>, SysError> {
