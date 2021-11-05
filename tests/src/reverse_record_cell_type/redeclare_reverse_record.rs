@@ -1,107 +1,145 @@
 use super::common::*;
-use crate::util::{self, constants::*, error::Error, template_generator::*, template_parser::TemplateParser};
+use crate::util::{
+    constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::TemplateParser,
+};
 use ckb_testtool::context::Context;
-use das_types::constants::*;
-use serde_json::json;
-
-fn push_dep_account_cell(template: &mut TemplateGenerator) {
-    template.push_dep(
-        json!({
-            "capacity": util::gen_account_cell_capacity(8),
-            "lock": {
-                "owner_lock_args": "0x050000000000000000000000000000000000001111",
-                "manager_lock_args": "0x050000000000000000000000000000000000001111"
-            },
-            "type": {
-                "code_hash": "{{account-cell-type}}"
-            },
-            "data": {
-                "account": "yyyyy.bit",
-                "next": "zzzzz.bit",
-                "expired_at": 0,
-            },
-            "witness": {
-                "account": "xxxxx.bit",
-                "registered_at": 0,
-                "last_transfer_account_at": 0,
-                "last_edit_manager_at": 0,
-                "last_edit_records_at": 0,
-                "status": (AccountStatus::Normal as u8)
-            }
-        }),
-        Some(2),
-    );
-}
-
-fn push_input_reverse_record_cell(
-    template: &mut TemplateGenerator,
-    capacity: u64,
-    owner: &str,
-    manager: &str,
-    account: &str,
-) {
-    template.push_input(
-        json!({
-            "capacity": capacity.to_string(),
-            "lock": {
-                "owner_lock_args": owner,
-                "manager_lock_args": manager,
-            },
-            "type": {
-                "code_hash": "{{reverse-record-cell-type}}"
-            },
-            "data": {
-                "account": account
-            }
-        }),
-        None,
-    );
-    template.push_das_lock_witness("0000000000000000000000000000000000000000000000000000000000000000");
-}
-
-fn push_output_reverse_record_cell(
-    template: &mut TemplateGenerator,
-    capacity: u64,
-    owner: &str,
-    manager: &str,
-    account: &str,
-) {
-    template.push_output(
-        json!({
-            "capacity": capacity.to_string(),
-            "lock": {
-                "owner_lock_args": owner,
-                "manager_lock_args": manager,
-            },
-            "type": {
-                "code_hash": "{{reverse-record-cell-type}}"
-            },
-            "data": {
-                "account": account
-            }
-        }),
-        None,
-    );
-}
 
 fn before_each() -> (TemplateGenerator, &'static str, &'static str) {
     let mut template = init("redeclare_reverse_record");
+    let account = "yyyyy.bit";
     let owner = "0x050000000000000000000000000000000000001111";
-    let manager = "0x050000000000000000000000000000000000001111";
 
     // cell_deps
-    push_dep_account_cell(&mut template);
+    push_dep_account_cell(&mut template, account);
 
     // inputs
-    push_input_reverse_record_cell(&mut template, 20_100_000_000, owner, manager, "xxxxx.bit");
+    push_input_reverse_record_cell(
+        &mut template,
+        REVERSE_RECORD_BASIC_CAPACITY + REVERSE_RECORD_PREPARED_FEE_CAPACITY,
+        owner,
+        "xxxxx.bit",
+    );
 
-    (template, owner, manager)
+    (template, account, owner)
 }
 
 test_with_generator!(test_reverse_record_redeclare, || {
-    let (mut template, owner, manager) = before_each();
+    let (mut template, account, owner) = before_each();
 
-    push_output_reverse_record_cell(&mut template, 20_099_990_000, owner, manager, "yyyyy.bit");
+    // outputs
+    push_output_reverse_record_cell(
+        &mut template,
+        REVERSE_RECORD_BASIC_CAPACITY + REVERSE_RECORD_PREPARED_FEE_CAPACITY - REVERSE_RECORD_COMMON_FEE,
+        owner,
+        account,
+    );
 
     template.as_json()
 });
+
+challenge_with_generator!(
+    challenge_reverse_record_redeclare_no_account_cell,
+    Error::InvalidTransactionStructure,
+    || {
+        let mut template = init("redeclare_reverse_record");
+        let account = "yyyyy.bit";
+        let owner = "0x050000000000000000000000000000000000001111";
+
+        // inputs
+        push_input_reverse_record_cell(
+            &mut template,
+            REVERSE_RECORD_BASIC_CAPACITY + REVERSE_RECORD_PREPARED_FEE_CAPACITY,
+            owner,
+            "xxxxx.bit",
+        );
+
+        // outputs
+        push_output_reverse_record_cell(
+            &mut template,
+            REVERSE_RECORD_BASIC_CAPACITY + REVERSE_RECORD_PREPARED_FEE_CAPACITY - REVERSE_RECORD_COMMON_FEE,
+            owner,
+            account,
+        );
+
+        template.as_json()
+    }
+);
+
+challenge_with_generator!(
+    challenge_reverse_record_redeclare_no_reverse_record_cell,
+    Error::InvalidTransactionStructure,
+    || {
+        let (mut template, _, owner) = before_each();
+
+        // outputs
+        push_output_balance_cell(
+            &mut template,
+            REVERSE_RECORD_BASIC_CAPACITY + REVERSE_RECORD_PREPARED_FEE_CAPACITY - REVERSE_RECORD_COMMON_FEE,
+            owner,
+        );
+
+        template.as_json()
+    }
+);
+
+challenge_with_generator!(
+    challenge_reverse_record_redeclare_multi_reverse_record_cell,
+    Error::InvalidTransactionStructure,
+    || {
+        let (mut template, account, owner) = before_each();
+
+        // outputs
+        push_output_reverse_record_cell(
+            &mut template,
+            REVERSE_RECORD_BASIC_CAPACITY + REVERSE_RECORD_PREPARED_FEE_CAPACITY,
+            owner,
+            account,
+        );
+        push_output_reverse_record_cell(
+            &mut template,
+            REVERSE_RECORD_BASIC_CAPACITY + REVERSE_RECORD_PREPARED_FEE_CAPACITY,
+            owner,
+            account,
+        );
+
+        template.as_json()
+    }
+);
+
+challenge_with_generator!(
+    challenge_reverse_record_redeclare_owner,
+    Error::ReverseRecordCellLockError,
+    || {
+        let (mut template, account, _) = before_each();
+
+        // outputs
+        push_output_reverse_record_cell(
+            &mut template,
+            REVERSE_RECORD_BASIC_CAPACITY + REVERSE_RECORD_PREPARED_FEE_CAPACITY,
+            // Simulate the ReverseRecordCell.lock is not the sender's lock.
+            "0x050000000000000000000000000000000000002222",
+            account,
+        );
+
+        template.as_json()
+    }
+);
+
+challenge_with_generator!(
+    challenge_reverse_record_redeclare_capacity,
+    Error::ReverseRecordCellCapacityError,
+    || {
+        let (mut template, account, owner) = before_each();
+
+        // outputs
+        push_output_reverse_record_cell(
+            &mut template,
+            // Simulate the ReverseRecordCell.capacity is not satisfied the basic requirement.
+            REVERSE_RECORD_BASIC_CAPACITY + REVERSE_RECORD_PREPARED_FEE_CAPACITY - REVERSE_RECORD_COMMON_FEE - 1,
+            owner,
+            account,
+        );
+
+        template.as_json()
+    }
+);

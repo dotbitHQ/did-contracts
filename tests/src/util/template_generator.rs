@@ -836,8 +836,8 @@ impl TemplateGenerator {
             .sale_min_price(Uint64::from(20_000_000_000))
             .sale_expiration_limit(Uint32::from(86400 * 30))
             .sale_description_bytes_limit(Uint32::from(5000))
-            .sale_cell_basic_capacity(Uint64::from(ACCOUNT_SALE_CELL_BASIC_CAPACITY))
-            .sale_cell_prepared_fee_capacity(Uint64::from(ACCOUNT_SALE_CELL_PREPARED_FEE_CAPACITY))
+            .sale_cell_basic_capacity(Uint64::from(ACCOUNT_SALE_BASIC_CAPACITY))
+            .sale_cell_prepared_fee_capacity(Uint64::from(ACCOUNT_SALE_PREPARED_FEE_CAPACITY))
             .auction_max_extendable_duration(Uint32::from(86400 * 7))
             .auction_duration_increment_each_bid(Uint32::from(600))
             .auction_min_opening_price(Uint64::from(200_000_000_000))
@@ -857,9 +857,9 @@ impl TemplateGenerator {
 
     fn gen_config_cell_reverse_resolution(&mut self) -> (Bytes, ConfigCellReverseResolution) {
         let entity = ConfigCellReverseResolution::new_builder()
-            .record_basic_capacity(Uint64::from(20_000_000_000))
-            .record_prepared_fee_capacity(Uint64::from(100_000_000))
-            .common_fee(Uint64::from(10_000))
+            .record_basic_capacity(Uint64::from(REVERSE_RECORD_BASIC_CAPACITY))
+            .record_prepared_fee_capacity(Uint64::from(REVERSE_RECORD_PREPARED_FEE_CAPACITY))
+            .common_fee(Uint64::from(REVERSE_RECORD_COMMON_FEE))
             .build();
         let cell_data = Bytes::from(blake2b_256(entity.as_slice()).to_vec());
 
