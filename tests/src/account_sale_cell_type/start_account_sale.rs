@@ -68,7 +68,7 @@ fn push_output_account_cell(template: &mut TemplateGenerator, owner: &str, times
 fn push_output_account_sale_cell(template: &mut TemplateGenerator, owner: &str, timestamp: u64) {
     template.push_output(
         json!({
-            "capacity": (ACCOUNT_SALE_CELL_BASIC_CAPACITY + ACCOUNT_SALE_CELL_PREPARED_FEE_CAPACITY).to_string(),
+            "capacity": (ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY).to_string(),
             "lock": {
                 "owner_lock_args": owner,
                 "manager_lock_args": owner
@@ -104,7 +104,7 @@ test_with_generator!(test_account_sale_start, || {
     push_output_account_sale_cell(&mut template, owner, timestamp);
     push_output_balance_cell(
         &mut template,
-        40_000_000_000 - ACCOUNT_SALE_CELL_BASIC_CAPACITY - ACCOUNT_SALE_CELL_PREPARED_FEE_CAPACITY,
+        40_000_000_000 - ACCOUNT_SALE_BASIC_CAPACITY - ACCOUNT_SALE_PREPARED_FEE_CAPACITY,
         owner,
     );
 
@@ -151,7 +151,7 @@ test_with_generator!(test_account_sale_start_with_lock_upgrade, || {
     push_output_account_sale_cell(&mut template, owner, timestamp);
     push_output_balance_cell(
         &mut template,
-        40_000_000_000 - ACCOUNT_SALE_CELL_BASIC_CAPACITY - ACCOUNT_SALE_CELL_PREPARED_FEE_CAPACITY,
+        40_000_000_000 - ACCOUNT_SALE_BASIC_CAPACITY - ACCOUNT_SALE_PREPARED_FEE_CAPACITY,
         owner,
     );
 
@@ -175,7 +175,7 @@ challenge_with_generator!(
         push_output_account_sale_cell(&mut template, owner, timestamp);
         push_output_balance_cell(
             &mut template,
-            40_000_000_000 - ACCOUNT_SALE_CELL_BASIC_CAPACITY - ACCOUNT_SALE_CELL_PREPARED_FEE_CAPACITY,
+            40_000_000_000 - ACCOUNT_SALE_BASIC_CAPACITY - ACCOUNT_SALE_PREPARED_FEE_CAPACITY,
             owner,
         );
 
@@ -221,7 +221,7 @@ challenge_with_generator!(
         push_output_account_sale_cell(&mut template, owner, timestamp);
         push_output_balance_cell(
             &mut template,
-            40_000_000_000 - ACCOUNT_SALE_CELL_BASIC_CAPACITY - ACCOUNT_SALE_CELL_PREPARED_FEE_CAPACITY,
+            40_000_000_000 - ACCOUNT_SALE_BASIC_CAPACITY - ACCOUNT_SALE_PREPARED_FEE_CAPACITY,
             owner,
         );
 
@@ -273,7 +273,7 @@ challenge_with_generator!(
         push_output_account_sale_cell(&mut template, owner, timestamp);
         push_output_balance_cell(
             &mut template,
-            40_000_000_000 - ACCOUNT_SALE_CELL_BASIC_CAPACITY - ACCOUNT_SALE_CELL_PREPARED_FEE_CAPACITY,
+            40_000_000_000 - ACCOUNT_SALE_BASIC_CAPACITY - ACCOUNT_SALE_PREPARED_FEE_CAPACITY,
             owner,
         );
 
@@ -324,7 +324,7 @@ challenge_with_generator!(
         push_output_account_sale_cell(&mut template, owner, timestamp);
         push_output_balance_cell(
             &mut template,
-            40_000_000_000 - ACCOUNT_SALE_CELL_BASIC_CAPACITY - ACCOUNT_SALE_CELL_PREPARED_FEE_CAPACITY,
+            40_000_000_000 - ACCOUNT_SALE_BASIC_CAPACITY - ACCOUNT_SALE_PREPARED_FEE_CAPACITY,
             owner,
         );
 
@@ -370,7 +370,7 @@ challenge_with_generator!(
         push_output_account_sale_cell(&mut template, owner, timestamp);
         push_output_balance_cell(
             &mut template,
-            40_000_000_000 - ACCOUNT_SALE_CELL_BASIC_CAPACITY - ACCOUNT_SALE_CELL_PREPARED_FEE_CAPACITY,
+            40_000_000_000 - ACCOUNT_SALE_BASIC_CAPACITY - ACCOUNT_SALE_PREPARED_FEE_CAPACITY,
             owner,
         );
 
@@ -409,7 +409,7 @@ challenge_with_generator!(
 
         push_output_balance_cell(
             &mut template,
-            40_000_000_000 - ACCOUNT_SALE_CELL_BASIC_CAPACITY - ACCOUNT_SALE_CELL_PREPARED_FEE_CAPACITY,
+            40_000_000_000 - ACCOUNT_SALE_BASIC_CAPACITY - ACCOUNT_SALE_PREPARED_FEE_CAPACITY,
             owner,
         );
 
@@ -448,7 +448,7 @@ challenge_with_generator!(
 
         push_output_balance_cell(
             &mut template,
-            40_000_000_000 - ACCOUNT_SALE_CELL_BASIC_CAPACITY - ACCOUNT_SALE_CELL_PREPARED_FEE_CAPACITY,
+            40_000_000_000 - ACCOUNT_SALE_BASIC_CAPACITY - ACCOUNT_SALE_PREPARED_FEE_CAPACITY,
             owner,
         );
 
@@ -488,7 +488,7 @@ challenge_with_generator!(
 
         push_output_balance_cell(
             &mut template,
-            40_000_000_000 - ACCOUNT_SALE_CELL_BASIC_CAPACITY - ACCOUNT_SALE_CELL_PREPARED_FEE_CAPACITY,
+            40_000_000_000 - ACCOUNT_SALE_BASIC_CAPACITY - ACCOUNT_SALE_PREPARED_FEE_CAPACITY,
             owner,
         );
 
@@ -527,7 +527,7 @@ challenge_with_generator!(
 
         push_output_balance_cell(
             &mut template,
-            40_000_000_000 - ACCOUNT_SALE_CELL_BASIC_CAPACITY - ACCOUNT_SALE_CELL_PREPARED_FEE_CAPACITY,
+            40_000_000_000 - ACCOUNT_SALE_BASIC_CAPACITY - ACCOUNT_SALE_PREPARED_FEE_CAPACITY,
             owner,
         );
 
@@ -566,7 +566,7 @@ challenge_with_generator!(
 
         push_output_balance_cell(
             &mut template,
-            40_000_000_000 - ACCOUNT_SALE_CELL_BASIC_CAPACITY - ACCOUNT_SALE_CELL_PREPARED_FEE_CAPACITY,
+            40_000_000_000 - ACCOUNT_SALE_BASIC_CAPACITY - ACCOUNT_SALE_PREPARED_FEE_CAPACITY,
             owner,
         );
 
@@ -587,7 +587,7 @@ challenge_with_generator!(challenge_account_sale_start_change_owner, Error::Chan
     push_output_account_sale_cell(&mut template, owner, timestamp);
     push_output_balance_cell(
         &mut template,
-        40_000_000_000 - ACCOUNT_SALE_CELL_BASIC_CAPACITY - ACCOUNT_SALE_CELL_PREPARED_FEE_CAPACITY,
+        40_000_000_000 - ACCOUNT_SALE_BASIC_CAPACITY - ACCOUNT_SALE_PREPARED_FEE_CAPACITY,
         // Simulate transfer changes to another lock.
         "0x050000000000000000000000000000000000002222",
     );
@@ -609,7 +609,7 @@ challenge_with_generator!(challenge_account_sale_start_change_capacity, Error::C
     push_output_balance_cell(
         &mut template,
         // Simulate transfer changes less than the user should get.
-        39_000_000_000 - ACCOUNT_SALE_CELL_BASIC_CAPACITY - ACCOUNT_SALE_CELL_PREPARED_FEE_CAPACITY,
+        39_000_000_000 - ACCOUNT_SALE_BASIC_CAPACITY - ACCOUNT_SALE_PREPARED_FEE_CAPACITY,
         owner,
     );
 

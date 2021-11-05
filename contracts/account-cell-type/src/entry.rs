@@ -521,6 +521,7 @@ pub fn main() -> Result<(), Error> {
 
         debug!("Verify if the AccountCell is consistent in inputs and outputs.");
 
+        account_cell::verify_account_lock_consistent(input_cells[0], output_cells[0], None)?;
         account_cell::verify_account_data_consistent(input_cells[0], output_cells[0], vec![])?;
         account_cell::verify_account_capacity_not_decrease(input_cells[0], output_cells[0])?;
         account_cell::verify_account_witness_consistent(

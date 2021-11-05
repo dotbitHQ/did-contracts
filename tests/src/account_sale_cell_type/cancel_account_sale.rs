@@ -39,7 +39,7 @@ fn push_input_account_cell(template: &mut TemplateGenerator, owner: &str, timest
 fn push_input_account_sale_cell(template: &mut TemplateGenerator, owner: &str, timestamp: u64) {
     template.push_input(
         json!({
-            "capacity": (ACCOUNT_SALE_CELL_BASIC_CAPACITY + ACCOUNT_SALE_CELL_PREPARED_FEE_CAPACITY).to_string(),
+            "capacity": (ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY).to_string(),
             "lock": {
                 "owner_lock_args": owner,
                 "manager_lock_args": owner
@@ -106,7 +106,7 @@ test_with_generator!(test_account_sale_cancel, || {
     push_output_account_cell(&mut template, owner, timestamp);
     push_output_balance_cell(
         &mut template,
-        ACCOUNT_SALE_CELL_BASIC_CAPACITY + ACCOUNT_SALE_CELL_PREPARED_FEE_CAPACITY - SECONDARY_MARKET_COMMON_FEE,
+        ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY - SECONDARY_MARKET_COMMON_FEE,
         owner,
     );
 
@@ -147,7 +147,7 @@ challenge_with_generator!(
         push_output_account_cell(&mut template, owner, timestamp);
         push_output_balance_cell(
             &mut template,
-            ACCOUNT_SALE_CELL_BASIC_CAPACITY + ACCOUNT_SALE_CELL_PREPARED_FEE_CAPACITY - SECONDARY_MARKET_COMMON_FEE,
+            ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY - SECONDARY_MARKET_COMMON_FEE,
             owner,
         );
 
@@ -192,7 +192,7 @@ challenge_with_generator!(
 
         push_output_balance_cell(
             &mut template,
-            ACCOUNT_SALE_CELL_BASIC_CAPACITY + ACCOUNT_SALE_CELL_PREPARED_FEE_CAPACITY - SECONDARY_MARKET_COMMON_FEE,
+            ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY - SECONDARY_MARKET_COMMON_FEE,
             owner,
         );
 
@@ -243,7 +243,7 @@ challenge_with_generator!(
         push_output_account_cell(&mut template, owner, timestamp);
         push_output_balance_cell(
             &mut template,
-            ACCOUNT_SALE_CELL_BASIC_CAPACITY + ACCOUNT_SALE_CELL_PREPARED_FEE_CAPACITY - SECONDARY_MARKET_COMMON_FEE,
+            ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY - SECONDARY_MARKET_COMMON_FEE,
             owner,
         );
 
@@ -294,7 +294,7 @@ challenge_with_generator!(
         push_output_account_cell(&mut template, owner, timestamp);
         push_output_balance_cell(
             &mut template,
-            ACCOUNT_SALE_CELL_BASIC_CAPACITY + ACCOUNT_SALE_CELL_PREPARED_FEE_CAPACITY - SECONDARY_MARKET_COMMON_FEE,
+            ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY - SECONDARY_MARKET_COMMON_FEE,
             owner,
         );
 
@@ -339,7 +339,7 @@ challenge_with_generator!(
 
         push_output_balance_cell(
             &mut template,
-            ACCOUNT_SALE_CELL_BASIC_CAPACITY + ACCOUNT_SALE_CELL_PREPARED_FEE_CAPACITY - SECONDARY_MARKET_COMMON_FEE,
+            ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY - SECONDARY_MARKET_COMMON_FEE,
             owner,
         );
 
@@ -383,7 +383,7 @@ challenge_with_generator!(
         push_output_account_cell(&mut template, owner, timestamp);
         push_output_balance_cell(
             &mut template,
-            ACCOUNT_SALE_CELL_BASIC_CAPACITY + ACCOUNT_SALE_CELL_PREPARED_FEE_CAPACITY - SECONDARY_MARKET_COMMON_FEE,
+            ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY - SECONDARY_MARKET_COMMON_FEE,
             owner,
         );
 
@@ -398,8 +398,8 @@ challenge_with_generator!(challenge_account_sale_cancel_change_owner, Error::Cha
     push_output_account_cell(&mut template, owner, timestamp);
     push_output_balance_cell(
         &mut template,
-        ACCOUNT_SALE_CELL_BASIC_CAPACITY + ACCOUNT_SALE_CELL_PREPARED_FEE_CAPACITY - SECONDARY_MARKET_COMMON_FEE,
-        // Simulate transfer changes to another lock.
+        ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY - SECONDARY_MARKET_COMMON_FEE,
+        // Simulate transfer change to another lock.
         "0x050000000000000000000000000000000000002222",
     );
 
@@ -414,8 +414,12 @@ challenge_with_generator!(
 
         // outputs
         push_output_account_cell(&mut template, owner, timestamp);
-        // Simulate transfer changes less than the user should get.
-        push_output_balance_cell(&mut template, 20_099_980_000, owner);
+        push_output_balance_cell(
+            &mut template,
+            // Simulate transfer changes less than the user should get.
+            ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY - SECONDARY_MARKET_COMMON_FEE - 1,
+            owner,
+        );
 
         template.as_json()
     }

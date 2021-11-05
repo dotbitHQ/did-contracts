@@ -6,8 +6,7 @@ use ckb_std::{
 };
 use das_core::{
     assert, assert_lock_equal, constants::*, data_parser, debug, eip712::verify_eip712_hashes, error::Error,
-    parse_account_cell_witness, parse_witness, util, verifiers, verifiers::account_cell, warn,
-    witness_parser::WitnessesParser,
+    parse_account_cell_witness, parse_witness, util, verifiers, warn, witness_parser::WitnessesParser,
 };
 use das_map::{map::Map, util as map_util};
 use das_types::{
@@ -30,7 +29,7 @@ pub fn main() -> Result<(), Error> {
     let params = params_raw.iter().map(|param| param.as_reader()).collect::<Vec<_>>();
 
     util::is_system_off(&mut parser)?;
-    account_cell::verify_unlock_role(action_raw.as_reader(), &params)?;
+    verifiers::account_cell::verify_unlock_role(action_raw.as_reader(), &params)?;
 
     debug!(
         "Route to {:?} action ...",
@@ -147,7 +146,7 @@ pub fn main() -> Result<(), Error> {
                     )?;
 
                     // If a user willing to sell owned account, the AccountCell should be in AccountStatus::Normal status.
-                    account_cell::verify_account_cell_status_update_correctly(
+                    verifiers::account_cell::verify_account_cell_status_update_correctly(
                         &input_account_cell_witness_reader,
                         &output_account_cell_witness_reader,
                         AccountStatus::Normal,
@@ -217,7 +216,7 @@ pub fn main() -> Result<(), Error> {
                     )?;
 
                     // If a user want to cancel account sale, the AccountCell should be in AccountStatus::Selling status.
-                    account_cell::verify_account_cell_status_update_correctly(
+                    verifiers::account_cell::verify_account_cell_status_update_correctly(
                         &input_account_cell_witness_reader,
                         &output_account_cell_witness_reader,
                         AccountStatus::Selling,
@@ -268,17 +267,21 @@ pub fn main() -> Result<(), Error> {
 
                     debug!("Verify if the AccountCell is consistent in inputs and outputs.");
 
-                    account_cell::verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
-                    account_cell::verify_account_data_consistent(
+                    verifiers::account_cell::verify_account_expiration(
+                        config_account,
+                        input_account_cells[0],
+                        timestamp,
+                    )?;
+                    verifiers::account_cell::verify_account_data_consistent(
                         input_account_cells[0],
                         output_account_cells[0],
                         vec![],
                     )?;
-                    account_cell::verify_account_capacity_not_decrease(
+                    verifiers::account_cell::verify_account_capacity_not_decrease(
                         input_account_cells[0],
                         output_account_cells[0],
                     )?;
-                    account_cell::verify_account_witness_consistent(
+                    verifiers::account_cell::verify_account_witness_consistent(
                         input_account_cells[0],
                         output_account_cells[0],
                         &input_account_cell_witness_reader,
@@ -287,7 +290,7 @@ pub fn main() -> Result<(), Error> {
                     )?;
 
                     // If a user willing to buy the account, the AccountCell should be in AccountStatus::Selling status.
-                    account_cell::verify_account_cell_status_update_correctly(
+                    verifiers::account_cell::verify_account_cell_status_update_correctly(
                         &input_account_cell_witness_reader,
                         &output_account_cell_witness_reader,
                         AccountStatus::Selling,
@@ -313,24 +316,13 @@ pub fn main() -> Result<(), Error> {
 
                     debug!("Verify if the AccountCell.lock is changed to new owner's lock properly.");
 
-                    let balance_cell_type_id = config_main.type_id_table().balance_cell();
-                    let balance_cells =
-                        util::find_cells_by_type_id(ScriptType::Type, balance_cell_type_id, Source::Input)?;
-
-                    assert!(
-                        balance_cells.len() > 0,
-                        Error::InvalidTransactionStructure,
-                        "There should be some BalanceCell in inputs to pay for the deal, but none found."
-                    );
-
-                    let new_owner_lock = high_level::load_cell_lock(balance_cells[0], Source::Input)?;
                     let output_account_cell_lock = high_level::load_cell_lock(output_account_cells[0], Source::Output)?;
 
                     assert!(
-                        util::is_entity_eq(&new_owner_lock, &output_account_cell_lock),
+                        util::is_entity_eq(&buyer_lock, &output_account_cell_lock),
                         Error::AccountSaleCellNewOwnerError,
                         "The new owner's lock of AccountCell is mismatch with the BalanceCell in inputs.(expected: {}, current: {})",
-                        new_owner_lock,
+                        buyer_lock,
                         output_account_cell_lock
                     );
 
@@ -502,11 +494,11 @@ fn verify_account_cell_consistent_except_status<'a>(
     input_account_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
     output_account_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
 ) -> Result<(), Error> {
-    account_cell::verify_account_expiration(config_account, input_account_cell, timestamp)?;
-    account_cell::verify_account_lock_consistent(input_account_cell, output_account_cell, None)?;
-    account_cell::verify_account_data_consistent(input_account_cell, output_account_cell, vec![])?;
-    account_cell::verify_account_capacity_not_decrease(input_account_cell, output_account_cell)?;
-    account_cell::verify_account_witness_consistent(
+    verifiers::account_cell::verify_account_expiration(config_account, input_account_cell, timestamp)?;
+    verifiers::account_cell::verify_account_lock_consistent(input_account_cell, output_account_cell, None)?;
+    verifiers::account_cell::verify_account_data_consistent(input_account_cell, output_account_cell, vec![])?;
+    verifiers::account_cell::verify_account_capacity_not_decrease(input_account_cell, output_account_cell)?;
+    verifiers::account_cell::verify_account_witness_consistent(
         input_account_cell,
         output_account_cell,
         &input_account_cell_witness_reader,

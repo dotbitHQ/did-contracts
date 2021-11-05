@@ -585,7 +585,7 @@ challenge_with_generator!(
     challenge_account_sale_buy_seller_profit_owner,
     Error::ChangeError,
     || {
-        let (mut template, timestamp, seller, buyer, account) = before_each(20_000_000_000, 40_000_000_000);
+        let (mut template, timestamp, _, buyer, account) = before_each(20_000_000_000, 40_000_000_000);
 
         // outputs
         push_output_account_cell(&mut template, buyer, account, timestamp);
