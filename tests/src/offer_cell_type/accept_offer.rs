@@ -1,45 +1,10 @@
 use super::common::*;
-use crate::util::{self, constants::*, error::Error, template_generator::*, template_parser::TemplateParser};
+use crate::util::{
+    self, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::TemplateParser,
+};
 use ckb_testtool::context::Context;
 use das_types::constants::*;
 use serde_json::json;
-
-fn push_input_offer_cell(
-    template: &mut TemplateGenerator,
-    capacity: u64,
-    buyer: &str,
-    account: &str,
-    price: u64,
-    message: &str,
-) {
-    template.push_input(
-        json!({
-            "capacity": capacity.to_string(),
-            "lock": {
-                "owner_lock_args": buyer,
-                "manager_lock_args": buyer,
-            },
-            "type": {
-                "code_hash": "{{offer-cell-type}}"
-            },
-            "witness": {
-                "account": account,
-                "price": price.to_string(),
-                "message": message,
-                "inviter_lock": {
-                    "code_hash": "{{fake-das-lock}}",
-                    "args": gen_das_lock_args(INVITER_LOCK_ARGS, None)
-                },
-                "channel_lock": {
-                    "code_hash": "{{fake-das-lock}}",
-                    "args": gen_das_lock_args(CHANNEL_LOCK_ARGS, None)
-                }
-            }
-        }),
-        None,
-    );
-    template.push_empty_witness();
-}
 
 fn push_input_account_cell(template: &mut TemplateGenerator, timestamp: u64, seller: &str, account: &str) {
     template.push_input(
@@ -67,23 +32,6 @@ fn push_input_account_cell(template: &mut TemplateGenerator, timestamp: u64, sel
             }
         }),
         Some(2),
-    );
-    template.push_das_lock_witness("0000000000000000000000000000000000000000000000000000000000000000");
-}
-
-fn push_input_balance_cell(template: &mut TemplateGenerator, price: u64) {
-    template.push_input(
-        json!({
-            "capacity": price.to_string(),
-            "lock": {
-                "owner_lock_args": "0x050000000000000000000000000000000000002222",
-                "manager_lock_args": "0x050000000000000000000000000000000000002222",
-            },
-            "type": {
-                "code_hash": "{{balance-cell-type}}"
-            }
-        }),
-        None,
     );
     template.push_das_lock_witness("0000000000000000000000000000000000000000000000000000000000000000");
 }
@@ -164,22 +112,6 @@ fn push_output_income_cell(template: &mut TemplateGenerator) {
     );
 }
 
-fn push_output_balance_cell(template: &mut TemplateGenerator, capacity: u64, owner: &str) {
-    template.push_output(
-        json!({
-            "capacity": capacity.to_string(),
-            "lock": {
-                "owner_lock_args": owner,
-                "manager_lock_args": owner,
-            },
-            "type": {
-                "code_hash": "{{balance-cell-type}}"
-            }
-        }),
-        None,
-    );
-}
-
 fn before_each(account: &str) -> (TemplateGenerator, u64, &'static str, &'static str) {
     let (mut template, timestamp) = init_with_timestamp("accept_offer");
     let buyer = "0x050000000000000000000000000000000000001111";
@@ -196,7 +128,11 @@ fn before_each(account: &str) -> (TemplateGenerator, u64, &'static str, &'static
     );
     push_input_account_cell(&mut template, timestamp, seller, account);
     // Transaction builder's BalanceCell
-    push_input_balance_cell(&mut template, 100_000_000_000);
+    push_input_balance_cell(
+        &mut template,
+        100_000_000_000,
+        "0x050000000000000000000000000000000000003333",
+    );
 
     (template, timestamp, buyer, seller)
 }

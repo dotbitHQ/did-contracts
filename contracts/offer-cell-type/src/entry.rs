@@ -7,7 +7,7 @@ use das_core::{
     constants::{das_lock, ScriptType},
     data_parser, debug,
     error::Error,
-    parse_account_cell_witness, parse_witness, util, verifiers, warn,
+    parse_account_cell_witness, parse_witness, util, verifiers,
     witness_parser::WitnessesParser,
 };
 use das_map::{map::Map, util as map_util};
@@ -39,62 +39,60 @@ pub fn main() -> Result<(), Error> {
 
     let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
     match action {
-        b"make_offer" => {
+        b"make_offer" | b"edit_offer" => {
             parser.parse_config(&[DataType::ConfigCellMain, DataType::ConfigCellSecondaryMarket])?;
             parser.parse_cell()?;
             let config_main = parser.configs.main()?;
             let config_second_market = parser.configs.secondary_market()?;
 
-            assert!(
-                input_cells.len() == 0 && output_cells.len() == 1,
-                Error::InvalidTransactionStructure,
-                "There should be only 1 OfferCell at outputs[0]."
-            );
-            assert!(
-                output_cells[0] == 0,
-                Error::InvalidTransactionStructure,
-                "There should be only 1 OfferCell at outputs[0]."
-            );
-
             let sender_lock = high_level::load_cell_lock(0, Source::Input)?;
+            let all_input_cells;
+            if action == b"make_offer" {
+                assert!(
+                    input_cells.len() == 0 && output_cells.len() == 1,
+                    Error::InvalidTransactionStructure,
+                    "There should be only 1 OfferCell at outputs[0]."
+                );
+                assert!(
+                    output_cells[0] == 0,
+                    Error::InvalidTransactionStructure,
+                    "There should be only 1 OfferCell at outputs[0]."
+                );
 
-            let balance_cells = util::find_balance_cells(config_main, sender_lock.as_reader())?;
-            verifiers::misc::verify_no_more_cells(&balance_cells, Source::Input)?;
+                all_input_cells = util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Input)?;
+                verifiers::misc::verify_no_more_cells(&all_input_cells, Source::Input)?;
+            } else {
+                assert!(
+                    input_cells.len() == 1 && output_cells.len() == 1,
+                    Error::InvalidTransactionStructure,
+                    "There should be at least 1 OfferCell in inputs and outputs."
+                );
+                assert!(
+                    input_cells[0] == 0 && output_cells[0] == 0,
+                    Error::InvalidTransactionStructure,
+                    "There should be 1 OfferCell in inputs[0] and outputs[0]."
+                );
+
+                let balance_cells = util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Input)?;
+                all_input_cells = [input_cells.clone(), balance_cells].concat();
+                verifiers::misc::verify_no_more_cells(&all_input_cells, Source::Input)?;
+            }
 
             debug!("Verify if the change is transferred back to the sender properly.");
 
             let mut total_input_capacity = 0;
-            for i in balance_cells.iter() {
+            for i in all_input_cells.iter() {
                 total_input_capacity += high_level::load_cell_capacity(*i, Source::Input)?;
             }
             let offer_cell_capacity = high_level::load_cell_capacity(output_cells[0], Source::Output)?;
             let common_fee = u64::from(config_second_market.common_fee());
-            verifiers::misc::verify_user_get_change(
-                config_main,
-                sender_lock.as_reader(),
-                total_input_capacity - offer_cell_capacity - common_fee,
-            )?;
-
-            let expected_capacity = u64::from(config_second_market.offer_cell_basic_capacity())
-                + u64::from(config_second_market.offer_cell_prepared_fee_capacity());
-
-            assert!(
-                offer_cell_capacity >= expected_capacity,
-                Error::OfferCellCapacityError,
-                "The OfferCell should have at least {} shannon.(expected: {}, current: {})",
-                expected_capacity,
-                expected_capacity,
-                offer_cell_capacity
-            );
-
-            debug!("Verify if the OfferCell.lock is the same as the lock of inputs[0].");
-
-            assert_lock_equal!(
-                (balance_cells[0], Source::Input),
-                (output_cells[0], Source::Output),
-                Error::OfferCellLockError,
-                "The OfferCell.lock should be the same as the lock of inputs[0]."
-            );
+            if total_input_capacity > offer_cell_capacity + common_fee {
+                verifiers::misc::verify_user_get_change(
+                    config_main,
+                    sender_lock.as_reader(),
+                    total_input_capacity - offer_cell_capacity - common_fee,
+                )?;
+            }
 
             debug!("Verify if the OfferCell.lock is the das-lock.");
 
@@ -104,6 +102,15 @@ pub fn main() -> Result<(), Error> {
                 util::is_type_id_equal(expected_lock.as_reader(), current_lock.as_reader()),
                 Error::OfferCellLockError,
                 "The OfferCell.lock should be the das-lock."
+            );
+
+            debug!("Verify if the OfferCell.lock is the same as the lock of inputs[0].");
+
+            assert_lock_equal!(
+                (all_input_cells[0], Source::Input),
+                (output_cells[0], Source::Output),
+                Error::OfferCellLockError,
+                "The OfferCell.lock should be the same as the lock of inputs[0]."
             );
 
             let output_offer_cell_witness;
@@ -127,33 +134,31 @@ pub fn main() -> Result<(), Error> {
             )?;
             verify_message_length(config_second_market, output_offer_cell_witness_reader)?;
 
-            debug!("Verify if the account is registrable.");
+            if action == b"make_offer" {
+                let account = output_offer_cell_witness_reader.account().raw_data();
+                let account_without_suffix = &account[0..account.len() - 4];
+                verifiers::account_cell::verify_unavailable_accounts(&mut parser, account_without_suffix)?;
+            } else {
+                let input_offer_cell_witness;
+                let input_offer_cell_witness_reader;
+                parse_witness!(
+                    input_offer_cell_witness,
+                    input_offer_cell_witness_reader,
+                    parser,
+                    input_cells[0],
+                    Source::Input,
+                    OfferCellData
+                );
 
-            let account = output_offer_cell_witness_reader.account().raw_data();
-            let account_without_suffix = &account[0..account.len() - 4];
-            verifiers::account_cell::verify_unavailable_accounts(&mut parser, account_without_suffix)?;
-        }
-        b"edit_offer" => {
-            parser.parse_config(&[DataType::ConfigCellMain, DataType::ConfigCellSecondaryMarket])?;
-            parser.parse_cell()?;
-            let config_main = parser.configs.main()?;
-            let config_second_market = parser.configs.secondary_market()?;
-
-            assert!(
-                input_cells.len() == 1 && output_cells.len() == 1,
-                Error::InvalidTransactionStructure,
-                "There should be at least 1 OfferCell in inputs and outputs."
-            );
-            assert!(
-                input_cells[0] == 0 && output_cells[0] == 0,
-                Error::InvalidTransactionStructure,
-                "There should be 1 OfferCell in inputs[0] and outputs[0]."
-            );
-
-            // Stop transaction builder to spend users other cells in this transaction.
-            // verifiers::misc::verify_no_more_cells(&input_cells, Source::Input)?;
-
-            // TODO Verify if the OfferCell is updated properly.
+                assert!(
+                    util::is_reader_eq(
+                        input_offer_cell_witness_reader.account(),
+                        output_offer_cell_witness_reader.account()
+                    ),
+                    Error::OfferCellAccountNotMatch,
+                    "The OfferCell.account can not be changed."
+                )
+            }
         }
         b"cancel_offer" => {
             parser.parse_config(&[DataType::ConfigCellMain, DataType::ConfigCellSecondaryMarket])?;
@@ -214,9 +219,9 @@ pub fn main() -> Result<(), Error> {
             let config_secondary_market = parser.configs.secondary_market()?;
 
             assert!(
-                input_cells.len() >= 1 && output_cells.len() == 0,
+                input_cells.len() == 1 && output_cells.len() == 0,
                 Error::InvalidTransactionStructure,
-                "There should be at least 1 OfferCell in inputs."
+                "There should be only 1 OfferCell in inputs."
             );
             assert!(
                 input_cells[0] == 0,
@@ -238,10 +243,6 @@ pub fn main() -> Result<(), Error> {
                 Error::InvalidTransactionStructure,
                 "The AccountCell should only appear in inputs[1] and outputs[0]."
             );
-
-            let cells = [input_cells.clone(), input_account_cells.clone()].concat();
-            // TODO Accept cells provided by the transaction builder to create IncomeCell.
-            // verifiers::misc::verify_no_more_cells(&cells, Source::Input)?;
 
             let input_account_cell_witness: Box<dyn AccountCellDataMixer>;
             let input_account_cell_witness_reader;
@@ -265,6 +266,10 @@ pub fn main() -> Result<(), Error> {
 
             let buyer_lock = high_level::load_cell_lock(input_cells[0], Source::Input)?;
             let seller_lock = high_level::load_cell_lock(input_account_cells[0], Source::Input)?;
+
+            let cells = [input_cells.clone(), input_account_cells.clone()].concat();
+            verifiers::misc::verify_no_more_cells_with_same_lock(buyer_lock.as_reader(), &cells, Source::Input)?;
+            verifiers::misc::verify_no_more_cells_with_same_lock(seller_lock.as_reader(), &cells, Source::Input)?;
 
             debug!("Verify if the AccountCell is transferred properly.");
 
@@ -404,7 +409,7 @@ fn verify_price(
     assert!(
         current_capacity >= current_price && current_capacity <= current_price + prepared_fee_capacity,
         Error::OfferCellCapacityError,
-        "The OfferCell.capacity should be more than its price and prepared fee.(price: {}, current_capacity: {})",
+        "The OfferCell.capacity should contain its price and prepared fee.(price: {}, current_capacity: {})",
         current_price,
         current_capacity
     );

@@ -1,77 +1,10 @@
 use super::common::*;
-use crate::util::{self, constants::*, error::Error, template_generator::*, template_parser::TemplateParser};
+use crate::util::{
+    self, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::TemplateParser,
+};
 use ckb_testtool::context::Context;
 use das_types::constants::*;
 use serde_json::json;
-
-fn push_input_balance_cell(template: &mut TemplateGenerator, capacity: u64, owner: &str) {
-    template.push_input(
-        json!({
-            "capacity": capacity.to_string(),
-            "lock": {
-                "owner_lock_args": owner,
-                "manager_lock_args": owner,
-            },
-            "type": {
-                "code_hash": "{{balance-cell-type}}"
-            }
-        }),
-        None,
-    );
-    template.push_das_lock_witness("0000000000000000000000000000000000000000000000000000000000000000");
-}
-
-fn push_output_balance_cell(template: &mut TemplateGenerator, capacity: u64, owner: &str) {
-    template.push_output(
-        json!({
-            "capacity": capacity.to_string(),
-            "lock": {
-                "owner_lock_args": owner,
-                "manager_lock_args": owner,
-            },
-            "type": {
-                "code_hash": "{{balance-cell-type}}"
-            }
-        }),
-        None,
-    );
-}
-
-fn push_output_offer_cell(
-    template: &mut TemplateGenerator,
-    capacity: u64,
-    owner: &str,
-    account: &str,
-    price: u64,
-    message: &str,
-) {
-    template.push_output(
-        json!({
-            "capacity": capacity.to_string(),
-            "lock": {
-                "owner_lock_args": owner,
-                "manager_lock_args": owner,
-            },
-            "type": {
-                "code_hash": "{{offer-cell-type}}"
-            },
-            "witness": {
-                "account": account,
-                "price": price.to_string(),
-                "message": message,
-                "inviter_lock": {
-                    "code_hash": "{{fake-das-lock}}",
-                    "args": gen_das_lock_args("0x050000000000000000000000000000000000000001", None)
-                },
-                "channel_lock": {
-                    "code_hash": "{{fake-das-lock}}",
-                    "args": gen_das_lock_args("0x050000000000000000000000000000000000000002", None)
-                }
-            }
-        }),
-        None,
-    );
-}
 
 fn before_each(account: &str) -> (TemplateGenerator, u64, &'static str) {
     let mut template = init("make_offer");

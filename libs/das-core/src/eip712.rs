@@ -380,8 +380,9 @@ fn tx_to_plaintext(
             }
         }
         // For offer-cell-type only
-        b"make_offer" | b"cancel_offer" | b"accept_offer" => match action_in_bytes.raw_data() {
+        b"make_offer" | b"edit_offer" | b"cancel_offer" | b"accept_offer" => match action_in_bytes.raw_data() {
             b"make_offer" => ret = make_offer_to_semantic(parser, type_id_table_reader)?,
+            b"edit_offer" => ret = edit_offer_to_semantic(parser, type_id_table_reader)?,
             b"cancel_offer" => ret = cancel_offer_to_semantic(parser, type_id_table_reader)?,
             b"accept_offer" => ret = accept_offer_to_semantic(parser, type_id_table_reader)?,
             _ => return Err(Error::ActionNotSupported),
@@ -582,6 +583,18 @@ fn make_offer_to_semantic(
 ) -> Result<String, Error> {
     let (account, amount) = offer_to_semantic(parser, type_id_table_reader, Source::Output)?;
     Ok(format!("MAKE AN OFFER ON {} WITH {}", account, amount))
+}
+
+fn edit_offer_to_semantic(
+    parser: &WitnessesParser,
+    type_id_table_reader: das_packed::TypeIdTableReader,
+) -> Result<String, Error> {
+    let (_, old_amount) = offer_to_semantic(parser, type_id_table_reader, Source::Output)?;
+    let (account, new_amount) = offer_to_semantic(parser, type_id_table_reader, Source::Output)?;
+    Ok(format!(
+        "CHANGE THE OFFER ON {} FROM {} TO {}",
+        account, old_amount, new_amount
+    ))
 }
 
 fn cancel_offer_to_semantic(
