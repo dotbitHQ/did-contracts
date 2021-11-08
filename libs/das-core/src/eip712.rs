@@ -933,7 +933,6 @@ fn to_typed_script(
     script: das_packed::ScriptReader,
 ) -> String {
     let code_hash = match script.code_hash() {
-        x if util::is_reader_eq(x, type_id_table_reader.pre_account_cell()) => String::from("pre-account-cell-type"),
         x if util::is_reader_eq(x, type_id_table_reader.apply_register_cell()) => {
             String::from("apply-register-cell-type")
         }
@@ -942,9 +941,13 @@ fn to_typed_script(
         x if util::is_reader_eq(x, type_id_table_reader.account_auction_cell()) => {
             String::from("account-auction-cell-type")
         }
-        x if util::is_reader_eq(x, type_id_table_reader.proposal_cell()) => String::from("proposal-cell-type"),
-        x if util::is_reader_eq(x, type_id_table_reader.income_cell()) => String::from("income-cell-type"),
         x if util::is_reader_eq(x, type_id_table_reader.balance_cell()) => String::from("balance-cell-type"),
+        x if util::is_reader_eq(x, type_id_table_reader.income_cell()) => String::from("income-cell-type"),
+        x if util::is_reader_eq(x, type_id_table_reader.pre_account_cell()) => String::from("pre-account-cell-type"),
+        x if util::is_reader_eq(x, type_id_table_reader.proposal_cell()) => String::from("proposal-cell-type"),
+        x if util::is_reader_eq(x, type_id_table_reader.reverse_record_cell()) => {
+            String::from("reverse-record-cell-type")
+        }
         x if util::is_reader_eq(x, config_cell_type) => String::from("config-cell-type"),
         x if util::is_reader_eq(x, das_lock) => String::from("das-lock"),
         x if util::is_reader_eq(x, always_success_lock) => String::from("always-success"),
