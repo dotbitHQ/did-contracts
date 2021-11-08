@@ -240,7 +240,7 @@ challenge_with_generator!(
 
 challenge_with_generator!(
     challenge_reverse_record_declare_payment_not_enough,
-    Error::InvalidTransactionStructure,
+    Error::ReverseRecordCellCapacityError,
     || {
         let mut template = init("declare_reverse_record");
         let account = "xxxxx.bit";

@@ -46,10 +46,24 @@ pub fn main() -> Result<(), Error> {
             );
 
             let sender_lock = high_level::load_cell_lock(0, Source::Input)?;
+            let reverse_record_cell_capacity = u64::from(config_reverse_resolution.record_basic_capacity())
+                + u64::from(config_reverse_resolution.record_prepared_fee_capacity());
+            let common_fee = u64::from(config_reverse_resolution.common_fee());
 
             let balance_cells = util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Input)?;
-            debug!("balance_cells = {:?}", balance_cells);
             verifiers::misc::verify_no_more_cells(&balance_cells, Source::Input)?;
+
+            debug!("Verify if the ReverseRecordCell.capacity is correct.");
+
+            let current_capacity = high_level::load_cell_capacity(output_cells[0], Source::Output)?;
+            assert!(
+                // Because the ReverseRecordCell will store account in data, it's capacity is dynamic.
+                current_capacity >= reverse_record_cell_capacity,
+                Error::ReverseRecordCellCapacityError,
+                "The ReverseRecordCell.capacity should be at least {} shannon.(current: {})",
+                reverse_record_cell_capacity,
+                current_capacity
+            );
 
             debug!("Verify if the change is transferred back to the sender properly.");
 
@@ -57,31 +71,14 @@ pub fn main() -> Result<(), Error> {
             for i in balance_cells.iter() {
                 total_input_capacity += high_level::load_cell_capacity(*i, Source::Input)?;
             }
-            let reverse_record_cell_capacity = u64::from(config_reverse_resolution.record_basic_capacity())
-                + u64::from(config_reverse_resolution.record_prepared_fee_capacity());
-            let common_fee = u64::from(config_reverse_resolution.common_fee());
-            assert!(
-                total_input_capacity >= reverse_record_cell_capacity + common_fee,
-                Error::InvalidTransactionStructure,
-                "There is no enough capacity to satisfied the basic requirement.(require_at_least: {})",
-                reverse_record_cell_capacity + common_fee
-            );
-            verifiers::misc::verify_user_get_change(
-                config_main,
-                sender_lock.as_reader(),
-                total_input_capacity - reverse_record_cell_capacity - common_fee,
-            )?;
-
-            debug!("Verify if the ReverseRecordCell.capacity is correct.");
-
-            let current_capacity = high_level::load_cell_capacity(output_cells[0], Source::Output)?;
-            assert!(
-                reverse_record_cell_capacity == current_capacity,
-                Error::ReverseRecordCellCapacityError,
-                "The ReverseRecordCell.capacity should be {} shannon.(current: {})",
-                reverse_record_cell_capacity,
-                current_capacity
-            );
+            // Allow the transaction builder to pay for the user, or something like that.
+            if total_input_capacity > current_capacity + common_fee {
+                verifiers::misc::verify_user_get_change(
+                    config_main,
+                    sender_lock.as_reader(),
+                    total_input_capacity - current_capacity - common_fee,
+                )?;
+            }
 
             debug!("Verify if the ReverseRecordCell.lock is the same as the lock of inputs[0].");
 
@@ -186,6 +183,7 @@ pub fn main() -> Result<(), Error> {
                     i
                 );
 
+                // CAREFUL, ensure that the total input capacity is calculated from real cells in inputs, because the ReverseRecordCells' capacity is dynamic.
                 total_input_capacity += high_level::load_cell_capacity(*i, Source::Input)?;
             }
 
