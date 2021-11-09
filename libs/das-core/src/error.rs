@@ -103,8 +103,7 @@ pub enum Error {
     IncomeCellTransferError,
     IncomeCellCapacityError,
     IncomeCellProfitMismatch,
-    AccountCellFoundInvalidTransaction = -110,
-    AccountCellPermissionDenied,
+    AccountCellPermissionDenied = -110,
     AccountCellOwnerLockShouldNotBeModified,
     AccountCellOwnerLockShouldBeModified,
     AccountCellManagerLockShouldBeModified,
@@ -121,6 +120,7 @@ pub enum Error {
     AccountCellChangeCapacityError, // -95
     AccountCellRecordKeyInvalid,
     AccountCellRecordSizeTooLarge,
+    AccountCellRecordNotEmpty,
     AccountCellStatusLocked,
     EIP712SerializationError = -90,
     EIP712SematicError,

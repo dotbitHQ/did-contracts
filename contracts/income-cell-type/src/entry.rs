@@ -1,5 +1,4 @@
-use alloc::borrow::ToOwned;
-use alloc::vec::Vec;
+use alloc::{borrow::ToOwned, string::String, vec::Vec};
 use ckb_std::{ckb_constants::Source, debug, high_level};
 use core::result::Result;
 use core::slice::Iter;
@@ -20,6 +19,10 @@ pub fn main() -> Result<(), Error> {
 
     util::is_system_off(&mut parser)?;
 
+    debug!(
+        "Route to {:?} action ...",
+        String::from_utf8(action.to_vec()).map_err(|_| Error::ActionNotSupported)?
+    );
     if action == b"create_income" {
         debug!("Route to create_income action ...");
 
@@ -90,8 +93,6 @@ pub fn main() -> Result<(), Error> {
             cell_capacity
         );
     } else if action == b"consolidate_income" {
-        debug!("Route to consolidate action ...");
-
         debug!("Find out IncomeCells ...");
 
         let this_type_script = high_level::load_script().map_err(|e| Error::from(e))?;
@@ -396,7 +397,6 @@ pub fn main() -> Result<(), Error> {
             );
         }
     } else if action == b"confirm_proposal" {
-        debug!("Route to confirm_proposal action ...");
         util::require_type_script(
             &mut parser,
             TypeScript::ProposalCellType,
@@ -404,32 +404,28 @@ pub fn main() -> Result<(), Error> {
             Error::ProposalFoundInvalidTransaction,
         )?;
     } else if action == b"buy_account" {
-        debug!("Route to buy_account action ...");
         util::require_type_script(
             &mut parser,
             TypeScript::AccountSaleCellType,
             Source::Input,
-            Error::AccountCellFoundInvalidTransaction,
+            Error::InvalidTransactionStructure,
         )?;
     } else if action == b"bid_account_auction" {
-        debug!("Route to buy_account action ...");
-
         util::require_type_script(
             &mut parser,
             TypeScript::AccountAuctionCellType,
             Source::Input,
-            Error::AccountCellFoundInvalidTransaction,
+            Error::InvalidTransactionStructure,
         )?;
     } else if action == b"renew_account" {
-        debug!("Route to renew_account action ...");
         util::require_type_script(
             &mut parser,
             TypeScript::AccountCellType,
             Source::Input,
-            Error::AccountCellFoundInvalidTransaction,
+            Error::InvalidTransactionStructure,
         )?;
     } else {
-        warn!("The ActionData in witness has an undefine action.");
+        warn!("The ActionData in witness has an undefined action.");
         return Err(Error::ActionNotSupported);
     }
 

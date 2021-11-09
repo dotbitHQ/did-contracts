@@ -297,6 +297,33 @@ pub fn verify_account_witness_consistent<'a>(
     Ok(())
 }
 
+pub fn verify_account_witness_record_empty<'a>(
+    account_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
+    cell_index: usize,
+    source: Source,
+) -> Result<(), Error> {
+    debug!("Check if AccountCell.witness.records is empty.");
+
+    if account_cell_witness_reader.version() == 1 {
+        unreachable!();
+    } else {
+        let account_cell_witness_reader = account_cell_witness_reader
+            .try_into_latest()
+            .map_err(|_| Error::NarrowMixerTypeFailed)?;
+        let records = account_cell_witness_reader.records();
+
+        assert!(
+            records.len() == 0,
+            Error::AccountCellRecordNotEmpty,
+            "{:?}[{}]The AccountCell.witness.records should be empty.",
+            source,
+            cell_index
+        );
+    }
+
+    Ok(())
+}
+
 pub fn verify_account_cell_status_update_correctly<'a>(
     input_account_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
     output_account_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,

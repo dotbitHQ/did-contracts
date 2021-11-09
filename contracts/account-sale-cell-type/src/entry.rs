@@ -286,7 +286,7 @@ pub fn main() -> Result<(), Error> {
                         output_account_cells[0],
                         &input_account_cell_witness_reader,
                         &output_account_cell_witness_reader,
-                        vec!["status"],
+                        vec!["status", "records"],
                     )?;
 
                     // If a user willing to buy the account, the AccountCell should be in AccountStatus::Selling status.
@@ -295,6 +295,12 @@ pub fn main() -> Result<(), Error> {
                         &output_account_cell_witness_reader,
                         AccountStatus::Selling,
                         AccountStatus::Normal,
+                    )?;
+
+                    verifiers::account_cell::verify_account_witness_record_empty(
+                        &output_account_cell_witness_reader,
+                        output_account_cells[0],
+                        Source::Output,
                     )?;
 
                     debug!("Verify if the AccountSaleCell is belong to the AccountCell.");
