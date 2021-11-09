@@ -1,101 +1,37 @@
-use super::common::init;
-use crate::util::{self, error::Error, template_generator::*, template_parser::TemplateParser};
+use super::common::*;
+use crate::util::{self, constants::*, error::Error, template_generator::*, template_parser::TemplateParser};
 use ckb_testtool::context::Context;
 use das_types::constants::AccountStatus;
 use serde_json::json;
 
-fn push_input_account_cell(template: &mut TemplateGenerator, timestamp: u64, owner: &str, manager: &str) {
-    template.push_input(
-        json!({
-            "capacity": util::gen_account_cell_capacity(8),
-            "lock": {
-                "owner_lock_args": owner,
-                "manager_lock_args": manager
-            },
-            "type": {
-                "code_hash": "{{account-cell-type}}"
-            },
-            "data": {
-                "account": "das00001.bit",
-                "next": "das00014.bit",
-                "expired_at": timestamp + 31536000 - 86400,
-            },
-            "witness": {
-                "account": "das00001.bit",
-                "registered_at": timestamp - 86400,
-                "last_transfer_account_at": 0,
-                "last_edit_manager_at": 0,
-                "last_edit_records_at": 0,
-                "status": (AccountStatus::Normal as u8)
-            }
-        }),
-        Some(2),
-    );
-    template.push_das_lock_witness("0000000000000000000000000000000000000000000000000000000000000000");
-}
-
-fn push_output_account_cell(template: &mut TemplateGenerator, timestamp: u64, owner: &str, manager: &str) {
-    template.push_output(
-        json!({
-            "capacity": util::gen_account_cell_capacity(8),
-            "lock": {
-                "owner_lock_args": owner,
-                "manager_lock_args": manager
-            },
-            "type": {
-                "code_hash": "{{account-cell-type}}"
-            },
-            "data": {
-                "account": "das00001.bit",
-                "next": "das00014.bit",
-                "expired_at": timestamp + 31536000 - 86400,
-            },
-            "witness": {
-                "account": "das00001.bit",
-                "registered_at": timestamp - 86400,
-                "last_transfer_account_at": timestamp,
-                "last_edit_manager_at": 0,
-                "last_edit_records_at": 0,
-                "status": (AccountStatus::Normal as u8)
-            }
-        }),
-        Some(2),
-    );
-}
-
 test_with_generator!(test_account_transfer, || {
     let (mut template, timestamp) = init("transfer_account", Some("0x00"));
+    let sender = "0x000000000000000000000000000000000000001111";
+    let gainer = "0x000000000000000000000000000000000000002222";
 
+    // inputs
     push_input_account_cell(
         &mut template,
-        timestamp,
-        "0x000000000000000000000000000000000000001111",
-        "0x000000000000000000000000000000000000001111",
+        json!({
+            "lock": {
+                "owner_lock_args": sender,
+                "manager_lock_args": sender
+            }
+        }),
     );
+
+    // outputs
     push_output_account_cell(
         &mut template,
-        timestamp,
-        "0x000000000000000000000000000000000000002222",
-        "0x000000000000000000000000000000000000002222",
-    );
-
-    template.as_json()
-});
-
-test_with_generator!(test_account_transfer_with_eip712, || {
-    let (mut template, timestamp) = init("transfer_account", Some("0x00"));
-
-    push_input_account_cell(
-        &mut template,
-        timestamp,
-        "0x051100000000000000000000000000000000001111",
-        "0x052200000000000000000000000000000000002222",
-    );
-    push_output_account_cell(
-        &mut template,
-        timestamp,
-        "0x050000000000000000000000000000000000002222",
-        "0x050000000000000000000000000000000000002222",
+        json!({
+            "lock": {
+                "owner_lock_args": gainer,
+                "manager_lock_args": gainer
+            },
+            "witness": {
+                "last_transfer_account_at": timestamp,
+            }
+        }),
     );
 
     template.as_json()
@@ -106,32 +42,54 @@ challenge_with_generator!(
     Error::InvalidTransactionStructure,
     || {
         let (mut template, timestamp) = init("transfer_account", Some("0x00"));
+        let sender = "0x000000000000000000000000000000000000001111";
+        let gainer = "0x000000000000000000000000000000000000002222";
 
         // Simulate transferring multiple AccountCells at one time.
+        // inputs
         push_input_account_cell(
             &mut template,
-            timestamp,
-            "0x000000000000000000000000000000000000001111",
-            "0x000000000000000000000000000000000000001111",
+            json!({
+                "lock": {
+                    "owner_lock_args": sender,
+                    "manager_lock_args": sender
+                },
+            }),
         );
         push_input_account_cell(
             &mut template,
-            timestamp,
-            "0x000000000000000000000000000000000000001111",
-            "0x000000000000000000000000000000000000001111",
+            json!({
+                "lock": {
+                    "owner_lock_args": sender,
+                    "manager_lock_args": sender
+                }
+            }),
         );
 
+        // outputs
         push_output_account_cell(
             &mut template,
-            timestamp,
-            "0x000000000000000000000000000000000000002222",
-            "0x000000000000000000000000000000000000002222",
+            json!({
+                "lock": {
+                    "owner_lock_args": gainer,
+                    "manager_lock_args": gainer
+                },
+                "witness": {
+                    "last_transfer_account_at": timestamp,
+                }
+            }),
         );
         push_output_account_cell(
             &mut template,
-            timestamp,
-            "0x000000000000000000000000000000000000002222",
-            "0x000000000000000000000000000000000000002222",
+            json!({
+                "lock": {
+                    "owner_lock_args": gainer,
+                    "manager_lock_args": gainer
+                },
+                "witness": {
+                    "last_transfer_account_at": timestamp,
+                }
+            }),
         );
 
         template.as_json()
@@ -143,20 +101,32 @@ challenge_with_generator!(
     Error::AccountCellOwnerLockShouldBeModified,
     || {
         let (mut template, timestamp) = init("transfer_account", Some("0x00"));
+        let sender = "0x000000000000000000000000000000000000001111";
 
-        // Simulate owner not change after the transaction
+        // inputs
         push_input_account_cell(
             &mut template,
-            timestamp,
-            "0x000000000000000000000000000000000000001111",
-            "0x000000000000000000000000000000000000001111",
+            json!({
+                "lock": {
+                    "owner_lock_args": sender,
+                    "manager_lock_args": sender
+                }
+            }),
         );
 
+        // outputs
         push_output_account_cell(
             &mut template,
-            timestamp,
-            "0x000000000000000000000000000000000000001111",
-            "0x000000000000000000000000000000000000001111",
+            json!({
+                "lock": {
+                    // Simulate owner not change after the transaction
+                    "owner_lock_args": sender,
+                    "manager_lock_args": sender
+                },
+                "witness": {
+                    "last_transfer_account_at": timestamp,
+                }
+            }),
         );
 
         template.as_json()
@@ -165,41 +135,37 @@ challenge_with_generator!(
 
 challenge_with_generator!(challenge_account_transfer_too_often, Error::AccountCellThrottle, || {
     let (mut template, timestamp) = init("transfer_account", Some("0x00"));
+    let sender = "0x000000000000000000000000000000000000001111";
+    let gainer = "0x000000000000000000000000000000000000002222";
 
-    template.push_input(
+    // inputs
+    push_input_account_cell(
+        &mut template,
         json!({
-            "capacity": util::gen_account_cell_capacity(8),
             "lock": {
-                "owner_lock_args": "0x000000000000000000000000000000000000001111",
-                "manager_lock_args": "0x000000000000000000000000000000000000001111"
-            },
-            "type": {
-                "code_hash": "{{account-cell-type}}"
-            },
-            "data": {
-                "account": "das00001.bit",
-                "next": "das00014.bit",
-                "expired_at": timestamp + 31536000 - 86400,
+                "owner_lock_args": sender,
+                "manager_lock_args": sender
             },
             "witness": {
-                "account": "das00001.bit",
-                "registered_at": timestamp - 86400,
-                // Simulate the throttle
+                // Simulate transferring multiple times in a day.
                 "last_transfer_account_at": timestamp - 86400 + 1,
-                "last_edit_manager_at": 0,
-                "last_edit_records_at": 0,
-                "status": (AccountStatus::Normal as u8)
             }
         }),
-        Some(2),
     );
-    template.push_das_lock_witness("0000000000000000000000000000000000000000000000000000000000000000");
 
+    // outputs
     push_output_account_cell(
         &mut template,
-        timestamp,
-        "0x050000000000000000000000000000000000002222",
-        "0x050000000000000000000000000000000000002222",
+        json!({
+            "lock": {
+                // Simulate owner not change after the transaction
+                "owner_lock_args": gainer,
+                "manager_lock_args": gainer
+            },
+            "witness": {
+                "last_transfer_account_at": timestamp,
+            }
+        }),
     );
 
     template.as_json()

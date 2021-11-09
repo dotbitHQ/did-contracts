@@ -17,6 +17,7 @@ use ckb_tool::{
 };
 use das_types::{packed as das_packed, util as das_types_util};
 use lazy_static::lazy_static;
+use serde_json::Value;
 use std::{
     collections::HashSet,
     convert::TryFrom,
@@ -70,6 +71,24 @@ pub fn hex_to_u64(input: &str) -> Result<u64, Box<dyn Error>> {
         Ok(0u64)
     } else {
         Ok(u64::from_str_radix(hex, 16)?)
+    }
+}
+
+pub fn merge_json(target: &mut Value, source: Value) {
+    match (target, source) {
+        (a @ &mut Value::Object(_), Value::Object(b)) => {
+            let a = a.as_object_mut().unwrap();
+            for (k, v) in b {
+                merge_json(a.entry(k).or_insert(Value::Null), v);
+            }
+        }
+        (a @ &mut Value::Array(_), Value::Array(b)) => {
+            let a = a.as_array_mut().unwrap();
+            for v in b {
+                a.push(v);
+            }
+        }
+        (a, b) => *a = b,
     }
 }
 

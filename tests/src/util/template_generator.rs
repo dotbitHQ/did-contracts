@@ -1652,7 +1652,7 @@ impl TemplateGenerator {
     ///         "last_edit_manager_at": u64,
     ///         "last_edit_records_at": u64,
     ///         "status": u8,
-    ///         "records": [
+    ///         "records": null | [
     ///             {
     ///                 "type": "xxxxx",
     ///                 "key": ""yyyyy,
