@@ -1,5 +1,5 @@
 use super::common::*;
-use crate::util::{self, constants::*, error::Error, template_generator::*, template_parser::TemplateParser};
+use crate::util::{error::Error, template_common_cell::*, template_parser::TemplateParser};
 use ckb_testtool::context::Context;
 use das_types::constants::AccountStatus;
 use serde_json::json;
