@@ -46,14 +46,17 @@ fn push_simple_output_income_cell(template: &mut TemplateGenerator) {
     );
 }
 
-fn gen_inviter_and_channel_locks(inviter_args: &str, channel_args: &str) -> (Script, Script) {
-    let inviter_lock = gen_fake_das_lock(&gen_das_lock_args(inviter_args, None));
-    let channel_lock = gen_fake_das_lock(&gen_das_lock_args(channel_args, None));
-    (inviter_lock, channel_lock)
-}
-
 fn gen_params(inviter_args: &str, channel_args: &str) -> String {
-    let (inviter_lock, channel_lock) = gen_inviter_and_channel_locks(inviter_args, channel_args);
+    let inviter_lock = if !inviter_args.is_empty() {
+        gen_fake_das_lock(&gen_das_lock_args(inviter_args, None))
+    } else {
+        Script::default()
+    };
+    let channel_lock = if !channel_args.is_empty() {
+        gen_fake_das_lock(&gen_das_lock_args(channel_args, None))
+    } else {
+        Script::default()
+    };
 
     format!(
         "0x{}{}00",
@@ -62,7 +65,7 @@ fn gen_params(inviter_args: &str, channel_args: &str) -> String {
     )
 }
 
-fn before_each(price: u64, paied: u64) -> (TemplateGenerator, u64, &'static str, &'static str, &'static str) {
+fn before_each(price: u64, paid: u64) -> (TemplateGenerator, u64, &'static str, &'static str, &'static str) {
     let params = gen_params(
         "0x050000000000000000000000000000000000008888",
         "0x050000000000000000000000000000000000009999",
@@ -102,7 +105,7 @@ fn before_each(price: u64, paied: u64) -> (TemplateGenerator, u64, &'static str,
             }
         }),
     );
-    push_input_balance_cell(&mut template, paied, buyer);
+    push_input_balance_cell(&mut template, paid, buyer);
 
     (template, timestamp, seller, buyer, account)
 }
@@ -181,6 +184,88 @@ test_with_generator!(test_account_sale_buy_not_create_income_cell, || {
                             "args": DAS_WALLET_LOCK_ARGS
                         },
                         "capacity": "10_000_000_000"
+                    }
+                ]
+            }
+        }),
+    );
+
+    push_output_balance_cell(&mut template, 990099990000, seller);
+    push_output_balance_cell(&mut template, 1_000_000_000_000, buyer);
+
+    template.as_json()
+});
+
+test_with_generator!(test_account_sale_buy_no_inviter_and_channel, || {
+    let params = gen_params("", "");
+    let (mut template, timestamp) = init_with_profit_rate("buy_account", Some(&params));
+    let seller = "0x050000000000000000000000000000000000001111";
+    let buyer = "0x050000000000000000000000000000000000002222";
+    let account = "xxxxx.bit";
+    let price = 1_000_000_000_000u64;
+    let paid = 2_000_000_000_000u64;
+
+    // inputs
+    push_input_account_cell(
+        &mut template,
+        json!({
+            "lock": {
+                "owner_lock_args": seller,
+                "manager_lock_args": seller
+            },
+            "data": {
+                "account": account,
+            },
+            "witness": {
+                "account": account,
+                "status": (AccountStatus::Selling as u8)
+            }
+        }),
+    );
+    push_input_account_sale_cell(
+        &mut template,
+        json!({
+            "lock": {
+                "owner_lock_args": seller,
+                "manager_lock_args": seller
+            },
+            "witness": {
+                "account": account,
+                "price": price.to_string(),
+            }
+        }),
+    );
+    push_input_balance_cell(&mut template, paid, buyer);
+
+    // outputs
+    push_output_account_cell(
+        &mut template,
+        json!({
+            "lock": {
+                "owner_lock_args": buyer,
+                "manager_lock_args": buyer
+            },
+            "data": {
+                "account": account,
+            },
+            "witness": {
+                "account": account,
+                "status": (AccountStatus::Normal as u8)
+            }
+        }),
+    );
+
+    push_output_income_cell(
+        &mut template,
+        json!({
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": DAS_WALLET_LOCK_ARGS
+                        },
+                        "capacity": "30_000_000_000"
                     }
                 ]
             }
