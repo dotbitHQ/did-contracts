@@ -198,7 +198,7 @@ test_with_generator!(test_account_sale_buy_not_create_income_cell, || {
 
 test_with_generator!(test_account_sale_buy_no_inviter_and_channel, || {
     let params = gen_params("", "");
-    let (mut template, timestamp) = init_with_profit_rate("buy_account", Some(&params));
+    let (mut template, _timestamp) = init_with_profit_rate("buy_account", Some(&params));
     let seller = "0x050000000000000000000000000000000000001111";
     let buyer = "0x050000000000000000000000000000000000002222";
     let account = "xxxxx.bit";

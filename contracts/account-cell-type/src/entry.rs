@@ -7,7 +7,7 @@ use das_core::{
     data_parser, debug,
     eip712::verify_eip712_hashes,
     error::Error,
-    parse_account_cell_witness, parse_witness, util,
+    parse_account_cell_witness, parse_witness, util, verifiers,
     verifiers::account_cell,
     warn,
     witness_parser::WitnessesParser,
@@ -87,6 +87,15 @@ pub fn main() -> Result<(), Error> {
                 Error::InvalidTransactionStructure,
                 "There should be only one AccountCell in inputs and outputs."
             );
+
+            debug!("Verify if there is no redundant cells in inputs.");
+
+            let sender_lock = util::derive_owner_lock_from_cell(input_account_cells[0], Source::Input)?;
+            verifiers::misc::verify_no_more_cells_with_same_lock(
+                sender_lock.as_reader(),
+                &input_account_cells,
+                Source::Input,
+            )?;
 
             let input_cell_witness: Box<dyn AccountCellDataMixer>;
             let input_cell_witness_reader;
@@ -218,7 +227,8 @@ pub fn main() -> Result<(), Error> {
             parser.parse_config(&[DataType::ConfigCellAccount, DataType::ConfigCellPrice])?;
 
             let prices = parser.configs.price()?.prices();
-            let income_cell_type_id = parser.configs.main()?.type_id_table().income_cell();
+            let config_main = parser.configs.main()?;
+            let income_cell_type_id = config_main.type_id_table().income_cell();
 
             let (input_account_cells, output_account_cells) = load_account_cells()?;
             assert!(
@@ -247,7 +257,6 @@ pub fn main() -> Result<(), Error> {
                 Source::Output
             );
 
-            verify_cells_with_das_lock()?;
             account_cell::verify_account_capacity_not_decrease(input_account_cells[0], output_account_cells[0])?;
             account_cell::verify_account_lock_consistent(input_account_cells[0], output_account_cells[0], None)?;
             account_cell::verify_account_data_consistent(
@@ -275,6 +284,24 @@ pub fn main() -> Result<(), Error> {
                 "The number of IncomeCells in inputs should be less than or equal to 1. (expected: <= 1, current: {})",
                 input_income_cells.len()
             );
+
+            debug!("Verify if there is no redundant cells in inputs.");
+
+            let sender_lock = if input_income_cells.len() == 1 {
+                // The inputs[0] is AccountCell and inputs[1] is IncomeCell, so we treat inputs[2] and the rest as NormalCells to pay the fees.
+                util::derive_owner_lock_from_cell(2, Source::Input)?
+            } else {
+                // The inputs[0] is AccountCell, so we treat inputs[1] and the rest as NormalCells to pay the fees.
+                util::derive_owner_lock_from_cell(1, Source::Input)?
+            };
+            let balance_cells = util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Input)?;
+            let all_cells = [
+                input_account_cells.clone(),
+                input_income_cells.clone(),
+                balance_cells.clone(),
+            ]
+            .concat();
+            verifiers::misc::verify_no_more_cells(&all_cells, Source::Input)?;
 
             let mut expected_first_record = None;
             if input_income_cells.len() == 1 {
@@ -355,7 +382,7 @@ pub fn main() -> Result<(), Error> {
                 assert!(
                     income_cell_witness_reader.records().len() == 1,
                     Error::ProposalFoundInvalidTransaction,
-                    "The number of records of IncomeCells in outputs should be exactly 2. (expected: == 2, current: {})",
+                    "The number of records of IncomeCells in outputs should be exactly 1. (expected: == 1, current: {})",
                     income_cell_witness_reader.records().len()
                 );
 
@@ -389,7 +416,7 @@ pub fn main() -> Result<(), Error> {
             assert!(
                 duration >= 365 * 86400,
                 Error::AccountCellRenewDurationMustLongerThanYear,
-                "The AccountCell renew should be longer than 1 year. current({}) < expected(31_536_000)",
+                "The AccountCell renew should be longer than 1 year. (current: {}, expected: >= 31_536_000)",
                 duration
             );
 
@@ -409,10 +436,18 @@ pub fn main() -> Result<(), Error> {
             let renew_price_in_usd = u64::from(price.renew()); // x USD
             let quote = util::load_oracle_data(OracleCellType::Quote)?;
 
+            let yearly_capacity = util::calc_yearly_capacity(renew_price_in_usd, quote, 0);
+            assert!(
+                paid >= yearly_capacity,
+                Error::AccountCellRenewDurationMustLongerThanYear,
+                "The paid capacity should be at least 1 year. (current: {}, expected: >= {}",
+                paid,
+                yearly_capacity
+            );
+
             // Renew price for 1 year in CKB = x ÷ y .
             let expected_duration = util::calc_duration_from_paid(paid, renew_price_in_usd, quote, 0);
             // The duration can be floated within the range of one day.
-
             assert!(
                 duration >= expected_duration - 86400 && duration <= expected_duration + 86400,
                 Error::AccountCellRenewDurationBiggerThanPayed,
@@ -423,6 +458,21 @@ pub fn main() -> Result<(), Error> {
                 renew_price_in_usd,
                 quote
             );
+
+            debug!("Verify if sender get their change properly.");
+
+            let mut total_input_capacity = 0;
+            for i in balance_cells.iter() {
+                total_input_capacity += high_level::load_cell_capacity(*i, Source::Input)?;
+            }
+
+            if total_input_capacity > paid {
+                verifiers::misc::verify_user_get_change(
+                    config_main,
+                    sender_lock.as_reader(),
+                    total_input_capacity - paid,
+                )?;
+            }
 
             // The AccountCell can be used as long as it is not modified.
         }
@@ -436,38 +486,6 @@ pub fn main() -> Result<(), Error> {
         }
         b"recycle_expired_account_by_keeper" => {
             return Err(Error::InvalidTransactionStructure);
-
-            let timestamp = util::load_oracle_data(OracleCellType::Time)?;
-
-            parser.parse_cell()?;
-            parser.parse_config(&[DataType::ConfigCellAccount])?;
-
-            verify_cells_with_das_lock()?;
-
-            let config_account = parser.configs.account()?;
-
-            // The AccountCell should be recycled in the transaction.
-            let (input_account_cells, output_account_cells) = load_account_cells()?;
-            assert!(
-                input_account_cells.len() == 1 && output_account_cells.len() == 0,
-                Error::InvalidTransactionStructure,
-                "There should be 1 AccountCell in inputs and none in outputs."
-            );
-
-            debug!("Check if account has reached the end off the expiration grace period.");
-
-            let expiration_grace_period = u32::from(config_account.expiration_grace_period()) as u64;
-            let account_data = util::load_cell_data(input_account_cells[0], Source::Input)?;
-            let expired_at = data_parser::account_cell::get_expired_at(&account_data);
-
-            assert!(
-                expired_at + expiration_grace_period < timestamp,
-                Error::AccountCellIsNotExpired,
-                "The recovery of the account should be executed after the grace period. (current({}) <= expired_at({}) + grace_period({}))",
-                timestamp,
-                expired_at,
-                expiration_grace_period
-            );
         }
         b"start_account_sale" => {
             verify_eip712_hashes_if_no_balance_cell(&parser, action_raw.as_reader(), &params)?;
@@ -932,46 +950,6 @@ fn verify_records_keys<'a>(
 
             break;
         }
-    }
-
-    Ok(())
-}
-
-fn verify_cells_with_das_lock() -> Result<(), Error> {
-    let this_script = high_level::load_script().map_err(|e| Error::from(e))?;
-    let this_script_reader = this_script.as_reader();
-
-    let das_lock = das_lock();
-    let das_lock_reader = das_lock.as_reader();
-    let mut i = 0;
-    loop {
-        let ret = high_level::load_cell_lock(i, Source::Input);
-        match ret {
-            Ok(lock) => {
-                // Check if cells with das-lock in inputs can only has account-cell-type.
-                if util::is_type_id_equal(das_lock_reader, lock.as_reader()) {
-                    let type_opt = high_level::load_cell_type(i, Source::Input).map_err(|e| Error::from(e))?;
-                    match type_opt {
-                        Some(type_) if util::is_reader_eq(this_script_reader, type_.as_reader()) => {}
-                        _ => {
-                            warn!(
-                                "Inputs[{}] This cell has das-lock, normal cells with das-lock is not allowed in this transaction.",
-                                i
-                            );
-                            return Err(Error::InvalidTransactionStructure);
-                        }
-                    }
-                }
-            }
-            Err(SysError::IndexOutOfBound) => {
-                break;
-            }
-            Err(err) => {
-                return Err(Error::from(err));
-            }
-        }
-
-        i += 1;
     }
 
     Ok(())

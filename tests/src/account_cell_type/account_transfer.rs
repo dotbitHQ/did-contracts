@@ -19,14 +19,6 @@ fn before_each() -> (TemplateGenerator, u64, &'static str) {
             "lock": {
                 "owner_lock_args": sender,
                 "manager_lock_args": sender
-            },
-            "data": {
-                "account": "xxxxx.bit",
-                "next": "yyyyy.bit",
-                "expired_at": u64::MAX,
-            },
-            "witness": {
-                "account": "xxxxx.bit",
             }
         }),
     );
@@ -96,6 +88,47 @@ challenge_with_generator!(
                 }
             }),
         );
+        push_output_account_cell(
+            &mut template,
+            json!({
+                "lock": {
+                    "owner_lock_args": gainer,
+                    "manager_lock_args": gainer
+                },
+                "witness": {
+                    "last_transfer_account_at": timestamp,
+                }
+            }),
+        );
+
+        template.as_json()
+    }
+);
+
+challenge_with_generator!(
+    challenge_account_transfer_account_with_other_cells,
+    Error::InvalidTransactionStructure,
+    || {
+        let (mut template, timestamp) = init("transfer_account", Some("0x00"));
+        let sender = "0x000000000000000000000000000000000000001111";
+        let gainer = "0x000000000000000000000000000000000000002222";
+
+        template.push_contract_cell("balance-cell-type", false);
+
+        // inputs
+        push_input_account_cell(
+            &mut template,
+            json!({
+                "lock": {
+                    "owner_lock_args": sender,
+                    "manager_lock_args": sender
+                }
+            }),
+        );
+        // Simulate transferring some balance of the user at the same time.
+        push_input_balance_cell(&mut template, 100_000_000_000, sender);
+
+        // outputs
         push_output_account_cell(
             &mut template,
             json!({
@@ -192,7 +225,7 @@ challenge_with_generator!(
                     "manager_lock_args": sender
                 },
                 "witness": {
-                    "records": json!([
+                    "records": [
                         {
                             "type": "address",
                             "key": "eth",
@@ -205,7 +238,7 @@ challenge_with_generator!(
                             "label": "Company",
                             "value": "0x0000000000000000000000000000000000001111",
                         }
-                    ])
+                    ]
                 }
             }),
         );
@@ -221,14 +254,14 @@ challenge_with_generator!(
                 "witness": {
                     "last_transfer_account_at": timestamp,
                     // Simulate not clearing all records when transferring.
-                    "records": json!([
+                    "records": [
                         {
                             "type": "address",
                             "key": "eth",
                             "label": "Company",
                             "value": "0x0000000000000000000000000000000000001111",
                         }
-                    ])
+                    ]
                 }
             }),
         );
