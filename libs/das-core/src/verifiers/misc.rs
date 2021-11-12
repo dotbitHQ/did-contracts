@@ -56,6 +56,10 @@ pub fn verify_no_more_cells_with_same_lock(
 
     for i in cells_with_same_lock {
         if !cells.contains(&i) {
+            warn!(
+                "{:?}[{}] There should be no more cells with the same lock.(lock_script: {})",
+                source, i, lock
+            );
             return Err(Error::InvalidTransactionStructure);
         }
     }
