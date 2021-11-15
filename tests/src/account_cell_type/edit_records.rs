@@ -1,7 +1,5 @@
 use super::common::init;
-use crate::util::{
-    constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::TemplateParser,
-};
+use crate::util::{constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*};
 use ckb_testtool::context::Context;
 use das_types::constants::DataType;
 use serde_json::json;
@@ -60,7 +58,8 @@ fn before_each() -> (TemplateGenerator, u64) {
     (template, timestamp)
 }
 
-test_with_generator!(test_account_edit_records, || {
+#[test]
+fn test_account_edit_records() {
     let (mut template, timestamp) = before_each();
 
     push_output_account_cell(
@@ -86,129 +85,117 @@ test_with_generator!(test_account_edit_records, || {
         }),
     );
 
-    template.as_json()
-});
+    test_tx(template.as_json());
+}
 
-challenge_with_generator!(
-    challenge_account_edit_records_multiple_cells,
-    Error::InvalidTransactionStructure,
-    || {
-        let (mut template, timestamp) = before_each();
+#[test]
+fn challenge_account_edit_records_multiple_cells() {
+    let (mut template, timestamp) = before_each();
 
-        // inputs
-        // Simulate editing multiple AccountCells in one transaction.
-        push_input_account_cell(&mut template, json!({}));
+    // inputs
+    // Simulate editing multiple AccountCells in one transaction.
+    push_input_account_cell(&mut template, json!({}));
 
-        // outputs
-        push_output_account_cell(
-            &mut template,
-            json!({
-                "witness": {
-                    "last_edit_records_at": timestamp
-                }
-            }),
-        );
-        push_output_account_cell(
-            &mut template,
-            json!({
-                "witness": {
-                    "last_edit_records_at": timestamp
-                }
-            }),
-        );
+    // outputs
+    push_output_account_cell(
+        &mut template,
+        json!({
+            "witness": {
+                "last_edit_records_at": timestamp
+            }
+        }),
+    );
+    push_output_account_cell(
+        &mut template,
+        json!({
+            "witness": {
+                "last_edit_records_at": timestamp
+            }
+        }),
+    );
 
-        template.as_json()
-    }
-);
+    challenge_tx(template.as_json(), Error::InvalidTransactionStructure)
+}
 
-challenge_with_generator!(
-    challenge_account_edit_records_with_other_cells,
-    Error::InvalidTransactionStructure,
-    || {
-        let (mut template, timestamp) = init("edit_records", Some("0x01"));
-        let sender = "0x000000000000000000000000000000000000001111";
+#[test]
+fn challenge_account_edit_records_with_other_cells() {
+    let (mut template, timestamp) = init("edit_records", Some("0x01"));
+    let sender = "0x000000000000000000000000000000000000001111";
 
-        template.push_config_cell(DataType::ConfigCellRecordKeyNamespace, true, 0, Source::CellDep);
-        template.push_contract_cell("balance-cell-type", false);
+    template.push_config_cell(DataType::ConfigCellRecordKeyNamespace, true, 0, Source::CellDep);
+    template.push_contract_cell("balance-cell-type", false);
 
-        // inputs
-        push_input_account_cell(
-            &mut template,
-            json!({
-                "lock": {
-                    "owner_lock_args": sender
-                }
-            }),
-        );
-        // Simulate transferring some balance of the user at the same time.
-        push_input_balance_cell(&mut template, 100_000_000_000, sender);
+    // inputs
+    push_input_account_cell(
+        &mut template,
+        json!({
+            "lock": {
+                "owner_lock_args": sender
+            }
+        }),
+    );
+    // Simulate transferring some balance of the user at the same time.
+    push_input_balance_cell(&mut template, 100_000_000_000, sender);
 
-        // outputs
-        push_output_account_cell(
-            &mut template,
-            json!({
-                "witness": {
-                    "last_edit_records_at": timestamp
-                }
-            }),
-        );
+    // outputs
+    push_output_account_cell(
+        &mut template,
+        json!({
+            "witness": {
+                "last_edit_records_at": timestamp
+            }
+        }),
+    );
 
-        template.as_json()
-    }
-);
+    challenge_tx(template.as_json(), Error::InvalidTransactionStructure)
+}
 
-challenge_with_generator!(
-    challenge_account_edit_records_invalid_char,
-    Error::AccountCellRecordKeyInvalid,
-    || {
-        let (mut template, timestamp) = before_each();
+#[test]
+fn challenge_account_edit_records_invalid_char() {
+    let (mut template, timestamp) = before_each();
 
-        push_output_account_cell(
-            &mut template,
-            json!({
-                "witness": {
-                    "last_edit_records_at": timestamp,
-                    "records": [
-                        {
-                            "type": "custom_key",
-                            // Simulate using invalid char in the key field of a record.
-                            "key": "eth+",
-                            "label": "Company",
-                            "value": "0x0000000000000000000000000000000000001111",
-                        }
-                    ]
-                }
-            }),
-        );
+    push_output_account_cell(
+        &mut template,
+        json!({
+            "witness": {
+                "last_edit_records_at": timestamp,
+                "records": [
+                    {
+                        "type": "custom_key",
+                        // Simulate using invalid char in the key field of a record.
+                        "key": "eth+",
+                        "label": "Company",
+                        "value": "0x0000000000000000000000000000000000001111",
+                    }
+                ]
+            }
+        }),
+    );
 
-        template.as_json()
-    }
-);
+    challenge_tx(template.as_json(), Error::AccountCellRecordKeyInvalid)
+}
 
-challenge_with_generator!(
-    challenge_account_edit_records_invalid_key,
-    Error::AccountCellRecordKeyInvalid,
-    || {
-        let (mut template, timestamp) = before_each();
+#[test]
+fn challenge_account_edit_records_invalid_key() {
+    let (mut template, timestamp) = before_each();
 
-        push_output_account_cell(
-            &mut template,
-            json!({
-                "witness": {
-                    "last_edit_records_at": timestamp,
-                    "records": [
-                        {
-                            "type": "dweb",
-                            // Simulate using a key out of namespace.
-                            "key": "xxxx",
-                            "label": "xxxxx",
-                            "value": "0x0000000000000000000000000000000000001111",
-                        }
-                    ]
-                }
-            }),
-        );
+    push_output_account_cell(
+        &mut template,
+        json!({
+            "witness": {
+                "last_edit_records_at": timestamp,
+                "records": [
+                    {
+                        "type": "dweb",
+                        // Simulate using a key out of namespace.
+                        "key": "xxxx",
+                        "label": "xxxxx",
+                        "value": "0x0000000000000000000000000000000000001111",
+                    }
+                ]
+            }
+        }),
+    );
 
-        template.as_json()
-    }
-);
+    challenge_tx(template.as_json(), Error::AccountCellRecordKeyInvalid)
+}

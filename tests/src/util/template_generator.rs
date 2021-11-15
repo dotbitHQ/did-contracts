@@ -405,6 +405,28 @@ fn parse_json_script_to_mol(field_name: &str, field: &Value) -> Script {
         .build()
 }
 
+/// Parse string in JSON to account ID bytes
+///
+/// It support both 0x-prefixed hex string and account name, if it is an account name, its ID will be calculated automatically.
+fn parse_json_str_to_account_id(field_name: &str, field: &Value) -> Vec<u8> {
+    let hex_or_str = parse_json_str(field_name, field);
+    let id = if hex_or_str.starts_with("0x") {
+        util::hex_to_bytes(hex_or_str)
+    } else {
+        util::account_to_id(hex_or_str)
+    };
+
+    id
+}
+
+/// Parse string in JSON to molecule struct AccountId
+///
+/// It support both 0x-prefixed hex string and account name, if it is an account name, its ID will be calculated automatically.
+fn parse_json_str_to_account_id_mol(field_name: &str, field: &Value) -> AccountId {
+    let account_id_bytes = parse_json_str_to_account_id(field_name, field);
+    AccountId::try_from(account_id_bytes).expect(&format!("{} should be a 20 bytes hex string", field_name))
+}
+
 #[derive(Debug, Clone)]
 pub struct AccountRecordParam {
     pub type_: &'static str,
@@ -1675,7 +1697,7 @@ impl TemplateGenerator {
           "args": gen_das_lock_args(owner_lock_args, Some(manager_lock_args))
         });
 
-        let type_script = cell.get("type").expect("cell.type is missing").to_owned();
+        let type_script = parse_json_script("cell.type", &cell["type"]);
 
         let outputs_data: Vec<u8>;
         let mut entity_opt = None;
@@ -1754,6 +1776,11 @@ impl TemplateGenerator {
 
             let data = &cell["data"];
             let account = parse_json_str("cell.data.account", &data["account"]);
+            let hash = if !data["hash"].is_null() {
+                parse_json_hex("cell.data.hash", &data["hash"])
+            } else {
+                blake2b_256(entity.as_slice()).to_vec()
+            };
             let account_id = if !data["id"].is_null() {
                 parse_json_hex("cell.data.id", &data["id"])
             } else {
@@ -1767,9 +1794,8 @@ impl TemplateGenerator {
             };
             let expired_at = parse_json_u64("cell.data.expired_at", &data["expired_at"]);
 
-            let hash = blake2b_256(entity.as_slice());
             let raw = [
-                hash.to_vec(),
+                hash,
                 account_id,
                 next_id,
                 expired_at.to_le_bytes().to_vec(),
@@ -1779,7 +1805,26 @@ impl TemplateGenerator {
             outputs_data = raw;
             entity_opt = Some(entity);
         } else {
-            outputs_data = parse_json_hex("cell.data", &cell["data"]);
+            let data = &cell["data"];
+            let hash = parse_json_hex("cell.data.hash", &data["hash"]);
+            let account = parse_json_str("cell.data.account", &data["account"]);
+            let account_id = if !data["id"].is_null() {
+                parse_json_hex("cell.data.id", &data["id"])
+            } else {
+                util::account_to_id(account)
+            };
+            let next_id = parse_json_str_to_account_id("cell.data.next", &data["next"]);
+            let expired_at = parse_json_u64("cell.data.expired_at", &data["expired_at"]);
+
+            let raw = [
+                hash,
+                account_id,
+                next_id,
+                expired_at.to_le_bytes().to_vec(),
+                account.as_bytes().to_vec(),
+            ]
+            .concat();
+            outputs_data = raw;
         }
 
         (capacity, lock_script, type_script, outputs_data, entity_opt)

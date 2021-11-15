@@ -1,10 +1,11 @@
 use super::common::init;
-use crate::util::template_parser::TemplateParser;
+use crate::util::template_parser::*;
 use ckb_testtool::context::Context;
 use das_types::constants::AccountStatus;
 use serde_json::json;
 
-test_with_generator!(test_account_init_account_chain, || {
+#[test]
+fn test_account_init_account_chain() {
     let (mut template, _) = init("init_account_chain", None);
 
     template.push_input(
@@ -46,5 +47,5 @@ test_with_generator!(test_account_init_account_chain, || {
         Some(2),
     );
 
-    template.as_json()
-});
+    test_tx(template.as_json());
+}
