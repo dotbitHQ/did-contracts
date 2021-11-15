@@ -657,25 +657,6 @@ pub fn is_inputs_and_outputs_consistent(inputs_cells: Vec<usize>, outputs_cells:
     Ok(())
 }
 
-pub fn is_cell_use_always_success_lock(index: usize, source: Source) -> Result<(), Error> {
-    let lock = high_level::load_cell_lock(index, source).map_err(Error::from)?;
-    let lock_reader = lock.as_reader();
-    let always_success_lock = always_success_lock();
-    let always_success_lock_reader = always_success_lock.as_reader();
-
-    assert!(
-        is_reader_eq(lock_reader.code_hash(), always_success_lock_reader.code_hash())
-            && lock_reader.hash_type() == always_success_lock_reader.hash_type(),
-        Error::AlwaysSuccessLockIsRequired,
-        "The cell at {:?}[{}] should use always-success lock.(expected_code_hash: {})",
-        source,
-        index,
-        always_success_lock.as_reader().code_hash()
-    );
-
-    Ok(())
-}
-
 pub fn is_cell_use_signall_lock(index: usize, source: Source) -> Result<(), Error> {
     let lock = high_level::load_cell_lock(index, source).map_err(Error::from)?;
     let signall_lock = signall_lock();

@@ -68,8 +68,7 @@ pub enum Error {
     PreRegisterQuoteIsInvalid, // 80
     PreRegisterDiscountIsInvalid,
     PreRegisterOwnerLockArgsIsInvalid,
-    ProposalFoundInvalidTransaction = 90,
-    ProposalSliceIsNotSorted,
+    ProposalSliceIsNotSorted = 90,
     ProposalSliceIsDiscontinuity,
     ProposalSliceRelatedCellNotFound,
     ProposalSliceRelatedCellMissing,

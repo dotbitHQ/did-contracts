@@ -1,18 +1,16 @@
-use alloc::borrow::ToOwned;
+use alloc::{borrow::ToOwned, string::String};
 use ckb_std::{
     ckb_constants::Source,
     high_level::{load_cell_capacity, load_cell_lock, load_cell_type, load_script},
 };
-use core::convert::TryFrom;
-use core::result::Result;
+use core::{convert::TryFrom, result::Result};
 use das_core::{
     assert,
     constants::*,
     data_parser::{account_cell, pre_account_cell},
     debug,
     error::Error,
-    parse_witness, util,
-    verifiers::income_cell,
+    parse_witness, util, verifiers,
     witness_parser::WitnessesParser,
 };
 use das_map::{map::Map, util as map_util};
@@ -36,218 +34,165 @@ pub fn main() -> Result<(), Error> {
     debug!("Find out ProposalCell ...");
 
     // Find out PreAccountCells in current transaction.
-    let this_type_script = load_script().map_err(|e| Error::from(e))?;
+    let this_type_script = load_script()?;
     let this_type_script_reader = this_type_script.as_reader();
     let (input_cells, output_cells) =
         util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script_reader)?;
     let dep_cells = util::find_cells_by_script(ScriptType::Type, this_type_script_reader, Source::CellDep)?;
 
-    if action == b"propose" {
-        debug!("Route to propose action ...");
+    debug!(
+        "Route to {:?} action ...",
+        String::from_utf8(action.to_vec()).map_err(|_| Error::ActionNotSupported)?
+    );
+    match action {
+        b"propose" | b"extend_proposal" => {
+            parser.parse_cell()?;
+            parser.parse_config(&[DataType::ConfigCellProposal])?;
+            let config_main = parser.configs.main()?;
+            let config_proposal = parser.configs.proposal()?;
 
-        parser.parse_cell()?;
-        parser.parse_config(&[DataType::ConfigCellProposal])?;
-        let config_main = parser.configs.main()?;
-        let config_proposal = parser.configs.proposal()?;
+            if action == b"propose" {
+                assert!(
+                    dep_cells.len() == 0 && input_cells.len() == 0 && output_cells.len() == 1,
+                    Error::InvalidTransactionStructure,
+                    "There should be only one ProposalCell found in the outputs."
+                );
+            } else {
+                assert!(
+                    dep_cells.len() == 1 && input_cells.len() == 0 && output_cells.len() == 1,
+                    Error::InvalidTransactionStructure,
+                    "There should be one ProposalCell found in the cell_deps and one in the outputs."
+                );
+            }
 
-        assert!(
-            dep_cells.len() == 0 && input_cells.len() == 0 && output_cells.len() == 1,
-            Error::ProposalFoundInvalidTransaction,
-            "There should be only one ProposalCell found in the outputs."
-        );
+            verifiers::misc::verify_always_success_lock(output_cells[0], Source::Output)?;
 
-        util::is_cell_use_always_success_lock(output_cells[0], Source::Output)?;
+            let dep_cell_witness;
+            let dep_cell_witness_reader;
+            let mut prev_slices_reader_opt = None;
+            if action == b"extend_proposal" {
+                parse_witness!(
+                    dep_cell_witness,
+                    dep_cell_witness_reader,
+                    parser,
+                    dep_cells[0],
+                    Source::CellDep,
+                    ProposalCellData
+                );
+                prev_slices_reader_opt = Some(dep_cell_witness_reader.slices());
+            }
 
-        // Read witness of the ProposalCell.
-        let output_cell_witness;
-        let output_cell_witness_reader;
-        parse_witness!(
-            output_cell_witness,
-            output_cell_witness_reader,
-            parser,
-            output_cells[0],
-            Source::Output,
-            ProposalCellData
-        );
+            let output_cell_witness;
+            let output_cell_witness_reader;
+            parse_witness!(
+                output_cell_witness,
+                output_cell_witness_reader,
+                parser,
+                output_cells[0],
+                Source::Output,
+                ProposalCellData
+            );
 
-        let required_cells_count = verify_slices(config_proposal, output_cell_witness_reader.slices())?;
-        let dep_related_cells = find_proposal_related_cells(config_main, Source::CellDep)?;
+            let required_cells_count = verify_slices(config_proposal, output_cell_witness_reader.slices())?;
+            let dep_related_cells = find_proposal_related_cells(config_main, Source::CellDep)?;
 
-        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
-        inspect_slices(output_cell_witness_reader.slices())?;
-        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
-        inspect_related_cells(&parser, config_main, dep_related_cells.clone(), Source::CellDep)?;
+            #[cfg(any(not(feature = "mainnet"), debug_assertions))]
+            inspect_slices(output_cell_witness_reader.slices())?;
+            #[cfg(any(not(feature = "mainnet"), debug_assertions))]
+            inspect_related_cells(&parser, config_main, dep_related_cells.clone(), Source::CellDep)?;
 
-        assert!(
-            required_cells_count == dep_related_cells.len(),
-            Error::ProposalSliceRelatedCellMissing,
-            "Some of the proposal relevant cells are missing. (expected: {}, current: {})",
-            required_cells_count,
-            dep_related_cells.len()
-        );
+            assert!(
+                required_cells_count == dep_related_cells.len(),
+                Error::ProposalSliceRelatedCellMissing,
+                "Some of the proposal relevant cells are missing. (expected: {}, current: {})",
+                required_cells_count,
+                dep_related_cells.len()
+            );
 
-        verify_slices_relevant_cells(
-            config_main,
-            output_cell_witness_reader.slices(),
-            dep_related_cells,
-            None,
-        )?;
-    } else if action == b"extend_proposal" {
-        debug!("Route to extend_proposal action ...");
+            verify_slices_relevant_cells(
+                config_main,
+                output_cell_witness_reader.slices(),
+                dep_related_cells,
+                prev_slices_reader_opt,
+            )?;
+        }
+        b"confirm_proposal" => {
+            let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
-        parser.parse_cell()?;
-        parser.parse_config(&[DataType::ConfigCellProposal])?;
-        let config_main = parser.configs.main()?;
-        let config_proposal = parser.configs.proposal()?;
+            parser.parse_cell()?;
+            parser.parse_config(&[DataType::ConfigCellAccount, DataType::ConfigCellProfitRate])?;
+            let config_account = parser.configs.account()?;
+            let config_main = parser.configs.main()?;
+            let config_profit_rate = parser.configs.profit_rate()?;
 
-        assert!(
-            dep_cells.len() == 1 && input_cells.len() == 0 && output_cells.len() == 1,
-            Error::ProposalFoundInvalidTransaction,
-            "There should be one ProposalCell found in the cell_deps and one in the outputs."
-        );
+            assert!(
+                dep_cells.len() == 0 && input_cells.len() == 1 && output_cells.len() == 0,
+                Error::InvalidTransactionStructure,
+                "There should be only one ProposalCell found in the inputs."
+            );
 
-        util::is_cell_use_always_success_lock(output_cells[0], Source::Output)?;
+            let input_cell_witness;
+            let input_cell_witness_reader;
+            parse_witness!(
+                input_cell_witness,
+                input_cell_witness_reader,
+                parser,
+                input_cells[0],
+                Source::Input,
+                ProposalCellData
+            );
 
-        // Read outputs_data and witness of previous ProposalCell.
-        let dep_cell_witness;
-        let dep_cell_witness_reader;
-        parse_witness!(
-            dep_cell_witness,
-            dep_cell_witness_reader,
-            parser,
-            dep_cells[0],
-            Source::CellDep,
-            ProposalCellData
-        );
+            debug!("Check all AccountCells are updated or created base on proposal.");
 
-        // Read outputs_data and witness of the ProposalCell.
-        let output_cell_witness;
-        let output_cell_witness_reader;
-        parse_witness!(
-            output_cell_witness,
-            output_cell_witness_reader,
-            parser,
-            output_cells[0],
-            Source::Output,
-            ProposalCellData
-        );
+            verify_proposal_execution_result(
+                &parser,
+                config_account,
+                config_main,
+                config_profit_rate,
+                timestamp,
+                input_cell_witness_reader,
+            )?;
 
-        let required_cells_count = verify_slices(config_proposal, output_cell_witness_reader.slices())?;
-        let dep_related_cells = find_proposal_related_cells(config_main, Source::CellDep)?;
+            verify_refund_correct(input_cells[0], input_cell_witness_reader, 0)?;
+        }
+        b"recycle_proposal" => {
+            parser.parse_cell()?;
+            parser.parse_config(&[DataType::ConfigCellProposal])?;
+            let config_proposal_reader = parser.configs.proposal()?;
 
-        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
-        inspect_slices(output_cell_witness_reader.slices())?;
-        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
-        inspect_related_cells(&parser, config_main, dep_related_cells.clone(), Source::CellDep)?;
+            assert!(
+                dep_cells.len() == 0 && input_cells.len() == 1 && output_cells.len() == 0,
+                Error::InvalidTransactionStructure,
+                "There should be only one ProposalCell found in the inputs."
+            );
 
-        assert!(
-            required_cells_count == dep_related_cells.len(),
-            Error::ProposalSliceRelatedCellMissing,
-            "Some of the proposal relevant cells are missing. (expected: {}, current: {})",
-            required_cells_count,
-            dep_related_cells.len()
-        );
+            debug!("Check if ProposalCell can be recycled.");
 
-        verify_slices_relevant_cells(
-            config_main,
-            output_cell_witness_reader.slices(),
-            dep_related_cells,
-            Some(dep_cell_witness_reader.slices()),
-        )?;
-    } else if action == b"confirm_proposal" {
-        debug!("Route to confirm_proposal action ...");
+            let input_cell_witness;
+            let input_cell_witness_reader;
+            parse_witness!(
+                input_cell_witness,
+                input_cell_witness_reader,
+                parser,
+                input_cells[0],
+                Source::Input,
+                ProposalCellData
+            );
 
-        let timestamp = util::load_oracle_data(OracleCellType::Time)?;
-        // let height = util::load_height()?;
+            let height = util::load_oracle_data(OracleCellType::Height)?;
+            let proposal_min_recycle_interval = u8::from(config_proposal_reader.proposal_min_recycle_interval()) as u64;
+            let created_at_height = u64::from(input_cell_witness_reader.created_at_height());
 
-        parser.parse_cell()?;
-        parser.parse_config(&[DataType::ConfigCellAccount, DataType::ConfigCellProfitRate])?;
-        let config_account = parser.configs.account()?;
-        let config_main = parser.configs.main()?;
-        let config_profit_rate = parser.configs.profit_rate()?;
+            assert!(
+                height >= created_at_height + proposal_min_recycle_interval,
+                Error::ProposalRecycleNeedWaitLonger,
+                "ProposalCell should be recycled later, about {} block to wait.",
+                created_at_height + proposal_min_recycle_interval - height
+            );
 
-        assert!(
-            dep_cells.len() == 0 && input_cells.len() == 1 && output_cells.len() == 0,
-            Error::ProposalFoundInvalidTransaction,
-            "There should be only one ProposalCell found in the inputs."
-        );
-
-        // Read witness of ProposalCell.
-        let input_cell_witness;
-        let input_cell_witness_reader;
-        parse_witness!(
-            input_cell_witness,
-            input_cell_witness_reader,
-            parser,
-            input_cells[0],
-            Source::Input,
-            ProposalCellData
-        );
-
-        debug!("Check all AccountCells are updated or created base on proposal.");
-
-        let input_related_cells = find_proposal_related_cells(config_main, Source::Input)?;
-        let output_account_cells = find_output_account_cells(config_main)?;
-
-        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
-        inspect_slices(input_cell_witness_reader.slices())?;
-        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
-        inspect_related_cells(&parser, config_main, input_related_cells.clone(), Source::Input)?;
-        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
-        inspect_related_cells(&parser, config_main, output_account_cells.clone(), Source::Output)?;
-
-        verify_proposal_execution_result(
-            &parser,
-            config_account,
-            config_main,
-            config_profit_rate,
-            timestamp,
-            input_cell_witness_reader,
-            input_related_cells,
-            output_account_cells,
-        )?;
-
-        verify_refund_correct(input_cells[0], input_cell_witness_reader, 0)?;
-    } else if action == b"recycle_proposal" {
-        debug!("Route to recycle_proposal action ...");
-
-        parser.parse_cell()?;
-        parser.parse_config(&[DataType::ConfigCellProposal])?;
-        let config_proposal_reader = parser.configs.proposal()?;
-
-        assert!(
-            dep_cells.len() == 0 && input_cells.len() == 1 && output_cells.len() == 0,
-            Error::ProposalFoundInvalidTransaction,
-            "There should be only one ProposalCell found in the inputs."
-        );
-
-        debug!("Check if ProposalCell can be recycled.");
-
-        let input_cell_witness;
-        let input_cell_witness_reader;
-        parse_witness!(
-            input_cell_witness,
-            input_cell_witness_reader,
-            parser,
-            input_cells[0],
-            Source::Input,
-            ProposalCellData
-        );
-
-        let height = util::load_oracle_data(OracleCellType::Height)?;
-        let proposal_min_recycle_interval = u8::from(config_proposal_reader.proposal_min_recycle_interval()) as u64;
-        let created_at_height = u64::from(input_cell_witness_reader.created_at_height());
-
-        assert!(
-            height >= created_at_height + proposal_min_recycle_interval,
-            Error::ProposalRecycleNeedWaitLonger,
-            "ProposalCell should be recycled later, about {} block to wait.",
-            created_at_height + proposal_min_recycle_interval - height
-        );
-
-        verify_refund_correct(input_cells[0], input_cell_witness_reader, 10000)?;
-    } else {
-        return Err(Error::ActionNotSupported);
+            verify_refund_correct(input_cells[0], input_cell_witness_reader, 10000)?;
+        }
+        _ => return Err(Error::ActionNotSupported),
     }
 
     Ok(())
@@ -291,9 +236,7 @@ fn inspect_related_cells(
     debug!("Inspect {:?}{:?}:", related_cells_source, related_cells);
 
     for i in related_cells {
-        let script = load_cell_type(i, related_cells_source)
-            .map_err(|e| Error::from(e))?
-            .unwrap();
+        let script = load_cell_type(i, related_cells_source)?.unwrap();
         let code_hash = Hash::from(script.code_hash());
         let (version, _, entity) = parser.verify_and_get(i, related_cells_source)?;
         let data = util::load_cell_data(i, related_cells_source)?;
@@ -431,7 +374,7 @@ fn verify_slices(config: ConfigCellProposalReader, slices_reader: SliceListReade
     let max_account_cell_count = u32::from(config.proposal_max_account_affect());
     assert!(
         account_cell_contained < max_account_cell_count,
-        Error::ProposalFoundInvalidTransaction,
+        Error::InvalidTransactionStructure,
         "The proposal should not contains more than {} AccountCells.",
         max_account_cell_count
     );
@@ -439,7 +382,7 @@ fn verify_slices(config: ConfigCellProposalReader, slices_reader: SliceListReade
     let max_pre_account_cell_count = u32::from(config.proposal_max_pre_account_contain());
     assert!(
         pre_account_cell_contained < max_pre_account_cell_count,
-        Error::ProposalFoundInvalidTransaction,
+        Error::InvalidTransactionStructure,
         "The proposal should not contains more than {} PreAccountCells.",
         max_pre_account_cell_count
     );
@@ -456,7 +399,7 @@ fn find_proposal_related_cells(config: ConfigCellMainReader, source: Source) -> 
 
     assert!(
         pre_account_cells.len() > 0,
-        Error::ProposalFoundInvalidTransaction,
+        Error::InvalidTransactionStructure,
         "There should be some PreAccountCells in {:?}.",
         source
     );
@@ -512,7 +455,7 @@ fn find_output_account_cells(config: ConfigCellMainReader) -> Result<Vec<usize>,
 
     assert!(
         account_cells.len() > 0,
-        Error::ProposalFoundInvalidTransaction,
+        Error::InvalidTransactionStructure,
         "There should be some AccountCells in the outputs."
     );
 
@@ -633,16 +576,25 @@ fn verify_proposal_execution_result(
     config_profit_rate: ConfigCellProfitRateReader,
     timestamp: u64,
     proposal_cell_data_reader: ProposalCellDataReader,
-    input_related_cells: Vec<usize>,
-    output_account_cells: Vec<usize>,
 ) -> Result<(), Error> {
     debug!("Check that all AccountCells/PreAccountCells have been converted according to the proposal.");
+
+    #[cfg(any(not(feature = "mainnet"), debug_assertions))]
+    inspect_slices(proposal_cell_data_reader.slices())?;
 
     let das_wallet_lock = das_wallet_lock();
     let proposer_lock_reader = proposal_cell_data_reader.proposer_lock();
     let slices_reader = proposal_cell_data_reader.slices();
+
     let account_cell_type_id = config_main.type_id_table().account_cell();
     let pre_account_cell_type_id = config_main.type_id_table().pre_account_cell();
+    let input_related_cells = find_proposal_related_cells(config_main, Source::Input)?;
+    let output_account_cells = find_output_account_cells(config_main)?;
+
+    #[cfg(any(not(feature = "mainnet"), debug_assertions))]
+    inspect_related_cells(&parser, config_main, input_related_cells.clone(), Source::Input)?;
+    #[cfg(any(not(feature = "mainnet"), debug_assertions))]
+    inspect_related_cells(&parser, config_main, output_account_cells.clone(), Source::Output)?;
 
     let mut profit_map = Map::new();
     let inviter_profit_rate = u32::from(config_profit_rate.inviter()) as u64;
@@ -719,6 +671,8 @@ fn verify_proposal_execution_result(
                 // No need to check the witness of AccountCells here, because we check their hash instead.
                 is_old_account_cell_data_consistent(item_index, &output_cell_data, &input_cell_data)?;
                 is_next_correct(item_index, &output_cell_data, item_next)?;
+
+                parser.verify_hash(item_index, Source::Output)?;
             } else {
                 debug!(
                     "  Item[{}] Check that the inputs[{}].PreAccountCell and outputs[{}].AccountCell is converted correctly.",
@@ -778,8 +732,7 @@ fn verify_proposal_execution_result(
                 );
 
                 let account_name_storage = account_cell::get_account(&output_cell_data).len() as u64;
-                let total_capacity =
-                    load_cell_capacity(input_related_cells[i], Source::Input).map_err(|e| Error::from(e))?;
+                let total_capacity = load_cell_capacity(input_related_cells[i], Source::Input)?;
                 let storage_capacity = util::calc_account_storage_capacity(config_account, account_name_storage);
                 // Allocate the profits carried by PreAccountCell to the wallets for later verification.
                 let profit = total_capacity - storage_capacity;
@@ -891,16 +844,32 @@ fn verify_proposal_execution_result(
 
     assert!(
         input_income_cells.len() <= 1,
-        Error::ProposalFoundInvalidTransaction,
+        Error::InvalidTransactionStructure,
         "The number of IncomeCells in inputs should be less than or equal to 1. (expected: <= 1, current: {})",
         input_income_cells.len()
     );
 
     if input_income_cells.len() == 1 {
-        let input_income_cell_witness = income_cell::verify_newly_created(&parser, input_income_cells[0])?;
+        let input_income_cell_witness;
+        let input_income_cell_witness_reader;
+        parse_witness!(
+            input_income_cell_witness,
+            input_income_cell_witness_reader,
+            parser,
+            input_income_cells[0],
+            Source::Input,
+            IncomeCellData
+        );
+
+        // The IncomeCell should be a newly created cell with only one record which is belong to the creator, but we do not need to check everything here, so we only check the length.
+        verifiers::income_cell::verify_newly_created(
+            input_income_cell_witness_reader,
+            input_income_cells[0],
+            Source::Input,
+        )?;
 
         // Add the original record into profit_map to bypass later verification.
-        let first_record = input_income_cell_witness.as_reader().records().get(0).unwrap();
+        let first_record = input_income_cell_witness_reader.records().get(0).unwrap();
         profit_map.insert(
             first_record.belong_to().as_slice().to_vec(),
             u64::from(first_record.capacity()),
@@ -911,7 +880,7 @@ fn verify_proposal_execution_result(
 
     assert!(
         output_income_cells.len() == 1,
-        Error::ProposalFoundInvalidTransaction,
+        Error::InvalidTransactionStructure,
         "The number of IncomeCells in outputs should be exactly 1 . (expected: == 1, current: {})",
         output_income_cells.len()
     );
@@ -964,7 +933,7 @@ fn verify_proposal_execution_result(
         profit_map.len()
     );
 
-    let current_capacity = load_cell_capacity(output_income_cells[0], Source::Output).map_err(|e| Error::from(e))?;
+    let current_capacity = load_cell_capacity(output_income_cells[0], Source::Output)?;
     assert!(
         expected_capacity == current_capacity,
         Error::ProposalConfirmIncomeError,
@@ -982,8 +951,7 @@ fn verify_cell_type_id(
     source: Source,
     expected_type_id: &HashReader,
 ) -> Result<(), Error> {
-    let cell_type_id = load_cell_type(cell_index, source)
-        .map_err(|e| Error::from(e))?
+    let cell_type_id = load_cell_type(cell_index, source)?
         .map(|script| script.code_hash())
         .ok_or(Error::ProposalSliceRelatedCellNotFound)?;
 
@@ -1078,7 +1046,7 @@ fn is_new_account_cell_lock_correct(
 
     let das_lock = das_lock();
     let owner_lock_args = input_cell_witness_reader.owner_lock_args().raw_data().to_owned();
-    let output_cell_lock = load_cell_lock(output_cell_index, Source::Output).map_err(|e| Error::from(e))?;
+    let output_cell_lock = load_cell_lock(output_cell_index, Source::Output)?;
 
     let expected_lock = das_lock.as_builder().args(Bytes::from(owner_lock_args).into()).build();
 
@@ -1227,7 +1195,7 @@ fn is_account_correct(item_index: usize, output_cell_data: &Vec<u8>) -> Result<(
 }
 
 fn is_cell_capacity_correct(item_index: usize, cell_index: usize, expected_capacity: u64) -> Result<(), Error> {
-    let cell_capacity = load_cell_capacity(cell_index, Source::Output).map_err(|e| Error::from(e))?;
+    let cell_capacity = load_cell_capacity(cell_index, Source::Output)?;
 
     assert!(
         expected_capacity == cell_capacity,
@@ -1297,8 +1265,8 @@ fn verify_refund_correct(
 ) -> Result<(), Error> {
     debug!("Check if the refund amount to proposer_lock is correct.");
 
-    let proposer_lock: Script = proposal_cell_data_reader.proposer_lock().to_entity();
-    let refund_cells = util::find_cells_by_script(ScriptType::Lock, proposer_lock.as_reader().into(), Source::Output)?;
+    let proposer_lock = proposal_cell_data_reader.proposer_lock();
+    let refund_cells = util::find_cells_by_script(ScriptType::Lock, proposer_lock.into(), Source::Output)?;
 
     assert!(
         refund_cells.len() >= 1,
@@ -1309,11 +1277,10 @@ fn verify_refund_correct(
 
     let mut refund_capacity = 0;
     for index in refund_cells {
-        refund_capacity += load_cell_capacity(index, Source::Output).map_err(|e| Error::from(e))?;
+        refund_capacity += load_cell_capacity(index, Source::Output)?;
     }
 
-    let proposal_capacity =
-        load_cell_capacity(proposal_cell_index.to_owned(), Source::Input).map_err(|e| Error::from(e))?;
+    let proposal_capacity = load_cell_capacity(proposal_cell_index.to_owned(), Source::Input)?;
     assert!(
         proposal_capacity <= refund_capacity + available_for_fee,
         Error::ProposalConfirmRefundError,

@@ -2,7 +2,9 @@ use alloc::{borrow::ToOwned, string::String, vec::Vec};
 use ckb_std::{ckb_constants::Source, debug, high_level};
 use core::result::Result;
 use core::slice::Iter;
-use das_core::{assert, constants::*, error::Error, parse_witness, util, warn, witness_parser::WitnessesParser};
+use das_core::{
+    assert, constants::*, error::Error, parse_witness, util, verifiers, warn, witness_parser::WitnessesParser,
+};
 use das_types::{constants::DataType, packed::*, prelude::*};
 
 pub fn main() -> Result<(), Error> {
@@ -28,7 +30,7 @@ pub fn main() -> Result<(), Error> {
 
         debug!("Find out IncomeCells ...");
 
-        let this_type_script = high_level::load_script().map_err(|e| Error::from(e))?;
+        let this_type_script = high_level::load_script()?;
         let (input_cells, output_cells) =
             util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
 
@@ -43,7 +45,7 @@ pub fn main() -> Result<(), Error> {
             "Only one IncomeCell can be created in create_income action."
         );
 
-        util::is_cell_use_always_success_lock(output_cells[0], Source::Output)?;
+        verifiers::misc::verify_always_success_lock(output_cells[0], Source::Output)?;
 
         parser.parse_cell()?;
         parser.parse_config(&[DataType::ConfigCellIncome])?;
@@ -82,8 +84,7 @@ pub fn main() -> Result<(), Error> {
             "The only one record should has the same capacity with ConfigCellIncome.basic_capacity ."
         );
 
-        let cell_capacity =
-            high_level::load_cell_capacity(output_cells[0], Source::Output).map_err(|e| Error::from(e))?;
+        let cell_capacity = high_level::load_cell_capacity(output_cells[0], Source::Output)?;
         let basic_capacity = u64::from(config_income.basic_capacity());
         assert!(
             cell_capacity == basic_capacity,
@@ -95,7 +96,7 @@ pub fn main() -> Result<(), Error> {
     } else if action == b"consolidate_income" {
         debug!("Find out IncomeCells ...");
 
-        let this_type_script = high_level::load_script().map_err(|e| Error::from(e))?;
+        let this_type_script = high_level::load_script()?;
         let (input_cells, output_cells) =
             util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
 
@@ -215,8 +216,7 @@ pub fn main() -> Result<(), Error> {
                 output_records.push((record.belong_to(), capacity));
             }
 
-            let cell_capacity =
-                high_level::load_cell_capacity(cell_index.to_owned(), Source::Output).map_err(|e| Error::from(e))?;
+            let cell_capacity = high_level::load_cell_capacity(cell_index.to_owned(), Source::Output)?;
             assert!(
                 records_total_capacity == cell_capacity,
                 Error::IncomeCellConsolidateError,
@@ -270,8 +270,7 @@ pub fn main() -> Result<(), Error> {
                 }
             }
 
-            let capacity_transferred =
-                high_level::load_cell_capacity(cells[0], Source::Output).map_err(|e| Error::from(e))?;
+            let capacity_transferred = high_level::load_cell_capacity(cells[0], Source::Output)?;
             let mut capacity_should_be_transferred = item.1 / RATE_BASE * (RATE_BASE - income_consolidate_profit_rate);
 
             // If the record belongs to a IncomeCell creator, keeper should not take fee from it.
@@ -401,7 +400,7 @@ pub fn main() -> Result<(), Error> {
             &mut parser,
             TypeScript::ProposalCellType,
             Source::Input,
-            Error::ProposalFoundInvalidTransaction,
+            Error::InvalidTransactionStructure,
         )?;
     } else if action == b"buy_account" {
         util::require_type_script(
@@ -512,13 +511,13 @@ fn verify_das_lock_and_balance_type(
     index: usize,
     source: Source,
 ) -> Result<(), Error> {
-    let lock = high_level::load_cell_lock(index, source).map_err(|e| Error::from(e))?;
+    let lock = high_level::load_cell_lock(index, source)?;
     let lock_reader = lock.as_reader();
 
     if util::is_type_id_equal(das_lock_reader.into(), lock_reader) {
         let type_of_lock = lock_reader.args().raw_data()[0];
         if type_of_lock == DasLockType::ETHTypedData as u8 {
-            let type_opt = high_level::load_cell_type(index, source).map_err(|e| Error::from(e))?;
+            let type_opt = high_level::load_cell_type(index, source)?;
             assert!(
                 type_opt.is_some(),
                 Error::InvalidTransactionStructure,
@@ -537,7 +536,7 @@ fn verify_das_lock_and_balance_type(
                 index
             )
         } else {
-            let type_opt = high_level::load_cell_type(index, source).map_err(|e| Error::from(e))?;
+            let type_opt = high_level::load_cell_type(index, source)?;
             assert!(
                 type_opt.is_none(),
                 Error::InvalidTransactionStructure,

@@ -1,28 +1,23 @@
-use crate::{assert, error::Error, inspect, parse_witness, witness_parser::WitnessesParser};
+use crate::{assert, error::Error, inspect};
 use ckb_std::{ckb_constants::Source, high_level};
 use das_map::map::Map;
 use das_types::{packed::*, prelude::*};
 
-pub fn verify_newly_created(parser: &WitnessesParser, input_income_cell: usize) -> Result<IncomeCellData, Error> {
-    let input_income_cell_witness;
-    let input_income_cell_witness_reader;
-    parse_witness!(
-        input_income_cell_witness,
-        input_income_cell_witness_reader,
-        parser,
-        input_income_cell,
-        Source::Input,
-        IncomeCellData
-    );
-
+pub fn verify_newly_created(
+    income_cell_witness_reader: IncomeCellDataReader,
+    index: usize,
+    source: Source,
+) -> Result<(), Error> {
     // The IncomeCell should be a newly created cell with only one record which is belong to the creator, but we do not need to check everything here, so we only check the length.
     assert!(
-        input_income_cell_witness_reader.records().len() == 1,
-        Error::ProposalFoundInvalidTransaction,
-        "The IncomeCell in inputs should be a newly created cell with only one record which is belong to the creator."
+        income_cell_witness_reader.records().len() == 1,
+        Error::InvalidTransactionStructure,
+        "{:?}[{}] The IncomeCell in inputs should be a newly created cell with only one record which is belong to the creator.",
+        source,
+        index
     );
 
-    Ok(input_income_cell_witness)
+    Ok(())
 }
 
 pub fn verify_records_match_with_creating(
@@ -65,7 +60,9 @@ pub fn verify_records_match_with_creating(
         assert!(
             &recorded_capacity == expected_capacity,
             Error::IncomeCellProfitMismatch,
-            "IncomeCell.records[{}] The capacity of a profit record is incorrect. (expected: {}, current: {}, belong_to: {})",
+            "{:?}[{}] IncomeCell.records[{}] The capacity of a profit record is incorrect. (expected: {}, current: {}, belong_to: {})",
+            source,
+            index,
             i,
             expected_capacity,
             recorded_capacity,
@@ -78,7 +75,9 @@ pub fn verify_records_match_with_creating(
     assert!(
         profit_map.is_empty(),
         Error::IncomeCellProfitMismatch,
-        "The IncomeCell in outputs should contains everyone's profit. (missing: {})",
+        "{:?}[{}] The IncomeCell should contains everyone's profit. (missing: {})",
+        source,
+        index,
         profit_map.len()
     );
 
@@ -93,12 +92,16 @@ pub fn verify_records_match_with_creating(
     assert!(
         current_capacity >= income_cell_basic_capacity,
         Error::InvalidTransactionStructure,
-        "The IncomeCell should have capacity bigger than or equal to the value in ConfigCellIncome.basic_capacity."
+        "{:?}[{}] The IncomeCell should have capacity bigger than or equal to the value in ConfigCellIncome.basic_capacity.",
+        source,
+        index
     );
     assert!(
         current_capacity == expected_income_cell_capacity,
         Error::IncomeCellProfitMismatch,
-        "The capacity of the IncomeCell should be {} shannon, but {} shannon found.",
+        "{:?}[{}] The capacity of the IncomeCell should be {} shannon, but {} shannon found.",
+        source,
+        index,
         expected_income_cell_capacity,
         current_capacity
     );

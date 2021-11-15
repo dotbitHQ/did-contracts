@@ -496,25 +496,7 @@ impl WitnessesParser {
         Ok((index, version, data_type, hash, entity))
     }
 
-    pub fn verify_and_get(&self, index: usize, source: Source) -> Result<(u32, DataType, &Bytes), Error> {
-        let data = util::load_cell_data(index, source)?;
-        let hash = match data.get(..32) {
-            Some(bytes) => bytes.to_vec(),
-            _ => {
-                warn!("  {:?}[{}] Can not get entity hash from outputs_data.", source, index);
-                return Err(Error::InvalidCellData);
-            }
-        };
-
-        self.verify_with_hash_and_get(&hash, index, source)
-    }
-
-    pub fn verify_with_hash_and_get(
-        &self,
-        expected_hash: &[u8],
-        index: usize,
-        source: Source,
-    ) -> Result<(u32, DataType, &Bytes), Error> {
+    fn get(&self, index: u32, source: Source) -> Result<Option<&(u32, u32, DataType, Vec<u8>, Bytes)>, Error> {
         let group = match source {
             Source::Input => &self.old,
             Source::Output => &self.new,
@@ -524,12 +506,66 @@ impl WitnessesParser {
             }
         };
 
+        Ok(group.iter().find(|&(i, _, _, _, _)| *i == index))
+    }
+
+    pub fn verify_hash(&self, index: usize, source: Source) -> Result<(), Error> {
+        let data = util::load_cell_data(index, source)?;
+        let expected_hash = match data.get(..32) {
+            Some(bytes) => bytes,
+            _ => {
+                warn!("  {:?}[{}] Can not get entity hash from outputs_data.", source, index);
+                return Err(Error::InvalidCellData);
+            }
+        };
+
+        if let Some((_, _, _, _hash, _)) = self.get(index as u32, source)? {
+            assert!(
+                expected_hash == _hash,
+                Error::WitnessDataHashMissMatch,
+                "{:?}[{}] Can not find witness.(expected_hash: 0x{}, current_hash: 0x{})",
+                source,
+                index,
+                util::hex_string(expected_hash),
+                util::hex_string(_hash)
+            );
+        } else {
+            // This error means the there is no witness.data.dep/old/new.index matches the index of the cell.
+            warn!(
+                "  {:?}[{}] Can not find witness.(expected_hash: 0x{})",
+                source,
+                index,
+                util::hex_string(expected_hash)
+            );
+            return Err(Error::WitnessDataIndexMissMatch);
+        }
+
+        Ok(())
+    }
+
+    pub fn verify_and_get(&self, index: usize, source: Source) -> Result<(u32, DataType, &Bytes), Error> {
+        let data = util::load_cell_data(index, source)?;
+        let hash = match data.get(..32) {
+            Some(bytes) => bytes,
+            _ => {
+                warn!("  {:?}[{}] Can not get entity hash from outputs_data.", source, index);
+                return Err(Error::InvalidCellData);
+            }
+        };
+
+        self.verify_with_hash_and_get(hash, index, source)
+    }
+
+    pub fn verify_with_hash_and_get(
+        &self,
+        expected_hash: &[u8],
+        index: usize,
+        source: Source,
+    ) -> Result<(u32, DataType, &Bytes), Error> {
         let version;
         let data_type;
         let entity;
-        if let Some((_, _version, _entity_type, _hash, _entity)) =
-            group.iter().find(|&(i, _, _, _h, _)| *i as usize == index)
-        {
+        if let Some((_, _version, _entity_type, _hash, _entity)) = self.get(index as u32, source)? {
             if expected_hash == _hash.as_slice() {
                 version = _version.to_owned();
                 data_type = _entity_type.to_owned();
@@ -549,7 +585,7 @@ impl WitnessesParser {
             }
         } else {
             // This error means the there is no witness.data.dep/old/new.index matches the index of the cell.
-            debug!(
+            warn!(
                 "Can not find witness at: {:?}[{}] 0x{}",
                 source,
                 index,

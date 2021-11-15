@@ -1,15 +1,12 @@
 use alloc::{boxed::Box, string::String, vec, vec::Vec};
-use ckb_std::{ckb_constants::Source, ckb_types::prelude::*, error::SysError, high_level};
-use das_core::eip712::verify_eip712_hashes_if_no_balance_cell;
+use ckb_std::{ckb_constants::Source, ckb_types::prelude::*, high_level};
 use das_core::{
     assert,
     constants::{das_lock, das_wallet_lock, OracleCellType, ScriptType, TypeScript, CUSTOM_KEYS_NAMESPACE},
     data_parser, debug,
-    eip712::verify_eip712_hashes,
+    eip712::{verify_eip712_hashes, verify_eip712_hashes_if_no_balance_cell},
     error::Error,
     parse_account_cell_witness, parse_witness, util, verifiers,
-    verifiers::account_cell,
-    warn,
     witness_parser::WitnessesParser,
 };
 use das_types::{
@@ -72,7 +69,7 @@ pub fn main() -> Result<(), Error> {
             );
         }
         b"transfer_account" | b"edit_manager" | b"edit_records" => {
-            account_cell::verify_unlock_role(action_raw.as_reader(), &params)?;
+            verifiers::account_cell::verify_unlock_role(action_raw.as_reader(), &params)?;
 
             let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
@@ -140,21 +137,25 @@ pub fn main() -> Result<(), Error> {
                     &output_cell_witness_reader,
                     timestamp,
                 )?;
-                account_cell::verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
-                account_cell::verify_account_lock_consistent(
+                verifiers::account_cell::verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
+                verifiers::account_cell::verify_account_lock_consistent(
                     input_account_cells[0],
                     output_account_cells[0],
                     Some("owner"),
                 )?;
-                account_cell::verify_account_data_consistent(input_account_cells[0], output_account_cells[0], vec![])?;
-                account_cell::verify_account_witness_consistent(
+                verifiers::account_cell::verify_account_data_consistent(
+                    input_account_cells[0],
+                    output_account_cells[0],
+                    vec![],
+                )?;
+                verifiers::account_cell::verify_account_witness_consistent(
                     input_account_cells[0],
                     output_account_cells[0],
                     &input_cell_witness_reader,
                     &output_cell_witness_reader,
                     vec!["last_transfer_account_at", "records"],
                 )?;
-                account_cell::verify_account_witness_record_empty(
+                verifiers::account_cell::verify_account_witness_record_empty(
                     &output_cell_witness_reader,
                     output_account_cells[0],
                     Source::Output,
@@ -176,14 +177,18 @@ pub fn main() -> Result<(), Error> {
                     &output_cell_witness_reader,
                     timestamp,
                 )?;
-                account_cell::verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
-                account_cell::verify_account_lock_consistent(
+                verifiers::account_cell::verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
+                verifiers::account_cell::verify_account_lock_consistent(
                     input_account_cells[0],
                     output_account_cells[0],
                     Some("manager"),
                 )?;
-                account_cell::verify_account_data_consistent(input_account_cells[0], output_account_cells[0], vec![])?;
-                account_cell::verify_account_witness_consistent(
+                verifiers::account_cell::verify_account_data_consistent(
+                    input_account_cells[0],
+                    output_account_cells[0],
+                    vec![],
+                )?;
+                verifiers::account_cell::verify_account_witness_consistent(
                     input_account_cells[0],
                     output_account_cells[0],
                     &input_cell_witness_reader,
@@ -209,10 +214,18 @@ pub fn main() -> Result<(), Error> {
                     &output_cell_witness_reader,
                     timestamp,
                 )?;
-                account_cell::verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
-                account_cell::verify_account_lock_consistent(input_account_cells[0], output_account_cells[0], None)?;
-                account_cell::verify_account_data_consistent(input_account_cells[0], output_account_cells[0], vec![])?;
-                account_cell::verify_account_witness_consistent(
+                verifiers::account_cell::verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
+                verifiers::account_cell::verify_account_lock_consistent(
+                    input_account_cells[0],
+                    output_account_cells[0],
+                    None,
+                )?;
+                verifiers::account_cell::verify_account_data_consistent(
+                    input_account_cells[0],
+                    output_account_cells[0],
+                    vec![],
+                )?;
+                verifiers::account_cell::verify_account_witness_consistent(
                     input_account_cells[0],
                     output_account_cells[0],
                     &input_cell_witness_reader,
@@ -257,14 +270,21 @@ pub fn main() -> Result<(), Error> {
                 Source::Output
             );
 
-            account_cell::verify_account_capacity_not_decrease(input_account_cells[0], output_account_cells[0])?;
-            account_cell::verify_account_lock_consistent(input_account_cells[0], output_account_cells[0], None)?;
-            account_cell::verify_account_data_consistent(
+            verifiers::account_cell::verify_account_capacity_not_decrease(
+                input_account_cells[0],
+                output_account_cells[0],
+            )?;
+            verifiers::account_cell::verify_account_lock_consistent(
+                input_account_cells[0],
+                output_account_cells[0],
+                None,
+            )?;
+            verifiers::account_cell::verify_account_data_consistent(
                 input_account_cells[0],
                 output_account_cells[0],
                 vec!["expired_at"],
             )?;
-            account_cell::verify_account_witness_consistent(
+            verifiers::account_cell::verify_account_witness_consistent(
                 input_account_cells[0],
                 output_account_cells[0],
                 &input_cell_witness_reader,
@@ -280,7 +300,7 @@ pub fn main() -> Result<(), Error> {
 
             assert!(
                 input_income_cells.len() <= 1,
-                Error::ProposalFoundInvalidTransaction,
+                Error::InvalidTransactionStructure,
                 "The number of IncomeCells in inputs should be less than or equal to 1. (expected: <= 1, current: {})",
                 input_income_cells.len()
             );
@@ -317,21 +337,23 @@ pub fn main() -> Result<(), Error> {
                 );
 
                 // The IncomeCell should be a newly created cell with only one record which is belong to the creator, but we do not need to check everything here, so we only check the length.
-                assert!(
-                    income_cell_witness_reader.records().len() == 1,
-                    Error::ProposalFoundInvalidTransaction,
-                    "The IncomeCell in inputs should be a newly created cell with only one record which is belong to the creator."
-                );
+                verifiers::income_cell::verify_newly_created(
+                    income_cell_witness_reader,
+                    input_income_cells[0],
+                    Source::Input,
+                )?;
 
                 expected_first_record = income_cell_witness.records().get(0);
             }
 
             assert!(
                 output_income_cells.len() == 1,
-                Error::ProposalFoundInvalidTransaction,
+                Error::InvalidTransactionStructure,
                 "The number of IncomeCells in outputs should be exactly 1. (expected: == 1, current: {})",
                 output_income_cells.len()
             );
+
+            verifiers::misc::verify_always_success_lock(output_income_cells[0], Source::Output)?;
 
             let income_cell_capacity =
                 high_level::load_cell_capacity(output_income_cells[0], Source::Output).map_err(|e| Error::from(e))?;
@@ -346,7 +368,7 @@ pub fn main() -> Result<(), Error> {
                 // IncomeCell is created before this transaction, so it is include the creator's income record.
                 assert!(
                     income_cell_witness_reader.records().len() == 2,
-                    Error::ProposalFoundInvalidTransaction,
+                    Error::InvalidTransactionStructure,
                     "The number of records of IncomeCells in outputs should be exactly 2. (expected: == 2, current: {})",
                     income_cell_witness_reader.records().len()
                 );
@@ -356,7 +378,7 @@ pub fn main() -> Result<(), Error> {
 
                 assert!(
                     util::is_reader_eq(expected_first_record.as_reader(), first_record),
-                    Error::ProposalFoundInvalidTransaction,
+                    Error::InvalidTransactionStructure,
                     "The first record of IncomeCell should keep the same as in inputs."
                 );
 
@@ -365,14 +387,14 @@ pub fn main() -> Result<(), Error> {
 
                 assert!(
                     util::is_reader_eq(second_record.belong_to(), das_wallet_lock.as_reader()),
-                    Error::ProposalFoundInvalidTransaction,
+                    Error::InvalidTransactionStructure,
                     "The second record in IncomeCell should belong to DAS[{}].",
                     das_wallet_lock.as_reader()
                 );
 
                 assert!(
                     income_cell_capacity == exist_capacity + paid,
-                    Error::ProposalFoundInvalidTransaction,
+                    Error::InvalidTransactionStructure,
                     "The capacity of IncomeCell in outputs is incorrect. (expected: {}, current: {})",
                     exist_capacity + paid,
                     income_cell_capacity
@@ -381,7 +403,7 @@ pub fn main() -> Result<(), Error> {
                 // IncomeCell is created with only profit.
                 assert!(
                     income_cell_witness_reader.records().len() == 1,
-                    Error::ProposalFoundInvalidTransaction,
+                    Error::InvalidTransactionStructure,
                     "The number of records of IncomeCells in outputs should be exactly 1. (expected: == 1, current: {})",
                     income_cell_witness_reader.records().len()
                 );
@@ -391,14 +413,14 @@ pub fn main() -> Result<(), Error> {
 
                 assert!(
                     util::is_reader_eq(first_record.belong_to(), das_wallet_lock.as_reader()),
-                    Error::ProposalFoundInvalidTransaction,
+                    Error::InvalidTransactionStructure,
                     "The only record in IncomeCell should belong to DAS[{}].",
                     das_wallet_lock.as_reader()
                 );
 
                 assert!(
                     income_cell_capacity == paid,
-                    Error::ProposalFoundInvalidTransaction,
+                    Error::InvalidTransactionStructure,
                     "The capacity of IncomeCell in outputs is incorrect. (expected: {}, current: {})",
                     paid,
                     income_cell_capacity
@@ -554,10 +576,10 @@ pub fn main() -> Result<(), Error> {
 
             debug!("Verify if the AccountCell is consistent in inputs and outputs.");
 
-            account_cell::verify_account_lock_consistent(input_cells[0], output_cells[0], None)?;
-            account_cell::verify_account_data_consistent(input_cells[0], output_cells[0], vec![])?;
-            account_cell::verify_account_capacity_not_decrease(input_cells[0], output_cells[0])?;
-            account_cell::verify_account_witness_consistent(
+            verifiers::account_cell::verify_account_lock_consistent(input_cells[0], output_cells[0], None)?;
+            verifiers::account_cell::verify_account_data_consistent(input_cells[0], output_cells[0], vec![])?;
+            verifiers::account_cell::verify_account_capacity_not_decrease(input_cells[0], output_cells[0])?;
+            verifiers::account_cell::verify_account_witness_consistent(
                 input_cells[0],
                 output_cells[0],
                 &input_cell_witness_reader,
@@ -593,7 +615,7 @@ pub fn main() -> Result<(), Error> {
 
                 debug!("Verify if the AccountCell is actually expired.");
 
-                let input_cell_data = high_level::load_cell_data(input_cells[0], Source::Input).map_err(Error::from)?;
+                let input_cell_data = high_level::load_cell_data(input_cells[0], Source::Input)?;
                 let expired_at = data_parser::account_cell::get_expired_at(&input_cell_data);
                 let account = data_parser::account_cell::get_account(&input_cell_data);
 
@@ -638,7 +660,7 @@ pub fn main() -> Result<(), Error> {
                     // TODO Verify the account in AccountCell and AccountAuctionCell is the same.
                     cell = 0;
                 }
-                capacity_should_recycle = high_level::load_cell_capacity(cell, Source::Input).map_err(Error::from)?;
+                capacity_should_recycle = high_level::load_cell_capacity(cell, Source::Input)?;
 
                 debug!(
                     "Found the capacity should be recycled is {} shannon.",
@@ -665,8 +687,7 @@ pub fn main() -> Result<(), Error> {
                 );
 
                 let expected_capacity = capacity_should_recycle - 10_000;
-                let current_capacity =
-                    high_level::load_cell_capacity(outputs_balance_cells[0], Source::Output).map_err(Error::from)?;
+                let current_capacity = high_level::load_cell_capacity(outputs_balance_cells[0], Source::Output)?;
                 assert!(
                     current_capacity >= expected_capacity,
                     Error::AccountSaleCellRefundError,

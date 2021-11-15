@@ -720,7 +720,7 @@ fn verify_profit_distribution(
         "There should be 1 IncomeCell at outputs[1]."
     );
 
-    util::is_cell_use_always_success_lock(output_income_cells[0], Source::Output)?;
+    verifiers::misc::verify_always_success_lock(output_income_cells[0], Source::Output)?;
 
     let mut profit_map = Map::new();
 

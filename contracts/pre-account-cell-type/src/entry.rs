@@ -5,7 +5,8 @@ use ckb_std::{
 };
 use core::{convert::TryFrom, convert::TryInto, result::Result};
 use das_core::{
-    assert, constants::*, data_parser, debug, error::Error, parse_witness, util, warn, witness_parser::WitnessesParser,
+    assert, constants::*, data_parser, debug, error::Error, parse_witness, util, verifiers, warn,
+    witness_parser::WitnessesParser,
 };
 use das_types::{
     constants::{CharSetType, DataType, CHAR_SET_LENGTH, PRESERVED_ACCOUNT_CELL_COUNT},
@@ -34,7 +35,7 @@ pub fn main() -> Result<(), Error> {
             &mut parser,
             TypeScript::ProposalCellType,
             Source::Input,
-            Error::ProposalFoundInvalidTransaction,
+            Error::InvalidTransactionStructure,
         )?;
     } else if action == b"pre_register" {
         debug!("Route to pre_register action ...");
@@ -42,7 +43,7 @@ pub fn main() -> Result<(), Error> {
         debug!("Find out PreAccountCell ...");
 
         // Find out PreAccountCells in current transaction.
-        let this_type_script = load_script().map_err(|e| Error::from(e))?;
+        let this_type_script = load_script()?;
         let (input_cells, output_cells) =
             util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
 
@@ -57,7 +58,7 @@ pub fn main() -> Result<(), Error> {
             "There should be only one PreRegisterCell in outputs."
         );
 
-        util::is_cell_use_always_success_lock(output_cells[0], Source::Output)?;
+        verifiers::misc::verify_always_success_lock(output_cells[0], Source::Output)?;
 
         debug!("Find out ApplyRegisterCell ...");
 
@@ -91,12 +92,12 @@ pub fn main() -> Result<(), Error> {
 
         // Read the hash from outputs_data of the ApplyRegisterCell.
         let index = &input_apply_register_cells[0];
-        let data = load_cell_data(index.to_owned(), Source::Input).map_err(|e| Error::from(e))?;
+        let data = load_cell_data(index.to_owned(), Source::Input)?;
         let apply_register_hash = match data.get(..32) {
             Some(bytes) => bytes,
             _ => return Err(Error::InvalidCellData),
         };
-        let apply_register_lock = load_cell_lock(index.to_owned(), Source::Input).map_err(|e| Error::from(e))?;
+        let apply_register_lock = load_cell_lock(index.to_owned(), Source::Input)?;
 
         #[cfg(any(not(feature = "mainnet"), debug_assertions))]
         das_core::inspect::apply_register_cell(Source::Input, index.to_owned(), &data);
@@ -108,9 +109,9 @@ pub fn main() -> Result<(), Error> {
         debug!("Read witness of PreAccountCell ...");
 
         // Read outputs_data and witness of the PreAccountCell.
-        let data = load_cell_data(output_cells[0], Source::Output).map_err(|e| Error::from(e))?;
+        let data = load_cell_data(output_cells[0], Source::Output)?;
         let account_id = data_parser::pre_account_cell::get_id(&data);
-        let capacity = load_cell_capacity(output_cells[0], Source::Output).map_err(|e| Error::from(e))?;
+        let capacity = load_cell_capacity(output_cells[0], Source::Output)?;
 
         let pre_account_cell_witness;
         let pre_account_cell_witness_reader;
