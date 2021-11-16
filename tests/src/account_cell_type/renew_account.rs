@@ -2,8 +2,6 @@ use super::common::*;
 use crate::util::{
     constants::*, error::Error, template_common_cell::*, template_generator::TemplateGenerator, template_parser::*,
 };
-use ckb_testtool::context::Context;
-use das_types::constants::AccountStatus;
 use serde_json::json;
 
 fn push_simple_output_income_cell(template: &mut TemplateGenerator) {

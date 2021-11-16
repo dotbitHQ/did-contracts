@@ -3,7 +3,6 @@ use crate::{
     util::template_generator::TemplateGenerator,
     util::{constants::*, error::Error, template_common_cell::*, template_parser::*},
 };
-use ckb_testtool::context::Context;
 use das_types::constants::AccountStatus;
 use serde_json::json;
 

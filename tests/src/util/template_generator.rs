@@ -1489,34 +1489,6 @@ impl TemplateGenerator {
         }
     }
 
-    pub fn push_das_lock_cell(
-        &mut self,
-        lock_args: &str,
-        capacity: u64,
-        source: Source,
-        type_data_hash_opt: Option<&str>,
-    ) {
-        let lock_script = json!({
-          "code_hash": "{{fake-das-lock}}",
-          "args": lock_args
-        });
-        let type_script = json!({
-          "code_hash": "{{balance-cell-type}}"
-        });
-
-        self.push_cell(capacity, lock_script, type_script, None, source);
-
-        if let Some(type_data_hash_hex) = type_data_hash_opt {
-            let signature = util::hex_to_bytes("0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000FF");
-            let type_data_hash = util::hex_to_bytes(type_data_hash_hex);
-            let chain_id = util::hex_to_bytes("0x0000000000000001");
-            let lock = [signature, type_data_hash, chain_id].concat();
-            self.push_witness_args(Some(&lock), None, None);
-        } else {
-            self.push_empty_witness();
-        }
-    }
-
     pub fn push_signall_cell(&mut self, lock_args: &str, capacity: u64, source: Source) {
         let lock_script = json!({
           "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
@@ -1614,8 +1586,6 @@ impl TemplateGenerator {
                     "account-sale-cell-type" => {
                         push_cell_with_witness!(DataType::AccountSaleCellData, gen_account_sale_cell, cell)
                     }
-                    "income-cell-type" => push_cell_with_witness!(DataType::IncomeCellData, gen_income_cell, cell),
-                    "reverse-record-cell-type" => push_cell!(gen_reverse_record_cell, cell),
                     "balance-cell-type" => {
                         let (capacity, lock_script, type_script, outputs_data_opt) = self.gen_balance_cell(cell);
                         let outputs_data_bytes_opt = if let Some(outputs_data) = outputs_data_opt {
@@ -1626,6 +1596,8 @@ impl TemplateGenerator {
 
                         self.push_cell(capacity, lock_script, type_script, outputs_data_bytes_opt, source)
                     }
+                    "income-cell-type" => push_cell_with_witness!(DataType::IncomeCellData, gen_income_cell, cell),
+                    "reverse-record-cell-type" => push_cell!(gen_reverse_record_cell, cell),
                     _ => panic!("Unknown type ID {}", type_id),
                 };
 
@@ -1634,7 +1606,7 @@ impl TemplateGenerator {
                 panic!("{}", "type.code_hash is something like '{{...}}'")
             }
         } else {
-            let (capacity, lock_script, type_script, outputs_data_opt) = self.gen_normal_cell(cell);
+            let (capacity, lock_script, type_script, outputs_data_opt) = self.gen_custom_cell(cell);
             let outputs_data_bytes_opt = if let Some(outputs_data) = outputs_data_opt {
                 Some(Bytes::from(outputs_data))
             } else {
@@ -2139,6 +2111,34 @@ impl TemplateGenerator {
 
         let type_script = cell.get("type").expect("cell.type is missing").to_owned();
 
+        let outputs_data_opt = if !cell["data"].is_null() {
+            Some(parse_json_hex("cell.data", &cell["data"]))
+        } else {
+            None
+        };
+
+        (capacity, lock_script, type_script, outputs_data_opt)
+    }
+
+    /// Cell structure:
+    ///
+    /// ```json
+    /// json!({
+    ///     "capacity": u64,
+    ///     "lock": Script,
+    ///     "type": null | Script,
+    ///     "data": null | "0x..."
+    /// })
+    /// ```
+    fn gen_custom_cell(&mut self, cell: Value) -> (u64, Value, Value, Option<Vec<u8>>) {
+        let capacity: u64 = parse_json_u64("cell.capacity", &cell["capacity"]);
+
+        let lock_script = parse_json_script("cell.lock", &cell["lock"]);
+        let type_script = if !cell["type"].is_null() {
+            parse_json_script("cell.lock", &cell["lock"])
+        } else {
+            Value::Null
+        };
         let outputs_data_opt = if !cell["data"].is_null() {
             Some(parse_json_hex("cell.data", &cell["data"]))
         } else {

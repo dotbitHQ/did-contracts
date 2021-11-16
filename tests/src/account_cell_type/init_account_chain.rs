@@ -1,6 +1,5 @@
 use super::common::init;
 use crate::util::template_parser::*;
-use ckb_testtool::context::Context;
 use das_types::constants::AccountStatus;
 use serde_json::json;
 

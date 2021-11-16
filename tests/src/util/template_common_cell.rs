@@ -136,3 +136,30 @@ pub fn push_output_balance_cell(template: &mut TemplateGenerator, capacity: u64,
         None,
     );
 }
+
+pub fn push_input_normal_cell(template: &mut TemplateGenerator, capacity: u64, args: &str) {
+    template.push_input(
+        json!({
+            "capacity": capacity.to_string(),
+            "lock": {
+                "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                "args": args
+            }
+        }),
+        None,
+    );
+    template.push_empty_witness();
+}
+
+pub fn push_output_normal_cell(template: &mut TemplateGenerator, capacity: u64, args: &str) {
+    template.push_output(
+        json!({
+            "capacity": capacity.to_string(),
+            "lock": {
+                "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                "args": args
+            }
+        }),
+        None,
+    );
+}

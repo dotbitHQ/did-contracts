@@ -21,11 +21,13 @@ use std::{
 };
 
 pub fn test_tx(tx: Value) {
-    // println!("{}", serde_json::to_string_pretty(&template).unwrap());
+    // println!("{}", serde_json::to_string_pretty(&tx).unwrap());
     let mut parser = TemplateParser::from_data(Context::default(), tx);
     parser.parse();
-    let tx = parser.build_tx();
-    let cycles = parser.execute_tx(&tx).expect("Transaction verification should pass.");
+    let tx_view = parser.build_tx();
+    let cycles = parser
+        .execute_tx(&tx_view)
+        .expect("Transaction verification should pass.");
 
     println!(
         r#"︎↑︎======================================↑︎
@@ -33,20 +35,20 @@ Transaction size: {} bytes,
    Suggested fee: {} shannon(feeRate: 1)
           Cycles: {}
 ========================================"#,
-        tx.data().total_size(),
-        tx.data().total_size() + 4,
+        tx_view.data().total_size(),
+        tx_view.data().total_size() + 4,
         cycles
     );
 }
 
 pub fn challenge_tx(tx: Value, expected_error: Error) {
+    // println!("{}", serde_json::to_string_pretty(&tx).unwrap());
     let mut parser = TemplateParser::from_data(Context::default(), tx);
     parser.parse();
-    let tx = parser.build_tx();
-    let ret = parser.execute_tx(&tx);
+    let tx_view = parser.build_tx();
+    let ret = parser.execute_tx(&tx_view);
     match ret {
         Ok(_) => {
-            // println!("{}", serde_json::to_string_pretty(&template).unwrap());
             panic!(
                 "The test should failed with error code: {:?}({}), but it returns Ok.",
                 expected_error, expected_error as i8
