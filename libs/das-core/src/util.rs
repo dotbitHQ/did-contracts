@@ -501,19 +501,6 @@ pub fn blake2b_das(s: &[u8]) -> [u8; 32] {
     result
 }
 
-pub fn is_cell_consistent(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
-    debug!(
-        "Compare if {:?}[{}] and {:?}[{}] are equal in every fields except capacity.",
-        cell_a.1, cell_a.0, cell_b.1, cell_b.0
-    );
-
-    is_cell_lock_equal(cell_a, cell_b)?;
-    is_cell_type_equal(cell_a, cell_b)?;
-    is_cell_data_equal(cell_a, cell_b)?;
-
-    Ok(())
-}
-
 pub fn is_cell_only_lock_changed(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
     debug!(
         "Compare if only the cells' lock script are different: {:?}[{}] & {:?}[{}]",
@@ -642,32 +629,6 @@ pub fn is_cell_capacity_equal(cell_a: (usize, Source), cell_b: (usize, Source)) 
         cell_b.1,
         cell_b.0,
         b_capacity
-    );
-
-    Ok(())
-}
-
-pub fn is_inputs_and_outputs_consistent(inputs_cells: Vec<usize>, outputs_cells: Vec<usize>) -> Result<(), Error> {
-    for (i, input_cell_index) in inputs_cells.into_iter().enumerate() {
-        let output_cell_index = outputs_cells[i];
-        is_cell_capacity_equal((input_cell_index, Source::Input), (output_cell_index, Source::Output))?;
-        is_cell_consistent((input_cell_index, Source::Input), (output_cell_index, Source::Output))?;
-    }
-
-    Ok(())
-}
-
-pub fn is_cell_use_signall_lock(index: usize, source: Source) -> Result<(), Error> {
-    let lock = high_level::load_cell_lock(index, source).map_err(Error::from)?;
-    let signall_lock = signall_lock();
-
-    assert!(
-        is_reader_eq(lock.as_reader().code_hash(), signall_lock.as_reader().code_hash()),
-        Error::SignallLockIsRequired,
-        "The cell at {:?}[{}] should use signall lock.(expected_code_hash: {})",
-        source,
-        index,
-        signall_lock.as_reader().code_hash()
     );
 
     Ok(())

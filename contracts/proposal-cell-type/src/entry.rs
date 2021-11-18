@@ -46,6 +46,8 @@ pub fn main() -> Result<(), Error> {
     );
     match action {
         b"propose" | b"extend_proposal" => {
+            let timestamp = util::load_oracle_data(OracleCellType::Time)?;
+
             parser.parse_cell()?;
             parser.parse_config(&[DataType::ConfigCellProposal])?;
             let config_main = parser.configs.main()?;
@@ -110,6 +112,8 @@ pub fn main() -> Result<(), Error> {
             );
 
             verify_slices_relevant_cells(
+                &parser,
+                timestamp,
                 config_main,
                 output_cell_witness_reader.slices(),
                 dep_related_cells,
@@ -267,6 +271,7 @@ fn verify_slices(config: ConfigCellProposalReader, slices_reader: SliceListReade
     );
 
     let mut account_id_list = Vec::new();
+    let mut account_id_list_with_next = Vec::new();
     let mut exist_next_list = Vec::new();
     for (sl_index, sl_reader) in slices_reader.iter().enumerate() {
         debug!("Check Slice[{}] ...", sl_index);
@@ -281,7 +286,8 @@ fn verify_slices(config: ConfigCellProposalReader, slices_reader: SliceListReade
 
         // The "next" of last item is refer to an existing account, so we put it into the vector.
         let last_item = sl_reader.get(sl_reader.len() - 1).unwrap();
-        exist_next_list.push(last_item.next().raw_data().to_vec());
+        let last_item_next = last_item.next().raw_data().to_vec();
+        exist_next_list.push(last_item_next.clone());
 
         for (index, item) in sl_reader.iter().enumerate() {
             debug!("  Check if Item[{}] refer to correct next.", index);
@@ -335,7 +341,7 @@ fn verify_slices(config: ConfigCellProposalReader, slices_reader: SliceListReade
                 );
             }
 
-            // Check if there is any account ID duplicate in the slices.
+            // Check if there is any account ID duplicate in the previous slices.
             for exist_account_id in account_id_list.iter() {
                 assert!(
                     &account_id != exist_account_id,
@@ -346,9 +352,12 @@ fn verify_slices(config: ConfigCellProposalReader, slices_reader: SliceListReade
             }
 
             // Store account IDs for order verification.
-            account_id_list.push(account_id);
+            account_id_list.push(account_id.clone());
+            account_id_list_with_next.push(account_id);
             required_cells_count += 1;
         }
+
+        account_id_list_with_next.push(last_item_next)
     }
 
     // Check if there is any next(it is account ID either) exist in the account_id_list.
@@ -364,9 +373,9 @@ fn verify_slices(config: ConfigCellProposalReader, slices_reader: SliceListReade
     }
 
     // Check the order of items in the slice.
-    let sorted_account_id_list = DasSortedList::new(account_id_list.clone());
+    let sorted_account_id_list = DasSortedList::new(account_id_list_with_next.clone());
     assert!(
-        sorted_account_id_list.cmp_order_with(&account_id_list),
+        sorted_account_id_list.cmp_order_with(&account_id_list_with_next),
         Error::ProposalSliceIsNotSorted,
         "The order of items in slices is incorrect."
     );
@@ -465,6 +474,8 @@ fn find_output_account_cells(config: ConfigCellMainReader) -> Result<Vec<usize>,
 }
 
 fn verify_slices_relevant_cells(
+    parser: &WitnessesParser,
+    timestamp: u64,
     config: ConfigCellMainReader,
     slices_reader: SliceListReader,
     relevant_cells: Vec<usize>,
@@ -483,22 +494,53 @@ fn verify_slices_relevant_cells(
             let cell_index = relevant_cells[i];
 
             // Check if the relevant cells has the same type as in the proposal.
-            let expected_type_id = if item_type == ProposalSliceItemType::Exist as u8 {
-                config.type_id_table().account_cell()
-            } else {
-                config.type_id_table().pre_account_cell()
-            };
-            verify_cell_type_id(item_index, cell_index, Source::CellDep, &expected_type_id)?;
-
             let cell_data = util::load_cell_data(cell_index, Source::CellDep)?;
-            // Check if the relevant cells have the same account ID as in the proposal.
-            verify_account_cell_account_id(
-                item_index,
-                &cell_data,
-                cell_index,
-                Source::CellDep,
-                item_account_id.raw_data(),
-            )?;
+            if item_type == ProposalSliceItemType::Exist as u8 {
+                let expected_type_id = config.type_id_table().account_cell();
+                verify_cell_type_id(item_index, cell_index, Source::CellDep, &expected_type_id)?;
+
+                // Check if the relevant cells have the same account ID as in the proposal.
+                verify_account_cell_account_id(
+                    item_index,
+                    &cell_data,
+                    cell_index,
+                    Source::CellDep,
+                    item_account_id.raw_data(),
+                )?;
+            } else {
+                let expected_type_id = config.type_id_table().pre_account_cell();
+                verify_cell_type_id(item_index, cell_index, Source::CellDep, &expected_type_id)?;
+
+                // Check if the relevant cells have the same account ID as in the proposal.
+                verify_pre_account_cell_account_id(
+                    item_index,
+                    &cell_data,
+                    cell_index,
+                    Source::CellDep,
+                    item_account_id.raw_data(),
+                )?;
+
+                let pre_account_cell_witness;
+                let pre_account_cell_witness_reader;
+                parse_witness!(
+                    pre_account_cell_witness,
+                    pre_account_cell_witness_reader,
+                    parser,
+                    cell_index,
+                    Source::CellDep,
+                    PreAccountCellData
+                );
+
+                // For protecting register, do not allow PreAccountCell exists more than a week to be confirmed.
+                let created_at = u64::from(pre_account_cell_witness_reader.created_at());
+                assert!(
+                    timestamp <= created_at + DAY_SEC * 7,
+                    Error::ProposalConfirmPreAccountCellExpired,
+                    "The PreAccountCell has been expired.(created_at: {}, expired_at: {})",
+                    created_at,
+                    created_at + DAY_SEC * 7
+                );
+            };
 
             // ⚠️ The first item is very very important, its "next" must be correct so that
             // AccountCells can form a linked list.
@@ -894,6 +936,14 @@ fn verify_proposal_execution_result(
         output_income_cells[0],
         Source::Output,
         IncomeCellData
+    );
+
+    #[cfg(any(not(feature = "mainnet"), debug_assertions))]
+    das_core::inspect::income_cell(
+        Source::Output,
+        output_income_cells[0],
+        None,
+        Some(output_income_cell_witness_reader),
     );
 
     let mut expected_capacity = 0;

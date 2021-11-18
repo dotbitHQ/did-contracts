@@ -82,6 +82,8 @@ pub const SECP_SIGNATURE_SIZE: usize = 65;
 // This is smaller than the real data type in solidity, but it is enough for now.
 pub const EIP712_CHAINID_SIZE: usize = 8;
 
+pub const DAY_SEC: u64 = 86400;
+
 pub fn super_lock() -> Script {
     #[cfg(feature = "dev")]
     let super_lock = ScriptLiteral {

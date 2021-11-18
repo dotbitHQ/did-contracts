@@ -8,7 +8,7 @@ use super::{
 use alloc::string::String;
 use ckb_std::ckb_constants::Source;
 use core::convert::TryInto;
-use das_types::{packed::*, prelude::*, util::hex_string};
+use das_types::{packed::*, prelude::*, prettier::Prettier, util::hex_string};
 
 pub fn apply_register_cell(source: Source, index: usize, data: &Vec<u8>) {
     debug!("  ====== {:?}[{}] ApplyRegisterCell ↓ ======", source, index);
@@ -41,7 +41,7 @@ pub fn pre_account_cell(
         panic!("Must pass one of raw_witness and witness_reader_opt");
     }
 
-    debug!("    witness: {}", witness_reader);
+    debug!("    witness: {}", witness_reader.as_prettier());
 }
 
 pub fn account_cell(
@@ -86,7 +86,7 @@ pub fn account_cell(
     if version == 1 {
         debug!("    witness: {}", witness_reader_v1.unwrap());
     } else {
-        debug!("    witness: {}", witness_reader.unwrap());
+        debug!("    witness: {}", witness_reader.unwrap().as_prettier());
     }
 }
 
