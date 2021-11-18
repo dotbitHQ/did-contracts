@@ -573,16 +573,16 @@ fn to_semantic_address(
 
                     let value = bech32::encode(&HRP.to_string(), data.to_base32(), Variant::Bech32)
                         .map_err(|_| Error::EIP712SematicError)?;
-                    address = format!("CKB:{}", value)
+                    address = format!("{}", value)
                 }
                 DasLockType::TRX => {
                     let mut raw = [0u8; 21];
                     raw[0] = TRX_ADDR_PREFIX;
                     raw[1..21].copy_from_slice(&args_in_bytes[range]);
-                    address = format!("TRX:{}", b58encode_check(&raw));
+                    address = format!("{}", b58encode_check(&raw));
                 }
                 DasLockType::ETH | DasLockType::ETHTypedData => {
-                    address = format!("ETH:0x{}", util::hex_string(&args_in_bytes[range]));
+                    address = format!("0x{}", util::hex_string(&args_in_bytes[range]));
                 }
                 _ => return Err(Error::EIP712SematicError),
             }
@@ -593,7 +593,7 @@ fn to_semantic_address(
             let code_index = vec![0];
             let args = lock_reader.args().raw_data().to_vec();
 
-            address = format!("CKB:{}", script_to_address(code_index, hash_type, args)?)
+            address = format!("{}", script_to_address(code_index, hash_type, args)?)
         }
         x if util::is_type_id_equal(script_table.multisign_lock.as_reader(), x.into()) => {
             // If this is a secp256k1_blake160_sighash_all lock, convert it to short address.
@@ -601,7 +601,7 @@ fn to_semantic_address(
             let code_index = vec![1];
             let args = lock_reader.args().raw_data().to_vec();
 
-            address = format!("CKB:{}", script_to_address(code_index, hash_type, args)?)
+            address = format!("{}", script_to_address(code_index, hash_type, args)?)
         }
         _ => {
             // If this is a unknown lock, convert it to full address.
@@ -613,7 +613,7 @@ fn to_semantic_address(
             let code_hash = lock_reader.code_hash().raw_data().to_vec();
             let args = lock_reader.args().raw_data().to_vec();
 
-            address = format!("CKB:{}", script_to_address(code_hash, hash_type, args)?)
+            address = format!("{}", script_to_address(code_hash, hash_type, args)?)
         }
     }
 
@@ -875,7 +875,7 @@ mod test {
     use das_types::{packed as das_packed, prelude::*};
 
     #[test]
-    fn test_to_semantic_address() {
+    fn test_eip712_to_semantic_address() {
         // TODO Refactor with a static function
         let script_table = ScriptTable {
             das_lock: das_lock(),
@@ -893,7 +893,7 @@ mod test {
             ]))
             .build();
 
-        let expected = "CKB:ckt1qyqvmcg6etl04k6uksm7kvat3w72jk9d92rq5tn6px";
+        let expected = "ckt1qyqvmcg6etl04k6uksm7kvat3w72jk9d92rq5tn6px";
         let address = to_semantic_address(&script_table, lock.as_reader(), 1..21).unwrap();
         assert_eq!(&address, expected);
 
@@ -907,7 +907,7 @@ mod test {
             ]))
             .build();
 
-        let expected = "ETH:0x94770827e8897417a2bbaf072c71c12f5a003278";
+        let expected = "0x94770827e8897417a2bbaf072c71c12f5a003278";
         let address = to_semantic_address(&script_table, lock.as_reader(), 1..21).unwrap();
         assert_eq!(&address, expected);
 
@@ -921,7 +921,7 @@ mod test {
             ]))
             .build();
 
-        let expected = "TRX:TPhiVyQZ5xyvVK2KS2LTke8YvXJU5wxnbN";
+        let expected = "TPhiVyQZ5xyvVK2KS2LTke8YvXJU5wxnbN";
         let address = to_semantic_address(&script_table, lock.as_reader(), 1..21).unwrap();
         assert_eq!(&address, expected);
 
@@ -935,13 +935,13 @@ mod test {
             ]))
             .build();
 
-        let expected = "ETH:0x94770827e8897417a2bbaf072c71c12f5a003278";
+        let expected = "0x94770827e8897417a2bbaf072c71c12f5a003278";
         let address = to_semantic_address(&script_table, lock.as_reader(), 1..21).unwrap();
         assert_eq!(&address, expected);
     }
 
     #[test]
-    fn test_to_typed_script() {
+    fn test_eip712_to_typed_script() {
         let account_cell_type_id = das_packed::Hash::from([1u8; 32]);
         let table_id_table = das_packed::TypeIdTable::new_builder()
             .account_cell(account_cell_type_id.clone())
@@ -1001,7 +1001,7 @@ mod test {
     }
 
     #[test]
-    fn test_to_semantic_capacity() {
+    fn test_eip712_to_semantic_capacity() {
         let expected = "0 CKB";
         let result = to_semantic_capacity(0);
         assert_eq!(result, expected);
