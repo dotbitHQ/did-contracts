@@ -4,7 +4,6 @@ use ckb_tool::{
     ckb_types::{packed as ckb_packed, prelude::Pack},
     faster_hex::hex_string,
 };
-use das_sorted_list::DasSortedList;
 use das_types::{constants::*, packed::*, prelude::*, util as das_util};
 use hex;
 use serde_json::{json, Value};
@@ -65,49 +64,6 @@ fn gen_account_char(char: &str, char_set_type: CharSetType) -> AccountChar {
         .build()
 }
 
-fn gen_proposal_item(account: &str, item_type: &ProposalSliceItemType, next: &str) -> ProposalItem {
-    let account_id = AccountId::try_from(account_to_id_bytes(account)).unwrap();
-    let mut builder = ProposalItem::new_builder()
-        .account_id(account_id)
-        .item_type(Uint8::from(*item_type as u8));
-
-    if !next.is_empty() {
-        let next_account_id = AccountId::try_from(account_to_id_bytes(next)).unwrap();
-        builder = builder.next(next_account_id);
-    }
-
-    builder.build()
-}
-
-fn gen_slices(slices: &Vec<Vec<(&str, ProposalSliceItemType, &str)>>) -> SliceList {
-    let mut sl_list = SliceList::new_builder();
-    for slice in slices {
-        if slice.len() <= 1 {
-            panic!("Slice must has more than one item.")
-        }
-
-        let mut sl = SL::new_builder();
-        let mut next_of_first_item = "";
-        for (index, (account, item_type, next)) in slice.iter().enumerate() {
-            // When it is the first item, saving its next.
-            if index == 0 {
-                next_of_first_item = next;
-                let (next, _, _) = slice.get(index + 1).unwrap();
-                sl = sl.push(gen_proposal_item(account, item_type, next));
-            // When it is the last item, use next_of_first_item as its next.
-            } else if index == slice.len() - 1 {
-                sl = sl.push(gen_proposal_item(account, item_type, next_of_first_item));
-            // When it is the items between the first and the last, using its next item's account_id as next.
-            } else {
-                let (next, _, _) = slice.get(index + 1).unwrap();
-                sl = sl.push(gen_proposal_item(account, item_type, next));
-            }
-        }
-        sl_list = sl_list.push(sl.build());
-    }
-    sl_list.build()
-}
-
 pub fn gen_account_record(type_: &str, key: &str, label: &str, value: impl AsRef<[u8]>, ttl: u32) -> Record {
     Record::new_builder()
         .record_type(Bytes::from(type_.as_bytes()))
@@ -159,95 +115,6 @@ pub fn gen_account_chars(chars: Vec<impl AsRef<str>>) -> AccountChars {
     }
 
     builder.build()
-}
-
-pub fn gen_account_list() {
-    let accounts = vec![
-        "das00000.bit",
-        "das00001.bit",
-        "das00002.bit",
-        "das00003.bit",
-        "das00004.bit",
-        "das00005.bit",
-        "das00006.bit",
-        "das00007.bit",
-        "das00008.bit",
-        "das00009.bit",
-        "das00010.bit",
-        "das00011.bit",
-        "das00012.bit",
-        "das00013.bit",
-        "das00014.bit",
-        "das00015.bit",
-        "das00016.bit",
-        "das00018.bit",
-        "das00019.bit",
-    ];
-
-    let mut account_id_map = HashMap::new();
-    let mut account_id_list = Vec::new();
-    for account in accounts.into_iter() {
-        let account_id = util::account_to_id(account);
-        account_id_map.insert(account_id.clone(), account);
-        account_id_list.push(account_id);
-    }
-
-    let sorted_list = DasSortedList::new(account_id_list);
-    println!("====== Accounts list ======");
-    for item in sorted_list.items() {
-        let account = account_id_map.get(item).unwrap();
-        println!("{} => {}", account, item.pack());
-    }
-}
-
-pub fn account_to_id_bytes(account: &str) -> Vec<u8> {
-    // Sorted testing accounts, generated from gen_account_list().
-
-    let account_id = match account {
-        "das00012.bit" => "0x05d2771e6c0366846677ce2e97fe7a78a20ad1f8",
-        "das00005.bit" => "0x0eb54a48689ce16b1fe8eaf126f81e9eff558a73",
-        "das00009.bit" => "0x100871e1ff8a4cbde1d4673914707a32083e4ce0",
-        "das00002.bit" => "0x1710cbaf08cf1fa2dcad206a909c76705970a2ee",
-        "das00013.bit" => "0x2ba50252fba902dc5287c8617a98d2b8e0c201d9",
-        "das00010.bit" => "0x5998f1666df91f989212994540a51561e1d3dc44",
-        "das00004.bit" => "0x5cbc30a5bfd00de7f7c512473f2ff097e7bba50b",
-        "das00018.bit" => "0x60e70978fd6456883990ab9a6a0785efdf0d5250",
-        "das00008.bit" => "0x6729295b9a936d6c67fd8b84990c9639b01985bd",
-        "das00011.bit" => "0x70aa5e4d41c3d557ca847bd10f1efe9b2ca07aca",
-        "das00006.bit" => "0x76b1e100d9ff3dc62e75e810be3253bf61d8e794",
-        "das00019.bit" => "0x9b992223d5ccd0fca8e17e122e97cff52afaf3ec",
-        "das00001.bit" => "0xa2e06438859db0449574d1443ade636a7e6bd09f",
-        "das00014.bit" => "0xb209ac25bd48f00b9ae6a1cb7ecff4b58d6c1d07",
-        "das00003.bit" => "0xbfab64fccdb83b3316cf3b8faaf6bb5cedef7e4c",
-        "das00007.bit" => "0xc9804583fc51c64512c0153264a707c254ae81ff",
-        "das00000.bit" => "0xcc4e1b0c31b5f537ad0a91f37c7aea0f47b450f5",
-        "das00016.bit" => "0xeb12a2e3eabe2a20015c8bee1b3cfb8577f6360f",
-        "das00015.bit" => "0xed912d8f62ce9815d415370c66b00cefc80fcce6",
-        // ======
-        "das.bit" => "0xb7526803f67ebe70aba631ae3e9560e0cd969c2d",
-        "inviter_01.bit" => "0x12dedc00d4e73e7c7c501e386a5514e8a3e94129",
-        "inviter_02.bit" => "0xa3281c84335fc37e83315f39ffbb582ba184e433",
-        "inviter_03.bit" => "0x75614a21ee56531bf708326d7ae9f053703464d7",
-        "channel_01.bit" => "0x0de06eb8bcaa6b33d9ebea5dcdde9f38e98677dc",
-        "channel_02.bit" => "0xd6d474d85a9edc9ee26a925b5812c358148e7f78",
-        "channel_03.bit" => "0x3781b1590a0ef3b0bbce7513d018e4f636d2b219",
-        "proposer_01.bit" => "0xdb352d1d5e245fa09697221b5f7e1bde025f2ee8",
-        "proposer_02.bit" => "0xc0d1d7b1b88c584c4c2309d550cfab60cf3b3c7d",
-        "proposer_03.bit" => "0x26bcd993ec69922481d26f65d0d778592530de5e",
-        // ======
-        _ => panic!("Can not find ID of account."),
-    };
-
-    // let tmp = [];
-    // tmp.iter().for_each(|item| {
-    //     println!(
-    //         "\"{}\" => \"0x{}\",",
-    //         item,
-    //         hex_string(blake2b_256(item.as_bytes()).get(..20).unwrap()).unwrap()
-    //     )
-    // });
-
-    util::hex_to_bytes(account_id)
 }
 
 fn bytes_to_hex(input: Bytes) -> String {
@@ -1372,26 +1239,6 @@ impl TemplateGenerator {
         index
     }
 
-    pub fn gen_proposal_cell_data(
-        &mut self,
-        proposer_lock_args: &str,
-        created_at_height: u64,
-        slices: &Vec<Vec<(&str, ProposalSliceItemType, &str)>>,
-    ) -> (Bytes, ProposalCellData) {
-        let entity = ProposalCellData::new_builder()
-            .proposer_lock(gen_fake_signhash_all_lock(proposer_lock_args))
-            .created_at_height(Uint64::from(created_at_height))
-            .slices(gen_slices(slices))
-            .build();
-        // println!("entity = {:?}", entity);
-
-        let hash = blake2b_256(entity.as_slice());
-        // println!("hash = {:?}", hash);
-        let cell_data = Bytes::from(&hash[..]);
-
-        (cell_data, entity)
-    }
-
     pub fn push_proposal_cell(
         &mut self,
         cell_data: Bytes,
@@ -1597,6 +1444,12 @@ impl TemplateGenerator {
                         self.push_cell(capacity, lock_script, type_script, outputs_data_bytes_opt, source)
                     }
                     "income-cell-type" => push_cell_with_witness!(DataType::IncomeCellData, gen_income_cell, cell),
+                    "pre-account-cell-type" => {
+                        push_cell_with_witness!(DataType::PreAccountCellData, gen_pre_account_cell, cell)
+                    }
+                    "proposal-cell-type" => {
+                        push_cell_with_witness!(DataType::ProposalCellData, gen_proposal_cell, cell)
+                    }
                     "reverse-record-cell-type" => push_cell!(gen_reverse_record_cell, cell),
                     _ => panic!("Unknown type ID {}", type_id),
                 };
@@ -1617,6 +1470,218 @@ impl TemplateGenerator {
 
             index
         }
+    }
+
+    /// Cell structure:
+    ///
+    /// ```json
+    /// json!({
+    ///     "capacity": u64,
+    ///     "lock": {
+    ///         "code_hash": "{{always_success}}",
+    ///     },
+    ///     "type": {
+    ///         "code_hash": "{{pre-account-cell-type}}"
+    ///     },
+    ///     "data": {
+    ///         "hash": null | "0x...", // if this is null, will be calculated from witness.
+    ///         "id": null | "0x..." // if this is null, will be calculated from account.
+    ///     },
+    ///     "witness": {
+    ///         "account": "xxxxx.bit",
+    ///         "refund_lock": Script,
+    ///         "owner_lock_args": "0x...",
+    ///         "inviter_id": "0x..." | null, // if this is null, will be Bytes::default().
+    ///         "inviter_lock": Script | null, // if this is null, will be ScriptOpt::default().
+    ///         "channel_lock": Script | null, // if this is null, will be ScriptOpt::default().
+    ///         "price": {
+    ///             "length": u8,
+    ///             "new": u64,
+    ///             "renew": u64
+    ///         }
+    ///         "quote": u64,
+    ///         "invited_discount": u32,
+    ///         "created_at": u64
+    ///     }
+    /// })
+    /// ```
+    fn gen_pre_account_cell(&mut self, cell: Value) -> (u64, Value, Value, Vec<u8>, Option<PreAccountCellData>) {
+        let capacity: u64 = parse_json_u64("cell.capacity", &cell["capacity"]);
+        let lock_script = parse_json_script("cell.lock", &cell["lock"]);
+        let type_script = parse_json_script("cell.type", &cell["type"]);
+
+        let outputs_data: Vec<u8>;
+        let mut entity_opt = None;
+        if !cell["witness"].is_null() {
+            let witness = &cell["witness"];
+            let account = parse_json_str("cell.witness.account", &witness["account"]);
+            let account_chars_raw = account
+                .chars()
+                .take(account.len() - 4)
+                .map(|c| c.to_string())
+                .collect::<Vec<String>>();
+            let account_chars = gen_account_chars(account_chars_raw);
+            let refund_lock = parse_json_script_to_mol("cell.witness.refund_lock", &witness["refund_lock"]);
+            let owner_lock_args = parse_json_hex("cell.witness.owner_lock_args", &witness["owner_lock_args"]);
+            let inviter_id = if !witness["inviter_id"].is_null() {
+                Bytes::from(parse_json_hex("cell.witness.inviter_id", &witness["inviter_id"]))
+            } else {
+                Bytes::default()
+            };
+            let inviter_lock = if !witness["inviter_lock"].is_null() {
+                ScriptOpt::from(parse_json_script_to_mol(
+                    "cell.witness.inviter_lock",
+                    &witness["inviter_lock"],
+                ))
+            } else {
+                ScriptOpt::default()
+            };
+            let channel_lock = if !witness["channel_lock"].is_null() {
+                ScriptOpt::from(parse_json_script_to_mol(
+                    "cell.witness.inviter_lock",
+                    &witness["channel_lock"],
+                ))
+            } else {
+                ScriptOpt::default()
+            };
+            let price = PriceConfig::new_builder()
+                .length(parse_json_u8("cell.witness.price.length", &witness["price"]["length"]).into())
+                .new(parse_json_u64("cell.witness.price.new", &witness["price"]["new"]).into())
+                .renew(parse_json_u64("cell.witness.price.renew", &witness["price"]["renew"]).into())
+                .build();
+            let quote = parse_json_u64("cell.witness.quote", &witness["quote"]);
+            let invited_discount = parse_json_u32("cell.witness.invited_discount", &witness["invited_discount"]);
+            let created_at = parse_json_u64("cell.witness.created_at", &witness["created_at"]);
+
+            let entity = PreAccountCellData::new_builder()
+                .account(account_chars)
+                .refund_lock(refund_lock)
+                .owner_lock_args(Bytes::from(owner_lock_args))
+                .inviter_id(inviter_id)
+                .inviter_lock(inviter_lock)
+                .channel_lock(channel_lock)
+                .price(price)
+                .quote(Uint64::from(quote))
+                .invited_discount(Uint32::from(invited_discount))
+                .created_at(Timestamp::from(created_at))
+                .build();
+
+            let data = &cell["data"];
+            let hash = if !data["hash"].is_null() {
+                parse_json_hex("cell.data.hash", &data["hash"])
+            } else {
+                blake2b_256(entity.as_slice()).to_vec()
+            };
+            let account_id = if !data["id"].is_null() {
+                parse_json_hex("cell.data.id", &data["id"])
+            } else {
+                util::account_to_id(account)
+            };
+
+            let raw = [hash, account_id].concat();
+            outputs_data = raw;
+            entity_opt = Some(entity);
+        } else {
+            outputs_data = parse_json_hex("cell.data", &cell["data"]);
+        }
+
+        (capacity, lock_script, type_script, outputs_data, entity_opt)
+    }
+
+    /// Cell structure:
+    ///
+    /// ```json
+    /// json!({
+    ///     "capacity": u64,
+    ///     "lock": {
+    ///         "code_hash": "{{always_success}}",
+    ///     },
+    ///     "type": {
+    ///         "code_hash": "{{proposal-cell-type}}"
+    ///     },
+    ///     "data": {
+    ///         "hash": null | "0x..." // if this is null, will be calculated from witness.
+    ///     },
+    ///     "witness": {
+    ///         "proposer_lock": Script,
+    ///         "created_at_height": u64,
+    ///         "slices": [
+    ///             [
+    ///                 {
+    ///                     "account_id": "0x...",
+    ///                     "item_type": u8,
+    ///                     "next": "0x..."
+    ///                 }
+    ///             ]
+    ///         ]
+    ///     }
+    /// })
+    /// ```
+    fn gen_proposal_cell(&mut self, cell: Value) -> (u64, Value, Value, Vec<u8>, Option<ProposalCellData>) {
+        let capacity: u64 = parse_json_u64("cell.capacity", &cell["capacity"]);
+        let lock_script = parse_json_script("cell.lock", &cell["lock"]);
+        let type_script = parse_json_script("cell.type", &cell["type"]);
+
+        let outputs_data: Vec<u8>;
+        let mut entity_opt = None;
+        if !cell["witness"].is_null() {
+            let witness = &cell["witness"];
+            let proposer_lock = parse_json_script_to_mol("cell.witness.proposer_lock", &witness["proposer_lock"]);
+            let created_at_height = parse_json_u64("cell.witness.created_at_height", &witness["created_at_height"]);
+
+            // The ProposalCellData.slices is a two-dimensional arrays.
+            let mut slice_list_builder = SliceList::new_builder();
+            if let Some(slices) = witness["slices"].as_array() {
+                for (i, slice_val) in slices.iter().enumerate() {
+                    let mut slice_builder = SL::new_builder();
+                    if let Some(slice) = slice_val.as_array() {
+                        for (j, item) in slice.iter().enumerate() {
+                            let field_name_base = format!("cell.witness.slices[{}][{}]", i, j);
+                            let account_id = parse_json_str_to_account_id_mol(
+                                &format!("{}.account_id", field_name_base),
+                                &item["account_id"],
+                            );
+                            let item_type =
+                                parse_json_u8(&format!("{}.item_type", field_name_base), &item["item_type"]);
+                            let next =
+                                parse_json_str_to_account_id_mol(&format!("{}.next", field_name_base), &item["next"]);
+
+                            slice_builder = slice_builder.push(
+                                ProposalItem::new_builder()
+                                    .account_id(account_id)
+                                    .item_type(Uint8::from(item_type))
+                                    .next(next)
+                                    .build(),
+                            );
+                        }
+                    } else {
+                        panic!("cell.witness.slices[{}] is missing.", i)
+                    }
+                    slice_list_builder = slice_list_builder.push(slice_builder.build());
+                }
+            } else {
+                panic!("cell.witness.slices is missing.");
+            }
+
+            let entity = ProposalCellData::new_builder()
+                .proposer_lock(proposer_lock)
+                .created_at_height(Uint64::from(created_at_height))
+                .slices(slice_list_builder.build())
+                .build();
+
+            if !cell["data"].is_null() {
+                outputs_data = parse_json_hex("cell.data", &cell["data"]);
+            } else {
+                let hash = blake2b_256(entity.as_slice());
+                outputs_data = hash.to_vec();
+            }
+
+            entity_opt = Some(entity);
+        } else {
+            outputs_data = parse_json_hex("cell.data", &cell["data"]);
+        }
+
+        (capacity, lock_script, type_script, outputs_data, entity_opt)
     }
 
     /// Cell structure:
@@ -2050,37 +2115,6 @@ impl TemplateGenerator {
         }
 
         (capacity, lock_script, type_script, outputs_data, entity_opt)
-    }
-
-    /// Cell structure:
-    ///
-    /// ```json
-    /// json!({
-    ///     "capacity": u64,
-    ///     "lock": {
-    ///         "args": "0x...",
-    ///     },
-    ///     "type": null,
-    ///     "data": null | "0x..."
-    /// })
-    /// ```
-    fn gen_normal_cell(&mut self, cell: Value) -> (u64, Value, Value, Option<Vec<u8>>) {
-        let capacity: u64 = parse_json_u64("cell.capacity", &cell["capacity"]);
-
-        let lock = cell.get("lock").expect("cell.lock is missing");
-        let args = parse_json_str("cell.lock.args", &lock["args"]);
-        let lock_script = json!({
-          "code_hash": "{{fake-das-lock}}",
-          "args": args
-        });
-
-        let outputs_data_opt = if !cell["data"].is_null() {
-            Some(parse_json_hex("cell.data", &cell["data"]))
-        } else {
-            None
-        };
-
-        (capacity, lock_script, Value::Null, outputs_data_opt)
     }
 
     /// Cell structure:

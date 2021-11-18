@@ -407,5 +407,5 @@ pub fn gen_register_fee(account_length: usize, has_inviter: bool) -> u64 {
 }
 
 pub fn gen_account_cell_capacity(length: u64) -> u64 {
-    (length * 100_000_000) + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY
+    ((length + 4) * 100_000_000) + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY
 }
