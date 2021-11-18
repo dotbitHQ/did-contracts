@@ -1,6 +1,8 @@
-use core::fmt;
 use serde_json::{Map, Value};
 use std::prelude::v1::*;
+
+#[cfg(debug_assertions)]
+use core::fmt;
 
 #[derive(Debug)]
 pub struct TypedDataV4 {

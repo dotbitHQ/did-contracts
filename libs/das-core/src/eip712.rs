@@ -20,7 +20,6 @@ use ckb_std::{
 };
 use core::convert::{TryFrom, TryInto};
 use das_map::{map::Map, util::add};
-use das_types::packed::{AccountSaleCellData, TypeIdTableReader};
 use das_types::{constants::LockRole, packed as das_packed, prelude::*};
 use eip712::{hash_data, typed_data_v4, types::*};
 use serde_json::Value;
@@ -462,7 +461,7 @@ fn start_account_sale_to_semantic(
     let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| Error::EIP712SerializationError)?;
 
     let (_, _, witness) = parser.verify_and_get(account_sale_cells[0], Source::Output)?;
-    let entity = AccountSaleCellData::from_slice(witness.as_reader().raw_data()).map_err(|_| {
+    let entity = das_packed::AccountSaleCellData::from_slice(witness.as_reader().raw_data()).map_err(|_| {
         warn!("EIP712 decoding AccountSaleCellData failed");
         Error::WitnessEntityDecodingError
     })?;
@@ -482,7 +481,7 @@ fn edit_account_sale_to_semantic(
     )?;
 
     let (_, _, witness) = parser.verify_and_get(account_sale_cells[0], Source::Output)?;
-    let entity = AccountSaleCellData::from_slice(witness.as_reader().raw_data()).map_err(|_| {
+    let entity = das_packed::AccountSaleCellData::from_slice(witness.as_reader().raw_data()).map_err(|_| {
         warn!("EIP712 decoding AccountSaleCellData failed");
         Error::WitnessEntityDecodingError
     })?;
@@ -521,7 +520,7 @@ fn buy_account_to_semantic(
     let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| Error::EIP712SerializationError)?;
 
     let (_, _, witness) = parser.verify_and_get(account_sale_cells[0], Source::Input)?;
-    let entity = AccountSaleCellData::from_slice(witness.as_reader().raw_data()).map_err(|_| {
+    let entity = das_packed::AccountSaleCellData::from_slice(witness.as_reader().raw_data()).map_err(|_| {
         warn!("EIP712 decoding AccountSaleCellData failed");
         Error::WitnessEntityDecodingError
     })?;
@@ -583,7 +582,7 @@ fn accept_offer_to_semantic(
 
 fn reverse_record_to_semantic(
     script_table: &ScriptTable,
-    type_id_table_reader: TypeIdTableReader,
+    type_id_table_reader: das_packed::TypeIdTableReader,
     source: Source,
 ) -> Result<(String, String), Error> {
     let reverse_record_cells =
@@ -609,7 +608,7 @@ fn reverse_record_to_semantic(
 
 fn declare_reverse_record_to_semantic(
     script_table: &ScriptTable,
-    type_id_table_reader: TypeIdTableReader,
+    type_id_table_reader: das_packed::TypeIdTableReader,
 ) -> Result<String, Error> {
     let (address, account) = reverse_record_to_semantic(script_table, type_id_table_reader, Source::Output)?;
     Ok(format!("DECLARE A REVERSE RECORD FROM {} TO {}", address, account))
@@ -617,7 +616,7 @@ fn declare_reverse_record_to_semantic(
 
 fn redeclare_reverse_record_to_semantic(
     script_table: &ScriptTable,
-    type_id_table_reader: TypeIdTableReader,
+    type_id_table_reader: das_packed::TypeIdTableReader,
 ) -> Result<String, Error> {
     let (address, account) = reverse_record_to_semantic(script_table, type_id_table_reader, Source::Output)?;
     Ok(format!("REDECLARE A REVERSE RECORD FROM {} TO {}", address, account))
@@ -625,7 +624,7 @@ fn redeclare_reverse_record_to_semantic(
 
 fn retract_reverse_record_to_semantic(
     script_table: &ScriptTable,
-    type_id_table_reader: TypeIdTableReader,
+    type_id_table_reader: das_packed::TypeIdTableReader,
 ) -> Result<String, Error> {
     let source = Source::Input;
     let reverse_record_cells =
@@ -705,7 +704,7 @@ fn to_semantic_address(
 
                     let value = bech32::encode(&HRP.to_string(), data.to_base32(), Variant::Bech32)
                         .map_err(|_| Error::EIP712SematicError)?;
-                    address = format!("CKB:{}", value)
+                    address = format!("{}", value)
                 }
                 DasLockType::TRX => {
                     let mut raw = [0u8; 21];
@@ -715,7 +714,7 @@ fn to_semantic_address(
                     } else {
                         raw[1..21].copy_from_slice(data_parser::das_lock_args::get_manager_lock_args(args_in_bytes));
                     }
-                    address = format!("TRX:{}", b58encode_check(&raw));
+                    address = format!("{}", b58encode_check(&raw));
                 }
                 DasLockType::ETH | DasLockType::ETHTypedData => {
                     let pubkey_hash = if role == LockRole::Owner {
@@ -723,7 +722,7 @@ fn to_semantic_address(
                     } else {
                         data_parser::das_lock_args::get_manager_lock_args(args_in_bytes).to_vec()
                     };
-                    address = format!("ETH:0x{}", util::hex_string(&pubkey_hash));
+                    address = format!("0x{}", util::hex_string(&pubkey_hash));
                 }
                 _ => return Err(Error::EIP712SematicError),
             }
@@ -734,7 +733,7 @@ fn to_semantic_address(
             let code_index = vec![0];
             let args = lock_reader.args().raw_data().to_vec();
 
-            address = format!("CKB:{}", script_to_address(code_index, hash_type, args)?)
+            address = format!("{}", script_to_address(code_index, hash_type, args)?)
         }
         x if util::is_type_id_equal(script_table.multisign_lock.as_reader(), x.into()) => {
             // If this is a secp256k1_blake160_sighash_all lock, convert it to short address.
@@ -742,7 +741,7 @@ fn to_semantic_address(
             let code_index = vec![1];
             let args = lock_reader.args().raw_data().to_vec();
 
-            address = format!("CKB:{}", script_to_address(code_index, hash_type, args)?)
+            address = format!("{}", script_to_address(code_index, hash_type, args)?)
         }
         _ => {
             // If this is a unknown lock, convert it to full address.
@@ -754,7 +753,7 @@ fn to_semantic_address(
             let code_hash = lock_reader.code_hash().raw_data().to_vec();
             let args = lock_reader.args().raw_data().to_vec();
 
-            address = format!("CKB:{}", script_to_address(code_hash, hash_type, args)?)
+            address = format!("{}", script_to_address(code_hash, hash_type, args)?)
         }
     }
 
@@ -1015,11 +1014,10 @@ fn to_semantic_account_witness(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{constants::*, util};
-    use das_types::{packed as das_packed, prelude::*};
+    use das_types::packed as das_packed;
 
     #[test]
-    fn test_to_semantic_address() {
+    fn test_eip712_to_semantic_address() {
         // TODO Refactor with a static function
         let script_table = ScriptTable {
             das_lock: das_lock(),
@@ -1037,7 +1035,7 @@ mod test {
             ]))
             .build();
 
-        let expected = "CKB:ckt1qyqvmcg6etl04k6uksm7kvat3w72jk9d92rq5tn6px";
+        let expected = "ckt1qyqvmcg6etl04k6uksm7kvat3w72jk9d92rq5tn6px";
         let address = to_semantic_address(&script_table, lock.as_reader(), LockRole::Owner).unwrap();
         assert_eq!(&address, expected);
 
@@ -1051,7 +1049,7 @@ mod test {
             ]))
             .build();
 
-        let expected = "ETH:0x94770827e8897417a2bbaf072c71c12f5a003278";
+        let expected = "0x94770827e8897417a2bbaf072c71c12f5a003278";
         let address = to_semantic_address(&script_table, lock.as_reader(), LockRole::Owner).unwrap();
         assert_eq!(&address, expected);
 
@@ -1065,7 +1063,7 @@ mod test {
             ]))
             .build();
 
-        let expected = "TRX:TPhiVyQZ5xyvVK2KS2LTke8YvXJU5wxnbN";
+        let expected = "TPhiVyQZ5xyvVK2KS2LTke8YvXJU5wxnbN";
         let address = to_semantic_address(&script_table, lock.as_reader(), LockRole::Owner).unwrap();
         assert_eq!(&address, expected);
 
@@ -1079,13 +1077,13 @@ mod test {
             ]))
             .build();
 
-        let expected = "ETH:0x94770827e8897417a2bbaf072c71c12f5a003278";
+        let expected = "0x94770827e8897417a2bbaf072c71c12f5a003278";
         let address = to_semantic_address(&script_table, lock.as_reader(), LockRole::Owner).unwrap();
         assert_eq!(&address, expected);
     }
 
     #[test]
-    fn test_to_typed_script() {
+    fn test_eip712_to_typed_script() {
         let account_cell_type_id = das_packed::Hash::from([1u8; 32]);
         let table_id_table = das_packed::TypeIdTable::new_builder()
             .account_cell(account_cell_type_id.clone())
@@ -1145,7 +1143,7 @@ mod test {
     }
 
     #[test]
-    fn test_to_semantic_capacity() {
+    fn test_eip712_to_semantic_capacity() {
         let expected = "0 CKB";
         let result = to_semantic_capacity(0);
         assert_eq!(result, expected);
