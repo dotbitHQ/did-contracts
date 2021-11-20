@@ -21,8 +21,7 @@ use ckb_std::{
 use core::convert::{TryFrom, TryInto};
 use das_map::{map::Map, util::add};
 use das_types::{constants::LockRole, packed as das_packed, prelude::*};
-use eip712::{hash_data, typed_data_v4, types::*};
-use serde_json::Value;
+use eip712::{eip712::*, hash_data, typed_data_v4};
 use sha2::{Digest, Sha256};
 use std::prelude::v1::*;
 
@@ -100,7 +99,7 @@ pub fn verify_eip712_hashes(
         for index in digest_and_hash.keys() {
             let item = digest_and_hash.get(index).unwrap();
             let digest = util::hex_string(&item.digest);
-            typed_data.digest(&digest);
+            typed_data.digest(digest.clone());
             let expected_hash = hash_data(&typed_data).unwrap();
 
             debug!(
@@ -281,36 +280,36 @@ pub fn tx_to_eip712_typed_data(
         format!("-{}", to_semantic_capacity(outputs_capacity - inputs_capacity))
     };
 
-    let chain_id_num = u64::from_be_bytes(chain_id.try_into().unwrap());
+    let chain_id_num = u64::from_be_bytes(chain_id.try_into().unwrap()).to_string();
     let typed_data = typed_data_v4!({
         types: {
-            EIP712Domain: [
+            EIP712Domain: {
                 chainId: "uint256",
                 name: "string",
                 verifyingContract: "address",
                 version: "string"
-            ],
-            Action: [
+            },
+            Action: {
                 action: "string",
                 params: "string"
-            ],
-            Cell: [
-              capacity: "string",
-              lock: "string",
-              type: "string",
-              data: "string",
-              extraData: "string"
-            ],
-            Transaction: [
-              DAS_MESSAGE: "string",
-              inputsCapacity: "string",
-              outputsCapacity: "string",
-              fee: "string",
-              action: "Action",
-              inputs: "Cell[]",
-              outputs: "Cell[]",
-              digest: "bytes32"
-            ]
+            },
+            Cell: {
+                capacity: "string",
+                lock: "string",
+                type: "string",
+                data: "string",
+                extraData: "string"
+            },
+            Transaction: {
+                DAS_MESSAGE: "string",
+                inputsCapacity: "string",
+                outputsCapacity: "string",
+                fee: "string",
+                action: "Action",
+                inputs: "Cell[]",
+                outputs: "Cell[]",
+                digest: "bytes32"
+            }
         },
         primaryType: "Transaction",
         domain: {
@@ -332,9 +331,7 @@ pub fn tx_to_eip712_typed_data(
     });
 
     #[cfg(debug_assertions)]
-    debug!("Extracted typed data: {}", typed_data);
-    #[cfg(debug_assertions)]
-    debug!("Attention! Because of compiling problem with the serde_json's preserve_order feature, the fields of the JSON needs to be resort manually when debugging.");
+    debug!("Extracted typed data: {:?}", typed_data);
 
     Ok(typed_data)
 }
@@ -789,7 +786,6 @@ fn to_typed_action(
     params_in_bytes: &[das_packed::BytesReader],
 ) -> Result<Value, Error> {
     let action = String::from_utf8(action_in_bytes.raw_data().to_vec()).map_err(|_| Error::EIP712SerializationError)?;
-
     let mut params = Vec::new();
     for param in params_in_bytes {
         if param.len() > 10 {
@@ -802,16 +798,19 @@ fn to_typed_action(
         }
     }
 
-    Ok(Action::new(&action, &params.join(",")).into())
+    Ok(typed_data_v4!(@object {
+        action: action,
+        params: params.join(",")
+    }))
 }
 
 fn to_typed_cells(
     parser: &WitnessesParser,
     type_id_table_reader: das_packed::TypeIdTableReader,
     source: Source,
-) -> Result<(u64, Vec<Cell>), Error> {
+) -> Result<(u64, Value), Error> {
     let mut i = 0;
-    let mut cells: Vec<Cell> = Vec::new();
+    let mut cells: Vec<Value> = Vec::new();
     let mut total_capacity = 0;
     let das_lock = das_packed::Script::from(das_lock());
     let always_success_lock = das_packed::Script::from(always_success_lock());
@@ -845,7 +844,15 @@ fn to_typed_cells(
                     ($cell_data_to_str:ident, $cell_witness_to_str:ident, $type_:expr) => {
                         let data = $cell_data_to_str(&data_in_bytes)?;
                         let extra_data = $cell_witness_to_str(parser, &data_in_bytes[..32], i, source)?;
-                        cells.push(Cell::new(&capacity, &lock, &$type_, &data, &extra_data));
+                        cells.push(
+                            typed_data_v4!(@object {
+                                capacity: capacity,
+                                lock: lock,
+                                type: $type_,
+                                data: data,
+                                extraData: extra_data
+                            })
+                        )
                     };
                 }
 
@@ -873,14 +880,26 @@ fn to_typed_cells(
                             // Handle cells which with unknown type script.
                             _ => {
                                 let data = to_typed_common_data(&data_in_bytes);
-                                cells.push(Cell::new(&capacity, &lock, &type_, &data, ""));
+                                cells.push(typed_data_v4!(@object {
+                                    capacity: capacity,
+                                    lock: lock,
+                                    type: type_,
+                                    data: data,
+                                    extraData: ""
+                                }));
                             }
                         }
                     }
                     // Handle cells which has no type script.
                     _ => {
                         let data = to_typed_common_data(&data_in_bytes);
-                        cells.push(Cell::new(&capacity, &lock, "", &data, ""));
+                        cells.push(typed_data_v4!(@object {
+                            capacity: capacity,
+                            lock: lock,
+                            type: "",
+                            data: data,
+                            extraData: ""
+                        }));
                     }
                 }
             }
@@ -895,7 +914,7 @@ fn to_typed_cells(
         i += 1;
     }
 
-    Ok((total_capacity, cells))
+    Ok((total_capacity, Value::Array(cells)))
 }
 
 fn to_semantic_capacity(capacity: u64) -> String {

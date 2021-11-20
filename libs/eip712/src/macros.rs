@@ -1,43 +1,88 @@
 #[macro_export]
 macro_rules! debug {
-    ($fmt:literal) => {
-        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
-        ckb_std::syscalls::debug(alloc::format!($fmt));
-    };
-    ($fmt:literal, $($args:expr),+) => {
-        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
-        ckb_std::syscalls::debug(alloc::format!($fmt, $($args), +));
+    ($($arg:tt)*) => {
+        #[cfg(all(not(feature = "std"), debug_assertions))]
+        ckb_std::syscalls::debug(alloc::format!($($arg)*));
+        #[cfg(feature = "std")]
+        println!($($arg)*)
     };
 }
 
 #[macro_export]
 macro_rules! typed_data_v4 {
-    (@value {$( $type_name:ident: $tail:tt ),+}) => {{
-        let mut types = serde_json::Map::new();
+    (@types_1 { $( $type_name:ident: $tail:tt ),+ }) => {{
+        let mut types = alloc::collections::BTreeMap::new();
         $(
-            types.insert(alloc::string::String::from(stringify!($type_name)), serde_json::Value::from(typed_data_v4!(@value $tail)));
+            types.insert(alloc::string::String::from(stringify!($type_name)), typed_data_v4!(@types_2 $tail));
         )+
         types
     }};
-    (@value [$( $field_name:ident: $field_type:expr ),+]) => {
-        alloc::vec![
-            $(
-                $crate::types::DomainTypeField {
-                    name: alloc::string::String::from(stringify!($field_name)),
-                    type_: alloc::string::String::from($field_type),
-                },
-            )+
-        ]
-    };
-    (@value $value:expr) => {
-        $value
-    };
-    ({ types: $types:tt, primaryType: $primary_type:expr, domain: $domain:tt, message: $message:tt }) => {
-        $crate::types::TypedDataV4::new(
-            typed_data_v4!(@value $types),
-            $primary_type,
-            typed_data_v4!(@value $domain),
-            typed_data_v4!(@value $message)
-        )
-    };
+    (@types_2 { $( $type_name:ident: $tail:expr ),+ }) => {{
+        let mut types = alloc::vec::Vec::new();
+        $(
+            types.push((
+                alloc::string::String::from(stringify!($type_name)),
+                alloc::string::String::from($tail)
+            ));
+        )+
+        types
+    }};
+    (@object {$( $key:ident: $val:expr ),+}) => {{
+        let mut object = alloc::collections::BTreeMap::new();
+        $(
+            object.insert(alloc::string::String::from(stringify!($key)), $crate::eip712::Value::String(alloc::string::String::from($val)));
+        )+
+        $crate::eip712::Value::Object(object)
+    }};
+    (@object $val:expr) => { $val };
+    (@array [$( $item:tt ),+]) => {{
+        let mut arr = alloc::vec::Vec::new();
+        $(
+            arr.push(typed_data_v4!(@object $item));
+        )+
+        $crate::eip712::Value::Array(arr)
+    }};
+    (@array $val:expr) => { $val };
+    (@domain {
+        $key_chain_id:ident: $val_chain_id:expr,
+        $key_name:ident: $val_name:expr,
+        $key_verifying_contract:ident: $val_verifying_contract:expr,
+        $key_version:ident: $val_version:expr
+    }) => {{
+        let mut domain = alloc::collections::BTreeMap::new();
+        domain.insert(alloc::string::String::from(stringify!($key_chain_id)), $crate::eip712::Value::Uint256(alloc::string::String::from($val_chain_id)));
+        domain.insert(alloc::string::String::from(stringify!($key_name)), $crate::eip712::Value::String(alloc::string::String::from($val_name)));
+        domain.insert(alloc::string::String::from(stringify!($key_verifying_contract)), $crate::eip712::Value::Address(alloc::string::String::from($val_verifying_contract)));
+        domain.insert(alloc::string::String::from(stringify!($key_version)), $crate::eip712::Value::String(alloc::string::String::from($val_version)));
+        $crate::eip712::Value::Object(domain)
+    }};
+    (@message {
+        $key_das_message:ident: $val_das_message:expr,
+        $key_action:ident: $val_action:tt,
+        $key_inputs_capacity:ident: $val_inputs_capacity:expr,
+        $key_outputs_capacity:ident: $val_outputs_capacity:expr,
+        $key_fee:ident: $val_fee:expr,
+        $key_inputs:ident: $val_inputs:tt,
+        $key_outputs:ident: $val_outputs:tt,
+        $key_digest:ident: $val_digest:expr
+    }) => {{
+        let mut message = alloc::collections::BTreeMap::new();
+        message.insert(alloc::string::String::from(stringify!($key_das_message)), $crate::eip712::Value::String(alloc::string::String::from($val_das_message)));
+        message.insert(alloc::string::String::from(stringify!($key_action)), typed_data_v4!(@object $val_action));
+        message.insert(alloc::string::String::from(stringify!($key_inputs_capacity)), $crate::eip712::Value::String(alloc::string::String::from($val_inputs_capacity)));
+        message.insert(alloc::string::String::from(stringify!($key_outputs_capacity)), $crate::eip712::Value::String(alloc::string::String::from($val_outputs_capacity)));
+        message.insert(alloc::string::String::from(stringify!($key_fee)), $crate::eip712::Value::String(alloc::string::String::from($val_fee)));
+        message.insert(alloc::string::String::from(stringify!($key_inputs)), typed_data_v4!(@array $val_inputs));
+        message.insert(alloc::string::String::from(stringify!($key_outputs)), typed_data_v4!(@array $val_outputs));
+        message.insert(alloc::string::String::from(stringify!($key_digest)), $crate::eip712::Value::Byte32(alloc::string::String::from($val_digest)));
+        $crate::eip712::Value::Object(message)
+    }};
+    ({ types: $types:tt, primaryType: $primary_type:expr, domain: $domain:tt, message: $message:tt }) => {{
+        $crate::eip712::TypedDataV4 {
+            types: typed_data_v4!(@types_1 $types),
+            primary_type: Value::String(String::from($primary_type)),
+            domain: typed_data_v4!(@domain $domain),
+            message: typed_data_v4!(@message $message),
+        }
+    }};
 }

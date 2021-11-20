@@ -1094,7 +1094,6 @@ dependencies = [
  "eip712",
  "hex",
  "no-std-compat",
- "serde_json",
  "sha2",
 ]
 
@@ -1159,8 +1158,6 @@ dependencies = [
  "ckb-std",
  "hex",
  "no-std-compat",
- "serde",
- "serde_json",
  "tiny-keccak",
 ]
 
