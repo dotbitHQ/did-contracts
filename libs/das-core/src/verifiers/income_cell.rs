@@ -1,4 +1,4 @@
-use crate::{assert, error::Error, inspect};
+use crate::{assert, error::Error};
 use ckb_std::{ckb_constants::Source, high_level};
 use das_map::map::Map;
 use das_types::{packed::*, prelude::*};
@@ -28,8 +28,8 @@ pub fn verify_records_match_with_creating(
     total_profit: u64,
     mut profit_map: Map<Vec<u8>, u64>,
 ) -> Result<(), Error> {
-    #[cfg(any(not(feature = "mainnet"), debug_assertions))]
-    inspect::income_cell(source, index, None, Some(income_cell_witness_reader));
+    #[cfg(debug_assertions)]
+    crate::inspect::income_cell(source, index, None, Some(income_cell_witness_reader));
 
     let income_cell_basic_capacity = u64::from(config_income.basic_capacity());
 

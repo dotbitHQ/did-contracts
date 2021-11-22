@@ -1,4 +1,4 @@
-use alloc::{borrow::ToOwned, string::String};
+use alloc::borrow::ToOwned;
 use ckb_std::{
     ckb_constants::Source,
     high_level::{load_cell_capacity, load_cell_lock, load_cell_type, load_script},
@@ -42,7 +42,7 @@ pub fn main() -> Result<(), Error> {
 
     debug!(
         "Route to {:?} action ...",
-        String::from_utf8(action.to_vec()).map_err(|_| Error::ActionNotSupported)?
+        alloc::string::String::from_utf8(action.to_vec()).map_err(|_| Error::ActionNotSupported)?
     );
     match action {
         b"propose" | b"extend_proposal" => {
@@ -98,9 +98,9 @@ pub fn main() -> Result<(), Error> {
             let required_cells_count = verify_slices(config_proposal, output_cell_witness_reader.slices())?;
             let dep_related_cells = find_proposal_related_cells(config_main, Source::CellDep)?;
 
-            #[cfg(any(not(feature = "mainnet"), debug_assertions))]
+            #[cfg(debug_assertions)]
             inspect_slices(output_cell_witness_reader.slices())?;
-            #[cfg(any(not(feature = "mainnet"), debug_assertions))]
+            #[cfg(debug_assertions)]
             inspect_related_cells(&parser, config_main, dep_related_cells.clone(), Source::CellDep)?;
 
             assert!(
@@ -202,7 +202,7 @@ pub fn main() -> Result<(), Error> {
     Ok(())
 }
 
-#[cfg(any(not(feature = "mainnet"), debug_assertions))]
+#[cfg(debug_assertions)]
 fn inspect_slices(slices_reader: SliceListReader) -> Result<(), Error> {
     debug!("Inspect Slices [");
     for (sl_index, sl_reader) in slices_reader.iter().enumerate() {
@@ -230,7 +230,7 @@ fn inspect_slices(slices_reader: SliceListReader) -> Result<(), Error> {
     Ok(())
 }
 
-#[cfg(any(not(feature = "mainnet"), debug_assertions))]
+#[cfg(debug_assertions)]
 fn inspect_related_cells(
     parser: &WitnessesParser,
     config_main: ConfigCellMainReader,
@@ -336,8 +336,8 @@ fn verify_slices(config: ConfigCellProposalReader, slices_reader: SliceListReade
                     Error::ProposalSliceIsDiscontinuity,
                     "  Item[{}].next should be {}, but it is {} now.",
                     index,
-                    next_item.account_id(),
-                    item.next()
+                    util::hex_string(next_item.account_id().raw_data()),
+                    util::hex_string(item.next().raw_data())
                 );
             }
 
@@ -484,8 +484,8 @@ fn verify_slices_relevant_cells(
     debug!("Check the proposal slices relevant cells are real exist and in correct status.");
 
     let mut i = 0;
-    for (sl_index, sl_reader) in slices_reader.iter().enumerate() {
-        debug!("Check slice {} ...", sl_index);
+    for (_sl_index, sl_reader) in slices_reader.iter().enumerate() {
+        debug!("Check slice {} ...", _sl_index);
         let mut next_of_first_cell = AccountId::default();
         for (item_index, item) in sl_reader.iter().enumerate() {
             let item_account_id = item.account_id();
@@ -621,7 +621,7 @@ fn verify_proposal_execution_result(
 ) -> Result<(), Error> {
     debug!("Check that all AccountCells/PreAccountCells have been converted according to the proposal.");
 
-    #[cfg(any(not(feature = "mainnet"), debug_assertions))]
+    #[cfg(debug_assertions)]
     inspect_slices(proposal_cell_data_reader.slices())?;
 
     let das_wallet_lock = das_wallet_lock();
@@ -633,9 +633,9 @@ fn verify_proposal_execution_result(
     let input_related_cells = find_proposal_related_cells(config_main, Source::Input)?;
     let output_account_cells = find_output_account_cells(config_main)?;
 
-    #[cfg(any(not(feature = "mainnet"), debug_assertions))]
+    #[cfg(debug_assertions)]
     inspect_related_cells(&parser, config_main, input_related_cells.clone(), Source::Input)?;
-    #[cfg(any(not(feature = "mainnet"), debug_assertions))]
+    #[cfg(debug_assertions)]
     inspect_related_cells(&parser, config_main, output_account_cells.clone(), Source::Output)?;
 
     let mut profit_map = Map::new();
@@ -648,8 +648,8 @@ fn verify_proposal_execution_result(
     let default_lock_reader = default_lock.as_reader();
 
     let mut i = 0;
-    for (sl_index, sl_reader) in slices_reader.iter().enumerate() {
-        debug!("Check Slice[{}] ...", sl_index);
+    for (_sl_index, sl_reader) in slices_reader.iter().enumerate() {
+        debug!("Check Slice[{}] ...", _sl_index);
 
         let last_item = sl_reader.get(sl_reader.len() - 1).unwrap();
         let original_next_of_account_cell = last_item.next().raw_data();
@@ -938,7 +938,7 @@ fn verify_proposal_execution_result(
         IncomeCellData
     );
 
-    #[cfg(any(not(feature = "mainnet"), debug_assertions))]
+    #[cfg(debug_assertions)]
     das_core::inspect::income_cell(
         Source::Output,
         output_income_cells[0],

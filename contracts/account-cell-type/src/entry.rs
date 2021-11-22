@@ -1,8 +1,8 @@
-use alloc::{boxed::Box, string::String, vec, vec::Vec};
+use alloc::{boxed::Box, vec, vec::Vec};
 use ckb_std::{ckb_constants::Source, ckb_types::prelude::*, high_level};
 use das_core::{
     assert,
-    constants::{das_lock, das_wallet_lock, OracleCellType, ScriptType, TypeScript, CUSTOM_KEYS_NAMESPACE},
+    constants::{das_wallet_lock, OracleCellType, ScriptType, TypeScript, CUSTOM_KEYS_NAMESPACE},
     data_parser, debug,
     eip712::{verify_eip712_hashes, verify_eip712_hashes_if_no_balance_cell},
     error::Error,
@@ -34,39 +34,11 @@ pub fn main() -> Result<(), Error> {
 
     debug!(
         "Route to {:?} action ...",
-        String::from_utf8(action.to_vec()).map_err(|_| Error::ActionNotSupported)?
+        alloc::string::String::from_utf8(action.to_vec()).map_err(|_| Error::ActionNotSupported)?
     );
     match action {
         b"init_account_chain" => {
-            // No Root AccountCell can be created after the initialization day of DAS.
-            let timestamp = util::load_oracle_data(OracleCellType::Time)?;
-            util::is_init_day(timestamp)?;
-
-            let this_type_script = high_level::load_script().map_err(|e| Error::from(e))?;
-            let (input_cells, output_cells) =
-                util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
-
-            assert!(
-                input_cells.len() == 0,
-                Error::InvalidTransactionStructure,
-                "There should be no AccountCells in inputs."
-            );
-            assert!(
-                output_cells.len() == 1,
-                Error::InvalidTransactionStructure,
-                "There should be only one AccountCells in outputs."
-            );
-
-            debug!("Check if root AccountCell uses das-lock ...");
-
-            let index = output_cells[0];
-            let expected_lock = das_lock();
-            let lock_script = high_level::load_cell_lock(index, Source::Output).map_err(|e| Error::from(e))?;
-            assert!(
-                expected_lock.as_reader().code_hash().raw_data() == lock_script.as_reader().code_hash().raw_data(),
-                Error::InvalidTransactionStructure,
-                "The lock script of AccountCell should be das-lock script."
-            );
+            unreachable!();
         }
         b"transfer_account" | b"edit_manager" | b"edit_records" => {
             verifiers::account_cell::verify_unlock_role(action_raw.as_reader(), &params)?;

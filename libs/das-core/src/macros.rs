@@ -1,22 +1,15 @@
 #[macro_export]
 macro_rules! debug {
-    ($fmt:literal) => {
-        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
-        ckb_std::syscalls::debug(alloc::format!($fmt));
-    };
-    ($fmt:literal, $($args:expr),+) => {
-        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
-        ckb_std::syscalls::debug(alloc::format!($fmt, $($args), +));
+    ($($arg:tt)*) => {
+        #[cfg(all(not(feature = "std"), debug_assertions))]
+        ckb_std::syscalls::debug(alloc::format!($($arg)*));
     };
 }
 
 #[macro_export]
 macro_rules! warn {
-    ($fmt:literal) => {
-        ckb_std::syscalls::debug(alloc::format!($fmt));
-    };
-    ($fmt:literal, $($args:expr),+) => {
-        ckb_std::syscalls::debug(alloc::format!($fmt, $($args), +));
+    ($($arg:tt)*) => {
+        ckb_std::syscalls::debug(alloc::format!($($arg)*));
     };
 }
 

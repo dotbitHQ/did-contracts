@@ -1,4 +1,3 @@
-use alloc::string::String;
 use ckb_std::{ckb_constants::Source, high_level};
 use core::result::Result;
 use das_core::{
@@ -24,7 +23,7 @@ pub fn main() -> Result<(), Error> {
 
     debug!(
         "Route to {:?} action ...",
-        String::from_utf8(action.to_vec()).map_err(|_| Error::ActionNotSupported)?
+        alloc::string::String::from_utf8(action.to_vec()).map_err(|_| Error::ActionNotSupported)?
     );
 
     let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;

@@ -10,6 +10,7 @@ use ckb_std::ckb_constants::Source;
 use core::convert::TryInto;
 use das_types::{packed::*, prelude::*, prettier::Prettier, util::hex_string};
 
+#[cfg(debug_assertions)]
 pub fn apply_register_cell(source: Source, index: usize, data: &Vec<u8>) {
     debug!("  ====== {:?}[{}] ApplyRegisterCell ↓ ======", source, index);
 
@@ -21,6 +22,7 @@ pub fn apply_register_cell(source: Source, index: usize, data: &Vec<u8>) {
     );
 }
 
+#[cfg(debug_assertions)]
 pub fn pre_account_cell(
     source: Source,
     index: usize,
@@ -44,6 +46,7 @@ pub fn pre_account_cell(
     debug!("    witness: {}", witness_reader.as_prettier());
 }
 
+#[cfg(debug_assertions)]
 pub fn account_cell(
     source: Source,
     index: usize,
@@ -90,6 +93,7 @@ pub fn account_cell(
     }
 }
 
+#[cfg(debug_assertions)]
 pub fn income_cell(
     source: Source,
     index: usize,

@@ -1,4 +1,4 @@
-use alloc::{borrow::ToOwned, string::String, vec::Vec};
+use alloc::{borrow::ToOwned, vec::Vec};
 use ckb_std::{ckb_constants::Source, debug, high_level};
 use core::result::Result;
 use core::slice::Iter;
@@ -23,7 +23,7 @@ pub fn main() -> Result<(), Error> {
 
     debug!(
         "Route to {:?} action ...",
-        String::from_utf8(action.to_vec()).map_err(|_| Error::ActionNotSupported)?
+        alloc::string::String::from_utf8(action.to_vec()).map_err(|_| Error::ActionNotSupported)?
     );
     if action == b"create_income" {
         debug!("Route to create_income action ...");
@@ -133,7 +133,7 @@ pub fn main() -> Result<(), Error> {
             let income_cell_witness = IncomeCellData::from_slice(entity.as_reader().raw_data())
                 .map_err(|_| Error::WitnessEntityDecodingError)?;
 
-            #[cfg(any(not(feature = "mainnet"), debug_assertions))]
+            #[cfg(debug_assertions)]
             das_core::inspect::income_cell(Source::Input, index, None, Some(income_cell_witness.as_reader()));
 
             let creator = income_cell_witness.creator();
@@ -169,9 +169,9 @@ pub fn main() -> Result<(), Error> {
             input_records,
         );
 
-        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
+        #[cfg(debug_assertions)]
         inspect_records("Records should be kept:", &records_should_keep);
-        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
+        #[cfg(debug_assertions)]
         inspect_records("Records should be transferred:", &records_should_transfer);
 
         debug!("Conclusion of need_pad: {}", need_pad);
@@ -184,7 +184,7 @@ pub fn main() -> Result<(), Error> {
             let income_cell_witness = IncomeCellData::from_slice(entity.as_reader().raw_data())
                 .map_err(|_| Error::WitnessEntityDecodingError)?;
 
-            #[cfg(any(not(feature = "mainnet"), debug_assertions))]
+            #[cfg(debug_assertions)]
             das_core::inspect::income_cell(
                 Source::Output,
                 cell_index.to_owned(),
@@ -326,7 +326,7 @@ pub fn main() -> Result<(), Error> {
             )?;
         }
 
-        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
+        #[cfg(debug_assertions)]
         inspect_records(
             "Records should be used to pad IncomeCell capacity:",
             &records_used_for_pad,
@@ -549,7 +549,7 @@ fn verify_das_lock_and_balance_type(
     Ok(())
 }
 
-#[cfg(any(not(feature = "mainnet"), debug_assertions))]
+#[cfg(debug_assertions)]
 fn inspect_records(title: &str, records: &Vec<(Script, u64, bool)>) {
     debug!("{} {} total", title, records.len());
 

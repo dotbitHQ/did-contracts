@@ -1,4 +1,3 @@
-use alloc::string::String;
 use ckb_std::{
     ckb_constants::Source,
     high_level::{load_cell_capacity, load_cell_data, load_cell_lock, load_script},
@@ -99,7 +98,7 @@ pub fn main() -> Result<(), Error> {
         };
         let apply_register_lock = load_cell_lock(index.to_owned(), Source::Input)?;
 
-        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
+        #[cfg(debug_assertions)]
         das_core::inspect::apply_register_cell(Source::Input, index.to_owned(), &data);
 
         let height = util::load_oracle_data(OracleCellType::Height)?;
@@ -124,7 +123,7 @@ pub fn main() -> Result<(), Error> {
             PreAccountCellData
         );
 
-        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
+        #[cfg(debug_assertions)]
         das_core::inspect::pre_account_cell(
             Source::Output,
             output_cells[0],
@@ -577,11 +576,11 @@ fn verify_account_length_and_years(reader: PreAccountCellDataReader, current_tim
     use chrono::{DateTime, NaiveDateTime, Utc};
 
     let account_length = reader.account().len();
-    let current = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(current_timestamp as i64, 0), Utc);
+    let _current = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(current_timestamp as i64, 0), Utc);
 
     debug!(
         "Check if the account is available for registration now. (length: {}, current: {:#?})",
-        account_length, current
+        account_length, _current
     );
 
     // On CKB main net, AKA Lina, accounts of less lengths can be registered only after a specific number of years.
@@ -649,7 +648,7 @@ fn verify_unavailable_accounts(
 
     debug!(
         "account {} account_hash {}",
-        String::from_utf8(account.clone()).unwrap(),
+        alloc::string::String::from_utf8(account.clone()).unwrap(),
         util::hex_string(&account_hash)
     );
 

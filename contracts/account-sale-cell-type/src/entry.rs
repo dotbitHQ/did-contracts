@@ -1,4 +1,4 @@
-use alloc::{boxed::Box, string::String, vec, vec::Vec};
+use alloc::{boxed::Box, vec, vec::Vec};
 use ckb_std::{
     ckb_constants::Source,
     ckb_types::{packed as ckb_packed, prelude::*},
@@ -33,7 +33,7 @@ pub fn main() -> Result<(), Error> {
 
     debug!(
         "Route to {:?} action ...",
-        String::from_utf8(action.to_vec()).map_err(|_| Error::ActionNotSupported)?
+        alloc::string::String::from_utf8(action.to_vec()).map_err(|_| Error::ActionNotSupported)?
     );
     match action {
         b"start_account_sale" | b"cancel_account_sale" | b"buy_account" => {
