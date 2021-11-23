@@ -717,10 +717,12 @@ pub fn require_type_script(
         TypeScript::AccountAuctionCellType => config.type_id_table().account_auction_cell(),
         TypeScript::ApplyRegisterCellType => config.type_id_table().apply_register_cell(),
         TypeScript::BalanceCellType => config.type_id_table().balance_cell(),
+        TypeScript::ConfigCellType => parser.config_cell_type_id.as_reader(),
         TypeScript::IncomeCellType => config.type_id_table().income_cell(),
         TypeScript::OfferCellType => config.type_id_table().offer_cell(),
         TypeScript::PreAccountCellType => config.type_id_table().pre_account_cell(),
         TypeScript::ProposalCellType => config.type_id_table().proposal_cell(),
+        TypeScript::ReverseRecordCellType => config.type_id_table().reverse_record_cell(),
     };
 
     debug!(
@@ -755,8 +757,8 @@ pub fn require_super_lock() -> Result<(), Error> {
 }
 
 /// Get the role required by each action
-pub fn get_action_required_role(action: das_packed::BytesReader) -> Option<LockRole> {
-    match action.raw_data() {
+pub fn get_action_required_role(action: &[u8]) -> Option<LockRole> {
+    match action {
         // account-cell-type
         b"transfer_account" => Some(LockRole::Owner),
         b"edit_manager" => Some(LockRole::Owner),

@@ -1,16 +1,16 @@
-use alloc::{boxed::Box, vec, vec::Vec};
+use alloc::{boxed::Box, format, string::String, vec, vec::Vec};
 use ckb_std::{ckb_constants::Source, ckb_types::prelude::*, high_level};
 use das_core::{
     assert,
     constants::{das_wallet_lock, OracleCellType, ScriptType, TypeScript, CUSTOM_KEYS_NAMESPACE},
     data_parser, debug,
-    eip712::{verify_eip712_hashes, verify_eip712_hashes_if_no_balance_cell},
+    eip712::{to_semantic_address, verify_eip712_hashes},
     error::Error,
     parse_account_cell_witness, parse_witness, util, verifiers,
     witness_parser::WitnessesParser,
 };
 use das_types::{
-    constants::{AccountStatus, DataType},
+    constants::{AccountStatus, DataType, LockRole},
     mixer::*,
     packed::*,
 };
@@ -19,14 +19,11 @@ pub fn main() -> Result<(), Error> {
     debug!("====== Running account-cell-type ======");
 
     let mut parser = WitnessesParser::new()?;
-    let action_opt = parser.parse_action_with_params()?;
-    if action_opt.is_none() {
-        return Err(Error::ActionNotSupported);
-    }
-
-    let (action_raw, params_raw) = action_opt.unwrap();
-    let action = action_raw.as_reader().raw_data();
-    let params = params_raw.iter().map(|param| param.as_reader()).collect::<Vec<_>>();
+    let action_cp = match parser.parse_action_with_params()? {
+        Some((action, _)) => action.to_vec(),
+        None => return Err(Error::ActionNotSupported),
+    };
+    let action = action_cp.as_slice();
 
     if action != b"init_account_chain" {
         util::is_system_off(&mut parser)?;
@@ -41,14 +38,12 @@ pub fn main() -> Result<(), Error> {
             unreachable!();
         }
         b"transfer_account" | b"edit_manager" | b"edit_records" => {
-            verifiers::account_cell::verify_unlock_role(action_raw.as_reader(), &params)?;
+            verifiers::account_cell::verify_unlock_role(action, &parser.params)?;
 
             let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
             parser.parse_config(&[DataType::ConfigCellMain, DataType::ConfigCellAccount])?;
             parser.parse_cell()?;
-
-            verify_eip712_hashes(&parser, action_raw.as_reader(), &params)?;
 
             let (input_account_cells, output_account_cells) = load_account_cells()?;
             assert!(
@@ -92,119 +87,142 @@ pub fn main() -> Result<(), Error> {
                 "The witness of the AccountCell in outputs should be upgrade to version 2."
             );
 
-            if action == b"transfer_account" {
-                let config_account = parser.configs.account()?;
+            match action {
+                b"transfer_account" => {
+                    verify_eip712_hashes(&parser, transfer_account_to_semantic)?;
 
-                verify_input_account_must_normal_status(&input_cell_witness_reader)?;
-                verify_transaction_fee_spent_correctly(
-                    action,
-                    config_account,
-                    input_account_cells[0],
-                    output_account_cells[0],
-                )?;
-                verify_action_throttle(
-                    action,
-                    config_account,
-                    &input_cell_witness_reader,
-                    &output_cell_witness_reader,
-                    timestamp,
-                )?;
-                verifiers::account_cell::verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
-                verifiers::account_cell::verify_account_lock_consistent(
-                    input_account_cells[0],
-                    output_account_cells[0],
-                    Some("owner"),
-                )?;
-                verifiers::account_cell::verify_account_data_consistent(
-                    input_account_cells[0],
-                    output_account_cells[0],
-                    vec![],
-                )?;
-                verifiers::account_cell::verify_account_witness_consistent(
-                    input_account_cells[0],
-                    output_account_cells[0],
-                    &input_cell_witness_reader,
-                    &output_cell_witness_reader,
-                    vec!["last_transfer_account_at", "records"],
-                )?;
-                verifiers::account_cell::verify_account_witness_record_empty(
-                    &output_cell_witness_reader,
-                    output_account_cells[0],
-                    Source::Output,
-                )?;
-            } else if action == b"edit_manager" {
-                let config_account = parser.configs.account()?;
+                    let config_account = parser.configs.account()?;
 
-                verify_input_account_must_normal_status(&input_cell_witness_reader)?;
-                verify_transaction_fee_spent_correctly(
-                    action,
-                    config_account,
-                    input_account_cells[0],
-                    output_account_cells[0],
-                )?;
-                verify_action_throttle(
-                    action,
-                    config_account,
-                    &input_cell_witness_reader,
-                    &output_cell_witness_reader,
-                    timestamp,
-                )?;
-                verifiers::account_cell::verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
-                verifiers::account_cell::verify_account_lock_consistent(
-                    input_account_cells[0],
-                    output_account_cells[0],
-                    Some("manager"),
-                )?;
-                verifiers::account_cell::verify_account_data_consistent(
-                    input_account_cells[0],
-                    output_account_cells[0],
-                    vec![],
-                )?;
-                verifiers::account_cell::verify_account_witness_consistent(
-                    input_account_cells[0],
-                    output_account_cells[0],
-                    &input_cell_witness_reader,
-                    &output_cell_witness_reader,
-                    vec!["last_edit_manager_at"],
-                )?;
-            } else if action == b"edit_records" {
-                parser.parse_config(&[DataType::ConfigCellRecordKeyNamespace])?;
-                let config_account = parser.configs.account()?;
-                let record_key_namespace = parser.configs.record_key_namespace()?;
+                    verify_input_account_must_normal_status(&input_cell_witness_reader)?;
+                    verify_transaction_fee_spent_correctly(
+                        action,
+                        config_account,
+                        input_account_cells[0],
+                        output_account_cells[0],
+                    )?;
+                    verify_action_throttle(
+                        action,
+                        config_account,
+                        &input_cell_witness_reader,
+                        &output_cell_witness_reader,
+                        timestamp,
+                    )?;
+                    verifiers::account_cell::verify_account_expiration(
+                        config_account,
+                        input_account_cells[0],
+                        timestamp,
+                    )?;
+                    verifiers::account_cell::verify_account_lock_consistent(
+                        input_account_cells[0],
+                        output_account_cells[0],
+                        Some("owner"),
+                    )?;
+                    verifiers::account_cell::verify_account_data_consistent(
+                        input_account_cells[0],
+                        output_account_cells[0],
+                        vec![],
+                    )?;
+                    verifiers::account_cell::verify_account_witness_consistent(
+                        input_account_cells[0],
+                        output_account_cells[0],
+                        &input_cell_witness_reader,
+                        &output_cell_witness_reader,
+                        vec!["last_transfer_account_at", "records"],
+                    )?;
+                    verifiers::account_cell::verify_account_witness_record_empty(
+                        &output_cell_witness_reader,
+                        output_account_cells[0],
+                        Source::Output,
+                    )?;
+                }
+                b"edit_manager" => {
+                    verify_eip712_hashes(&parser, edit_manager_to_semantic)?;
 
-                verify_input_account_must_normal_status(&input_cell_witness_reader)?;
-                verify_transaction_fee_spent_correctly(
-                    action,
-                    config_account,
-                    input_account_cells[0],
-                    output_account_cells[0],
-                )?;
-                verify_action_throttle(
-                    action,
-                    config_account,
-                    &input_cell_witness_reader,
-                    &output_cell_witness_reader,
-                    timestamp,
-                )?;
-                verifiers::account_cell::verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
-                verifiers::account_cell::verify_account_lock_consistent(
-                    input_account_cells[0],
-                    output_account_cells[0],
-                    None,
-                )?;
-                verifiers::account_cell::verify_account_data_consistent(
-                    input_account_cells[0],
-                    output_account_cells[0],
-                    vec![],
-                )?;
-                verifiers::account_cell::verify_account_witness_consistent(
-                    input_account_cells[0],
-                    output_account_cells[0],
-                    &input_cell_witness_reader,
-                    &output_cell_witness_reader,
-                    vec!["records", "last_edit_records_at"],
-                )?;
-                verify_records_keys(config_account, record_key_namespace, &output_cell_witness_reader)?;
+                    let config_account = parser.configs.account()?;
+
+                    verify_input_account_must_normal_status(&input_cell_witness_reader)?;
+                    verify_transaction_fee_spent_correctly(
+                        action,
+                        config_account,
+                        input_account_cells[0],
+                        output_account_cells[0],
+                    )?;
+                    verify_action_throttle(
+                        action,
+                        config_account,
+                        &input_cell_witness_reader,
+                        &output_cell_witness_reader,
+                        timestamp,
+                    )?;
+                    verifiers::account_cell::verify_account_expiration(
+                        config_account,
+                        input_account_cells[0],
+                        timestamp,
+                    )?;
+                    verifiers::account_cell::verify_account_lock_consistent(
+                        input_account_cells[0],
+                        output_account_cells[0],
+                        Some("manager"),
+                    )?;
+                    verifiers::account_cell::verify_account_data_consistent(
+                        input_account_cells[0],
+                        output_account_cells[0],
+                        vec![],
+                    )?;
+                    verifiers::account_cell::verify_account_witness_consistent(
+                        input_account_cells[0],
+                        output_account_cells[0],
+                        &input_cell_witness_reader,
+                        &output_cell_witness_reader,
+                        vec!["last_edit_manager_at"],
+                    )?;
+                }
+                b"edit_records" => {
+                    verify_eip712_hashes(&parser, edit_records_to_semantic)?;
+
+                    parser.parse_config(&[DataType::ConfigCellRecordKeyNamespace])?;
+                    let config_account = parser.configs.account()?;
+                    let record_key_namespace = parser.configs.record_key_namespace()?;
+
+                    verify_input_account_must_normal_status(&input_cell_witness_reader)?;
+                    verify_transaction_fee_spent_correctly(
+                        action,
+                        config_account,
+                        input_account_cells[0],
+                        output_account_cells[0],
+                    )?;
+                    verify_action_throttle(
+                        action,
+                        config_account,
+                        &input_cell_witness_reader,
+                        &output_cell_witness_reader,
+                        timestamp,
+                    )?;
+                    verifiers::account_cell::verify_account_expiration(
+                        config_account,
+                        input_account_cells[0],
+                        timestamp,
+                    )?;
+                    verifiers::account_cell::verify_account_lock_consistent(
+                        input_account_cells[0],
+                        output_account_cells[0],
+                        None,
+                    )?;
+                    verifiers::account_cell::verify_account_data_consistent(
+                        input_account_cells[0],
+                        output_account_cells[0],
+                        vec![],
+                    )?;
+                    verifiers::account_cell::verify_account_witness_consistent(
+                        input_account_cells[0],
+                        output_account_cells[0],
+                        &input_cell_witness_reader,
+                        &output_cell_witness_reader,
+                        vec!["records", "last_edit_records_at"],
+                    )?;
+                    verify_records_keys(config_account, record_key_namespace, &output_cell_witness_reader)?;
+                }
+                _ => unreachable!(),
             }
         }
         b"renew_account" => {
@@ -482,7 +500,6 @@ pub fn main() -> Result<(), Error> {
             return Err(Error::InvalidTransactionStructure);
         }
         b"start_account_sale" => {
-            verify_eip712_hashes_if_no_balance_cell(&parser, action_raw.as_reader(), &params)?;
             util::require_type_script(
                 &mut parser,
                 TypeScript::AccountSaleCellType,
@@ -490,16 +507,7 @@ pub fn main() -> Result<(), Error> {
                 Error::InvalidTransactionStructure,
             )?;
         }
-        b"cancel_account_sale" => {
-            verify_eip712_hashes_if_no_balance_cell(&parser, action_raw.as_reader(), &params)?;
-            util::require_type_script(
-                &mut parser,
-                TypeScript::AccountSaleCellType,
-                Source::Input,
-                Error::InvalidTransactionStructure,
-            )?;
-        }
-        b"buy_account" => {
+        b"cancel_account_sale" | b"buy_account" => {
             util::require_type_script(
                 &mut parser,
                 TypeScript::AccountSaleCellType,
@@ -673,6 +681,54 @@ pub fn main() -> Result<(), Error> {
     }
 
     Ok(())
+}
+
+fn transfer_account_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
+    let type_id_table_reader = parser.configs.main()?.type_id_table();
+    let (input_cells, output_cells) =
+        util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, type_id_table_reader.account_cell())?;
+
+    // Parse account from the data of the AccountCell in inputs.
+    let data_in_bytes = util::load_cell_data(input_cells[0], Source::Input)?;
+    let account_in_bytes = data_parser::account_cell::get_account(&data_in_bytes);
+    let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| Error::EIP712SerializationError)?;
+
+    // Parse from address from the AccountCell's lock script in inputs.
+    // let from_lock = high_level::load_cell_lock(input_cells[0], Source::Input).map_err(|e| Error::from(e))?;
+    // let from_address = to_semantic_address(from_lock.as_reader().into(), 1..21)?;
+    // Parse to address from the AccountCell's lock script in outputs.
+    let to_lock = high_level::load_cell_lock(output_cells[0], Source::Output).map_err(|e| Error::from(e))?;
+    let to_address = to_semantic_address(parser, to_lock.as_reader().into(), LockRole::Owner)?;
+
+    Ok(format!("TRANSFER THE ACCOUNT {} TO {}", account, to_address))
+}
+
+fn edit_manager_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
+    let type_id_table_reader = parser.configs.main()?.type_id_table();
+    let (input_cells, _output_cells) =
+        util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, type_id_table_reader.account_cell())?;
+
+    // Parse account from the data of the AccountCell in inputs.
+    let data_in_bytes = util::load_cell_data(input_cells[0], Source::Input)?;
+    let account_in_bytes = data_parser::account_cell::get_account(&data_in_bytes);
+    let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| Error::EIP712SerializationError)?;
+
+    // TODO Improve semantic message of this transaction.
+    Ok(format!("EDIT MANAGER OF ACCOUNT {}", account))
+}
+
+fn edit_records_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
+    let type_id_table_reader = parser.configs.main()?.type_id_table();
+    let (input_cells, _output_cells) =
+        util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, type_id_table_reader.account_cell())?;
+
+    // Parse account from the data of the AccountCell in inputs.
+    let data_in_bytes = util::load_cell_data(input_cells[0], Source::Input)?;
+    let account_in_bytes = data_parser::account_cell::get_account(&data_in_bytes);
+    let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| Error::EIP712SerializationError)?;
+
+    // TODO Improve semantic message of this transaction.
+    Ok(format!("EDIT RECORDS OF ACCOUNT {}", account))
 }
 
 fn verify_input_account_must_normal_status<'a>(

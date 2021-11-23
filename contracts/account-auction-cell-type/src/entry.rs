@@ -4,14 +4,11 @@ use das_core::{constants::*, debug, error::Error, util, witness_parser::Witnesse
 pub fn main() -> Result<(), Error> {
     debug!("====== Running account-auction-cell-type ======");
     let mut parser = WitnessesParser::new()?;
-    let action_opt = parser.parse_action_with_params()?;
-    if action_opt.is_none() {
-        return Err(Error::ActionNotSupported);
-    }
-
-    let (action_raw, _params_raw) = action_opt.unwrap();
-    let action = action_raw.as_reader().raw_data();
-    // let params = params_raw.iter().map(|param| param.as_reader()).collect::<Vec<_>>();
+    let action_cp = match parser.parse_action_with_params()? {
+        Some((action, _)) => action.to_vec(),
+        None => return Err(Error::ActionNotSupported),
+    };
+    let action = action_cp.as_slice();
 
     util::is_system_off(&mut parser)?;
     parser.parse_cell()?;

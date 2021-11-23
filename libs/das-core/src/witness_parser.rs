@@ -3,7 +3,7 @@ use super::{
     constants::*,
     debug,
     error::Error,
-    types::{CharSet, Configs},
+    types::{CharSet, Configs, LockScriptTypeIdTable},
     util, warn,
 };
 use ckb_std::{ckb_constants::Source, error::SysError, syscalls};
@@ -21,6 +21,10 @@ use std::prelude::v1::*;
 pub struct WitnessesParser {
     pub witnesses: Vec<(usize, DataType)>,
     pub configs: Configs,
+    pub action: Vec<u8>,
+    pub params: Vec<Bytes>,
+    pub lock_type_id_table: LockScriptTypeIdTable,
+    pub config_cell_type_id: Hash,
     // The Bytes is wrapped DataEntity.entity.
     dep: Vec<(u32, u32, DataType, Vec<u8>, Bytes)>,
     old: Vec<(u32, u32, DataType, Vec<u8>, Bytes)>,
@@ -90,16 +94,27 @@ impl WitnessesParser {
             }
         }
 
+        let lock_type_id_table = LockScriptTypeIdTable {
+            always_success: always_success_lock().into(),
+            das_lock: das_lock().into(),
+            secp256k1_blake160_signhash_all: signall_lock().into(),
+            secp256k1_blake160_multisig_all: multisign_lock().into(),
+        };
+
         Ok(WitnessesParser {
             witnesses,
             configs: Configs::new(),
+            action: Vec::new(),
+            params: Vec::new(),
+            lock_type_id_table,
+            config_cell_type_id: config_cell_type().code_hash().into(),
             dep: Vec::new(),
             old: Vec::new(),
             new: Vec::new(),
         })
     }
 
-    pub fn parse_action_with_params(&self) -> Result<Option<(Bytes, Vec<Bytes>)>, Error> {
+    pub fn parse_action_with_params(&mut self) -> Result<Option<(&[u8], &[Bytes])>, Error> {
         if self.witnesses.is_empty() {
             return Ok(None);
         }
@@ -109,7 +124,9 @@ impl WitnessesParser {
 
         let action_data =
             ActionData::from_slice(raw.get(7..).unwrap()).map_err(|_| Error::WitnessActionDecodingError)?;
-        let params = match action_data.as_reader().action().raw_data() {
+        let action = action_data.as_reader().action().raw_data().to_vec();
+
+        let params = match action.as_slice() {
             b"transfer_account"
             | b"edit_manager"
             | b"edit_records"
@@ -163,7 +180,79 @@ impl WitnessesParser {
             _ => Vec::new(),
         };
 
-        Ok(Some((action_data.action(), params)))
+        self.action = action;
+        self.params = params;
+
+        Ok(Some((&self.action, &self.params)))
+    }
+
+    pub fn get_lock_script_type(&self, script_reader: ScriptReader) -> Option<LockScript> {
+        match script_reader {
+            x if util::is_type_id_equal(self.lock_type_id_table.always_success.as_reader().into(), x.into()) => {
+                Some(LockScript::DasLock)
+            }
+            x if util::is_type_id_equal(self.lock_type_id_table.das_lock.as_reader().into(), x.into()) => {
+                Some(LockScript::DasLock)
+            }
+            x if util::is_type_id_equal(
+                self.lock_type_id_table
+                    .secp256k1_blake160_signhash_all
+                    .as_reader()
+                    .into(),
+                x.into(),
+            ) =>
+            {
+                Some(LockScript::Secp256k1Blake160SignhashLock)
+            }
+            x if util::is_type_id_equal(
+                self.lock_type_id_table
+                    .secp256k1_blake160_multisig_all
+                    .as_reader()
+                    .into(),
+                x.into(),
+            ) =>
+            {
+                Some(LockScript::Secp256k1Blake160MultisigLock)
+            }
+            _ => None,
+        }
+    }
+
+    pub fn get_type_script_type(&self, script_reader: ScriptReader) -> Option<TypeScript> {
+        if script_reader.hash_type().as_slice()[0] != ScriptHashType::Type as u8 {
+            return None;
+        }
+
+        let type_id_table_reader = self
+            .configs
+            .main()
+            .expect("Expect ConfigCellMain has been loaded.")
+            .type_id_table();
+
+        match script_reader.code_hash() {
+            x if util::is_reader_eq(x, type_id_table_reader.apply_register_cell()) => {
+                Some(TypeScript::ApplyRegisterCellType)
+            }
+            x if util::is_reader_eq(x, type_id_table_reader.account_cell()) => Some(TypeScript::AccountCellType),
+            x if util::is_reader_eq(x, type_id_table_reader.account_sale_cell()) => {
+                Some(TypeScript::AccountSaleCellType)
+            }
+            x if util::is_reader_eq(x, type_id_table_reader.account_auction_cell()) => {
+                Some(TypeScript::AccountAuctionCellType)
+            }
+            x if util::is_reader_eq(x, type_id_table_reader.balance_cell()) => Some(TypeScript::BalanceCellType),
+            x if util::is_reader_eq(x, type_id_table_reader.income_cell()) => Some(TypeScript::IncomeCellType),
+            x if util::is_reader_eq(x, type_id_table_reader.pre_account_cell()) => Some(TypeScript::PreAccountCellType),
+            x if util::is_reader_eq(x, type_id_table_reader.proposal_cell()) => Some(TypeScript::ProposalCellType),
+            x if util::is_reader_eq(x, type_id_table_reader.reverse_record_cell()) => {
+                Some(TypeScript::ReverseRecordCellType)
+            }
+            x if util::is_reader_eq(x, type_id_table_reader.reverse_record_cell()) => {
+                Some(TypeScript::ReverseRecordCellType)
+            }
+            x if util::is_reader_eq(x, self.config_cell_type_id.as_reader()) => Some(TypeScript::ConfigCellType),
+            _ => None,
+        }
     }
 
     pub fn parse_config(&mut self, config_types: &[DataType]) -> Result<(), Error> {

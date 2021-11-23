@@ -38,6 +38,14 @@ pub struct CharSet {
     pub data: Vec<u8>,
 }
 
+#[derive(Debug)]
+pub struct LockScriptTypeIdTable {
+    pub always_success: Script,
+    pub das_lock: Script,
+    pub secp256k1_blake160_signhash_all: Script,
+    pub secp256k1_blake160_multisig_all: Script,
+}
+
 #[derive(Debug, Default)]
 pub struct Configs {
     pub account: Option<ConfigCellAccount>,

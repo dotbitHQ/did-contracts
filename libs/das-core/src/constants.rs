@@ -24,10 +24,20 @@ pub enum TypeScript {
     AccountAuctionCellType,
     ApplyRegisterCellType,
     BalanceCellType,
+    ConfigCellType,
     IncomeCellType,
     OfferCellType,
     PreAccountCellType,
     ProposalCellType,
+    ReverseRecordCellType,
+}
+
+#[derive(Debug)]
+pub enum LockScript {
+    AlwaysSuccessLock,
+    DasLock,
+    Secp256k1Blake160SignhashLock,
+    Secp256k1Blake160MultisigLock,
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]
