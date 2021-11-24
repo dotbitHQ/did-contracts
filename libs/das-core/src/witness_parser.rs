@@ -130,7 +130,6 @@ impl WitnessesParser {
             b"transfer_account"
             | b"edit_manager"
             | b"edit_records"
-            | b"withdraw_from_wallet"
             | b"start_account_sale"
             | b"edit_account_sale"
             | b"cancel_account_sale"
@@ -139,7 +138,9 @@ impl WitnessesParser {
             | b"cancel_account_auction"
             | b"declare_reverse_record"
             | b"redeclare_reverse_record"
-            | b"retract_reverse_record" => {
+            | b"retract_reverse_record"
+            | b"transfer"
+            | b"withdraw_from_wallet" => {
                 if action_data.params().is_empty() {
                     return Err(Error::ParamsDecodingError);
                 }
