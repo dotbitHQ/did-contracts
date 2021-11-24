@@ -297,13 +297,7 @@ pub fn main() -> Result<(), Error> {
 
             debug!("Verify if there is no redundant cells in inputs.");
 
-            let sender_lock = if input_income_cells.len() == 1 {
-                // The inputs[0] is AccountCell and inputs[1] is IncomeCell, so we treat inputs[2] and the rest as NormalCells to pay the fees.
-                util::derive_owner_lock_from_cell(2, Source::Input)?
-            } else {
-                // The inputs[0] is AccountCell, so we treat inputs[1] and the rest as NormalCells to pay the fees.
-                util::derive_owner_lock_from_cell(1, Source::Input)?
-            };
+            let sender_lock = util::derive_owner_lock_from_cell(input_account_cells[0], Source::Input)?;
             let balance_cells = util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Input)?;
             let all_cells = [
                 input_account_cells.clone(),
@@ -311,7 +305,7 @@ pub fn main() -> Result<(), Error> {
                 balance_cells.clone(),
             ]
             .concat();
-            verifiers::misc::verify_no_more_cells(&all_cells, Source::Input)?;
+            verifiers::misc::verify_no_more_cells_with_same_lock(sender_lock.as_reader(), &all_cells, Source::Input)?;
 
             let mut expected_first_record = None;
             if input_income_cells.len() == 1 {
