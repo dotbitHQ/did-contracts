@@ -8,7 +8,7 @@ edition = "2018"
 [dependencies]
 ckb-std = "0.7.1"
 ckb-tool = "0.3"
-ckb-testtool = { git = "https://github.com/DA-Services/ckb-testtool", branch = "master" }
+ckb-testtool = { git = "https://github.com/DA-Services/ckb-testtool", tag = "v0.43.0" }
 #ckb-testtool = { path = "../../ckb-testtool-0.3.0-patch" }
 das-core = { path = "../libs/das-core" }
 hex = "0.4.2"

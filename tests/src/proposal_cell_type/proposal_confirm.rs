@@ -1,577 +1,688 @@
-use super::super::util::{self, constants::*, error::Error, template_generator::*, template_parser::TemplateParser};
-use ckb_testtool::context::Context;
-use das_types::{constants::*, packed::*};
+use super::common::*;
+use crate::util::{
+    self, constants::*, error::Error, template_common_cell::*, template_generator::TemplateGenerator,
+    template_parser::*,
+};
+use das_types::constants::*;
+use serde_json::json;
 
-fn gen_proposal_related_cell_at_confirm(
-    template: &mut TemplateGenerator,
-    slices: Vec<Vec<(&str, ProposalSliceItemType, &str)>>,
-    timestamp: u64,
-) -> (u32, u32) {
-    let old_registered_at = timestamp - 86400;
-    let old_expired_at = timestamp + 31536000 - 86400;
-    let new_registered_at = timestamp;
-    let new_expired_at = timestamp + 31536000;
-
-    let mut input_index: u32 = 1;
-    let mut output_index: u32 = 0;
-    for (slice_index, slice) in slices.into_iter().enumerate() {
-        println!("Generate slice {} ...", slice_index);
-
-        let mut next_of_first_item = "";
-        for (item_index, (account, item_type, next_account)) in slice.iter().enumerate() {
-            if *item_type == ProposalSliceItemType::Exist || *item_type == ProposalSliceItemType::Proposed {
-                // Generate old AccountCell in inputs.
-                println!("    📥 next_of_first_item: {}", util::account_to_id_hex(next_account));
-                next_of_first_item = next_account;
-                let (updated_next_account, _, _) = slice.get(item_index + 1).unwrap();
-
-                gen_account_cells!(
-                    template,
-                    account,
-                    next_account,
-                    updated_next_account,
-                    old_registered_at,
-                    old_expired_at,
-                    input_index,
-                    output_index
-                );
-
-                println!(
-                    "    Item {}: {} -> {}",
-                    item_index,
-                    util::account_to_id_hex(next_account),
-                    util::account_to_id_hex(updated_next_account)
-                );
-            } else {
-                let next_account = if item_index != slice.len() - 1 {
-                    let (account, _, _) = slice.get(item_index + 1).unwrap();
-                    account
-                } else {
-                    println!("    📤 next_of_first_item");
-                    next_of_first_item
-                };
-
-                gen_account_and_pre_account_cells!(
-                    template,
-                    account,
-                    next_account,
-                    1000,
-                    500,
-                    timestamp - 60,
-                    new_registered_at,
-                    new_expired_at,
-                    input_index,
-                    output_index
-                );
-
-                println!(
-                    "    Item {} next: None -> {}",
-                    item_index,
-                    util::account_to_id_hex(next_account)
-                );
+fn push_input_proposal_cell_with_slices(template: &mut TemplateGenerator) {
+    push_input_proposal_cell(
+        template,
+        json!({
+            "capacity": "20_000_000_000",
+            "witness": {
+                "proposer_lock": {
+                    "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                    "args": PROPOSER
+                },
+                "slices": [
+                    [
+                        {
+                            "account_id": "das00012.bit",
+                            "item_type": ProposalSliceItemType::Exist as u8,
+                            "next": "das00005.bit"
+                        },
+                        {
+                            "account_id": "das00005.bit",
+                            "item_type": ProposalSliceItemType::New as u8,
+                            "next": "das00002.bit"
+                        },
+                    ],
+                    [
+                        {
+                            "account_id": "das00004.bit",
+                            "item_type": ProposalSliceItemType::Proposed as u8,
+                            "next": "das00018.bit"
+                        },
+                        {
+                            "account_id": "das00018.bit",
+                            "item_type": ProposalSliceItemType::New as u8,
+                            "next": "das00008.bit"
+                        },
+                        {
+                            "account_id": "das00008.bit",
+                            "item_type": ProposalSliceItemType::New as u8,
+                            "next": "das00011.bit"
+                        },
+                    ]
+                ]
             }
-
-            input_index += 1;
-            output_index += 1;
-        }
-    }
-
-    (input_index, output_index)
+        }),
+    );
 }
 
-fn init_confirm(action: &str) -> (TemplateGenerator, u64, u64) {
-    let height = 1000u64;
-    let timestamp = 1611200090u64;
-    let mut template = TemplateGenerator::new(action, None);
+fn push_input_slice_0(template: &mut TemplateGenerator) {
+    let lock_scripts = gen_lock_scripts();
 
-    template.push_contract_cell("always_success", true);
-    template.push_contract_cell("fake-das-lock", true);
-    template.push_contract_cell("fake-secp256k1-blake160-signhash-all", true);
-    template.push_contract_cell("proposal-cell-type", false);
-    template.push_contract_cell("account-cell-type", false);
-    template.push_contract_cell("pre-account-cell-type", false);
-    template.push_contract_cell("income-cell-type", false);
+    push_input_account_cell(
+        template,
+        json!({
+            "capacity": util::gen_account_cell_capacity(8),
+            "lock": {
+                "owner_lock_args": "0x000000000000000000000000000000000000001111",
+                "manager_lock_args": "0x000000000000000000000000000000000000001111"
+            },
+            "data": {
+                "account": "das00012.bit",
+                "next": "das00002.bit"
+            },
+            "witness": {
+                "account": "das00012.bit",
+                "status": (AccountStatus::Normal as u8)
+            }
+        }),
+    );
+    push_input_pre_account_cell(
+        template,
+        json!({
+            "capacity": util::gen_register_fee(8, true),
+            "witness": {
+                "account": "das00005.bit",
+                "owner_lock_args": "0x05ffff00000000000000000000000000000000000505ffff000000000000000000000000000000000005",
+                "inviter_lock": lock_scripts.inviter_1,
+                "channel_lock": lock_scripts.channel_1,
+                "created_at": TIMESTAMP - HOUR_SEC
+            }
+        }),
+    );
+}
 
-    template.push_oracle_cell(1, OracleCellType::Time, timestamp);
-    template.push_oracle_cell(1, OracleCellType::Height, height);
+fn push_input_slice_1(template: &mut TemplateGenerator) {
+    let lock_scripts = gen_lock_scripts();
 
-    template.push_config_cell(DataType::ConfigCellAccount, true, 0, Source::CellDep);
-    template.push_config_cell(DataType::ConfigCellMain, true, 0, Source::CellDep);
-    template.push_config_cell(DataType::ConfigCellProfitRate, true, 0, Source::CellDep);
+    push_input_account_cell(
+        template,
+        json!({
+            "capacity": util::gen_account_cell_capacity(8),
+            "lock": {
+                "owner_lock_args": "0x000000000000000000000000000000000000002222",
+                "manager_lock_args": "0x000000000000000000000000000000000000002222"
+            },
+            "data": {
+                "account": "das00004.bit",
+                "next": "das00011.bit"
+            },
+            "witness": {
+                "account": "das00004.bit",
+                "status": (AccountStatus::Selling as u8)
+            }
+        }),
+    );
+    push_input_pre_account_cell(
+        template,
+        json!({
+            "capacity": util::gen_register_fee(8, true),
+            "witness": {
+                "account": "das00018.bit",
+                "owner_lock_args": "0x05ffff00000000000000000000000000000000001805ffff000000000000000000000000000000000018",
+                "inviter_lock": lock_scripts.inviter_2,
+                "channel_lock": lock_scripts.channel_2,
+                "created_at": TIMESTAMP - HOUR_SEC
+            }
+        }),
+    );
+    push_input_pre_account_cell(
+        template,
+        json!({
+            "capacity": util::gen_register_fee(8, true),
+            "witness": {
+                "account": "das00008.bit",
+                "owner_lock_args": "0x05ffff00000000000000000000000000000000000805ffff000000000000000000000000000000000008",
+                "inviter_lock": lock_scripts.inviter_2,
+                "channel_lock": lock_scripts.channel_2,
+                "created_at": TIMESTAMP - HOUR_SEC
+            }
+        }),
+    );
+}
 
-    (template, height, timestamp)
+fn push_output_slice_0(template: &mut TemplateGenerator) {
+    push_output_account_cell(
+        template,
+        json!({
+            "capacity": util::gen_account_cell_capacity(8),
+            "lock": {
+                "owner_lock_args": "0x000000000000000000000000000000000000001111",
+                "manager_lock_args": "0x000000000000000000000000000000000000001111"
+            },
+            "data": {
+                "account": "das00012.bit",
+                "next": "das00005.bit"
+            },
+            "witness": {
+                "account": "das00012.bit",
+                "status": (AccountStatus::Normal as u8)
+            }
+        }),
+    );
+    push_output_account_cell(
+        template,
+        json!({
+            "capacity": util::gen_account_cell_capacity(8),
+            "lock": {
+                "owner_lock_args": "0x05ffff000000000000000000000000000000000005",
+                "manager_lock_args": "0x05ffff000000000000000000000000000000000005"
+            },
+            "data": {
+                "account": "das00005.bit",
+                "next": "das00002.bit",
+                "expired_at": TIMESTAMP + YEAR_SEC
+            },
+            "witness": {
+                "account": "das00005.bit",
+                "status": (AccountStatus::Normal as u8),
+                "registered_at": TIMESTAMP
+            }
+        }),
+    );
+}
+
+fn push_output_slice_1(template: &mut TemplateGenerator) {
+    push_output_account_cell(
+        template,
+        json!({
+            "capacity": util::gen_account_cell_capacity(8),
+            "lock": {
+                "owner_lock_args": "0x000000000000000000000000000000000000002222",
+                "manager_lock_args": "0x000000000000000000000000000000000000002222"
+            },
+            "data": {
+                "account": "das00004.bit",
+                "next": "das00018.bit"
+            },
+            "witness": {
+                "account": "das00004.bit",
+                "status": (AccountStatus::Selling as u8)
+            }
+        }),
+    );
+    push_output_account_cell(
+        template,
+        json!({
+            "capacity": util::gen_account_cell_capacity(8),
+            "lock": {
+                "owner_lock_args": "0x05ffff000000000000000000000000000000000018",
+                "manager_lock_args": "0x05ffff000000000000000000000000000000000018"
+            },
+            "data": {
+                "account": "das00018.bit",
+                "next": "das00008.bit",
+                "expired_at": TIMESTAMP + YEAR_SEC
+            },
+            "witness": {
+                "account": "das00018.bit",
+                "status": (AccountStatus::Normal as u8),
+                "registered_at": TIMESTAMP
+            }
+        }),
+    );
+    push_output_account_cell(
+        template,
+        json!({
+            "capacity": util::gen_account_cell_capacity(8),
+            "lock": {
+                "owner_lock_args": "0x05ffff000000000000000000000000000000000008",
+                "manager_lock_args": "0x05ffff000000000000000000000000000000000008"
+            },
+            "data": {
+                "account": "das00008.bit",
+                "next": "das00011.bit",
+                "expired_at": TIMESTAMP + YEAR_SEC
+            },
+            "witness": {
+                "account": "das00008.bit",
+                "status": (AccountStatus::Normal as u8),
+                "registered_at": TIMESTAMP
+            }
+        }),
+    );
+}
+
+fn push_output_income_cell_with_profit(template: &mut TemplateGenerator) {
+    let lock_scripts = gen_lock_scripts();
+
+    // Carry profits of all roles.
+    push_output_income_cell(
+        template,
+        json!({
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": lock_scripts.inviter_1,
+                        "capacity": 38000000000u64
+                    },
+                    {
+                        "belong_to": lock_scripts.inviter_2,
+                        "capacity": 38000000000u64 * 2
+                    },
+                    {
+                        "belong_to": lock_scripts.channel_1,
+                        "capacity": 38000000000u64
+                    },
+                    {
+                        "belong_to": lock_scripts.channel_2,
+                        "capacity": 38000000000u64 * 2
+                    },
+                    {
+                        "belong_to": lock_scripts.proposer,
+                        "capacity": 19000000000u64 * 3
+                    },
+                    {
+                        "belong_to": lock_scripts.das_wallet,
+                        "capacity": 380000000000u64 * 3
+                    }
+                ]
+            }
+        }),
+    );
+}
+
+fn push_output_normal_cell_with_refund(template: &mut TemplateGenerator) {
+    // A refund of ProposalCell's capacity to proposer.
+    push_output_normal_cell(template, 20_000_000_000, PROPOSER);
+}
+
+fn before_each() -> TemplateGenerator {
+    let mut template = init_with_confirm();
+
+    // inputs
+    push_input_proposal_cell_with_slices(&mut template);
+    push_input_slice_0(&mut template);
+    push_input_slice_1(&mut template);
+
+    template
 }
 
 #[test]
-fn gen_proposal_confirm() {
-    let (mut template, height, timestamp) = init_confirm("confirm_proposal");
+fn test_proposal_confirm() {
+    let mut template = before_each();
 
-    let slices = vec![
-        // A slice base on previous modified AccountCell
-        vec![
-            ("das00012.bit", ProposalSliceItemType::Exist, "das00009.bit"),
-            ("das00005.bit", ProposalSliceItemType::New, ""),
-        ],
-        // A slice base on previous modified PreAccountCell
-        vec![
-            ("das00004.bit", ProposalSliceItemType::Proposed, "das00011.bit"),
-            ("das00018.bit", ProposalSliceItemType::New, ""),
-            ("das00008.bit", ProposalSliceItemType::New, ""),
-        ],
-        // A whole new slice
-        vec![
-            ("das00006.bit", ProposalSliceItemType::Exist, "das00001.bit"),
-            ("das00019.bit", ProposalSliceItemType::New, ""),
-        ],
-    ];
+    // outputs
+    push_output_slice_0(&mut template);
+    push_output_slice_1(&mut template);
+    push_output_income_cell_with_profit(&mut template);
+    push_output_normal_cell_with_refund(&mut template);
 
-    let (cell_data, entity) =
-        template.gen_proposal_cell_data("0x0000000000000000000000000000000000002233", height, &slices);
-    template.push_proposal_cell(cell_data, Some((1, 0, entity)), 100_000_000_000, Source::Input);
-
-    let (input_index, output_index) = gen_proposal_related_cell_at_confirm(&mut template, slices, timestamp);
-
-    let income_records = vec![IncomeRecordParam {
-        belong_to: "0x0000000000000000000000000000000000000000".to_string(),
-        capacity: 20_000_000_000,
-    }];
-    let (cell_data, entity) =
-        template.gen_income_cell_data("0x0000000000000000000000000000000000000000", income_records);
-    template.push_income_cell(cell_data, Some((1, input_index, entity)), 20_000_000_000, Source::Input);
-
-    let income_records = vec![
-        IncomeRecordParam {
-            belong_to: "0x0000000000000000000000000000000000000000".to_string(),
-            capacity: 20_000_000_000,
-        },
-        // Profit to inviter
-        IncomeRecordParam {
-            belong_to: "0x0000000000000000000000000000000000001111".to_string(),
-            capacity: 152_000_000_000,
-        },
-        // Profit to channel
-        IncomeRecordParam {
-            belong_to: "0x0000000000000000000000000000000000002222".to_string(),
-            capacity: 152_000_000_000,
-        },
-        // Profit to proposer
-        IncomeRecordParam {
-            belong_to: "0x0000000000000000000000000000000000002233".to_string(),
-            capacity: 76_000_000_000,
-        },
-        // Profit to DAS
-        IncomeRecordParam {
-            belong_to: "0x0300000000000000000000000000000000000000".to_string(),
-            capacity: 1_520_000_000_000,
-        },
-    ];
-    let (cell_data, entity) =
-        template.gen_income_cell_data("0x0000000000000000000000000000000000000000", income_records);
-    template.push_income_cell(
-        cell_data,
-        Some((1, output_index, entity)),
-        1_920_000_000_000,
-        Source::Output,
-    );
-
-    template.push_signall_cell(
-        "0x0000000000000000000000000000000000002233",
-        100_000_000_000,
-        Source::Output,
-    );
-
-    template.write_template("proposal_confirm.json");
+    test_tx(template.as_json());
 }
 
-test_with_template!(test_proposal_confirm, "proposal_confirm.json");
+#[test]
+fn challenge_proposal_confirm_account_cell_modified_1() {
+    let mut template = before_each();
 
-macro_rules! gen_income_cell {
-    ($template:expr, $output_index:expr) => {{
-        let income_records = vec![
-            // Profit to inviter
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000001111".to_string(),
-                capacity: 38_000_000_000,
+    // outputs
+    // slices[0]
+    push_output_account_cell(
+        &mut template,
+        json!({
+            "capacity": util::gen_account_cell_capacity(8),
+            "lock": {
+                "owner_lock_args": "0x000000000000000000000000000000000000001111",
+                "manager_lock_args": "0x000000000000000000000000000000000000001111"
             },
-            // Profit to channel
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000002222".to_string(),
-                capacity: 38_000_000_000,
+            "data": {
+                "account": "das00012.bit",
+                "next": "das00005.bit"
             },
-            // Profit to proposer
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000002233".to_string(),
-                capacity: 19_000_000_000,
+            "witness": {
+                "account": "das00012.bit",
+                // Simulate AccountCell.status is modified.
+                "status": (AccountStatus::Selling as u8)
+            }
+        }),
+    );
+    push_output_account_cell(
+        &mut template,
+        json!({
+            "capacity": util::gen_account_cell_capacity(8),
+            "lock": {
+                "owner_lock_args": "0x05ffff000000000000000000000000000000000005",
+                "manager_lock_args": "0x05ffff000000000000000000000000000000000005"
             },
-            // Profit to DAS
-            IncomeRecordParam {
-                belong_to: "0x0300000000000000000000000000000000000000".to_string(),
-                capacity: 380_000_000_000,
+            "data": {
+                "account": "das00005.bit",
+                "next": "das00009.bit",
+                "expired_at": TIMESTAMP + YEAR_SEC
             },
-        ];
-        let (cell_data, entity) =
-            $template.gen_income_cell_data("0x0000000000000000000000000000000000000000", income_records);
-        $template.push_income_cell(
-            cell_data,
-            Some((1, $output_index, entity)),
-            475_000_000_000,
-            Source::Output,
-        );
-    }};
+            "witness": {
+                "account": "das00005.bit",
+                "status": (AccountStatus::Normal as u8),
+                "registered_at": TIMESTAMP
+            }
+        }),
+    );
+
+    push_output_slice_1(&mut template);
+    push_output_income_cell_with_profit(&mut template);
+    push_output_normal_cell_with_refund(&mut template);
+
+    challenge_tx(template.as_json(), Error::ProposalFieldCanNotBeModified);
 }
 
-challenge_with_generator!(
-    challenge_proposal_confirm_pre_register_has_same_next,
-    Error::ProposalCellNextError,
-    || {
-        let (mut template, height, timestamp) = init_confirm("confirm_proposal");
-        let old_registered_at = timestamp - 86400;
-        let old_expired_at = timestamp + 31536000 - 86400;
-        let new_registered_at = timestamp;
-        let new_expired_at = timestamp + 31536000;
+#[test]
+fn challenge_proposal_confirm_account_cell_modified_2() {
+    let mut template = before_each();
 
-        let mut input_index = 0;
-        let mut output_index = 0;
-
-        // Generate proposal cells
-        let slices = vec![vec![
-            ("das00012.bit", ProposalSliceItemType::Exist, "das00009.bit"),
-            ("das00005.bit", ProposalSliceItemType::New, ""),
-        ]];
-
-        let (cell_data, entity) =
-            template.gen_proposal_cell_data("0x0000000000000000000000000000000000002233", height, &slices);
-        template.push_proposal_cell(
-            cell_data,
-            Some((1, input_index, entity)),
-            100_000_000_000,
-            Source::Input,
-        );
-        input_index += 1;
-
-        // Generate AccountCell of slices[0][0]
-        let (cell_data, old_entity) = template.gen_account_cell_data(
-            "das00012.bit",
-            // The key point of this test is that the AccountCell has been updated by another PreAccountCell with the same account as current one.
-            // But the next in ProposalCell.slices is still old one. When this happens, the transaction shall be rejected.
-            "das00005.bit",
-            old_registered_at,
-            old_expired_at,
-            0,
-            0,
-            0,
-            None,
-        );
-        template.push_account_cell::<AccountCellData>(
-            "0x0000000000000000000000000000000000001111",
-            "0x0000000000000000000000000000000000001111",
-            cell_data,
-            None,
-            1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
-            Source::Input,
-        );
-        let (cell_data, new_entity) = template.gen_account_cell_data(
-            "das00012.bit",
-            "das00005.bit",
-            old_registered_at,
-            old_expired_at,
-            0,
-            0,
-            0,
-            None,
-        );
-        template.push_account_cell::<AccountCellData>(
-            "0x0000000000000000000000000000000000001111",
-            "0x0000000000000000000000000000000000001111",
-            cell_data,
-            None,
-            1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
-            Source::Output,
-        );
-        template.push_witness::<AccountCellData, AccountCellData, AccountCellData>(
-            DataType::AccountCellData,
-            Some((2, output_index, new_entity)),
-            Some((2, input_index, old_entity)),
-            None,
-        );
-        input_index += 1;
-        output_index += 1;
-
-        // Generate PreAccountCell and AccountCell of slices[0][1]
-        let (cell_data, old_entity) = template.gen_pre_account_cell_data(
-            "das00005.bit",
-            "0x000000000000000000000000000000000000FFFF",
-            "0x0000000000000000000000000000000000001100",
-            "0x0000000000000000000000000000000000001111",
-            "0x0000000000000000000000000000000000002222",
-            1000,
-            500,
-            timestamp - 60,
-        );
-        template.push_pre_account_cell(
-            cell_data,
-            Some((1, input_index, old_entity)),
-            476_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
-            Source::Input,
-        );
-        let (cell_data, new_entity) = template.gen_account_cell_data(
-            "das00005.bit",
-            "das00009.bit",
-            new_registered_at,
-            new_expired_at,
-            0,
-            0,
-            0,
-            None,
-        );
-        template.push_account_cell::<AccountCellData>(
-            "0x0000000000000000000000000000000000001100",
-            "0x0000000000000000000000000000000000001100",
-            cell_data,
-            Some((2, output_index, new_entity)),
-            1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
-            Source::Output,
-        );
-        // input_index += 1;
-        output_index += 1;
-
-        gen_income_cell!(template, output_index);
-
-        template.as_json()
-    }
-);
-
-challenge_with_generator!(
-    challenge_proposal_confirm_no_refund,
-    Error::ProposalConfirmRefundError,
-    || {
-        let (mut template, height, timestamp) = init_confirm("confirm_proposal");
-
-        let slices = vec![vec![
-            ("das00012.bit", ProposalSliceItemType::Exist, "das00009.bit"),
-            ("das00005.bit", ProposalSliceItemType::New, ""),
-        ]];
-
-        let (cell_data, entity) =
-            template.gen_proposal_cell_data("0x0000000000000000000000000000000000002233", height, &slices);
-        template.push_proposal_cell(cell_data, Some((1, 0, entity)), 100_000_000_000, Source::Input);
-
-        let (_, output_index) = gen_proposal_related_cell_at_confirm(&mut template, slices, timestamp);
-
-        gen_income_cell!(template, output_index);
-
-        template.as_json()
-    }
-);
-
-challenge_with_generator!(
-    challenge_proposal_confirm_income_record_belong_to_mismatch,
-    Error::ProposalConfirmIncomeError,
-    || {
-        let (mut template, height, timestamp) = init_confirm("confirm_proposal");
-
-        let slices = vec![vec![
-            ("das00012.bit", ProposalSliceItemType::Exist, "das00009.bit"),
-            ("das00005.bit", ProposalSliceItemType::New, ""),
-        ]];
-
-        let (cell_data, entity) =
-            template.gen_proposal_cell_data("0x0000000000000000000000000000000000002233", height, &slices);
-        template.push_proposal_cell(cell_data, Some((1, 0, entity)), 100_000_000_000, Source::Input);
-
-        let (_, output_index) = gen_proposal_related_cell_at_confirm(&mut template, slices, timestamp);
-
-        let income_records = vec![
-            // Profit to inviter
-            IncomeRecordParam {
-                belong_to: "0x000000000000000000000000000000000000FFFF".to_string(),
-                capacity: 38_000_000_000,
+    // outputs
+    push_output_account_cell(
+        &mut template,
+        json!({
+            // Simulate the AccountCell.capacity is modified.
+            "capacity": util::gen_account_cell_capacity(8) - 1,
+            "lock": {
+                "owner_lock_args": "0x000000000000000000000000000000000000001111",
+                "manager_lock_args": "0x000000000000000000000000000000000000001111"
             },
-            // Profit to channel
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000002222".to_string(),
-                capacity: 38_000_000_000,
+            "data": {
+                "account": "das00012.bit",
+                "next": "das00005.bit"
             },
-            // Profit to proposer
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000002233".to_string(),
-                capacity: 19_000_000_000,
+            "witness": {
+                "account": "das00012.bit",
+                "status": (AccountStatus::Normal as u8)
+            }
+        }),
+    );
+    push_output_account_cell(
+        &mut template,
+        json!({
+            "capacity": util::gen_account_cell_capacity(8),
+            "lock": {
+                "owner_lock_args": "0x05ffff000000000000000000000000000000000005",
+                "manager_lock_args": "0x05ffff000000000000000000000000000000000005"
             },
-            // Profit to DAS
-            IncomeRecordParam {
-                belong_to: "0x0300000000000000000000000000000000000000".to_string(),
-                capacity: 380_000_000_000,
+            "data": {
+                "account": "das00005.bit",
+                "next": "das00002.bit",
+                "expired_at": TIMESTAMP + YEAR_SEC
             },
-        ];
-        let (cell_data, entity) =
-            template.gen_income_cell_data("0x0000000000000000000000000000000000000000", income_records);
-        template.push_income_cell(
-            cell_data,
-            Some((1, output_index, entity)),
-            475_000_000_000,
-            Source::Output,
-        );
+            "witness": {
+                "account": "das00005.bit",
+                "status": (AccountStatus::Normal as u8),
+                "registered_at": TIMESTAMP
+            }
+        }),
+    );
 
-        template.as_json()
-    }
-);
+    push_output_slice_1(&mut template);
+    push_output_income_cell_with_profit(&mut template);
+    push_output_normal_cell_with_refund(&mut template);
 
-challenge_with_generator!(
-    challenge_proposal_confirm_income_record_capacity_mismatch,
-    Error::ProposalConfirmIncomeError,
-    || {
-        let (mut template, height, timestamp) = init_confirm("confirm_proposal");
+    challenge_tx(template.as_json(), Error::CellCapacityMustConsistent);
+}
 
-        let slices = vec![vec![
-            ("das00012.bit", ProposalSliceItemType::Exist, "das00009.bit"),
-            ("das00005.bit", ProposalSliceItemType::New, ""),
-        ]];
+#[test]
+fn challenge_proposal_confirm_account_cell_next_mismatch() {
+    let mut template = init_with_confirm();
+    let lock_scripts = gen_lock_scripts();
 
-        let (cell_data, entity) =
-            template.gen_proposal_cell_data("0x0000000000000000000000000000000000002233", height, &slices);
-        template.push_proposal_cell(cell_data, Some((1, 0, entity)), 100_000_000_000, Source::Input);
+    // inputs
+    push_input_proposal_cell_with_slices(&mut template);
 
-        let (_, output_index) = gen_proposal_related_cell_at_confirm(&mut template, slices, timestamp);
-
-        let income_records = vec![
-            // Profit to inviter
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000001111".to_string(),
-                capacity: 99_000_000_000,
+    push_input_account_cell(
+        &mut template,
+        json!({
+            "capacity": util::gen_account_cell_capacity(8),
+            "lock": {
+                "owner_lock_args": "0x000000000000000000000000000000000000001111",
+                "manager_lock_args": "0x000000000000000000000000000000000000001111"
             },
-            // Profit to channel
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000002222".to_string(),
-                capacity: 38_000_000_000,
+            "data": {
+                "account": "das00012.bit",
+                // CAREFUL! The key point of this test is that the AccountCell has been updated by another PreAccountCell with the same account as current one.
+                // But the next in ProposalCell.slices is still old one. When this happens, the transaction shall be rejected.
+
+                // Simulate the AccountCell das00009.bit has been registered before the proposal confirmed.
+                "next": "das00009.bit"
             },
-            // Profit to proposer
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000002233".to_string(),
-                capacity: 19_000_000_000,
+            "witness": {
+                "account": "das00012.bit",
+                "status": (AccountStatus::Normal as u8)
+            }
+        }),
+    );
+    push_input_pre_account_cell(
+        &mut template,
+        json!({
+            "capacity": util::gen_register_fee(8, true),
+            "witness": {
+                "account": "das00005.bit",
+                "owner_lock_args": "0x05ffff00000000000000000000000000000000000505ffff000000000000000000000000000000000005",
+                "inviter_lock": lock_scripts.inviter_1,
+                "channel_lock": lock_scripts.channel_1,
+                "created_at": TIMESTAMP - HOUR_SEC
+            }
+        }),
+    );
+
+    push_input_slice_1(&mut template);
+
+    // outputs
+    push_output_slice_0(&mut template);
+    push_output_slice_1(&mut template);
+    push_output_income_cell_with_profit(&mut template);
+    push_output_normal_cell_with_refund(&mut template);
+
+    challenge_tx(template.as_json(), Error::ProposalCellNextError);
+}
+
+#[test]
+fn challenge_proposal_confirm_refund() {
+    let mut template = before_each();
+
+    // outputs
+    push_output_slice_0(&mut template);
+    push_output_slice_1(&mut template);
+    push_output_income_cell_with_profit(&mut template);
+
+    // Simulate refund capacity is less than the ProposalCell.capacity .
+    push_output_normal_cell(&mut template, 20_000_000_000 - 1, PROPOSER);
+
+    challenge_tx(template.as_json(), Error::ProposalConfirmRefundError);
+}
+
+#[test]
+fn challenge_proposal_confirm_income_records_belong_to() {
+    let mut template = before_each();
+    let lock_scripts = gen_lock_scripts();
+
+    // outputs
+    push_output_slice_0(&mut template);
+    push_output_slice_1(&mut template);
+
+    // Carry profits of all roles.
+    push_output_income_cell(
+        &mut template,
+        json!({
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": {
+                            // Simulate creating some records belong to unknown lock script.
+                            "code_hash": "{{fake-das-lock}}",
+                            "args": "0x000000000000000000000000000000000000ffff"
+                        },
+                        "capacity": 38000000000u64
+                    },
+                    {
+                        "belong_to": lock_scripts.inviter_2,
+                        "capacity": 38000000000u64 * 2
+                    },
+                    {
+                        "belong_to": lock_scripts.channel_1,
+                        "capacity": 38000000000u64
+                    },
+                    {
+                        "belong_to": lock_scripts.channel_2,
+                        "capacity": 38000000000u64 * 2
+                    },
+                    {
+                        "belong_to": lock_scripts.proposer,
+                        "capacity": 19000000000u64 * 3
+                    },
+                    {
+                        "belong_to": lock_scripts.das_wallet,
+                        "capacity": 380000000000u64 * 3
+                    }
+                ]
+            }
+        }),
+    );
+
+    push_output_normal_cell_with_refund(&mut template);
+
+    challenge_tx(template.as_json(), Error::ProposalConfirmIncomeError);
+}
+
+#[test]
+fn challenge_proposal_confirm_income_records_capacity() {
+    let mut template = before_each();
+    let lock_scripts = gen_lock_scripts();
+
+    // outputs
+    push_output_slice_0(&mut template);
+    push_output_slice_1(&mut template);
+
+    // Carry profits of all roles.
+    push_output_income_cell(
+        &mut template,
+        json!({
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": lock_scripts.inviter_1,
+                        // Simulate creating some records with invalid capacity.
+                        "capacity": 38000000000u64 - 1
+                    },
+                    {
+                        "belong_to": lock_scripts.inviter_2,
+                        "capacity": 38000000000u64 * 2
+                    },
+                    {
+                        "belong_to": lock_scripts.channel_1,
+                        "capacity": 38000000000u64
+                    },
+                    {
+                        "belong_to": lock_scripts.channel_2,
+                        "capacity": 38000000000u64 * 2
+                    },
+                    {
+                        "belong_to": lock_scripts.proposer,
+                        "capacity": 19000000000u64 * 3
+                    },
+                    {
+                        "belong_to": lock_scripts.das_wallet,
+                        "capacity": 380000000000u64 * 3
+                    }
+                ]
+            }
+        }),
+    );
+
+    push_output_normal_cell_with_refund(&mut template);
+
+    challenge_tx(template.as_json(), Error::ProposalConfirmIncomeError);
+}
+
+#[test]
+fn challenge_proposal_confirm_income_cell_capacity() {
+    let mut template = before_each();
+    let lock_scripts = gen_lock_scripts();
+
+    // outputs
+    push_output_slice_0(&mut template);
+    push_output_slice_1(&mut template);
+
+    // Carry profits of all roles.
+    push_output_income_cell(
+        &mut template,
+        json!({
+            "capacity": 20_000_000_000u64,
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": lock_scripts.inviter_1,
+                        "capacity": 38_000_000_000u64
+                    },
+                    {
+                        "belong_to": lock_scripts.inviter_2,
+                        "capacity": 38_000_000_000u64 * 2
+                    },
+                    {
+                        "belong_to": lock_scripts.channel_1,
+                        "capacity": 38_000_000_000u64
+                    },
+                    {
+                        "belong_to": lock_scripts.channel_2,
+                        "capacity": 38_000_000_000u64 * 2
+                    },
+                    {
+                        "belong_to": lock_scripts.proposer,
+                        "capacity": 19_000_000_000u64 * 3
+                    },
+                    {
+                        "belong_to": lock_scripts.das_wallet,
+                        "capacity": 380_000_000_000u64 * 3
+                    }
+                ]
+            }
+        }),
+    );
+
+    push_output_normal_cell_with_refund(&mut template);
+
+    challenge_tx(template.as_json(), Error::ProposalConfirmIncomeError);
+}
+
+#[test]
+fn challenge_proposal_confirm_new_account_cell_capacity() {
+    let mut template = before_each();
+
+    // outputs
+    push_output_account_cell(
+        &mut template,
+        json!({
+            "capacity": util::gen_account_cell_capacity(8),
+            "lock": {
+                "owner_lock_args": "0x000000000000000000000000000000000000001111",
+                "manager_lock_args": "0x000000000000000000000000000000000000001111"
             },
-            // Profit to DAS
-            IncomeRecordParam {
-                belong_to: "0x0300000000000000000000000000000000000000".to_string(),
-                capacity: 380_000_000_000,
+            "data": {
+                "account": "das00012.bit",
+                "next": "das00005.bit"
             },
-        ];
-        let (cell_data, entity) =
-            template.gen_income_cell_data("0x0000000000000000000000000000000000000000", income_records);
-        template.push_income_cell(
-            cell_data,
-            Some((1, output_index, entity)),
-            475_000_000_000,
-            Source::Output,
-        );
+            "witness": {
+                "account": "das00012.bit",
+                "status": (AccountStatus::Normal as u8)
+            }
+        }),
+    );
+    push_output_account_cell(
+        &mut template,
+        json!({
+            // Simulate the capacity of new AccountCell is invalid.
+            "capacity": util::gen_register_fee(8, true) - 1,
+            "lock": {
+                "owner_lock_args": "0x05ffff000000000000000000000000000000000005",
+                "manager_lock_args": "0x05ffff000000000000000000000000000000000005"
+            },
+            "data": {
+                "account": "das00005.bit",
+                "next": "das00002.bit",
+                "expired_at": TIMESTAMP + YEAR_SEC
+            },
+            "witness": {
+                "account": "das00005.bit",
+                "status": (AccountStatus::Normal as u8),
+                "registered_at": TIMESTAMP
+            }
+        }),
+    );
 
-        template.as_json()
-    }
-);
+    push_output_slice_1(&mut template);
+    push_output_income_cell_with_profit(&mut template);
+    push_output_normal_cell_with_refund(&mut template);
 
-challenge_with_generator!(
-    challenge_proposal_confirm_account_cell_capacity_mismatch,
-    Error::CellCapacityMustConsistent,
-    || {
-        let (mut template, height, timestamp) = init_confirm("confirm_proposal");
-
-        let slices = vec![vec![
-            ("das00012.bit", ProposalSliceItemType::Exist, "das00009.bit"),
-            ("das00005.bit", ProposalSliceItemType::New, ""),
-        ]];
-
-        let (cell_data, entity) =
-            template.gen_proposal_cell_data("0x0000000000000000000000000000000000002233", height, &slices);
-        template.push_proposal_cell(cell_data, Some((1, 0, entity)), 100_000_000_000, Source::Input);
-
-        let old_registered_at = timestamp - 86400;
-        let old_expired_at = timestamp + 31536000 - 86400;
-        let new_registered_at = timestamp;
-        let new_expired_at = timestamp + 31536000;
-
-        gen_account_cells_edit_capacity!(
-            template,
-            "das00012.bit",
-            "das00009.bit",
-            "das00005.bit",
-            old_registered_at,
-            old_expired_at,
-            1,
-            0,
-            20_000_000_000,
-            19_900_000_000
-        );
-        gen_account_and_pre_account_cells!(
-            template,
-            "das00005.bit",
-            "das00009.bit",
-            1000,
-            500,
-            timestamp - 60,
-            new_registered_at,
-            new_expired_at,
-            2,
-            1
-        );
-
-        gen_income_cell!(template, 2);
-
-        template.as_json()
-    }
-);
-
-challenge_with_generator!(
-    challenge_proposal_confirm_new_account_cell_capacity_mismatch,
-    Error::ProposalConfirmNewAccountCellCapacityError,
-    || {
-        let (mut template, height, timestamp) = init_confirm("confirm_proposal");
-
-        let slices = vec![vec![
-            ("das00012.bit", ProposalSliceItemType::Exist, "das00009.bit"),
-            ("das00005.bit", ProposalSliceItemType::New, ""),
-        ]];
-
-        let (cell_data, entity) =
-            template.gen_proposal_cell_data("0x0000000000000000000000000000000000002233", height, &slices);
-        template.push_proposal_cell(cell_data, Some((1, 0, entity)), 100_000_000_000, Source::Input);
-
-        let old_registered_at = timestamp - 86400;
-        let old_expired_at = timestamp + 31536000 - 86400;
-        let new_registered_at = timestamp;
-        let new_expired_at = timestamp + 31536000;
-
-        gen_account_cells!(
-            template,
-            "das00012.bit",
-            "das00009.bit",
-            "das00005.bit",
-            old_registered_at,
-            old_expired_at,
-            1,
-            0
-        );
-        gen_account_and_pre_account_cells_edit_capacity!(
-            template,
-            "das00005.bit",
-            "das00009.bit",
-            1000,
-            500,
-            timestamp - 60,
-            new_registered_at,
-            new_expired_at,
-            2,
-            1,
-            475_000_000_000 + 1_200_000_000 + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY,
-            21_900_000_000 - 1
-        );
-
-        gen_income_cell!(template, 2);
-
-        template.push_signall_cell(
-            "0x0000000000000000000000000000000000002233",
-            100_000_000_000,
-            Source::Output,
-        );
-
-        template.as_json()
-    }
-);
+    challenge_tx(template.as_json(), Error::ProposalConfirmNewAccountCellCapacityError);
+}
