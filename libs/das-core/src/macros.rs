@@ -1,22 +1,15 @@
 #[macro_export]
 macro_rules! debug {
-    ($fmt:literal) => {
-        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
-        ckb_std::syscalls::debug(alloc::format!($fmt));
-    };
-    ($fmt:literal, $($args:expr),+) => {
-        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
-        ckb_std::syscalls::debug(alloc::format!($fmt, $($args), +));
+    ($($arg:tt)*) => {
+        #[cfg(all(not(feature = "std"), debug_assertions))]
+        ckb_std::syscalls::debug(alloc::format!($($arg)*));
     };
 }
 
 #[macro_export]
 macro_rules! warn {
-    ($fmt:literal) => {
-        ckb_std::syscalls::debug(alloc::format!($fmt));
-    };
-    ($fmt:literal, $($args:expr),+) => {
-        ckb_std::syscalls::debug(alloc::format!($fmt, $($args), +));
+    ($($arg:tt)*) => {
+        ckb_std::syscalls::debug(alloc::format!($($arg)*));
     };
 }
 
@@ -30,6 +23,28 @@ macro_rules! assert {
     };
     ($condition:expr, $error_code:expr, $fmt:literal, $($args:expr),+) => {
         if !$condition {
+            ckb_std::syscalls::debug(alloc::format!($fmt, $($args), +));
+            return Err($error_code);
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! assert_lock_equal {
+    (($cell_a_index:expr, $cell_a_source:expr), ($cell_b_index:expr, $cell_b_source:expr), $error_code:expr, $fmt:literal) => {{
+        let cell_a_lock_hash = high_level::load_cell_lock_hash($cell_a_index, $cell_a_source).map_err(Error::from)?;
+        let cell_b_lock_hash = high_level::load_cell_lock_hash($cell_b_index, $cell_b_source).map_err(Error::from)?;
+
+        if cell_a_lock_hash != cell_b_lock_hash {
+            ckb_std::syscalls::debug(alloc::format!($fmt));
+            return Err($error_code);
+        }
+    }};
+    ($condition:expr, $error_code:expr, $fmt:literal, $($args:expr),+) => {
+        let cell_a_lock_hash = high_level::load_cell_lock_hash($cell_a_index, $cell_a_source).map_err(Error::from)?;
+        let cell_b_lock_hash = high_level::load_cell_lock_hash($cell_b_index, $cell_b_source).map_err(Error::from)?;
+
+        if cell_a_lock_hash != cell_b_lock_hash {
             ckb_std::syscalls::debug(alloc::format!($fmt, $($args), +));
             return Err($error_code);
         }

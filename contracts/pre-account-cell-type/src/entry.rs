@@ -1,11 +1,11 @@
-use alloc::string::String;
 use ckb_std::{
     ckb_constants::Source,
     high_level::{load_cell_capacity, load_cell_data, load_cell_lock, load_script},
 };
 use core::{convert::TryFrom, convert::TryInto, result::Result};
 use das_core::{
-    assert, constants::*, data_parser, debug, error::Error, parse_witness, util, warn, witness_parser::WitnessesParser,
+    assert, constants::*, data_parser, debug, error::Error, parse_witness, util, verifiers, warn,
+    witness_parser::WitnessesParser,
 };
 use das_types::{
     constants::{CharSetType, DataType, CHAR_SET_LENGTH, PRESERVED_ACCOUNT_CELL_COUNT},
@@ -18,13 +18,11 @@ pub fn main() -> Result<(), Error> {
     debug!("====== Running pre-account-cell-type ======");
 
     let mut parser = WitnessesParser::new()?;
-    let action_opt = parser.parse_action_with_params()?;
-    if action_opt.is_none() {
-        return Err(Error::ActionNotSupported);
-    }
-
-    let (action_raw, _) = action_opt.unwrap();
-    let action = action_raw.as_reader().raw_data();
+    let action_cp = match parser.parse_action_with_params()? {
+        Some((action, _)) => action.to_vec(),
+        None => return Err(Error::ActionNotSupported),
+    };
+    let action = action_cp.as_slice();
 
     util::is_system_off(&mut parser)?;
 
@@ -34,7 +32,7 @@ pub fn main() -> Result<(), Error> {
             &mut parser,
             TypeScript::ProposalCellType,
             Source::Input,
-            Error::ProposalFoundInvalidTransaction,
+            Error::InvalidTransactionStructure,
         )?;
     } else if action == b"pre_register" {
         debug!("Route to pre_register action ...");
@@ -42,7 +40,7 @@ pub fn main() -> Result<(), Error> {
         debug!("Find out PreAccountCell ...");
 
         // Find out PreAccountCells in current transaction.
-        let this_type_script = load_script().map_err(|e| Error::from(e))?;
+        let this_type_script = load_script()?;
         let (input_cells, output_cells) =
             util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
 
@@ -57,7 +55,7 @@ pub fn main() -> Result<(), Error> {
             "There should be only one PreRegisterCell in outputs."
         );
 
-        util::is_cell_use_always_success_lock(output_cells[0], Source::Output)?;
+        verifiers::misc::verify_always_success_lock(output_cells[0], Source::Output)?;
 
         debug!("Find out ApplyRegisterCell ...");
 
@@ -91,14 +89,14 @@ pub fn main() -> Result<(), Error> {
 
         // Read the hash from outputs_data of the ApplyRegisterCell.
         let index = &input_apply_register_cells[0];
-        let data = load_cell_data(index.to_owned(), Source::Input).map_err(|e| Error::from(e))?;
+        let data = load_cell_data(index.to_owned(), Source::Input)?;
         let apply_register_hash = match data.get(..32) {
             Some(bytes) => bytes,
             _ => return Err(Error::InvalidCellData),
         };
-        let apply_register_lock = load_cell_lock(index.to_owned(), Source::Input).map_err(|e| Error::from(e))?;
+        let apply_register_lock = load_cell_lock(index.to_owned(), Source::Input)?;
 
-        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
+        #[cfg(debug_assertions)]
         das_core::inspect::apply_register_cell(Source::Input, index.to_owned(), &data);
 
         let height = util::load_oracle_data(OracleCellType::Height)?;
@@ -108,9 +106,9 @@ pub fn main() -> Result<(), Error> {
         debug!("Read witness of PreAccountCell ...");
 
         // Read outputs_data and witness of the PreAccountCell.
-        let data = load_cell_data(output_cells[0], Source::Output).map_err(|e| Error::from(e))?;
+        let data = load_cell_data(output_cells[0], Source::Output)?;
         let account_id = data_parser::pre_account_cell::get_id(&data);
-        let capacity = load_cell_capacity(output_cells[0], Source::Output).map_err(|e| Error::from(e))?;
+        let capacity = load_cell_capacity(output_cells[0], Source::Output)?;
 
         let pre_account_cell_witness;
         let pre_account_cell_witness_reader;
@@ -123,7 +121,7 @@ pub fn main() -> Result<(), Error> {
             PreAccountCellData
         );
 
-        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
+        #[cfg(debug_assertions)]
         das_core::inspect::pre_account_cell(
             Source::Output,
             output_cells[0],
@@ -576,11 +574,11 @@ fn verify_account_length_and_years(reader: PreAccountCellDataReader, current_tim
     use chrono::{DateTime, NaiveDateTime, Utc};
 
     let account_length = reader.account().len();
-    let current = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(current_timestamp as i64, 0), Utc);
+    let _current = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(current_timestamp as i64, 0), Utc);
 
     debug!(
         "Check if the account is available for registration now. (length: {}, current: {:#?})",
-        account_length, current
+        account_length, _current
     );
 
     // On CKB main net, AKA Lina, accounts of less lengths can be registered only after a specific number of years.
@@ -648,7 +646,7 @@ fn verify_unavailable_accounts(
 
     debug!(
         "account {} account_hash {}",
-        String::from_utf8(account.clone()).unwrap(),
+        alloc::string::String::from_utf8(account.clone()).unwrap(),
         util::hex_string(&account_hash)
     );
 

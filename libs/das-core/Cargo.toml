@@ -19,7 +19,6 @@ eip712 = { path = "../../libs/eip712" }
 no-std-compat = { version = "0.4", features = [ "alloc", "compat_macros" ] }
 chrono = { version = "0.4", default-features = false }
 das-map = { path = "../das-map", default-features = false }
-serde_json = { version = "1.0", default-features = false, features = [ "alloc" ] }
 bech32 = { version = "0.8.1", default-features = false }
 bs58 = { version = "0.4.0", default-features = false, features = [ "alloc" ] }
 sha2 = { version = "0.9.6", default-features = false }

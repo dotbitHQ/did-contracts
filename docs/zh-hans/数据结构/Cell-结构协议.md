@@ -449,7 +449,24 @@ table AccountAuctionCellData {
 
 `148` Bytes
 
-### ConfigCell
+### ReverseRecordCell
+
+存放反向解析记录的 Cell ，同一个地址上可能有多个，需要按照[协议](../反向解析机制/反向解析机制.md)进行去重。
+
+#### 结构
+
+```
+lock: <ckb_lock_script> | <das_lock_script>
+type: <reverse-record-cell-type>
+data:
+  account // 反向解析对应的账户名
+```
+
+#### 体积
+
+`x` Bytes
+
+## ConfigCell
 
 这是一个在链上保存 DAS 配置的 Cell，目前只通过 DAS 超级私钥手动更新。因为 CKB VM 在加载数据时存在性能存在数据越大开销急剧增大的问题，所以采用了将不同配置分散到多个 ConfigCell 中的保存方式。
 
@@ -745,6 +762,20 @@ table ConfigCellSecondaryMarket {
 - auction_cell_basic_capacity ，AccountAuctionCell 的基础存储费；
 - auction_cell_prepared_fee_capacity ，AccountAuctionCell 中应携带的手续费；
 
+#### ConfigCellReverseResolution
+
+```
+table ConfigCellReverseResolution {
+    // The common fee for every transactions ReverseCell involved.
+    common_fee: Uint64,
+    // The basic capacity ReverseCell required, it is bigger than or equal to ReverseCell occupied capacity.
+    basic_capacity: Uint64,
+}
+```
+
+- common_fee ，涉及消费 ReverseCell 的交易中，可从它自身拿取的手续费；
+- basic_capacity ，ReverseCell 的基础存储费；
+
 #### ConfigCellRecordKeyNamespace
 
 解析记录 key 命名空间。
@@ -869,6 +900,7 @@ enum DataType {
     ConfigCellRelease, // args: 0x6d000000
     ConfigCellUnAvailableAccount, // args: 0x6e000000
     ConfigCellSecondaryMarket, // args: 0x6f000000
+    ConfigCellReverseResolution, // args: 0x7000000
     ConfigCellPreservedAccount00 = 10000, // args: 0x10270000
     ConfigCellPreservedAccount01,
     ConfigCellPreservedAccount02,

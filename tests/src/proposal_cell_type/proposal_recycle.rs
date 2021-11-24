@@ -1,131 +1,96 @@
-use crate::util::{constants::*, error::Error, template_generator::*, template_parser::TemplateParser};
-use ckb_testtool::context::Context;
+use super::common::*;
+use crate::util::{
+    constants::*, error::Error, template_common_cell::*, template_generator::TemplateGenerator, template_parser::*,
+};
 use das_types::constants::*;
+use serde_json::json;
 
-fn init_recycle() -> (TemplateGenerator, u64) {
-    let mut template = TemplateGenerator::new("recycle_proposal", None);
-    let height = 1000u64;
+fn before_each(height: u64) -> TemplateGenerator {
+    let mut template = init("recycle_proposal");
 
-    template.push_contract_cell("always_success", true);
-    template.push_contract_cell("fake-das-lock", true);
-    template.push_contract_cell("fake-secp256k1-blake160-signhash-all", true);
-    template.push_contract_cell("proposal-cell-type", false);
+    push_input_proposal_cell(
+        &mut template,
+        json!({
+            "witness": {
+                "created_at_height": height,
+                "slices": [
+                    [
+                        {
+                            "account_id": "das00012.bit",
+                            "item_type": ProposalSliceItemType::Exist as u8,
+                            "next": "das00009.bit"
+                        },
+                        {
+                            "account_id": "das00009.bit",
+                            "item_type": ProposalSliceItemType::New as u8,
+                            "next": "das00002.bit"
+                        },
+                        {
+                            "account_id": "das00002.bit",
+                            "item_type": ProposalSliceItemType::New as u8,
+                            "next": "das00013.bit"
+                        },
+                    ],
+                    [
+                        {
+                            "account_id": "das00004.bit",
+                            "item_type": ProposalSliceItemType::Exist as u8,
+                            "next": "das00018.bit"
+                        },
+                        {
+                            "account_id": "das00018.bit",
+                            "item_type": ProposalSliceItemType::New as u8,
+                            "next": "das00011.bit"
+                        },
+                    ]
+                ]
+            }
+        }),
+    );
 
-    template.push_oracle_cell(1, OracleCellType::Height, height);
-    template.push_config_cell(DataType::ConfigCellMain, true, 0, Source::CellDep);
-    template.push_config_cell(DataType::ConfigCellProposal, true, 0, Source::CellDep);
-
-    (template, height)
+    template
 }
 
 #[test]
-fn gen_proposal_recycle() {
-    let (mut template, height) = init_recycle();
-
-    let slices = vec![
-        // A slice base on previous modified AccountCell
-        vec![
-            ("das00012.bit", ProposalSliceItemType::Exist, "das00009.bit"),
-            ("das00005.bit", ProposalSliceItemType::New, ""),
-        ],
-    ];
-
-    // inputs
-    let (cell_data, entity) =
-        template.gen_proposal_cell_data("0x0000000000000000000000000000000000002233", height - 10, &slices);
-    template.push_proposal_cell(cell_data, Some((1, 0, entity)), 100_000_000_000, Source::Input);
+fn test_proposal_recycle() {
+    let mut template = before_each(HEIGHT - 6);
 
     // outputs
-    template.push_signall_cell(
-        "0x0000000000000000000000000000000000002233",
-        100_000_000_000 - 10000,
-        Source::Output,
-    );
+    push_output_normal_cell(&mut template, 20_000_000_000, PROPOSER);
 
-    template.write_template("proposal_recycle.json");
+    test_tx(template.as_json());
 }
 
-test_with_template!(test_proposal_recycle, "proposal_recycle.json");
+#[test]
+fn challenge_proposal_recycle_too_early() {
+    let mut template = before_each(HEIGHT - 5);
 
-challenge_with_generator!(
-    chanllenge_proposal_recycle_too_early,
-    Error::ProposalRecycleNeedWaitLonger,
-    || {
-        let (mut template, height) = init_recycle();
+    // outputs
+    push_output_normal_cell(&mut template, 20_000_000_000, PROPOSER);
 
-        let slices = vec![
-            // A slice base on previous modified AccountCell
-            vec![
-                ("das00012.bit", ProposalSliceItemType::Exist, "das00009.bit"),
-                ("das00005.bit", ProposalSliceItemType::New, ""),
-            ],
-        ];
+    challenge_tx(template.as_json(), Error::ProposalRecycleNeedWaitLonger);
+}
 
-        // inputs
-        let (cell_data, entity) =
-            template.gen_proposal_cell_data("0x0000000000000000000000000000000000002233", height - 5, &slices);
-        template.push_proposal_cell(cell_data, Some((1, 0, entity)), 100_000_000_000, Source::Input);
+#[test]
+fn challenge_proposal_recycle_refund_capacity() {
+    let mut template = before_each(HEIGHT - 6);
 
-        // outputs
-        template.push_signall_cell(
-            "0x0000000000000000000000000000000000002233",
-            100_000_000_000,
-            Source::Output,
-        );
+    // outputs
+    push_output_normal_cell(&mut template, 20_000_000_000 - 10000 - 1, PROPOSER);
 
-        template.as_json()
-    }
-);
+    challenge_tx(template.as_json(), Error::ProposalConfirmRefundError);
+}
 
-challenge_with_generator!(
-    chanllenge_proposal_recycle_refund_error,
-    Error::ProposalConfirmRefundError,
-    || {
-        let (mut template, height) = init_recycle();
+#[test]
+fn challenge_proposal_recycle_refund_owner() {
+    let mut template = before_each(HEIGHT - 6);
 
-        // inputs
-        let slices = vec![
-            // A slice base on previous modified AccountCell
-            vec![
-                ("das00012.bit", ProposalSliceItemType::Exist, "das00009.bit"),
-                ("das00005.bit", ProposalSliceItemType::New, ""),
-            ],
-        ];
+    // outputs
+    push_output_normal_cell(
+        &mut template,
+        20_000_000_000,
+        "0x0000000000000000000000000000000000002233",
+    );
 
-        let (cell_data, entity) =
-            template.gen_proposal_cell_data("0x0000000000000000000000000000000000002233", height - 10, &slices);
-        template.push_proposal_cell(cell_data, Some((1, 0, entity)), 100_000_000_000, Source::Input);
-
-        // outputs
-        template.push_signall_cell(
-            "0x0000000000000000000000000000000000002233",
-            100_000_000_000 - 10001,
-            Source::Output,
-        );
-
-        template.as_json()
-    }
-);
-
-challenge_with_generator!(
-    chanllenge_proposal_recycle_no_refund,
-    Error::ProposalConfirmRefundError,
-    || {
-        let (mut template, height) = init_recycle();
-
-        // inputs
-        let slices = vec![
-            // A slice base on previous modified AccountCell
-            vec![
-                ("das00012.bit", ProposalSliceItemType::Exist, "das00009.bit"),
-                ("das00005.bit", ProposalSliceItemType::New, ""),
-            ],
-        ];
-
-        let (cell_data, entity) =
-            template.gen_proposal_cell_data("0x0000000000000000000000000000000000002233", height - 10, &slices);
-        template.push_proposal_cell(cell_data, Some((1, 0, entity)), 100_000_000_000, Source::Input);
-
-        template.as_json()
-    }
-);
+    challenge_tx(template.as_json(), Error::ProposalConfirmRefundError);
+}

@@ -8,13 +8,14 @@ members = [
     "contracts/always-success",
     "contracts/apply-register-cell-type",
     "contracts/account-cell-type",
+    "contracts/account-sale-cell-type",
+    "contracts/account-auction-cell-type",
     "contracts/balance-cell-type",
     "contracts/config-cell-type",
     "contracts/income-cell-type",
     "contracts/pre-account-cell-type",
     "contracts/proposal-cell-type",
-    "contracts/account-sale-cell-type",
-    "contracts/account-auction-cell-type",
+    "contracts/reverse-record-cell-type",
     "tools/calculator",
 ]
 

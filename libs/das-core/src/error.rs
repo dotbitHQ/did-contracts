@@ -1,7 +1,7 @@
 use ckb_std::error::SysError;
 
 /// Error
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 #[repr(i8)]
 pub enum Error {
     IndexOutOfBound = 1,
@@ -34,6 +34,7 @@ pub enum Error {
     SignallLockIsRequired,
     DataTypeUpgradeRequired,
     NarrowMixerTypeFailed,
+    ChangeError,
     AccountStillCanNotBeRegister = 35, // ⚠️ DO NOT CHANGE
     AccountIsPreserved,
     AccountIsUnAvailable,
@@ -67,8 +68,7 @@ pub enum Error {
     PreRegisterQuoteIsInvalid, // 80
     PreRegisterDiscountIsInvalid,
     PreRegisterOwnerLockArgsIsInvalid,
-    ProposalFoundInvalidTransaction = 90,
-    ProposalSliceIsNotSorted,
+    ProposalSliceIsNotSorted = 90,
     ProposalSliceIsDiscontinuity,
     ProposalSliceRelatedCellNotFound,
     ProposalSliceRelatedCellMissing,
@@ -85,6 +85,7 @@ pub enum Error {
     ProposalConfirmWitnessManagerError, // 105
     ProposalConfirmWitnessStatusError,
     ProposalConfirmWitnessRecordsError,
+    ProposalConfirmPreAccountCellExpired,
     ProposalConfirmAccountLockArgsIsInvalid = 110,
     ProposalConfirmIncomeError,
     ProposalConfirmRefundError,
@@ -101,8 +102,8 @@ pub enum Error {
     IncomeCellConsolidateWaste,
     IncomeCellTransferError,
     IncomeCellCapacityError,
-    AccountCellFoundInvalidTransaction = -110,
-    AccountCellPermissionDenied,
+    IncomeCellProfitMismatch,
+    AccountCellPermissionDenied = -110,
     AccountCellOwnerLockShouldNotBeModified,
     AccountCellOwnerLockShouldBeModified,
     AccountCellManagerLockShouldBeModified,
@@ -119,6 +120,7 @@ pub enum Error {
     AccountCellChangeCapacityError, // -95
     AccountCellRecordKeyInvalid,
     AccountCellRecordSizeTooLarge,
+    AccountCellRecordNotEmpty,
     AccountCellStatusLocked,
     EIP712SerializationError = -90,
     EIP712SematicError,
@@ -136,6 +138,10 @@ pub enum Error {
     AccountSaleCellNotPayEnough,
     AccountSaleCellChangeError,
     AccountSaleCellProfitError,
+    ReverseRecordCellLockError = -60,
+    ReverseRecordCellCapacityError,
+    ReverseRecordCellAccountError,
+    ReverseRecordCellChangeError,
     SystemOff = -1,
 }
 

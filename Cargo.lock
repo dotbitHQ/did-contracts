@@ -139,6 +139,7 @@ version = "1.1.0"
 dependencies = [
  "ckb-std",
  "das-core",
+ "das-map",
  "das-types",
  "eip712",
 ]
@@ -754,10 +755,18 @@ dependencies = [
 [[package]]
 name = "ckb-testtool"
 version = "0.3.0"
-source = "git+https://github.com/DA-Services/ckb-testtool?branch=master#f6f31f4b57c3c48a6c1242220b92f3854a0bad00"
+source = "git+https://github.com/DA-Services/ckb-testtool?tag=v0.43.0#8619e3c11abff8916a006fea69fd076106d4a833"
 dependencies = [
  "ckb-always-success-script",
- "ckb-tool",
+ "ckb-chain-spec",
+ "ckb-crypto",
+ "ckb-error",
+ "ckb-hash",
+ "ckb-script",
+ "ckb-system-scripts",
+ "ckb-traits",
+ "ckb-types",
+ "derive_more",
  "lazy_static",
  "linked_hash_set",
  "rand 0.7.3",
@@ -1094,7 +1103,6 @@ dependencies = [
  "eip712",
  "hex",
  "no-std-compat",
- "serde_json",
  "sha2",
 ]
 
@@ -1118,7 +1126,7 @@ dependencies = [
 
 [[package]]
 name = "das-types"
-version = "1.4.0"
+version = "1.5.0"
 dependencies = [
  "ckb-std",
  "ckb-types",
@@ -1159,8 +1167,6 @@ dependencies = [
  "ckb-std",
  "hex",
  "no-std-compat",
- "serde",
- "serde_json",
  "tiny-keccak",
 ]
 
@@ -2562,6 +2568,16 @@ dependencies = [
  "wasm-bindgen-futures",
  "web-sys",
  "winreg",
+]
+
+[[package]]
+name = "reverse-record-cell-type"
+version = "1.0.0"
+dependencies = [
+ "ckb-std",
+ "das-core",
+ "das-types",
+ "hex",
 ]
 
 [[package]]

@@ -1,4 +1,4 @@
-use super::{constants::*, util};
+use super::{constants::*, error::Error, util};
 use ckb_testtool::context::Context;
 use ckb_tool::{
     ckb_error, ckb_jsonrpc_types as rpc_types,
@@ -15,10 +15,59 @@ use ckb_tool::{
 use serde_json::Value;
 use std::{
     collections::{hash_map::RandomState, HashMap, HashSet},
-    error::Error,
+    error::Error as StdError,
     fs::File,
     io::Read,
 };
+
+pub fn test_tx(tx: Value) {
+    // println!("{}", serde_json::to_string_pretty(&tx).unwrap());
+    let mut parser = TemplateParser::from_data(Context::default(), tx);
+    parser.parse();
+    let tx_view = parser.build_tx();
+    let cycles = parser
+        .execute_tx(&tx_view)
+        .expect("Transaction verification should pass.");
+
+    println!(
+        r#"︎↑︎======================================↑︎
+Transaction size: {} bytes, 
+   Suggested fee: {} shannon(feeRate: 1)
+          Cycles: {}
+========================================"#,
+        tx_view.data().total_size(),
+        tx_view.data().total_size() + 4,
+        cycles
+    );
+}
+
+pub fn challenge_tx(tx: Value, expected_error: Error) {
+    // println!("{}", serde_json::to_string_pretty(&tx).unwrap());
+    let mut parser = TemplateParser::from_data(Context::default(), tx);
+    parser.parse();
+    let tx_view = parser.build_tx();
+    let ret = parser.execute_tx(&tx_view);
+    match ret {
+        Ok(_) => {
+            panic!(
+                "The test should failed with error code: {:?}({}), but it returns Ok.",
+                expected_error, expected_error as i8
+            )
+        }
+        Err(err) => {
+            let msg = err.to_string();
+            println!("Error message(single code): {}", msg);
+
+            let search = format!("ValidationFailure({})", expected_error as i8);
+            assert!(
+                msg.contains(search.as_str()),
+                "The test should failed with error code: {:?}({})",
+                expected_error,
+                expected_error as i8
+            );
+        }
+    }
+}
 
 pub struct TemplateParser {
     pub context: Context,
@@ -44,7 +93,7 @@ impl std::fmt::Debug for TemplateParser {
 }
 
 impl TemplateParser {
-    pub fn new(context: Context, raw_json: &str) -> Result<Self, Box<dyn Error>> {
+    pub fn new(context: Context, raw_json: &str) -> Result<Self, Box<dyn StdError>> {
         let data: Value = serde_json::from_str(raw_json)?;
 
         Ok(TemplateParser {
@@ -60,7 +109,7 @@ impl TemplateParser {
         })
     }
 
-    pub fn from_file(context: Context, filepath: String) -> Result<Self, Box<dyn Error>> {
+    pub fn from_file(context: Context, filepath: String) -> Result<Self, Box<dyn StdError>> {
         let mut raw_json = String::new();
         File::open(filepath)?.read_to_string(&mut raw_json)?;
         let data: Value = serde_json::from_str(&raw_json)?;
@@ -108,7 +157,7 @@ impl TemplateParser {
         }
     }
 
-    pub fn try_parse(&mut self) -> Result<(), Box<dyn Error>> {
+    pub fn try_parse(&mut self) -> Result<(), Box<dyn StdError>> {
         let to_owned = |v: &Vec<Value>| -> Vec<Value> { v.to_owned() };
 
         if let Some(header_deps) = self.data["header_deps"].as_array().map(to_owned) {
@@ -151,13 +200,8 @@ impl TemplateParser {
         self.context.verify_tx(&tx, MAX_CYCLES)
     }
 
-    pub fn execute_tx(&mut self, tx: TransactionView) -> Result<Cycle, ckb_error::Error> {
-        println!(
-            "\nTransaction size: {} bytes, Suggested fee: {} shannon(feeRate: 1)",
-            tx.data().total_size(),
-            tx.data().total_size() + 4
-        );
-        self.context.verify_tx(&tx, MAX_CYCLES)
+    pub fn execute_tx(&mut self, tx: &TransactionView) -> Result<Cycle, ckb_error::Error> {
+        self.context.verify_tx(tx, MAX_CYCLES)
     }
 
     pub fn set_outputs_data(&mut self, i: usize, data: packed::Bytes) {
@@ -184,7 +228,7 @@ impl TemplateParser {
         // eprintln!("self.witnesses = {:#?}", self.witnesses);
     }
 
-    pub fn sign_by_keys(&mut self, private_keys: Vec<&str>) -> Result<(), Box<dyn Error>> {
+    pub fn sign_by_keys(&mut self, private_keys: Vec<&str>) -> Result<(), Box<dyn StdError>> {
         // TODO Support sign transaction in tests
         for key in private_keys {
             self.sign_by_key(key)?
@@ -193,7 +237,7 @@ impl TemplateParser {
         Ok(())
     }
 
-    pub fn sign_by_key(&mut self, private_key: &str) -> Result<(), Box<dyn Error>> {
+    pub fn sign_by_key(&mut self, private_key: &str) -> Result<(), Box<dyn StdError>> {
         // TODO Support sign transaction in tests
         let mut signer = util::get_privkey_signer(private_key);
         let input_size = self.inputs.len();
@@ -244,7 +288,7 @@ impl TemplateParser {
         Ok(())
     }
 
-    fn group_inputs(&self) -> Result<HashMap<(Byte32, Bytes), Vec<usize>>, Box<dyn Error>> {
+    fn group_inputs(&self) -> Result<HashMap<(Byte32, Bytes), Vec<usize>>, Box<dyn StdError>> {
         let mut groups: HashMap<(Byte32, Bytes), Vec<usize>> = HashMap::default();
         for (idx, cell_input) in self.inputs.iter().enumerate() {
             let (cell_output, _) = self.context.get_cell(&cell_input.previous_output()).unwrap();
@@ -258,7 +302,7 @@ impl TemplateParser {
         Ok(groups)
     }
 
-    fn parse_header_deps(&mut self, header_deps: Vec<Value>) -> Result<(), Box<dyn Error>> {
+    fn parse_header_deps(&mut self, header_deps: Vec<Value>) -> Result<(), Box<dyn StdError>> {
         for (i, item) in header_deps.iter().enumerate() {
             let header_hash = item["tmp_hash"]
                 .as_str()
@@ -298,7 +342,7 @@ impl TemplateParser {
         Ok(())
     }
 
-    fn parse_cell_deps(&mut self, cell_deps: Vec<Value>) -> Result<(), Box<dyn Error>> {
+    fn parse_cell_deps(&mut self, cell_deps: Vec<Value>) -> Result<(), Box<dyn StdError>> {
         for (i, item) in cell_deps.into_iter().enumerate() {
             match item["tmp_type"].as_str() {
                 Some("contract") => {
@@ -353,7 +397,7 @@ impl TemplateParser {
         Ok(())
     }
 
-    fn parse_inputs(&mut self, inputs: Vec<Value>) -> Result<(), Box<dyn Error>> {
+    fn parse_inputs(&mut self, inputs: Vec<Value>) -> Result<(), Box<dyn StdError>> {
         for (i, item) in inputs.into_iter().enumerate() {
             match item["previous_output"]["tmp_type"].as_str() {
                 Some("full") => {
@@ -396,7 +440,7 @@ impl TemplateParser {
         Ok(())
     }
 
-    fn parse_outputs(&mut self, outputs: Vec<Value>) -> Result<(), Box<dyn Error>> {
+    fn parse_outputs(&mut self, outputs: Vec<Value>) -> Result<(), Box<dyn StdError>> {
         for item in outputs {
             match item["tmp_type"].as_str() {
                 Some("full") => {
@@ -429,7 +473,7 @@ impl TemplateParser {
         &mut self,
         cell: Value,
         source: Source,
-    ) -> Result<(u64, Script, Option<Script>, Option<Vec<u8>>), Box<dyn Error>> {
+    ) -> Result<(u64, Script, Option<Script>, Option<Vec<u8>>), Box<dyn StdError>> {
         // parse capacity of cell
         let capacity: u64;
         if cell["capacity"].is_number() {
@@ -458,7 +502,7 @@ impl TemplateParser {
         Ok((capacity, lock_script.unwrap(), type_script, data))
     }
 
-    fn parse_script(&self, script_val: Value, source: Source) -> Result<Option<Script>, Box<dyn Error>> {
+    fn parse_script(&self, script_val: Value, source: Source) -> Result<Option<Script>, Box<dyn StdError>> {
         if script_val.is_null() {
             return Ok(None);
         }
@@ -530,7 +574,7 @@ impl TemplateParser {
         Ok(script)
     }
 
-    fn parse_witnesses(&mut self, witnesses: Vec<Value>) -> Result<(), Box<dyn Error>> {
+    fn parse_witnesses(&mut self, witnesses: Vec<Value>) -> Result<(), Box<dyn StdError>> {
         for (_i, witness) in witnesses.into_iter().enumerate() {
             let data = witness
                 .as_str()

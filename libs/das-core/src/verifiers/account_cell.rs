@@ -3,7 +3,7 @@ use alloc::{boxed::Box, vec::Vec};
 use ckb_std::{ckb_constants::Source, debug, high_level};
 use das_types::{constants::AccountStatus, mixer::AccountCellDataReaderMixer, packed::*};
 
-pub fn verify_unlock_role(action: BytesReader, params: &[BytesReader]) -> Result<(), Error> {
+pub fn verify_unlock_role(action: &[u8], params: &[Bytes]) -> Result<(), Error> {
     let required_role_opt = util::get_action_required_role(action);
     if required_role_opt.is_none() {
         debug!("Skip checking the required role of the transaction.");
@@ -295,6 +295,33 @@ pub fn verify_account_witness_consistent<'a>(
             (last_edit_manager_at, "last_edit_manager_at"),
             (last_edit_records_at, "last_edit_records_at"),
             (status, "status")
+        );
+    }
+
+    Ok(())
+}
+
+pub fn verify_account_witness_record_empty<'a>(
+    account_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
+    cell_index: usize,
+    source: Source,
+) -> Result<(), Error> {
+    debug!("Check if AccountCell.witness.records is empty.");
+
+    if account_cell_witness_reader.version() == 1 {
+        unreachable!();
+    } else {
+        let account_cell_witness_reader = account_cell_witness_reader
+            .try_into_latest()
+            .map_err(|_| Error::NarrowMixerTypeFailed)?;
+        let records = account_cell_witness_reader.records();
+
+        assert!(
+            records.len() == 0,
+            Error::AccountCellRecordNotEmpty,
+            "{:?}[{}]The AccountCell.witness.records should be empty.",
+            source,
+            cell_index
         );
     }
 

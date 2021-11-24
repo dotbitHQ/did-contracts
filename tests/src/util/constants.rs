@@ -23,9 +23,15 @@ pub const INVITED_DISCOUNT: u64 = 500;
 pub const CONSOLIDATING_FEE: u64 = 100;
 pub const CKB_QUOTE: u64 = 1000;
 
-pub const ACCOUNT_SALE_CELL_BASIC_CAPACITY: u64 = 20_000_000_000;
-pub const ACCOUNT_SALE_CELL_PREPARED_FEE_CAPACITY: u64 = 100_000_000;
+pub const ACCOUNT_SALE_BASIC_CAPACITY: u64 = 20_000_000_000;
+pub const ACCOUNT_SALE_PREPARED_FEE_CAPACITY: u64 = 100_000_000;
+pub const SECONDARY_MARKET_COMMON_FEE: u64 = 10_000;
 
+pub const REVERSE_RECORD_BASIC_CAPACITY: u64 = 20_000_000_000;
+pub const REVERSE_RECORD_PREPARED_FEE_CAPACITY: u64 = 100_000_000;
+pub const REVERSE_RECORD_COMMON_FEE: u64 = 10_000;
+
+pub const HOUR_SEC: u64 = 3600;
 pub const DAY_SEC: u64 = 86400;
 pub const MONTH_SEC: u64 = DAY_SEC * 30;
 pub const YEAR_SEC: u64 = DAY_SEC * 365;
@@ -44,6 +50,7 @@ pub const DAO_TYPE_HASH: H256 = h256!("0x82d76d1b75fe2fd9a27dfbaa65a039221a380d7
 pub const CONFIG_LOCK_ARGS: &str = "0x0000000000000000000000000000000000000000";
 pub const DAS_WALLET_LOCK_ARGS: &str = "0x0300000000000000000000000000000000000000";
 pub const QUOTE_LOCK_ARGS: &str = "0x0100000000000000000000000000000000000000";
+pub const COMMON_INCOME_CREATOR_LOCK_ARGS: &str = "0x9900000000000000000000000000000000000000";
 
 #[derive(Debug)]
 #[repr(u8)]
@@ -62,6 +69,7 @@ pub enum OracleCellType {
 
 lazy_static! {
     pub static ref TYPE_ID_TABLE: HashMap<&'static str, &'static str> = {
+        // For calculation of these type ID, you need uncomment a line of debug code in the funtion **deploy_contract** in src/util.rs.
         let mut map = HashMap::new();
         map.insert(
             "fake-das-lock",
@@ -110,6 +118,10 @@ lazy_static! {
         map.insert(
             "proposal-cell-type",
             "0x071ee1a005b5bc1a619aed290c39bbb613ac93991eabab8418d6b0a9bdd220eb",
+        );
+        map.insert(
+            "reverse-record-cell-type",
+            "0x666163a5626501ca714b96cbcb4730b0a111ec2640fb432d0ba7f4ba5fa2855b",
         );
         map
     };
