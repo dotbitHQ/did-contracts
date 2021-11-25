@@ -190,7 +190,7 @@ impl WitnessesParser {
     pub fn get_lock_script_type(&self, script_reader: ScriptReader) -> Option<LockScript> {
         match script_reader {
             x if util::is_type_id_equal(self.lock_type_id_table.always_success.as_reader().into(), x.into()) => {
-                Some(LockScript::DasLock)
+                Some(LockScript::AlwaysSuccessLock)
             }
             x if util::is_type_id_equal(self.lock_type_id_table.das_lock.as_reader().into(), x.into()) => {
                 Some(LockScript::DasLock)
