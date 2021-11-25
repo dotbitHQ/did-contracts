@@ -854,8 +854,6 @@ fn verify_profit_distribution(
 
     debug!("Check if other roles get their profit properly.");
 
-    let total_profit_in_income = price - profit_of_seller;
-
     let output_income_cell_witness;
     let output_income_cell_witness_reader;
     parse_witness!(
@@ -872,7 +870,6 @@ fn verify_profit_distribution(
         output_income_cells[0],
         Source::Output,
         output_income_cell_witness_reader,
-        total_profit_in_income,
         profit_map,
     )?;
 

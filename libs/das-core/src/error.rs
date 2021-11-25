@@ -86,6 +86,7 @@ pub enum Error {
     ProposalConfirmWitnessStatusError,
     ProposalConfirmWitnessRecordsError,
     ProposalConfirmPreAccountCellExpired,
+    ProposalConfirmNeedWaitLonger,
     ProposalConfirmAccountLockArgsIsInvalid = 110,
     ProposalConfirmIncomeError,
     ProposalConfirmRefundError,

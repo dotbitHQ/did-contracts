@@ -25,13 +25,13 @@ pub fn verify_records_match_with_creating(
     index: usize,
     source: Source,
     income_cell_witness_reader: IncomeCellDataReader,
-    total_profit: u64,
     mut profit_map: Map<Vec<u8>, u64>,
 ) -> Result<(), Error> {
     #[cfg(debug_assertions)]
     crate::inspect::income_cell(source, index, None, Some(income_cell_witness_reader));
 
     let income_cell_basic_capacity = u64::from(config_income.basic_capacity());
+    let total_profit = profit_map.items.iter().map(|(_, v)| v).sum::<u64>();
 
     // Verify if the IncomeCell.capacity is equal to the sum of all records.
 
@@ -91,14 +91,14 @@ pub fn verify_records_match_with_creating(
     let current_capacity = high_level::load_cell_capacity(index, source).map_err(Error::from)?;
     assert!(
         current_capacity >= income_cell_basic_capacity,
-        Error::InvalidTransactionStructure,
+        Error::IncomeCellCapacityError,
         "{:?}[{}] The IncomeCell should have capacity bigger than or equal to the value in ConfigCellIncome.basic_capacity.",
         source,
         index
     );
     assert!(
         current_capacity == expected_income_cell_capacity,
-        Error::IncomeCellProfitMismatch,
+        Error::IncomeCellCapacityError,
         "{:?}[{}] The capacity of the IncomeCell should be {} shannon, but {} shannon found.",
         source,
         index,

@@ -16,6 +16,7 @@ fn push_input_proposal_cell_with_slices(template: &mut TemplateGenerator) {
                     "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
                     "args": PROPOSER
                 },
+                "created_at_height": HEIGHT - 4,
                 "slices": [
                     [
                         {
@@ -305,6 +306,68 @@ fn test_proposal_confirm() {
     push_output_normal_cell_with_refund(&mut template);
 
     test_tx(template.as_json());
+}
+
+#[test]
+fn challenge_proposal_confirm_height() {
+    let mut template = init_with_confirm();
+
+    // inputs
+    push_input_proposal_cell(
+        &mut template,
+        json!({
+            "capacity": "20_000_000_000",
+            "witness": {
+                "proposer_lock": {
+                    "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                    "args": PROPOSER
+                },
+                "created_at_height": HEIGHT,
+                "slices": [
+                    [
+                        {
+                            "account_id": "das00012.bit",
+                            "item_type": ProposalSliceItemType::Exist as u8,
+                            "next": "das00005.bit"
+                        },
+                        {
+                            "account_id": "das00005.bit",
+                            "item_type": ProposalSliceItemType::New as u8,
+                            "next": "das00002.bit"
+                        },
+                    ],
+                    [
+                        {
+                            "account_id": "das00004.bit",
+                            "item_type": ProposalSliceItemType::Proposed as u8,
+                            "next": "das00018.bit"
+                        },
+                        {
+                            "account_id": "das00018.bit",
+                            "item_type": ProposalSliceItemType::New as u8,
+                            "next": "das00008.bit"
+                        },
+                        {
+                            "account_id": "das00008.bit",
+                            "item_type": ProposalSliceItemType::New as u8,
+                            "next": "das00011.bit"
+                        },
+                    ]
+                ]
+            }
+        }),
+    );
+
+    push_input_slice_0(&mut template);
+    push_input_slice_1(&mut template);
+
+    // outputs
+    push_output_slice_0(&mut template);
+    push_output_slice_1(&mut template);
+    push_output_income_cell_with_profit(&mut template);
+    push_output_normal_cell_with_refund(&mut template);
+
+    challenge_tx(template.as_json(), Error::ProposalConfirmNeedWaitLonger);
 }
 
 #[test]

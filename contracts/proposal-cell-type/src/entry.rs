@@ -122,10 +122,16 @@ pub fn main() -> Result<(), Error> {
             let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
             parser.parse_cell()?;
-            parser.parse_config(&[DataType::ConfigCellAccount, DataType::ConfigCellProfitRate])?;
+            parser.parse_config(&[
+                DataType::ConfigCellAccount,
+                DataType::ConfigCellProfitRate,
+                DataType::ConfigCellIncome,
+                DataType::ConfigCellProposal,
+            ])?;
             let config_account = parser.configs.account()?;
             let config_main = parser.configs.main()?;
             let config_profit_rate = parser.configs.profit_rate()?;
+            let config_proposal_reader = parser.configs.proposal()?;
 
             assert!(
                 dep_cells.len() == 0 && input_cells.len() == 1 && output_cells.len() == 0,
@@ -142,6 +148,19 @@ pub fn main() -> Result<(), Error> {
                 input_cells[0],
                 Source::Input,
                 ProposalCellData
+            );
+
+            debug!("Check if the ProposalCell is able to be confirmed.");
+
+            let height = util::load_oracle_data(OracleCellType::Height)?;
+            let proposal_min_confirm_interval = u8::from(config_proposal_reader.proposal_min_confirm_interval()) as u64;
+            let created_at_height = u64::from(input_cell_witness_reader.created_at_height());
+
+            assert!(
+                height >= created_at_height + proposal_min_confirm_interval,
+                Error::ProposalConfirmNeedWaitLonger,
+                "ProposalCell should be confirmed later, about {} block to wait.",
+                created_at_height + proposal_min_confirm_interval - height
             );
 
             debug!("Check all AccountCells are updated or created base on proposal.");

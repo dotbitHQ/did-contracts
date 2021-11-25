@@ -5,8 +5,8 @@ use crate::util::{
 use das_types::{constants::DataType, packed::*};
 use serde_json::json;
 
-fn init(action: &str, params_opt: Option<&str>) -> TemplateGenerator {
-    let mut template = TemplateGenerator::new(action, params_opt.map(|raw| Bytes::from(hex_to_bytes(raw))));
+fn init(action: &str) -> TemplateGenerator {
+    let mut template = TemplateGenerator::new(action, Some(Bytes::from(vec![0])));
 
     template.push_contract_cell("fake-das-lock", true);
     template.push_contract_cell("fake-secp256k1-blake160-signhash-all", true);
@@ -19,7 +19,7 @@ fn init(action: &str, params_opt: Option<&str>) -> TemplateGenerator {
 
 #[test]
 fn test_balance_only_handle_type_5() {
-    let mut template = init("transfer", None);
+    let mut template = init("transfer");
 
     // inputs
     push_input_balance_cell(
@@ -60,7 +60,7 @@ fn test_balance_only_handle_type_5() {
 
 #[test]
 fn test_balance_only_handletest_balance_skip_all_type_5() {
-    let mut template = init("transfer", None);
+    let mut template = init("transfer");
 
     // Simulate skipping das-lock with types other than 05.
     // inputs
@@ -107,7 +107,7 @@ fn test_balance_only_handletest_balance_skip_all_type_5() {
 
 #[test]
 fn challenge_balance_without_type_in_outputs() {
-    let mut template = init("transfer", None);
+    let mut template = init("transfer");
 
     // inputs
     push_input_balance_cell(
