@@ -1,4 +1,4 @@
-use crate::{assert, error::Error};
+use crate::{assert, debug, error::Error, warn};
 use ckb_std::{ckb_constants::Source, high_level};
 use das_map::map::Map;
 use das_types::{packed::*, prelude::*};
@@ -36,12 +36,18 @@ pub fn verify_records_match_with_creating(
     // Verify if the IncomeCell.capacity is equal to the sum of all records.
 
     let skip = if total_profit > income_cell_basic_capacity {
+        debug!(
+            "The total profit in IncomeCell is {} shannon, which is enough for the basic_capacity of IncomeCell.",
+            total_profit
+        );
         false
     } else {
         // If the profit is sufficient for IncomeCell's basic capacity skip the first record, because it is a convention that the first
         // always belong to the IncomeCell creator in this transaction.
+        debug!("The total profit in IncomeCell is {} shannon, required {} more shannon to fill the basic_capacity of IncomeCell.", total_profit, income_cell_basic_capacity - total_profit);
         true
     };
+
     for (i, record) in income_cell_witness_reader.records().iter().enumerate() {
         if skip && i == 0 {
             continue;
@@ -72,14 +78,18 @@ pub fn verify_records_match_with_creating(
         profit_map.remove(&key);
     }
 
-    assert!(
-        profit_map.is_empty(),
-        Error::IncomeCellProfitMismatch,
-        "{:?}[{}] The IncomeCell should contains everyone's profit. (missing: {})",
-        source,
-        index,
-        profit_map.len()
-    );
+    if !profit_map.is_empty() {
+        // warn!();
+        for (script_bytes, capacity) in profit_map.items {
+            let script_reader = ScriptReader::new_unchecked(&script_bytes);
+            warn!(
+                "  {:?}[{}] Missing {} shannon capacity profit for lock script {} .",
+                source, index, capacity, script_reader
+            );
+        }
+
+        return Err(Error::IncomeCellProfitMismatch);
+    }
 
     // Verify if the IncomeCell.capacity is equal to the sum of all records.
 
