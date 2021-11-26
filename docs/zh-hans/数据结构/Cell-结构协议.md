@@ -449,15 +449,15 @@ table AccountAuctionCellData {
 
 `148` Bytes
 
-### ReverseResolutionCell
+### ReverseRecordCell
 
-存放反向解析记录的 Cell ，同一个地址上可能有多个，需要按照公共的规则进行去重。
+存放反向解析记录的 Cell ，同一个地址上可能有多个，需要按照[协议](../反向解析机制/反向解析机制.md)进行去重。
 
 #### 结构
 
 ```
 lock: <ckb_lock_script> | <das_lock_script>
-type: <reverse-resolution-cell-type>
+type: <reverse-record-cell-type>
 data:
   account // 反向解析对应的账户名
 ```
@@ -752,7 +752,8 @@ table ReleaseRule {
 table ConfigCellSecondaryMarket {
     // The common fee for every transactions AccountSaleCell and AccountAuctionCell involved.
     common_fee: Uint64,
-    // Minimum price for selling an account.
+    // SaleCell =======================================
+    // The minimum price for selling an account.
     sale_min_price: Uint64,
     // Expiration time limit for selling accounts.
     sale_expiration_limit: Uint32,
@@ -762,6 +763,7 @@ table ConfigCellSecondaryMarket {
     sale_cell_basic_capacity: Uint64,
     // The fees prepared for various transactions.
     sale_cell_prepared_fee_capacity: Uint64,
+    // AuctionCell ====================================
     // The maximum extendable duration time for an auction, unit in seconds.
     auction_max_extendable_duration: Uint32,
     // The increment of duration brought by each bid in the auction, unit in seconds.
@@ -776,6 +778,14 @@ table ConfigCellSecondaryMarket {
     auction_cell_basic_capacity: Uint64,
     // The fees prepared for various transactions.
     auction_cell_prepared_fee_capacity: Uint64,
+    // The minimum price for making an offer.
+    offer_min_price: Uint64,
+    // The basic capacity OfferCell required, it is bigger than or equal to OfferCell occupied capacity.
+    offer_cell_basic_capacity: Uint64,
+    // The fees prepared for various transactions.
+    offer_cell_prepared_fee_capacity: Uint64,
+    // Bytes size limitation of the message for offer.
+    offer_message_bytes_limit: Uint32,
 }
 ```
 

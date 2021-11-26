@@ -1,9 +1,8 @@
 use super::common::init;
-use crate::util::constants::{DAY_SEC, MONTH_SEC, YEAR_SEC};
-use crate::util::{
-    self, error::Error, template_common_cell::*, template_generator::*, template_parser::TemplateParser,
+use crate::{
+    util::constants::{DAY_SEC, MONTH_SEC, YEAR_SEC},
+    util::{self, error::Error, template_common_cell::*, template_generator::*, template_parser::*},
 };
-use ckb_testtool::context::Context;
 use das_types::constants::AccountStatus;
 use serde_json::json;
 
@@ -79,7 +78,8 @@ fn before_each() -> (TemplateGenerator, u64, &'static str, &'static str) {
     (template, timestamp, owner, manager)
 }
 
-test_with_generator!(test_account_force_recover_account_status, || {
+#[test]
+fn test_account_force_recover_account_status() {
     let (mut template, timestamp, owner, manager) = before_each();
 
     template.push_output(
@@ -111,5 +111,5 @@ test_with_generator!(test_account_force_recover_account_status, || {
 
     push_output_balance_cell(&mut template, 20_099_990_000, owner);
 
-    template.as_json()
-});
+    test_tx(template.as_json());
+}

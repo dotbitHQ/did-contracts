@@ -1,13 +1,13 @@
-use alloc::{boxed::Box, string::String};
+use alloc::{boxed::Box, format, string::String};
 use ckb_std::{ckb_constants::Source, high_level};
 use core::result::Result;
 use das_core::{
     assert, assert_lock_equal,
     constants::*,
-    constants::{das_lock, ScriptType},
     data_parser, debug,
+    eip712::{to_semantic_capacity, verify_eip712_hashes},
     error::Error,
-    parse_account_cell_witness, parse_witness, util, verifiers,
+    parse_account_cell_witness, parse_witness, util, verifiers, warn,
     witness_parser::WitnessesParser,
 };
 use das_map::{map::Map, util as map_util};
@@ -22,22 +22,20 @@ pub fn main() -> Result<(), Error> {
     debug!("====== Running offer-cell-type ======");
 
     let mut parser = WitnessesParser::new()?;
-    let action_opt = parser.parse_action_with_params()?;
-    if action_opt.is_none() {
-        return Err(Error::ActionNotSupported);
-    }
-
-    let (action_raw, _) = action_opt.unwrap();
-    let action = action_raw.as_reader().raw_data();
+    let action_cp = match parser.parse_action_with_params()? {
+        Some((action, _)) => action.to_vec(),
+        None => return Err(Error::ActionNotSupported),
+    };
+    let action = action_cp.as_slice();
 
     util::is_system_off(&mut parser)?;
+
+    let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
 
     debug!(
         "Route to {:?} action ...",
         String::from_utf8(action.to_vec()).map_err(|_| Error::ActionNotSupported)?
     );
-
-    let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
     match action {
         b"make_offer" | b"edit_offer" => {
             parser.parse_config(&[DataType::ConfigCellMain, DataType::ConfigCellSecondaryMarket])?;
@@ -135,10 +133,14 @@ pub fn main() -> Result<(), Error> {
             verify_message_length(config_second_market, output_offer_cell_witness_reader)?;
 
             if action == b"make_offer" {
+                verify_eip712_hashes(&parser, make_offer_to_semantic)?;
+
                 let account = output_offer_cell_witness_reader.account().raw_data();
                 let account_without_suffix = &account[0..account.len() - 4];
                 verifiers::account_cell::verify_unavailable_accounts(&mut parser, account_without_suffix)?;
             } else {
+                verify_eip712_hashes(&parser, edit_offer_to_semantic)?;
+
                 let input_offer_cell_witness;
                 let input_offer_cell_witness_reader;
                 parse_witness!(
@@ -165,6 +167,8 @@ pub fn main() -> Result<(), Error> {
             parser.parse_cell()?;
             let config_main = parser.configs.main()?;
             let config_second_market = parser.configs.secondary_market()?;
+
+            verify_eip712_hashes(&parser, cancel_offer_to_semantic)?;
 
             assert!(
                 input_cells.len() >= 1 && output_cells.len() == 0,
@@ -212,6 +216,9 @@ pub fn main() -> Result<(), Error> {
                 DataType::ConfigCellSecondaryMarket,
             ])?;
             parser.parse_cell()?;
+
+            verify_eip712_hashes(&parser, accept_offer_to_semantic)?;
+
             let config_main = parser.configs.main()?;
             let config_account = parser.configs.account()?;
             let config_income = parser.configs.income()?;
@@ -448,7 +455,7 @@ fn verify_profit_distribution(
         "There should be 1 IncomeCell at outputs[1]."
     );
 
-    util::is_cell_use_always_success_lock(output_income_cells[0], Source::Output)?;
+    verifiers::misc::verify_always_success_lock(output_income_cells[0], Source::Output)?;
 
     let mut profit_map = Map::new();
 
@@ -499,8 +506,6 @@ fn verify_profit_distribution(
 
     debug!("Check if other roles get their profit properly.");
 
-    let total_profit_in_income = price - profit_of_seller;
-
     let output_income_cell_witness;
     let output_income_cell_witness_reader;
     parse_witness!(
@@ -517,7 +522,6 @@ fn verify_profit_distribution(
         output_income_cells[0],
         Source::Output,
         output_income_cell_witness_reader,
-        total_profit_in_income,
         profit_map,
     )?;
 
@@ -530,4 +534,53 @@ fn verify_profit_distribution(
     );
 
     Ok(())
+}
+
+fn offer_to_semantic(parser: &WitnessesParser, source: Source) -> Result<(String, String), Error> {
+    let type_id_table_reader = parser.configs.main()?.type_id_table();
+    let offer_cells = util::find_cells_by_type_id(ScriptType::Type, type_id_table_reader.offer_cell(), source)?;
+    let witness;
+    let witness_reader;
+
+    assert!(
+        offer_cells.len() > 0,
+        Error::InvalidTransactionStructure,
+        "There should be at least 1 OfferCell in transaction."
+    );
+
+    parse_witness!(witness, witness_reader, parser, offer_cells[0], source, OfferCellData);
+
+    let account = String::from_utf8(witness_reader.account().raw_data().to_vec()).map_err(|_| {
+        warn!("EIP712 decoding OfferCellData failed");
+        Error::WitnessEntityDecodingError
+    })?;
+    let amount = to_semantic_capacity(high_level::load_cell_capacity(offer_cells[0], source).map_err(Error::from)?);
+
+    Ok((account, amount))
+}
+
+fn make_offer_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
+    let (account, amount) = offer_to_semantic(parser, Source::Output)?;
+    Ok(format!("MAKE AN OFFER ON {} WITH {}", account, amount))
+}
+
+fn edit_offer_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
+    let (_, old_amount) = offer_to_semantic(parser, Source::Output)?;
+    let (account, new_amount) = offer_to_semantic(parser, Source::Output)?;
+    Ok(format!(
+        "CHANGE THE OFFER ON {} FROM {} TO {}",
+        account, old_amount, new_amount
+    ))
+}
+
+fn cancel_offer_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
+    let type_id_table_reader = parser.configs.main()?.type_id_table();
+    let offer_cells = util::find_cells_by_type_id(ScriptType::Type, type_id_table_reader.offer_cell(), Source::Input)?;
+
+    Ok(format!("CANCEL {} OFFERS", offer_cells.len()))
+}
+
+fn accept_offer_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
+    let (account, amount) = offer_to_semantic(parser, Source::Input)?;
+    Ok(format!("ACCEPT THE OFFER ON {} WITH {}", account, amount))
 }

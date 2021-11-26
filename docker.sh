@@ -191,7 +191,7 @@ test-release)
   docker exec -it -w /code -e BINARY_VERSION=release $DOCKER_CONTAINER bash -c "cargo test -p tests $2"
   ;;
 *)
-  echo "Unsupported capsule command."
+  echo "Unsupported docker.sh command."
   exit 0
   ;;
 esac

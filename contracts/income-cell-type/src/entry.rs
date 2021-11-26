@@ -1,31 +1,34 @@
-use alloc::borrow::ToOwned;
-use alloc::vec::Vec;
+use alloc::{borrow::ToOwned, vec::Vec};
 use ckb_std::{ckb_constants::Source, debug, high_level};
 use core::result::Result;
 use core::slice::Iter;
-use das_core::{assert, constants::*, error::Error, parse_witness, util, warn, witness_parser::WitnessesParser};
+use das_core::{
+    assert, constants::*, error::Error, parse_witness, util, verifiers, warn, witness_parser::WitnessesParser,
+};
 use das_types::{constants::DataType, packed::*, prelude::*};
 
 pub fn main() -> Result<(), Error> {
     debug!("====== Running income-cell-type ======");
 
     let mut parser = WitnessesParser::new()?;
-    let action_opt = parser.parse_action_with_params()?;
-    if action_opt.is_none() {
-        return Err(Error::ActionNotSupported);
-    }
-
-    let (action_raw, _) = action_opt.unwrap();
-    let action = action_raw.as_reader().raw_data();
+    let action_cp = match parser.parse_action_with_params()? {
+        Some((action, _)) => action.to_vec(),
+        None => return Err(Error::ActionNotSupported),
+    };
+    let action = action_cp.as_slice();
 
     util::is_system_off(&mut parser)?;
 
+    debug!(
+        "Route to {:?} action ...",
+        alloc::string::String::from_utf8(action.to_vec()).map_err(|_| Error::ActionNotSupported)?
+    );
     if action == b"create_income" {
         debug!("Route to create_income action ...");
 
         debug!("Find out IncomeCells ...");
 
-        let this_type_script = high_level::load_script().map_err(|e| Error::from(e))?;
+        let this_type_script = high_level::load_script()?;
         let (input_cells, output_cells) =
             util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
 
@@ -40,7 +43,7 @@ pub fn main() -> Result<(), Error> {
             "Only one IncomeCell can be created in create_income action."
         );
 
-        util::is_cell_use_always_success_lock(output_cells[0], Source::Output)?;
+        verifiers::misc::verify_always_success_lock(output_cells[0], Source::Output)?;
 
         parser.parse_cell()?;
         parser.parse_config(&[DataType::ConfigCellIncome])?;
@@ -79,8 +82,7 @@ pub fn main() -> Result<(), Error> {
             "The only one record should has the same capacity with ConfigCellIncome.basic_capacity ."
         );
 
-        let cell_capacity =
-            high_level::load_cell_capacity(output_cells[0], Source::Output).map_err(|e| Error::from(e))?;
+        let cell_capacity = high_level::load_cell_capacity(output_cells[0], Source::Output)?;
         let basic_capacity = u64::from(config_income.basic_capacity());
         assert!(
             cell_capacity == basic_capacity,
@@ -90,11 +92,9 @@ pub fn main() -> Result<(), Error> {
             cell_capacity
         );
     } else if action == b"consolidate_income" {
-        debug!("Route to consolidate action ...");
-
         debug!("Find out IncomeCells ...");
 
-        let this_type_script = high_level::load_script().map_err(|e| Error::from(e))?;
+        let this_type_script = high_level::load_script()?;
         let (input_cells, output_cells) =
             util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
 
@@ -131,7 +131,7 @@ pub fn main() -> Result<(), Error> {
             let income_cell_witness = IncomeCellData::from_slice(entity.as_reader().raw_data())
                 .map_err(|_| Error::WitnessEntityDecodingError)?;
 
-            #[cfg(any(not(feature = "mainnet"), debug_assertions))]
+            #[cfg(debug_assertions)]
             das_core::inspect::income_cell(Source::Input, index, None, Some(income_cell_witness.as_reader()));
 
             let creator = income_cell_witness.creator();
@@ -167,9 +167,9 @@ pub fn main() -> Result<(), Error> {
             input_records,
         );
 
-        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
+        #[cfg(debug_assertions)]
         inspect_records("Records should be kept:", &records_should_keep);
-        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
+        #[cfg(debug_assertions)]
         inspect_records("Records should be transferred:", &records_should_transfer);
 
         debug!("Conclusion of need_pad: {}", need_pad);
@@ -182,7 +182,7 @@ pub fn main() -> Result<(), Error> {
             let income_cell_witness = IncomeCellData::from_slice(entity.as_reader().raw_data())
                 .map_err(|_| Error::WitnessEntityDecodingError)?;
 
-            #[cfg(any(not(feature = "mainnet"), debug_assertions))]
+            #[cfg(debug_assertions)]
             das_core::inspect::income_cell(
                 Source::Output,
                 cell_index.to_owned(),
@@ -214,8 +214,7 @@ pub fn main() -> Result<(), Error> {
                 output_records.push((record.belong_to(), capacity));
             }
 
-            let cell_capacity =
-                high_level::load_cell_capacity(cell_index.to_owned(), Source::Output).map_err(|e| Error::from(e))?;
+            let cell_capacity = high_level::load_cell_capacity(cell_index.to_owned(), Source::Output)?;
             assert!(
                 records_total_capacity == cell_capacity,
                 Error::IncomeCellConsolidateError,
@@ -269,8 +268,7 @@ pub fn main() -> Result<(), Error> {
                 }
             }
 
-            let capacity_transferred =
-                high_level::load_cell_capacity(cells[0], Source::Output).map_err(|e| Error::from(e))?;
+            let capacity_transferred = high_level::load_cell_capacity(cells[0], Source::Output)?;
             let mut capacity_should_be_transferred = item.1 / RATE_BASE * (RATE_BASE - income_consolidate_profit_rate);
 
             // If the record belongs to a IncomeCell creator, keeper should not take fee from it.
@@ -326,7 +324,7 @@ pub fn main() -> Result<(), Error> {
             )?;
         }
 
-        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
+        #[cfg(debug_assertions)]
         inspect_records(
             "Records should be used to pad IncomeCell capacity:",
             &records_used_for_pad,
@@ -396,7 +394,6 @@ pub fn main() -> Result<(), Error> {
             );
         }
     } else if action == b"confirm_proposal" {
-        debug!("Route to confirm_proposal action ...");
         util::require_type_script(
             &mut parser,
             TypeScript::ProposalCellType,
@@ -404,7 +401,6 @@ pub fn main() -> Result<(), Error> {
             Error::InvalidTransactionStructure,
         )?;
     } else if action == b"buy_account" {
-        debug!("Route to buy_account action ...");
         util::require_type_script(
             &mut parser,
             TypeScript::AccountSaleCellType,
@@ -412,7 +408,6 @@ pub fn main() -> Result<(), Error> {
             Error::InvalidTransactionStructure,
         )?;
     } else if action == b"accept_offer" {
-        debug!("Route to accept_offer action ...");
         util::require_type_script(
             &mut parser,
             TypeScript::OfferCellType,
@@ -420,8 +415,6 @@ pub fn main() -> Result<(), Error> {
             Error::InvalidTransactionStructure,
         )?;
     } else if action == b"bid_account_auction" {
-        debug!("Route to buy_account action ...");
-
         util::require_type_script(
             &mut parser,
             TypeScript::AccountAuctionCellType,
@@ -429,7 +422,6 @@ pub fn main() -> Result<(), Error> {
             Error::InvalidTransactionStructure,
         )?;
     } else if action == b"renew_account" {
-        debug!("Route to renew_account action ...");
         util::require_type_script(
             &mut parser,
             TypeScript::AccountCellType,
@@ -437,7 +429,7 @@ pub fn main() -> Result<(), Error> {
             Error::InvalidTransactionStructure,
         )?;
     } else {
-        warn!("The ActionData in witness has an undefine action.");
+        warn!("The ActionData in witness has an undefined action.");
         return Err(Error::ActionNotSupported);
     }
 
@@ -524,13 +516,13 @@ fn verify_das_lock_and_balance_type(
     index: usize,
     source: Source,
 ) -> Result<(), Error> {
-    let lock = high_level::load_cell_lock(index, source).map_err(|e| Error::from(e))?;
+    let lock = high_level::load_cell_lock(index, source)?;
     let lock_reader = lock.as_reader();
 
     if util::is_type_id_equal(das_lock_reader.into(), lock_reader) {
         let type_of_lock = lock_reader.args().raw_data()[0];
         if type_of_lock == DasLockType::ETHTypedData as u8 {
-            let type_opt = high_level::load_cell_type(index, source).map_err(|e| Error::from(e))?;
+            let type_opt = high_level::load_cell_type(index, source)?;
             assert!(
                 type_opt.is_some(),
                 Error::InvalidTransactionStructure,
@@ -549,7 +541,7 @@ fn verify_das_lock_and_balance_type(
                 index
             )
         } else {
-            let type_opt = high_level::load_cell_type(index, source).map_err(|e| Error::from(e))?;
+            let type_opt = high_level::load_cell_type(index, source)?;
             assert!(
                 type_opt.is_none(),
                 Error::InvalidTransactionStructure,
@@ -562,7 +554,7 @@ fn verify_das_lock_and_balance_type(
     Ok(())
 }
 
-#[cfg(any(not(feature = "mainnet"), debug_assertions))]
+#[cfg(debug_assertions)]
 fn inspect_records(title: &str, records: &Vec<(Script, u64, bool)>) {
     debug!("{} {} total", title, records.len());
 

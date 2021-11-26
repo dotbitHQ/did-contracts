@@ -1,6 +1,6 @@
 use super::common::*;
 use crate::util::{
-    self, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::TemplateParser,
+    self, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
 };
 use ckb_testtool::context::Context;
 use das_types::constants::*;
@@ -137,7 +137,8 @@ fn before_each(account: &str) -> (TemplateGenerator, u64, &'static str, &'static
     (template, timestamp, buyer, seller)
 }
 
-test_with_generator!(test_offer_accept_offer, || {
+#[test]
+fn test_offer_accept_offer() {
     let account = "xxxxx.bit";
     let (mut template, timestamp, buyer, seller) = before_each(account);
 
@@ -145,5 +146,5 @@ test_with_generator!(test_offer_accept_offer, || {
     push_output_income_cell(&mut template);
     push_output_balance_cell(&mut template, 194_000_000_000, seller);
 
-    template.as_json()
-});
+    test_tx(template.as_json());
+}

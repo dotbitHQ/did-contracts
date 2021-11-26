@@ -56,6 +56,10 @@ pub fn verify_no_more_cells_with_same_lock(
 
     for i in cells_with_same_lock {
         if !cells.contains(&i) {
+            warn!(
+                "{:?}[{}] There should be no more cells with the same lock.(lock_script: {})",
+                source, i, lock
+            );
             return Err(Error::InvalidTransactionStructure);
         }
     }
@@ -83,6 +87,25 @@ pub fn verify_user_get_change(
         expected_balance,
         current_capacity,
         user_lock_reader
+    );
+
+    Ok(())
+}
+
+pub fn verify_always_success_lock(index: usize, source: Source) -> Result<(), Error> {
+    let lock = high_level::load_cell_lock(index, source).map_err(Error::from)?;
+    let lock_reader = lock.as_reader();
+    let always_success_lock = always_success_lock();
+    let always_success_lock_reader = always_success_lock.as_reader();
+
+    assert!(
+        util::is_reader_eq(lock_reader.code_hash(), always_success_lock_reader.code_hash())
+            && lock_reader.hash_type() == always_success_lock_reader.hash_type(),
+        Error::AlwaysSuccessLockIsRequired,
+        "The cell at {:?}[{}] should use always-success lock.(expected_code_hash: {})",
+        source,
+        index,
+        always_success_lock.as_reader().code_hash()
     );
 
     Ok(())

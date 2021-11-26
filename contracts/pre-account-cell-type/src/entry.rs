@@ -8,7 +8,7 @@ use das_core::{
     witness_parser::WitnessesParser,
 };
 use das_types::{
-    constants::{CharSetType, DataType, CHAR_SET_LENGTH},
+    constants::{CharSetType, DataType, CHAR_SET_LENGTH, PRESERVED_ACCOUNT_CELL_COUNT},
     packed::*,
     prelude::*,
     util as das_types_util,
@@ -18,13 +18,11 @@ pub fn main() -> Result<(), Error> {
     debug!("====== Running pre-account-cell-type ======");
 
     let mut parser = WitnessesParser::new()?;
-    let action_opt = parser.parse_action_with_params()?;
-    if action_opt.is_none() {
-        return Err(Error::ActionNotSupported);
-    }
-
-    let (action_raw, _) = action_opt.unwrap();
-    let action = action_raw.as_reader().raw_data();
+    let action_cp = match parser.parse_action_with_params()? {
+        Some((action, _)) => action.to_vec(),
+        None => return Err(Error::ActionNotSupported),
+    };
+    let action = action_cp.as_slice();
 
     util::is_system_off(&mut parser)?;
 
@@ -34,7 +32,7 @@ pub fn main() -> Result<(), Error> {
             &mut parser,
             TypeScript::ProposalCellType,
             Source::Input,
-            Error::ProposalFoundInvalidTransaction,
+            Error::InvalidTransactionStructure,
         )?;
     } else if action == b"pre_register" {
         debug!("Route to pre_register action ...");
@@ -42,7 +40,7 @@ pub fn main() -> Result<(), Error> {
         debug!("Find out PreAccountCell ...");
 
         // Find out PreAccountCells in current transaction.
-        let this_type_script = load_script().map_err(|e| Error::from(e))?;
+        let this_type_script = load_script()?;
         let (input_cells, output_cells) =
             util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
 
@@ -57,7 +55,7 @@ pub fn main() -> Result<(), Error> {
             "There should be only one PreRegisterCell in outputs."
         );
 
-        util::is_cell_use_always_success_lock(output_cells[0], Source::Output)?;
+        verifiers::misc::verify_always_success_lock(output_cells[0], Source::Output)?;
 
         debug!("Find out ApplyRegisterCell ...");
 
@@ -91,14 +89,14 @@ pub fn main() -> Result<(), Error> {
 
         // Read the hash from outputs_data of the ApplyRegisterCell.
         let index = &input_apply_register_cells[0];
-        let data = load_cell_data(index.to_owned(), Source::Input).map_err(|e| Error::from(e))?;
+        let data = load_cell_data(index.to_owned(), Source::Input)?;
         let apply_register_hash = match data.get(..32) {
             Some(bytes) => bytes,
             _ => return Err(Error::InvalidCellData),
         };
-        let apply_register_lock = load_cell_lock(index.to_owned(), Source::Input).map_err(|e| Error::from(e))?;
+        let apply_register_lock = load_cell_lock(index.to_owned(), Source::Input)?;
 
-        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
+        #[cfg(debug_assertions)]
         das_core::inspect::apply_register_cell(Source::Input, index.to_owned(), &data);
 
         let height = util::load_oracle_data(OracleCellType::Height)?;
@@ -108,9 +106,9 @@ pub fn main() -> Result<(), Error> {
         debug!("Read witness of PreAccountCell ...");
 
         // Read outputs_data and witness of the PreAccountCell.
-        let data = load_cell_data(output_cells[0], Source::Output).map_err(|e| Error::from(e))?;
+        let data = load_cell_data(output_cells[0], Source::Output)?;
         let account_id = data_parser::pre_account_cell::get_id(&data);
-        let capacity = load_cell_capacity(output_cells[0], Source::Output).map_err(|e| Error::from(e))?;
+        let capacity = load_cell_capacity(output_cells[0], Source::Output)?;
 
         let pre_account_cell_witness;
         let pre_account_cell_witness_reader;
@@ -123,7 +121,7 @@ pub fn main() -> Result<(), Error> {
             PreAccountCellData
         );
 
-        #[cfg(any(not(feature = "mainnet"), debug_assertions))]
+        #[cfg(debug_assertions)]
         das_core::inspect::pre_account_cell(
             Source::Output,
             output_cells[0],
@@ -176,20 +174,19 @@ pub fn main() -> Result<(), Error> {
             }
         }
 
-        verify_account_chars(&mut parser, pre_account_cell_witness_reader)?;
-
-        let account_without_suffix = pre_account_cell_witness_reader.account().as_readable();
-        verifiers::account_cell::verify_unavailable_accounts(&mut parser, &account_without_suffix)?;
-        match verifiers::account_cell::verify_preserved_accounts(&mut parser, &account_without_suffix) {
+        match verify_preserved_accounts(&mut parser, pre_account_cell_witness_reader) {
             Ok(_) => {}
-            Err(e) => {
-                if e == Error::AccountIsPreserved && cells_with_super_lock.len() > 0 {
-                    debug!("Skip Error::AccountIsPreserved because of super lock.");
-                } else {
-                    return Err(e);
+            Err(code) => {
+                if !(code == Error::AccountIsPreserved && cells_with_super_lock.len() > 0) {
+                    return Err(code);
                 }
+                debug!("Skip Error::AccountIsPreserved because of super lock.");
             }
         }
+
+        verify_unavailable_accounts(&mut parser, pre_account_cell_witness_reader)?;
+
+        verify_account_chars(&mut parser, pre_account_cell_witness_reader)?;
     } else {
         return Err(Error::ActionNotSupported);
     }
@@ -517,15 +514,71 @@ fn verify_account_chars(parser: &mut WitnessesParser, reader: PreAccountCellData
     Ok(())
 }
 
+fn verify_preserved_accounts(
+    parser: &mut WitnessesParser,
+    pre_account_reader: PreAccountCellDataReader,
+) -> Result<(), Error> {
+    debug!("Verify if account is preserved.");
+
+    let account = pre_account_reader.account().as_readable();
+    let account_hash = util::blake2b_256(account.as_slice());
+    let first_20_bytes = account_hash.get(..ACCOUNT_ID_LENGTH).unwrap();
+    // debug!("first 20 bytes of account hash: {:?}", first_20_bytes);
+    let index = (first_20_bytes[0] % PRESERVED_ACCOUNT_CELL_COUNT) as usize;
+    let data_type = das_types_util::preserved_accounts_group_to_data_type(index);
+
+    parser.parse_config(&[data_type])?;
+    let preserved_accounts = parser.configs.preserved_account()?;
+
+    if preserved_accounts.len() > 0 {
+        let accounts_total = preserved_accounts.len() / ACCOUNT_ID_LENGTH;
+        let mut start_account = 0;
+        let mut end_account = accounts_total - 1;
+
+        loop {
+            let nth_account = (start_account + end_account) / 2;
+            // debug!(
+            //     "nth_account({:?}) = (end_account({:?}) - start_account({:?})) / 2 + start_account({:?}))",
+            //     nth_account, end_account, start_account, start_account
+            // );
+            let start_index = nth_account * ACCOUNT_ID_LENGTH;
+            let end_index = (nth_account + 1) * ACCOUNT_ID_LENGTH;
+            // debug!("start_index: {:?}, end_index: {:?}", start_index, end_index);
+            let bytes_of_nth_account = preserved_accounts.get(start_index..end_index).unwrap();
+            // debug!("bytes_of_nth_account: {:?}", bytes_of_nth_account);
+            if bytes_of_nth_account < first_20_bytes {
+                // debug!("<");
+                start_account = nth_account + 1;
+            } else if bytes_of_nth_account > first_20_bytes {
+                // debug!(">");
+                end_account = if nth_account > 1 { nth_account - 1 } else { 0 };
+            } else {
+                warn!(
+                    "Account 0x{} is preserved. (hash: 0x{})",
+                    util::hex_string(account.as_slice()),
+                    util::hex_string(&account_hash)
+                );
+                return Err(Error::AccountIsPreserved);
+            }
+
+            if start_account > end_account || end_account == 0 {
+                break;
+            }
+        }
+    }
+
+    Ok(())
+}
+
 fn verify_account_length_and_years(reader: PreAccountCellDataReader, current_timestamp: u64) -> Result<(), Error> {
     use chrono::{DateTime, NaiveDateTime, Utc};
 
     let account_length = reader.account().len();
-    let current = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(current_timestamp as i64, 0), Utc);
+    let _current = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(current_timestamp as i64, 0), Utc);
 
     debug!(
         "Check if the account is available for registration now. (length: {}, current: {:#?})",
-        account_length, current
+        account_length, _current
     );
 
     // On CKB main net, AKA Lina, accounts of less lengths can be registered only after a specific number of years.
@@ -568,6 +621,68 @@ fn verify_account_release_status(reader: PreAccountCellDataReader) -> Result<(),
                 lucky_num,
                 threshold
             );
+        }
+    }
+
+    Ok(())
+}
+
+/**
+check if the account is an account that can never be registered.
+ **/
+fn verify_unavailable_accounts(
+    parser: &mut WitnessesParser,
+    pre_account_reader: PreAccountCellDataReader,
+) -> Result<(), Error> {
+    debug!("Verify if account if unavailable");
+
+    parser.parse_config(&[DataType::ConfigCellUnAvailableAccount])?;
+
+    let account = pre_account_reader.account().as_readable();
+    let account_hash = util::blake2b_256(account.as_slice());
+
+    let account_hash_first_20_bytes = account_hash.get(..ACCOUNT_ID_LENGTH).unwrap();
+    let unavailable_accounts = parser.configs.unavailable_account()?;
+
+    debug!(
+        "account {} account_hash {}",
+        alloc::string::String::from_utf8(account.clone()).unwrap(),
+        util::hex_string(&account_hash)
+    );
+
+    // todo: maybe a naive traverse is much faster and use less cycles
+    if unavailable_accounts.len() > 0 {
+        let accounts_total = unavailable_accounts.len() / ACCOUNT_ID_LENGTH;
+        let mut start_account_index = 0;
+        let mut end_account_index = accounts_total - 1;
+
+        loop {
+            let mid_account_index = (start_account_index + end_account_index) / 2;
+            let mid_account_start_byte_index = mid_account_index * ACCOUNT_ID_LENGTH;
+            let mid_account_end_byte_index = mid_account_start_byte_index + ACCOUNT_ID_LENGTH;
+            let mid_account_bytes = unavailable_accounts
+                .get(mid_account_start_byte_index..mid_account_end_byte_index)
+                .unwrap();
+
+            if mid_account_bytes < account_hash_first_20_bytes {
+                start_account_index = mid_account_index + 1;
+            } else if mid_account_bytes > account_hash_first_20_bytes {
+                end_account_index = if mid_account_index > 1 {
+                    mid_account_index - 1
+                } else {
+                    0
+                };
+            } else {
+                warn!(
+                    "Account 0x{} is unavailable. (hash: 0x{})",
+                    util::hex_string(account.as_slice()),
+                    util::hex_string(&account_hash)
+                );
+                return Err(Error::AccountIsUnAvailable);
+            }
+            if start_account_index > end_account_index || end_account_index == 0 {
+                break;
+            }
         }
     }
 

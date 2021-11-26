@@ -24,10 +24,20 @@ pub enum TypeScript {
     AccountAuctionCellType,
     ApplyRegisterCellType,
     BalanceCellType,
+    ConfigCellType,
     IncomeCellType,
     OfferCellType,
     PreAccountCellType,
     ProposalCellType,
+    ReverseRecordCellType,
+}
+
+#[derive(Debug)]
+pub enum LockScript {
+    AlwaysSuccessLock,
+    DasLock,
+    Secp256k1Blake160SignhashLock,
+    Secp256k1Blake160MultisigLock,
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]
@@ -81,6 +91,8 @@ pub const CUSTOM_KEYS_NAMESPACE: &[u8] = b"0123456789abcdefghijklmnopqrstuvwxyz_
 pub const SECP_SIGNATURE_SIZE: usize = 65;
 // This is smaller than the real data type in solidity, but it is enough for now.
 pub const EIP712_CHAINID_SIZE: usize = 8;
+
+pub const DAY_SEC: u64 = 86400;
 
 pub fn super_lock() -> Script {
     #[cfg(feature = "dev")]

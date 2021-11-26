@@ -1,5 +1,6 @@
 use super::{
-    assert, constants::*, data_parser, debug, error::Error, types::ScriptLiteral, warn, witness_parser::WitnessesParser,
+    assert as das_assert, constants::*, data_parser, debug, error::Error, types::ScriptLiteral, warn,
+    witness_parser::WitnessesParser,
 };
 use blake2b_ref::{Blake2b, Blake2bBuilder};
 use ckb_std::{
@@ -155,7 +156,7 @@ pub fn find_only_cell_by_type_id(
 ) -> Result<usize, Error> {
     let cells = find_cells_by_type_id(script_type, type_id, source)?;
 
-    assert!(
+    das_assert!(
         cells.len() == 1,
         Error::InvalidTransactionStructure,
         "Only one cell expected existing in this transaction, but found {:?} in {:?}.",
@@ -356,7 +357,7 @@ pub fn load_oracle_data(type_: OracleCellType) -> Result<u64, Error> {
 
     // There must be one OracleCell in the cell_deps, no more and no less.
     let ret = find_cells_by_script(ScriptType::Type, type_script.as_reader(), Source::CellDep)?;
-    assert!(
+    das_assert!(
         ret.len() == 1,
         Error::OracleCellIsRequired,
         "There should be one cell of {:?} in cell_deps, no more and no less, but {} found.",
@@ -370,7 +371,7 @@ pub fn load_oracle_data(type_: OracleCellType) -> Result<u64, Error> {
     let data = load_cell_data(ret[0], Source::CellDep)?;
     let data_in_uint = match data.get(2..) {
         Some(bytes) => {
-            assert!(
+            das_assert!(
                 bytes.len() == 8,
                 Error::OracleCellDataDecodingError,
                 "Decoding data from cell of {:?} failed, uint64 with big-endian expected.",
@@ -438,7 +439,7 @@ pub fn load_das_witnesses(index: usize, data_type: DataType) -> Result<Vec<u8>, 
         }
         Err(SysError::LengthNotEnough(actual_size)) => {
             if let Some(raw) = buf.get(..3) {
-                assert!(
+                das_assert!(
                     raw == &WITNESS_HEADER,
                     Error::WitnessReadingError,
                     "The witness should start with \"das\" 3 bytes."
@@ -448,7 +449,7 @@ pub fn load_das_witnesses(index: usize, data_type: DataType) -> Result<Vec<u8>, 
             let data_type_in_int = u32::from_le_bytes(buf.get(3..7).unwrap().try_into().unwrap());
             let parsed_data_type = DataType::try_from(data_type_in_int).unwrap();
 
-            assert!(
+            das_assert!(
                 data_type == parsed_data_type,
                 Error::WitnessReadingError,
                 "The witnesses[{}] should be the {:?}, but {:?} found.",
@@ -501,19 +502,6 @@ pub fn blake2b_das(s: &[u8]) -> [u8; 32] {
     result
 }
 
-pub fn is_cell_consistent(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
-    debug!(
-        "Compare if {:?}[{}] and {:?}[{}] are equal in every fields except capacity.",
-        cell_a.1, cell_a.0, cell_b.1, cell_b.0
-    );
-
-    is_cell_lock_equal(cell_a, cell_b)?;
-    is_cell_type_equal(cell_a, cell_b)?;
-    is_cell_data_equal(cell_a, cell_b)?;
-
-    Ok(())
-}
-
 pub fn is_cell_only_lock_changed(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
     debug!(
         "Compare if only the cells' lock script are different: {:?}[{}] & {:?}[{}]",
@@ -531,7 +519,7 @@ pub fn is_cell_lock_equal(cell_a: (usize, Source), cell_b: (usize, Source)) -> R
     let a_lock_hash = high_level::load_cell_lock_hash(cell_a.0, cell_a.1).map_err(Error::from)?;
     let b_lock_hash = high_level::load_cell_lock_hash(cell_b.0, cell_b.1).map_err(Error::from)?;
 
-    assert!(
+    das_assert!(
         a_lock_hash == b_lock_hash,
         Error::CellLockCanNotBeModified,
         "The lock script of {:?}[{}]({}) and {:?}[{}]({}) should be the same.",
@@ -554,7 +542,7 @@ pub fn is_cell_type_equal(cell_a: (usize, Source), cell_b: (usize, Source)) -> R
         .map_err(Error::from)?
         .unwrap();
 
-    assert!(
+    das_assert!(
         a_type_script == b_type_script,
         Error::CellLockCanNotBeModified,
         "The type script of {:?}[{}]({}) and {:?}[{}]({}) should be the same.",
@@ -573,7 +561,7 @@ pub fn is_cell_data_equal(cell_a: (usize, Source), cell_b: (usize, Source)) -> R
     let a_data = high_level::load_cell_data(cell_a.0, cell_a.1).map_err(Error::from)?;
     let b_data = high_level::load_cell_data(cell_b.0, cell_b.1).map_err(Error::from)?;
 
-    assert!(
+    das_assert!(
         a_data == b_data,
         Error::CellLockCanNotBeModified,
         "The data of {:?}[{}]({}) and {:?}[{}]({}) should be the same.",
@@ -593,7 +581,7 @@ pub fn is_cell_capacity_lt(cell_a: (usize, Source), cell_b: (usize, Source)) -> 
     let b_capacity = high_level::load_cell_capacity(cell_b.0, cell_b.1).map_err(Error::from)?;
 
     // ⚠️ Equal is not allowed here because we want to avoid abuse cell.
-    assert!(
+    das_assert!(
         a_capacity < b_capacity,
         Error::CellLockCanNotBeModified,
         "The capacity of {:?}[{}]({}) should be less than {:?}[{}]({}).",
@@ -613,7 +601,7 @@ pub fn is_cell_capacity_gt(cell_a: (usize, Source), cell_b: (usize, Source)) -> 
     let b_capacity = high_level::load_cell_capacity(cell_b.0, cell_b.1).map_err(Error::from)?;
 
     // ⚠️ Equal is not allowed here because we want to avoid abuse cell.
-    assert!(
+    das_assert!(
         a_capacity > b_capacity,
         Error::CellLockCanNotBeModified,
         "The capacity of {:?}[{}]({}) should be greater than {:?}[{}]({}).",
@@ -632,7 +620,7 @@ pub fn is_cell_capacity_equal(cell_a: (usize, Source), cell_b: (usize, Source)) 
     let a_capacity = high_level::load_cell_capacity(cell_a.0, cell_a.1).map_err(Error::from)?;
     let b_capacity = high_level::load_cell_capacity(cell_b.0, cell_b.1).map_err(Error::from)?;
 
-    assert!(
+    das_assert!(
         a_capacity == b_capacity,
         Error::CellCapacityMustConsistent,
         "The capacity of {:?}[{}]({}) should be equal to {:?}[{}]({}).",
@@ -642,51 +630,6 @@ pub fn is_cell_capacity_equal(cell_a: (usize, Source), cell_b: (usize, Source)) 
         cell_b.1,
         cell_b.0,
         b_capacity
-    );
-
-    Ok(())
-}
-
-pub fn is_inputs_and_outputs_consistent(inputs_cells: Vec<usize>, outputs_cells: Vec<usize>) -> Result<(), Error> {
-    for (i, input_cell_index) in inputs_cells.into_iter().enumerate() {
-        let output_cell_index = outputs_cells[i];
-        is_cell_capacity_equal((input_cell_index, Source::Input), (output_cell_index, Source::Output))?;
-        is_cell_consistent((input_cell_index, Source::Input), (output_cell_index, Source::Output))?;
-    }
-
-    Ok(())
-}
-
-pub fn is_cell_use_always_success_lock(index: usize, source: Source) -> Result<(), Error> {
-    let lock = high_level::load_cell_lock(index, source).map_err(Error::from)?;
-    let lock_reader = lock.as_reader();
-    let always_success_lock = always_success_lock();
-    let always_success_lock_reader = always_success_lock.as_reader();
-
-    assert!(
-        is_reader_eq(lock_reader.code_hash(), always_success_lock_reader.code_hash())
-            && lock_reader.hash_type() == always_success_lock_reader.hash_type(),
-        Error::AlwaysSuccessLockIsRequired,
-        "The cell at {:?}[{}] should use always-success lock.(expected_code_hash: {})",
-        source,
-        index,
-        always_success_lock.as_reader().code_hash()
-    );
-
-    Ok(())
-}
-
-pub fn is_cell_use_signall_lock(index: usize, source: Source) -> Result<(), Error> {
-    let lock = high_level::load_cell_lock(index, source).map_err(Error::from)?;
-    let signall_lock = signall_lock();
-
-    assert!(
-        is_reader_eq(lock.as_reader().code_hash(), signall_lock.as_reader().code_hash()),
-        Error::SignallLockIsRequired,
-        "The cell at {:?}[{}] should use signall lock.(expected_code_hash: {})",
-        source,
-        index,
-        signall_lock.as_reader().code_hash()
     );
 
     Ok(())
@@ -721,7 +664,7 @@ pub fn is_init_day(current_timestamp: u64) -> Result<(), Error> {
     if cfg!(feature = "mainnet") {
         let init_day = Utc.ymd(2021, 7, 22).and_hms(12, 00, 00);
         // Otherwise, any account longer than two chars in length can be registered.
-        assert!(
+        das_assert!(
             current <= init_day,
             Error::InitDayHasPassed,
             "The day of DAS initialization has passed."
@@ -774,10 +717,12 @@ pub fn require_type_script(
         TypeScript::AccountAuctionCellType => config.type_id_table().account_auction_cell(),
         TypeScript::ApplyRegisterCellType => config.type_id_table().apply_register_cell(),
         TypeScript::BalanceCellType => config.type_id_table().balance_cell(),
+        TypeScript::ConfigCellType => parser.config_cell_type_id.as_reader(),
         TypeScript::IncomeCellType => config.type_id_table().income_cell(),
         TypeScript::OfferCellType => config.type_id_table().offer_cell(),
         TypeScript::PreAccountCellType => config.type_id_table().pre_account_cell(),
         TypeScript::ProposalCellType => config.type_id_table().proposal_cell(),
+        TypeScript::ReverseRecordCellType => config.type_id_table().reverse_record_cell(),
     };
 
     debug!(
@@ -790,7 +735,7 @@ pub fn require_type_script(
     // Find out required cell in current transaction.
     let required_cells = find_cells_by_type_id(ScriptType::Type, type_id, source)?;
 
-    assert!(
+    das_assert!(
         required_cells.len() > 0,
         err,
         "The cells in {:?} which has type script 0x{}({:?}) is required in this transaction.",
@@ -806,14 +751,14 @@ pub fn require_super_lock() -> Result<(), Error> {
     let super_lock = super_lock();
     let has_super_lock = find_cells_by_script(ScriptType::Lock, super_lock.as_reader(), Source::Input)?.len() > 0;
 
-    assert!(has_super_lock, Error::SuperLockIsRequired, "Super lock is required.");
+    das_assert!(has_super_lock, Error::SuperLockIsRequired, "Super lock is required.");
 
     Ok(())
 }
 
 /// Get the role required by each action
-pub fn get_action_required_role(action: das_packed::BytesReader) -> Option<LockRole> {
-    match action.raw_data() {
+pub fn get_action_required_role(action: &[u8]) -> Option<LockRole> {
+    match action {
         // account-cell-type
         b"transfer_account" => Some(LockRole::Owner),
         b"edit_manager" => Some(LockRole::Owner),
@@ -846,65 +791,4 @@ pub fn derive_owner_lock_from_cell(input_cell: usize, source: Source) -> Result<
     let lock_of_balance_cell = lock.as_builder().args(args.into()).build();
 
     Ok(lock_of_balance_cell)
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn test_hex_to_unpacked_bytes() {
-        let result = hex_to_unpacked_bytes("0x00FF").unwrap();
-        let expect = bytes::Bytes::from(vec![0u8, 255u8]);
-
-        // eprintln!("result = {:#?}", result);
-        // eprintln!("expect = {:#?}", expect);
-        assert!(
-            is_unpacked_bytes_eq(&result, &expect),
-            "Expect generated bytes to be [0u8, 255u8]"
-        );
-    }
-
-    #[test]
-    fn test_hex_to_bytes() {
-        let result = hex_to_bytes("0x00FF").unwrap();
-        let expect = bytes::Bytes::from(vec![0u8, 255u8]).pack();
-
-        // eprintln!("result = {:#?}", result);
-        // eprintln!("expect = {:#?}", expect);
-        assert!(
-            is_entity_eq(&result, &expect),
-            "Expect generated bytes to be [0u8, 255u8]"
-        );
-    }
-
-    #[test]
-    fn test_hex_to_byte32() {
-        let result = hex_to_byte32("0xe683b04139344768348499c23eb1326d5a52d6db006c0d2fece00a831f3660d7").unwrap();
-
-        let mut data = [Byte::new(0); 32];
-        let v = vec![
-            230, 131, 176, 65, 57, 52, 71, 104, 52, 132, 153, 194, 62, 177, 50, 109, 90, 82, 214, 219, 0, 108, 13, 47,
-            236, 224, 10, 131, 31, 54, 96, 215,
-        ]
-        .into_iter()
-        .map(Byte::new)
-        .collect::<Vec<_>>();
-        data.copy_from_slice(&v);
-        let expect: Byte32 = Byte32::new_builder().set(data).build();
-
-        // eprintln!("result = {:#?}", result);
-        // eprintln!("expect = {:#?}", expect);
-        assert!(is_entity_eq(&result, &expect));
-    }
-
-    #[test]
-    fn test_is_unpacked_bytes_eq() {
-        let a = hex_to_unpacked_bytes("0x0102").unwrap();
-        let b = hex_to_unpacked_bytes("0x0102").unwrap();
-        let c = hex_to_unpacked_bytes("0x0103").unwrap();
-
-        assert!(is_unpacked_bytes_eq(&a, &b), "Expect a == b return true");
-        assert!(!is_unpacked_bytes_eq(&a, &c), "Expect a == c return false");
-    }
 }

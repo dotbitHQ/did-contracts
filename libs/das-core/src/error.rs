@@ -1,7 +1,7 @@
 use ckb_std::error::SysError;
 
 /// Error
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 #[repr(i8)]
 pub enum Error {
     IndexOutOfBound = 1,
@@ -68,8 +68,7 @@ pub enum Error {
     PreRegisterQuoteIsInvalid, // 80
     PreRegisterDiscountIsInvalid,
     PreRegisterOwnerLockArgsIsInvalid,
-    ProposalFoundInvalidTransaction = 90,
-    ProposalSliceIsNotSorted,
+    ProposalSliceIsNotSorted = 90,
     ProposalSliceIsDiscontinuity,
     ProposalSliceRelatedCellNotFound,
     ProposalSliceRelatedCellMissing,
@@ -86,8 +85,9 @@ pub enum Error {
     ProposalConfirmWitnessManagerError, // 105
     ProposalConfirmWitnessStatusError,
     ProposalConfirmWitnessRecordsError,
+    ProposalConfirmPreAccountCellExpired,
+    ProposalConfirmNeedWaitLonger,
     ProposalConfirmAccountLockArgsIsInvalid = 110,
-    ProposalConfirmIncomeError,
     ProposalConfirmRefundError,
     ProposalSlicesCanNotBeEmpty,
     ProposalSliceNotEndCorrectly,
@@ -103,8 +103,7 @@ pub enum Error {
     IncomeCellTransferError,
     IncomeCellCapacityError,
     IncomeCellProfitMismatch,
-    AccountCellFoundInvalidTransaction = -110,
-    AccountCellPermissionDenied,
+    AccountCellPermissionDenied = -110,
     AccountCellOwnerLockShouldNotBeModified,
     AccountCellOwnerLockShouldBeModified,
     AccountCellManagerLockShouldBeModified,
@@ -121,6 +120,7 @@ pub enum Error {
     AccountCellChangeCapacityError, // -95
     AccountCellRecordKeyInvalid,
     AccountCellRecordSizeTooLarge,
+    AccountCellRecordNotEmpty,
     AccountCellStatusLocked,
     EIP712SerializationError = -90,
     EIP712SematicError,
