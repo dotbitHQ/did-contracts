@@ -16,7 +16,6 @@ members = [
     "contracts/pre-account-cell-type",
     "contracts/proposal-cell-type",
     "contracts/reverse-record-cell-type",
-    "tools/calculator",
 ]
 
 [profile.release]
