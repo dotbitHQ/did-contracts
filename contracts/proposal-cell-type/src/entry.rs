@@ -895,45 +895,8 @@ fn verify_proposal_execution_result(
         }
     }
 
-    debug!("Check if the IncomeCell in inputs is a newly created IncomeCell with only one record.");
-
     let income_cell_type_id = config_main.type_id_table().income_cell();
-    let (input_income_cells, output_income_cells) =
-        util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, income_cell_type_id)?;
-
-    assert!(
-        input_income_cells.len() <= 1,
-        Error::InvalidTransactionStructure,
-        "The number of IncomeCells in inputs should be less than or equal to 1. (expected: <= 1, current: {})",
-        input_income_cells.len()
-    );
-
-    if input_income_cells.len() == 1 {
-        let input_income_cell_witness;
-        let input_income_cell_witness_reader;
-        parse_witness!(
-            input_income_cell_witness,
-            input_income_cell_witness_reader,
-            parser,
-            input_income_cells[0],
-            Source::Input,
-            IncomeCellData
-        );
-
-        // The IncomeCell should be a newly created cell with only one record which is belong to the creator, but we do not need to check everything here, so we only check the length.
-        verifiers::income_cell::verify_newly_created(
-            input_income_cell_witness_reader,
-            input_income_cells[0],
-            Source::Input,
-        )?;
-
-        // Add the original record into profit_map to bypass later verification.
-        let first_record = input_income_cell_witness_reader.records().get(0).unwrap();
-        profit_map.insert(
-            first_record.belong_to().as_slice().to_vec(),
-            u64::from(first_record.capacity()),
-        );
-    }
+    let output_income_cells = util::find_cells_by_type_id(ScriptType::Type, income_cell_type_id, Source::Output)?;
 
     debug!("Check if the IncomeCell in outputs records everyone's profit correctly.");
 
@@ -955,59 +918,13 @@ fn verify_proposal_execution_result(
         IncomeCellData
     );
 
-    #[cfg(debug_assertions)]
-    das_core::inspect::income_cell(
-        Source::Output,
+    verifiers::income_cell::verify_records_match_with_creating(
+        parser.configs.income()?,
         output_income_cells[0],
-        None,
-        Some(output_income_cell_witness_reader),
-    );
-
-    let mut expected_capacity = 0;
-
-    for (i, record) in output_income_cell_witness_reader.records().iter().enumerate() {
-        let key = record.belong_to().as_slice().to_vec();
-        let recorded_profit = u64::from(record.capacity());
-        let result = profit_map.get(&key);
-
-        assert!(
-            result.is_some(),
-            Error::ProposalConfirmIncomeError,
-            "  IncomeCell.records[{}] Found a profit record which should not be in the IncomeCell.records, please compare the locks in PreAccountCells and ProposalCells with the belong_to field. (belong_to: {})",
-            i,
-            record.belong_to()
-        );
-
-        let expected_profit = result.unwrap();
-        assert!(
-            &recorded_profit == expected_profit,
-            Error::ProposalConfirmIncomeError,
-            "  IncomeCell.records[{}] The capacity of a profit record is incorrect. (expected: {}, current: {}, belong_to: {})",
-            i,
-            expected_profit,
-            recorded_profit,
-            record.belong_to()
-        );
-
-        expected_capacity += recorded_profit;
-        profit_map.remove(&key);
-    }
-
-    assert!(
-        profit_map.is_empty(),
-        Error::ProposalConfirmIncomeError,
-        "The IncomeCell in outputs should contains everyone's profit. (missing: {})",
-        profit_map.len()
-    );
-
-    let current_capacity = load_cell_capacity(output_income_cells[0], Source::Output)?;
-    assert!(
-        expected_capacity == current_capacity,
-        Error::ProposalConfirmIncomeError,
-        "The capacity of the IncomeCell should be {}, but {} found.",
-        expected_capacity,
-        current_capacity
-    );
+        Source::Output,
+        output_income_cell_witness_reader,
+        profit_map,
+    )?;
 
     Ok(())
 }
