@@ -137,6 +137,7 @@ pub enum Error {
     AccountSaleCellNewOwnerError,
     AccountSaleCellNotPayEnough,
     AccountSaleCellProfitError,
+    AccountSaleCellProfitRateError,
     OfferCellCapacityError,
     OfferCellLockError,
     OfferCellMessageTooLong,

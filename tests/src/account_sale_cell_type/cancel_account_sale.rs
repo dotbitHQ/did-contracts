@@ -53,7 +53,7 @@ fn push_input_account_sale_cell(template: &mut TemplateGenerator, owner: &str, t
                 "started_at": timestamp
             }
         }),
-        None,
+        Some(2),
     );
     template.push_das_lock_witness("0000000000000000000000000000000000000000000000000000000000000000");
 }

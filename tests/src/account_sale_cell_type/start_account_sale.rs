@@ -82,7 +82,7 @@ fn push_output_account_sale_cell(template: &mut TemplateGenerator, owner: &str, 
                 "started_at": timestamp
             }
         }),
-        None,
+        Some(2),
     );
 }
 

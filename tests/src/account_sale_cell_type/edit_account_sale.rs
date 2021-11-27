@@ -26,7 +26,7 @@ fn push_input_account_sale_cell(
                 "started_at": timestamp
             }
         }),
-        None,
+        Some(2),
     );
     template.push_das_lock_witness("0000000000000000000000000000000000000000000000000000000000000000");
 }
@@ -55,7 +55,7 @@ fn push_output_account_sale_cell(
                 "started_at": timestamp
             }
         }),
-        None,
+        Some(2),
     );
 }
 

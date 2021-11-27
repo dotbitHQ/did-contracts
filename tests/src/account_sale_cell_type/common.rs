@@ -49,6 +49,6 @@ pub fn push_input_account_sale_cell(template: &mut TemplateGenerator, cell_parti
     });
     util::merge_json(&mut cell, cell_partial);
 
-    template.push_input(cell, None);
+    template.push_input(cell, Some(2));
     template.push_empty_witness();
 }
