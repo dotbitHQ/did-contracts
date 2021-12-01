@@ -414,7 +414,7 @@ fn verify_price(
     );
 
     assert!(
-        current_capacity >= current_price && current_capacity <= current_price + prepared_fee_capacity,
+        current_capacity == current_price + prepared_fee_capacity,
         Error::OfferCellCapacityError,
         "The OfferCell.capacity should contain its price and prepared fee.(price: {}, current_capacity: {})",
         current_price,
@@ -554,7 +554,7 @@ fn offer_to_semantic(parser: &WitnessesParser, source: Source) -> Result<(String
         warn!("EIP712 decoding OfferCellData failed");
         Error::WitnessEntityDecodingError
     })?;
-    let amount = to_semantic_capacity(high_level::load_cell_capacity(offer_cells[0], source).map_err(Error::from)?);
+    let amount = to_semantic_capacity(u64::from(witness_reader.price()));
 
     Ok((account, amount))
 }
