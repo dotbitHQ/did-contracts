@@ -17,6 +17,7 @@ members = [
     "contracts/proposal-cell-type",
     "contracts/reverse-record-cell-type",
     "contracts/offer-cell-type",
+    "contracts/test-env",
 ]
 
 [profile.release]

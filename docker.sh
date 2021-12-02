@@ -100,7 +100,7 @@ function build() {
 function build_all() {
   local dirs=$(ls -a contracts)
   for contract in $dirs; do
-    if [[ $contract != "." && $contract != ".." && -d contracts/$contract ]]; then
+    if [[ $contract != "." && $contract != ".." && $contract != "test-env" && -d contracts/$contract ]]; then
       build $contract $1
     fi
   done

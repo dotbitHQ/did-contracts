@@ -129,6 +129,10 @@ lazy_static! {
             "reverse-record-cell-type",
             "0x666163a5626501ca714b96cbcb4730b0a111ec2640fb432d0ba7f4ba5fa2855b",
         );
+        map.insert(
+            "test-env",
+            "0x4939a7b6baf71149795f59844c215af0c117f381ac615fe3f563e77509063e19",
+        );
         map
     };
     pub static ref RE_VARIABLE: Regex = Regex::new(r"\{\{([\w\-\.]+)\}\}").unwrap();

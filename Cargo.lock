@@ -2886,6 +2886,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "test-env"
+version = "1.0.0"
+dependencies = [
+ "ckb-std",
+ "das-core",
+ "das-types",
+ "hex",
+]
+
+[[package]]
 name = "tests"
 version = "0.1.0"
 dependencies = [

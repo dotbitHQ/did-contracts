@@ -17,6 +17,7 @@ use ckb_std::{
     high_level,
 };
 use core::convert::{TryFrom, TryInto};
+use das_types::constants::DataType;
 use das_types::{constants::LockRole, packed as das_packed, prelude::*};
 use eip712::{eip712::*, hash_data, typed_data_v4};
 use sha2::{Digest, Sha256};
@@ -477,9 +478,9 @@ fn to_typed_cells(
                 );
 
                 macro_rules! extract_and_push {
-                    ($cell_data_to_str:ident, $cell_witness_to_str:ident, $type_:expr) => {
+                    ($cell_data_to_str:ident, $cell_witness_to_str:ident, $data_type:expr, $type_:expr) => {
                         let data = $cell_data_to_str(&data_in_bytes)?;
-                        let extra_data = $cell_witness_to_str(parser, &data_in_bytes[..32], i, source)?;
+                        let extra_data = $cell_witness_to_str(parser, &data_in_bytes[..32], $data_type, i, source)?;
                         cells.push(
                             typed_data_v4!(@object {
                                 capacity: capacity,
@@ -509,7 +510,12 @@ fn to_typed_cells(
                         match type_script_reader.code_hash() {
                             // Handle cells which with DAS type script.
                             x if util::is_reader_eq(x, type_id_table_reader.account_cell()) => {
-                                extract_and_push!(to_semantic_account_cell_data, to_semantic_account_witness, type_);
+                                extract_and_push!(
+                                    to_semantic_account_cell_data,
+                                    to_semantic_account_witness,
+                                    DataType::AccountCellData,
+                                    type_
+                                );
                             }
                             // Handle cells which with unknown type script.
                             _ => {
@@ -643,10 +649,11 @@ fn to_semantic_account_cell_data(data_in_bytes: &[u8]) -> Result<String, Error> 
 fn to_semantic_account_witness(
     parser: &WitnessesParser,
     expected_hash: &[u8],
+    data_type: DataType,
     index: usize,
     source: Source,
 ) -> Result<String, Error> {
-    let (_, _, entity) = parser.verify_with_hash_and_get(expected_hash, index, source)?;
+    let (_, _, entity) = parser.verify_with_hash_and_get(expected_hash, data_type, index, source)?;
     let witness = das_packed::AccountCellData::from_slice(entity.as_reader().raw_data()).map_err(|_| {
         warn!("EIP712 decoding AccountCellData failed");
         Error::WitnessEntityDecodingError

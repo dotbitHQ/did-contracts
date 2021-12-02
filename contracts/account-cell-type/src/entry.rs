@@ -317,6 +317,7 @@ pub fn main() -> Result<(), Error> {
                     parser,
                     input_income_cells[0],
                     Source::Input,
+                    DataType::IncomeCellData,
                     IncomeCellData
                 );
 
@@ -341,7 +342,8 @@ pub fn main() -> Result<(), Error> {
 
             let income_cell_capacity =
                 high_level::load_cell_capacity(output_income_cells[0], Source::Output).map_err(|e| Error::from(e))?;
-            let (_, _, entity) = parser.verify_and_get(output_income_cells[0], Source::Output)?;
+            let (_, _, entity) =
+                parser.verify_and_get(DataType::IncomeCellData, output_income_cells[0], Source::Output)?;
             let income_cell_witness = IncomeCellData::from_slice(entity.as_reader().raw_data())
                 .map_err(|_| Error::WitnessEntityDecodingError)?;
             let income_cell_witness_reader = income_cell_witness.as_reader();
@@ -628,6 +630,7 @@ pub fn main() -> Result<(), Error> {
                         parser,
                         input_sale_cells[0],
                         Source::Input,
+                        DataType::AccountSaleCellData,
                         AccountSaleCellData
                     );
 

@@ -45,7 +45,7 @@ pub enum Error {
     WitnessDataParseLengthHeaderFailed,
     WitnessDataReadDataBodyFailed, // 45
     WitnessDataDecodingError,
-    WitnessDataHashMissMatch,
+    WitnessDataHashOrTypeMissMatch,
     WitnessDataIndexMissMatch,
     WitnessEntityDecodingError,
     ApplyRegisterCellDataDecodingError = 60,
@@ -146,6 +146,7 @@ pub enum Error {
     ReverseRecordCellCapacityError,
     ReverseRecordCellAccountError,
     ReverseRecordCellChangeError,
+    UnittestError = -2,
     SystemOff = -1,
 }
 

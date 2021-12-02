@@ -118,6 +118,7 @@ pub fn main() -> Result<(), Error> {
             parser,
             output_cells[0],
             Source::Output,
+            DataType::PreAccountCellData,
             PreAccountCellData
         );
 

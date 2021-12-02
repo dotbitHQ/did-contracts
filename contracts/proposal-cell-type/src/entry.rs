@@ -77,6 +77,7 @@ pub fn main() -> Result<(), Error> {
                     parser,
                     dep_cells[0],
                     Source::CellDep,
+                    DataType::ProposalCellData,
                     ProposalCellData
                 );
                 prev_slices_reader_opt = Some(dep_cell_witness_reader.slices());
@@ -90,6 +91,7 @@ pub fn main() -> Result<(), Error> {
                 parser,
                 output_cells[0],
                 Source::Output,
+                DataType::ProposalCellData,
                 ProposalCellData
             );
 
@@ -147,6 +149,7 @@ pub fn main() -> Result<(), Error> {
                 parser,
                 input_cells[0],
                 Source::Input,
+                DataType::ProposalCellData,
                 ProposalCellData
             );
 
@@ -197,6 +200,7 @@ pub fn main() -> Result<(), Error> {
                 parser,
                 input_cells[0],
                 Source::Input,
+                DataType::ProposalCellData,
                 ProposalCellData
             );
 
@@ -259,12 +263,14 @@ fn inspect_related_cells(
     for i in related_cells {
         let script = load_cell_type(i, related_cells_source)?.unwrap();
         let code_hash = Hash::from(script.code_hash());
-        let (version, _, entity) = parser.verify_and_get(i, related_cells_source)?;
-        let data = util::load_cell_data(i, related_cells_source)?;
 
         if util::is_reader_eq(config_main.type_id_table().account_cell(), code_hash.as_reader()) {
+            let (version, _, entity) = parser.verify_and_get(DataType::AccountCellData, i, related_cells_source)?;
+            let data = util::load_cell_data(i, related_cells_source)?;
             das_core::inspect::account_cell(related_cells_source, i, &data, version, Some(entity.as_reader()), None);
         } else if util::is_reader_eq(config_main.type_id_table().pre_account_cell(), code_hash.as_reader()) {
+            let (_, _, entity) = parser.verify_and_get(DataType::AccountSaleCellData, i, related_cells_source)?;
+            let data = util::load_cell_data(i, related_cells_source)?;
             das_core::inspect::pre_account_cell(related_cells_source, i, &data, Some(entity.as_reader()), None);
         }
     }
@@ -545,6 +551,7 @@ fn verify_slices_relevant_cells(
                     parser,
                     cell_index,
                     Source::CellDep,
+                    DataType::PreAccountCellData,
                     PreAccountCellData
                 );
 
@@ -776,6 +783,7 @@ fn verify_proposal_execution_result(
                     parser,
                     input_related_cells[i],
                     Source::Input,
+                    DataType::PreAccountCellData,
                     PreAccountCellData
                 );
 
@@ -787,6 +795,7 @@ fn verify_proposal_execution_result(
                     parser,
                     output_account_cells[i],
                     Source::Output,
+                    DataType::AccountCellData,
                     AccountCellData
                 );
 
@@ -915,6 +924,7 @@ fn verify_proposal_execution_result(
         parser,
         output_income_cells[0],
         Source::Output,
+        DataType::IncomeCellData,
         IncomeCellData
     );
 

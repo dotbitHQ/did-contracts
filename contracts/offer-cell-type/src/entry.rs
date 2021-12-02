@@ -119,6 +119,7 @@ pub fn main() -> Result<(), Error> {
                 parser,
                 output_cells[0],
                 Source::Output,
+                DataType::OfferCellData,
                 OfferCellData
             );
 
@@ -149,6 +150,7 @@ pub fn main() -> Result<(), Error> {
                     parser,
                     input_cells[0],
                     Source::Input,
+                    DataType::OfferCellData,
                     OfferCellData
                 );
 
@@ -327,6 +329,7 @@ pub fn main() -> Result<(), Error> {
                 parser,
                 input_cells[0],
                 Source::Input,
+                DataType::OfferCellData,
                 OfferCellData
             );
 
@@ -514,6 +517,7 @@ fn verify_profit_distribution(
         parser,
         output_income_cells[0],
         Source::Output,
+        DataType::IncomeCellData,
         IncomeCellData
     );
 
@@ -548,7 +552,15 @@ fn offer_to_semantic(parser: &WitnessesParser, source: Source) -> Result<(String
         "There should be at least 1 OfferCell in transaction."
     );
 
-    parse_witness!(witness, witness_reader, parser, offer_cells[0], source, OfferCellData);
+    parse_witness!(
+        witness,
+        witness_reader,
+        parser,
+        offer_cells[0],
+        source,
+        DataType::OfferCellData,
+        OfferCellData
+    );
 
     let account = String::from_utf8(witness_reader.account().raw_data().to_vec()).map_err(|_| {
         warn!("EIP712 decoding OfferCellData failed");

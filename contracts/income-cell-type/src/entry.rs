@@ -60,6 +60,7 @@ pub fn main() -> Result<(), Error> {
             parser,
             output_cells[0],
             Source::Output,
+            DataType::IncomeCellData,
             IncomeCellData
         );
 
@@ -127,7 +128,7 @@ pub fn main() -> Result<(), Error> {
         let mut creators = Vec::new();
         let mut input_records = Vec::new();
         for index in input_cells {
-            let (_, _, entity) = parser.verify_and_get(index.to_owned(), Source::Input)?;
+            let (_, _, entity) = parser.verify_and_get(DataType::IncomeCellData, index.to_owned(), Source::Input)?;
             let income_cell_witness = IncomeCellData::from_slice(entity.as_reader().raw_data())
                 .map_err(|_| Error::WitnessEntityDecodingError)?;
 
@@ -178,7 +179,8 @@ pub fn main() -> Result<(), Error> {
 
         let mut output_records: Vec<(Script, u64)> = Vec::new();
         for (i, cell_index) in output_cells.iter().enumerate() {
-            let (_, _, entity) = parser.verify_and_get(cell_index.to_owned(), Source::Output)?;
+            let (_, _, entity) =
+                parser.verify_and_get(DataType::IncomeCellData, cell_index.to_owned(), Source::Output)?;
             let income_cell_witness = IncomeCellData::from_slice(entity.as_reader().raw_data())
                 .map_err(|_| Error::WitnessEntityDecodingError)?;
 

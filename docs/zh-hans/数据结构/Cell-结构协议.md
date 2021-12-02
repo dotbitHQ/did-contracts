@@ -970,11 +970,9 @@ enum DataType {
 }
 ```
 
-### 字符集枚举值 CharSet
+> ⚠️ 为了方便维护， ConfigCellXXX 的编号空间为 100 ~ 199999 之间，既 args >= 100 && args <= 199999 .
 
-> ⚠️ 为了方便维护， ConfigCellCharSetXXX 总是保持减去 100000 就等于下面 CharSet 常量的形式，所以可以直接采用下面的转换方法：
->
-> `ConfigCellCharSetEmoji - 100000 = EMOJI`
+### 字符集枚举值 CharSet
 
 ```
 enum CharSetType {
@@ -986,3 +984,6 @@ enum CharSetType {
 }
 ```
 
+> ⚠️ 为了方便维护， ConfigCellCharSetXXX 总是保持减去 100000 就等于下面 CharSet 常量的形式，所以可以直接采用下面的转换方法：
+>
+> `ConfigCellCharSetEmoji - 100000 = EMOJI`
