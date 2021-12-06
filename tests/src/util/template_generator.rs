@@ -722,7 +722,7 @@ impl TemplateGenerator {
 
     fn gen_config_cell_secondary_market(&mut self) -> (Bytes, ConfigCellSecondaryMarket) {
         let entity = ConfigCellSecondaryMarket::new_builder()
-            .common_fee(Uint64::from(10_000))
+            .common_fee(Uint64::from(SECONDARY_MARKET_COMMON_FEE))
             .sale_min_price(Uint64::from(20_000_000_000))
             .sale_expiration_limit(Uint32::from(86400 * 30))
             .sale_description_bytes_limit(Uint32::from(5000))
@@ -735,10 +735,10 @@ impl TemplateGenerator {
             .auction_description_bytes_limit(Uint32::from(5000))
             .auction_cell_basic_capacity(Uint64::from(20_000_000_000))
             .auction_cell_prepared_fee_capacity(Uint64::from(100_000_000))
-            .offer_min_price(Uint64::from(100_000_000_000))
-            .offer_cell_basic_capacity(Uint64::from(20_000_000_000))
-            .offer_cell_prepared_fee_capacity(Uint64::from(100_000_000))
-            .offer_message_bytes_limit(Uint32::from(5000))
+            .offer_min_price(Uint64::from(0))
+            .offer_cell_basic_capacity(Uint64::from(OFFER_BASIC_CAPACITY))
+            .offer_cell_prepared_fee_capacity(Uint64::from(OFFER_PREPARED_FEE_CAPACITY))
+            .offer_message_bytes_limit(Uint32::from(OFFER_PREPARED_MESSAGE_BYTES_LIMIT as u32))
             .build();
         let cell_data = Bytes::from(blake2b_256(entity.as_slice()).to_vec());
 
