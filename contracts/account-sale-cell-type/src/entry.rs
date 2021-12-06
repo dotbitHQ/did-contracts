@@ -884,7 +884,7 @@ fn verify_profit_distribution(
     let income_cell_max_records = u32::from(config_income.max_records()) as usize;
     assert!(
         output_income_cell_witness_reader.records().len() <= income_cell_max_records,
-        Error::IncomeCellConsolidateError,
+        Error::InvalidTransactionStructure,
         "The IncomeCell can not store more than {} records.",
         income_cell_max_records
     );

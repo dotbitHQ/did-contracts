@@ -40,16 +40,17 @@ pub fn verify_eip712_hashes(
     let das_lock = das_lock();
     let das_lock_reader = das_lock.as_reader();
 
-    let mut i = 0;
+    let mut i = match parser.action.as_slice() {
+        // In buy_account transaction, the inputs[0] and inputs[1] is belong to sellers, because buyers have paid enough, so we do not need
+        // their signature here.
+        b"buy_account" => 2,
+        // In accept_offer transaction, the inputs[0] is belong to buyer, because it is seller to send this transaction for accepting offer,
+        // so we do not need the buyer's signature here.
+        b"accept_offer" => 1,
+        _ => 0,
+    };
     let mut input_groups_idxs: BTreeMap<Vec<u8>, Vec<usize>> = BTreeMap::new();
     loop {
-        // In buy_account transaction, the inputs[0] and inputs[1] is belong to sellers, because buyers have paied enough, so we do not need
-        // their signature here.
-        if &parser.action == b"buy_account" && i < 2 {
-            i += 1;
-            continue;
-        }
-
         let ret = high_level::load_cell_lock(i, Source::Input);
         match ret {
             Ok(lock) => {

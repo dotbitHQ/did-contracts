@@ -43,8 +43,6 @@ pub fn main() -> Result<(), Error> {
             let config_main = parser.configs.main()?;
             let config_second_market = parser.configs.secondary_market()?;
 
-            let sender_lock = high_level::load_cell_lock(0, Source::Input)?;
-            let all_input_cells;
             if action == b"make_offer" {
                 assert!(
                     input_cells.len() == 0 && output_cells.len() == 1,
@@ -56,9 +54,6 @@ pub fn main() -> Result<(), Error> {
                     Error::InvalidTransactionStructure,
                     "There should be only 1 OfferCell at outputs[0]."
                 );
-
-                all_input_cells = util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Input)?;
-                verifiers::misc::verify_no_more_cells(&all_input_cells, Source::Input)?;
             } else {
                 assert!(
                     input_cells.len() == 1 && output_cells.len() == 1,
@@ -70,11 +65,16 @@ pub fn main() -> Result<(), Error> {
                     Error::InvalidTransactionStructure,
                     "There should be 1 OfferCell in inputs[0] and outputs[0]."
                 );
-
-                let balance_cells = util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Input)?;
-                all_input_cells = [input_cells.clone(), balance_cells].concat();
-                verifiers::misc::verify_no_more_cells(&all_input_cells, Source::Input)?;
             }
+
+            let sender_lock = high_level::load_cell_lock(0, Source::Input)?;
+            let balance_cells = util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Input)?;
+            let all_input_cells = if action == b"make_offer" {
+                balance_cells
+            } else {
+                [input_cells.clone(), balance_cells].concat()
+            };
+            verifiers::misc::verify_no_more_cells(&all_input_cells, Source::Input)?;
 
             debug!("Verify if the change is transferred back to the sender properly.");
 
@@ -85,6 +85,11 @@ pub fn main() -> Result<(), Error> {
             let offer_cell_capacity = high_level::load_cell_capacity(output_cells[0], Source::Output)?;
             let common_fee = u64::from(config_second_market.common_fee());
             if total_input_capacity > offer_cell_capacity + common_fee {
+                debug!(
+                    "The buyer should get a change of {} shannon.",
+                    total_input_capacity - offer_cell_capacity - common_fee
+                );
+
                 verifiers::misc::verify_user_get_change(
                     config_main,
                     sender_lock.as_reader(),
@@ -123,22 +128,19 @@ pub fn main() -> Result<(), Error> {
                 OfferCellData
             );
 
-            debug!("Verify if the fields of the OfferCell is set correctly.");
-
-            verify_price(
-                config_second_market,
-                output_offer_cell_witness_reader,
-                output_cells[0],
-                Source::Output,
-            )?;
-            verify_message_length(config_second_market, output_offer_cell_witness_reader)?;
-
             if action == b"make_offer" {
                 verify_eip712_hashes(&parser, make_offer_to_semantic)?;
 
-                let account = output_offer_cell_witness_reader.account().raw_data();
-                let account_without_suffix = &account[0..account.len() - 4];
-                verifiers::account_cell::verify_unavailable_accounts(&mut parser, account_without_suffix)?;
+                debug!("Verify if the fields of the OfferCell is set correctly.");
+
+                verify_price(
+                    config_second_market,
+                    output_offer_cell_witness_reader,
+                    output_cells[0],
+                    Source::Output,
+                    None,
+                )?;
+                verify_message_length(config_second_market, output_offer_cell_witness_reader)?;
             } else {
                 verify_eip712_hashes(&parser, edit_offer_to_semantic)?;
 
@@ -154,15 +156,88 @@ pub fn main() -> Result<(), Error> {
                     OfferCellData
                 );
 
+                debug!("Verify if the fields of the OfferCell is modified propoerly.");
+
                 assert!(
                     util::is_reader_eq(
                         input_offer_cell_witness_reader.account(),
                         output_offer_cell_witness_reader.account()
                     ),
-                    Error::OfferCellAccountNotMatch,
-                    "The OfferCell.account can not be changed."
-                )
+                    Error::OfferCellFieldCanNotModified,
+                    "The OfferCell.account can not be modified."
+                );
+
+                assert!(
+                    util::is_reader_eq(
+                        input_offer_cell_witness_reader.inviter_lock(),
+                        output_offer_cell_witness_reader.inviter_lock()
+                    ),
+                    Error::OfferCellFieldCanNotModified,
+                    "The OfferCell.inviter_lock can not be modified."
+                );
+
+                assert!(
+                    util::is_reader_eq(
+                        input_offer_cell_witness_reader.channel_lock(),
+                        output_offer_cell_witness_reader.channel_lock()
+                    ),
+                    Error::OfferCellFieldCanNotModified,
+                    "The OfferCell.channel_lock can not be modified."
+                );
+
+                debug!("Verify if the fields of the OfferCell has been changed correctly.");
+
+                let input_offer_capacity = high_level::load_cell_capacity(input_cells[0], Source::Input)?;
+                let old_price = u64::from(input_offer_cell_witness_reader.price());
+                let old_fee = input_offer_capacity - old_price;
+
+                let output_offer_capacity = high_level::load_cell_capacity(output_cells[0], Source::Output)?;
+                let new_price = u64::from(output_offer_cell_witness_reader.price());
+                let new_fee = output_offer_capacity - new_price;
+
+                assert!(
+                    old_fee - new_fee <= common_fee,
+                    Error::OfferCellCapacityError,
+                    "The fee paid by the OfferCell should be less than or equal to {} shannon.(expected: {} = {}(old_fee) - {}(new_fee))",
+                    common_fee,
+                    old_fee - new_fee,
+                    old_fee,
+                    new_fee
+                );
+
+                verify_price(
+                    config_second_market,
+                    output_offer_cell_witness_reader,
+                    output_cells[0],
+                    Source::Output,
+                    Some(new_fee),
+                )?;
+
+                let mut changed = false;
+                if !util::is_reader_eq(
+                    input_offer_cell_witness_reader.price(),
+                    output_offer_cell_witness_reader.price(),
+                ) {
+                    changed = true;
+                }
+                if !util::is_reader_eq(
+                    input_offer_cell_witness_reader.message(),
+                    output_offer_cell_witness_reader.message(),
+                ) {
+                    verify_message_length(config_second_market, output_offer_cell_witness_reader)?;
+                    changed = true;
+                }
+
+                assert!(
+                    changed,
+                    Error::InvalidTransactionStructure,
+                    "The OfferCell has not been changed."
+                );
             }
+
+            let account = output_offer_cell_witness_reader.account().raw_data();
+            let account_without_suffix = &account[0..account.len() - 4];
+            verifiers::account_cell::verify_unavailable_accounts(&mut parser, account_without_suffix)?;
         }
         b"cancel_offer" => {
             parser.parse_config(&[DataType::ConfigCellMain, DataType::ConfigCellSecondaryMarket])?;
@@ -337,7 +412,7 @@ pub fn main() -> Result<(), Error> {
 
             assert!(
                 expected_account == current_account,
-                Error::OfferCellAccountNotMatch,
+                Error::OfferCellAccountMismatch,
                 "The account should be {}, but {} found.",
                 String::from_utf8(expected_account.to_vec()).unwrap(),
                 String::from_utf8(current_account.to_vec()).unwrap()
@@ -392,32 +467,27 @@ fn verify_price(
     offer_cell_witness: OfferCellDataReader,
     index: usize,
     source: Source,
+    exist_fee: Option<u64>,
 ) -> Result<(), Error> {
-    let min_price = u64::from(config_second_market.offer_min_price());
     let basic_capacity = u64::from(config_second_market.offer_cell_basic_capacity());
-    let prepared_fee_capacity = u64::from(config_second_market.offer_cell_prepared_fee_capacity());
+    let fee = if let Some(exist_fee) = exist_fee {
+        exist_fee
+    } else {
+        u64::from(config_second_market.offer_cell_prepared_fee_capacity())
+    };
 
     let current_price = u64::from(offer_cell_witness.price());
     let current_capacity = high_level::load_cell_capacity(index, source)?;
 
     assert!(
-        current_capacity >= basic_capacity + prepared_fee_capacity,
+        current_price >= basic_capacity,
         Error::OfferCellCapacityError,
-        "The OfferCell.capacity should be at least {}.(basic_capacity: {}, prepared_fee_capacity: {})",
-        basic_capacity + prepared_fee_capacity,
-        basic_capacity,
-        prepared_fee_capacity
+        "The OfferCell.price should be more than or equal to the basic capacity.(current_price: {}, basic_capacity: {})",
+        current_price,
+        basic_capacity
     );
-
     assert!(
-        current_price >= min_price,
-        Error::OfferCellCapacityError,
-        "The OfferCell.witness.price is too low.(min_price: {})",
-        min_price
-    );
-
-    assert!(
-        current_capacity == current_price + prepared_fee_capacity,
+        current_capacity == current_price + fee,
         Error::OfferCellCapacityError,
         "The OfferCell.capacity should contain its price and prepared fee.(price: {}, current_capacity: {})",
         current_price,
@@ -532,7 +602,7 @@ fn verify_profit_distribution(
     let income_cell_max_records = u32::from(config_income.max_records()) as usize;
     assert!(
         output_income_cell_witness_reader.records().len() <= income_cell_max_records,
-        Error::IncomeCellConsolidateError,
+        Error::InvalidTransactionStructure,
         "The IncomeCell can not store more than {} records.",
         income_cell_max_records
     );
