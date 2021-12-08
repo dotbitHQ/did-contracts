@@ -253,6 +253,7 @@ impl WitnessesParser {
             }
             x if util::is_reader_eq(x, type_id_table_reader.balance_cell()) => Some(TypeScript::BalanceCellType),
             x if util::is_reader_eq(x, type_id_table_reader.income_cell()) => Some(TypeScript::IncomeCellType),
+            x if util::is_reader_eq(x, type_id_table_reader.offer_cell()) => Some(TypeScript::OfferCellType),
             x if util::is_reader_eq(x, type_id_table_reader.pre_account_cell()) => Some(TypeScript::PreAccountCellType),
             x if util::is_reader_eq(x, type_id_table_reader.proposal_cell()) => Some(TypeScript::ProposalCellType),
             x if util::is_reader_eq(x, type_id_table_reader.reverse_record_cell()) => {
