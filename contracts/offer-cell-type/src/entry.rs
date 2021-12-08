@@ -647,7 +647,7 @@ fn make_offer_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
 }
 
 fn edit_offer_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
-    let (_, old_amount) = offer_to_semantic(parser, Source::Output)?;
+    let (_, old_amount) = offer_to_semantic(parser, Source::Input)?;
     let (account, new_amount) = offer_to_semantic(parser, Source::Output)?;
     Ok(format!(
         "CHANGE THE OFFER ON {} FROM {} TO {}",

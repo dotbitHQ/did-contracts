@@ -303,10 +303,10 @@ pub fn tx_to_eip712_typed_data(
         },
         message: {
             DAS_MESSAGE: plain_text,
-            action: tx_action,
             inputsCapacity: inputs_capacity_str,
             outputsCapacity: outputs_capacity_str,
             fee: fee_str,
+            action: tx_action,
             inputs: inputs,
             outputs: outputs,
             digest: ""
@@ -314,7 +314,7 @@ pub fn tx_to_eip712_typed_data(
     });
 
     #[cfg(debug_assertions)]
-    debug!("Extracted typed data: {:?}", typed_data);
+    debug!("Extracted typed data: {}", typed_data);
 
     Ok(typed_data)
 }
