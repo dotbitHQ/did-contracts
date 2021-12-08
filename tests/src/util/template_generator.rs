@@ -673,8 +673,8 @@ impl TemplateGenerator {
             .proposal_create(Uint32::from(400))
             .proposal_confirm(Uint32::from(0))
             .income_consolidate(Uint32::from(CONSOLIDATING_FEE as u32))
-            .sale_buyer_inviter(Uint32::from(100))
-            .sale_buyer_channel(Uint32::from(100))
+            .sale_buyer_inviter(Uint32::from(SALE_BUYER_INVITER_PROFIT_RATE as u32))
+            .sale_buyer_channel(Uint32::from(SALE_BUYER_CHANNEL_PROFIT_RATE as u32))
             .sale_das(Uint32::from(100))
             .auction_bidder_inviter(Uint32::from(100))
             .auction_bidder_channel(Uint32::from(100))
@@ -723,7 +723,7 @@ impl TemplateGenerator {
     fn gen_config_cell_secondary_market(&mut self) -> (Bytes, ConfigCellSecondaryMarket) {
         let entity = ConfigCellSecondaryMarket::new_builder()
             .common_fee(Uint64::from(SECONDARY_MARKET_COMMON_FEE))
-            .sale_min_price(Uint64::from(20_000_000_000))
+            .sale_min_price(Uint64::from(ACCOUNT_SALE_MIN_PRICE))
             .sale_expiration_limit(Uint32::from(86400 * 30))
             .sale_description_bytes_limit(Uint32::from(5000))
             .sale_cell_basic_capacity(Uint64::from(ACCOUNT_SALE_BASIC_CAPACITY))
@@ -1712,6 +1712,7 @@ impl TemplateGenerator {
     ///         "account": "xxxx.bit",
     ///         "price": u64,
     ///         "description": "some utf8 string",
+    ///         "buyer_inviter_profit_rate": u32,
     ///         "started_at": u64
     ///     }
     /// })
@@ -1747,8 +1748,63 @@ impl TemplateGenerator {
                 &witness["description"],
             ));
             let started_at = Uint64::from(parse_json_u64("cell.witness.started_at", &witness["started_at"]));
+            let buyer_inviter_profit_rate = Uint32::from(parse_json_u32(
+                "cell.witness.buyer_inviter_profit_rate",
+                &witness["buyer_inviter_profit_rate"],
+            ));
 
             let entity = AccountSaleCellData::new_builder()
+                .account_id(account_id)
+                .account(account)
+                .price(price)
+                .description(description)
+                .started_at(started_at)
+                .buyer_inviter_profit_rate(buyer_inviter_profit_rate)
+                .build();
+
+            let hash = blake2b_256(entity.as_slice());
+            outputs_data = hash.to_vec();
+            entity_opt = Some(entity);
+        } else {
+            outputs_data = parse_json_hex("cell.data", &cell["data"]);
+        }
+
+        (capacity, lock_script, type_script, outputs_data, entity_opt)
+    }
+
+    fn gen_account_sale_cell_v1(&mut self, cell: Value) -> (u64, Value, Value, Vec<u8>, Option<AccountSaleCellDataV1>) {
+        let capacity: u64 = parse_json_u64("cell.capacity", &cell["capacity"]);
+
+        let lock = cell.get("lock").expect("cell.lock is missing");
+        let owner_lock_args = parse_json_str("cell.lock.owner_lock_args", &lock["owner_lock_args"]);
+        let manager_lock_args = parse_json_str("cell.lock.manager_lock_args", &lock["manager_lock_args"]);
+        let lock_script = json!({
+          "code_hash": "{{fake-das-lock}}",
+          "args": gen_das_lock_args(owner_lock_args, Some(manager_lock_args))
+        });
+
+        let type_script = cell.get("type").expect("cell.type is missing").to_owned();
+
+        let outputs_data: Vec<u8>;
+        let mut entity_opt = None;
+        if !cell["witness"].is_null() {
+            let witness = &cell["witness"];
+            let account = Bytes::from(parse_json_str_to_bytes("cell.witness.account", &witness["account"]));
+            let account_id = if !witness["account_id"].is_null() {
+                AccountId::try_from(parse_json_hex("cell.witness.account_id", &witness["account_id"]))
+                    .expect("cell.witness.account_id should be [u8; 20]")
+            } else {
+                let hash = blake2b_256(account.as_reader().raw_data());
+                AccountId::try_from(&hash[..20]).expect("Calculate account ID from account failed")
+            };
+            let price = Uint64::from(parse_json_u64("cell.witness.price", &witness["price"]));
+            let description = Bytes::from(parse_json_str_to_bytes(
+                "cell.witness.description",
+                &witness["description"],
+            ));
+            let started_at = Uint64::from(parse_json_u64("cell.witness.started_at", &witness["started_at"]));
+
+            let entity = AccountSaleCellDataV1::new_builder()
                 .account_id(account_id)
                 .account(account)
                 .price(price)
