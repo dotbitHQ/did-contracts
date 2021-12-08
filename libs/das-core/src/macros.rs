@@ -91,7 +91,8 @@ macro_rules! parse_account_cell_witness {
 #[macro_export]
 macro_rules! parse_account_sale_cell_witness {
     ($entity:expr, $entity_reader:expr, $parser:expr, $index:expr, $source:expr) => {{
-        let (version, _, mol_bytes) = $parser.verify_and_get($index, $source)?;
+        let (version, _, mol_bytes) =
+            $parser.verify_and_get(das_types::constants::DataType::AccountSaleCellData, $index, $source)?;
         if version == 1 {
             $entity = Box::new(
                 AccountSaleCellDataV1::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {

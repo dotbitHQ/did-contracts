@@ -269,7 +269,7 @@ fn inspect_related_cells(
             let data = util::load_cell_data(i, related_cells_source)?;
             das_core::inspect::account_cell(related_cells_source, i, &data, version, Some(entity.as_reader()), None);
         } else if util::is_reader_eq(config_main.type_id_table().pre_account_cell(), code_hash.as_reader()) {
-            let (_, _, entity) = parser.verify_and_get(DataType::AccountSaleCellData, i, related_cells_source)?;
+            let (_, _, entity) = parser.verify_and_get(DataType::PreAccountCellData, i, related_cells_source)?;
             let data = util::load_cell_data(i, related_cells_source)?;
             das_core::inspect::pre_account_cell(related_cells_source, i, &data, Some(entity.as_reader()), None);
         }
