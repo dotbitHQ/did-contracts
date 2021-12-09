@@ -11,19 +11,19 @@ data: ...
 witness: ...
 ```
 
-其中 `lock, type, data` 都是每个 cell 必定包含的信息，从 RPC 接口返回的数据结构中也可以看到，而 `data` 就是这笔交易中与 cell 对应的 `outputs_data` 。`witness` 比较特殊，它和 cell 之间是没有关联关系的，所以这里的 `witness` 特指 DAS witness ，而且仅仅指 DAS witness 中的 `entity` 部分，因为 DAS witness 中存放了它自己对应哪个 cell 的相关信息，所以才有了关联关系，详见[数据存储方案.md](数据存储方案.md) 。
+其中 `lock, type, outputs_data` 都是每个 cell 必定包含的信息，从 RPC 接口返回的数据结构中也可以看到，而 `data` 就是这笔交易中与 cell 对应的 `outputs_data` 。`witness` 比较特殊，它和 cell 之间是没有关联关系的，所以这里的 `witness` 特指 DAS witness ，而且仅仅指 DAS witness 中的 `entity` 部分，因为 DAS witness 中存放了它自己对应哪个 cell 的相关信息，所以才有了关联关系，详见 [数据存储方案.md](数据存储方案.md) 。
 
 **data 中所有的字段名意味着一段按照特定偏移量解析的数据**，因为 data 的体积会影响需要质押的 CKB 数量，所以其中除了按照文档中给出的偏移量来切分数据外本身没有任何数据结构。**witness 中所有的字段名意味着一个 molecule 编码的数据结构**，首先需要使用对应结构的结构体/类去解析数据，然后才能访问对应字段。
 
 在描述 cell 结构时可能看到以下符号：
 
-|        符号         |                                                                      说明                                                                       |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| lock: <...>         | 代表一个特定的 script ，其 code_hash, args, hash_type 都有简单的约定，所以就不列举明细了                                                        |
-| type: <...>         | 同上                                                                                                                                            |
-| hash(...)           | 指代这里存放的数据是通过什么计算得出的 hash 值                                                                                                  |
-| ======              | 在描述 cell 结构的代码段类，此分隔符意味着下面的内容是对特定 molecule 结构的详细介绍，但最新的 schema 轻易 das-types 仓库中的 schemas/ 目录为准 |
-| ConfigCellXXXX.yyyy | 指代数据需要去某个 ConfigCell 的 witness 中的特定字段获取，详见[ConfigCell](#ConfigCell)                                                        |
+| 符号                | 说明                                                         |
+| ------------------- | ------------------------------------------------------------ |
+| lock: <...>         | 代表一个特定的 script ，其 code_hash, args, hash_type 都有简单的约定，所以就不列举明细了 |
+| type: <...>         | 同上                                                         |
+| hash(...)           | 指代这里存放的数据是通过什么计算得出的 hash 值               |
+| ======              | 在描述 cell 结构的代码段类，此分隔符意味着下面的内容是对特定 molecule 结构的详细介绍，但最新的 schema 请以 das-types 仓库中的 schemas/ 目录为准 |
+| ConfigCellXXXX.yyyy | 指代数据需要去某个 ConfigCell 的 witness 中的特定字段获取，详见 [ConfigCell](#ConfigCell) |
 
 ## 数据结构
 
@@ -38,14 +38,17 @@ lock: <ckb_lock_script>
 type: <apply-register-cell-type>
 data:
   hash(lock_args + account) // account 包含 .bit 后缀
-  height // cell 创建时的区块高度(小端)
+  height // cell 创建时的区块高度(小端)，从 heightcell 里获取
+  timestamp // cell 创建时的时间戳(小端)，从 timecell 里获取
 ```
 
 这个 Cell 中只有一个单纯的 hash 值。
 
 #### 体积
 
-`142` Bytes
+基础体积：142 Bytes
+
+实际体积：142 Bytes
 
 
 ### PreAccountCell
@@ -114,7 +117,7 @@ table AccountChar {
 - inviter_lock，邀请者的 lock script，利润分配会被转入 IncomeCell 中并以此 lock script 记账；
 - channel_lock，渠道商的 lock script，利润分配会被转入 IncomeCell 中并以此 lock script 记账；
 - price，账户注册时的售价；
-- quote, 账户注册时的 CKB 的美元价格；
+- quote, 账户注册时的 CKB 的美元单价；
 - created_at，PreAccountCell 创建时 TimeCell 的时间；
 
 #### 利润以及注册所获时长的计算逻辑
@@ -140,19 +143,21 @@ CKB 年费 = CKB 年费 - (CKB 年费 * 折扣率 / 10000) // 折扣率是以 10
 
 - 年份需要大于等于 1 ，实际计算时按照 365 \* 86400 秒为一年来计算；
 - **账户注册年费** 保存在 [ConfigCellPrice.prices](#ConfigCell) 中，单位为 **美元**；
-- **CKB 汇率**从 QuoteCell 获取，单位为 **美元/CKB**，前面在[数据存储方案.md](#数据存储方案.md)的**美元的单位**一节我们约定了 1 美元记为 `1_000_000` ，因此如果 QuoteCell 中记录的是 `1_000` 那么也就意味着 CKB 汇率就是 `0.001 美元/CKB`；
+- **CKB 汇率**从 QuoteCell 获取，单位为 **美元/CKB**，前面在 [数据存储方案.md](#数据存储方案.md) 的 **美元的单位** 一节我们约定了 1 美元记为 `1_000_000` ，因此如果 QuoteCell 中记录的是 `1_000` 那么也就意味着 CKB 汇率就是 `0.001 美元/CKB`；
 - **AccountCell 基础成本** 只在调整 Cell 数据结构时会发生变化，可以认为是固定的常量，查看对应 Cell 的 **体积** 即可获得；
 - **Account 字节长度**，由于 AccountCell 会在 data 字段保存完整的账户，比如 `das.bit` 那么保存的就是 `0x6461732E626974` ，因此需要再加上这部分体积；
 - 带除法的都是自动取整
 
 ####  体积
 
-`126` Bytes
+基础体积：126 Bytes
+
+实际体积：取决于注册的账户的长短、注册的年份、注册时刻的 CKB 单价、是否是请注册等
 
 
 ### ProposalCell
 
-用户创建 [PreAccountCell](#PreAccountCell) 之后，就需要 Keeper 将它们收集起来发起提案，也就是创建 ProposalCell ，只有当提案等待一定时间后才能通过，所谓通过就是创建一笔交易消费提案，并将其应用的 [PreAccountCell ](#PreAccountCell) 转换为最终的 [AccountCell](#AccountCell)。这一过程确保了账户名在链上的唯一性。
+用户创建 [PreAccountCell](#PreAccountCell) 之后，就需要 Keeper 将它们收集起来发起提案，也就是创建 ProposalCell ，只有当提案等待一定时间后才能通过，所谓通过就是创建一笔交易消费提案，并将其应用的 [PreAccountCell ](#PreAccountCell) 转换为最终的 [AccountCell](#AccountCell)。这一过程会确保账户名在链上的唯一性。
 
 #### 结构
 
@@ -226,7 +231,9 @@ table ProposalCellData {
 
 #### 体积
 
-`106` Bytes
+基础体积：106 Bytes
+
+实际体积：106 Bytes
 
 
 ### AccountCell
@@ -240,9 +247,9 @@ lock:
   code_hash: <das-lock>
   type: type
   args: [ // 这是 das-lock 的 args 结构，同时包含了 owner 和 manager 信息
-    owner_code_hash_index,
+    owner_algorithm_id,
     owner_pubkey_hash,
-    manager_code_hash_index,
+    manager_algorithm_id,
     manager_pubkey_hash,
   ]
 type: <account-cell-type>
@@ -309,23 +316,22 @@ vector Records <Record>;
 
 #### das-lock
 
-das-lock 是为 DAS 设计的一个特殊 lock script ，它**会根据 args 中的 code_hash_index 部分去动态加载不同的验签逻辑执行**。args 中的 **code_hash_index 都是 1 byte，pubkey_hash 都是取前 20 bytes** 。
+das-lock 是为 DAS 设计的一个特殊 lock script ，它 **会根据 args 中的 xx_algorithm_id 部分去动态加载不同的验签逻辑执行**。args 中的 **xx_algorithm_id 都是 1 byte，pubkey_hash 都是取前 20 bytes** 。
 
-涉及验签的交易需要在 witnesses 中的 ActionData.params 标明当前是 owner 还是 manager ，**owner 使用 0，manager 使用 1**。
+涉及验签的交易需要在 witnesses 中的 ActionData.params 标明当前交易使用的权限是 owner 还是 manager ，**owner 使用 0，manager 使用 1**。
 
 #### 体积
 
-固定部分为 `154` Bytes，动态部分包含 `lock.args`，`data` 两部分：
+基础体积：至少 201 Bytes
 
-- `lock.args` 不同的链会有不同的长度，通常选用 public key hash 的中的 20 Bytes 作为锁定脚本或地址的链对应的 `lock.args` 体积为 `42` Bytes。
-- `data` 的前面一部分算作固定体积，只有最后的账户名取决于用户所使用的账户长度，多字节的账户名字符可能导致这部分体积非常大。
+实际体积：至少 212 Bytes，因为预留了一部分 CKB、1 CKB 的手续费、账户字节长度等
 
 ### IncomeCell
 
-一种用来解决批量到账时单笔账目不足 61 CKByte 无法独立存在的 Cell ，这个 Cell 以及其相关解决方案主要有以下优点：
+一种用来解决批量到账时单笔账目不足 61 CKB 无法独立存在的 Cell ，这个 Cell 以及其相关解决方案主要有以下优点：
 
-1. 可以在批量转账的场景下，解决单笔账目不足 61 CKByte 无法创建普通 Cell 的问题；
-2. 解决了总账目也不足 61 CKByte 无法创建 IncomeCell 的问题；
+1. 可以在批量转账的场景下，解决单笔账目不足 61 CKB 而无法创建普通 Cell 的问题；
+2. 解决了总账目也不足 61 CKB 无法创建 IncomeCell 的问题；
 3. 通过复用 IncomeCell 实现上面优点 1、2 的同时降低了多笔交易抢占同一个 IncomeCell 的概率；
 
 #### 结构
@@ -353,11 +359,13 @@ table IncomeRecord {
 Witness 中的主要字段如下：
 
 - creator ，记录了这个 IncomeCell 的创建者，任何人都可以自由的创建 IncomeCell ，当 records 中只有创建者一条记录时，这个 IncomeCell 就只能用于确认提案交易；
-- records ，账目记录，记录了 IncomeCell 的 capacity 分别属于哪些 lock script ，每个 lock script 拥有多少 CKByte；
+- records ，账目记录，记录了 IncomeCell 的 capacity 分别属于哪些 lock script ，每个 lock script 拥有多少 CKB；
 
 #### 体积
 
-`106` Bytes
+基础体积：106 Bytes
+
+实际体积：106 Bytes
 
 ### AccountSaleCell
 
@@ -396,7 +404,9 @@ Witness 中的主要字段如下：
 
 #### 体积
 
-`148` Bytes
+基础体积：148 Bytes
+
+实际体积：取决于 ConfigCellSecondaryMarket 里的配置项
 
 ### AccountAuctionCell
 
@@ -447,7 +457,9 @@ table AccountAuctionCellData {
 
 #### 体积
 
-`148` Bytes
+基础体积：148 Bytes
+
+实际体积：取决于 ConfigCellSecondaryMarket 里的配置项
 
 ### ReverseRecordCell
 
