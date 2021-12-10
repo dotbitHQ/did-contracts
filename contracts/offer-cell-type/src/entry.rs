@@ -349,7 +349,7 @@ pub fn main() -> Result<(), Error> {
             );
 
             let buyer_lock = high_level::load_cell_lock(input_cells[0], Source::Input)?;
-            let seller_lock = high_level::load_cell_lock(input_account_cells[0], Source::Input)?;
+            let seller_lock = util::derive_owner_lock_from_cell(input_account_cells[0], Source::Input)?;
 
             let cells = [input_cells.clone(), input_account_cells.clone()].concat();
             verifiers::misc::verify_no_more_cells_with_same_lock(buyer_lock.as_reader(), &cells, Source::Input)?;
@@ -659,7 +659,7 @@ fn cancel_offer_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
     let type_id_table_reader = parser.configs.main()?.type_id_table();
     let offer_cells = util::find_cells_by_type_id(ScriptType::Type, type_id_table_reader.offer_cell(), Source::Input)?;
 
-    Ok(format!("CANCEL {} OFFERS", offer_cells.len()))
+    Ok(format!("CANCEL {} OFFER(S)", offer_cells.len()))
 }
 
 fn accept_offer_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {

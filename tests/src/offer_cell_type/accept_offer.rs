@@ -89,7 +89,7 @@ fn before_each() -> TemplateGenerator {
         json!({
             "lock": {
                 "owner_lock_args": SELLER,
-                "manager_lock_args": SELLER
+                "manager_lock_args": "0x050000000000000000000000000000000000005555"
             },
             "data": {
                 "account": ACCOUNT,
