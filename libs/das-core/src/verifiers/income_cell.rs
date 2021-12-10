@@ -44,7 +44,7 @@ pub fn verify_records_match_with_creating(
 
     // Verify if the IncomeCell.capacity is equal to the sum of all records.
 
-    let skip = if total_profit > income_cell_basic_capacity {
+    let skip = if total_profit >= income_cell_basic_capacity {
         debug!(
             "The total profit in IncomeCell is {} shannon, which is enough for the basic_capacity of IncomeCell.",
             total_profit
