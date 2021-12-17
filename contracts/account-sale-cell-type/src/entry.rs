@@ -167,6 +167,7 @@ pub fn main() -> Result<(), Error> {
                         parser,
                         output_sale_cells[0],
                         Source::Output,
+                        DataType::AccountSaleCellData,
                         AccountSaleCellData
                     );
 
@@ -239,6 +240,7 @@ pub fn main() -> Result<(), Error> {
                         parser,
                         input_sale_cells[0],
                         Source::Input,
+                        DataType::AccountSaleCellData,
                         AccountSaleCellData
                     );
 
@@ -321,6 +323,7 @@ pub fn main() -> Result<(), Error> {
                         parser,
                         input_sale_cells[0],
                         Source::Input,
+                        DataType::AccountSaleCellData,
                         AccountSaleCellData
                     );
 
@@ -417,6 +420,7 @@ pub fn main() -> Result<(), Error> {
                 parser,
                 input_cells[0],
                 Source::Input,
+                DataType::AccountSaleCellData,
                 AccountSaleCellData
             );
 
@@ -428,6 +432,7 @@ pub fn main() -> Result<(), Error> {
                 parser,
                 output_cells[0],
                 Source::Output,
+                DataType::AccountSaleCellData,
                 AccountSaleCellData
             );
 
@@ -515,7 +520,8 @@ fn start_account_sale_to_semantic(parser: &WitnessesParser) -> Result<String, Er
     let account_in_bytes = data_parser::account_cell::get_account(&data_in_bytes);
     let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| Error::EIP712SerializationError)?;
 
-    let (_, _, witness) = parser.verify_and_get(account_sale_cells[0], Source::Output)?;
+    let (_, _, witness) =
+        parser.verify_and_get(DataType::AccountSaleCellData, account_sale_cells[0], Source::Output)?;
     let entity = AccountSaleCellData::from_slice(witness.as_reader().raw_data()).map_err(|_| {
         warn!("EIP712 decoding AccountSaleCellData failed");
         Error::WitnessEntityDecodingError
@@ -533,7 +539,8 @@ fn edit_account_sale_to_semantic(parser: &WitnessesParser) -> Result<String, Err
         Source::Output,
     )?;
 
-    let (_, _, witness) = parser.verify_and_get(account_sale_cells[0], Source::Output)?;
+    let (_, _, witness) =
+        parser.verify_and_get(DataType::AccountSaleCellData, account_sale_cells[0], Source::Output)?;
     let entity = AccountSaleCellData::from_slice(witness.as_reader().raw_data()).map_err(|_| {
         warn!("EIP712 decoding AccountSaleCellData failed");
         Error::WitnessEntityDecodingError
@@ -571,7 +578,7 @@ fn buy_account_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
     let account_in_bytes = data_parser::account_cell::get_account(&data_in_bytes);
     let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| Error::EIP712SerializationError)?;
 
-    let (_, _, witness) = parser.verify_and_get(account_sale_cells[0], Source::Input)?;
+    let (_, _, witness) = parser.verify_and_get(DataType::AccountSaleCellData, account_sale_cells[0], Source::Input)?;
     let entity = AccountSaleCellData::from_slice(witness.as_reader().raw_data()).map_err(|_| {
         warn!("EIP712 decoding AccountSaleCellData failed");
         Error::WitnessEntityDecodingError
@@ -854,8 +861,6 @@ fn verify_profit_distribution(
 
     debug!("Check if other roles get their profit properly.");
 
-    let total_profit_in_income = price - profit_of_seller;
-
     let output_income_cell_witness;
     let output_income_cell_witness_reader;
     parse_witness!(
@@ -864,6 +869,7 @@ fn verify_profit_distribution(
         parser,
         output_income_cells[0],
         Source::Output,
+        DataType::IncomeCellData,
         IncomeCellData
     );
 
@@ -872,14 +878,13 @@ fn verify_profit_distribution(
         output_income_cells[0],
         Source::Output,
         output_income_cell_witness_reader,
-        total_profit_in_income,
         profit_map,
     )?;
 
     let income_cell_max_records = u32::from(config_income.max_records()) as usize;
     assert!(
         output_income_cell_witness_reader.records().len() <= income_cell_max_records,
-        Error::IncomeCellConsolidateError,
+        Error::InvalidTransactionStructure,
         "The IncomeCell can not store more than {} records.",
         income_cell_max_records
     );

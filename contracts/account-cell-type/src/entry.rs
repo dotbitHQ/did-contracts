@@ -297,13 +297,7 @@ pub fn main() -> Result<(), Error> {
 
             debug!("Verify if there is no redundant cells in inputs.");
 
-            let sender_lock = if input_income_cells.len() == 1 {
-                // The inputs[0] is AccountCell and inputs[1] is IncomeCell, so we treat inputs[2] and the rest as NormalCells to pay the fees.
-                util::derive_owner_lock_from_cell(2, Source::Input)?
-            } else {
-                // The inputs[0] is AccountCell, so we treat inputs[1] and the rest as NormalCells to pay the fees.
-                util::derive_owner_lock_from_cell(1, Source::Input)?
-            };
+            let sender_lock = util::derive_owner_lock_from_cell(input_account_cells[0], Source::Input)?;
             let balance_cells = util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Input)?;
             let all_cells = [
                 input_account_cells.clone(),
@@ -311,7 +305,7 @@ pub fn main() -> Result<(), Error> {
                 balance_cells.clone(),
             ]
             .concat();
-            verifiers::misc::verify_no_more_cells(&all_cells, Source::Input)?;
+            verifiers::misc::verify_no_more_cells_with_same_lock(sender_lock.as_reader(), &all_cells, Source::Input)?;
 
             let mut expected_first_record = None;
             if input_income_cells.len() == 1 {
@@ -323,6 +317,7 @@ pub fn main() -> Result<(), Error> {
                     parser,
                     input_income_cells[0],
                     Source::Input,
+                    DataType::IncomeCellData,
                     IncomeCellData
                 );
 
@@ -347,7 +342,8 @@ pub fn main() -> Result<(), Error> {
 
             let income_cell_capacity =
                 high_level::load_cell_capacity(output_income_cells[0], Source::Output).map_err(|e| Error::from(e))?;
-            let (_, _, entity) = parser.verify_and_get(output_income_cells[0], Source::Output)?;
+            let (_, _, entity) =
+                parser.verify_and_get(DataType::IncomeCellData, output_income_cells[0], Source::Output)?;
             let income_cell_witness = IncomeCellData::from_slice(entity.as_reader().raw_data())
                 .map_err(|_| Error::WitnessEntityDecodingError)?;
             let income_cell_witness_reader = income_cell_witness.as_reader();
@@ -515,6 +511,14 @@ pub fn main() -> Result<(), Error> {
                 Error::InvalidTransactionStructure,
             )?;
         }
+        b"accept_offer" => {
+            util::require_type_script(
+                &mut parser,
+                TypeScript::OfferCellType,
+                Source::Input,
+                Error::InvalidTransactionStructure,
+            )?;
+        }
         b"force_recover_account_status" => {
             parser.parse_config(&[DataType::ConfigCellMain])?;
             parser.parse_cell()?;
@@ -626,6 +630,7 @@ pub fn main() -> Result<(), Error> {
                         parser,
                         input_sale_cells[0],
                         Source::Input,
+                        DataType::AccountSaleCellData,
                         AccountSaleCellData
                     );
 

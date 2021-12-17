@@ -16,6 +16,7 @@ fn push_input_proposal_cell_with_slices(template: &mut TemplateGenerator) {
                     "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
                     "args": PROPOSER
                 },
+                "created_at_height": HEIGHT - 4,
                 "slices": [
                     [
                         {
@@ -295,7 +296,7 @@ fn before_each() -> TemplateGenerator {
 }
 
 #[test]
-fn test_proposal_confirm() {
+fn test_proposal_confirm_not_create_income_cell() {
     let mut template = before_each();
 
     // outputs
@@ -305,6 +306,124 @@ fn test_proposal_confirm() {
     push_output_normal_cell_with_refund(&mut template);
 
     test_tx(template.as_json());
+}
+
+#[test]
+fn test_proposal_confirm_create_income_cell() {
+    let mut template = before_each();
+    let lock_scripts = gen_lock_scripts();
+
+    // outputs
+    push_output_slice_0(&mut template);
+    push_output_slice_1(&mut template);
+
+    // Carry profits of all roles.
+    push_output_income_cell(
+        &mut template,
+        json!({
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-das-lock}}",
+                            "args": COMMON_INCOME_CREATOR_LOCK_ARGS
+                        },
+                        "capacity": "20_000_000_000"
+                    },
+                    {
+                        "belong_to": lock_scripts.inviter_1,
+                        "capacity": 38000000000u64
+                    },
+                    {
+                        "belong_to": lock_scripts.inviter_2,
+                        "capacity": 38000000000u64 * 2
+                    },
+                    {
+                        "belong_to": lock_scripts.channel_1,
+                        "capacity": 38000000000u64
+                    },
+                    {
+                        "belong_to": lock_scripts.channel_2,
+                        "capacity": 38000000000u64 * 2
+                    },
+                    {
+                        "belong_to": lock_scripts.proposer,
+                        "capacity": 19000000000u64 * 3
+                    },
+                    {
+                        "belong_to": lock_scripts.das_wallet,
+                        "capacity": 380000000000u64 * 3
+                    }
+                ]
+            }
+        }),
+    );
+
+    push_output_normal_cell_with_refund(&mut template);
+
+    test_tx(template.as_json());
+}
+
+#[test]
+fn challenge_proposal_confirm_height() {
+    let mut template = init_with_confirm();
+
+    // inputs
+    push_input_proposal_cell(
+        &mut template,
+        json!({
+            "capacity": "20_000_000_000",
+            "witness": {
+                "proposer_lock": {
+                    "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                    "args": PROPOSER
+                },
+                "created_at_height": HEIGHT,
+                "slices": [
+                    [
+                        {
+                            "account_id": "das00012.bit",
+                            "item_type": ProposalSliceItemType::Exist as u8,
+                            "next": "das00005.bit"
+                        },
+                        {
+                            "account_id": "das00005.bit",
+                            "item_type": ProposalSliceItemType::New as u8,
+                            "next": "das00002.bit"
+                        },
+                    ],
+                    [
+                        {
+                            "account_id": "das00004.bit",
+                            "item_type": ProposalSliceItemType::Proposed as u8,
+                            "next": "das00018.bit"
+                        },
+                        {
+                            "account_id": "das00018.bit",
+                            "item_type": ProposalSliceItemType::New as u8,
+                            "next": "das00008.bit"
+                        },
+                        {
+                            "account_id": "das00008.bit",
+                            "item_type": ProposalSliceItemType::New as u8,
+                            "next": "das00011.bit"
+                        },
+                    ]
+                ]
+            }
+        }),
+    );
+
+    push_input_slice_0(&mut template);
+    push_input_slice_1(&mut template);
+
+    // outputs
+    push_output_slice_0(&mut template);
+    push_output_slice_1(&mut template);
+    push_output_income_cell_with_profit(&mut template);
+    push_output_normal_cell_with_refund(&mut template);
+
+    challenge_tx(template.as_json(), Error::ProposalConfirmNeedWaitLonger);
 }
 
 #[test]
@@ -483,59 +602,6 @@ fn challenge_proposal_confirm_refund() {
 }
 
 #[test]
-fn challenge_proposal_confirm_income_records_belong_to() {
-    let mut template = before_each();
-    let lock_scripts = gen_lock_scripts();
-
-    // outputs
-    push_output_slice_0(&mut template);
-    push_output_slice_1(&mut template);
-
-    // Carry profits of all roles.
-    push_output_income_cell(
-        &mut template,
-        json!({
-            "witness": {
-                "records": [
-                    {
-                        "belong_to": {
-                            // Simulate creating some records belong to unknown lock script.
-                            "code_hash": "{{fake-das-lock}}",
-                            "args": "0x000000000000000000000000000000000000ffff"
-                        },
-                        "capacity": 38000000000u64
-                    },
-                    {
-                        "belong_to": lock_scripts.inviter_2,
-                        "capacity": 38000000000u64 * 2
-                    },
-                    {
-                        "belong_to": lock_scripts.channel_1,
-                        "capacity": 38000000000u64
-                    },
-                    {
-                        "belong_to": lock_scripts.channel_2,
-                        "capacity": 38000000000u64 * 2
-                    },
-                    {
-                        "belong_to": lock_scripts.proposer,
-                        "capacity": 19000000000u64 * 3
-                    },
-                    {
-                        "belong_to": lock_scripts.das_wallet,
-                        "capacity": 380000000000u64 * 3
-                    }
-                ]
-            }
-        }),
-    );
-
-    push_output_normal_cell_with_refund(&mut template);
-
-    challenge_tx(template.as_json(), Error::ProposalConfirmIncomeError);
-}
-
-#[test]
 fn challenge_proposal_confirm_income_records_capacity() {
     let mut template = before_each();
     let lock_scripts = gen_lock_scripts();
@@ -582,7 +648,7 @@ fn challenge_proposal_confirm_income_records_capacity() {
 
     push_output_normal_cell_with_refund(&mut template);
 
-    challenge_tx(template.as_json(), Error::ProposalConfirmIncomeError);
+    challenge_tx(template.as_json(), Error::IncomeCellProfitMismatch);
 }
 
 #[test]
@@ -598,6 +664,7 @@ fn challenge_proposal_confirm_income_cell_capacity() {
     push_output_income_cell(
         &mut template,
         json!({
+            // Simulate inconsistent capacity with the summary of records.
             "capacity": 20_000_000_000u64,
             "witness": {
                 "records": [
@@ -632,7 +699,7 @@ fn challenge_proposal_confirm_income_cell_capacity() {
 
     push_output_normal_cell_with_refund(&mut template);
 
-    challenge_tx(template.as_json(), Error::ProposalConfirmIncomeError);
+    challenge_tx(template.as_json(), Error::IncomeCellCapacityError);
 }
 
 #[test]

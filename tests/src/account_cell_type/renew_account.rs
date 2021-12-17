@@ -26,7 +26,8 @@ fn push_simple_output_income_cell(template: &mut TemplateGenerator) {
 fn before_each() -> (TemplateGenerator, u64, &'static str, &'static str) {
     let (mut template, timestamp) = init_for_renew("renew_account", None);
     let owner = "0x000000000000000000000000000000000000001111";
-    let sender = "0x000000000000000000000000000000000000002222";
+    // let sender = "0x000000000000000000000000000000000000002222";
+    let sender = owner;
 
     // inputs
     push_input_account_cell(

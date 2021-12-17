@@ -21,10 +21,14 @@ use std::{
 };
 
 pub fn test_tx(tx: Value) {
-    // println!("{}", serde_json::to_string_pretty(&tx).unwrap());
+    // println!("Transaction template: {}", serde_json::to_string_pretty(&tx).unwrap());
     let mut parser = TemplateParser::from_data(Context::default(), tx);
     parser.parse();
     let tx_view = parser.build_tx();
+    // println!(
+    //     "Transaction: {}",
+    //     serde_json::to_string_pretty(&rpc_types::TransactionView::from(tx_view.clone())).unwrap()
+    // );
     let cycles = parser
         .execute_tx(&tx_view)
         .expect("Transaction verification should pass.");
@@ -42,10 +46,14 @@ Transaction size: {} bytes,
 }
 
 pub fn challenge_tx(tx: Value, expected_error: Error) {
-    // println!("{}", serde_json::to_string_pretty(&tx).unwrap());
+    // println!("Transaction template: {}", serde_json::to_string_pretty(&tx).unwrap());
     let mut parser = TemplateParser::from_data(Context::default(), tx);
     parser.parse();
     let tx_view = parser.build_tx();
+    // println!(
+    //     "Transaction: {}",
+    //     serde_json::to_string_pretty(&rpc_types::TransactionView::from(tx_view.clone())).unwrap()
+    // );
     let ret = parser.execute_tx(&tx_view);
     match ret {
         Ok(_) => {

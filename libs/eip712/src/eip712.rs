@@ -2,8 +2,8 @@ use super::{debug, error::*, util::*};
 use alloc::{collections::BTreeMap, format, vec};
 use std::prelude::v1::*;
 
-// #[cfg(debug_assertions)]
-// use core::fmt;
+#[cfg(debug_assertions)]
+use core::fmt;
 
 #[derive(Debug)]
 pub struct TypedDataV4 {
@@ -17,8 +17,8 @@ impl TypedDataV4 {
     pub fn new(
         types: Types,
         primary_type: String,
-        domain: BTreeMap<String, Value>,
-        message: BTreeMap<String, Value>,
+        domain: (Vec<String>, BTreeMap<String, Value>),
+        message: (Vec<String>, BTreeMap<String, Value>),
     ) -> Self {
         TypedDataV4 {
             types,
@@ -29,9 +29,43 @@ impl TypedDataV4 {
     }
 
     pub fn digest(&mut self, digest: String) {
-        if let Value::Object(ref mut message) = self.message {
+        if let Value::Object((_, ref mut message)) = self.message {
             message.insert(String::from("digest"), Value::Byte32(digest));
         }
+    }
+}
+
+#[cfg(debug_assertions)]
+impl fmt::Display for TypedDataV4 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> ::core::fmt::Result {
+        macro_rules! types_to_json {
+            ($name:expr) => {{
+                let types_vec = self.types.get($name).unwrap();
+                let mut json_str = String::from("[ ");
+                let mut comma = "";
+                for (name, type_) in types_vec {
+                    json_str = json_str + comma + &format!(r#"{{ "name": "{}", "type": "{}" }}"#, name, type_);
+                    comma = ", ";
+                }
+                json_str += " ]";
+                json_str
+            }};
+        }
+
+        let type_eip712domain = types_to_json!("EIP712Domain");
+        let type_action = types_to_json!("Action");
+        let type_cell = types_to_json!("Cell");
+        let type_transaction = types_to_json!("Transaction");
+        let types = format!(
+            r#"{{ "EIP712Domain": {}, "Action": {}, "Cell": {}, "Transaction": {} }}"#,
+            type_eip712domain, type_action, type_cell, type_transaction
+        );
+
+        write!(
+            f,
+            r#"{{ "types": {}, "primary_type": "Transaction", "domain": {}, "message": {} }}"#,
+            types, self.domain, self.message
+        )
     }
 }
 
@@ -45,7 +79,45 @@ pub enum Value {
     Bytes(String),
     Address(String),
     Uint256(String),
-    Object(BTreeMap<String, Value>),
+    Object((Vec<String>, BTreeMap<String, Value>)),
+}
+
+#[cfg(debug_assertions)]
+impl fmt::Display for Value {
+    fn fmt(&self, f: &mut fmt::Formatter) -> ::core::fmt::Result {
+        match self {
+            Value::Object((keys, value)) => {
+                let mut json_str = String::from("{ ");
+                let mut comma = "";
+                for key in keys.iter() {
+                    let item = value.get(key).unwrap();
+                    json_str = json_str + comma + &format!(r#""{}": {}"#, key, item);
+                    comma = ", "
+                }
+                json_str += " }";
+
+                write!(f, "{}", json_str)
+            }
+            Value::Array(value) => {
+                let mut json_str = String::from("[ ");
+                let mut comma = "";
+                for item in value.iter() {
+                    json_str = json_str + comma + &item.to_string();
+                    comma = ", "
+                }
+                json_str += " ]";
+
+                write!(f, "{}", json_str)
+            }
+            Value::String(value)
+            | Value::Bytes(value)
+            | Value::Byte32(value)
+            | Value::Address(value)
+            | Value::Uint256(value) => {
+                write!(f, r#""{}""#, value)
+            }
+        }
+    }
 }
 
 impl Value {
@@ -57,7 +129,7 @@ impl Value {
         _deep: usize,
     ) -> Result<(&'static str, Vec<u8>), EIP712EncodingError> {
         let ret = match self {
-            Value::Object(value) => {
+            Value::Object((_, value)) => {
                 debug!("{:-width$}Encoding {} ==========", "", name, width = _deep * 2);
 
                 let bytes = encode_message(domain_types, type_, value, _deep + 1)?;
@@ -217,7 +289,7 @@ pub fn hash_data(typed_data: &TypedDataV4) -> Result<Vec<u8>, EIP712EncodingErro
     // The first part of EIP712 hash which is a constant `0x1901`.
     let part1 = vec![25u8, 1];
     let part2;
-    if let Value::Object(domain) = &typed_data.domain {
+    if let Value::Object((_, domain)) = &typed_data.domain {
         part2 = hash_message(&typed_data.types, "EIP712Domain", domain, 0)?;
     } else {
         unreachable!();
@@ -232,7 +304,7 @@ pub fn hash_data(typed_data: &TypedDataV4) -> Result<Vec<u8>, EIP712EncodingErro
 
     let mut part3 = Vec::new();
     if primary_type != "EIP712Domain" {
-        if let Value::Object(message) = &typed_data.message {
+        if let Value::Object((_, message)) = &typed_data.message {
             part3 = hash_message(&typed_data.types, primary_type, message, 0)?;
         } else {
             unreachable!();
@@ -625,7 +697,7 @@ mod test {
         let typed_data = gen_typed_data_v4();
 
         let expected = "42d5bf292f447fc13bc0a4c67a622a64e298128fa8f7ccf2591245122a2d2e51";
-        if let Value::Object(message) = typed_data.message {
+        if let Value::Object((_, message)) = typed_data.message {
             let data = hash_message(&typed_data.types, "Transaction", &message, 0).unwrap();
             assert_eq!(hex::encode(data).as_str(), expected);
         } else {
@@ -638,7 +710,7 @@ mod test {
         let typed_data = gen_typed_data_v4();
 
         let expected = "0d54929e2ad87db0194e2f1456aa05b3cb707b8a3c06aa559a7b7fcd8b35f4edd4fc696c3d28d758fedbba5bf47ba0c737bab4d047c4d023d6fd13f9fddf564d5c77a8da76ade7feff107bcc5433d88d0c2ce6f6c745ccba6439afca13b001249aa7fc86e69e74b4faa4f7af930bde719742f1a730f5cae0122d881c2ea5e75f890e6a9632fdbb0d41dc68fa3cf66e218c32f08d5aaf6ff15c717066176c293be844fbde0e91f5eb2b8cd24091c44f0df279c0f3d6fc5de242b7daa860cfbd4195334d7f8e64c9c9d44908471f5cf2fb0b1b575d33d320b7150521b399fbe0779ab40417c527f8531a70bb97783a2b013046a77acca17901605863e99de3ffba01bee5c80a6bd74440f0f96c983b1107f1a419e028bef7b33e77e8f968cbfae7";
-        if let Value::Object(message) = typed_data.message {
+        if let Value::Object((_, message)) = typed_data.message {
             let data = encode_message(&typed_data.types, "Transaction", &message, 0).unwrap();
             assert_eq!(hex::encode(data).as_str(), expected);
         } else {
@@ -650,7 +722,7 @@ mod test {
     fn test_eip712_encode_array_field() {
         let typed_data = gen_typed_data_v4();
 
-        if let Value::Object(message) = typed_data.message {
+        if let Value::Object((_, message)) = typed_data.message {
             let (type_, data) = message
                 .get("inputs")
                 .unwrap()
@@ -670,7 +742,7 @@ mod test {
     fn test_eip712_encode_object_field() {
         let typed_data = gen_typed_data_v4();
 
-        if let Value::Object(message) = typed_data.message {
+        if let Value::Object((_, message)) = typed_data.message {
             let (type_, data) = message
                 .get("action")
                 .unwrap()
@@ -690,7 +762,7 @@ mod test {
     fn test_eip712_encode_address_field() {
         let typed_data = gen_typed_data_v4();
 
-        if let Value::Object(domain) = typed_data.domain {
+        if let Value::Object((_, domain)) = typed_data.domain {
             let (type_, data) = domain
                 .get("verifyingContract")
                 .unwrap()
@@ -707,7 +779,7 @@ mod test {
     fn test_eip712_encode_bytes32_field() {
         let typed_data = gen_typed_data_v4();
 
-        if let Value::Object(message) = typed_data.message {
+        if let Value::Object((_, message)) = typed_data.message {
             let (type_, data) = message
                 .get("digest")
                 .unwrap()
@@ -727,7 +799,7 @@ mod test {
     fn test_eip712_encode_string_field() {
         let typed_data = gen_typed_data_v4();
 
-        if let Value::Object(message) = typed_data.message {
+        if let Value::Object((_, message)) = typed_data.message {
             let (type_, data) = message
                 .get("DAS_MESSAGE")
                 .unwrap()
@@ -747,7 +819,7 @@ mod test {
     fn test_eip712_encode_uint_field() {
         let typed_data = gen_typed_data_v4();
 
-        if let Value::Object(domain) = typed_data.domain {
+        if let Value::Object((_, domain)) = typed_data.domain {
             let (type_, data) = domain
                 .get("chainId")
                 .unwrap()

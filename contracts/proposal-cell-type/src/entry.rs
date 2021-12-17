@@ -77,6 +77,7 @@ pub fn main() -> Result<(), Error> {
                     parser,
                     dep_cells[0],
                     Source::CellDep,
+                    DataType::ProposalCellData,
                     ProposalCellData
                 );
                 prev_slices_reader_opt = Some(dep_cell_witness_reader.slices());
@@ -90,6 +91,7 @@ pub fn main() -> Result<(), Error> {
                 parser,
                 output_cells[0],
                 Source::Output,
+                DataType::ProposalCellData,
                 ProposalCellData
             );
 
@@ -122,10 +124,16 @@ pub fn main() -> Result<(), Error> {
             let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
             parser.parse_cell()?;
-            parser.parse_config(&[DataType::ConfigCellAccount, DataType::ConfigCellProfitRate])?;
+            parser.parse_config(&[
+                DataType::ConfigCellAccount,
+                DataType::ConfigCellProfitRate,
+                DataType::ConfigCellIncome,
+                DataType::ConfigCellProposal,
+            ])?;
             let config_account = parser.configs.account()?;
             let config_main = parser.configs.main()?;
             let config_profit_rate = parser.configs.profit_rate()?;
+            let config_proposal_reader = parser.configs.proposal()?;
 
             assert!(
                 dep_cells.len() == 0 && input_cells.len() == 1 && output_cells.len() == 0,
@@ -141,7 +149,21 @@ pub fn main() -> Result<(), Error> {
                 parser,
                 input_cells[0],
                 Source::Input,
+                DataType::ProposalCellData,
                 ProposalCellData
+            );
+
+            debug!("Check if the ProposalCell is able to be confirmed.");
+
+            let height = util::load_oracle_data(OracleCellType::Height)?;
+            let proposal_min_confirm_interval = u8::from(config_proposal_reader.proposal_min_confirm_interval()) as u64;
+            let created_at_height = u64::from(input_cell_witness_reader.created_at_height());
+
+            assert!(
+                height >= created_at_height + proposal_min_confirm_interval,
+                Error::ProposalConfirmNeedWaitLonger,
+                "ProposalCell should be confirmed later, about {} block to wait.",
+                created_at_height + proposal_min_confirm_interval - height
             );
 
             debug!("Check all AccountCells are updated or created base on proposal.");
@@ -178,6 +200,7 @@ pub fn main() -> Result<(), Error> {
                 parser,
                 input_cells[0],
                 Source::Input,
+                DataType::ProposalCellData,
                 ProposalCellData
             );
 
@@ -240,12 +263,14 @@ fn inspect_related_cells(
     for i in related_cells {
         let script = load_cell_type(i, related_cells_source)?.unwrap();
         let code_hash = Hash::from(script.code_hash());
-        let (version, _, entity) = parser.verify_and_get(i, related_cells_source)?;
-        let data = util::load_cell_data(i, related_cells_source)?;
 
         if util::is_reader_eq(config_main.type_id_table().account_cell(), code_hash.as_reader()) {
+            let (version, _, entity) = parser.verify_and_get(DataType::AccountCellData, i, related_cells_source)?;
+            let data = util::load_cell_data(i, related_cells_source)?;
             das_core::inspect::account_cell(related_cells_source, i, &data, version, Some(entity.as_reader()), None);
         } else if util::is_reader_eq(config_main.type_id_table().pre_account_cell(), code_hash.as_reader()) {
+            let (_, _, entity) = parser.verify_and_get(DataType::AccountSaleCellData, i, related_cells_source)?;
+            let data = util::load_cell_data(i, related_cells_source)?;
             das_core::inspect::pre_account_cell(related_cells_source, i, &data, Some(entity.as_reader()), None);
         }
     }
@@ -380,7 +405,7 @@ fn verify_slices(config: ConfigCellProposalReader, slices_reader: SliceListReade
 
     let max_account_cell_count = u32::from(config.proposal_max_account_affect());
     assert!(
-        account_cell_contained < max_account_cell_count,
+        account_cell_contained <= max_account_cell_count,
         Error::InvalidTransactionStructure,
         "The proposal should not contains more than {} AccountCells.",
         max_account_cell_count
@@ -388,7 +413,7 @@ fn verify_slices(config: ConfigCellProposalReader, slices_reader: SliceListReade
 
     let max_pre_account_cell_count = u32::from(config.proposal_max_pre_account_contain());
     assert!(
-        pre_account_cell_contained < max_pre_account_cell_count,
+        pre_account_cell_contained <= max_pre_account_cell_count,
         Error::InvalidTransactionStructure,
         "The proposal should not contains more than {} PreAccountCells.",
         max_pre_account_cell_count
@@ -526,6 +551,7 @@ fn verify_slices_relevant_cells(
                     parser,
                     cell_index,
                     Source::CellDep,
+                    DataType::PreAccountCellData,
                     PreAccountCellData
                 );
 
@@ -757,6 +783,7 @@ fn verify_proposal_execution_result(
                     parser,
                     input_related_cells[i],
                     Source::Input,
+                    DataType::PreAccountCellData,
                     PreAccountCellData
                 );
 
@@ -768,6 +795,7 @@ fn verify_proposal_execution_result(
                     parser,
                     output_account_cells[i],
                     Source::Output,
+                    DataType::AccountCellData,
                     AccountCellData
                 );
 
@@ -876,45 +904,8 @@ fn verify_proposal_execution_result(
         }
     }
 
-    debug!("Check if the IncomeCell in inputs is a newly created IncomeCell with only one record.");
-
     let income_cell_type_id = config_main.type_id_table().income_cell();
-    let (input_income_cells, output_income_cells) =
-        util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, income_cell_type_id)?;
-
-    assert!(
-        input_income_cells.len() <= 1,
-        Error::InvalidTransactionStructure,
-        "The number of IncomeCells in inputs should be less than or equal to 1. (expected: <= 1, current: {})",
-        input_income_cells.len()
-    );
-
-    if input_income_cells.len() == 1 {
-        let input_income_cell_witness;
-        let input_income_cell_witness_reader;
-        parse_witness!(
-            input_income_cell_witness,
-            input_income_cell_witness_reader,
-            parser,
-            input_income_cells[0],
-            Source::Input,
-            IncomeCellData
-        );
-
-        // The IncomeCell should be a newly created cell with only one record which is belong to the creator, but we do not need to check everything here, so we only check the length.
-        verifiers::income_cell::verify_newly_created(
-            input_income_cell_witness_reader,
-            input_income_cells[0],
-            Source::Input,
-        )?;
-
-        // Add the original record into profit_map to bypass later verification.
-        let first_record = input_income_cell_witness_reader.records().get(0).unwrap();
-        profit_map.insert(
-            first_record.belong_to().as_slice().to_vec(),
-            u64::from(first_record.capacity()),
-        );
-    }
+    let output_income_cells = util::find_cells_by_type_id(ScriptType::Type, income_cell_type_id, Source::Output)?;
 
     debug!("Check if the IncomeCell in outputs records everyone's profit correctly.");
 
@@ -933,62 +924,17 @@ fn verify_proposal_execution_result(
         parser,
         output_income_cells[0],
         Source::Output,
+        DataType::IncomeCellData,
         IncomeCellData
     );
 
-    #[cfg(debug_assertions)]
-    das_core::inspect::income_cell(
-        Source::Output,
+    verifiers::income_cell::verify_records_match_with_creating(
+        parser.configs.income()?,
         output_income_cells[0],
-        None,
-        Some(output_income_cell_witness_reader),
-    );
-
-    let mut expected_capacity = 0;
-
-    for (i, record) in output_income_cell_witness_reader.records().iter().enumerate() {
-        let key = record.belong_to().as_slice().to_vec();
-        let recorded_profit = u64::from(record.capacity());
-        let result = profit_map.get(&key);
-
-        assert!(
-            result.is_some(),
-            Error::ProposalConfirmIncomeError,
-            "  IncomeCell.records[{}] Found a profit record which should not be in the IncomeCell.records, please compare the locks in PreAccountCells and ProposalCells with the belong_to field. (belong_to: {})",
-            i,
-            record.belong_to()
-        );
-
-        let expected_profit = result.unwrap();
-        assert!(
-            &recorded_profit == expected_profit,
-            Error::ProposalConfirmIncomeError,
-            "  IncomeCell.records[{}] The capacity of a profit record is incorrect. (expected: {}, current: {}, belong_to: {})",
-            i,
-            expected_profit,
-            recorded_profit,
-            record.belong_to()
-        );
-
-        expected_capacity += recorded_profit;
-        profit_map.remove(&key);
-    }
-
-    assert!(
-        profit_map.is_empty(),
-        Error::ProposalConfirmIncomeError,
-        "The IncomeCell in outputs should contains everyone's profit. (missing: {})",
-        profit_map.len()
-    );
-
-    let current_capacity = load_cell_capacity(output_income_cells[0], Source::Output)?;
-    assert!(
-        expected_capacity == current_capacity,
-        Error::ProposalConfirmIncomeError,
-        "The capacity of the IncomeCell should be {}, but {} found.",
-        expected_capacity,
-        current_capacity
-    );
+        Source::Output,
+        output_income_cell_witness_reader,
+        profit_map,
+    )?;
 
     Ok(())
 }

@@ -615,6 +615,7 @@ impl TemplateGenerator {
             .account_auction_cell(Hash::try_from(util::get_type_id_bytes("account-auction-cell-type")).unwrap())
             .balance_cell(Hash::try_from(util::get_type_id_bytes("balance-cell-type")).unwrap())
             .income_cell(Hash::try_from(util::get_type_id_bytes("income-cell-type")).unwrap())
+            .offer_cell(Hash::try_from(util::get_type_id_bytes("offer-cell-type")).unwrap())
             .pre_account_cell(Hash::try_from(util::get_type_id_bytes("pre-account-cell-type")).unwrap())
             .proposal_cell(Hash::try_from(util::get_type_id_bytes("proposal-cell-type")).unwrap())
             .reverse_record_cell(Hash::try_from(util::get_type_id_bytes("reverse-record-cell-type")).unwrap())
@@ -721,7 +722,7 @@ impl TemplateGenerator {
 
     fn gen_config_cell_secondary_market(&mut self) -> (Bytes, ConfigCellSecondaryMarket) {
         let entity = ConfigCellSecondaryMarket::new_builder()
-            .common_fee(Uint64::from(10_000))
+            .common_fee(Uint64::from(SECONDARY_MARKET_COMMON_FEE))
             .sale_min_price(Uint64::from(20_000_000_000))
             .sale_expiration_limit(Uint32::from(86400 * 30))
             .sale_description_bytes_limit(Uint32::from(5000))
@@ -734,10 +735,10 @@ impl TemplateGenerator {
             .auction_description_bytes_limit(Uint32::from(5000))
             .auction_cell_basic_capacity(Uint64::from(20_000_000_000))
             .auction_cell_prepared_fee_capacity(Uint64::from(100_000_000))
-            .offer_min_price(Uint64::from(1_000_000_000_000))
-            .offer_cell_basic_capacity(Uint64::from(20_000_000_000))
-            .offer_cell_prepared_fee_capacity(Uint64::from(100_000_000))
-            .offer_message_bytes_limit(Uint32::from(5000))
+            .offer_min_price(Uint64::from(0))
+            .offer_cell_basic_capacity(Uint64::from(OFFER_BASIC_CAPACITY))
+            .offer_cell_prepared_fee_capacity(Uint64::from(OFFER_PREPARED_FEE_CAPACITY))
+            .offer_message_bytes_limit(Uint32::from(OFFER_PREPARED_MESSAGE_BYTES_LIMIT as u32))
             .build();
         let cell_data = Bytes::from(blake2b_256(entity.as_slice()).to_vec());
 
@@ -1087,179 +1088,6 @@ impl TemplateGenerator {
         }
     }
 
-    pub fn gen_account_cell_data_v1(
-        &mut self,
-        account: &str,
-        next_account: &str,
-        registered_at: u64,
-        expired_at: u64,
-        records_opt: Option<Records>,
-    ) -> (Bytes, AccountCellDataV1) {
-        let account_chars_raw = account
-            .chars()
-            .take(account.len() - 4)
-            .map(|c| c.to_string())
-            .collect::<Vec<String>>();
-        let account_chars = gen_account_chars(account_chars_raw);
-        let id = util::account_to_id(account);
-
-        let records = match records_opt {
-            Some(records) => records,
-            None => Records::default(),
-        };
-
-        let entity = AccountCellDataV1::new_builder()
-            .id(AccountId::try_from(id.clone()).unwrap())
-            .account(account_chars.to_owned())
-            .registered_at(Uint64::from(registered_at))
-            .status(Uint8::from(0))
-            .records(records)
-            .build();
-
-        let next = util::account_to_id(next_account);
-
-        let hash = Hash::try_from(blake2b_256(entity.as_slice()).to_vec()).unwrap();
-        let raw = [
-            hash.as_reader().raw_data(),
-            id.as_slice(),
-            next.as_slice(),
-            &expired_at.to_le_bytes()[..],
-            account.as_bytes(),
-        ]
-        .concat();
-        let cell_data = Bytes::from(raw);
-
-        (cell_data, entity)
-    }
-
-    pub fn gen_account_cell_data(
-        &mut self,
-        account: &str,
-        next_account: &str,
-        registered_at: u64,
-        expired_at: u64,
-        last_transfer_account_at: u64,
-        last_edit_manager_at: u64,
-        last_edit_records_at: u64,
-        records_opt: Option<Records>,
-    ) -> (Bytes, AccountCellData) {
-        let account_chars_raw = account
-            .chars()
-            .take(account.len() - 4)
-            .map(|c| c.to_string())
-            .collect::<Vec<String>>();
-        let account_chars = gen_account_chars(account_chars_raw);
-        let id = util::account_to_id(account);
-
-        let records = match records_opt {
-            Some(records) => records,
-            None => Records::default(),
-        };
-
-        let entity = AccountCellData::new_builder()
-            .id(AccountId::try_from(id.clone()).unwrap())
-            .account(account_chars.to_owned())
-            .registered_at(Uint64::from(registered_at))
-            .last_transfer_account_at(Timestamp::from(last_transfer_account_at))
-            .last_edit_manager_at(Timestamp::from(last_edit_manager_at))
-            .last_edit_records_at(Timestamp::from(last_edit_records_at))
-            .status(Uint8::from(0))
-            .records(records)
-            .build();
-
-        let next = util::account_to_id(next_account);
-
-        let hash = Hash::try_from(blake2b_256(entity.as_slice()).to_vec()).unwrap();
-        let raw = [
-            hash.as_reader().raw_data(),
-            id.as_slice(),
-            next.as_slice(),
-            &expired_at.to_le_bytes()[..],
-            account.as_bytes(),
-        ]
-        .concat();
-        let cell_data = Bytes::from(raw);
-
-        (cell_data, entity)
-    }
-
-    pub fn gen_root_account_cell_data(&mut self) -> (Bytes, AccountCellData) {
-        let id: Vec<u8> = vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-        let next: Vec<u8> = vec![
-            255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-        ];
-        let account = AccountChars::default();
-        let expired_at = u64::MAX.to_le_bytes();
-
-        let entity = AccountCellData::new_builder()
-            .id(AccountId::try_from(id.clone()).unwrap())
-            .account(account)
-            .registered_at(Uint64::from(0))
-            .status(Uint8::from(0))
-            .build();
-
-        let hash = Hash::try_from(blake2b_256(entity.as_slice()).to_vec()).unwrap();
-        let raw = [
-            hash.as_reader().raw_data(),
-            id.as_slice(),
-            next.as_slice(),
-            &expired_at[..],
-            &[0],
-        ]
-        .concat();
-        let cell_data = Bytes::from(raw);
-
-        (cell_data, entity)
-    }
-
-    pub fn push_account_cell<T: Entity>(
-        &mut self,
-        owner_lock_args: &str,
-        manager_lock_args: &str,
-        cell_data: Bytes,
-        entity_opt: Option<(u32, u32, T)>,
-        capacity: u64,
-        source: Source,
-    ) -> usize {
-        let args = gen_das_lock_args(owner_lock_args, Some(manager_lock_args));
-
-        let lock_script = json!({
-          "code_hash": "{{fake-das-lock}}",
-          "args": args
-        });
-        let type_script = json!({
-          "code_hash": "{{account-cell-type}}"
-        });
-
-        let index = self.push_cell(capacity, lock_script, type_script, Some(cell_data), source);
-        if let Some(entity) = entity_opt {
-            self.push_witness_with_group(DataType::AccountCellData, source, entity);
-        }
-
-        index
-    }
-
-    pub fn push_proposal_cell(
-        &mut self,
-        cell_data: Bytes,
-        entity_opt: Option<(u32, u32, impl Entity)>,
-        capacity: u64,
-        source: Source,
-    ) {
-        let lock_script = json!({
-          "code_hash": "{{always_success}}"
-        });
-        let type_script = json!({
-          "code_hash": "{{proposal-cell-type}}"
-        });
-
-        self.push_cell(capacity, lock_script, type_script, Some(cell_data), source);
-
-        if let Some(entity) = entity_opt {
-            self.push_witness_with_group(DataType::ProposalCellData, source, entity);
-        }
-    }
-
     // TODO Refactor functions to support more flexible params
     pub fn gen_income_cell_data(
         &mut self,
@@ -1345,8 +1173,6 @@ impl TemplateGenerator {
         self.push_cell(capacity, lock_script, json!(null), None, source);
         self.push_empty_witness();
     }
-
-    pub fn gen_header() {}
 
     // ======
 
@@ -1444,6 +1270,7 @@ impl TemplateGenerator {
                         self.push_cell(capacity, lock_script, type_script, outputs_data_bytes_opt, source)
                     }
                     "income-cell-type" => push_cell_with_witness!(DataType::IncomeCellData, gen_income_cell, cell),
+                    "offer-cell-type" => push_cell_with_witness!(DataType::OfferCellData, gen_offer_cell, cell),
                     "pre-account-cell-type" => {
                         push_cell_with_witness!(DataType::PreAccountCellData, gen_pre_account_cell, cell)
                     }
@@ -2073,7 +1900,10 @@ impl TemplateGenerator {
     ///     "data": null | "0x...", // if this is null, will be calculated from witness.
     ///     "witness": {
     ///         "account": "xxxx.bit",
-    ///         "message": "some utf8 string"
+    ///         "price": u64,
+    ///         "message": "some utf8 string",
+    ///         "inviter_lock": Script,
+    ///         "channel_lock": Script
     ///     }
     /// })
     /// ```
@@ -2095,11 +1925,17 @@ impl TemplateGenerator {
         if !cell["witness"].is_null() {
             let witness = &cell["witness"];
             let account = parse_json_str("cell.witness.account", &witness["account"]);
+            let price = parse_json_u64("cell.witness.price", &witness["price"]);
             let message = parse_json_str("cell.witness.message", &witness["message"]);
+            let inviter_lock = parse_json_script_to_mol("cell.witness.inviter_lock", &witness["inviter_lock"]);
+            let channel_lock = parse_json_script_to_mol("cell.witness.channel_lock", &witness["channel_lock"]);
 
             let entity = OfferCellData::new_builder()
                 .account(Bytes::from(account.as_bytes()))
-                // .message(Bytes::from(message.as_bytes()))
+                .price(Uint64::from(price))
+                .message(Bytes::from(message.as_bytes()))
+                .inviter_lock(inviter_lock)
+                .channel_lock(channel_lock)
                 .build();
 
             if !cell["data"].is_null() {

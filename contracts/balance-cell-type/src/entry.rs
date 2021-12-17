@@ -78,6 +78,22 @@ pub fn main() -> Result<(), Error> {
                     Error::InvalidTransactionStructure,
                 )?;
             }
+            b"make_offer" | b"edit_offer" => {
+                util::require_type_script(
+                    &mut parser,
+                    TypeScript::OfferCellType,
+                    Source::Output,
+                    Error::InvalidTransactionStructure,
+                )?;
+            }
+            b"cancel_offer" | b"accept_offer" => {
+                util::require_type_script(
+                    &mut parser,
+                    TypeScript::OfferCellType,
+                    Source::Input,
+                    Error::InvalidTransactionStructure,
+                )?;
+            }
             _ => verify_eip712_hashes(&parser, transfer_to_semantic)?,
         }
     } else {
@@ -122,6 +138,7 @@ pub fn main() -> Result<(), Error> {
                                 push_type_script!(account_cell);
                                 push_type_script!(account_sale_cell);
                                 push_type_script!(account_auction_cell);
+                                push_type_script!(offer_cell);
                                 push_type_script!(reverse_record_cell);
                             }
 

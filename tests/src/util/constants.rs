@@ -25,6 +25,9 @@ pub const CKB_QUOTE: u64 = 1000;
 
 pub const ACCOUNT_SALE_BASIC_CAPACITY: u64 = 20_000_000_000;
 pub const ACCOUNT_SALE_PREPARED_FEE_CAPACITY: u64 = 100_000_000;
+pub const OFFER_BASIC_CAPACITY: u64 = 20_000_000_000;
+pub const OFFER_PREPARED_FEE_CAPACITY: u64 = 100_000_000;
+pub const OFFER_PREPARED_MESSAGE_BYTES_LIMIT: u64 = 5000;
 pub const SECONDARY_MARKET_COMMON_FEE: u64 = 10_000;
 
 pub const REVERSE_RECORD_BASIC_CAPACITY: u64 = 20_000_000_000;
@@ -51,6 +54,8 @@ pub const CONFIG_LOCK_ARGS: &str = "0x0000000000000000000000000000000000000000";
 pub const DAS_WALLET_LOCK_ARGS: &str = "0x0300000000000000000000000000000000000000";
 pub const QUOTE_LOCK_ARGS: &str = "0x0100000000000000000000000000000000000000";
 pub const COMMON_INCOME_CREATOR_LOCK_ARGS: &str = "0x9900000000000000000000000000000000000000";
+pub const INVITER_LOCK_ARGS: &str = "0x050000000000000000000000000000000000007777";
+pub const CHANNEL_LOCK_ARGS: &str = "0x050000000000000000000000000000000000008888";
 
 #[derive(Debug)]
 #[repr(u8)]
@@ -112,6 +117,10 @@ lazy_static! {
             "0x3ff05cd948339d6b841487a288fbfa137e0f66c9eda15b62e71f3d3676d6395e",
         );
         map.insert(
+            "offer-cell-type",
+            "0xc1fee5148199d7a38eaa8ccc59fe81f0d83a1c96a5865112a49a6937ec1b5ba7",
+        );
+        map.insert(
             "pre-account-cell-type",
             "0x431a3af2d4bbcd69ab732d37be794ac0ab172c151545dfdbae1f578a7083bc84",
         );
@@ -122,6 +131,10 @@ lazy_static! {
         map.insert(
             "reverse-record-cell-type",
             "0x666163a5626501ca714b96cbcb4730b0a111ec2640fb432d0ba7f4ba5fa2855b",
+        );
+        map.insert(
+            "test-env",
+            "0x4939a7b6baf71149795f59844c215af0c117f381ac615fe3f563e77509063e19",
         );
         map
     };

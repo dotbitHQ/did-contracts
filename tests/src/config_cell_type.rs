@@ -1,5 +1,4 @@
-use super::util::{constants::*, template_generator::*, template_parser::TemplateParser};
-use ckb_testtool::context::Context;
+use super::util::{constants::*, template_common_cell::*, template_generator::*, template_parser::*};
 use das_types::constants::*;
 
 fn init() -> TemplateGenerator {
@@ -9,17 +8,14 @@ fn init() -> TemplateGenerator {
     template.push_contract_cell("fake-secp256k1-blake160-signhash-all", true);
     template.push_contract_cell("config-cell-type", false);
 
-    let timestamp = 1611200000u64;
-    template.push_oracle_cell(1, OracleCellType::Time, timestamp);
-
     template
 }
 
 #[test]
-fn gen_config_create() {
+fn test_config_create() {
     let mut template = init();
 
-    template.push_signall_cell("0x0000000000000000000000000000000000000000", 0, Source::Input);
+    push_input_normal_cell(&mut template, 0, CONFIG_LOCK_ARGS);
 
     template.push_config_cell(DataType::ConfigCellAccount, true, 0, Source::Output);
     template.push_config_cell(DataType::ConfigCellApply, true, 0, Source::Output);
@@ -36,16 +32,14 @@ fn gen_config_create() {
     //     Source::Output,
     // );
 
-    template.write_template("config_create.json");
+    test_tx(template.as_json());
 }
 
-test_with_template!(test_config_create, "config_create.json");
-
 #[test]
-fn gen_config_edit() {
+fn test_config_edit() {
     let mut template = init();
 
-    template.push_signall_cell("0x0000000000000000000000000000000000000000", 0, Source::Input);
+    push_input_normal_cell(&mut template, 0, CONFIG_LOCK_ARGS);
 
     template.push_config_cell(DataType::ConfigCellAccount, true, 0, Source::Input);
     template.push_config_cell(DataType::ConfigCellApply, true, 0, Source::Input);
@@ -65,7 +59,5 @@ fn gen_config_edit() {
     template.push_config_cell(DataType::ConfigCellProposal, true, 0, Source::Output);
     template.push_config_cell(DataType::ConfigCellProfitRate, true, 0, Source::Output);
 
-    template.write_template("config_edit.json");
+    test_tx(template.as_json());
 }
-
-test_with_template!(test_config_edit, "config_edit.json");

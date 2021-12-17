@@ -1,0 +1,16 @@
+[package]
+name = "offer-cell-type"
+version = "1.0.0"
+edition = "2018"
+
+[features]
+dev = ["das-core/dev"]
+local = ["das-core/local"]
+testnet = ["das-core/testnet"]
+mainnet = ["das-core/mainnet"]
+
+[dependencies]
+ckb-std = "0.7.1"
+das-map = { path = "../../libs/das-map" }
+das-core = { path = "../../libs/das-core", default-features = false }
+das-types = { path = "../../../das-types/rust", default-features = false }

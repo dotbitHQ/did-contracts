@@ -162,6 +162,7 @@ pub fn init_with_confirm() -> TemplateGenerator {
 
     template.push_config_cell(DataType::ConfigCellAccount, true, 0, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellProfitRate, true, 0, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellIncome, true, 0, Source::CellDep);
 
     template
 }
