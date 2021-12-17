@@ -1,7 +1,10 @@
-use crate::{assert, constants::DasLockType, data_parser, error::Error, util, warn};
-use alloc::{boxed::Box, vec::Vec};
+use crate::{
+    assert, constants::DasLockType, constants::*, data_parser, error::Error, util, warn,
+    witness_parser::WitnessesParser,
+};
+use alloc::{boxed::Box, string::String, vec::Vec};
 use ckb_std::{ckb_constants::Source, debug, high_level};
-use das_types::{constants::AccountStatus, mixer::AccountCellDataReaderMixer, packed::*};
+use das_types::{constants::*, mixer::AccountCellDataReaderMixer, packed::*, util as das_types_util};
 
 pub fn verify_unlock_role(action: &[u8], params: &[Bytes]) -> Result<(), Error> {
     let required_role_opt = util::get_action_required_role(action);
@@ -336,7 +339,7 @@ pub fn verify_account_cell_status_update_correctly<'a>(
 ) -> Result<(), Error> {
     if input_account_cell_witness_reader.version() == 1 {
         // There is no version 1 AccountCell in mainnet, so we simply disable them here.
-        return Err(Error::InvalidTransactionStructure);
+        unreachable!()
     } else {
         let input_account_cell_witness_reader = input_account_cell_witness_reader
             .try_into_latest()
@@ -363,4 +366,137 @@ pub fn verify_account_cell_status_update_correctly<'a>(
     }
 
     Ok(())
+}
+
+pub fn verify_account_cell_status<'a>(
+    account_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
+    expected_status: AccountStatus,
+    index: usize,
+    source: Source,
+) -> Result<(), Error> {
+    if account_cell_witness_reader.version() == 1 {
+        // There is no version 1 AccountCell in mainnet, so we simply disable them here.
+        unreachable!()
+    } else {
+        let account_cell_witness_reader = account_cell_witness_reader
+            .try_into_latest()
+            .map_err(|_| Error::NarrowMixerTypeFailed)?;
+
+        let account_cell_status = u8::from(account_cell_witness_reader.status());
+
+        assert!(
+            account_cell_status == expected_status as u8,
+            Error::AccountCellStatusLocked,
+            "{:?}[{}]The AccountCell.witness.status should be {:?}.",
+            source,
+            index,
+            expected_status
+        );
+    }
+
+    Ok(())
+}
+
+pub fn verify_preserved_accounts(parser: &mut WitnessesParser, account: &[u8]) -> Result<(), Error> {
+    debug!("Verify if account is preserved.");
+
+    let account_hash = util::blake2b_256(account);
+    let account_id = account_hash.get(..ACCOUNT_ID_LENGTH).unwrap();
+    let index = (account_id[0] % PRESERVED_ACCOUNT_CELL_COUNT) as usize;
+    let data_type = das_types_util::preserved_accounts_group_to_data_type(index);
+
+    // debug!(
+    //     "account: {}, account ID: {:?}",
+    //     String::from_utf8(account.to_vec()).unwrap(),
+    //     account_id
+    // );
+
+    parser.parse_config(&[data_type])?;
+    let preserved_accounts = parser.configs.preserved_account()?;
+
+    if is_account_id_in_collection(account_id, preserved_accounts) {
+        warn!(
+            "Account {} is preserved. (hex: 0x{}, hash: 0x{})",
+            String::from_utf8(account.to_vec()).unwrap(),
+            util::hex_string(account),
+            util::hex_string(&account_hash)
+        );
+        return Err(Error::AccountIsPreserved);
+    }
+
+    Ok(())
+}
+
+/**
+check if the account is an account that can never be registered.
+ **/
+pub fn verify_unavailable_accounts(parser: &mut WitnessesParser, account: &[u8]) -> Result<(), Error> {
+    debug!("Verify if account if unavailable");
+
+    parser.parse_config(&[DataType::ConfigCellUnAvailableAccount])?;
+
+    let account_hash = util::blake2b_256(account);
+    let account_id = account_hash.get(..ACCOUNT_ID_LENGTH).unwrap();
+    let unavailable_accounts = parser.configs.unavailable_account()?;
+
+    if is_account_id_in_collection(account_id, unavailable_accounts) {
+        warn!(
+            "Account {} is unavailable. (hex: 0x{}, hash: 0x{})",
+            String::from_utf8(account.to_vec()).unwrap(),
+            util::hex_string(account),
+            util::hex_string(&account_hash)
+        );
+        return Err(Error::AccountIsUnAvailable);
+    }
+
+    Ok(())
+}
+
+fn is_account_id_in_collection(account_id: &[u8], collection: &[u8]) -> bool {
+    let length = collection.len();
+
+    let first = &collection[0..20];
+    let last = &collection[length - 20..];
+
+    return if account_id < first {
+        debug!("The account is less than the first preserved account, skip.");
+        false
+    } else if account_id > last {
+        debug!("The account is bigger than the last preserved account, skip.");
+        false
+    } else {
+        let accounts_total = collection.len() / ACCOUNT_ID_LENGTH;
+        let mut start_account_index = 0;
+        let mut end_account_index = accounts_total - 1;
+
+        loop {
+            let mid_account_index = (start_account_index + end_account_index) / 2;
+            // debug!("mid_account_index = {:?}", mid_account_index);
+            let mid_account_start_byte_index = mid_account_index * ACCOUNT_ID_LENGTH;
+            let mid_account_end_byte_index = mid_account_start_byte_index + ACCOUNT_ID_LENGTH;
+            let mid_account_bytes = collection
+                .get(mid_account_start_byte_index..mid_account_end_byte_index)
+                .unwrap();
+
+            if mid_account_bytes < account_id {
+                start_account_index = mid_account_index + 1;
+                // debug!("<");
+            } else if mid_account_bytes > account_id {
+                // debug!(">");
+                end_account_index = if mid_account_index > 1 {
+                    mid_account_index - 1
+                } else {
+                    0
+                };
+            } else {
+                return true;
+            }
+
+            if start_account_index > end_account_index || end_account_index == 0 {
+                break;
+            }
+        }
+
+        false
+    };
 }

@@ -118,6 +118,7 @@ pub fn main() -> Result<(), Error> {
             parser,
             output_cells[0],
             Source::Output,
+            DataType::PreAccountCellData,
             PreAccountCellData
         );
 
@@ -629,7 +630,7 @@ fn verify_account_release_status(reader: PreAccountCellDataReader) -> Result<(),
 
 /**
 check if the account is an account that can never be registered.
-**/
+ **/
 fn verify_unavailable_accounts(
     parser: &mut WitnessesParser,
     pre_account_reader: PreAccountCellDataReader,

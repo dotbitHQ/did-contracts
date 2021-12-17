@@ -1,7 +1,4 @@
-use crate::util::template_common_cell::push_input_balance_cell;
-use crate::util::{
-    constants::*, error::Error, hex_to_bytes, template_common_cell::*, template_generator::*, template_parser::*,
-};
+use crate::util::{constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*};
 use das_types::{constants::DataType, packed::*};
 use serde_json::json;
 

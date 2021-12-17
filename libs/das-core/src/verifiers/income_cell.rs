@@ -30,6 +30,15 @@ pub fn verify_records_match_with_creating(
     #[cfg(debug_assertions)]
     crate::inspect::income_cell(source, index, None, Some(income_cell_witness_reader));
 
+    #[cfg(debug_assertions)]
+    {
+        debug!("  Profit map: {} total", profit_map.items.len());
+        for (script_bytes, capacity) in profit_map.items.iter() {
+            let script = Script::from_slice(&script_bytes.as_slice()).unwrap();
+            debug!("    {{ script.args: {}, capacity: {} }}", script.args(), capacity);
+        }
+    }
+
     let income_cell_basic_capacity = u64::from(config_income.basic_capacity());
     let total_profit = profit_map.items.iter().map(|(_, v)| v).sum::<u64>();
 
@@ -59,6 +68,7 @@ pub fn verify_records_match_with_creating(
 
         // This will allow creating IncomeCell will NormalCells in inputs.
         if result.is_none() {
+            debug!("Can not find this record in profit_map: {}", record.belong_to());
             continue;
         }
 
@@ -79,7 +89,6 @@ pub fn verify_records_match_with_creating(
     }
 
     if !profit_map.is_empty() {
-        // warn!();
         for (script_bytes, capacity) in profit_map.items {
             let script_reader = ScriptReader::new_unchecked(&script_bytes);
             warn!(

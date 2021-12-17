@@ -1936,6 +1936,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "offer-cell-type"
+version = "1.0.0"
+dependencies = [
+ "ckb-std",
+ "das-core",
+ "das-map",
+ "das-types",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2873,6 +2883,16 @@ dependencies = [
  "tokio-util",
  "unsigned-varint",
  "x25519-dalek",
+]
+
+[[package]]
+name = "test-env"
+version = "1.0.0"
+dependencies = [
+ "ckb-std",
+ "das-core",
+ "das-types",
+ "hex",
 ]
 
 [[package]]

@@ -260,3 +260,16 @@ pub fn push_output_normal_cell(template: &mut TemplateGenerator, capacity: u64, 
         None,
     );
 }
+
+pub fn push_input_test_env_cell(template: &mut TemplateGenerator) {
+    template.push_input(
+        json!({
+            "capacity": 0,
+            "lock": {
+                "code_hash": "{{test-env}}"
+            }
+        }),
+        None,
+    );
+    template.push_empty_witness();
+}

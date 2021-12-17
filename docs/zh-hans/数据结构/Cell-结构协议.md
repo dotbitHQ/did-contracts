@@ -478,6 +478,37 @@ data:
 
 `x` Bytes
 
+### OfferCell
+
+报价 Cell ，用户可以通过此 Cell 给出任意账户名的报价，甚至尚未注册的账户名也可以。
+
+#### 结构
+
+```
+lock: <das-lock>
+type: <offer-cell-type>
+data: hash(witness: OfferCellData)
+
+======
+table OfferCellData {
+    // The account of the offer .
+    account: Bytes,
+    // The price of the offer.
+    price: Uint64,
+    // The message from the offer maker to the seller.
+    message: Bytes,
+    // The lock script of inviter.
+    inviter_lock: Script,
+    // The lock script of channel.
+    channel_lock: Script,
+}
+```
+
+#### 体积
+
+`x` Bytes
+
+
 ## ConfigCell
 
 这是一个在链上保存 DAS 配置的 Cell，目前只通过 DAS 超级私钥手动更新。因为 CKB VM 在加载数据时存在性能存在数据越大开销急剧增大的问题，所以采用了将不同配置分散到多个 ConfigCell 中的保存方式。
@@ -733,7 +764,8 @@ table ReleaseRule {
 table ConfigCellSecondaryMarket {
     // The common fee for every transactions AccountSaleCell and AccountAuctionCell involved.
     common_fee: Uint64,
-    // Minimum price for selling an account.
+    // SaleCell =======================================
+    // The minimum price for selling an account.
     sale_min_price: Uint64,
     // Expiration time limit for selling accounts.
     sale_expiration_limit: Uint32,
@@ -743,6 +775,7 @@ table ConfigCellSecondaryMarket {
     sale_cell_basic_capacity: Uint64,
     // The fees prepared for various transactions.
     sale_cell_prepared_fee_capacity: Uint64,
+    // AuctionCell ====================================
     // The maximum extendable duration time for an auction, unit in seconds.
     auction_max_extendable_duration: Uint32,
     // The increment of duration brought by each bid in the auction, unit in seconds.
@@ -757,6 +790,14 @@ table ConfigCellSecondaryMarket {
     auction_cell_basic_capacity: Uint64,
     // The fees prepared for various transactions.
     auction_cell_prepared_fee_capacity: Uint64,
+    // The minimum price for making an offer.
+    offer_min_price: Uint64,
+    // The basic capacity OfferCell required, it is bigger than or equal to OfferCell occupied capacity.
+    offer_cell_basic_capacity: Uint64,
+    // The fees prepared for various transactions.
+    offer_cell_prepared_fee_capacity: Uint64,
+    // Bytes size limitation of the message for offer.
+    offer_message_bytes_limit: Uint32,
 }
 ```
 
@@ -941,11 +982,9 @@ enum DataType {
 }
 ```
 
-### 字符集枚举值 CharSet
+> ⚠️ 为了方便维护， ConfigCellXXX 的编号空间为 100 ~ 199999 之间，既 args >= 100 && args <= 199999 .
 
-> ⚠️ 为了方便维护， ConfigCellCharSetXXX 总是保持减去 100000 就等于下面 CharSet 常量的形式，所以可以直接采用下面的转换方法：
->
-> `ConfigCellCharSetEmoji - 100000 = EMOJI`
+### 字符集枚举值 CharSet
 
 ```
 enum CharSetType {
@@ -957,3 +996,6 @@ enum CharSetType {
 }
 ```
 
+> ⚠️ 为了方便维护， ConfigCellCharSetXXX 总是保持减去 100000 就等于下面 CharSet 常量的形式，所以可以直接采用下面的转换方法：
+>
+> `ConfigCellCharSetEmoji - 100000 = EMOJI`

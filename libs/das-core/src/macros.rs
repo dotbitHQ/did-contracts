@@ -53,8 +53,8 @@ macro_rules! assert_lock_equal {
 
 #[macro_export]
 macro_rules! parse_witness {
-    ($entity:expr, $entity_reader:expr, $parser:expr, $index:expr, $source:expr, $entity_type:ty) => {{
-        let (_, _, mol_bytes) = $parser.verify_and_get($index, $source)?;
+    ($entity:expr, $entity_reader:expr, $parser:expr, $index:expr, $source:expr, $data_type:expr, $entity_type:ty) => {{
+        let (_, _, mol_bytes) = $parser.verify_and_get($data_type, $index, $source)?;
         $entity = <$entity_type>::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
             $crate::warn!("Decoding {} failed", stringify!($entity_type));
             Error::WitnessEntityDecodingError
@@ -66,7 +66,8 @@ macro_rules! parse_witness {
 #[macro_export]
 macro_rules! parse_account_cell_witness {
     ($entity:expr, $entity_reader:expr, $parser:expr, $index:expr, $source:expr) => {{
-        let (version, _, mol_bytes) = $parser.verify_and_get($index, $source)?;
+        let (version, _, mol_bytes) =
+            $parser.verify_and_get(das_types::constants::DataType::AccountCellData, $index, $source)?;
         if version == 1 {
             $entity = Box::new(
                 AccountCellDataV1::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {

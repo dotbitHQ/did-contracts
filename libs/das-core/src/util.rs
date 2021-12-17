@@ -9,7 +9,7 @@ use ckb_std::{
     error::SysError,
     high_level, syscalls,
 };
-use core::convert::{TryFrom, TryInto};
+use core::convert::TryInto;
 use das_types::{
     constants::{DataType, LockRole, WITNESS_HEADER},
     packed as das_packed,
@@ -396,20 +396,6 @@ pub fn load_self_cells_in_inputs_and_outputs() -> Result<(Vec<usize>, Vec<usize>
     Ok((input_cells, output_cells))
 }
 
-pub fn trim_empty_bytes(buf: &[u8]) -> &[u8] {
-    let header = buf.get(..3);
-    let length = buf
-        .get(7..11)
-        .map(|bytes| u32::from_le_bytes(bytes.try_into().unwrap()) as usize);
-
-    if header.is_some() && header == Some(&WITNESS_HEADER) && length.is_some() {
-        // debug!("Trim DAS witness with length: {}", 7 + length.unwrap());
-        buf.get(..(7 + length.unwrap())).unwrap()
-    } else {
-        buf
-    }
-}
-
 pub fn load_witnesses(index: usize) -> Result<Vec<u8>, Error> {
     let mut buf = [];
     let ret = syscalls::load_witness(&mut buf, 0, index, Source::Input);
@@ -427,7 +413,7 @@ pub fn load_witnesses(index: usize) -> Result<Vec<u8>, Error> {
     }
 }
 
-pub fn load_das_witnesses(index: usize, data_type: DataType) -> Result<Vec<u8>, Error> {
+pub fn load_das_witnesses(index: usize) -> Result<Vec<u8>, Error> {
     let mut buf = [0u8; 7];
     let ret = syscalls::load_witness(&mut buf, 0, index, Source::Input);
 
@@ -445,20 +431,6 @@ pub fn load_das_witnesses(index: usize, data_type: DataType) -> Result<Vec<u8>, 
                     "The witness should start with \"das\" 3 bytes."
                 );
             }
-
-            let data_type_in_int = u32::from_le_bytes(buf.get(3..7).unwrap().try_into().unwrap());
-            let parsed_data_type = DataType::try_from(data_type_in_int).unwrap();
-
-            das_assert!(
-                data_type == parsed_data_type,
-                Error::WitnessReadingError,
-                "The witnesses[{}] should be the {:?}, but {:?} found.",
-                index,
-                data_type,
-                parsed_data_type
-            );
-
-            debug!("Load witnesses[{}]: {:?} size: {} Bytes", index, data_type, actual_size);
 
             if actual_size > 32000 {
                 warn!("The witnesses[{}] should be less than 32KB because the signall lock do not support more than that.", index);
