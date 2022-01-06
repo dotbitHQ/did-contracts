@@ -319,6 +319,152 @@ fn test_account_sale_buy_no_inviter_and_channel() {
 }
 
 #[test]
+fn test_account_sale_buy_create_with_custom_buyer_inviter_profit_rate() {
+    let paid = PRICE;
+    let params = gen_params(INVITER_LOCK_ARGS, CHANNEL_LOCK_ARGS);
+    let mut template = init_with_profit_rate("buy_account", Some(&params));
+
+    // inputs
+    push_input_account_cell(
+        &mut template,
+        json!({
+            "lock": {
+                "owner_lock_args": SELLER,
+                "manager_lock_args": SELLER
+            },
+            "data": {
+                "account": ACCOUNT,
+            },
+            "witness": {
+                "status": (AccountStatus::Selling as u8)
+            }
+        }),
+    );
+    push_input_account_sale_cell(
+        &mut template,
+        json!({
+            "lock": {
+                "owner_lock_args": SELLER,
+                "manager_lock_args": SELLER
+            },
+            "witness": {
+                "account": ACCOUNT,
+                "price": PRICE.to_string(),
+                // Simulate custom the profit rate of the buyer's inviter to 20% .
+                "buyer_inviter_profit_rate": SALE_BUYER_INVITER_PROFIT_RATE * 20
+            }
+        }),
+    );
+    push_input_balance_cell(&mut template, paid, BUYER);
+
+    // outputs
+    push_output_account_cell(
+        &mut template,
+        json!({
+            "lock": {
+                "owner_lock_args": BUYER,
+                "manager_lock_args": BUYER
+            },
+            "data": {
+                "account": ACCOUNT,
+            },
+            "witness": {
+                "status": (AccountStatus::Normal as u8)
+            }
+        }),
+    );
+    push_output_income_cell(
+        &mut template,
+        json!({
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-das-lock}}",
+                            "args": COMMON_INCOME_CREATOR_LOCK_ARGS
+                        },
+                        "capacity": "20_000_000_000"
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-das-lock}}",
+                            "args": gen_das_lock_args(INVITER_LOCK_ARGS, None)
+                        },
+                        // Simulate custom the profit rate of the buyer's inviter to 20% .
+                        "capacity": 40_000_000_000u64.to_string()
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-das-lock}}",
+                            "args": gen_das_lock_args(CHANNEL_LOCK_ARGS, None)
+                        },
+                        "capacity": 2_000_000_000.to_string()
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": DAS_WALLET_LOCK_ARGS
+                        },
+                        "capacity": 2_000_000_000.to_string()
+                    }
+                ]
+            }
+        }),
+    );
+    push_output_balance_cell(
+        &mut template,
+        PRICE - 6_000_000_000 + ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY
+            - SECONDARY_MARKET_COMMON_FEE,
+        SELLER,
+    );
+
+    test_tx(template.as_json());
+}
+
+#[test]
+fn test_account_sale_buy_old_version() {
+    let paid = PRICE;
+    let params = gen_params(INVITER_LOCK_ARGS, CHANNEL_LOCK_ARGS);
+    let mut template = init_with_profit_rate("buy_account", Some(&params));
+
+    // inputs
+    push_input_account_cell(
+        &mut template,
+        json!({
+            "lock": {
+                "owner_lock_args": SELLER,
+                "manager_lock_args": SELLER
+            },
+            "data": {
+                "account": ACCOUNT,
+            },
+            "witness": {
+                "status": (AccountStatus::Selling as u8)
+            }
+        }),
+    );
+    push_input_account_sale_cell_v1(
+        &mut template,
+        json!({
+            "lock": {
+                "owner_lock_args": SELLER,
+                "manager_lock_args": SELLER
+            },
+            "witness": {
+                "account": ACCOUNT,
+                "price": PRICE.to_string(),
+            }
+        }),
+    );
+    push_input_balance_cell(&mut template, paid, BUYER);
+
+    // outputs
+    push_common_outputs(&mut template);
+
+    test_tx(template.as_json());
+}
+
+#[test]
 fn challenge_account_sale_buy_account_expired() {
     let params = gen_params(INVITER_LOCK_ARGS, CHANNEL_LOCK_ARGS);
     let mut template = init_with_profit_rate("buy_account", Some(&params));

@@ -1257,7 +1257,11 @@ impl TemplateGenerator {
                 let index = match type_id {
                     "account-cell-type" => push_cell_with_witness!(DataType::AccountCellData, gen_account_cell, cell),
                     "account-sale-cell-type" => {
-                        push_cell_with_witness!(DataType::AccountSaleCellData, gen_account_sale_cell, cell)
+                        if version_opt == Some(1) {
+                            push_cell_with_witness!(DataType::AccountSaleCellData, gen_account_sale_cell_v1, cell)
+                        } else {
+                            push_cell_with_witness!(DataType::AccountSaleCellData, gen_account_sale_cell, cell)
+                        }
                     }
                     "balance-cell-type" => {
                         let (capacity, lock_script, type_script, outputs_data_opt) = self.gen_balance_cell(cell);

@@ -46,6 +46,44 @@ fn test_account_sale_edit() {
 }
 
 #[test]
+fn test_account_sale_edit_old_version() {
+    let mut template = init("edit_account_sale", Some("0x00"));
+
+    // inputs
+    push_input_account_sale_cell_v1(
+        &mut template,
+        json!({
+            "lock": {
+                "owner_lock_args": SELLER,
+                "manager_lock_args": SELLER
+            },
+            "witness": {
+                "account": ACCOUNT,
+                "price": PRICE
+            }
+        }),
+    );
+
+    // outputs
+    push_output_account_sale_cell(
+        &mut template,
+        json!({
+            "capacity": ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY - SECONDARY_MARKET_COMMON_FEE,
+            "lock": {
+                "owner_lock_args": SELLER,
+                "manager_lock_args": SELLER
+            },
+            "witness": {
+                "account": ACCOUNT,
+                "price": PRICE + 10_000_000_000
+            }
+        }),
+    );
+
+    test_tx(template.as_json());
+}
+
+#[test]
 fn challenge_account_sale_edit_with_manager() {
     // Simulate send the transaction as manager.
     let mut template = init("edit_account_sale", Some("0x01"));
@@ -285,6 +323,45 @@ fn challenge_account_sale_edit_no_change() {
             "witness": {
                 // Simulate neither price nor description is changed.
                 "account": ACCOUNT
+            }
+        }),
+    );
+
+    challenge_tx(template.as_json(), Error::InvalidTransactionStructure)
+}
+
+#[test]
+fn challenge_account_sale_edit_keep_old_version() {
+    let mut template = init("edit_account_sale", Some("0x00"));
+
+    // inputs
+    push_input_account_sale_cell_v1(
+        &mut template,
+        json!({
+            "lock": {
+                "owner_lock_args": SELLER,
+                "manager_lock_args": SELLER
+            },
+            "witness": {
+                "account": ACCOUNT,
+                "price": PRICE
+            }
+        }),
+    );
+
+    // outputs
+    // Simulate keeping the AccountSaleCell as the old version.
+    push_output_account_sale_cell_v1(
+        &mut template,
+        json!({
+            "capacity": ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY - SECONDARY_MARKET_COMMON_FEE,
+            "lock": {
+                "owner_lock_args": SELLER,
+                "manager_lock_args": SELLER
+            },
+            "witness": {
+                "account": ACCOUNT,
+                "price": PRICE + 10_000_000_000
             }
         }),
     );

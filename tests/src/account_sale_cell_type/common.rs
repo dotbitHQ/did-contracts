@@ -81,3 +81,48 @@ pub fn push_output_account_sale_cell(template: &mut TemplateGenerator, cell_part
 
     template.push_output(cell, Some(2));
 }
+
+pub fn push_input_account_sale_cell_v1(template: &mut TemplateGenerator, cell_partial: Value) {
+    let mut cell = json!({
+        "capacity": ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY,
+        "lock": {
+            "owner_lock_args": SELLER,
+            "manager_lock_args": SELLER
+        },
+        "type": {
+            "code_hash": "{{account-sale-cell-type}}"
+        },
+        "witness": {
+            "account": ACCOUNT,
+            "price": PRICE,
+            "description": "This is some account description.",
+            "started_at": TIMESTAMP,
+        }
+    });
+    util::merge_json(&mut cell, cell_partial);
+
+    template.push_input(cell, Some(1));
+    template.push_das_lock_witness("0000000000000000000000000000000000000000000000000000000000000000");
+}
+
+pub fn push_output_account_sale_cell_v1(template: &mut TemplateGenerator, cell_partial: Value) {
+    let mut cell = json!({
+        "capacity": ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY,
+        "lock": {
+            "owner_lock_args": SELLER,
+            "manager_lock_args": SELLER
+        },
+        "type": {
+            "code_hash": "{{account-sale-cell-type}}"
+        },
+        "witness": {
+            "account": ACCOUNT,
+            "price": PRICE,
+            "description": "This is some account description.",
+            "started_at": TIMESTAMP,
+        }
+    });
+    util::merge_json(&mut cell, cell_partial);
+
+    template.push_output(cell, Some(1));
+}

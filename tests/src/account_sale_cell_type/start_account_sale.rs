@@ -616,3 +616,46 @@ fn challenge_account_sale_start_change_capacity() {
 
     challenge_tx(template.as_json(), Error::ChangeError)
 }
+
+#[test]
+fn challenge_account_sale_start_with_old_version() {
+    let (mut template, total_input) = before_each();
+
+    // outputs
+    push_output_account_cell(
+        &mut template,
+        json!({
+            "lock": {
+                "owner_lock_args": SELLER,
+                "manager_lock_args": SELLER
+            },
+            "data": {
+                "account": ACCOUNT
+            },
+            "witness": {
+                "status": (AccountStatus::Selling as u8)
+            }
+        }),
+    );
+    // Simulate creating the old version of AccountSaleCell.
+    push_output_account_sale_cell_v1(
+        &mut template,
+        json!({
+            "lock": {
+                "owner_lock_args": SELLER,
+                "manager_lock_args": SELLER
+            },
+            "witness": {
+                "account": ACCOUNT,
+                "price": PRICE
+            }
+        }),
+    );
+    push_output_balance_cell(
+        &mut template,
+        total_input - ACCOUNT_SALE_BASIC_CAPACITY - ACCOUNT_SALE_PREPARED_FEE_CAPACITY - SECONDARY_MARKET_COMMON_FEE,
+        SELLER,
+    );
+
+    challenge_tx(template.as_json(), Error::InvalidTransactionStructure)
+}
