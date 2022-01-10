@@ -10,7 +10,7 @@ use das_core::{
     data_parser, debug,
     eip712::{to_semantic_capacity, verify_eip712_hashes},
     error::Error,
-    parse_account_cell_witness, parse_witness, util, verifiers, warn,
+    parse_account_cell_witness, parse_account_sale_cell_witness, parse_witness, util, verifiers, warn,
     witness_parser::WitnessesParser,
 };
 use das_map::{map::Map, util as map_util};
@@ -159,23 +159,22 @@ pub fn main() -> Result<(), Error> {
 
                     debug!("Verify if all fields of AccountSaleCell is properly set.");
 
-                    let output_sale_cell_witness;
+                    let output_sale_cell_witness: Box<dyn AccountSaleCellDataMixer>;
                     let output_sale_cell_witness_reader;
-                    parse_witness!(
+                    parse_account_sale_cell_witness!(
                         output_sale_cell_witness,
                         output_sale_cell_witness_reader,
                         parser,
                         output_sale_cells[0],
-                        Source::Output,
-                        DataType::AccountSaleCellData,
-                        AccountSaleCellData
+                        Source::Output
                     );
 
                     verify_sale_cell_capacity(config_secondary_market, account_sale_cell_capacity)?;
-                    verify_sale_cell_account_and_id(input_account_cells[0], output_sale_cell_witness_reader)?;
-                    verify_price(config_secondary_market, output_sale_cell_witness_reader)?;
-                    verify_description(config_secondary_market, output_sale_cell_witness_reader)?;
-                    verify_started_at(timestamp, output_sale_cell_witness_reader)?;
+                    verify_sale_cell_account_and_id(input_account_cells[0], &output_sale_cell_witness_reader)?;
+                    verify_price(config_secondary_market, &output_sale_cell_witness_reader)?;
+                    verify_description(config_secondary_market, &output_sale_cell_witness_reader)?;
+                    verify_buyer_inviter_profit_rate(&output_sale_cell_witness_reader)?;
+                    verify_started_at(timestamp, &output_sale_cell_witness_reader)?;
                 }
                 b"cancel_account_sale" => {
                     verify_eip712_hashes(&parser, cancel_account_sale_to_semantic)?;
@@ -232,19 +231,17 @@ pub fn main() -> Result<(), Error> {
 
                     debug!("Verify if the AccountSaleCell has the same account ID with the AccountCell inputs.");
 
-                    let input_sale_cell_witness;
+                    let input_sale_cell_witness: Box<dyn AccountSaleCellDataMixer>;
                     let input_sale_cell_witness_reader;
-                    parse_witness!(
+                    parse_account_sale_cell_witness!(
                         input_sale_cell_witness,
                         input_sale_cell_witness_reader,
                         parser,
                         input_sale_cells[0],
-                        Source::Input,
-                        DataType::AccountSaleCellData,
-                        AccountSaleCellData
+                        Source::Input
                     );
 
-                    verify_sale_cell_account_and_id(input_account_cells[0], input_sale_cell_witness_reader)?;
+                    verify_sale_cell_account_and_id(input_account_cells[0], &input_sale_cell_witness_reader)?;
                 }
                 b"buy_account" => {
                     verify_eip712_hashes(&parser, buy_account_to_semantic)?;
@@ -315,19 +312,17 @@ pub fn main() -> Result<(), Error> {
 
                     debug!("Verify if the AccountSaleCell is belong to the AccountCell.");
 
-                    let input_sale_cell_witness;
+                    let input_sale_cell_witness: Box<dyn AccountSaleCellDataMixer>;
                     let input_sale_cell_witness_reader;
-                    parse_witness!(
+                    parse_account_sale_cell_witness!(
                         input_sale_cell_witness,
                         input_sale_cell_witness_reader,
                         parser,
                         input_sale_cells[0],
-                        Source::Input,
-                        DataType::AccountSaleCellData,
-                        AccountSaleCellData
+                        Source::Input
                     );
 
-                    verify_sale_cell_account_and_id(input_account_cells[0], input_sale_cell_witness_reader)?;
+                    verify_sale_cell_account_and_id(input_account_cells[0], &input_sale_cell_witness_reader)?;
                     // The cell carry refund capacity should be combined with the cell carry profit capacity, so skip checking refund here.
                     // verify_refund_correctly(config_main, config_secondary_market, input_sale_cells[0])?;
 
@@ -380,7 +375,7 @@ pub fn main() -> Result<(), Error> {
                         seller_lock.as_reader(),
                         inviter_lock.as_reader(),
                         channel_lock.as_reader(),
-                        price,
+                        &input_sale_cell_witness_reader,
                         account_sale_cell_capacity,
                         common_fee,
                     )?;
@@ -412,35 +407,31 @@ pub fn main() -> Result<(), Error> {
 
             verifiers::misc::verify_no_more_cells(&input_cells, Source::Input)?;
 
-            let input_cell_witness;
+            let input_cell_witness: Box<dyn AccountSaleCellDataMixer>;
             let input_cell_witness_reader;
-            parse_witness!(
+            parse_account_sale_cell_witness!(
                 input_cell_witness,
                 input_cell_witness_reader,
                 parser,
                 input_cells[0],
-                Source::Input,
-                DataType::AccountSaleCellData,
-                AccountSaleCellData
+                Source::Input
             );
 
-            let output_cell_witness;
+            let output_cell_witness: Box<dyn AccountSaleCellDataMixer>;
             let output_cell_witness_reader;
-            parse_witness!(
+            parse_account_sale_cell_witness!(
                 output_cell_witness,
                 output_cell_witness_reader,
                 parser,
                 output_cells[0],
-                Source::Output,
-                DataType::AccountSaleCellData,
-                AccountSaleCellData
+                Source::Output
             );
 
             verify_account_sale_cell_consistent(
                 input_cells[0],
                 output_cells[0],
-                input_cell_witness_reader,
-                output_cell_witness_reader,
+                &input_cell_witness_reader,
+                &output_cell_witness_reader,
             )?;
 
             verify_tx_fee_spent_correctly(config_secondary_market_reader, input_cells[0], output_cells[0])?;
@@ -453,7 +444,7 @@ pub fn main() -> Result<(), Error> {
                 debug!(
                     "Sale price has been changed, verify if it higher than ConfigCellSecondaryMarket.sale_min_price."
                 );
-                verify_price(config_secondary_market_reader, output_cell_witness_reader)?;
+                verify_price(config_secondary_market_reader, &output_cell_witness_reader)?;
                 changed = true;
             }
 
@@ -461,8 +452,34 @@ pub fn main() -> Result<(), Error> {
             let output_description = output_cell_witness_reader.description();
             if !util::is_reader_eq(input_description, output_description) {
                 debug!("Description has been changed, verify if its size is less than ConfigCellSecondaryMarket.sale_description_bytes_limit.");
-                verify_description(config_secondary_market_reader, output_cell_witness_reader)?;
+                verify_description(config_secondary_market_reader, &output_cell_witness_reader)?;
                 changed = true;
+            }
+
+            if input_cell_witness_reader.version() == 1 {
+                assert!(
+                    output_cell_witness_reader.version() == 2,
+                    Error::InvalidTransactionStructure,
+                    "The AccountSaleCell should be upgrade to the latest version."
+                );
+
+                debug!("The profit rate of inviter has been changed, verify if its size is less than ConfigCellSecondaryMarket.sale_description_bytes_limit.");
+                verify_buyer_inviter_profit_rate(&output_cell_witness_reader)?;
+                changed = true;
+            } else {
+                let input_buyer_inviter_profit_rate = input_cell_witness_reader
+                    .try_into_latest()
+                    .unwrap()
+                    .buyer_inviter_profit_rate();
+                let output_buyer_inviter_profit_rate = output_cell_witness_reader
+                    .try_into_latest()
+                    .unwrap()
+                    .buyer_inviter_profit_rate();
+                if !util::is_reader_eq(input_buyer_inviter_profit_rate, output_buyer_inviter_profit_rate) {
+                    debug!("The profit rate of inviter has been changed, verify if its size is less than ConfigCellSecondaryMarket.sale_description_bytes_limit.");
+                    verify_buyer_inviter_profit_rate(&output_cell_witness_reader)?;
+                    changed = true;
+                }
             }
 
             assert!(
@@ -520,13 +537,22 @@ fn start_account_sale_to_semantic(parser: &WitnessesParser) -> Result<String, Er
     let account_in_bytes = data_parser::account_cell::get_account(&data_in_bytes);
     let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| Error::EIP712SerializationError)?;
 
-    let (_, _, witness) =
+    let (version, _, witness) =
         parser.verify_and_get(DataType::AccountSaleCellData, account_sale_cells[0], Source::Output)?;
-    let entity = AccountSaleCellData::from_slice(witness.as_reader().raw_data()).map_err(|_| {
-        warn!("EIP712 decoding AccountSaleCellData failed");
-        Error::WitnessEntityDecodingError
-    })?;
-    let price = to_semantic_capacity(u64::from(entity.price()));
+
+    let price = if version == 1 {
+        let entity = AccountSaleCellDataV1::from_slice(witness.as_reader().raw_data()).map_err(|_| {
+            warn!("EIP712 decoding AccountSaleCellData failed");
+            Error::WitnessEntityDecodingError
+        })?;
+        to_semantic_capacity(u64::from(entity.price()))
+    } else {
+        let entity = AccountSaleCellData::from_slice(witness.as_reader().raw_data()).map_err(|_| {
+            warn!("EIP712 decoding AccountSaleCellData failed");
+            Error::WitnessEntityDecodingError
+        })?;
+        to_semantic_capacity(u64::from(entity.price()))
+    };
 
     Ok(format!("SELL {} FOR {}", account, price))
 }
@@ -539,13 +565,22 @@ fn edit_account_sale_to_semantic(parser: &WitnessesParser) -> Result<String, Err
         Source::Output,
     )?;
 
-    let (_, _, witness) =
+    let (version, _, witness) =
         parser.verify_and_get(DataType::AccountSaleCellData, account_sale_cells[0], Source::Output)?;
-    let entity = AccountSaleCellData::from_slice(witness.as_reader().raw_data()).map_err(|_| {
-        warn!("EIP712 decoding AccountSaleCellData failed");
-        Error::WitnessEntityDecodingError
-    })?;
-    let price = to_semantic_capacity(u64::from(entity.price()));
+
+    let price = if version == 1 {
+        let entity = AccountSaleCellDataV1::from_slice(witness.as_reader().raw_data()).map_err(|_| {
+            warn!("EIP712 decoding AccountSaleCellData failed");
+            Error::WitnessEntityDecodingError
+        })?;
+        to_semantic_capacity(u64::from(entity.price()))
+    } else {
+        let entity = AccountSaleCellData::from_slice(witness.as_reader().raw_data()).map_err(|_| {
+            warn!("EIP712 decoding AccountSaleCellData failed");
+            Error::WitnessEntityDecodingError
+        })?;
+        to_semantic_capacity(u64::from(entity.price()))
+    };
 
     Ok(format!("EDIT SALE INFO, CURRENT PRICE IS {}", price))
 }
@@ -578,12 +613,22 @@ fn buy_account_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
     let account_in_bytes = data_parser::account_cell::get_account(&data_in_bytes);
     let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| Error::EIP712SerializationError)?;
 
-    let (_, _, witness) = parser.verify_and_get(DataType::AccountSaleCellData, account_sale_cells[0], Source::Input)?;
-    let entity = AccountSaleCellData::from_slice(witness.as_reader().raw_data()).map_err(|_| {
-        warn!("EIP712 decoding AccountSaleCellData failed");
-        Error::WitnessEntityDecodingError
-    })?;
-    let price = to_semantic_capacity(u64::from(entity.price()));
+    let (version, _, witness) =
+        parser.verify_and_get(DataType::AccountSaleCellData, account_sale_cells[0], Source::Input)?;
+
+    let price = if version == 1 {
+        let entity = AccountSaleCellDataV1::from_slice(witness.as_reader().raw_data()).map_err(|_| {
+            warn!("EIP712 decoding AccountSaleCellData failed");
+            Error::WitnessEntityDecodingError
+        })?;
+        to_semantic_capacity(u64::from(entity.price()))
+    } else {
+        let entity = AccountSaleCellData::from_slice(witness.as_reader().raw_data()).map_err(|_| {
+            warn!("EIP712 decoding AccountSaleCellData failed");
+            Error::WitnessEntityDecodingError
+        })?;
+        to_semantic_capacity(u64::from(entity.price()))
+    };
 
     Ok(format!("BUY {} WITH {}", account, price))
 }
@@ -628,16 +673,16 @@ fn verify_sale_cell_capacity(
     Ok(())
 }
 
-fn verify_sale_cell_account_and_id(
+fn verify_sale_cell_account_and_id<'a>(
     input_account_cell: usize,
-    account_sale_cell_witness_reader: AccountSaleCellDataReader,
+    witness_reader: &Box<dyn AccountSaleCellDataReaderMixer + 'a>,
 ) -> Result<(), Error> {
     let input_account_cell_data = util::load_cell_data(input_account_cell, Source::Input)?;
     let account_cell_account = data_parser::account_cell::get_account(&input_account_cell_data);
     let account_cell_account_id = data_parser::account_cell::get_id(&input_account_cell_data);
 
     // read account_id from AccountSaleCell's witness
-    let account_sale_cell_account_id = account_sale_cell_witness_reader.account_id().raw_data();
+    let account_sale_cell_account_id = witness_reader.account_id().raw_data();
     // ensure the AccountSaleCell's args equal to accountCell's id
     assert!(
         account_cell_account_id == account_sale_cell_account_id,
@@ -646,7 +691,7 @@ fn verify_sale_cell_account_and_id(
     );
 
     // read account from AccountSaleCell's witness
-    let account_sale_cell_account = account_sale_cell_witness_reader.account().raw_data();
+    let account_sale_cell_account = witness_reader.account().raw_data();
     // ensure the AccountSaleCell's args equal to accountCell's id
     assert!(
         account_cell_account == account_sale_cell_account,
@@ -657,12 +702,12 @@ fn verify_sale_cell_account_and_id(
     Ok(())
 }
 
-fn verify_price(
+fn verify_price<'a>(
     config_reader: ConfigCellSecondaryMarketReader,
-    witness_reader: AccountSaleCellDataReader,
+    witness_reader: &Box<dyn AccountSaleCellDataReaderMixer + 'a>,
 ) -> Result<(), Error> {
-    let sale_min_price = u64::from(config_reader.sale_min_price());
     let price = u64::from(witness_reader.price());
+    let sale_min_price = u64::from(config_reader.sale_min_price());
     assert!(
         price >= sale_min_price,
         Error::AccountSaleCellPriceTooSmall,
@@ -674,12 +719,12 @@ fn verify_price(
     Ok(())
 }
 
-fn verify_description(
+fn verify_description<'a>(
     config_reader: ConfigCellSecondaryMarketReader,
-    witness_reader: AccountSaleCellDataReader,
+    witness_reader: &Box<dyn AccountSaleCellDataReaderMixer + 'a>,
 ) -> Result<(), Error> {
-    let bytes_limit = u32::from(config_reader.sale_description_bytes_limit());
     let description = witness_reader.description();
+    let bytes_limit = u32::from(config_reader.sale_description_bytes_limit());
     assert!(
         description.len() <= bytes_limit as usize,
         Error::AccountSaleCellDescriptionTooLarge,
@@ -691,8 +736,34 @@ fn verify_description(
     Ok(())
 }
 
-fn verify_started_at(current_timestamp: u64, witness_reader: AccountSaleCellDataReader) -> Result<(), Error> {
+fn verify_buyer_inviter_profit_rate<'a>(
+    witness_reader: &Box<dyn AccountSaleCellDataReaderMixer + 'a>,
+) -> Result<(), Error> {
+    assert!(
+        witness_reader.version() == 2,
+        Error::InvalidTransactionStructure,
+        "Only AccountSaleCell in version 2 can be created from now on."
+    );
+
+    let witness_reader = witness_reader.try_into_latest().unwrap();
+    let profit_rate = u32::from(witness_reader.buyer_inviter_profit_rate()) as u64;
+
+    assert!(
+        profit_rate <= RATE_BASE,
+        Error::AccountSaleCellProfitRateError,
+        "The AccountSaleCell.witness.buyer_inviter_profit_rate should be less than or equal to {}.",
+        RATE_BASE
+    );
+
+    Ok(())
+}
+
+fn verify_started_at<'a>(
+    current_timestamp: u64,
+    witness_reader: &Box<dyn AccountSaleCellDataReaderMixer + 'a>,
+) -> Result<(), Error> {
     let started_at = u64::from(witness_reader.started_at());
+
     assert!(
         current_timestamp == started_at,
         Error::AccountSaleCellStartedAtInvalid,
@@ -704,11 +775,11 @@ fn verify_started_at(current_timestamp: u64, witness_reader: AccountSaleCellData
     Ok(())
 }
 
-fn verify_account_sale_cell_consistent(
+fn verify_account_sale_cell_consistent<'a>(
     input_cell: usize,
     output_cell: usize,
-    input_cell_witness_reader: AccountSaleCellDataReader,
-    output_cell_witness_reader: AccountSaleCellDataReader,
+    input_cell_witness_reader: &Box<dyn AccountSaleCellDataReaderMixer + 'a>,
+    output_cell_witness_reader: &Box<dyn AccountSaleCellDataReaderMixer + 'a>,
 ) -> Result<(), Error> {
     debug!("Verify if AccountSaleCell consistent in inputs and outputs.");
 
@@ -785,7 +856,7 @@ fn verify_tx_fee_spent_correctly(
     Ok(())
 }
 
-fn verify_profit_distribution(
+fn verify_profit_distribution<'a>(
     parser: &WitnessesParser,
     config_main: ConfigCellMainReader,
     config_income: ConfigCellIncomeReader,
@@ -793,10 +864,12 @@ fn verify_profit_distribution(
     seller_lock_reader: ckb_packed::ScriptReader,
     inviter_lock_reader: ckb_packed::ScriptReader,
     channel_lock_reader: ckb_packed::ScriptReader,
-    price: u64,
+    input_sale_cell_witness_reader: &Box<dyn AccountSaleCellDataReaderMixer + 'a>,
     account_sale_cell_capacity: u64,
     common_fee: u64,
 ) -> Result<(), Error> {
+    let price = u64::from(input_sale_cell_witness_reader.price());
+
     let default_script = ckb_packed::Script::default();
     let default_script_reader = default_script.as_reader();
 
@@ -826,7 +899,12 @@ fn verify_profit_distribution(
     let mut profit_rate_of_das = u32::from(config_profit_rate.sale_das()) as u64;
 
     if !util::is_reader_eq(default_script_reader, inviter_lock_reader) {
-        let profit_rate = u32::from(config_profit_rate.sale_buyer_inviter()) as u64;
+        let profit_rate = if input_sale_cell_witness_reader.version() == 2 {
+            let witness_reader = input_sale_cell_witness_reader.try_into_latest().unwrap();
+            u32::from(witness_reader.buyer_inviter_profit_rate()) as u64
+        } else {
+            u32::from(config_profit_rate.sale_buyer_inviter()) as u64
+        };
         let profit = price / RATE_BASE * profit_rate;
 
         map_util::add(&mut profit_map, inviter_lock_reader.as_slice().to_vec(), profit);
