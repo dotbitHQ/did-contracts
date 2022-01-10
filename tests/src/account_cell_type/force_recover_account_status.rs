@@ -1,7 +1,6 @@
 use super::common::init;
-use crate::{
-    util::constants::{DAY_SEC, MONTH_SEC, YEAR_SEC},
-    util::{self, error::Error, template_common_cell::*, template_generator::*, template_parser::*},
+use crate::util::{
+    self, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
 };
 use das_types::constants::AccountStatus;
 use serde_json::json;
@@ -57,7 +56,8 @@ fn push_input_account_sale_cell(template: &mut TemplateGenerator, timestamp: u64
                 "account": "das00001.bit",
                 "price": "20_000_000_000",
                 "description": "This is some account description.",
-                "started_at": timestamp - MONTH_SEC
+                "started_at": timestamp - MONTH_SEC,
+                "buyer_inviter_profit_rate": SALE_BUYER_INVITER_PROFIT_RATE
             }
         }),
         None,

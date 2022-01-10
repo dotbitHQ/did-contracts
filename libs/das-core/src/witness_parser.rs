@@ -276,13 +276,13 @@ impl WitnessesParser {
             .filter(|&&config_type| {
                 // Skip some exists ConfigCells.
                 match config_type {
-                    DataType::ConfigCellMain => return self.configs.main().is_err(),
+                    DataType::ConfigCellMain => return self.configs.main.is_none(),
                     DataType::ConfigCellCharSetEmoji
                     | DataType::ConfigCellCharSetDigit
                     | DataType::ConfigCellCharSetEn
                     | DataType::ConfigCellCharSetZhHans
                     | DataType::ConfigCellCharSetZhHant => {
-                        if let Ok(char_sets) = self.configs.char_set() {
+                        if let Some(char_sets) = &self.configs.char_set {
                             let char_set_index = das_types_util::data_type_to_char_set(config_type.to_owned());
                             return char_sets[char_set_index as usize].is_none();
                         }
@@ -529,25 +529,34 @@ impl WitnessesParser {
 
             let raw = util::load_das_witnesses(index)?;
 
-            let mut source = None;
             let data = Self::parse_data(raw.as_slice())?;
             if let Some(entity) = data.dep().to_opt() {
-                source = Some(Source::CellDep);
                 self.dep.push(Self::parse_entity(entity, data_type)?)
             }
             if let Some(entity) = data.old().to_opt() {
-                source = Some(Source::Input);
                 self.old.push(Self::parse_entity(entity, data_type)?)
             }
             if let Some(entity) = data.new().to_opt() {
-                source = Some(Source::Output);
                 self.new.push(Self::parse_entity(entity, data_type)?)
             }
 
-            debug!(
-                "  Parse witnesses[{}]: {{ data_type: {:?}, source: {:?}, index: {} }}",
-                _i, data_type, source, index
-            );
+            #[cfg(all(not(feature = "std"), debug_assertions))]
+            {
+                let mut source = None;
+                if let Some(_) = data.dep().to_opt() {
+                    source = Some(Source::CellDep);
+                }
+                if let Some(_) = data.old().to_opt() {
+                    source = Some(Source::Input);
+                }
+                if let Some(_) = data.new().to_opt() {
+                    source = Some(Source::Output);
+                }
+                debug!(
+                    "  Parse witnesses[{}]: {{ data_type: {:?}, source: {:?}, index: {} }}",
+                    _i, data_type, source, index
+                );
+            }
         }
 
         Ok(())
