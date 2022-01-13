@@ -20,6 +20,7 @@ dependencies = [
  "chrono",
  "ckb-std",
  "das-core",
+ "das-map",
  "das-types",
  "eip712",
 ]

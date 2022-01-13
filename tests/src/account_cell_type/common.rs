@@ -1,6 +1,8 @@
 use crate::util::{self, constants::*, template_generator::*};
 use das_types::{constants::DataType, packed::*};
 
+pub const OWNER: &str = "0x000000000000000000000000000000000000001111";
+
 pub fn init(action: &str, params_opt: Option<&str>) -> (TemplateGenerator, u64) {
     let mut template = TemplateGenerator::new(action, params_opt.map(|raw| Bytes::from(util::hex_to_bytes(raw))));
     let timestamp = 1611200000u64;
@@ -26,6 +28,7 @@ pub fn init_for_renew(action: &str, params_opt: Option<&str>) -> (TemplateGenera
 
     template.push_oracle_cell(1, OracleCellType::Quote, 1000);
     template.push_config_cell(DataType::ConfigCellPrice, true, 0, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellIncome, true, 0, Source::CellDep);
 
     (template, timestamp)
 }
