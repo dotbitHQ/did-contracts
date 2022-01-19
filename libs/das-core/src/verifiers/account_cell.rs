@@ -272,11 +272,30 @@ pub fn verify_account_witness_consistent<'a>(
             output_witness_reader,
             (id, "id"),
             (account, "account"),
-            (registered_at, "registered_at"),
+            (registered_at, "registered_at")
+        );
+
+        assert_field_consistent_if_not_except!(
+            input_witness_reader,
+            output_witness_reader,
+            (records, "records"),
             (status, "status")
         );
 
-        assert_field_consistent_if_not_except!(input_witness_reader, output_witness_reader, (records, "records"));
+        assert!(
+            output_witness_reader.version() == 2,
+            Error::UpgradeForWitnessIsRequired,
+            "The witness of outputs[{}] should be upgraded to latest version.",
+            output_index
+        );
+        assert!(
+            u64::from(output_witness_reader.last_transfer_account_at()) == 0
+                && u64::from(output_witness_reader.last_edit_manager_at()) == 0
+                && u64::from(output_witness_reader.last_edit_records_at()) == 0,
+            Error::UpgradeDefaultValueOfNewFieldIsError,
+            "The new fields of outputs[{}] should be 0 by default.",
+            output_index
+        );
     } else {
         let input_witness_reader = input_witness_reader
             .try_into_latest()

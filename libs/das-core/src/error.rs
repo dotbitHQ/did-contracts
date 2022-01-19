@@ -148,6 +148,8 @@ pub enum Error {
     ReverseRecordCellCapacityError,
     ReverseRecordCellAccountError,
     ReverseRecordCellChangeError,
+    UpgradeForWitnessIsRequired,
+    UpgradeDefaultValueOfNewFieldIsError,
     UnittestError = -2,
     SystemOff = -1,
 }

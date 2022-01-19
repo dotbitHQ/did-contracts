@@ -1,4 +1,4 @@
-use alloc::borrow::ToOwned;
+use alloc::{borrow::ToOwned, boxed::Box};
 use ckb_std::{
     ckb_constants::Source,
     high_level::{load_cell_capacity, load_cell_lock, load_cell_type, load_script},
@@ -10,12 +10,12 @@ use das_core::{
     data_parser::{account_cell, pre_account_cell},
     debug,
     error::Error,
-    parse_witness, util, verifiers,
+    parse_account_cell_witness, parse_witness, util, verifiers,
     witness_parser::WitnessesParser,
 };
 use das_map::{map::Map, util as map_util};
 use das_sorted_list::DasSortedList;
-use das_types::{constants::*, packed::*, prelude::*};
+use das_types::{constants::*, mixer::AccountCellDataMixer, packed::*, prelude::*};
 
 pub fn main() -> Result<(), Error> {
     debug!("====== Running proposal-cell-type ======");
@@ -738,7 +738,33 @@ fn verify_proposal_execution_result(
                 is_old_account_cell_data_consistent(item_index, &output_cell_data, &input_cell_data)?;
                 is_next_correct(item_index, &output_cell_data, item_next)?;
 
-                parser.verify_hash(item_index, Source::Output)?;
+                let input_cell_witness: Box<dyn AccountCellDataMixer>;
+                let input_cell_witness_reader;
+                parse_account_cell_witness!(
+                    input_cell_witness,
+                    input_cell_witness_reader,
+                    parser,
+                    input_related_cells[i],
+                    Source::Input
+                );
+
+                let output_cell_witness: Box<dyn AccountCellDataMixer>;
+                let output_cell_witness_reader;
+                parse_account_cell_witness!(
+                    output_cell_witness,
+                    output_cell_witness_reader,
+                    parser,
+                    output_account_cells[i],
+                    Source::Output
+                );
+
+                verifiers::account_cell::verify_account_witness_consistent(
+                    input_related_cells[i],
+                    output_account_cells[i],
+                    &input_cell_witness_reader,
+                    &output_cell_witness_reader,
+                    vec![""],
+                )?;
             } else {
                 debug!(
                     "  Item[{}] Check that the inputs[{}].PreAccountCell and outputs[{}].AccountCell is converted correctly.",
@@ -1083,13 +1109,6 @@ fn is_old_account_cell_data_consistent(
     output_cell_data: &Vec<u8>,
     input_cell_data: &Vec<u8>,
 ) -> Result<(), Error> {
-    is_bytes_eq(
-        item_index,
-        "hash",
-        output_cell_data.get(..32).unwrap(),
-        input_cell_data.get(..32).unwrap(),
-        Error::ProposalFieldCanNotBeModified,
-    )?;
     is_bytes_eq(
         item_index,
         "id",

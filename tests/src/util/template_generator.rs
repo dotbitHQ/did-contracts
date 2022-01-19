@@ -1255,7 +1255,13 @@ impl TemplateGenerator {
                     .map(|m| m.as_str())
                     .expect("type.code_hash is something like '{{...}}'");
                 let index = match type_id {
-                    "account-cell-type" => push_cell_with_witness!(DataType::AccountCellData, gen_account_cell, cell),
+                    "account-cell-type" => {
+                        if version_opt == Some(1) {
+                            push_cell_with_witness!(DataType::AccountCellData, gen_account_cell_v1, cell)
+                        } else {
+                            push_cell_with_witness!(DataType::AccountCellData, gen_account_cell, cell)
+                        }
+                    }
                     "account-sale-cell-type" => {
                         if version_opt == Some(1) {
                             push_cell_with_witness!(DataType::AccountSaleCellData, gen_account_sale_cell_v1, cell)
@@ -1638,6 +1644,171 @@ impl TemplateGenerator {
                 .last_transfer_account_at(last_transfer_account_at)
                 .last_edit_manager_at(last_edit_manager_at)
                 .last_edit_records_at(last_edit_records_at)
+                .status(status)
+                .records(records_builder.build())
+                .build();
+
+            let data = &cell["data"];
+            let account = parse_json_str("cell.data.account", &data["account"]);
+            let hash = if !data["hash"].is_null() {
+                parse_json_hex("cell.data.hash", &data["hash"])
+            } else {
+                blake2b_256(entity.as_slice()).to_vec()
+            };
+            let account_id = if !data["id"].is_null() {
+                parse_json_hex("cell.data.id", &data["id"])
+            } else {
+                util::account_to_id(account)
+            };
+            let next_id_raw = parse_json_str("cell.data.next", &data["next"]);
+            let next_id = if next_id_raw.starts_with("0x") {
+                util::hex_to_bytes(next_id_raw)
+            } else {
+                util::account_to_id(next_id_raw)
+            };
+            let expired_at = parse_json_u64("cell.data.expired_at", &data["expired_at"]);
+
+            let raw = [
+                hash,
+                account_id,
+                next_id,
+                expired_at.to_le_bytes().to_vec(),
+                account.as_bytes().to_vec(),
+            ]
+            .concat();
+            outputs_data = raw;
+            entity_opt = Some(entity);
+        } else {
+            let data = &cell["data"];
+            let hash = parse_json_hex("cell.data.hash", &data["hash"]);
+            let account = parse_json_str("cell.data.account", &data["account"]);
+            let account_id = if !data["id"].is_null() {
+                parse_json_hex("cell.data.id", &data["id"])
+            } else {
+                util::account_to_id(account)
+            };
+            let next_id = parse_json_str_to_account_id("cell.data.next", &data["next"]);
+            let expired_at = parse_json_u64("cell.data.expired_at", &data["expired_at"]);
+
+            let raw = [
+                hash,
+                account_id,
+                next_id,
+                expired_at.to_le_bytes().to_vec(),
+                account.as_bytes().to_vec(),
+            ]
+            .concat();
+            outputs_data = raw;
+        }
+
+        (capacity, lock_script, type_script, outputs_data, entity_opt)
+    }
+
+    /// Cell structure:
+    ///
+    /// ```json
+    /// json!({
+    ///     "capacity": u64,
+    ///     "lock": {
+    ///         "owner_lock_args": "0x...",
+    ///         "manager_lock_args": "0x...",
+    ///     },
+    ///     "type": {
+    ///         "code_hash": "{{account-cell-type}}"
+    ///     },
+    ///     "data": {
+    ///         "hash": null | "0x...", // if this is null, will be calculated from witness.
+    ///         "id": null | "0x...", // if this is null, will be calculated from account.
+    ///         "next": "yyyyy.bit" | "0x...", // if this is not hex, will be calculated automatically.
+    ///         "expired_at": u64,
+    ///         "account": "xxxxx.bit"
+    ///     },
+    ///     "witness": {
+    ///         "id": null | "0x...", // if this is null, will be calculated from account.
+    ///         "account": "xxxxx.bit",
+    ///         "registered_at": u64,
+    ///         "status": u8,
+    ///         "records": null | [
+    ///             {
+    ///                 "type": "xxxxx",
+    ///                 "key": ""yyyyy,
+    ///                 "label": "zzzzz",
+    ///                 "value": "0x...",
+    ///                 "ttl": null | u32
+    ///             }
+    ///         ]
+    ///     }
+    /// })
+    /// ```
+    fn gen_account_cell_v1(&mut self, cell: Value) -> (u64, Value, Value, Vec<u8>, Option<AccountCellDataV1>) {
+        let capacity: u64 = parse_json_u64("cell.capacity", &cell["capacity"]);
+
+        let lock = cell.get("lock").expect("cell.lock is missing");
+        let owner_lock_args = parse_json_str("cell.lock.owner_lock_args", &lock["owner_lock_args"]);
+        let manager_lock_args = parse_json_str("cell.lock.manager_lock_args", &lock["manager_lock_args"]);
+        let lock_script = json!({
+          "code_hash": "{{fake-das-lock}}",
+          "args": gen_das_lock_args(owner_lock_args, Some(manager_lock_args))
+        });
+
+        let type_script = parse_json_script("cell.type", &cell["type"]);
+
+        let outputs_data: Vec<u8>;
+        let mut entity_opt = None;
+        if !cell["witness"].is_null() {
+            let witness = &cell["witness"];
+            let account = parse_json_str("cell.witness.account", &witness["account"]);
+            let account_id = if !witness["id"].is_null() {
+                AccountId::try_from(parse_json_hex("cell.witness.id", &witness["id"]))
+                    .expect("cell.witness.account_id should be [u8; 20]")
+            } else {
+                AccountId::try_from(util::account_to_id(account)).expect("Calculate account ID from account failed")
+            };
+            let account_chars_raw = account
+                .chars()
+                .take(account.len() - 4)
+                .map(|c| c.to_string())
+                .collect::<Vec<String>>();
+            let account_chars = gen_account_chars(account_chars_raw);
+            let registered_at = Uint64::from(parse_json_u64("cell.witness.registered_at", &witness["registered_at"]));
+            let status = Uint8::from(parse_json_u8("cell.witness.status", &witness["status"]));
+            // TODO Find the correct way to handle the return type of &Vec.
+            let tmp = Vec::new();
+            let mut records = &tmp;
+            if !witness["records"].is_null() {
+                records = parse_json_array("cell.witness.records", &witness["records"])
+            };
+
+            let mut records_builder = Records::new_builder();
+            for (_i, record) in records.iter().enumerate() {
+                let ttl = if !record["ttl"].is_null() {
+                    Uint32::from(parse_json_u32("cell.witness.records[].ttl", &record["ttl"]))
+                } else {
+                    Uint32::from(300)
+                };
+                let record = Record::new_builder()
+                    .record_type(Bytes::from(
+                        parse_json_str("cell.witness.records[].type", &record["type"]).as_bytes(),
+                    ))
+                    .record_key(Bytes::from(
+                        parse_json_str("cell.witness.records[].key", &record["key"]).as_bytes(),
+                    ))
+                    .record_label(Bytes::from(
+                        parse_json_str("cell.witness.records[].label", &record["label"]).as_bytes(),
+                    ))
+                    .record_value(Bytes::from(parse_json_hex(
+                        "cell.witness.records[].value",
+                        &record["value"],
+                    )))
+                    .record_ttl(ttl)
+                    .build();
+                records_builder = records_builder.push(record);
+            }
+
+            let entity = AccountCellDataV1::new_builder()
+                .id(account_id)
+                .account(account_chars)
+                .registered_at(registered_at)
                 .status(status)
                 .records(records_builder.build())
                 .build();
