@@ -2144,6 +2144,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 
 [[package]]
+name = "playground"
+version = "1.0.0"
+dependencies = [
+ "ckb-std",
+ "das-core",
+ "das-types",
+ "hex",
+]
+
+[[package]]
 name = "poly1305"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"

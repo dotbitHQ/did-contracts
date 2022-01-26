@@ -2,7 +2,6 @@ use super::common::*;
 use crate::util::{
     self, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
 };
-use ckb_testtool::context::Context;
 use das_types::constants::*;
 use serde_json::json;
 

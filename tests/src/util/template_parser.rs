@@ -370,7 +370,7 @@ impl TemplateParser {
                 Some("shared_lib") => {
                     let name = item["tmp_file_name"].as_str().unwrap();
                     let (code_hash, _, cell_dep) = util::deploy_shared_lib(&mut self.context, name, Some(i));
-                    // println!("{:>30}: {}", name, type_id);
+                    // println!("{:>30}: {}", name, code_hash);
                     self.deps.push(cell_dep);
                     self.contracts.insert(name.to_string(), code_hash);
                 }

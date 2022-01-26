@@ -487,23 +487,6 @@ impl TemplateGenerator {
         }
     }
 
-    pub fn push_contract_cell(&mut self, contract_filename: &str, deployed: bool) {
-        let value;
-        if deployed {
-            value = json!({
-                "tmp_type": "deployed_contract",
-                "tmp_file_name": contract_filename
-            });
-        } else {
-            value = json!({
-                "tmp_type": "contract",
-                "tmp_file_name": contract_filename
-            });
-        }
-
-        self.cell_deps.push(value)
-    }
-
     pub fn push_oracle_cell(&mut self, index: u8, type_: OracleCellType, data: u64) {
         let mut cell_raw_data = Vec::new();
         cell_raw_data.extend(index.to_be_bytes().iter());
@@ -1176,6 +1159,32 @@ impl TemplateGenerator {
 
     // ======
 
+    pub fn push_contract_cell(&mut self, contract_filename: &str, deployed: bool) {
+        let value;
+        if deployed {
+            value = json!({
+                "tmp_type": "deployed_contract",
+                "tmp_file_name": contract_filename
+            });
+        } else {
+            value = json!({
+                "tmp_type": "contract",
+                "tmp_file_name": contract_filename
+            });
+        }
+
+        self.cell_deps.push(value)
+    }
+
+    pub fn push_shared_lib_cell(&mut self, contract_filename: &str) {
+        let value = json!({
+            "tmp_type": "shared_lib",
+            "tmp_file_name": contract_filename
+        });
+
+        self.cell_deps.push(value)
+    }
+
     pub fn push_dep(&mut self, cell: Value, version_opt: Option<u32>) -> usize {
         self.push_cell_v2(cell, Source::CellDep, version_opt)
     }
@@ -1288,6 +1297,16 @@ impl TemplateGenerator {
                         push_cell_with_witness!(DataType::ProposalCellData, gen_proposal_cell, cell)
                     }
                     "reverse-record-cell-type" => push_cell!(gen_reverse_record_cell, cell),
+                    "playground" => {
+                        let (capacity, lock_script, type_script, outputs_data_opt) = self.gen_custom_cell(cell);
+                        let outputs_data_bytes_opt = if let Some(outputs_data) = outputs_data_opt {
+                            Some(Bytes::from(outputs_data))
+                        } else {
+                            None
+                        };
+
+                        self.push_cell(capacity, lock_script, type_script, outputs_data_bytes_opt, source)
+                    }
                     _ => panic!("Unknown type ID {}", type_id),
                 };
 
@@ -2236,7 +2255,7 @@ impl TemplateGenerator {
 
         let lock_script = parse_json_script("cell.lock", &cell["lock"]);
         let type_script = if !cell["type"].is_null() {
-            parse_json_script("cell.lock", &cell["lock"])
+            parse_json_script("cell.type", &cell["type"])
         } else {
             Value::Null
         };

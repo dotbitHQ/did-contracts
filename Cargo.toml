@@ -18,6 +18,7 @@ members = [
     "contracts/reverse-record-cell-type",
     "contracts/offer-cell-type",
     "contracts/test-env",
+    "contracts/playground",
 ]
 
 [profile.release]

@@ -1,7 +1,5 @@
 use super::common::init;
-use crate::util::{
-    self, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
-};
+use crate::util::{self, constants::*, template_common_cell::*, template_generator::*, template_parser::*};
 use das_types::constants::AccountStatus;
 use serde_json::json;
 

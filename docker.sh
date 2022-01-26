@@ -100,7 +100,7 @@ function build() {
 function build_all() {
   local dirs=$(ls -a contracts)
   for contract in $dirs; do
-    if [[ $contract != "." && $contract != ".." && $contract != "test-env" && -d contracts/$contract ]]; then
+    if [[ $contract != "." && $contract != ".." && $contract != "test-env" && $contract != "playground" && -d contracts/$contract ]]; then
       build $contract $1
     fi
   done
@@ -179,6 +179,11 @@ build-all)
   switch_target_dir target_build
   create_output_dir
   build_all
+  ;;
+test-debug)
+  switch_target_dir target_test
+  echo "Run test with name: $2"
+  docker exec -it -w /code $DOCKER_CONTAINER bash -c "cargo test -p tests $2 -- --nocapture"
   ;;
 test)
   switch_target_dir target_test

@@ -140,6 +140,10 @@ lazy_static! {
             "test-env",
             "0x4939a7b6baf71149795f59844c215af0c117f381ac615fe3f563e77509063e19",
         );
+        map.insert(
+            "playground",
+            "0x193bd634ba7196519e7374deb64a1c96be718296add1fd038d611a50aa5c6af7",
+        );
         map
     };
     pub static ref RE_VARIABLE: Regex = Regex::new(r"\{\{([\w\-\.]+)\}\}").unwrap();

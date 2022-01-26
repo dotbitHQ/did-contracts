@@ -300,3 +300,19 @@ pub fn push_input_test_env_cell(template: &mut TemplateGenerator) {
     );
     template.push_empty_witness();
 }
+
+pub fn push_input_playground_cell(template: &mut TemplateGenerator) {
+    template.push_input(
+        json!({
+            "capacity": 0,
+            "lock": {
+                "code_hash": "{{always_success}}"
+            },
+            "type": {
+                "code_hash": "{{playground}}"
+            }
+        }),
+        None,
+    );
+    template.push_empty_witness();
+}
