@@ -1,6 +1,6 @@
 use super::{constants::*, error::Error, util};
 use ckb_testtool::context::Context;
-use ckb_tool::{
+use ckb_testtool::{
     ckb_error, ckb_jsonrpc_types as rpc_types,
     ckb_types::{
         bytes,

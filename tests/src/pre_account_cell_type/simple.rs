@@ -6,8 +6,8 @@ use crate::util::{
     template_generator::{gen_account_chars, gen_das_lock_args, gen_fake_signhash_all_lock},
     template_parser::TemplateParser,
 };
+use ckb_testtool::ckb_hash::blake2b_256;
 use ckb_testtool::context::Context;
-use ckb_tool::ckb_hash::blake2b_256;
 use das_types::{packed::*, prelude::*};
 use std::convert::TryFrom;
 

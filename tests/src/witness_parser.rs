@@ -1,7 +1,7 @@
 use crate::util::{
     self, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
 };
-use ckb_tool::ckb_hash::blake2b_256;
+use ckb_testtool::ckb_hash::blake2b_256;
 use das_types::{constants::*, packed::*, prelude::*, util as das_util};
 use serde_json::{json, Value};
 use std::convert::TryFrom;

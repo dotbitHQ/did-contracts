@@ -5,11 +5,11 @@ use std::fs;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use ckb_tool::ckb_types::bytes;
+use ckb_testtool::ckb_types::bytes;
 
-#[cfg(test)]
 #[macro_use]
 mod util;
+mod ckb_types_relay;
 
 #[cfg(test)]
 mod account_cell_type;

@@ -1,8 +1,6 @@
-use super::{constants::*, error};
-use crate::Loader;
+use super::{super::ckb_types_relay::*, super::Loader, constants::*, error};
 use chrono::{DateTime, NaiveDateTime, Utc};
-use ckb_testtool::context::Context;
-use ckb_tool::{
+use ckb_testtool::{
     ckb_chain_spec::consensus::TYPE_ID_CODE_HASH,
     ckb_hash::{blake2b_256, new_blake2b},
     ckb_jsonrpc_types as rpc_types,
@@ -14,6 +12,7 @@ use ckb_tool::{
         prelude::*,
         H160, H256,
     },
+    context::Context,
 };
 use das_types::{packed as das_packed, util as das_types_util};
 use lazy_static::lazy_static;
@@ -60,9 +59,8 @@ pub fn bytes_to_hex(input: &[u8]) -> String {
 
 pub fn hex_to_byte32(input: &str) -> Result<Byte32, Box<dyn Error>> {
     let bytes = hex_to_bytes(input);
-    let hash = das_packed::Hash::try_from(bytes).expect("Expect input to have length of 32 bytes.");
 
-    Ok(hash.into())
+    Ok(byte32_new(&bytes))
 }
 
 pub fn hex_to_u64(input: &str) -> Result<u64, Box<dyn Error>> {

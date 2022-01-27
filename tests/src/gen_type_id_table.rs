@@ -1,4 +1,5 @@
-use ckb_tool::{
+use super::ckb_types_relay::*;
+use ckb_testtool::{
     ckb_chain_spec::consensus::TYPE_ID_CODE_HASH,
     ckb_types::core::ScriptHashType,
     ckb_types::{bytes, packed as ckb_packed, prelude::Pack},
@@ -28,13 +29,12 @@ fn gen_type_id_table() {
                 continue;
             }
 
-            let type_ = ckb_packed::Script::new_builder()
-                .code_hash(ckb_packed::Byte32::new_unchecked(bytes::Bytes::from(
-                    TYPE_ID_CODE_HASH.as_bytes(),
-                )))
-                .hash_type(ScriptHashType::Type.into())
-                .args(bytes::Bytes::from(filename.clone()).pack())
-                .build();
+            let type_ = script_build(
+                script_new_builder()
+                    .code_hash(byte32_new(TYPE_ID_CODE_HASH.as_bytes()))
+                    .hash_type(ScriptHashType::Type.into())
+                    .args(bytes::Bytes::from(filename.clone()).pack()),
+            );
 
             hash_list.push((filename, type_.calc_script_hash()));
         }

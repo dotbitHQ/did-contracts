@@ -1,4 +1,4 @@
-use ckb_tool::ckb_types::{h256, H256};
+use ckb_testtool::ckb_types::{h256, H256};
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::collections::HashMap;

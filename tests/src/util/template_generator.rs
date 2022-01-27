@@ -1,9 +1,6 @@
+use super::super::ckb_types_relay::*;
 use super::{constants::*, util};
-use ckb_tool::{
-    ckb_hash::blake2b_256,
-    ckb_types::{packed as ckb_packed, prelude::Pack},
-    faster_hex::hex_string,
-};
+use ckb_testtool::ckb_hash::blake2b_256;
 use das_types::{constants::*, packed::*, prelude::*, util as das_util};
 use hex;
 use serde_json::{json, Value};
@@ -118,7 +115,7 @@ pub fn gen_account_chars(chars: Vec<impl AsRef<str>>) -> AccountChars {
 }
 
 fn bytes_to_hex(input: Bytes) -> String {
-    "0x".to_string() + &hex_string(input.as_reader().raw_data()).unwrap()
+    "0x".to_string() + &hex::encode(input.as_reader().raw_data())
 }
 
 /// Parse u64 in JSON
@@ -406,23 +403,22 @@ impl TemplateGenerator {
         input_type: Option<&[u8]>,
         output_type: Option<&[u8]>,
     ) {
-        let mut witness_args_builder = ckb_packed::WitnessArgs::new_builder();
+        let mut witness_args_builder = witness_args_new_builder();
 
         if let Some(bytes) = lock_opt {
-            witness_args_builder =
-                witness_args_builder.lock(ckb_packed::BytesOpt::new_builder().set(Some(bytes.pack())).build());
+            witness_args_builder = witness_args_builder.lock(to_bytes_opt(bytes));
         }
         if let Some(bytes) = input_type {
-            witness_args_builder =
-                witness_args_builder.input_type(ckb_packed::BytesOpt::new_builder().set(Some(bytes.pack())).build());
+            witness_args_builder = witness_args_builder.input_type(to_bytes_opt(bytes));
         }
         if let Some(bytes) = output_type {
-            witness_args_builder =
-                witness_args_builder.output_type(ckb_packed::BytesOpt::new_builder().set(Some(bytes.pack())).build());
+            witness_args_builder = witness_args_builder.output_type(to_bytes_opt(bytes));
         }
 
         self.inner_witnesses
-            .push(bytes_to_hex(Bytes::from(witness_args_builder.build().as_bytes())));
+            .push(bytes_to_hex(Bytes::from(to_slice(witness_args_build(
+                witness_args_builder,
+            )))));
     }
 
     pub fn push_empty_witness(&mut self) {
@@ -500,7 +496,7 @@ impl TemplateGenerator {
         let type_script = json!({
             "code_hash": "0x0100000000000000000000000000000000000000000000000000000000000000",
             "hash_type": "type",
-            "args": format!("0x{}", hex_string(&[type_ as u8]).expect("Expect &[u8] as inputs"))
+            "args": format!("0x{}", hex::encode(&[type_ as u8]))
         });
 
         self.push_cell(
@@ -953,7 +949,7 @@ impl TemplateGenerator {
         }
 
         // Create config cell.
-        let config_id_hex = hex_string(&(config_type as u32).to_le_bytes()).unwrap();
+        let config_id_hex = hex::encode(&(config_type as u32).to_le_bytes());
         let lock_script = json!({
           "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
           "args": CONFIG_LOCK_ARGS

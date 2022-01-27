@@ -7,9 +7,8 @@ edition = "2018"
 
 [dependencies]
 ckb-std = "0.7.1"
-ckb-tool = "0.3"
-ckb-testtool = { git = "https://github.com/DA-Services/ckb-testtool", tag = "v0.43.0" }
-#ckb-testtool = { path = "../../ckb-testtool-0.3.0-patch" }
+ckb-testtool = { git = "https://github.com/DA-Services/ckb-testtool", tag = "v0.7.1" }
+#ckb-testtool = { path = "../../ckb-testtool" }
 das-core = { path = "../libs/das-core" }
 hex = "0.4.2"
 lazy_static = "1.4.0"
@@ -22,3 +21,4 @@ das-types = { path = "../../das-types/rust", features = ["std"] }
 walkdir = "2"
 rand = "0.8.3"
 chrono = { version = "0.4" }
+sparse-merkle-tree = "0.5.3"
