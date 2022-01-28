@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Docker image name
-DOCKER_IMAGE="thewawar/ckb-capsule:2021-08-16"
+DOCKER_IMAGE="thewawar/ckb-capsule:2021-12-25"
 # Docker container name
 DOCKER_CONTAINER="capsule-dev-"$(whoami)
 # Name of capsule cache volume
@@ -79,7 +79,7 @@ function build() {
       docker exec -it -w /code $DOCKER_CONTAINER bash -c \
         "cp /code/target/riscv64imac-unknown-none-elf/release/${contract} /code/build/release/"
   else
-    command="cargo build --features \"${feature}\" --target riscv64imac-unknown-none-elf && ckb-binary-patcher -i /code/target/riscv64imac-unknown-none-elf/debug/${contract} -o /code/target/riscv64imac-unknown-none-elf/debug/${contract}"
+    command="RUSTFLAGS=\"-Z pre-link-arg=-zseparate-code -Z pre-link-arg=-zseparate-loadable-segments\" cargo build --features \"${feature}\" --target riscv64imac-unknown-none-elf && ckb-binary-patcher -i /code/target/riscv64imac-unknown-none-elf/debug/${contract} -o /code/target/riscv64imac-unknown-none-elf/debug/${contract}"
     echo "Run build command: "$command
 
     # Build debug version
