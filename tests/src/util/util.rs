@@ -14,12 +14,10 @@ use ckb_testtool::{
     },
     context::Context,
 };
-use das_types::{packed as das_packed, util as das_types_util};
 use lazy_static::lazy_static;
 use serde_json::Value;
 use std::{
     collections::HashSet,
-    convert::TryFrom,
     env,
     error::Error,
     fs::File,
@@ -32,8 +30,6 @@ use std::{
 lazy_static! {
     pub static ref SECP256K1: secp256k1::Secp256k1<secp256k1::All> = secp256k1::Secp256k1::new();
 }
-
-pub use das_types_util::hex_string;
 
 pub fn contains_error(message: &str, err_code: error::Error) -> bool {
     let err_str = format!("ValidationFailure({})", (err_code as i8).to_string());

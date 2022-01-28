@@ -1,5 +1,5 @@
 use crate::util::{constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*};
-use das_types::{constants::DataType, packed::*};
+use das_types::{constants::*, packed::*};
 use serde_json::json;
 
 fn init(action: &str) -> TemplateGenerator {

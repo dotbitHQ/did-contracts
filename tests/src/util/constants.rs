@@ -3,8 +3,6 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use std::collections::HashMap;
 
-pub use ckb_std::ckb_constants::Source;
-
 // ⚠️ The maximum cycles on-chain is 70_000_000.
 pub const MAX_CYCLES: u64 = u64::MAX;
 

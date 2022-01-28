@@ -1,5 +1,5 @@
 use crate::util::{constants::*, template_generator::*};
-use das_types::constants::DataType;
+use das_types::constants::*;
 
 macro_rules! push_income_cell {
     ( $template:expr, $records_param:expr, $index:expr, $source:expr ) => {{

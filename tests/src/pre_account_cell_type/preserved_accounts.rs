@@ -1,6 +1,7 @@
 use super::common::init;
 use crate::util::{self, constants::*, error::Error, template_parser::TemplateParser};
 use ckb_testtool::context::Context;
+use das_types::constants::Source;
 
 challenge_with_generator!(
     challenge_pre_register_preserved_account,

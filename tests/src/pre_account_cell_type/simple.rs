@@ -8,7 +8,7 @@ use crate::util::{
 };
 use ckb_testtool::ckb_hash::blake2b_256;
 use ckb_testtool::context::Context;
-use das_types::{packed::*, prelude::*};
+use das_types::{constants::Source, packed::*, prelude::*};
 use std::convert::TryFrom;
 
 #[test]

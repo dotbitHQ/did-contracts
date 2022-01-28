@@ -1,6 +1,6 @@
-use crate::util::{self, constants::*, error::Error, template_generator::*, template_parser::TemplateParser};
+use crate::util::{constants::*, error::Error, template_generator::*, template_parser::TemplateParser};
 use ckb_testtool::context::Context;
-use das_types::constants::DataType;
+use das_types::constants::{DataType, Source};
 use serde_json::json;
 
 use super::common::init as common_init;
@@ -122,7 +122,7 @@ test_with_generator!(test_income_consolidate_need_pad_2, || {
     let mut records_param = Vec::new();
     for i in 0u64..50 {
         records_param.push(IncomeRecordParam {
-            belong_to: util::hex_string(&i.to_be_bytes()),
+            belong_to: hex::encode(&i.to_be_bytes()),
             capacity: 5_000_000_000,
         })
     }
@@ -144,7 +144,7 @@ test_with_generator!(test_income_consolidate_need_pad_2, || {
     let mut records_param = Vec::new();
     for i in 0u64..25 {
         records_param.push(IncomeRecordParam {
-            belong_to: util::hex_string(&i.to_be_bytes()),
+            belong_to: hex::encode(&i.to_be_bytes()),
             capacity: 5_000_000_000,
         })
     }
@@ -153,7 +153,7 @@ test_with_generator!(test_income_consolidate_need_pad_2, || {
     let mut records_param = Vec::new();
     for i in 25u64..50 {
         records_param.push(IncomeRecordParam {
-            belong_to: util::hex_string(&i.to_be_bytes()),
+            belong_to: hex::encode(&i.to_be_bytes()),
             capacity: 5_000_000_000,
         })
     }
@@ -537,7 +537,7 @@ challenge_with_generator!(
         let mut records_param = Vec::new();
         for i in 0u64..50 {
             records_param.push(IncomeRecordParam {
-                belong_to: util::hex_string(&i.to_be_bytes()),
+                belong_to: hex::encode(&i.to_be_bytes()),
                 capacity: 5_000_000_000,
             })
         }
@@ -559,7 +559,7 @@ challenge_with_generator!(
         let mut records_param = Vec::new();
         for i in 0u64..25 {
             records_param.push(IncomeRecordParam {
-                belong_to: util::hex_string(&i.to_be_bytes()),
+                belong_to: hex::encode(&i.to_be_bytes()),
                 capacity: 5_000_000_000,
             })
         }
@@ -568,7 +568,7 @@ challenge_with_generator!(
         let mut records_param = Vec::new();
         for i in 25u64..50 {
             records_param.push(IncomeRecordParam {
-                belong_to: util::hex_string(&i.to_be_bytes()),
+                belong_to: hex::encode(&i.to_be_bytes()),
                 capacity: 5_000_000_000,
             })
         }

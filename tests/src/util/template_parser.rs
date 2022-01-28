@@ -1,5 +1,4 @@
 use super::{constants::*, error::Error, util};
-use ckb_testtool::context::Context;
 use ckb_testtool::{
     ckb_error, ckb_jsonrpc_types as rpc_types,
     ckb_types::{
@@ -11,7 +10,9 @@ use ckb_testtool::{
         prelude::*,
         H160, H256,
     },
+    context::Context,
 };
+use das_types::constants::Source;
 use serde_json::Value;
 use std::{
     collections::{hash_map::RandomState, HashMap, HashSet},
@@ -66,7 +67,7 @@ pub fn challenge_tx(tx: Value, expected_error: Error) {
             let msg = err.to_string();
             println!("Error message(single code): {}", msg);
 
-            let search = format!("ValidationFailure({})", expected_error as i8);
+            let search = format!("error code {}", expected_error as i8);
             assert!(
                 msg.contains(search.as_str()),
                 "The test should failed with error code: {:?}({})",

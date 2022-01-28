@@ -143,6 +143,7 @@ start)
       --name $DOCKER_CONTAINER \
       -v ${dir}/das-contracts:/code \
       -v ${dir}/das-types:/das-types \
+      -v ${dir}/das-types-std:/das-types-std \
       -v $CACHE_VOLUME:/root/.cargo \
       -e RUSTFLAGS="-Z pre-link-arg=-zseparate-code -Z pre-link-arg=-zseparate-loadable-segments" \
       -e CAPSULE_TEST_ENV=debug \
@@ -152,6 +153,7 @@ start)
       --name $DOCKER_CONTAINER \
       -v ${dir}/das-contracts:/code \
       -v ${dir}/das-types:/das-types \
+      -v ${dir}/das-types-std:/das-types-std \
       -v $CACHE_VOLUME:/root/.cargo \
       -e RUSTFLAGS="-Z pre-link-arg=-zseparate-code -Z pre-link-arg=-zseparate-loadable-segments" \
       -e CAPSULE_TEST_ENV=debug \

@@ -2,7 +2,7 @@ use super::ckb_types_relay::*;
 use ckb_testtool::{
     ckb_chain_spec::consensus::TYPE_ID_CODE_HASH,
     ckb_types::core::ScriptHashType,
-    ckb_types::{bytes, packed as ckb_packed, prelude::Pack},
+    ckb_types::{bytes, prelude::Pack},
 };
 use das_types::prelude::*;
 use std::env;

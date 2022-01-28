@@ -34,7 +34,7 @@ fn gen_config_cell_account() -> (Value, Value, Bytes, ConfigCellAccount) {
         .edit_records_throttle(Uint32::from(600))
         .build();
     let cell_data = Bytes::from(blake2b_256(entity.as_slice()).to_vec());
-    let config_id_hex = util::hex_string(&(DataType::ConfigCellAccount as u32).to_le_bytes());
+    let config_id_hex = hex::encode(&(DataType::ConfigCellAccount as u32).to_le_bytes());
     let lock_script = json!({
       "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
       "args": CONFIG_LOCK_ARGS
@@ -87,7 +87,7 @@ fn test_parse_witness_raw_config() {
     let raw = util::prepend_molecule_like_length(raw);
 
     let cell_data = Bytes::from(blake2b_256(raw.as_slice()).to_vec());
-    let config_id_hex = util::hex_string(&(DataType::ConfigCellRecordKeyNamespace as u32).to_le_bytes());
+    let config_id_hex = hex::encode(&(DataType::ConfigCellRecordKeyNamespace as u32).to_le_bytes());
     let lock_script = json!({
       "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
       "args": CONFIG_LOCK_ARGS
