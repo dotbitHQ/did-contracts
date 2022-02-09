@@ -1,5 +1,5 @@
 use crate::util::{constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*};
-use ckb_tool::ckb_hash::blake2b_256;
+use ckb_testtool::ckb_hash::blake2b_256;
 
 fn init(action: &str) -> TemplateGenerator {
     let mut template = TemplateGenerator::new(action, None);

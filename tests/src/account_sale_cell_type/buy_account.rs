@@ -2,7 +2,7 @@ use super::common::*;
 use crate::util::{
     self, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
 };
-use das_types::{constants::*, packed::*, prelude::*};
+use das_types_std::{constants::*, packed::*, prelude::*};
 use serde_json::json;
 
 fn push_simple_output_income_cell(template: &mut TemplateGenerator) {

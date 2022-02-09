@@ -1,7 +1,7 @@
 use super::common::init;
 use crate::util::{self, constants::*, error::Error, template_parser::TemplateParser};
 use ckb_testtool::context::Context;
-use das_types::constants::*;
+use das_types_std::constants::*;
 
 test_with_generator!(test_pre_register_char_set, || {
     let (mut template, account, timestamp) = init("✨咐桑糯0001.bit");

@@ -6,7 +6,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ckb-testtool = { git = "https://github.com/DA-Services/ckb-testtool", tag = "v0.7.1" }
+ckb-testtool = { git = "https://github.com/DA-Services/ckb-testtool", tag = "v0.7.2" }
 #ckb-testtool = { path = "../../ckb-testtool" }
 hex = "0.4.2"
 lazy_static = "1.4.0"
@@ -15,7 +15,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["preserve_order"] }
 regex = "1.0"
 das-sorted-list = { path = "../libs/das-sorted-list", features = ["std"] }
-das-types = { path = "../../das-types-std/rust" }
+das-types-std = { path = "../../das-types-std/rust" }
 walkdir = "2"
 rand = "0.8.3"
 chrono = { version = "0.4" }

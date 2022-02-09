@@ -1,5 +1,5 @@
 use super::util::{constants::*, template_common_cell::*, template_generator::*, template_parser::*};
-use das_types::constants::*;
+use das_types_std::constants::*;
 
 fn init() -> TemplateGenerator {
     let mut template = TemplateGenerator::new("config", None);

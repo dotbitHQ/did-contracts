@@ -1,6 +1,6 @@
 use crate::util::{constants::*, template_generator::*};
 use chrono::{TimeZone, Utc};
-use das_types::constants::*;
+use das_types_std::constants::*;
 
 pub fn init_without_apply(account: &str) -> (TemplateGenerator, &str, u64, u64) {
     let mut template = TemplateGenerator::new("pre_register", None);

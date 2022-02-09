@@ -1,6 +1,6 @@
 use crate::util::{constants::*, error::Error, template_generator::*, template_parser::TemplateParser};
 use ckb_testtool::context::Context;
-use das_types::constants::{DataType, Source};
+use das_types_std::constants::{DataType, Source};
 use serde_json::json;
 
 use super::common::init as common_init;

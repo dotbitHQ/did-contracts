@@ -1,6 +1,6 @@
 use super::common::init;
 use crate::util::{self, constants::*, template_common_cell::*, template_generator::*, template_parser::*};
-use das_types::constants::AccountStatus;
+use das_types_std::constants::AccountStatus;
 use serde_json::json;
 
 fn push_input_account_cell(

@@ -1,5 +1,5 @@
 use crate::util::{self, constants::*, template_generator::*};
-use das_types::{constants::*, packed::*};
+use das_types_std::{constants::*, packed::*};
 
 pub const OWNER: &str = "0x000000000000000000000000000000000000001111";
 

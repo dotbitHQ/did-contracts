@@ -1,6 +1,6 @@
 use super::common::*;
 use crate::util::{constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*};
-use das_types::constants::Source;
+use das_types_std::constants::Source;
 use serde_json::json;
 
 pub const MAKE_OFFER_COST: u64 = PRICE + OFFER_PREPARED_FEE_CAPACITY + SECONDARY_MARKET_COMMON_FEE;

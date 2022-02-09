@@ -1,41 +1,39 @@
 use super::common::*;
-use crate::{
-    util::template_generator::TemplateGenerator,
-    util::{constants::*, error::Error, template_common_cell::*, template_parser::*},
+use crate::util::{
+    accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::TemplateGenerator,
+    template_parser::*,
 };
-use das_types::constants::AccountStatus;
+use das_types_std::constants::AccountStatus;
 use serde_json::json;
 
-fn before_each() -> (TemplateGenerator, u64, &'static str) {
+fn before_each() -> (TemplateGenerator, u64) {
     let (mut template, timestamp) = init("transfer_account", Some("0x00"));
-    let sender = "0x000000000000000000000000000000000000001111";
-    let gainer = "0x000000000000000000000000000000000000002222";
 
     // inputs
     push_input_account_cell(
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": sender,
-                "manager_lock_args": sender
+                "owner_lock_args": SENDER,
+                "manager_lock_args": SENDER
             }
         }),
     );
 
-    (template, timestamp, gainer)
+    (template, timestamp)
 }
 
 #[test]
 fn test_account_transfer() {
-    let (mut template, timestamp, gainer) = before_each();
+    let (mut template, timestamp) = before_each();
 
     // outputs
     push_output_account_cell(
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": gainer,
-                "manager_lock_args": gainer
+                "owner_lock_args": RECEIVER,
+                "manager_lock_args": RECEIVER
             },
             "witness": {
                 "last_transfer_account_at": timestamp,
@@ -49,8 +47,6 @@ fn test_account_transfer() {
 #[test]
 fn challenge_account_transfer_account_multiple_cells() {
     let (mut template, timestamp) = init("transfer_account", Some("0x00"));
-    let sender = "0x000000000000000000000000000000000000001111";
-    let gainer = "0x000000000000000000000000000000000000002222";
 
     // Simulate transferring multiple AccountCells at one time.
     // inputs
@@ -58,8 +54,8 @@ fn challenge_account_transfer_account_multiple_cells() {
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": sender,
-                "manager_lock_args": sender
+                "owner_lock_args": SENDER,
+                "manager_lock_args": SENDER
             },
         }),
     );
@@ -67,8 +63,8 @@ fn challenge_account_transfer_account_multiple_cells() {
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": sender,
-                "manager_lock_args": sender
+                "owner_lock_args": SENDER,
+                "manager_lock_args": SENDER
             }
         }),
     );
@@ -78,8 +74,8 @@ fn challenge_account_transfer_account_multiple_cells() {
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": gainer,
-                "manager_lock_args": gainer
+                "owner_lock_args": RECEIVER,
+                "manager_lock_args": RECEIVER
             },
             "witness": {
                 "last_transfer_account_at": timestamp,
@@ -90,8 +86,8 @@ fn challenge_account_transfer_account_multiple_cells() {
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": gainer,
-                "manager_lock_args": gainer
+                "owner_lock_args": RECEIVER,
+                "manager_lock_args": RECEIVER
             },
             "witness": {
                 "last_transfer_account_at": timestamp,
@@ -105,8 +101,6 @@ fn challenge_account_transfer_account_multiple_cells() {
 #[test]
 fn challenge_account_transfer_account_with_other_cells() {
     let (mut template, timestamp) = init("transfer_account", Some("0x00"));
-    let sender = "0x000000000000000000000000000000000000001111";
-    let gainer = "0x000000000000000000000000000000000000002222";
 
     template.push_contract_cell("balance-cell-type", false);
 
@@ -115,21 +109,21 @@ fn challenge_account_transfer_account_with_other_cells() {
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": sender,
-                "manager_lock_args": sender
+                "owner_lock_args": SENDER,
+                "manager_lock_args": SENDER
             }
         }),
     );
     // Simulate transferring some balance of the user at the same time.
-    push_input_balance_cell(&mut template, 100_000_000_000, sender);
+    push_input_balance_cell(&mut template, 100_000_000_000, SENDER);
 
     // outputs
     push_output_account_cell(
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": gainer,
-                "manager_lock_args": gainer
+                "owner_lock_args": RECEIVER,
+                "manager_lock_args": RECEIVER
             },
             "witness": {
                 "last_transfer_account_at": timestamp,
@@ -142,7 +136,7 @@ fn challenge_account_transfer_account_with_other_cells() {
 
 #[test]
 fn challenge_account_transfer_account_not_modified() {
-    let (mut template, timestamp, _gainer) = before_each();
+    let (mut template, timestamp) = before_each();
 
     // outputs
     push_output_account_cell(
@@ -150,8 +144,8 @@ fn challenge_account_transfer_account_not_modified() {
         json!({
             "lock": {
                 // Simulate owner not change after the transaction
-                "owner_lock_args": "0x000000000000000000000000000000000000001111",
-                "manager_lock_args": "0x000000000000000000000000000000000000001111"
+                "owner_lock_args": SENDER,
+                "manager_lock_args": SENDER
             },
             "witness": {
                 "last_transfer_account_at": timestamp,
@@ -165,16 +159,14 @@ fn challenge_account_transfer_account_not_modified() {
 #[test]
 fn challenge_account_transfer_too_often() {
     let (mut template, timestamp) = init("transfer_account", Some("0x00"));
-    let sender = "0x000000000000000000000000000000000000001111";
-    let gainer = "0x000000000000000000000000000000000000002222";
 
     // inputs
     push_input_account_cell(
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": sender,
-                "manager_lock_args": sender
+                "owner_lock_args": SENDER,
+                "manager_lock_args": SENDER
             },
             "witness": {
                 // Simulate transferring multiple times in a day.
@@ -188,8 +180,8 @@ fn challenge_account_transfer_too_often() {
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": gainer,
-                "manager_lock_args": gainer
+                "owner_lock_args": RECEIVER,
+                "manager_lock_args": RECEIVER
             },
             "witness": {
                 "last_transfer_account_at": timestamp,
@@ -203,16 +195,14 @@ fn challenge_account_transfer_too_often() {
 #[test]
 fn challenge_account_transfer_not_clear_records() {
     let (mut template, timestamp) = init("transfer_account", Some("0x00"));
-    let sender = "0x000000000000000000000000000000000000001111";
-    let gainer = "0x000000000000000000000000000000000000002222";
 
     // inputs
     push_input_account_cell(
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": sender,
-                "manager_lock_args": sender
+                "owner_lock_args": SENDER,
+                "manager_lock_args": SENDER
             },
             "witness": {
                 "records": [
@@ -238,8 +228,8 @@ fn challenge_account_transfer_not_clear_records() {
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": gainer,
-                "manager_lock_args": gainer
+                "owner_lock_args": RECEIVER,
+                "manager_lock_args": RECEIVER
             },
             "witness": {
                 "last_transfer_account_at": timestamp,
@@ -261,15 +251,15 @@ fn challenge_account_transfer_not_clear_records() {
 
 #[test]
 fn challenge_account_transfer_modify_data_account() {
-    let (mut template, timestamp, gainer) = before_each();
+    let (mut template, timestamp) = before_each();
 
     // outputs
     push_output_account_cell(
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": gainer,
-                "manager_lock_args": gainer
+                "owner_lock_args": RECEIVER,
+                "manager_lock_args": RECEIVER
             },
             "data": {
                 // Simulate the account field has been modified accidentally.
@@ -286,15 +276,15 @@ fn challenge_account_transfer_modify_data_account() {
 
 #[test]
 fn challenge_account_transfer_modify_data_next() {
-    let (mut template, timestamp, gainer) = before_each();
+    let (mut template, timestamp) = before_each();
 
     // outputs
     push_output_account_cell(
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": gainer,
-                "manager_lock_args": gainer
+                "owner_lock_args": RECEIVER,
+                "manager_lock_args": RECEIVER
             },
             "data": {
                 // Simulate the next field has been modified accidentally.
@@ -311,15 +301,15 @@ fn challenge_account_transfer_modify_data_next() {
 
 #[test]
 fn challenge_account_transfer_modify_data_expired_at() {
-    let (mut template, timestamp, gainer) = before_each();
+    let (mut template, timestamp) = before_each();
 
     // outputs
     push_output_account_cell(
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": gainer,
-                "manager_lock_args": gainer
+                "owner_lock_args": RECEIVER,
+                "manager_lock_args": RECEIVER
             },
             "data": {
                 // Simulate the expired_at field has been modified accidentally.
@@ -336,15 +326,15 @@ fn challenge_account_transfer_modify_data_expired_at() {
 
 #[test]
 fn challenge_account_transfer_modify_witness_account() {
-    let (mut template, timestamp, gainer) = before_each();
+    let (mut template, timestamp) = before_each();
 
     // outputs
     push_output_account_cell(
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": gainer,
-                "manager_lock_args": gainer
+                "owner_lock_args": RECEIVER,
+                "manager_lock_args": RECEIVER
             },
             "witness": {
                 // Simulate the account field has been modified accidentally.
@@ -359,15 +349,15 @@ fn challenge_account_transfer_modify_witness_account() {
 
 #[test]
 fn challenge_account_transfer_modify_witness_registered_at() {
-    let (mut template, timestamp, gainer) = before_each();
+    let (mut template, timestamp) = before_each();
 
     // outputs
     push_output_account_cell(
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": gainer,
-                "manager_lock_args": gainer
+                "owner_lock_args": RECEIVER,
+                "manager_lock_args": RECEIVER
             },
             "witness": {
                 // Simulate the registered_at field has been modified accidentally.
@@ -382,15 +372,15 @@ fn challenge_account_transfer_modify_witness_registered_at() {
 
 #[test]
 fn challenge_account_transfer_modify_witness_last_edit_manager_at() {
-    let (mut template, timestamp, gainer) = before_each();
+    let (mut template, timestamp) = before_each();
 
     // outputs
     push_output_account_cell(
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": gainer,
-                "manager_lock_args": gainer
+                "owner_lock_args": RECEIVER,
+                "manager_lock_args": RECEIVER
             },
             "witness": {
                 "last_transfer_account_at": timestamp,
@@ -405,15 +395,15 @@ fn challenge_account_transfer_modify_witness_last_edit_manager_at() {
 
 #[test]
 fn challenge_account_transfer_modify_witness_last_edit_records_at() {
-    let (mut template, timestamp, gainer) = before_each();
+    let (mut template, timestamp) = before_each();
 
     // outputs
     push_output_account_cell(
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": gainer,
-                "manager_lock_args": gainer
+                "owner_lock_args": RECEIVER,
+                "manager_lock_args": RECEIVER
             },
             "witness": {
                 "last_transfer_account_at": timestamp,
@@ -428,15 +418,15 @@ fn challenge_account_transfer_modify_witness_last_edit_records_at() {
 
 #[test]
 fn challenge_account_transfer_modify_witness_status() {
-    let (mut template, timestamp, gainer) = before_each();
+    let (mut template, timestamp) = before_each();
 
     // outputs
     push_output_account_cell(
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": gainer,
-                "manager_lock_args": gainer
+                "owner_lock_args": RECEIVER,
+                "manager_lock_args": RECEIVER
             },
             "witness": {
                 "last_transfer_account_at": timestamp,

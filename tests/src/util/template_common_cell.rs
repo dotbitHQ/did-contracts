@@ -1,5 +1,5 @@
 use super::{constants::*, template_generator::TemplateGenerator, util};
-use das_types::constants::AccountStatus;
+use das_types_std::constants::AccountStatus;
 use serde_json::{json, Value};
 
 pub fn push_dep_pre_account_cell(template: &mut TemplateGenerator, cell_partial: Value) {

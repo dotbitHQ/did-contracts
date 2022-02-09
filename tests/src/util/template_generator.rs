@@ -1,7 +1,7 @@
 use super::super::ckb_types_relay::*;
 use super::{constants::*, util};
 use ckb_testtool::ckb_hash::blake2b_256;
-use das_types::{constants::*, packed::*, prelude::*, util as das_util};
+use das_types_std::{constants::*, packed::*, prelude::*, util as das_util};
 use hex;
 use serde_json::{json, Value};
 use std::{collections::HashMap, convert::TryFrom, env, fs::OpenOptions, io::Write, str};

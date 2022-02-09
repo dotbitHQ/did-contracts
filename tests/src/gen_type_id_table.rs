@@ -4,7 +4,7 @@ use ckb_testtool::{
     ckb_types::core::ScriptHashType,
     ckb_types::{bytes, prelude::Pack},
 };
-use das_types::prelude::*;
+use das_types_std::prelude::*;
 use std::env;
 use walkdir::WalkDir;
 

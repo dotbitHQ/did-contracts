@@ -1,6 +1,6 @@
 use super::common::*;
 use crate::util::{error::Error, template_common_cell::*, template_generator::TemplateGenerator, template_parser::*};
-use das_types::constants::*;
+use das_types_std::constants::*;
 use serde_json::json;
 
 fn before_each(height: u64) -> TemplateGenerator {

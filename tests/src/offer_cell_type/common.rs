@@ -1,5 +1,5 @@
 use crate::util::{self, constants::*, template_generator::*};
-use das_types::{constants::*, packed::*};
+use das_types_std::{constants::*, packed::*};
 use serde_json::{json, Value};
 
 pub const ACCOUNT: &str = "xxxxx.bit";

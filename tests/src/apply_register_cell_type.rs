@@ -1,6 +1,6 @@
 use crate::util::{constants::*, error::Error, template_generator::*, template_parser::TemplateParser};
 use ckb_testtool::context::Context;
-use das_types::{constants::*, packed::*};
+use das_types_std::{constants::*, packed::*};
 use serde_json::json;
 
 fn init(action: &str) -> (TemplateGenerator, u64, u64) {
