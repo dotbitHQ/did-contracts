@@ -6,7 +6,11 @@ use super::{
     types::{CharSet, Configs, LockScriptTypeIdTable},
     util, warn,
 };
-use alloc::collections::BTreeMap;
+use alloc::{
+    collections::btree_map::BTreeMap,
+    format,
+    string::{String, ToString},
+};
 use ckb_std::{ckb_constants::Source, error::SysError, syscalls};
 use core::convert::{TryFrom, TryInto};
 use das_types::{
@@ -15,7 +19,6 @@ use das_types::{
     prelude::*,
     util as das_types_util,
 };
-use std::prelude::v1::*;
 
 #[derive(Debug)]
 pub struct WitnessesParser {
@@ -540,7 +543,7 @@ impl WitnessesParser {
                 self.new.push(Self::parse_entity(entity, data_type)?)
             }
 
-            #[cfg(all(not(feature = "std"), debug_assertions))]
+            #[cfg(all(debug_assertions))]
             {
                 let mut source = None;
                 if let Some(_) = data.dep().to_opt() {

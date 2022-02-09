@@ -1,6 +1,6 @@
 use super::{assert, constants::*, data_parser, debug, error::Error, util, warn, witness_parser::WitnessesParser};
 use alloc::{
-    collections::BTreeMap,
+    collections::btree_map::BTreeMap,
     format,
     string::{String, ToString},
     vec::Vec,
@@ -11,17 +11,19 @@ use ckb_std::{
     ckb_constants::Source,
     ckb_types::{
         packed as ckb_packed,
-        prelude::{Pack, Unpack},
+        prelude::{Entity, Pack, Unpack},
     },
     error::SysError,
     high_level,
 };
 use core::convert::{TryFrom, TryInto};
-use das_types::constants::DataType;
-use das_types::{constants::LockRole, packed as das_packed, prelude::*};
+use das_types::{
+    constants::{DataType, LockRole},
+    packed as das_packed,
+    prelude::*,
+};
 use eip712::{eip712::*, hash_data, typed_data_v4};
 use sha2::{Digest, Sha256};
-use std::prelude::v1::*;
 
 #[cfg(feature = "mainnet")]
 const HRP: &str = "ckb";
@@ -65,7 +67,7 @@ pub fn verify_eip712_hashes(
                     };
                     if type_of_args != DasLockType::ETHTypedData as u8 {
                         debug!(
-                            "Inputs[{}] Found deprecated address type, skip verification for hash.",
+                            "Inputs[{}] is not the address type supporting EIP712, skip verification for hash.",
                             i
                         );
                     } else {

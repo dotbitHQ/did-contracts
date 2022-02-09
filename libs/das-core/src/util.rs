@@ -2,6 +2,7 @@ use super::{
     assert as das_assert, constants::*, data_parser, debug, error::Error, types::ScriptLiteral, warn,
     witness_parser::WitnessesParser,
 };
+use alloc::{vec, vec::Vec};
 use blake2b_ref::{Blake2b, Blake2bBuilder};
 use ckb_std::{
     ckb_constants::{CellField, Source},
@@ -14,7 +15,6 @@ use das_types::{
     constants::{DataType, LockRole, WITNESS_HEADER},
     packed as das_packed,
 };
-use std::prelude::v1::*;
 
 #[cfg(test)]
 use hex::FromHexError;

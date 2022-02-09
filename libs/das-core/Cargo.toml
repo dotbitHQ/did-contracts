@@ -5,7 +5,6 @@ edition = "2018"
 
 [features]
 default = ["dev"]
-std = ["no-std-compat/std"]
 dev = []
 local = []
 testnet = []
@@ -16,7 +15,6 @@ ckb-std = "0.7.1"
 blake2b-ref = "0.3"
 das-types = { path = "../../../das-types/rust", default-features = false }
 eip712 = { path = "../../libs/eip712" }
-no-std-compat = { version = "0.4", features = [ "alloc", "compat_macros" ] }
 chrono = { version = "0.4", default-features = false }
 das-map = { path = "../das-map", default-features = false }
 bech32 = { version = "0.8.1", default-features = false }
