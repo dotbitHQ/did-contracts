@@ -23,7 +23,7 @@ members = [
 
 [profile.release]
 overflow-checks = true
-opt-level = 's'
+opt-level = 2
 lto = true
 codegen-units = 1
 panic = 'abort'

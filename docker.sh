@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Docker image name
-DOCKER_IMAGE="thewawar/ckb-capsule:2021-12-25"
+DOCKER_IMAGE="thewawar/ckb-capsule:2021-08-16"
 # Docker container name
 DOCKER_CONTAINER="capsule-dev-"$(whoami)
 # Name of capsule cache volume
