@@ -6,7 +6,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ckb-testtool = { git = "https://github.com/DA-Services/ckb-testtool", tag = "v0.7.2" }
+ckb-testtool = { git = "https://github.com/DA-Services/ckb-testtool", tag = "v0.7.3" }
 #ckb-testtool = { path = "../../ckb-testtool" }
 hex = "0.4.2"
 lazy_static = "1.4.0"

@@ -1,8 +1,6 @@
 #[macro_export]
 macro_rules! debug {
     ($($arg:tt)*) => {
-        #[cfg(all(not(feature = "std"), debug_assertions))]
-        ckb_std::syscalls::debug(alloc::format!($($arg)*));
         #[cfg(feature = "std")]
         println!($($arg)*)
     };

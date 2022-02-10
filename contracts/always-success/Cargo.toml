@@ -10,4 +10,4 @@ testnet = []
 mainnet = []
 
 [dependencies]
-ckb-std = "0.7.1"
+ckb-std = "0.8.0"
