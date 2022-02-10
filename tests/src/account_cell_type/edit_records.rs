@@ -1,5 +1,7 @@
 use super::common::init;
-use crate::util::{constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*};
+use crate::util::{
+    accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
+};
 use das_types_std::constants::*;
 use serde_json::json;
 
@@ -119,7 +121,6 @@ fn challenge_account_edit_records_multiple_cells() {
 #[test]
 fn challenge_account_edit_records_with_other_cells() {
     let (mut template, timestamp) = init("edit_records", Some("0x01"));
-    let sender = "0x000000000000000000000000000000000000001111";
 
     template.push_config_cell(DataType::ConfigCellRecordKeyNamespace, true, 0, Source::CellDep);
     template.push_contract_cell("balance-cell-type", false);
@@ -129,12 +130,12 @@ fn challenge_account_edit_records_with_other_cells() {
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": sender
+                "owner_lock_args": SENDER
             }
         }),
     );
     // Simulate transferring some balance of the user at the same time.
-    push_input_balance_cell(&mut template, 100_000_000_000, sender);
+    push_input_balance_cell(&mut template, 100_000_000_000, SENDER);
 
     // outputs
     push_output_account_cell(

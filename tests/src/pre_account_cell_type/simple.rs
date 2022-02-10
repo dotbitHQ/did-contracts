@@ -1,6 +1,7 @@
 use super::common::{init, init_without_apply};
 use crate::util::{
     self,
+    accounts::*,
     constants::*,
     error::Error,
     template_generator::{gen_account_chars, gen_das_lock_args, gen_fake_signhash_all_lock},
@@ -18,10 +19,10 @@ fn gen_pre_register_simple() {
 
     let (cell_data, entity) = template.gen_pre_account_cell_data(
         account,
-        "0x000000000000000000000000000000000000FFFF",
-        "0x0000000000000000000000000000000000001100",
-        "0x0000000000000000000000000000000000001111",
-        "0x0000000000000000000000000000000000002222",
+        OWNER,
+        OWNER,
+        INVITER,
+        CHANNEL,
         CKB_QUOTE,
         INVITED_DISCOUNT,
         timestamp,
@@ -56,10 +57,10 @@ challenge_with_generator!(
 
         let (cell_data, entity) = template.gen_pre_account_cell_data(
             account,
-            "0x0000000000000000000000000000000000002222",
-            "0x000000000000000000000000000000000000FFFF",
-            "0x0000000000000000000000000000000000001111",
-            "0x0000000000000000000000000000000000002222",
+            CHANNEL,
+            OWNER,
+            INVITER,
+            CHANNEL,
             CKB_QUOTE,
             INVITED_DISCOUNT,
             timestamp - 1,
@@ -93,10 +94,10 @@ challenge_with_generator!(
 
         let (cell_data, entity) = template.gen_pre_account_cell_data(
             account,
-            "0x0000000000000000000000000000000000002222",
-            "0x000000000000000000000000000000000000FFFF",
-            "0x0000000000000000000000000000000000001111",
-            "0x0000000000000000000000000000000000002222",
+            CHANNEL,
+            OWNER,
+            INVITER,
+            CHANNEL,
             CKB_QUOTE,
             INVITED_DISCOUNT,
             timestamp - 1,
@@ -130,10 +131,10 @@ challenge_with_generator!(
 
         let (cell_data, entity) = template.gen_pre_account_cell_data(
             account,
-            "0x0000000000000000000000000000000000002222",
-            "0x000000000000000000000000000000000000FFFF",
-            "0x0000000000000000000000000000000000001111",
-            "0x0000000000000000000000000000000000002222",
+            CHANNEL,
+            OWNER,
+            INVITER,
+            CHANNEL,
             CKB_QUOTE,
             INVITED_DISCOUNT,
             timestamp - 1,
@@ -156,10 +157,10 @@ challenge_with_generator!(
         let (mut template, _account, timestamp) = init("1234567890.bit");
         template.push_config_cell_derived_by_account("1234567890", true, 0, Source::CellDep);
 
-        let refund_lock_args = "0x0000000000000000000000000000000000002222";
-        let owner_lock_args = "0x000000000000000000000000000000000000FFFF";
-        let inviter_lock_args = "0x0000000000000000000000000000000000001111";
-        let channel_lock_args = "0x0000000000000000000000000000000000002222";
+        let refund_lock_args = CHANNEL;
+        let owner_lock_args = OWNER;
+        let inviter_lock_args = INVITER;
+        let channel_lock_args = CHANNEL;
         let quote = CKB_QUOTE;
         let invited_discount = INVITED_DISCOUNT;
         let created_at = timestamp - 1;
@@ -211,10 +212,10 @@ challenge_with_generator!(
 
         let (cell_data, entity) = template.gen_pre_account_cell_data(
             account,
-            "0x0000000000000000000000000000000000002222",
-            "0x000000000000000000000000000000000000FFFF",
-            "0x0000000000000000000000000000000000001111",
-            "0x0000000000000000000000000000000000002222",
+            CHANNEL,
+            OWNER,
+            INVITER,
+            CHANNEL,
             CKB_QUOTE,
             INVITED_DISCOUNT,
             timestamp - 1,
@@ -239,10 +240,10 @@ challenge_with_generator!(
 
         let (cell_data, entity) = template.gen_pre_account_cell_data(
             account,
-            "0x0000000000000000000000000000000000002222",
+            CHANNEL,
             "0x000000000000000000000000000000000000FF",
-            "0x0000000000000000000000000000000000001111",
-            "0x0000000000000000000000000000000000002222",
+            INVITER,
+            CHANNEL,
             CKB_QUOTE,
             INVITED_DISCOUNT,
             timestamp,
@@ -267,10 +268,10 @@ challenge_with_generator!(
 
         let (cell_data, entity) = template.gen_pre_account_cell_data(
             account,
-            "0x0000000000000000000000000000000000002222",
-            "0x000000000000000000000000000000000000FFFF",
-            "0x0000000000000000000000000000000000001111",
-            "0x0000000000000000000000000000000000002222",
+            CHANNEL,
+            OWNER,
+            INVITER,
+            CHANNEL,
             CKB_QUOTE - 1,
             INVITED_DISCOUNT,
             timestamp,
@@ -300,10 +301,10 @@ challenge_with_generator!(
 
         let (cell_data, entity) = template.gen_pre_account_cell_data(
             account,
-            "0x0000000000000000000000000000000000002222",
-            "0x000000000000000000000000000000000000FFFF",
-            "0x0000000000000000000000000000000000001111",
-            "0x0000000000000000000000000000000000002222",
+            CHANNEL,
+            OWNER,
+            INVITER,
+            CHANNEL,
             CKB_QUOTE,
             INVITED_DISCOUNT,
             timestamp,
@@ -328,10 +329,10 @@ challenge_with_generator!(
 
         let (cell_data, entity) = template.gen_pre_account_cell_data(
             account,
-            "0x0000000000000000000000000000000000002222",
-            "0x000000000000000000000000000000000000FFFF",
+            CHANNEL,
+            OWNER,
             "",
-            "0x0000000000000000000000000000000000002222",
+            CHANNEL,
             CKB_QUOTE,
             INVITED_DISCOUNT,
             timestamp,
@@ -356,10 +357,10 @@ challenge_with_generator!(
 
         let (cell_data, entity) = template.gen_pre_account_cell_data(
             account,
-            "0x0000000000000000000000000000000000002222",
-            "0x000000000000000000000000000000000000FFFF",
-            "0x0000000000000000000000000000000000001111",
-            "0x0000000000000000000000000000000000002222",
+            CHANNEL,
+            OWNER,
+            INVITER,
+            CHANNEL,
             CKB_QUOTE,
             INVITED_DISCOUNT - 1,
             timestamp,
@@ -382,10 +383,10 @@ challenge_with_generator!(
         let (mut template, _account, timestamp) = init("1234567890.bit");
         template.push_config_cell_derived_by_account("1234567890", true, 0, Source::CellDep);
 
-        let refund_lock_args = "0x0000000000000000000000000000000000002222";
-        let owner_lock_args = "0x000000000000000000000000000000000000FFFF";
-        let inviter_lock_args = "0x0000000000000000000000000000000000001111";
-        let channel_lock_args = "0x0000000000000000000000000000000000002222";
+        let refund_lock_args = CHANNEL;
+        let owner_lock_args = OWNER;
+        let inviter_lock_args = INVITER;
+        let channel_lock_args = CHANNEL;
         let quote = CKB_QUOTE;
         let invited_discount = INVITED_DISCOUNT;
         let created_at = timestamp - 1;
@@ -437,10 +438,10 @@ challenge_with_generator!(
 
         let (cell_data, entity) = template.gen_pre_account_cell_data(
             account,
-            "0x0000000000000000000000000000000000002222",
-            "0x000000000000000000000000000000000000FFFF",
-            "0x0000000000000000000000000000000000001111",
-            "0x0000000000000000000000000000000000002222",
+            CHANNEL,
+            OWNER,
+            INVITER,
+            CHANNEL,
             CKB_QUOTE,
             INVITED_DISCOUNT,
             timestamp,

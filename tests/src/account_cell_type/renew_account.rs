@@ -1,6 +1,7 @@
 use super::common::*;
 use crate::util::{
-    constants::*, error::Error, template_common_cell::*, template_generator::TemplateGenerator, template_parser::*,
+    accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::TemplateGenerator,
+    template_parser::*,
 };
 use serde_json::json;
 
@@ -23,39 +24,36 @@ fn push_simple_output_income_cell(template: &mut TemplateGenerator) {
     );
 }
 
-fn before_each() -> (TemplateGenerator, u64, &'static str, &'static str) {
+fn before_each() -> (TemplateGenerator, u64) {
     let (mut template, timestamp) = init_for_renew("renew_account", None);
-    let owner = "0x000000000000000000000000000000000000001111";
-    // let sender = "0x000000000000000000000000000000000000002222";
-    let sender = owner;
 
     // inputs
     push_input_account_cell(
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": owner
+                "owner_lock_args": OWNER
             },
             "data": {
                 "expired_at": timestamp
             }
         }),
     );
-    push_input_balance_cell(&mut template, 1_000_000_000_000, sender);
+    push_input_balance_cell(&mut template, 1_000_000_000_000, OWNER);
 
-    (template, timestamp, owner, sender)
+    (template, timestamp)
 }
 
 #[test]
 fn test_account_renew_not_create_income_cell() {
-    let (mut template, timestamp, owner, sender) = before_each();
+    let (mut template, timestamp) = before_each();
 
     // outputs
     push_output_account_cell(
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": owner,
+                "owner_lock_args": OWNER,
             },
             "data": {
                 "expired_at": timestamp + 31_536_000,
@@ -63,7 +61,7 @@ fn test_account_renew_not_create_income_cell() {
         }),
     );
     push_simple_output_income_cell(&mut template);
-    push_output_balance_cell(&mut template, 500_000_000_000, sender);
+    push_output_balance_cell(&mut template, 500_000_000_000, OWNER);
 
     test_tx(template.as_json());
 }
@@ -133,7 +131,7 @@ fn test_account_renew_create_income_cell() {
 
 #[test]
 fn challenge_account_renew_modify_owner() {
-    let (mut template, timestamp, _owner, sender) = before_each();
+    let (mut template, timestamp) = before_each();
 
     // outputs
     push_output_account_cell(
@@ -149,21 +147,21 @@ fn challenge_account_renew_modify_owner() {
         }),
     );
     push_simple_output_income_cell(&mut template);
-    push_output_balance_cell(&mut template, 500_000_000_000, sender);
+    push_output_balance_cell(&mut template, 500_000_000_000, OWNER);
 
     challenge_tx(template.as_json(), Error::CellLockCanNotBeModified)
 }
 
 #[test]
 fn challenge_account_renew_less_than_one_year() {
-    let (mut template, timestamp, owner, sender) = before_each();
+    let (mut template, timestamp) = before_each();
 
     // outputs
     push_output_account_cell(
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": owner,
+                "owner_lock_args": OWNER,
             },
             "data": {
                 // Simulate the increment of the expired_at is less than one year.
@@ -172,21 +170,21 @@ fn challenge_account_renew_less_than_one_year() {
         }),
     );
     push_simple_output_income_cell(&mut template);
-    push_output_balance_cell(&mut template, 500_000_000_000, sender);
+    push_output_balance_cell(&mut template, 500_000_000_000, OWNER);
 
     challenge_tx(template.as_json(), Error::AccountCellRenewDurationMustLongerThanYear)
 }
 
 #[test]
 fn challenge_account_renew_payment_less_than_one_year() {
-    let (mut template, timestamp, owner, sender) = before_each();
+    let (mut template, timestamp) = before_each();
 
     // outputs
     push_output_account_cell(
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": owner,
+                "owner_lock_args": OWNER,
             },
             "data": {
                 "expired_at": timestamp + 31_536_000,
@@ -210,21 +208,21 @@ fn challenge_account_renew_payment_less_than_one_year() {
             }
         }),
     );
-    push_output_balance_cell(&mut template, 500_000_000_000, sender);
+    push_output_balance_cell(&mut template, 500_000_000_000, OWNER);
 
     challenge_tx(template.as_json(), Error::AccountCellRenewDurationMustLongerThanYear)
 }
 
 #[test]
 fn challenge_account_renew_payment_less_than_increment() {
-    let (mut template, timestamp, owner, sender) = before_each();
+    let (mut template, timestamp) = before_each();
 
     // outputs
     push_output_account_cell(
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": owner,
+                "owner_lock_args": OWNER,
             },
             "data": {
                 "expired_at": timestamp + 31_536_000 * 3,
@@ -248,21 +246,21 @@ fn challenge_account_renew_payment_less_than_increment() {
             }
         }),
     );
-    push_output_balance_cell(&mut template, 500_000_000_000, sender);
+    push_output_balance_cell(&mut template, 500_000_000_000, OWNER);
 
     challenge_tx(template.as_json(), Error::AccountCellRenewDurationBiggerThanPayed)
 }
 
 #[test]
 fn challenge_account_renew_change_amount() {
-    let (mut template, timestamp, owner, sender) = before_each();
+    let (mut template, timestamp) = before_each();
 
     // outputs
     push_output_account_cell(
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": owner,
+                "owner_lock_args": OWNER,
             },
             "data": {
                 "expired_at": timestamp + 31_536_000,
@@ -270,21 +268,21 @@ fn challenge_account_renew_change_amount() {
         }),
     );
     push_simple_output_income_cell(&mut template);
-    push_output_balance_cell(&mut template, 500_000_000_000 - 1, sender);
+    push_output_balance_cell(&mut template, 500_000_000_000 - 1, OWNER);
 
     challenge_tx(template.as_json(), Error::ChangeError)
 }
 
 #[test]
 fn challenge_account_renew_change_owner() {
-    let (mut template, timestamp, owner, _sender) = before_each();
+    let (mut template, timestamp) = before_each();
 
     // outputs
     push_output_account_cell(
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": owner,
+                "owner_lock_args": OWNER,
             },
             "data": {
                 "expired_at": timestamp + 31_536_000,

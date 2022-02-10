@@ -1,8 +1,6 @@
 use crate::util::{self, constants::*, template_generator::*};
 use das_types_std::{constants::*, packed::*};
 
-pub const OWNER: &str = "0x000000000000000000000000000000000000001111";
-
 pub fn init(action: &str, params_opt: Option<&str>) -> (TemplateGenerator, u64) {
     let mut template = TemplateGenerator::new(action, params_opt.map(|raw| Bytes::from(util::hex_to_bytes(raw))));
     let timestamp = 1611200000u64;
