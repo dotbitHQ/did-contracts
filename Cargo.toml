@@ -2,6 +2,7 @@
 members = [
     "tests",
     "libs/das-core",
+    "libs/das-dynamic-libs",
     "libs/das-sorted-list",
     "libs/das-map",
     "libs/eip712",

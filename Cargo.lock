@@ -781,6 +781,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "das-dynamic-libs"
+version = "1.0.0"
+dependencies = [
+ "ckb-std",
+]
+
+[[package]]
 name = "das-map"
 version = "1.0.0"
 dependencies = [
@@ -798,7 +805,7 @@ dependencies = [
 
 [[package]]
 name = "das-types"
-version = "1.7.1"
+version = "1.8.0"
 dependencies = [
  "ckb-std",
  "molecule",
@@ -806,7 +813,7 @@ dependencies = [
 
 [[package]]
 name = "das-types-std"
-version = "1.7.1"
+version = "1.8.0"
 dependencies = [
  "ckb-types",
  "molecule",
@@ -1484,6 +1491,7 @@ version = "1.0.0"
 dependencies = [
  "ckb-std",
  "das-core",
+ "das-dynamic-libs",
  "das-types",
  "hex",
  "sparse-merkle-tree 0.5.2",
