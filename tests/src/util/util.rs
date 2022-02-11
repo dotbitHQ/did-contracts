@@ -103,32 +103,18 @@ pub fn account_to_id_hex(account: &str) -> String {
     format!("0x{}", hex_string(account_to_id(account).as_slice()))
 }
 
-pub fn deploy_dev_contract(
+pub fn deploy_contract(
     context: &mut Context,
     binary_name: &str,
+    deployed: bool,
     index_opt: Option<usize>,
 ) -> (Byte32, OutPoint, CellDep) {
-    let contract_bin: bytes::Bytes = Loader::default().load_binary(binary_name);
+    let file: bytes::Bytes = if deployed {
+        Loader::with_deployed_scripts().load_binary(binary_name)
+    } else {
+        Loader::default().load_binary(binary_name)
+    };
 
-    deploy_contract(context, binary_name, contract_bin, index_opt)
-}
-
-pub fn deploy_builtin_contract(
-    context: &mut Context,
-    binary_name: &str,
-    index_opt: Option<usize>,
-) -> (Byte32, OutPoint, CellDep) {
-    let contract_bin: bytes::Bytes = Loader::with_deployed_scripts().load_binary(binary_name);
-
-    deploy_contract(context, binary_name, contract_bin, index_opt)
-}
-
-fn deploy_contract(
-    context: &mut Context,
-    binary_name: &str,
-    contract_bin: bytes::Bytes,
-    index_opt: Option<usize>,
-) -> (Byte32, OutPoint, CellDep) {
     let args = binary_name
         .as_bytes()
         .to_vec()
@@ -148,10 +134,10 @@ fn deploy_contract(
     mock_cell_with_outpoint(
         context,
         out_point.clone(),
-        contract_bin.len() as u64,
+        file.len() as u64,
         Script::default(),
         Some(type_),
-        Some(contract_bin.to_vec()),
+        Some(file.to_vec()),
     );
 
     let cell_dep = CellDep::new_builder().out_point(out_point.clone()).build();
@@ -162,9 +148,14 @@ fn deploy_contract(
 pub fn deploy_shared_lib(
     context: &mut Context,
     binary_name: &str,
+    deployed: bool,
     index_opt: Option<usize>,
 ) -> (Byte32, OutPoint, CellDep) {
-    let file: bytes::Bytes = Loader::default().load_binary(binary_name);
+    let file: bytes::Bytes = if deployed {
+        Loader::with_deployed_scripts().load_binary(binary_name)
+    } else {
+        Loader::default().load_binary(binary_name)
+    };
 
     let hash = blake2b_256(file.clone());
     let mut inner = [Byte::new(0); 32];

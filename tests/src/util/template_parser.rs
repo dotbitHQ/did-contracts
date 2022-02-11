@@ -354,23 +354,28 @@ impl TemplateParser {
     fn parse_cell_deps(&mut self, cell_deps: Vec<Value>) -> Result<(), Box<dyn StdError>> {
         for (i, item) in cell_deps.into_iter().enumerate() {
             match item["tmp_type"].as_str() {
-                Some("contract") => {
+                Some("contract") | Some("deployed_contract") => {
+                    let deployed = if item["tmp_type"].as_str() == Some("deployed_contract") {
+                        true
+                    } else {
+                        false
+                    };
+
                     let name = item["tmp_file_name"].as_str().unwrap();
-                    let (type_id, _, cell_dep) = util::deploy_dev_contract(&mut self.context, name, Some(i));
+                    let (type_id, _, cell_dep) = util::deploy_contract(&mut self.context, name, deployed, Some(i));
                     // println!("{:>30}: {}", name, type_id);
                     self.deps.push(cell_dep);
                     self.contracts.insert(name.to_string(), type_id);
                 }
-                Some("deployed_contract") => {
+                Some("shared_lib") | Some("deployed_shared_lib") => {
+                    let deployed = if item["tmp_type"].as_str() == Some("deployed_shared_lib") {
+                        true
+                    } else {
+                        false
+                    };
+
                     let name = item["tmp_file_name"].as_str().unwrap();
-                    let (type_id, _, cell_dep) = util::deploy_builtin_contract(&mut self.context, name, Some(i));
-                    // println!("{:>30}: {}", name, type_id);
-                    self.deps.push(cell_dep);
-                    self.contracts.insert(name.to_string(), type_id);
-                }
-                Some("shared_lib") => {
-                    let name = item["tmp_file_name"].as_str().unwrap();
-                    let (code_hash, _, cell_dep) = util::deploy_shared_lib(&mut self.context, name, Some(i));
+                    let (code_hash, _, cell_dep) = util::deploy_shared_lib(&mut self.context, name, deployed, Some(i));
                     // println!("{:>30}: {}", name, code_hash);
                     self.deps.push(cell_dep);
                     self.contracts.insert(name.to_string(), code_hash);

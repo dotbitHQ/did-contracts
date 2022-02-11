@@ -1172,11 +1172,19 @@ impl TemplateGenerator {
         self.cell_deps.push(value)
     }
 
-    pub fn push_shared_lib_cell(&mut self, contract_filename: &str) {
-        let value = json!({
-            "tmp_type": "shared_lib",
-            "tmp_file_name": contract_filename
-        });
+    pub fn push_shared_lib_cell(&mut self, contract_filename: &str, deployed: bool) {
+        let value;
+        if deployed {
+            value = json!({
+                "tmp_type": "deployed_shared_lib",
+                "tmp_file_name": contract_filename
+            });
+        } else {
+            value = json!({
+                "tmp_type": "shared_lib",
+                "tmp_file_name": contract_filename
+            });
+        }
 
         self.cell_deps.push(value)
     }
