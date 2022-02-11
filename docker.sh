@@ -141,6 +141,7 @@ start)
   if [[ $2 == "-b" || $2 == "--background" ]]; then
     docker run -d -t --rm \
       --name $DOCKER_CONTAINER \
+      --network host \
       -v ${dir}/das-contracts:/code \
       -v ${dir}/das-types:/das-types \
       -v ${dir}/das-types-std:/das-types-std \
@@ -151,6 +152,7 @@ start)
   else
     docker run -it --rm \
       --name $DOCKER_CONTAINER \
+      --network host \
       -v ${dir}/das-contracts:/code \
       -v ${dir}/das-types:/das-types \
       -v ${dir}/das-types-std:/das-types-std \
