@@ -649,8 +649,17 @@ pub fn is_init_day(current_timestamp: u64) -> Result<(), Error> {
 pub fn calc_account_storage_capacity(
     config_account: das_packed::ConfigCellAccountReader,
     account_name_storage: u64,
+    owner_lock_args: das_packed::BytesReader,
 ) -> u64 {
-    let basic_capacity = u64::from(config_account.basic_capacity());
+    // TODO MIXIN Fix this with new data structure.
+    let lock_type = data_parser::das_lock_args::get_owner_type(owner_lock_args.raw_data());
+    let basic_capacity = if lock_type == DasLockType::MIXIN as u8 {
+        23_000_000_000u64
+    } else {
+        u64::from(config_account.basic_capacity())
+    };
+
+    let basic_capacity = basic_capacity;
     let prepared_fee_capacity = u64::from(config_account.prepared_fee_capacity());
     basic_capacity + prepared_fee_capacity + (account_name_storage * 100_000_000)
 }

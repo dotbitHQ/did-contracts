@@ -57,6 +57,7 @@ pub enum DasLockType {
     ETH,
     TRX,
     ETHTypedData,
+    MIXIN,
 }
 
 impl TryFrom<u8> for DasLockType {
@@ -70,6 +71,7 @@ impl TryFrom<u8> for DasLockType {
             x if x == DasLockType::ETH as u8 => Ok(DasLockType::ETH),
             x if x == DasLockType::TRX as u8 => Ok(DasLockType::TRX),
             x if x == DasLockType::ETHTypedData as u8 => Ok(DasLockType::ETHTypedData),
+            x if x == DasLockType::MIXIN as u8 => Ok(DasLockType::MIXIN),
             _ => Err(()),
         }
     }

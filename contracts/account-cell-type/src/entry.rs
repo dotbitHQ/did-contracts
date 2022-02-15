@@ -2,7 +2,7 @@ use alloc::{boxed::Box, format, string::String, vec, vec::Vec};
 use ckb_std::{ckb_constants::Source, ckb_types::prelude::*, high_level};
 use das_core::{
     assert,
-    constants::{das_wallet_lock, OracleCellType, ScriptType, TypeScript, CUSTOM_KEYS_NAMESPACE},
+    constants::{das_wallet_lock, DasLockType, OracleCellType, ScriptType, TypeScript, CUSTOM_KEYS_NAMESPACE},
     data_parser, debug,
     eip712::{to_semantic_address, verify_eip712_hashes},
     error::Error,
@@ -637,10 +637,10 @@ fn transfer_account_to_semantic(parser: &WitnessesParser) -> Result<String, Erro
     let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| Error::EIP712SerializationError)?;
 
     // Parse from address from the AccountCell's lock script in inputs.
-    // let from_lock = high_level::load_cell_lock(input_cells[0], Source::Input).map_err(|e| Error::from(e))?;
+    // let from_lock = high_level::load_cell_lock(input_cells[0], Source::Input)?;
     // let from_address = to_semantic_address(from_lock.as_reader().into(), 1..21)?;
     // Parse to address from the AccountCell's lock script in outputs.
-    let to_lock = high_level::load_cell_lock(output_cells[0], Source::Output).map_err(|e| Error::from(e))?;
+    let to_lock = high_level::load_cell_lock(output_cells[0], Source::Output)?;
     let to_address = to_semantic_address(parser, to_lock.as_reader().into(), LockRole::Owner)?;
 
     Ok(format!("TRANSFER THE ACCOUNT {} TO {}", account, to_address))
@@ -688,7 +688,7 @@ fn verify_input_account_must_normal_status<'a>(
 }
 
 fn load_account_cells() -> Result<(Vec<usize>, Vec<usize>), Error> {
-    let this_type_script = high_level::load_script().map_err(|e| Error::from(e))?;
+    let this_type_script = high_level::load_script()?;
     let (input_account_cells, output_account_cells) =
         util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
 
@@ -703,10 +703,17 @@ fn verify_transaction_fee_spent_correctly(
 ) -> Result<(), Error> {
     debug!("Check if the fee in the AccountCell is spent correctly.");
 
-    let input_capacity =
-        high_level::load_cell_capacity(input_account_index, Source::Input).map_err(|e| Error::from(e))?;
-    let output_capacity =
-        high_level::load_cell_capacity(output_account_index, Source::Output).map_err(|e| Error::from(e))?;
+    // TODO MIXIN Fix this with new data structure.
+    let lock = high_level::load_cell_lock(input_account_index, Source::Input)?;
+    let lock_type = data_parser::das_lock_args::get_owner_type(lock.as_reader().args().raw_data());
+    let basic_capacity = if lock_type == DasLockType::MIXIN as u8 {
+        23_000_000_000u64
+    } else {
+        u64::from(config.basic_capacity())
+    };
+
+    let input_capacity = high_level::load_cell_capacity(input_account_index, Source::Input)?;
+    let output_capacity = high_level::load_cell_capacity(output_account_index, Source::Output)?;
 
     // The capacity is not changed, skip the following verification.
     if input_capacity == output_capacity {
@@ -722,7 +729,7 @@ fn verify_transaction_fee_spent_correctly(
         b"edit_records" => u64::from(config.edit_records_fee()),
         _ => return Err(Error::ActionNotSupported),
     };
-    let storage_capacity = u64::from(config.basic_capacity()) + account_length * 100_000_000;
+    let storage_capacity = basic_capacity + account_length * 100_000_000;
 
     assert!(
         output_capacity >= storage_capacity,

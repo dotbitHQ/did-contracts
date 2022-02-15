@@ -1,7 +1,7 @@
 use alloc::{borrow::ToOwned, boxed::Box};
 use ckb_std::{
     ckb_constants::Source,
-    high_level::{load_cell_capacity, load_cell_lock, load_cell_type, load_script},
+    high_level::{self, load_cell_capacity, load_cell_lock, load_cell_type, load_script},
 };
 use core::{convert::TryFrom, result::Result};
 use das_core::{
@@ -827,7 +827,13 @@ fn verify_proposal_execution_result(
 
                 let account_name_storage = account_cell::get_account(&output_cell_data).len() as u64;
                 let total_capacity = load_cell_capacity(input_related_cells[i], Source::Input)?;
-                let storage_capacity = util::calc_account_storage_capacity(config_account, account_name_storage);
+
+                let lock = high_level::load_cell_lock(output_account_cells[i], Source::Output)?;
+                let storage_capacity = util::calc_account_storage_capacity(
+                    config_account,
+                    account_name_storage,
+                    lock.args().as_reader().into(),
+                );
                 // Allocate the profits carried by PreAccountCell to the wallets for later verification.
                 let profit = total_capacity - storage_capacity;
 
