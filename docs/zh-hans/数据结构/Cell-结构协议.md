@@ -235,7 +235,6 @@ table ProposalCellData {
 
 实际体积：106 Bytes
 
-
 ### AccountCell
 
 当提案确认后，也就是 [ProposalCell](#ProposalCell) 被消费时，[PreAccountCell](#PreAccountCell) 才能被转换为 AccountCell ，它存放账户的各种信息。
@@ -290,6 +289,8 @@ table AccountCellData {
     // The status of the account, 0x00 means normal, 0x01 means being sold, 0x02 means being auctioned.
     status: Uint8,
     records: Records,
+    enable_sub_account: Uint8,
+    renew_sub_account_price: Uint64,
 }
 
 array AccountId [byte; 20];
@@ -313,6 +314,9 @@ vector Records <Record>;
   - 1 ，出售中；
   - 2 ，拍卖中；
 - records ，解析记录字段，**此字段仅限有管理权的用户编辑**；
+- enable_sub_account ，状态字段：
+  - 0 ，未启用子账户；
+  - 1 ，已启用子账户；
 
 #### das-lock
 
@@ -322,9 +326,9 @@ das-lock 是为 DAS 设计的一个特殊 lock script ，它 **会根据 args �
 
 #### 体积
 
-基础体积：至少 201 Bytes
+实际体积：`201 + n` Bytes，`n` 取决于 account 的长度。
 
-实际体积：至少 212 Bytes，因为预留了一部分 CKB、1 CKB 的手续费、账户字节长度等
+链上体积：取决于 ConfigCellAccount 里的配置项
 
 ### IncomeCell
 
@@ -363,9 +367,9 @@ Witness 中的主要字段如下：
 
 #### 体积
 
-基础体积：106 Bytes
-
 实际体积：106 Bytes
+
+链上体积：取决于 ConfigCellIncome 里的配置项
 
 ### AccountSaleCell
 
@@ -404,9 +408,9 @@ Witness 中的主要字段如下：
 
 #### 体积
 
-基础体积：148 Bytes
+实际体积：`148 ~ 170` Bytes，具体取决于 das-lock 的 args 长度。
 
-实际体积：取决于 ConfigCellSecondaryMarket 里的配置项
+链上体积：取决于 ConfigCellSecondaryMarket 里的配置项
 
 ### AccountAuctionCell
 
@@ -457,9 +461,9 @@ table AccountAuctionCellData {
 
 #### 体积
 
-基础体积：148 Bytes
+实际体积：`148 ~ 170` Bytes，具体取决于 das-lock 的 args 长度。
 
-实际体积：取决于 ConfigCellSecondaryMarket 里的配置项
+链上体积：取决于 ConfigCellSecondaryMarket 里的配置项
 
 ### ReverseRecordCell
 
@@ -476,7 +480,7 @@ data:
 
 #### 体积
 
-`x` Bytes
+`74 + n` Bytes，`n` 具体取决于 lock 的 args 长度以及 account 的长度。
 
 ### OfferCell
 
@@ -506,7 +510,24 @@ table OfferCellData {
 
 #### 体积
 
-`x` Bytes
+`148 ~ 170` Bytes，具体取决于 das-lock 的 args 长度。
+
+### SubAccountCell
+
+#### 结构
+
+```
+lock: <always_success>
+type: <income-cell-type>
+
+data: SMTRoot
+```
+
+> 这里的 SMTRoot 就是一个 merkle root ，该 Cell 没有关联的 witness 。
+
+#### 体积
+
+`106` Bytes
 
 
 ## ConfigCell
@@ -555,11 +576,12 @@ table ConfigCellAccount {
     transfer_account_fee: Uint64,
     edit_manager_fee: Uint64,
     edit_records_fee: Uint64,
-    force_recover_fee: Uint64,
+    common_fee: Uint64,
     // The frequency limit of actions which manipulating account
     transfer_account_throttle: Uint32,
     edit_manager_throttle: Uint32,
     edit_records_throttle: Uint32,
+    common_throttle: Uint32,
 }
 ```
 
@@ -628,15 +650,30 @@ table ConfigCellMain {
     status: Uint8,
     // table of type ID of all kinds of cells
     type_id_table: TypeIdTable,
+    // table code_hash of dynamic libs of das-lock
+    das_lock_out_point_table: DasLockOutPointTable,
 }
 
 table TypeIdTable {
     account_cell: Hash,
     apply_register_cell: Hash,
+    balance_cell: Hash,
     income_cell: Hash,
-    on_sale_cell: Hash,
     pre_account_cell: Hash,
     proposal_cell: Hash,
+    account_sale_cell: Hash,
+    account_auction_cell: Hash,
+    offer_cell: Hash,
+    reverse_record_cell: Hash,
+}
+
+table DasLockOutPointTable {
+    ckb_signall: OutPoint,
+    ckb_multisign: OutPoint,
+    ckb_anyone_can_pay: OutPoint,
+    eth: OutPoint,
+    tron: OutPoint,
+    ed25519: OutPoint,
 }
 ```
 
@@ -734,6 +771,25 @@ table ConfigCellProfitRate {
 - proposal_create ，账户注册流程中 keeper 创建提案的利润率；
 - proposal_confirm ，账户注册流程中 keeper 确认提案的利润率；
 - income_consolidate ，IncomeCell 合并流程中 keeper 的利润率；
+
+#### ConfigCellSubAccount
+
+**witness：**
+
+```
+table ConfigCellSubAccount {
+    // The profit rate of inviters who invite people to buy DAS accounts.
+    basic_capacity: Uint64,
+    prepared_fee_capacity: Uint64,
+    new_sub_account_price: Uint64,
+    renew_sub_account_price: Uint64,
+    edit_fee: Uint64,
+    renew_fee: Uint64,
+    recycle_fee: Uint64,
+}
+```
+
+- inviter ，账户注册流程中邀请人的利润率；
 
 #### ConfigCellRelease
 
@@ -853,7 +909,6 @@ length|hash|hash|hash ...
 
 这个 cell 的 witness 在其 entity 部分**存储的是纯二进制数据**，未进行 molecule 编码。其中前 4 bytes 是 uint32 的数据总长度，**包括这 4 bytes 自身**，之后就是各个账户名不含后缀的部分 hash 后前 20 bytes 拼接而成的数据，因为每段数据固定为 20 bytes 所以**无分隔符等字节**。
 
-
 ### TimeCell、HeightCell、QuoteCell
 
 这是 folk 自 Nervina 团队开发的 [ckb-time-scripts](https://github.com/nervina-labs/ckb-time-scripts) 合约脚本，它定义了一系列实现类似预言机功能的 Cell。
@@ -942,19 +997,21 @@ enum DataType {
     ProposalCellData,
     PreAccountCellData,
     IncomeCellData,
-    ConfigCellAccount = 100, // args: 0x64000000
-    ConfigCellApply = 101, // args: 0x65000000
-    ConfigCellIncome = 103, // args: 0x67000000
-    ConfigCellMain, // args: 0x68000000
-    ConfigCellPrice, // args: 0x69000000
-    ConfigCellProposal, // args: 0x6a000000
-    ConfigCellProfitRate, // args: 0x6b000000
-    ConfigCellRecordKeyNamespace, // args: 0x6c000000
-    ConfigCellRelease, // args: 0x6d000000
-    ConfigCellUnAvailableAccount, // args: 0x6e000000
-    ConfigCellSecondaryMarket, // args: 0x6f000000
-    ConfigCellReverseResolution, // args: 0x7000000
-    ConfigCellPreservedAccount00 = 10000, // args: 0x10270000
+    OfferCellData,
+    SubAccount,
+    ConfigCellAccount = 100,  // args: 0x64000000
+    ConfigCellApply = 101,    // args: 0x65000000
+    ConfigCellIncome = 103,   // args: 0x67000000
+    ConfigCellMain, // args: 0x68000000           
+    ConfigCellPrice, // args: 0x69000000           
+    ConfigCellProposal, // args: 0x6a000000           
+    ConfigCellProfitRate, // args: 0x6b000000           
+    ConfigCellRecordKeyNamespace, // args: 0x6c000000           
+    ConfigCellRelease, // args: 0x6d000000           
+    ConfigCellUnAvailableAccount, // args: 0x6e000000           
+    ConfigCellSecondaryMarket, // args: 0x6f000000           
+    ConfigCellReverseResolution, // args: 0x7000000           
+    ConfigCellPreservedAccount00 = 10000, // args: 0x10270000           
     ConfigCellPreservedAccount01,
     ConfigCellPreservedAccount02,
     ConfigCellPreservedAccount03,
@@ -975,10 +1032,10 @@ enum DataType {
     ConfigCellPreservedAccount18,
     ConfigCellPreservedAccount19, // args: 0x23270000
     ConfigCellCharSetEmoji = 100000, // args: 0xa0860100
-    ConfigCellCharSetDigit, // args: 0xa1860100
-    ConfigCellCharSetEn, // args: 0xa2860100
-    ConfigCellCharSetHans, // args: 0xa3860100, not available yet
-    ConfigCellCharSetHant, // args: 0xa4860100, not available yet
+    ConfigCellCharSetDigit = 100001, // args: 0xa1860100
+    ConfigCellCharSetEn = 100002, // args: 0xa2860100
+    ConfigCellCharSetZhHans = 100003, // args: 0xa3860100, not available yet
+    ConfigCellCharSetZhHant = 100004, // args: 0xa4860100, not available yet
 }
 ```
 
