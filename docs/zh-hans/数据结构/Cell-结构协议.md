@@ -289,7 +289,9 @@ table AccountCellData {
     // The status of the account, 0x00 means normal, 0x01 means being sold, 0x02 means being auctioned.
     status: Uint8,
     records: Records,
+    // The status of sub-account function, 0x00 means disabled, 0x01 means enabled.
     enable_sub_account: Uint8,
+    // The price of renewing sub-account for one year.
     renew_sub_account_price: Uint64,
 }
 
@@ -518,7 +520,7 @@ table OfferCellData {
 
 ```
 lock: <always_success>
-type: <income-cell-type>
+type: <sub-account-cell-type>
 
 data: SMTRoot
 ```
@@ -778,13 +780,23 @@ table ConfigCellProfitRate {
 
 ```
 table ConfigCellSubAccount {
-    // The profit rate of inviters who invite people to buy DAS accounts.
+    // The basic capacity SubAccountCell required, it is bigger than or equal to SubAccountCell occupied capacity.
     basic_capacity: Uint64,
+    // The fees prepared for various transactions.
     prepared_fee_capacity: Uint64,
+    // The price to register a new sub-account.
     new_sub_account_price: Uint64,
+    // The price to register a renew sub-account.
     renew_sub_account_price: Uint64,
+    // The common fee for every transactions SubAccountCell involved.
+    common_fee: Uint64,
+    // The fee for create_sub_account action.
+    create_fee: Uint64,
+    // The fee for edit_sub_account action.
     edit_fee: Uint64,
+    // The fee for renew_sub_account action.
     renew_fee: Uint64,
+    // The fee for recycle_sub_account action.
     recycle_fee: Uint64,
 }
 ```
