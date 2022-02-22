@@ -1011,19 +1011,20 @@ enum DataType {
     IncomeCellData,
     OfferCellData,
     SubAccount,
-    ConfigCellAccount = 100,  // args: 0x64000000
-    ConfigCellApply = 101,    // args: 0x65000000
-    ConfigCellIncome = 103,   // args: 0x67000000
-    ConfigCellMain, // args: 0x68000000           
-    ConfigCellPrice, // args: 0x69000000           
-    ConfigCellProposal, // args: 0x6a000000           
-    ConfigCellProfitRate, // args: 0x6b000000           
-    ConfigCellRecordKeyNamespace, // args: 0x6c000000           
-    ConfigCellRelease, // args: 0x6d000000           
-    ConfigCellUnAvailableAccount, // args: 0x6e000000           
-    ConfigCellSecondaryMarket, // args: 0x6f000000           
-    ConfigCellReverseResolution, // args: 0x7000000           
-    ConfigCellPreservedAccount00 = 10000, // args: 0x10270000           
+    ConfigCellAccount = 100,              // args: 0x64000000
+    ConfigCellApply = 101,                // args: 0x65000000
+    ConfigCellIncome = 103,               // args: 0x67000000
+    ConfigCellMain,                       // args: 0x68000000
+    ConfigCellPrice,                      // args: 0x69000000
+    ConfigCellProposal,                   // args: 0x6a000000
+    ConfigCellProfitRate,                 // args: 0x6b000000
+    ConfigCellRecordKeyNamespace,         // args: 0x6c000000
+    ConfigCellRelease,                    // args: 0x6d000000
+    ConfigCellUnAvailableAccount,         // args: 0x6e000000
+    ConfigCellSecondaryMarket,            // args: 0x6f000000
+    ConfigCellReverseResolution,          // args: 0x70000000
+    ConfigCellSubAccount,                 // args: 0x71000000
+    ConfigCellPreservedAccount00 = 10000, // args: 0x10270000
     ConfigCellPreservedAccount01,
     ConfigCellPreservedAccount02,
     ConfigCellPreservedAccount03,
@@ -1042,10 +1043,10 @@ enum DataType {
     ConfigCellPreservedAccount16,
     ConfigCellPreservedAccount17,
     ConfigCellPreservedAccount18,
-    ConfigCellPreservedAccount19, // args: 0x23270000
-    ConfigCellCharSetEmoji = 100000, // args: 0xa0860100
-    ConfigCellCharSetDigit = 100001, // args: 0xa1860100
-    ConfigCellCharSetEn = 100002, // args: 0xa2860100
+    ConfigCellPreservedAccount19,     // args: 0x23270000
+    ConfigCellCharSetEmoji = 100000,  // args: 0xa0860100
+    ConfigCellCharSetDigit = 100001,  // args: 0xa1860100
+    ConfigCellCharSetEn = 100002,     // args: 0xa2860100
     ConfigCellCharSetZhHans = 100003, // args: 0xa3860100, not available yet
     ConfigCellCharSetZhHant = 100004, // args: 0xa4860100, not available yet
 }
