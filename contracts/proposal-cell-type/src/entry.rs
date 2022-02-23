@@ -265,9 +265,25 @@ fn inspect_related_cells(
         let code_hash = Hash::from(script.code_hash());
 
         if util::is_reader_eq(config_main.type_id_table().account_cell(), code_hash.as_reader()) {
-            let (version, _, entity) = parser.verify_and_get(DataType::AccountCellData, i, related_cells_source)?;
+            let account_cell_witness: Box<dyn AccountCellDataMixer>;
+            let account_cell_witness_reader;
+            parse_account_cell_witness!(
+                account_cell_witness,
+                account_cell_witness_reader,
+                parser,
+                i,
+                related_cells_source
+            );
+            let (version, _, _) = parser.verify_and_get(DataType::AccountCellData, i, related_cells_source)?;
             let data = util::load_cell_data(i, related_cells_source)?;
-            das_core::inspect::account_cell(related_cells_source, i, &data, version, Some(entity.as_reader()), None);
+            das_core::inspect::account_cell(
+                related_cells_source,
+                i,
+                &data,
+                version,
+                None,
+                Some(account_cell_witness_reader),
+            );
         } else if util::is_reader_eq(config_main.type_id_table().pre_account_cell(), code_hash.as_reader()) {
             let (_, _, entity) = parser.verify_and_get(DataType::PreAccountCellData, i, related_cells_source)?;
             let data = util::load_cell_data(i, related_cells_source)?;
@@ -865,7 +881,10 @@ fn verify_proposal_execution_result(
                 // Check all fields in the witness of new AccountCell.
                 verify_witness_id(item_index, &output_cell_data, output_cell_witness_reader)?;
                 verify_witness_account(item_index, &output_cell_data, output_cell_witness_reader)?;
+                verify_witness_registered_at(item_index, timestamp, output_cell_witness_reader)?;
+                verify_witness_throttle_fields(item_index, output_cell_witness_reader)?;
                 verify_witness_status(item_index, output_cell_witness_reader)?;
+                verify_witness_sub_account_fields(item_index, output_cell_witness_reader)?;
 
                 let mut inviter_profit = 0;
                 if input_cell_witness_reader.inviter_lock().is_some() {
@@ -1241,7 +1260,7 @@ fn verify_witness_id(
         "witness.id",
         account_id,
         expected_account_id,
-        Error::ProposalConfirmWitnessIDError,
+        Error::ProposalConfirmNewAccountWitnessError,
     )
 }
 
@@ -1259,8 +1278,45 @@ fn verify_witness_account(
         "witness.account",
         account.as_slice(),
         expected_account,
-        Error::ProposalConfirmWitnessAccountError,
+        Error::ProposalConfirmNewAccountWitnessError,
     )
+}
+
+fn verify_witness_registered_at(
+    item_index: usize,
+    timestamp: u64,
+    output_cell_witness_reader: AccountCellDataReader,
+) -> Result<(), Error> {
+    let registered_at = u64::from(output_cell_witness_reader.registered_at());
+
+    assert!(
+        registered_at == timestamp,
+        Error::ProposalConfirmNewAccountWitnessError,
+        "  Item[{}] The AccountCell.registered_at should be the same as the timestamp in TimeCell.(expected: {}, current: {})",
+        item_index,
+        timestamp,
+        registered_at
+    );
+
+    Ok(())
+}
+
+fn verify_witness_throttle_fields(
+    item_index: usize,
+    output_cell_witness_reader: AccountCellDataReader,
+) -> Result<(), Error> {
+    let last_transfer_account_at = u64::from(output_cell_witness_reader.last_transfer_account_at());
+    let last_edit_manager_at = u64::from(output_cell_witness_reader.last_edit_manager_at());
+    let last_edit_records_at = u64::from(output_cell_witness_reader.last_edit_records_at());
+
+    assert!(
+        last_transfer_account_at == 0 && last_edit_manager_at == 0 && last_edit_records_at == 0,
+        Error::ProposalConfirmNewAccountWitnessError,
+        "  Item[{}] The AccountCell.last_transfer_account_at/last_edit_manager_at/last_edit_records_at should be 0 .",
+        item_index
+    );
+
+    Ok(())
 }
 
 fn verify_witness_status(item_index: usize, output_cell_witness_reader: AccountCellDataReader) -> Result<(), Error> {
@@ -1268,10 +1324,36 @@ fn verify_witness_status(item_index: usize, output_cell_witness_reader: AccountC
 
     assert!(
         status == AccountStatus::Normal as u8,
-        Error::ProposalConfirmWitnessManagerError,
-        "  Item[{}] Check if outputs[].AccountCell.status is normal. (result: {}, expected: 0)",
+        Error::ProposalConfirmNewAccountWitnessError,
+        "  Item[{}] The AccountCell.status should be normal. (expected: 0, current: {})",
         item_index,
         status
+    );
+
+    Ok(())
+}
+
+fn verify_witness_sub_account_fields(
+    item_index: usize,
+    output_cell_witness_reader: AccountCellDataReader,
+) -> Result<(), Error> {
+    let enable_sub_account = u8::from(output_cell_witness_reader.enable_sub_account());
+    let renew_sub_account_price = u64::from(output_cell_witness_reader.renew_sub_account_price());
+
+    assert!(
+        enable_sub_account == SubAccountEnableStatus::Off as u8,
+        Error::ProposalConfirmNewAccountWitnessError,
+        "  Item[{}] The AccountCell.enable_sub_account should be off. (expected: 0, current: {})",
+        item_index,
+        enable_sub_account
+    );
+
+    assert!(
+        renew_sub_account_price == 0,
+        Error::ProposalConfirmNewAccountWitnessError,
+        "  Item[{}] The AccountCell.renew_sub_account_price should be 0. (expected: 0, current: {})",
+        item_index,
+        renew_sub_account_price
     );
 
     Ok(())

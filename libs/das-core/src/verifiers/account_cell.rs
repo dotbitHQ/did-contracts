@@ -258,65 +258,61 @@ pub fn verify_account_witness_consistent<'a>(
         };
     }
 
-    let output_witness_reader = output_witness_reader
-        .try_into_latest()
-        .map_err(|_| Error::NarrowMixerTypeFailed)?;
-    // Migration for AccountCellData v1
-    if input_witness_reader.version() == 1 {
-        let input_witness_reader = input_witness_reader
-            .try_into_v1()
-            .map_err(|_| Error::NarrowMixerTypeFailed)?;
+    assert_field_consistent!(
+        input_witness_reader,
+        output_witness_reader,
+        (id, "id"),
+        (account, "account"),
+        (registered_at, "registered_at")
+    );
 
-        assert_field_consistent!(
-            input_witness_reader,
-            output_witness_reader,
-            (id, "id"),
-            (account, "account"),
-            (registered_at, "registered_at")
-        );
+    assert_field_consistent_if_not_except!(
+        input_witness_reader,
+        output_witness_reader,
+        (records, "records"),
+        (last_transfer_account_at, "last_transfer_account_at"),
+        (last_edit_manager_at, "last_edit_manager_at"),
+        (last_edit_records_at, "last_edit_records_at"),
+        (status, "status")
+    );
 
-        assert_field_consistent_if_not_except!(
-            input_witness_reader,
-            output_witness_reader,
-            (records, "records"),
-            (status, "status")
-        );
-
+    if input_witness_reader.version() <= 1 {
+        // CAREFUL! The early versions will no longer be supported.
+        return Err(Error::InvalidTransactionStructure);
+    } else if input_witness_reader.version() == 2 {
+        // The output witness should be upgraded to the latest version.
         assert!(
-            output_witness_reader.version() == 2,
+            output_witness_reader.version() == 3,
             Error::UpgradeForWitnessIsRequired,
             "The witness of outputs[{}] should be upgraded to latest version.",
             output_index
         );
+
+        let output_witness_reader = output_witness_reader
+            .try_into_latest()
+            .map_err(|_| Error::NarrowMixerTypeFailed)?;
+
         assert!(
-            u64::from(output_witness_reader.last_transfer_account_at()) == 0
-                && u64::from(output_witness_reader.last_edit_manager_at()) == 0
-                && u64::from(output_witness_reader.last_edit_records_at()) == 0,
+            u8::from(output_witness_reader.enable_sub_account()) == 0
+                && u64::from(output_witness_reader.renew_sub_account_price()) == 0,
             Error::UpgradeDefaultValueOfNewFieldIsError,
             "The new fields of outputs[{}] should be 0 by default.",
             output_index
         );
     } else {
+        // Verify if the new fields is consistent.
         let input_witness_reader = input_witness_reader
             .try_into_latest()
             .map_err(|_| Error::NarrowMixerTypeFailed)?;
-
-        assert_field_consistent!(
-            input_witness_reader,
-            output_witness_reader,
-            (id, "id"),
-            (account, "account"),
-            (registered_at, "registered_at")
-        );
+        let output_witness_reader = output_witness_reader
+            .try_into_latest()
+            .map_err(|_| Error::NarrowMixerTypeFailed)?;
 
         assert_field_consistent_if_not_except!(
             input_witness_reader,
             output_witness_reader,
-            (records, "records"),
-            (last_transfer_account_at, "last_transfer_account_at"),
-            (last_edit_manager_at, "last_edit_manager_at"),
-            (last_edit_records_at, "last_edit_records_at"),
-            (status, "status")
+            (enable_sub_account, "enable_sub_account"),
+            (renew_sub_account_price, "renew_sub_account_price")
         );
     }
 
@@ -330,12 +326,10 @@ pub fn verify_account_witness_record_empty<'a>(
 ) -> Result<(), Error> {
     debug!("Check if AccountCell.witness.records is empty.");
 
-    if account_cell_witness_reader.version() == 1 {
-        unreachable!();
+    if account_cell_witness_reader.version() <= 1 {
+        // CAREFUL! The early versions will no longer be supported.
+        return Err(Error::InvalidTransactionStructure);
     } else {
-        let account_cell_witness_reader = account_cell_witness_reader
-            .try_into_latest()
-            .map_err(|_| Error::NarrowMixerTypeFailed)?;
         let records = account_cell_witness_reader.records();
 
         assert!(
@@ -356,17 +350,10 @@ pub fn verify_account_cell_status_update_correctly<'a>(
     expected_input_status: AccountStatus,
     expected_output_status: AccountStatus,
 ) -> Result<(), Error> {
-    if input_account_cell_witness_reader.version() == 1 {
-        // There is no version 1 AccountCell in mainnet, so we simply disable them here.
-        unreachable!()
+    if input_account_cell_witness_reader.version() <= 1 {
+        // CAREFUL! The early versions will no longer be supported.
+        return Err(Error::InvalidTransactionStructure);
     } else {
-        let input_account_cell_witness_reader = input_account_cell_witness_reader
-            .try_into_latest()
-            .map_err(|_| Error::NarrowMixerTypeFailed)?;
-        let output_account_cell_witness_reader = output_account_cell_witness_reader
-            .try_into_latest()
-            .map_err(|_| Error::NarrowMixerTypeFailed)?;
-
         let input_status = u8::from(input_account_cell_witness_reader.status());
         let output_status = u8::from(output_account_cell_witness_reader.status());
 
@@ -393,14 +380,10 @@ pub fn verify_account_cell_status<'a>(
     index: usize,
     source: Source,
 ) -> Result<(), Error> {
-    if account_cell_witness_reader.version() == 1 {
-        // There is no version 1 AccountCell in mainnet, so we simply disable them here.
-        unreachable!()
+    if account_cell_witness_reader.version() <= 1 {
+        // CAREFUL! The early versions will no longer be supported.
+        return Err(Error::InvalidTransactionStructure);
     } else {
-        let account_cell_witness_reader = account_cell_witness_reader
-            .try_into_latest()
-            .map_err(|_| Error::NarrowMixerTypeFailed)?;
-
         let account_cell_status = u8::from(account_cell_witness_reader.status());
 
         assert!(

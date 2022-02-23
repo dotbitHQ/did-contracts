@@ -5,9 +5,10 @@ use super::{
     data_parser::{account_cell, apply_register_cell, pre_account_cell},
     debug,
 };
-use alloc::string::String;
+use alloc::{boxed::Box, string::String};
 use ckb_std::ckb_constants::Source;
 use core::convert::TryInto;
+use das_types::mixer::AccountCellDataReaderMixer;
 use das_types::{packed::*, prelude::*, prettier::Prettier, util::hex_string};
 
 #[cfg(debug_assertions)]
@@ -47,13 +48,13 @@ pub fn pre_account_cell(
 }
 
 #[cfg(debug_assertions)]
-pub fn account_cell(
+pub fn account_cell<'r>(
     source: Source,
     index: usize,
     data: &Vec<u8>,
     version: u32,
     raw_witness: Option<BytesReader>,
-    witness_reader_opt: Option<AccountCellDataReader>,
+    witness_reader_opt: Option<Box<dyn AccountCellDataReaderMixer + 'r>>,
 ) {
     debug!("  ====== {:?}[{}] AccountCell(v{}) ↓ ======", source, index, version);
 
@@ -66,30 +67,18 @@ pub fn account_cell(
         String::from_utf8(account_cell::get_account(&data).to_vec()).unwrap()
     );
 
-    let mut witness_reader: Option<AccountCellDataReader> = None;
-    let mut witness_reader_v1: Option<AccountCellDataV1Reader> = None;
     if raw_witness.is_some() {
-        if version == 1 {
-            witness_reader_v1 = Some(
-                AccountCellDataV1Reader::from_slice(raw_witness.unwrap().raw_data())
-                    .expect("Failed to decode witness, please check the version of the AccountCell."),
-            );
+        unreachable!();
+    } else {
+        let witness_reader = witness_reader_opt.expect("Must pass one of raw_witness and witness_reader_opt");
+        if version == 2 {
+            debug!("    witness: {}", witness_reader.try_into_v2().unwrap().as_prettier());
         } else {
-            witness_reader = Some(
-                AccountCellDataReader::from_slice(raw_witness.unwrap().raw_data())
-                    .expect("Failed to decode witness, please check the version of the AccountCell."),
+            debug!(
+                "    witness: {}",
+                witness_reader.try_into_latest().unwrap().as_prettier()
             );
         }
-    } else if witness_reader_opt.is_some() {
-        witness_reader = Some(witness_reader_opt.unwrap());
-    } else {
-        panic!("Must pass one of raw_witness and witness_reader_opt");
-    }
-
-    if version == 1 {
-        debug!("    witness: {}", witness_reader_v1.unwrap());
-    } else {
-        debug!("    witness: {}", witness_reader.unwrap().as_prettier());
     }
 }
 

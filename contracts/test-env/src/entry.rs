@@ -39,9 +39,9 @@ pub fn main() -> Result<(), Error> {
             let entity_reader = entity.as_reader();
 
             assert!(
-                version == 2,
+                version == 3,
                 Error::UnittestError,
-                "The version in witness should be 2 ."
+                "The version in witness should be 3 ."
             );
         }
         _ => return Err(Error::ActionNotSupported),
