@@ -182,7 +182,7 @@ challenge_with_generator!(
             .price(price.to_owned())
             .quote(Uint64::from(quote))
             .invited_discount(Uint32::from(invited_discount as u32))
-            .created_at(Timestamp::from(created_at))
+            .created_at(Uint64::from(created_at))
             .build();
 
         // The account ID calculated from other account expected to be denied correctly.
@@ -408,7 +408,7 @@ challenge_with_generator!(
             .price(price.to_owned())
             .quote(Uint64::from(quote))
             .invited_discount(Uint32::from(invited_discount as u32))
-            .created_at(Timestamp::from(created_at))
+            .created_at(Uint64::from(created_at))
             .build();
 
         // The account ID calculated from other account expected to be denied correctly.

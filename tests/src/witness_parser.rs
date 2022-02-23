@@ -2,7 +2,7 @@ use crate::util::{
     self, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
 };
 use ckb_testtool::ckb_hash::blake2b_256;
-use das_types_std::{constants::*, packed::*, prelude::*, util as das_util};
+use das_types_std::{constants::*, packed::*, prelude::*, util as das_util, util::EntityWrapper};
 use serde_json::{json, Value};
 use std::convert::TryFrom;
 
@@ -163,7 +163,13 @@ fn test_parse_witness_cells() {
     let (lock_script, type_script, cell_data, entity) = gen_account_cell();
     template.push_cell(0, lock_script, type_script, Some(cell_data), Source::CellDep);
 
-    let witness = das_util::wrap_data_witness_v2(DataType::AccountCellData, 2, index, entity, Source::CellDep);
+    let witness = das_util::wrap_data_witness_v3(
+        DataType::AccountCellData,
+        3,
+        index,
+        EntityWrapper::AccountCellData(entity),
+        Source::CellDep,
+    );
     template.outer_witnesses.push(util::bytes_to_hex(&witness.raw_data()));
 
     push_input_test_env_cell(&mut template);
@@ -179,7 +185,13 @@ fn challenge_parse_witness_cells_data_type() {
     template.push_cell(0, lock_script, type_script, Some(cell_data), Source::CellDep);
 
     // Simulate put the witness of the ConfigCell with wrong data type.
-    let witness = das_util::wrap_data_witness_v2(DataType::IncomeCellData, 2, index, entity, Source::CellDep);
+    let witness = das_util::wrap_data_witness_v3(
+        DataType::IncomeCellData,
+        3,
+        index,
+        EntityWrapper::AccountCellData(entity),
+        Source::CellDep,
+    );
     template.outer_witnesses.push(util::bytes_to_hex(&witness.raw_data()));
 
     push_input_test_env_cell(&mut template);
@@ -199,7 +211,13 @@ fn challenge_parse_witness_cells_hash() {
     ]);
     template.push_cell(0, lock_script, type_script, Some(fake_cell_data), Source::CellDep);
 
-    let witness = das_util::wrap_data_witness_v2(DataType::AccountCellData, 2, index, entity, Source::CellDep);
+    let witness = das_util::wrap_data_witness_v3(
+        DataType::AccountCellData,
+        3,
+        index,
+        EntityWrapper::AccountCellData(entity),
+        Source::CellDep,
+    );
     template.outer_witnesses.push(util::bytes_to_hex(&witness.raw_data()));
 
     push_input_test_env_cell(&mut template);

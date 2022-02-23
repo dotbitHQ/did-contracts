@@ -56,7 +56,7 @@ fn push_input_proposal_cell_with_slices(template: &mut TemplateGenerator) {
 fn push_input_slice_0(template: &mut TemplateGenerator) {
     let lock_scripts = gen_lock_scripts();
 
-    push_input_account_cell_v1(
+    push_input_account_cell_v2(
         template,
         json!({
             "capacity": util::gen_account_cell_capacity(8),

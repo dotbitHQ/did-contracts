@@ -80,12 +80,7 @@ pub enum Error {
     ProposalWitnessCanNotBeModified,
     ProposalConfirmNewAccountCellDataError = 100,
     ProposalConfirmNewAccountCellCapacityError,
-    ProposalConfirmWitnessIDError,
-    ProposalConfirmWitnessAccountError,
-    ProposalConfirmWitnessOwnerError,
-    ProposalConfirmWitnessManagerError, // 105
-    ProposalConfirmWitnessStatusError,
-    ProposalConfirmWitnessRecordsError,
+    ProposalConfirmNewAccountWitnessError, // 105
     ProposalConfirmPreAccountCellExpired,
     ProposalConfirmNeedWaitLonger,
     ProposalConfirmAccountLockArgsIsInvalid = 110,

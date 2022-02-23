@@ -155,10 +155,10 @@ pub fn push_output_account_cell(template: &mut TemplateGenerator, cell_partial: 
     });
     util::merge_json(&mut cell, cell_partial);
 
-    template.push_output(cell, Some(2));
+    template.push_output(cell, Some(3));
 }
 
-pub fn push_input_account_cell_v1(template: &mut TemplateGenerator, cell_partial: Value) {
+pub fn push_input_account_cell_v2(template: &mut TemplateGenerator, cell_partial: Value) {
     let mut cell = json!({
         "capacity": util::gen_account_cell_capacity(5),
         "lock": {
@@ -181,7 +181,7 @@ pub fn push_input_account_cell_v1(template: &mut TemplateGenerator, cell_partial
     });
     util::merge_json(&mut cell, cell_partial);
 
-    template.push_input(cell, Some(1));
+    template.push_input(cell, Some(2));
     template.push_das_lock_witness("0000000000000000000000000000000000000000000000000000000000000000");
 }
 

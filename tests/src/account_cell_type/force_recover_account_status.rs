@@ -54,7 +54,7 @@ fn push_input_account_sale_cell(template: &mut TemplateGenerator, timestamp: u64
                 "buyer_inviter_profit_rate": SALE_BUYER_INVITER_PROFIT_RATE
             }
         }),
-        None,
+        Some(2),
     );
 }
 
@@ -98,7 +98,7 @@ fn test_account_force_recover_account_status() {
                 "status": (AccountStatus::Normal as u8)
             }
         }),
-        Some(2),
+        Some(3),
     );
 
     push_output_balance_cell(&mut template, 20_099_990_000, OWNER);
