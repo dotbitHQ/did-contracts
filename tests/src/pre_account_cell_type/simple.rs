@@ -15,7 +15,7 @@ use std::convert::TryFrom;
 #[test]
 fn gen_pre_register_simple() {
     let (mut template, account, timestamp) = init("✨das🎉001.bit");
-    template.push_config_cell_derived_by_account("✨das🎉001", true, 0, Source::CellDep);
+    template.push_config_cell_derived_by_account("✨das🎉001", Source::CellDep);
 
     let (cell_data, entity) = template.gen_pre_account_cell_data(
         account,
@@ -44,7 +44,7 @@ challenge_with_generator!(
     Error::ApplyRegisterNeedWaitLonger,
     || {
         let (mut template, account, timestamp, height) = init_without_apply("1234567890.bit");
-        template.push_config_cell_derived_by_account("1234567890", true, 0, Source::CellDep);
+        template.push_config_cell_derived_by_account("1234567890", Source::CellDep);
 
         template.push_apply_register_cell(
             "0x9af92f5e690f4669ca543deb99af8385b12624cc",
@@ -81,7 +81,7 @@ challenge_with_generator!(
     Error::ApplyRegisterHasTimeout,
     || {
         let (mut template, account, timestamp, height) = init_without_apply("1234567890.bit");
-        template.push_config_cell_derived_by_account("1234567890", true, 0, Source::CellDep);
+        template.push_config_cell_derived_by_account("1234567890", Source::CellDep);
 
         template.push_apply_register_cell(
             "0x9af92f5e690f4669ca543deb99af8385b12624cc",
@@ -118,7 +118,7 @@ challenge_with_generator!(
     Error::PreRegisterApplyHashIsInvalid,
     || {
         let (mut template, account, timestamp, height) = init_without_apply("1234567890.bit");
-        template.push_config_cell_derived_by_account("1234567890", true, 0, Source::CellDep);
+        template.push_config_cell_derived_by_account("1234567890", Source::CellDep);
 
         template.push_apply_register_cell(
             "0x9af92f5e690f4669ca543deb99af8385b12624cc",
@@ -155,7 +155,7 @@ challenge_with_generator!(
     Error::PreRegisterAccountIdIsInvalid,
     || {
         let (mut template, _account, timestamp) = init("1234567890.bit");
-        template.push_config_cell_derived_by_account("1234567890", true, 0, Source::CellDep);
+        template.push_config_cell_derived_by_account("1234567890", Source::CellDep);
 
         let refund_lock_args = CHANNEL;
         let owner_lock_args = OWNER;
@@ -208,7 +208,7 @@ challenge_with_generator!(
     Error::PreRegisterCreateAtIsInvalid,
     || {
         let (mut template, account, timestamp) = init("1234567890.bit");
-        template.push_config_cell_derived_by_account("1234567890", true, 0, Source::CellDep);
+        template.push_config_cell_derived_by_account("1234567890", Source::CellDep);
 
         let (cell_data, entity) = template.gen_pre_account_cell_data(
             account,
@@ -236,7 +236,7 @@ challenge_with_generator!(
     Error::PreRegisterOwnerLockArgsIsInvalid,
     || {
         let (mut template, account, timestamp) = init("1234567890.bit");
-        template.push_config_cell_derived_by_account("1234567890", true, 0, Source::CellDep);
+        template.push_config_cell_derived_by_account("1234567890", Source::CellDep);
 
         let (cell_data, entity) = template.gen_pre_account_cell_data(
             account,
@@ -264,7 +264,7 @@ challenge_with_generator!(
     Error::PreRegisterQuoteIsInvalid,
     || {
         let (mut template, account, timestamp) = init("1234567890.bit");
-        template.push_config_cell_derived_by_account("1234567890", true, 0, Source::CellDep);
+        template.push_config_cell_derived_by_account("1234567890", Source::CellDep);
 
         let (cell_data, entity) = template.gen_pre_account_cell_data(
             account,
@@ -292,12 +292,7 @@ challenge_with_generator!(
     Error::PreRegisterAccountIsTooLong,
     || {
         let (mut template, account, timestamp) = init("1234567890123456789012345678901234567890123.bit");
-        template.push_config_cell_derived_by_account(
-            "1234567890123456789012345678901234567890123",
-            true,
-            0,
-            Source::CellDep,
-        );
+        template.push_config_cell_derived_by_account("1234567890123456789012345678901234567890123", Source::CellDep);
 
         let (cell_data, entity) = template.gen_pre_account_cell_data(
             account,
@@ -325,7 +320,7 @@ challenge_with_generator!(
     Error::PreRegisterDiscountIsInvalid,
     || {
         let (mut template, account, timestamp) = init("1234567890.bit");
-        template.push_config_cell_derived_by_account("1234567890", true, 0, Source::CellDep);
+        template.push_config_cell_derived_by_account("1234567890", Source::CellDep);
 
         let (cell_data, entity) = template.gen_pre_account_cell_data(
             account,
@@ -353,7 +348,7 @@ challenge_with_generator!(
     Error::PreRegisterDiscountIsInvalid,
     || {
         let (mut template, account, timestamp) = init("1234567890.bit");
-        template.push_config_cell_derived_by_account("1234567890", true, 0, Source::CellDep);
+        template.push_config_cell_derived_by_account("1234567890", Source::CellDep);
 
         let (cell_data, entity) = template.gen_pre_account_cell_data(
             account,
@@ -381,7 +376,7 @@ challenge_with_generator!(
     Error::PreRegisterPriceInvalid,
     || {
         let (mut template, _account, timestamp) = init("1234567890.bit");
-        template.push_config_cell_derived_by_account("1234567890", true, 0, Source::CellDep);
+        template.push_config_cell_derived_by_account("1234567890", Source::CellDep);
 
         let refund_lock_args = CHANNEL;
         let owner_lock_args = OWNER;
@@ -434,7 +429,7 @@ challenge_with_generator!(
     Error::PreRegisterCKBInsufficient,
     || {
         let (mut template, account, timestamp) = init("1234567890.bit");
-        template.push_config_cell_derived_by_account("1234567890", true, 0, Source::CellDep);
+        template.push_config_cell_derived_by_account("1234567890", Source::CellDep);
 
         let (cell_data, entity) = template.gen_pre_account_cell_data(
             account,

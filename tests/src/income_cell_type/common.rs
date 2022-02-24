@@ -42,8 +42,8 @@ pub fn init(action: &str) -> TemplateGenerator {
     template.push_contract_cell("fake-secp256k1-blake160-signhash-all", true);
     template.push_contract_cell("income-cell-type", false);
 
-    template.push_config_cell(DataType::ConfigCellMain, true, 0, Source::CellDep);
-    template.push_config_cell(DataType::ConfigCellIncome, true, 0, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellMain, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellIncome, Source::CellDep);
 
     template
 }

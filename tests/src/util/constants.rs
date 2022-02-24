@@ -36,6 +36,16 @@ pub const REVERSE_RECORD_BASIC_CAPACITY: u64 = 20_000_000_000;
 pub const REVERSE_RECORD_PREPARED_FEE_CAPACITY: u64 = 100_000_000;
 pub const REVERSE_RECORD_COMMON_FEE: u64 = 10_000;
 
+pub const SUB_ACCOUNT_BASIC_CAPACITY: u64 = 20_000_000_000;
+pub const SUB_ACCOUNT_PREPARED_FEE_CAPACITY: u64 = 1_000_000_000;
+pub const SUB_ACCOUNT_NEW_PRICE: u64 = 100_000_000;
+pub const SUB_ACCOUNT_RENEW_PRICE: u64 = 100_000_000;
+pub const SUB_ACCOUNT_COMMON_FEE: u64 = 10_000;
+pub const SUB_ACCOUNT_CREATE_FEE: u64 = 10_000;
+pub const SUB_ACCOUNT_EDIT_FEE: u64 = 10_000;
+pub const SUB_ACCOUNT_RENEW_FEE: u64 = 10_000;
+pub const SUB_ACCOUNT_RECYCLE_FEE: u64 = 10_000;
+
 pub const HOUR_SEC: u64 = 3600;
 pub const DAY_SEC: u64 = 86400;
 pub const MONTH_SEC: u64 = DAY_SEC * 30;
@@ -133,6 +143,10 @@ lazy_static! {
         map.insert(
             "reverse-record-cell-type",
             "0x666163a5626501ca714b96cbcb4730b0a111ec2640fb432d0ba7f4ba5fa2855b",
+        );
+        map.insert(
+            "sub-account-cell-type",
+            "0xbdbe9526416cd0a86c7a3b78ae8907aed9fa37ef1d51d4c54638d81dd423e5b5",
         );
         map.insert(
             "test-env",

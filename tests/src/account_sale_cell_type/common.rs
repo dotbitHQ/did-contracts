@@ -19,9 +19,9 @@ pub fn init(action: &str, params_opt: Option<&str>) -> TemplateGenerator {
 
     template.push_oracle_cell(1, OracleCellType::Time, TIMESTAMP);
 
-    template.push_config_cell(DataType::ConfigCellMain, true, 0, Source::CellDep);
-    template.push_config_cell(DataType::ConfigCellAccount, true, 0, Source::CellDep);
-    template.push_config_cell(DataType::ConfigCellSecondaryMarket, true, 0, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellMain, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellAccount, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellSecondaryMarket, Source::CellDep);
 
     template
 }
@@ -29,8 +29,8 @@ pub fn init(action: &str, params_opt: Option<&str>) -> TemplateGenerator {
 pub fn init_with_profit_rate(action: &str, params_opt: Option<&str>) -> TemplateGenerator {
     let mut template = init(action, params_opt);
     template.push_contract_cell("income-cell-type", false);
-    template.push_config_cell(DataType::ConfigCellProfitRate, true, 0, Source::CellDep);
-    template.push_config_cell(DataType::ConfigCellIncome, true, 0, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellProfitRate, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellIncome, Source::CellDep);
 
     template
 }

@@ -13,7 +13,7 @@ fn init(action: &str) -> TemplateGenerator {
     template.push_contract_cell("fake-secp256k1-blake160-signhash-all", true);
     template.push_contract_cell("test-env", false);
 
-    template.push_config_cell(DataType::ConfigCellMain, true, 0, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellMain, Source::CellDep);
 
     template
 }
@@ -159,7 +159,7 @@ fn gen_account_cell() -> (Value, Value, Bytes, AccountCellData) {
 fn test_parse_witness_cells() {
     let mut template = init("test_parse_witness_cells");
 
-    let index = template.cell_deps.len() as u32;
+    let index = template.cell_deps.len();
     let (lock_script, type_script, cell_data, entity) = gen_account_cell();
     template.push_cell(0, lock_script, type_script, Some(cell_data), Source::CellDep);
 
@@ -180,7 +180,7 @@ fn test_parse_witness_cells() {
 fn challenge_parse_witness_cells_data_type() {
     let mut template = init("test_parse_witness_cells");
 
-    let index = template.cell_deps.len() as u32;
+    let index = template.cell_deps.len();
     let (lock_script, type_script, cell_data, entity) = gen_account_cell();
     template.push_cell(0, lock_script, type_script, Some(cell_data), Source::CellDep);
 
@@ -202,7 +202,7 @@ fn challenge_parse_witness_cells_data_type() {
 fn challenge_parse_witness_cells_hash() {
     let mut template = init("test_parse_witness_cells");
 
-    let index = template.cell_deps.len() as u32;
+    let index = template.cell_deps.len();
     let (lock_script, type_script, _, entity) = gen_account_cell();
     // Simulate put the witness of the ConfigCell with wrong hash.
     let fake_cell_data = Bytes::from(vec![

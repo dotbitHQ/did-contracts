@@ -8,7 +8,7 @@ fn before_each() -> TemplateGenerator {
 
     let account_without_suffix = &ACCOUNT[0..ACCOUNT.len() - 4];
     println!("account_without_suffix = {:?}", account_without_suffix);
-    template.push_config_cell_derived_by_account(account_without_suffix, true, 0, Source::CellDep);
+    template.push_config_cell_derived_by_account(account_without_suffix, Source::CellDep);
 
     template
 }

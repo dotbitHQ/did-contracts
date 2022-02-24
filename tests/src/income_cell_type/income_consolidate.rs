@@ -7,7 +7,7 @@ use super::common::init as common_init;
 
 fn init(action: &str) -> TemplateGenerator {
     let mut template = common_init(action);
-    template.push_config_cell(DataType::ConfigCellProfitRate, true, 0, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellProfitRate, Source::CellDep);
 
     template
 }

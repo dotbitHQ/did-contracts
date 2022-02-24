@@ -18,15 +18,15 @@ pub fn init_without_apply(account: &str) -> (TemplateGenerator, &str, u64, u64) 
     template.push_oracle_cell(1, OracleCellType::Time, timestamp);
     template.push_oracle_cell(1, OracleCellType::Quote, 1000);
 
-    template.push_config_cell(DataType::ConfigCellAccount, true, 0, Source::CellDep);
-    template.push_config_cell(DataType::ConfigCellApply, true, 0, Source::CellDep);
-    template.push_config_cell(DataType::ConfigCellCharSetEmoji, true, 0, Source::CellDep);
-    template.push_config_cell(DataType::ConfigCellCharSetDigit, true, 0, Source::CellDep);
-    template.push_config_cell(DataType::ConfigCellCharSetEn, true, 0, Source::CellDep);
-    template.push_config_cell(DataType::ConfigCellMain, true, 0, Source::CellDep);
-    template.push_config_cell(DataType::ConfigCellPrice, true, 0, Source::CellDep);
-    template.push_config_cell(DataType::ConfigCellRelease, true, 0, Source::CellDep);
-    template.push_config_cell(DataType::ConfigCellUnAvailableAccount, true, 0, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellAccount, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellApply, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellCharSetEmoji, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellCharSetDigit, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellCharSetEn, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellMain, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellPrice, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellRelease, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellUnAvailableAccount, Source::CellDep);
 
     (template, account, timestamp, height)
 }

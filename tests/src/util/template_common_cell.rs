@@ -150,7 +150,9 @@ pub fn push_output_account_cell(template: &mut TemplateGenerator, cell_partial: 
             "last_transfer_account_at": 0,
             "last_edit_manager_at": 0,
             "last_edit_records_at": 0,
-            "status": (AccountStatus::Normal as u8)
+            "status": (AccountStatus::Normal as u8),
+            "enable_sub_account": 0,
+            "renew_sub_account_price": 0,
         }
     });
     util::merge_json(&mut cell, cell_partial);
@@ -183,6 +185,40 @@ pub fn push_input_account_cell_v2(template: &mut TemplateGenerator, cell_partial
 
     template.push_input(cell, Some(2));
     template.push_das_lock_witness("0000000000000000000000000000000000000000000000000000000000000000");
+}
+
+pub fn push_input_sub_account_cell(template: &mut TemplateGenerator, cell_partial: Value) {
+    let mut cell = json!({
+        "lock": {
+            "code_hash": "{{always_success}}"
+        },
+        "type": {
+            "code_hash": "{{sub-account-cell-type}}"
+        },
+        "data": {
+            "root": "0x0000000000000000000000000000000000000000000000000000000000000000"
+        }
+    });
+    util::merge_json(&mut cell, cell_partial);
+
+    template.push_input(cell, None);
+}
+
+pub fn push_output_sub_account_cell(template: &mut TemplateGenerator, cell_partial: Value) {
+    let mut cell = json!({
+        "lock": {
+            "code_hash": "{{always_success}}"
+        },
+        "type": {
+            "code_hash": "{{sub-account-cell-type}}"
+        },
+        "data": {
+            "root": "0x0000000000000000000000000000000000000000000000000000000000000000"
+        }
+    });
+    util::merge_json(&mut cell, cell_partial);
+
+    template.push_output(cell, None);
 }
 
 pub fn push_input_income_cell(template: &mut TemplateGenerator, cell_partial: Value) {

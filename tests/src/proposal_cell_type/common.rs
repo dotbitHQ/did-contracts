@@ -147,8 +147,8 @@ pub fn init(action: &str) -> TemplateGenerator {
     template.push_oracle_cell(1, OracleCellType::Time, TIMESTAMP);
     template.push_oracle_cell(1, OracleCellType::Height, HEIGHT);
 
-    template.push_config_cell(DataType::ConfigCellMain, true, 0, Source::CellDep);
-    template.push_config_cell(DataType::ConfigCellProposal, true, 0, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellMain, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellProposal, Source::CellDep);
 
     template
 }
@@ -160,9 +160,9 @@ pub fn init_with_confirm() -> TemplateGenerator {
     template.push_contract_cell("pre-account-cell-type", false);
     template.push_contract_cell("income-cell-type", false);
 
-    template.push_config_cell(DataType::ConfigCellAccount, true, 0, Source::CellDep);
-    template.push_config_cell(DataType::ConfigCellProfitRate, true, 0, Source::CellDep);
-    template.push_config_cell(DataType::ConfigCellIncome, true, 0, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellAccount, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellProfitRate, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellIncome, Source::CellDep);
 
     template
 }

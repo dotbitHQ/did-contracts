@@ -32,7 +32,7 @@ pub fn test_tx(tx: Value) {
     // );
     let cycles = parser
         .execute_tx(&tx_view)
-        .expect("Transaction verification should pass.");
+        .expect("Transaction verification should pass");
 
     println!(
         r#"︎↑︎======================================↑︎

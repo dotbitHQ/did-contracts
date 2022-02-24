@@ -8,7 +8,7 @@ challenge_with_generator!(
     Error::AccountIsPreserved,
     || {
         let (mut template, account, timestamp) = init("microsoft.bit");
-        template.push_config_cell_derived_by_account("microsoft", true, 0, Source::CellDep);
+        template.push_config_cell_derived_by_account("microsoft", Source::CellDep);
 
         let (cell_data, entity) = template.gen_pre_account_cell_data(
             account,
@@ -33,7 +33,7 @@ challenge_with_generator!(
 
 test_with_generator!(test_pre_register_preserved_account_with_super_lock, || {
     let (mut template, account, timestamp) = init("microsoft.bit");
-    template.push_config_cell_derived_by_account("microsoft", true, 0, Source::CellDep);
+    template.push_config_cell_derived_by_account("microsoft", Source::CellDep);
 
     // 0x0000000000000000000000000000000000000000 is the super lock in dev environment.
     template.push_signall_cell("0x0000000000000000000000000000000000000000", 0, Source::Input);

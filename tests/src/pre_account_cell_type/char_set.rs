@@ -5,8 +5,8 @@ use das_types_std::constants::*;
 
 test_with_generator!(test_pre_register_char_set, || {
     let (mut template, account, timestamp) = init("✨咐桑糯0001.bit");
-    template.push_config_cell_derived_by_account("✨咐桑糯0001", true, 0, Source::CellDep);
-    template.push_config_cell(DataType::ConfigCellCharSetZhHans, true, 0, Source::CellDep);
+    template.push_config_cell_derived_by_account("✨咐桑糯0001", Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellCharSetZhHans, Source::CellDep);
 
     let (cell_data, entity) = template.gen_pre_account_cell_data(
         account,
@@ -34,7 +34,7 @@ challenge_with_generator!(
     || {
         // ⚠️ Need to delete the emoji from char_set_emoji.txt first, otherwise the test can not pass.
         let (mut template, account, timestamp) = init("✨das🎱001.bit");
-        template.push_config_cell_derived_by_account("✨das🎱001", true, 0, Source::CellDep);
+        template.push_config_cell_derived_by_account("✨das🎱001", Source::CellDep);
 
         let (cell_data, entity) = template.gen_pre_account_cell_data(
             account,
