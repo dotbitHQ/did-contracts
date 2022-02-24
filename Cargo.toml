@@ -1,23 +1,27 @@
 [workspace]
 members = [
-    "tests",
+    # Common libs
     "libs/das-core",
     "libs/das-dynamic-libs",
     "libs/das-sorted-list",
     "libs/das-map",
     "libs/eip712",
+    # Contracts
     "contracts/always-success",
-    "contracts/apply-register-cell-type",
     "contracts/account-cell-type",
     "contracts/account-sale-cell-type",
     "contracts/account-auction-cell-type",
+    "contracts/apply-register-cell-type",
     "contracts/balance-cell-type",
     "contracts/config-cell-type",
     "contracts/income-cell-type",
+    "contracts/offer-cell-type",
     "contracts/pre-account-cell-type",
     "contracts/proposal-cell-type",
     "contracts/reverse-record-cell-type",
-    "contracts/offer-cell-type",
+    "contracts/sub-account-cell-type",
+    # Only for unit tests
+    "tests",
     "contracts/test-env",
     "contracts/playground",
 ]

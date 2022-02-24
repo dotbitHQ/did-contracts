@@ -599,6 +599,9 @@ pub fn main() -> Result<(), Error> {
                 current_capacity
             );
         }
+        b"enable_sub_account" => {
+            // TODO Implement SubAccountCell creation process.
+        }
         _ => return Err(Error::ActionNotSupported),
     }
 

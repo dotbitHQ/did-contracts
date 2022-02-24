@@ -1494,7 +1494,7 @@ dependencies = [
  "das-dynamic-libs",
  "das-types",
  "hex",
- "sparse-merkle-tree 0.5.2",
+ "sparse-merkle-tree 0.5.3 (git+https://github.com/nervosnetwork/sparse-merkle-tree.git)",
 ]
 
 [[package]]
@@ -1845,16 +1845,6 @@ checksum = "c111b5bd5695e56cffe5129854aa230b39c93a305372fdbb2668ca2394eea9f8"
 
 [[package]]
 name = "sparse-merkle-tree"
-version = "0.5.2"
-source = "git+https://github.com/joii2020/sparse-merkle-tree.git?branch=dev_CInc#c697a62b4e11397e6b3d23ca747eb64990ca725d"
-dependencies = [
- "blake2b-rs 0.2.0",
- "cc",
- "cfg-if 0.1.10",
-]
-
-[[package]]
-name = "sparse-merkle-tree"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f84214ec89cb9d304b5d54c7a266951c25bd396b2df5388420a9497a6896120a"
@@ -1864,10 +1854,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "sparse-merkle-tree"
+version = "0.5.3"
+source = "git+https://github.com/nervosnetwork/sparse-merkle-tree.git#dddbed3c524011efb7bf7fb5314e93b06b7aebb0"
+dependencies = [
+ "blake2b-rs 0.2.0",
+ "cc",
+ "cfg-if 0.1.10",
+]
+
+[[package]]
 name = "spin"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
+
+[[package]]
+name = "sub-account-cell-type"
+version = "1.0.0"
+dependencies = [
+ "blake2b-ref 0.3.0",
+ "ckb-std",
+ "das-core",
+ "das-dynamic-libs",
+ "das-types",
+ "hex",
+ "sparse-merkle-tree 0.5.3 (git+https://github.com/nervosnetwork/sparse-merkle-tree.git)",
+]
 
 [[package]]
 name = "subtle"
@@ -1975,7 +1988,7 @@ dependencies = [
  "secp256k1 0.17.2",
  "serde",
  "serde_json",
- "sparse-merkle-tree 0.5.3",
+ "sparse-merkle-tree 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "walkdir",
 ]
 
