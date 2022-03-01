@@ -704,6 +704,7 @@ pub fn require_type_script(
         TypeScript::PreAccountCellType => config.type_id_table().pre_account_cell(),
         TypeScript::ProposalCellType => config.type_id_table().proposal_cell(),
         TypeScript::ReverseRecordCellType => config.type_id_table().reverse_record_cell(),
+        TypeScript::SubAccountCellType => config.type_id_table().sub_account_cell(),
     };
 
     debug!(

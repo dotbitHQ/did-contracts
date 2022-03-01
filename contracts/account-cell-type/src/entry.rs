@@ -602,6 +602,14 @@ pub fn main() -> Result<(), Error> {
         b"enable_sub_account" => {
             // TODO Implement SubAccountCell creation process.
         }
+        b"create_sub_account" => {
+            util::require_type_script(
+                &mut parser,
+                TypeScript::SubAccountCellType,
+                Source::Input,
+                Error::InvalidTransactionStructure,
+            )?;
+        }
         _ => return Err(Error::ActionNotSupported),
     }
 

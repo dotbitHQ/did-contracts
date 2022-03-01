@@ -30,6 +30,7 @@ pub enum TypeScript {
     PreAccountCellType,
     ProposalCellType,
     ReverseRecordCellType,
+    SubAccountCellType,
 }
 
 #[derive(Debug)]
