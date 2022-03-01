@@ -1,10 +1,7 @@
-use crate::util::{self, constants::*, template_generator::*};
+use crate::util::{self, accounts::*, constants::*, template_generator::*};
 use das_types_std::{constants::*, packed::*};
 use serde_json::{json, Value};
 
-pub const ACCOUNT: &str = "xxxxx.bit";
-pub const SELLER: &str = "0x050000000000000000000000000000000000001111";
-pub const BUYER: &str = "0x050000000000000000000000000000000000002222";
 pub const PRICE: u64 = 200_000_000_000;
 pub const TIMESTAMP: u64 = 1611200090u64;
 
@@ -54,11 +51,11 @@ pub fn push_input_offer_cell(template: &mut TemplateGenerator, cell_partial: Val
             "message": "Take my money.🍀",
             "inviter_lock": {
                 "code_hash": "{{fake-das-lock}}",
-                "args": gen_das_lock_args(INVITER_LOCK_ARGS, None)
+                "args": gen_das_lock_args(INVITER, None)
             },
             "channel_lock": {
                 "code_hash": "{{fake-das-lock}}",
-                "args": gen_das_lock_args(CHANNEL_LOCK_ARGS, None)
+                "args": gen_das_lock_args(CHANNEL, None)
             }
         }
     });
@@ -84,11 +81,11 @@ pub fn push_output_offer_cell(template: &mut TemplateGenerator, cell_partial: Va
             "message": "Take my money.🍀",
             "inviter_lock": {
                 "code_hash": "{{fake-das-lock}}",
-                "args": gen_das_lock_args(INVITER_LOCK_ARGS, None)
+                "args": gen_das_lock_args(INVITER, None)
             },
             "channel_lock": {
                 "code_hash": "{{fake-das-lock}}",
-                "args": gen_das_lock_args(CHANNEL_LOCK_ARGS, None)
+                "args": gen_das_lock_args(CHANNEL, None)
             }
         }
     });

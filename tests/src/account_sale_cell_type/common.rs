@@ -1,10 +1,7 @@
-use crate::util::{self, constants::*, template_generator::*};
+use crate::util::{self, accounts::*, constants::*, template_generator::*};
 use das_types_std::{constants::*, packed::*};
 use serde_json::{json, Value};
 
-pub const ACCOUNT: &str = "xxxxx.bit";
-pub const SELLER: &str = "0x050000000000000000000000000000000000001111";
-pub const BUYER: &str = "0x050000000000000000000000000000000000002222";
 pub const PRICE: u64 = 200_000_000_000;
 pub const TIMESTAMP: u64 = 1611200090u64;
 

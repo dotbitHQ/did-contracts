@@ -1,4 +1,4 @@
-use super::{constants::*, template_generator::TemplateGenerator, util};
+use super::{accounts::*, constants::*, template_generator::TemplateGenerator, util};
 use das_types_std::constants::AccountStatus;
 use serde_json::{json, Value};
 
@@ -12,7 +12,7 @@ pub fn push_dep_pre_account_cell(template: &mut TemplateGenerator, cell_partial:
             "code_hash": "{{pre-account-cell-type}}"
         },
         "witness": {
-            "account": "xxxxx.bit",
+            "account": ACCOUNT,
             "refund_lock": {
                 "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
                 "args": "0x0000000000000000000000000000000000001111"
@@ -46,7 +46,7 @@ pub fn push_input_pre_account_cell(template: &mut TemplateGenerator, cell_partia
             "code_hash": "{{pre-account-cell-type}}"
         },
         "witness": {
-            "account": "xxxxx.bit",
+            "account": ACCOUNT,
             "refund_lock": {
                 "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
                 "args": "0x0000000000000000000000000000000000001111"
@@ -74,19 +74,19 @@ pub fn push_dep_account_cell(template: &mut TemplateGenerator, cell_partial: Val
     let mut cell = json!({
         "capacity": util::gen_account_cell_capacity(5),
         "lock": {
-            "owner_lock_args": "0x000000000000000000000000000000000000001111",
-            "manager_lock_args": "0x000000000000000000000000000000000000001111"
+            "owner_lock_args": OWNER,
+            "manager_lock_args": MANAGER
         },
         "type": {
             "code_hash": "{{account-cell-type}}"
         },
         "data": {
-            "account": "xxxxx.bit",
+            "account": ACCOUNT,
             "next": "yyyyy.bit",
             "expired_at": u64::MAX,
         },
         "witness": {
-            "account": "xxxxx.bit",
+            "account": ACCOUNT,
             "registered_at": 0,
             "last_transfer_account_at": 0,
             "last_edit_manager_at": 0,
@@ -103,19 +103,19 @@ pub fn push_input_account_cell(template: &mut TemplateGenerator, cell_partial: V
     let mut cell = json!({
         "capacity": util::gen_account_cell_capacity(5),
         "lock": {
-            "owner_lock_args": "0x000000000000000000000000000000000000001111",
-            "manager_lock_args": "0x000000000000000000000000000000000000001111"
+            "owner_lock_args": OWNER,
+            "manager_lock_args": MANAGER
         },
         "type": {
             "code_hash": "{{account-cell-type}}"
         },
         "data": {
-            "account": "xxxxx.bit",
+            "account": ACCOUNT,
             "next": "yyyyy.bit",
             "expired_at": u64::MAX,
         },
         "witness": {
-            "account": "xxxxx.bit",
+            "account": ACCOUNT,
             "registered_at": 0,
             "last_transfer_account_at": 0,
             "last_edit_manager_at": 0,
@@ -133,19 +133,19 @@ pub fn push_output_account_cell(template: &mut TemplateGenerator, cell_partial: 
     let mut cell = json!({
         "capacity": util::gen_account_cell_capacity(5),
         "lock": {
-            "owner_lock_args": "0x000000000000000000000000000000000000001111",
-            "manager_lock_args": "0x000000000000000000000000000000000000001111"
+            "owner_lock_args": OWNER,
+            "manager_lock_args": MANAGER
         },
         "type": {
             "code_hash": "{{account-cell-type}}"
         },
         "data": {
-            "account": "xxxxx.bit",
+            "account": ACCOUNT,
             "next": "yyyyy.bit",
             "expired_at": u64::MAX,
         },
         "witness": {
-            "account": "xxxxx.bit",
+            "account": ACCOUNT,
             "registered_at": 0,
             "last_transfer_account_at": 0,
             "last_edit_manager_at": 0,
@@ -164,19 +164,19 @@ pub fn push_input_account_cell_v2(template: &mut TemplateGenerator, cell_partial
     let mut cell = json!({
         "capacity": util::gen_account_cell_capacity(5),
         "lock": {
-            "owner_lock_args": "0x000000000000000000000000000000000000001111",
-            "manager_lock_args": "0x000000000000000000000000000000000000001111"
+            "owner_lock_args": OWNER,
+            "manager_lock_args": MANAGER
         },
         "type": {
             "code_hash": "{{account-cell-type}}"
         },
         "data": {
-            "account": "xxxxx.bit",
+            "account": ACCOUNT,
             "next": "yyyyy.bit",
             "expired_at": u64::MAX,
         },
         "witness": {
-            "account": "xxxxx.bit",
+            "account": ACCOUNT,
             "registered_at": 0,
             "status": (AccountStatus::Normal as u8)
         }
@@ -231,9 +231,27 @@ pub fn push_input_income_cell(template: &mut TemplateGenerator, cell_partial: Va
         },
         "witness": {
             "creator": {
-                "code_hash": "{{fake-das-lock}}",
-                "args": COMMON_INCOME_CREATOR_LOCK_ARGS
+                "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                "args": COMMON_INCOME_CREATOR
             },
+            "records": []
+        }
+    });
+    util::merge_json(&mut cell, cell_partial);
+
+    template.push_input(cell, None);
+    template.push_empty_witness();
+}
+
+pub fn push_input_income_cell_no_creator(template: &mut TemplateGenerator, cell_partial: Value) {
+    let mut cell = json!({
+        "lock": {
+            "code_hash": "{{always_success}}"
+        },
+        "type": {
+            "code_hash": "{{income-cell-type}}"
+        },
+        "witness": {
             "records": []
         }
     });
@@ -253,9 +271,26 @@ pub fn push_output_income_cell(template: &mut TemplateGenerator, cell_partial: V
         },
         "witness": {
             "creator": {
-                "code_hash": "{{fake-das-lock}}",
-                "args": COMMON_INCOME_CREATOR_LOCK_ARGS
+                "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                "args": COMMON_INCOME_CREATOR
             },
+            "records": []
+        }
+    });
+    util::merge_json(&mut cell, cell_partial);
+
+    template.push_output(cell, None);
+}
+
+pub fn push_output_income_cell_no_creator(template: &mut TemplateGenerator, cell_partial: Value) {
+    let mut cell = json!({
+        "lock": {
+            "code_hash": "{{always_success}}"
+        },
+        "type": {
+            "code_hash": "{{income-cell-type}}"
+        },
+        "witness": {
             "records": []
         }
     });

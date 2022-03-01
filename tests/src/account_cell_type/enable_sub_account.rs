@@ -1,9 +1,5 @@
 use super::common::*;
-use crate::util::{
-    accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::TemplateGenerator,
-    template_parser::*,
-};
-use das_types_std::constants::AccountStatus;
+use crate::util::{accounts::*, template_common_cell::*, template_generator::TemplateGenerator, template_parser::*};
 use serde_json::json;
 
 fn before_each() -> (TemplateGenerator, u64) {

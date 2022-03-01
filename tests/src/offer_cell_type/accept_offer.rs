@@ -1,6 +1,6 @@
 use super::common::*;
 use crate::util::{
-    self, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
+    self, accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
 };
 use das_types_std::constants::*;
 use serde_json::json;
@@ -14,22 +14,22 @@ fn push_simple_output_income_cell(template: &mut TemplateGenerator) {
                     // It is a conversion in this transaction that the first record always belong to the creator of the IncomeCell.
                     {
                         "belong_to": {
-                            "code_hash": "{{fake-das-lock}}",
-                            "args": "0x0000000000000000000000000000000000000000"
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": COMMON_INCOME_CREATOR
                         },
                         "capacity": "20_000_000_000"
                     },
                     {
                         "belong_to": {
                             "code_hash": "{{fake-das-lock}}",
-                            "args": gen_das_lock_args(INVITER_LOCK_ARGS, None)
+                            "args": gen_das_lock_args(INVITER, None)
                         },
                         "capacity": "2_000_000_000"
                     },
                     {
                         "belong_to": {
                             "code_hash": "{{fake-das-lock}}",
-                            "args": gen_das_lock_args(CHANNEL_LOCK_ARGS, None)
+                            "args": gen_das_lock_args(CHANNEL, None)
                         },
                         "capacity": "2_000_000_000"
                     },
@@ -522,22 +522,22 @@ fn challenge_offer_accept_offer_income_cell_lock_error() {
                     // It is a conversion in this transaction that the first record always belong to the creator of the IncomeCell.
                     {
                         "belong_to": {
-                            "code_hash": "{{fake-das-lock}}",
-                            "args": "0x0000000000000000000000000000000000000000"
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": COMMON_INCOME_CREATOR
                         },
                         "capacity": "20_000_000_000"
                     },
                     {
                         "belong_to": {
                             "code_hash": "{{fake-das-lock}}",
-                            "args": gen_das_lock_args(INVITER_LOCK_ARGS, None)
+                            "args": gen_das_lock_args(INVITER, None)
                         },
                         "capacity": "2_000_000_000"
                     },
                     {
                         "belong_to": {
                             "code_hash": "{{fake-das-lock}}",
-                            "args": gen_das_lock_args(CHANNEL_LOCK_ARGS, None)
+                            "args": gen_das_lock_args(CHANNEL, None)
                         },
                         "capacity": "2_000_000_000"
                     },
@@ -614,22 +614,22 @@ fn challenge_offer_accept_offer_others_profit_wrong() {
                     // It is a conversion in this transaction that the first record always belong to the creator of the IncomeCell.
                     {
                         "belong_to": {
-                            "code_hash": "{{fake-das-lock}}",
-                            "args": "0x0000000000000000000000000000000000000000"
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": COMMON_INCOME_CREATOR
                         },
                         "capacity": "20_000_000_000"
                     },
                     {
                         "belong_to": {
                             "code_hash": "{{fake-das-lock}}",
-                            "args": gen_das_lock_args(INVITER_LOCK_ARGS, None)
+                            "args": gen_das_lock_args(INVITER, None)
                         },
                         "capacity": "2_000_000_000"
                     },
                     {
                         "belong_to": {
                             "code_hash": "{{fake-das-lock}}",
-                            "args": gen_das_lock_args(CHANNEL_LOCK_ARGS, None)
+                            "args": gen_das_lock_args(CHANNEL, None)
                         },
                         "capacity": "2_000_000_000"
                     },

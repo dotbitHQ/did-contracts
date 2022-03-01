@@ -2,7 +2,7 @@ use super::{super::ckb_types_relay::*, super::Loader, constants::*, error};
 use chrono::{DateTime, NaiveDateTime, Utc};
 use ckb_testtool::{
     ckb_chain_spec::consensus::TYPE_ID_CODE_HASH,
-    ckb_hash::{blake2b_256, new_blake2b},
+    ckb_hash::{blake2b_256, new_blake2b, Blake2bBuilder},
     ckb_jsonrpc_types as rpc_types,
     ckb_types::{
         bytes,
@@ -84,6 +84,14 @@ pub fn merge_json(target: &mut Value, source: Value) {
         }
         (a, b) => *a = b,
     }
+}
+
+pub fn blake2b_smt<T: AsRef<[u8]>>(s: T) -> [u8; 32] {
+    let mut result = [0u8; 32];
+    let mut blake2b = Blake2bBuilder::new(32).personal(b"sparsemerkletree").key(&[]).build();
+    blake2b.update(s.as_ref());
+    blake2b.finalize(&mut result);
+    result
 }
 
 pub fn get_type_id_bytes(name: &str) -> Vec<u8> {

@@ -1,5 +1,5 @@
 use super::common::*;
-use crate::util::{constants::*, error::Error, template_generator::*, template_parser::*};
+use crate::util::{accounts::*, constants::*, error::Error, template_generator::*, template_parser::*};
 use serde_json::json;
 
 fn before_each() -> TemplateGenerator {
