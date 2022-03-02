@@ -936,9 +936,9 @@ type:
   type: type
   args: "0x01"
 data:
-    [index] // 1 字节小端编码的 u8 整形，存放当前是 TimeCell 中的第几个
+    [index] // 1 字节大端编码的 u8 整形，存放当前是 TimeCell 中的第几个
     [type] // 1 字节的类型，用于标识当前 Cell 是 HeightCell
-    [timestamp] // 4 字节小端编码的 u32 整形，存放当前的 UTC 时间戳
+    [timestamp] // 4 字节大端编码的 u32 整形，存放当前的 UTC 时间戳
 ```
 
 > TimeCell 因为 TimeCell 的时间戳实际上还是基于链上的时间戳产生，所以与现实时间存在 5 分钟左右的误差。
@@ -952,9 +952,9 @@ type:
   type: type
   args: "0x02"
 data:
-    [index] // 1 字节小端编码的 u8 整形，存放当前是 Height 中的第几个
+    [index] // 1 字节大端编码的 u8 整形，存放当前是 Height 中的第几个
     [type] // 1 字节的类型，用于标识当前 Cell 是 HeightCell
-    [block_height] // 8 字节小端编码的 u64 整形，存放当前的区块高度
+    [block_height] // 8 字节大端编码的 u64 整形，存放当前的区块高度
 ```
 
 #### QuoteCell
@@ -968,9 +968,9 @@ type:
   type: type
   args: "0x00"
 data:
-    [index] // 1 字节小端编码的 u8 整形，存放当前是 Height 中的第几个
+    [index] // 1 字节大端编码的 u8 整形，存放当前是 Height 中的第几个
     [type] // 1 字节的类型，用于标识当前 Cell 是 HeightCell
-    [block_height] // 8 字节小端编码的 u64 整形，存放当前的区块高度
+    [block_height] // 8 字节大端编码的 u64 整形，存放当前的区块高度
 ```
 
 #### 体积
