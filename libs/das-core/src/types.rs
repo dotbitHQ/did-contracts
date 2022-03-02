@@ -59,6 +59,7 @@ pub struct Configs {
     pub release: Option<ConfigCellRelease>,
     pub secondary_market: Option<ConfigCellSecondaryMarket>,
     pub reverse_resolution: Option<ConfigCellReverseResolution>,
+    pub sub_account: Option<ConfigCellSubAccount>,
     pub record_key_namespace: Option<Vec<u8>>,
     pub preserved_account: Option<Vec<u8>>,
     pub unavailable_account: Option<Vec<u8>>,
@@ -87,6 +88,7 @@ impl Configs {
         ConfigCellReverseResolutionReader,
         "ConfigCellReverseResolutionReader"
     );
+    config_getter!(sub_account, ConfigCellSubAccountReader, "ConfigCellSubAccountReader");
 
     pub fn record_key_namespace(&self) -> Result<&Vec<u8>, Error> {
         let reader = self.record_key_namespace.as_ref().map(|item| item).ok_or_else(|| {
