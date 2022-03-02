@@ -2570,7 +2570,7 @@ impl TemplateGenerator {
             }
             SubAccountActionType::Delete => {
                 todo!();
-                extend_edit_fields(&mut witness_bytes, &witness);
+                // extend_edit_fields(&mut witness_bytes, &witness);
             }
         }
 

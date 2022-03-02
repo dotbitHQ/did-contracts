@@ -22,7 +22,7 @@ use std::{
 };
 
 pub fn test_tx(tx: Value) {
-    println!("Transaction template: {}", serde_json::to_string_pretty(&tx).unwrap());
+    // println!("Transaction template: {}", serde_json::to_string_pretty(&tx).unwrap());
     let mut parser = TemplateParser::from_data(Context::default(), tx);
     parser.parse();
     let tx_view = parser.build_tx();
@@ -47,7 +47,7 @@ Transaction size: {} bytes,
 }
 
 pub fn challenge_tx(tx: Value, expected_error: Error) {
-    println!("Transaction template: {}", serde_json::to_string_pretty(&tx).unwrap());
+    // println!("Transaction template: {}", serde_json::to_string_pretty(&tx).unwrap());
     let mut parser = TemplateParser::from_data(Context::default(), tx);
     parser.parse();
     let tx_view = parser.build_tx();

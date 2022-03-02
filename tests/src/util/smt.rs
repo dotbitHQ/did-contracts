@@ -1,4 +1,3 @@
-use sparse_merkle_tree::traits::Value;
 use sparse_merkle_tree::{blake2b::Blake2bHasher, default_store::DefaultStore, MerkleProof, SparseMerkleTree, H256};
 
 pub type SMT = SparseMerkleTree<Blake2bHasher, H256, DefaultStore<H256>>;
@@ -39,8 +38,8 @@ impl SMTWithHistory {
     /// The returned value is exactly what a sub_account witness want, so use it when you need to construct sub_account witness.
     pub fn insert(&mut self, key: H256, value: H256) -> ([u8; 32], [u8; 32], Vec<u8>) {
         let prev_root = self.smt.root().to_owned();
-        println!();
-        println!("prev_root     = 0x{}", hex::encode(prev_root.as_slice()));
+        // println!();
+        // println!("prev_root     = 0x{}", hex::encode(prev_root.as_slice()));
         let proof_bytes: Vec<u8> = self
             .smt
             .merkle_proof(vec![key])
@@ -48,9 +47,9 @@ impl SMTWithHistory {
             .compile(vec![(key, value)])
             .unwrap()
             .into();
-        println!("prev_proof    = 0x{}", hex::encode(proof_bytes));
+        // println!("prev_proof    = 0x{}", hex::encode(proof_bytes));
 
-        self.smt.update(key, value);
+        self.smt.update(key, value).expect("Should update successfully");
         let current_root = self.smt.root().to_owned();
         let proof = self
             .smt
@@ -70,8 +69,8 @@ impl SMTWithHistory {
             }
         };
 
-        println!("current_root  = 0x{}", hex::encode(current_root.as_slice()));
-        println!("current_proof = 0x{}", hex::encode(&proof_bytes));
+        // println!("current_root  = 0x{}", hex::encode(current_root.as_slice()));
+        // println!("current_proof = 0x{}", hex::encode(&proof_bytes));
 
         (prev_root.into(), current_root.into(), proof_bytes)
     }
