@@ -135,13 +135,10 @@ pub fn super_lock() -> Script {
     #[cfg(feature = "mainnet")]
     let super_lock = ScriptLiteral {
         code_hash: [
-            92, 80, 105, 235, 8, 87, 239, 198, 94, 27, 202, 12, 7, 223, 52, 195, 22, 99, 179, 98, 47, 211, 135, 108,
-            135, 99, 32, 252, 150, 52, 226, 168,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ],
         hash_type: ScriptHashType::Type,
-        args: vec![
-            193, 38, 99, 94, 206, 86, 124, 113, 197, 15, 116, 130, 197, 219, 128, 96, 56, 82, 195, 6,
-        ],
+        args: vec![],
     };
 
     util::script_literal_to_script(super_lock)
@@ -229,8 +226,7 @@ pub fn das_lock() -> Script {
     #[cfg(feature = "mainnet")]
     let das_lock: ScriptLiteral = ScriptLiteral {
         code_hash: [
-            147, 118, 195, 181, 129, 25, 66, 150, 10, 132, 102, 145, 225, 110, 71, 124, 244, 61, 124, 127, 166, 84, 6,
-            124, 153, 72, 223, 205, 9, 163, 33, 55,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ],
         hash_type: ScriptHashType::Type,
         args: Vec::new(),
@@ -398,8 +394,7 @@ pub const CONFIG_CELL_TYPE: ScriptLiteral = ScriptLiteral {
 #[cfg(feature = "mainnet")]
 pub const CONFIG_CELL_TYPE: ScriptLiteral = ScriptLiteral {
     code_hash: [
-        144, 59, 255, 2, 33, 183, 43, 47, 93, 84, 146, 54, 182, 49, 35, 75, 41, 79, 16, 245, 62, 108, 199, 50, 138,
-        240, 119, 118, 227, 42, 102, 64,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     ],
     hash_type: ScriptHashType::Type,
     args: Vec::new(),
