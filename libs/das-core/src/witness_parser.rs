@@ -245,9 +245,7 @@ impl WitnessesParser {
             x if util::is_reader_eq(x, type_id_table_reader.reverse_record_cell()) => {
                 Some(TypeScript::ReverseRecordCellType)
             }
-            x if util::is_reader_eq(x, type_id_table_reader.reverse_record_cell()) => {
-                Some(TypeScript::ReverseRecordCellType)
-            }
+            x if util::is_reader_eq(x, type_id_table_reader.sub_account_cell()) => Some(TypeScript::SubAccountCellType),
             x if util::is_reader_eq(x, self.config_cell_type_id.as_reader()) => Some(TypeScript::ConfigCellType),
             _ => None,
         }

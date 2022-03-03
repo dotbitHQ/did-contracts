@@ -94,6 +94,14 @@ pub fn main() -> Result<(), Error> {
                     Error::InvalidTransactionStructure,
                 )?;
             }
+            b"enable_sub_account" | b"create_sub_account" | b"renew_sub_account" => {
+                util::require_type_script(
+                    &mut parser,
+                    TypeScript::SubAccountCellType,
+                    Source::Output,
+                    Error::InvalidTransactionStructure,
+                )?;
+            }
             _ => verify_eip712_hashes(&parser, transfer_to_semantic)?,
         }
     } else {

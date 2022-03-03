@@ -567,6 +567,9 @@ pub fn main() -> Result<(), Error> {
             );
         }
         b"enable_sub_account" => {
+            // CAREFUL! This action is intentionally ignoring EIP712 verification.
+            // verify_eip712_hashes(&parser, transfer_account_to_semantic)?;
+
             verifiers::account_cell::verify_unlock_role(action, &parser.params)?;
 
             let timestamp = util::load_oracle_data(OracleCellType::Time)?;
