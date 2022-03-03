@@ -368,7 +368,10 @@ pub fn push_input_test_env_cell(template: &mut TemplateGenerator) {
         json!({
             "capacity": 0,
             "lock": {
-                "code_hash": "{{test-env}}"
+                "code_hash": "{{always_success}}"
+            },
+            "type": {
+                "code_hash": "{{test-env}}}"
             }
         }),
         None,

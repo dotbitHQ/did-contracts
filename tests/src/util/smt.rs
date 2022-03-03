@@ -40,13 +40,13 @@ impl SMTWithHistory {
         let prev_root = self.smt.root().to_owned();
         // println!();
         // println!("prev_root     = 0x{}", hex::encode(prev_root.as_slice()));
-        let proof_bytes: Vec<u8> = self
-            .smt
-            .merkle_proof(vec![key])
-            .expect("Should generate proof successfully")
-            .compile(vec![(key, value)])
-            .unwrap()
-            .into();
+        // let proof_bytes: Vec<u8> = self
+        //     .smt
+        //     .merkle_proof(vec![key])
+        //     .expect("Should generate proof successfully")
+        //     .compile(vec![(key, value)])
+        //     .unwrap()
+        //     .into();
         // println!("prev_proof    = 0x{}", hex::encode(proof_bytes));
 
         self.smt.update(key, value).expect("Should update successfully");

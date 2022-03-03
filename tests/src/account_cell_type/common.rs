@@ -31,8 +31,8 @@ pub fn init_for_renew(action: &str, params_opt: Option<&str>) -> (TemplateGenera
     (template, timestamp)
 }
 
-pub fn init_for_sub_account(action: &str, params_opt: Option<&str>) -> (TemplateGenerator, u64) {
-    let (mut template, timestamp) = init(action, params_opt);
+pub fn init_for_sub_account(action: &str, params_opt: Option<&str>) -> TemplateGenerator {
+    let (mut template, _) = init(action, params_opt);
 
     template.push_contract_cell("income-cell-type", false);
     template.push_contract_cell("balance-cell-type", false);
@@ -41,5 +41,5 @@ pub fn init_for_sub_account(action: &str, params_opt: Option<&str>) -> (Template
     template.push_config_cell(DataType::ConfigCellIncome, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellSubAccount, Source::CellDep);
 
-    (template, timestamp)
+    template
 }
