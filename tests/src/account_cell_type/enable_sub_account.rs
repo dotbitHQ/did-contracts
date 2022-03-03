@@ -45,7 +45,7 @@ fn test_enable_sub_account() {
             },
         }),
     );
-    push_output_balance_cell(&mut template, 100_000_000_000, SENDER);
+    push_output_balance_cell(&mut template, 479_000_000_000, SENDER);
 
     test_tx(template.as_json())
 }

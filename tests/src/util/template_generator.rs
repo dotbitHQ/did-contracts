@@ -2271,8 +2271,11 @@ impl TemplateGenerator {
         let type_script = match cell.get("type") {
             Some(type_) => {
                 let args = match type_["args"].as_str() {
-                    Some(_) => util::bytes_to_hex(&parse_json_str_to_account_id("cell.type.args", &type_["args"])),
-                    _ => String::from(""),
+                    Some(args) => {
+                        String::from("0x")
+                            + &util::bytes_to_hex(&parse_json_str_to_account_id("cell.type.args", &type_["args"]))
+                    }
+                    _ => String::from("0x"),
                 };
 
                 json!({

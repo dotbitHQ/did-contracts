@@ -136,29 +136,6 @@ impl WitnessesParser {
         let action = action_data.as_reader().action().raw_data().to_vec();
 
         let params = match action.as_slice() {
-            b"transfer_account"
-            | b"edit_manager"
-            | b"edit_records"
-            | b"start_account_sale"
-            | b"edit_account_sale"
-            | b"cancel_account_sale"
-            | b"make_offer"
-            | b"edit_offer"
-            | b"cancel_offer"
-            | b"accept_offer"
-            | b"start_account_auction"
-            | b"edit_account_auction"
-            | b"cancel_account_auction"
-            | b"declare_reverse_record"
-            | b"redeclare_reverse_record"
-            | b"retract_reverse_record"
-            | b"transfer"
-            | b"withdraw_from_wallet" => {
-                if action_data.params().is_empty() {
-                    return Err(Error::ParamsDecodingError);
-                }
-                vec![action_data.params()]
-            }
             b"buy_account" => {
                 let bytes = action_data.as_reader().params().raw_data();
                 let first_header = bytes.get(..4).ok_or(Error::ParamsDecodingError)?;
@@ -191,7 +168,13 @@ impl WitnessesParser {
                     Bytes::from(bytes_of_role),
                 ]
             }
-            _ => Vec::new(),
+            _ => {
+                if action_data.params().is_empty() {
+                    Vec::new()
+                } else {
+                    vec![action_data.params()]
+                }
+            }
         };
 
         self.action = action;
@@ -432,6 +415,9 @@ impl WitnessesParser {
                         ConfigCellSecondaryMarket,
                         entity
                     )
+                }
+                DataType::ConfigCellSubAccount => {
+                    assign_config_witness!(index, data_type, self.configs.sub_account, ConfigCellSubAccount, entity)
                 }
                 DataType::ConfigCellReverseResolution => {
                     assign_config_witness!(

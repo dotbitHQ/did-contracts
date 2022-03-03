@@ -292,13 +292,16 @@ pub fn verify_account_witness_consistent<'a>(
             .try_into_latest()
             .map_err(|_| Error::NarrowMixerTypeFailed)?;
 
-        assert!(
-            u8::from(output_witness_reader.enable_sub_account()) == 0
-                && u64::from(output_witness_reader.renew_sub_account_price()) == 0,
-            Error::UpgradeDefaultValueOfNewFieldIsError,
-            "The new fields of outputs[{}] should be 0 by default.",
-            output_index
-        );
+        // If field enable_sub_account is excepted, skip verifying their defaults.
+        if !except.contains(&"enable_sub_account") {
+            assert!(
+                u8::from(output_witness_reader.enable_sub_account()) == 0
+                    && u64::from(output_witness_reader.renew_sub_account_price()) == 0,
+                Error::UpgradeDefaultValueOfNewFieldIsError,
+                "The new fields of outputs[{}] should be 0 by default.",
+                output_index
+            );
+        }
     } else {
         // Verify if the new fields is consistent.
         let input_witness_reader = input_witness_reader
@@ -429,9 +432,7 @@ pub fn verify_preserved_accounts(parser: &mut WitnessesParser, account: &[u8]) -
     Ok(())
 }
 
-/**
-check if the account is an account that can never be registered.
- **/
+/// Verify if the account can never be registered.
 pub fn verify_unavailable_accounts(parser: &mut WitnessesParser, account: &[u8]) -> Result<(), Error> {
     debug!("Verify if account if unavailable");
 
@@ -449,6 +450,81 @@ pub fn verify_unavailable_accounts(parser: &mut WitnessesParser, account: &[u8])
             util::hex_string(&account_hash)
         );
         return Err(Error::AccountIsUnAvailable);
+    }
+
+    Ok(())
+}
+
+pub fn verify_records_keys<'a>(
+    parser: &WitnessesParser,
+    record_key_namespace: &Vec<u8>,
+    output_account_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
+) -> Result<(), Error> {
+    let config = parser.configs.account()?;
+    let records_max_size = u32::from(config.record_size_limit()) as usize;
+    let records = output_account_witness_reader.records();
+
+    assert!(
+        records.total_size() <= records_max_size,
+        Error::AccountCellRecordSizeTooLarge,
+        "The total size of all records can not be more than {} bytes.",
+        records_max_size
+    );
+
+    // extract all the keys, which are split by 0
+    let mut key_start_at = 0;
+    let mut key_list = Vec::new();
+    for (index, item) in record_key_namespace.iter().enumerate() {
+        if *item == 0 {
+            let key_vec = &record_key_namespace[key_start_at..index];
+            key_start_at = index + 1;
+
+            key_list.push(key_vec);
+        }
+    }
+
+    fn vec_compare(va: &[u8], vb: &[u8]) -> bool {
+        // zip stops at the shortest
+        (va.len() == vb.len()) && va.iter().zip(vb).all(|(a, b)| a == b)
+    }
+
+    // check if all the record.{type+key} are valid
+    for record in records.iter() {
+        let mut is_valid = false;
+
+        let mut record_type = Vec::from(record.record_type().raw_data());
+        let mut record_key = Vec::from(record.record_key().raw_data());
+        if record_type == b"custom_key" {
+            // CAREFUL Triple check
+            for char in record_key.iter() {
+                assert!(
+                    CUSTOM_KEYS_NAMESPACE.contains(char),
+                    Error::AccountCellRecordKeyInvalid,
+                    "The keys in custom_key should only contain digits, lowercase alphabet and underline."
+                );
+            }
+            continue;
+        }
+
+        record_type.push(46);
+        record_type.append(&mut record_key);
+
+        for key in &key_list {
+            if vec_compare(record_type.as_slice(), *key) {
+                is_valid = true;
+                break;
+            }
+        }
+
+        if !is_valid {
+            assert!(
+                false,
+                Error::AccountCellRecordKeyInvalid,
+                "Account cell record key is invalid: {:?}", record_type
+            );
+
+            break;
+        }
     }
 
     Ok(())
