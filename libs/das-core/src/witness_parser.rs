@@ -13,8 +13,9 @@ use alloc::{
 };
 use ckb_std::{ckb_constants::Source, error::SysError, syscalls};
 use core::convert::{TryFrom, TryInto};
+use das_types::constants::WITNESS_LENGTH_BYTES;
 use das_types::{
-    constants::{DataType, CHAR_SET_LENGTH, WITNESS_HEADER},
+    constants::{DataType, CHAR_SET_LENGTH, WITNESS_HEADER, WITNESS_HEADER_BYTES, WITNESS_TYPE_BYTES},
     packed::*,
     prelude::*,
     util as das_types_util,
@@ -34,26 +35,20 @@ pub struct WitnessesParser {
     new: Vec<(u32, u32, DataType, Vec<u8>, Bytes)>,
 }
 
-// entity FORMAT 1: 'das'(3) + DATA_TYPE(4) + molecule
-// entity FORMAT 2: 'das'(3) + DATA_TYPE(4) + binary_data(molecule like data: LENGTH(4) + ENTITY)
-const DAS_BYTES_3: usize = 3;
-const LENGTH_BYTES_4: usize = 4;
-const HEADER_BYTES_7: usize = 7;
-
 impl WitnessesParser {
     pub fn new() -> Result<Self, Error> {
         let mut witnesses = Vec::new();
         let mut i = 0;
         let mut das_witnesses_started = false;
         loop {
-            let mut buf = [0u8; HEADER_BYTES_7];
+            let mut buf = [0u8; (WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES)];
             let ret = syscalls::load_witness(&mut buf, 0, i, Source::Input);
 
             match ret {
                 // Data which length is too short to be DAS witnesses, so ignore it.
                 Ok(_) => i += 1,
                 Err(SysError::LengthNotEnough(_)) => {
-                    if let Some(raw) = buf.get(..DAS_BYTES_3) {
+                    if let Some(raw) = buf.get(..WITNESS_HEADER_BYTES) {
                         if raw != &WITNESS_HEADER {
                             assert!(
                                 !das_witnesses_started,
@@ -66,9 +61,16 @@ impl WitnessesParser {
                         }
                     }
 
-                    let data_type_in_int =
-                        u32::from_le_bytes(buf.get(DAS_BYTES_3..HEADER_BYTES_7).unwrap().try_into().unwrap());
+                    let data_type_in_int = u32::from_le_bytes(
+                        buf.get(WITNESS_HEADER_BYTES..(WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES))
+                            .unwrap()
+                            .try_into()
+                            .unwrap(),
+                    );
                     match DataType::try_from(data_type_in_int) {
+                        Ok(DataType::SubAccount) => {
+                            // Ignore sub-account witnesses in this parser.
+                        }
                         Ok(data_type) => {
                             if !das_witnesses_started {
                                 assert!(
@@ -253,6 +255,7 @@ impl WitnessesParser {
 
     pub fn parse_config(&mut self, config_types: &[DataType]) -> Result<(), Error> {
         debug!("Parsing config witnesses only ...");
+        // entity witness 2: 'das'(3) + DATA_TYPE(4) + binary_data(molecule like data: LENGTH(4) + ENTITY)
 
         // Filter out ConfigCells that have not been loaded yet. This only works for ConfigCells that maybe loaded multiple times.
         let unloaded_config_types = config_types
@@ -357,7 +360,9 @@ impl WitnessesParser {
             match ret {
                 Some((key, (_, hash))) => {
                     raw = util::load_das_witnesses(index)?;
-                    entity = raw.get(HEADER_BYTES_7..).ok_or(Error::ConfigCellWitnessDecodingError)?;
+                    entity = raw
+                        .get((WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES)..)
+                        .ok_or(Error::ConfigCellWitnessDecodingError)?;
                     let entity_hash = util::blake2b_256(entity).to_vec();
                     if &entity_hash == hash {
                         let key_cp = key.to_owned();
@@ -427,7 +432,7 @@ impl WitnessesParser {
                     )
                 }
                 DataType::ConfigCellRecordKeyNamespace => {
-                    self.configs.record_key_namespace = Some(entity.get(LENGTH_BYTES_4..).unwrap().to_vec());
+                    self.configs.record_key_namespace = Some(entity.get(WITNESS_LENGTH_BYTES..).unwrap().to_vec());
                 }
                 DataType::ConfigCellPreservedAccount00
                 | DataType::ConfigCellPreservedAccount01
@@ -451,11 +456,11 @@ impl WitnessesParser {
                 | DataType::ConfigCellPreservedAccount19 => {
                     // debug!("length: {}", entity.get(4..).unwrap().len());
                     // self.configs.preserved_account = None;
-                    self.configs.preserved_account = Some(entity.get(LENGTH_BYTES_4..).unwrap().to_vec());
+                    self.configs.preserved_account = Some(entity.get(WITNESS_LENGTH_BYTES..).unwrap().to_vec());
                 }
                 DataType::ConfigCellUnAvailableAccount => {
-                    // debug!("length: {}", entity.get(LENGTH_BYTES_4..).unwrap().len());
-                    self.configs.unavailable_account = Some(entity.get(LENGTH_BYTES_4..).unwrap().to_vec());
+                    // debug!("length: {}", entity.get(WITNESS_LENGTH_BYTES..).unwrap().len());
+                    self.configs.unavailable_account = Some(entity.get(WITNESS_LENGTH_BYTES..).unwrap().to_vec());
                 }
                 DataType::ConfigCellCharSetEmoji
                 | DataType::ConfigCellCharSetDigit
@@ -468,7 +473,7 @@ impl WitnessesParser {
                         name: char_set_type,
                         // TODO make the meaning of following codes more clear
                         // skip 7 bytes das header, 4 bytes length
-                        global: entity.get(LENGTH_BYTES_4).unwrap() == &1u8,
+                        global: entity.get(WITNESS_LENGTH_BYTES).unwrap() == &1u8,
                         data: entity.get(5..).unwrap().to_vec(),
                     };
                     if self.configs.char_set.is_some() {
@@ -506,6 +511,7 @@ impl WitnessesParser {
 
     pub fn parse_cell(&mut self) -> Result<(), Error> {
         debug!("Parsing witnesses of all other cells ...");
+        // witness format 1: 'das'(3) + DATA_TYPE(4) + molecule
 
         for (_i, witness) in self.witnesses.iter().enumerate() {
             let (index, data_type) = witness.to_owned();
@@ -559,7 +565,10 @@ impl WitnessesParser {
         //     util::hex_string(witness.get(3..7).unwrap())
         // );
 
-        if let Some(raw) = witness.get(HEADER_BYTES_7..HEADER_BYTES_7 + LENGTH_BYTES_4) {
+        if let Some(raw) = witness.get(
+            (WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES)
+                ..(WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES + WITNESS_LENGTH_BYTES),
+        ) {
             // Because of the redundancy of the witness, appropriate trimming is performed here.
             let length = u32::from_le_bytes(raw.try_into().unwrap()) as usize;
 
@@ -567,7 +576,9 @@ impl WitnessesParser {
             // debug!("stored data length: {}", length);
             // debug!("real data length: {}", witness.get(7..).unwrap().len());
 
-            if let Some(raw) = witness.get(HEADER_BYTES_7..(HEADER_BYTES_7 + length)) {
+            if let Some(raw) = witness
+                .get((WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES)..(WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES + length))
+            {
                 let data = match Data::from_slice(raw) {
                     Ok(data) => data,
                     Err(_e) => {

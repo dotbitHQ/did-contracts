@@ -2,6 +2,7 @@
 ///
 /// This is copied from libs/das-core/src/error.rs. Because das-core depends on ckb-std and it can not be used in std environment any more,
 /// so we need to copy the `Error` from there manually.                 
+/// Error
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[repr(i8)]
 pub enum Error {
@@ -49,6 +50,7 @@ pub enum Error {
     WitnessDataHashOrTypeMissMatch,
     WitnessDataIndexMissMatch,
     WitnessEntityDecodingError,
+    WitnessEmpty,
     ApplyRegisterCellDataDecodingError = 60,
     ApplyRegisterCellHeightInvalid,
     ApplyRegisterCellTimeInvalid,
@@ -144,6 +146,9 @@ pub enum Error {
     ReverseRecordCellCapacityError,
     ReverseRecordCellAccountError,
     ReverseRecordCellChangeError,
+    SubAccountCellSMTRootError = -50,
+    SubAccountCellCapacityError,
+    SubAccountCellAccountIdError,
     UpgradeForWitnessIsRequired,
     UpgradeDefaultValueOfNewFieldIsError,
     UnittestError = -2,
