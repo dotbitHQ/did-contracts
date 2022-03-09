@@ -6,8 +6,9 @@ fn init(action: &str) -> TemplateGenerator {
 
     template.push_contract_cell("always_success", true);
     template.push_contract_cell("playground", false);
-    template.push_shared_lib_cell("ckb_smt.so", false);
-
+    // template.push_shared_lib_cell("ckb_smt.so", false);
+    template.push_shared_lib_cell("eth_sign.so", false);
+    template.push_shared_lib_cell("secp256k1_data", true);
     template
 }
 

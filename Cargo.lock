@@ -783,6 +783,7 @@ dependencies = [
 name = "das-dynamic-libs"
 version = "1.0.0"
 dependencies = [
+ "blake2b-ref 0.3.0",
  "ckb-std",
 ]
 
