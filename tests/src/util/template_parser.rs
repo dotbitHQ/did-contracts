@@ -1,4 +1,5 @@
 use super::{constants::*, error::Error, util};
+use crate::util::template_generator::TemplateGenerator;
 use ckb_testtool::{
     ckb_error, ckb_jsonrpc_types as rpc_types,
     ckb_types::{
@@ -76,6 +77,15 @@ pub fn challenge_tx(tx: Value, expected_error: Error) {
             );
         }
     }
+}
+
+// another style of text_tx/challenge_tx
+pub fn test_tx2(tx: fn() -> TemplateGenerator) {
+    test_tx(tx().as_json())
+}
+
+pub fn challenge_tx2(expected_error: Error, tx: fn() -> TemplateGenerator) {
+    challenge_tx(tx().as_json(), expected_error)
 }
 
 pub struct TemplateParser {
