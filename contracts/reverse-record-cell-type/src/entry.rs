@@ -41,16 +41,12 @@ pub fn main() -> Result<(), Error> {
             let config_main = parser.configs.main()?;
             let config_reverse_resolution = parser.configs.reverse_resolution()?;
 
-            assert!(
-                input_cells.len() == 0 && output_cells.len() == 1,
-                Error::InvalidTransactionStructure,
-                "There should be only 1 ReverseRecordCell at outputs[0]."
-            );
-            assert!(
-                output_cells[0] == 0,
-                Error::InvalidTransactionStructure,
-                "There should be only 1 ReverseRecordCell at outputs[0]."
-            );
+            verifiers::common::verify_created_cell_in_correct_position(
+                "ReverseRecordCell",
+                &input_cells,
+                &output_cells,
+                Some(0),
+            )?;
 
             let sender_lock = high_level::load_cell_lock(0, Source::Input)?;
             let reverse_record_cell_capacity = u64::from(config_reverse_resolution.record_basic_capacity())
@@ -110,7 +106,6 @@ pub fn main() -> Result<(), Error> {
             verify_eip712_hashes_if_has_das_lock(&parser, redeclare_reverse_record_to_semantic)?;
 
             parser.parse_config(&[DataType::ConfigCellMain, DataType::ConfigCellReverseResolution])?;
-            let config_main = parser.configs.main()?;
             let config_reverse_resolution = parser.configs.reverse_resolution()?;
 
             assert!(

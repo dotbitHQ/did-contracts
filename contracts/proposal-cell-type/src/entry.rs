@@ -53,18 +53,24 @@ pub fn main() -> Result<(), Error> {
 
             if action == b"propose" {
                 assert!(
-                    dep_cells.len() == 0 && input_cells.len() == 0 && output_cells.len() == 1,
+                    dep_cells.len() == 0,
                     Error::InvalidTransactionStructure,
-                    "There should be only one ProposalCell found in the outputs."
+                    "There should be 0 ProposalCell in the cell_deps."
                 );
             } else {
                 assert!(
-                    dep_cells.len() == 1 && input_cells.len() == 0 && output_cells.len() == 1,
+                    dep_cells.len() == 1,
                     Error::InvalidTransactionStructure,
-                    "There should be one ProposalCell found in the cell_deps and one in the outputs."
+                    "There should be 1 ProposalCell found in the cell_deps"
                 );
             }
 
+            verifiers::common::verify_created_cell_in_correct_position(
+                "ProposalCell",
+                &input_cells,
+                &output_cells,
+                None,
+            )?;
             verifiers::misc::verify_always_success_lock(output_cells[0], Source::Output)?;
 
             let dep_cell_witness;
@@ -135,11 +141,12 @@ pub fn main() -> Result<(), Error> {
             let config_profit_rate = parser.configs.profit_rate()?;
             let config_proposal_reader = parser.configs.proposal()?;
 
-            assert!(
-                dep_cells.len() == 0 && input_cells.len() == 1 && output_cells.len() == 0,
-                Error::InvalidTransactionStructure,
-                "There should be only one ProposalCell found in the inputs."
-            );
+            verifiers::common::verify_removed_cell_in_correct_position(
+                "ProposalCell",
+                &input_cells,
+                &output_cells,
+                None,
+            )?;
 
             let input_cell_witness;
             let input_cell_witness_reader;
@@ -184,11 +191,12 @@ pub fn main() -> Result<(), Error> {
             parser.parse_config(&[DataType::ConfigCellProposal])?;
             let config_proposal_reader = parser.configs.proposal()?;
 
-            assert!(
-                dep_cells.len() == 0 && input_cells.len() == 1 && output_cells.len() == 0,
-                Error::InvalidTransactionStructure,
-                "There should be only one ProposalCell found in the inputs."
-            );
+            verifiers::common::verify_removed_cell_in_correct_position(
+                "ProposalCell",
+                &input_cells,
+                &output_cells,
+                None,
+            )?;
 
             debug!("Check if ProposalCell can be recycled.");
 

@@ -241,7 +241,7 @@ fn challenge_account_sale_edit_fee_spent() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountSaleCellFeeError)
+    challenge_tx(template.as_json(), Error::TxFeeSpentError)
 }
 
 #[test]
@@ -280,7 +280,7 @@ fn challenge_account_sale_edit_fee_empty() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountSaleCellFeeError)
+    challenge_tx(template.as_json(), Error::TxFeeSpentError)
 }
 
 #[test]

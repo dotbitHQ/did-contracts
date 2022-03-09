@@ -510,11 +510,13 @@ pub fn main() -> Result<(), Error> {
                 let type_id = parser.configs.main()?.type_id_table().account_sale_cell();
                 let (input_sale_cells, output_sale_cells) =
                     util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, type_id)?;
-                assert!(
-                    input_sale_cells.len() == 1 && output_sale_cells.len() == 0 && input_sale_cells[0] == 1,
-                    Error::InvalidTransactionStructure,
-                    "There should be only one AccountSaleCell at inputs[1]."
-                );
+
+                verifiers::common::verify_removed_cell_in_correct_position(
+                    "AccountSaleCell",
+                    &input_sale_cells,
+                    &output_sale_cells,
+                    Some(1),
+                )?;
 
                 let cell_witness = util::parse_account_sale_cell_witness(&parser, input_sale_cells[0], Source::Input)?;
                 let cell_witness_reader = cell_witness.as_reader();
@@ -540,11 +542,13 @@ pub fn main() -> Result<(), Error> {
             let balance_cell_type_id = config_main.type_id_table().balance_cell();
             let (input_balance_cells, outputs_balance_cells) =
                 util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, balance_cell_type_id)?;
-            assert!(
-                input_balance_cells.len() == 0 && outputs_balance_cells.len() == 1 && outputs_balance_cells[0] == 1,
-                Error::InvalidTransactionStructure,
-                "There should be no BalanceCell in inputs and only one BalanceCell at outputs[1]"
-            );
+
+            verifiers::common::verify_created_cell_in_correct_position(
+                "BalanceCell",
+                &input_balance_cells,
+                &outputs_balance_cells,
+                Some(1),
+            )?;
 
             let expected_lock = util::derive_owner_lock_from_cell(input_cells[0], Source::Input)?;
             let current_lock = high_level::load_cell_lock(outputs_balance_cells[0], Source::Output)?.into();
@@ -692,16 +696,12 @@ pub fn main() -> Result<(), Error> {
             let (input_sub_account_cells, output_sub_account_cells) =
                 util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, sub_account_cell_type_id)?;
 
-            assert!(
-                input_sub_account_cells.len() == 0,
-                Error::InvalidTransactionStructure,
-                "There should be no SubAccountCells in inputs."
-            );
-            assert!(
-                output_sub_account_cells.len() == 1 && output_sub_account_cells[0] == 1,
-                Error::InvalidTransactionStructure,
-                "There should be one SubAccountCell at outputs[1]."
-            );
+            verifiers::common::verify_created_cell_in_correct_position(
+                "SubAccountCell",
+                &input_sub_account_cells,
+                &output_sub_account_cells,
+                Some(1),
+            )?;
 
             verifiers::misc::verify_always_success_lock(output_sub_account_cells[0], Source::Output)?;
 
@@ -818,6 +818,7 @@ fn edit_records_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
     Ok(format!("EDIT RECORDS OF ACCOUNT {}", account))
 }
 
+// todo: use verifiers::common::verify_tx_fee_spent_correctly to simplify code
 fn verify_transaction_fee_spent_correctly(
     action: &[u8],
     config: ConfigCellAccountReader,
