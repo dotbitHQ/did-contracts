@@ -2,8 +2,8 @@ use super::common::*;
 use crate::util::{accounts::*, template_common_cell::*, template_generator::TemplateGenerator, template_parser::*};
 use serde_json::json;
 
-fn before_each() -> (TemplateGenerator, u64) {
-    let (mut template, timestamp) = init_for_sub_account("enable_sub_account", Some("0x00"));
+fn before_each() -> TemplateGenerator {
+    let mut template = init_for_sub_account("enable_sub_account", Some("0x00"));
 
     // inputs
     push_input_account_cell(
@@ -17,12 +17,12 @@ fn before_each() -> (TemplateGenerator, u64) {
     );
     push_input_balance_cell(&mut template, 500_000_000_000, SENDER);
 
-    (template, timestamp)
+    template
 }
 
 #[test]
 fn test_enable_sub_account() {
-    let (mut template, timestamp) = before_each();
+    let mut template = before_each();
 
     // outputs
     push_output_account_cell(
@@ -45,7 +45,7 @@ fn test_enable_sub_account() {
             },
         }),
     );
-    push_output_balance_cell(&mut template, 100_000_000_000, SENDER);
+    push_output_balance_cell(&mut template, 479_000_000_000, SENDER);
 
     test_tx(template.as_json())
 }

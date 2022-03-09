@@ -326,15 +326,22 @@ fn parse_json_script_to_mol(field_name: &str, field: &Value) -> Script {
 ///     args: "0x..."
 /// }
 /// ```
-fn parse_json_script_das_lock(cell: &Value) -> Value {
-    let lock = cell.get("lock").expect("cell.lock is missing");
-    let owner_lock_args = parse_json_str("cell.lock.owner_lock_args", &lock["owner_lock_args"]);
-    let manager_lock_args = parse_json_str("cell.lock.manager_lock_args", &lock["manager_lock_args"]);
+pub fn parse_json_script_das_lock(field_name: &str, field: &Value) -> Value {
+    if field.is_null() {
+        panic!("{} is missing", field_name);
+    }
+
+    let owner_lock_args = parse_json_str(&format!("{}.owner_lock_args", field_name), &field["owner_lock_args"]);
+    let manager_lock_args = parse_json_str(
+        &format!("{}.manager_lock_args", field_name),
+        &field["manager_lock_args"],
+    );
+    let args = gen_das_lock_args(owner_lock_args, Some(manager_lock_args));
 
     json!({
         "code_hash": "{{fake-das-lock}}",
         "hash_type": "type",
-        "args": gen_das_lock_args(owner_lock_args, Some(manager_lock_args))
+        "args": args
     })
 }
 
@@ -411,7 +418,10 @@ fn parse_json_to_records_mol(field_name: &str, field: &Value) -> Records {
 
 pub fn parse_json_to_sub_account(field_name: &str, field: &Value) -> SubAccount {
     // let lock = parse_json_script_das_lock(&format!("{}.lock", field_name), &field["lock"]);
-    let lock = parse_json_script_to_mol("", &parse_json_script_das_lock(&field));
+    let lock = parse_json_script_to_mol(
+        "",
+        &parse_json_script_das_lock(&format!("{}.lock", field_name), &field["lock"]),
+    );
     let account = parse_json_str(&format!("{}.account", field_name), &field["account"]);
     let account_id = if !field["id"].is_null() {
         parse_json_str_to_account_id_mol(&format!("{}.id", field_name), &field["id"])
@@ -1350,35 +1360,10 @@ impl TemplateGenerator {
     }
 
     pub fn push_cell_v2(&mut self, cell: Value, source: Source, version_opt: Option<u32>) -> usize {
-        fn push_cell(generator: &mut TemplateGenerator, mut cell: Value, source: Source) -> usize {
-            if source == Source::Input {
-                cell = json!({
-                    "previous_output": cell,
-                    "since": "0x"
-                });
-            }
-
-            match source {
-                Source::CellDep => {
-                    generator.cell_deps.push(cell);
-                    generator.cell_deps.len() - 1
-                }
-                Source::Input => {
-                    generator.inputs.push(cell);
-                    generator.inputs.len() - 1
-                }
-                Source::Output => {
-                    generator.outputs.push(cell);
-                    generator.outputs.len() - 1
-                }
-                _ => panic!("Only CellDep, Input and Output are supported"),
-            }
-        }
-
         macro_rules! push_cell {
             ($gen_fn:ident, $cell:expr) => {{
                 let (cell, _) = self.$gen_fn($cell);
-                push_cell(self, cell, source)
+                self.push_cell_json(cell, source)
             }};
             ($data_type:expr, $gen_fn:ident, $version_opt:expr, $cell:expr) => {{
                 let version = if let Some(version) = $version_opt {
@@ -1388,22 +1373,7 @@ impl TemplateGenerator {
                 };
 
                 let (cell, entity_opt) = self.$gen_fn(version, $cell);
-                let index = push_cell(self, cell, source);
-
-                if let Some(entity) = entity_opt {
-                    let witness = match source {
-                        Source::Input => {
-                            das_util::wrap_data_witness_v3($data_type, version, index, entity, Source::Input)
-                        }
-                        Source::Output => {
-                            das_util::wrap_data_witness_v3($data_type, version, index, entity, Source::Output)
-                        }
-                        _ => das_util::wrap_data_witness_v3($data_type, version, index, entity, Source::CellDep),
-                    };
-                    self.outer_witnesses.push(witness_bytes_to_hex(witness));
-                }
-
-                index
+                self.push_cell_json_with_entity(cell, source, $data_type, version, entity_opt)
             }};
         }
 
@@ -1441,6 +1411,7 @@ impl TemplateGenerator {
                         push_cell!(DataType::ProposalCellData, gen_proposal_cell, version_opt, cell)
                     }
                     "reverse-record-cell-type" => push_cell!(gen_reverse_record_cell, cell),
+                    "test-env" => push_cell!(gen_custom_cell, cell),
                     "playground" => push_cell!(gen_custom_cell, cell),
                     _ => panic!("Unknown type ID {}", type_id),
                 };
@@ -1452,6 +1423,49 @@ impl TemplateGenerator {
         } else {
             push_cell!(gen_custom_cell, cell)
         }
+    }
+
+    pub fn push_cell_json(&mut self, mut cell: Value, source: Source) -> usize {
+        if source == Source::Input {
+            cell = json!({
+                "previous_output": cell,
+                "since": "0x"
+            });
+        }
+
+        match source {
+            Source::CellDep => {
+                self.cell_deps.push(cell);
+                self.cell_deps.len() - 1
+            }
+            Source::Input => {
+                self.inputs.push(cell);
+                self.inputs.len() - 1
+            }
+            Source::Output => {
+                self.outputs.push(cell);
+                self.outputs.len() - 1
+            }
+            _ => panic!("Only CellDep, Input and Output are supported"),
+        }
+    }
+
+    pub fn push_cell_json_with_entity(
+        &mut self,
+        cell: Value,
+        source: Source,
+        data_type: DataType,
+        version: u32,
+        entity_opt: Option<EntityWrapper>,
+    ) -> usize {
+        let index = self.push_cell_json(cell, source);
+
+        if let Some(entity) = entity_opt {
+            let witness = das_util::wrap_data_witness_v3(data_type, version, index, entity, source);
+            self.outer_witnesses.push(witness_bytes_to_hex(witness));
+        }
+
+        index
     }
 
     /// Cell structure:
@@ -1742,7 +1756,7 @@ impl TemplateGenerator {
     /// ```
     fn gen_account_cell(&mut self, version: u32, cell: Value) -> (Value, Option<EntityWrapper>) {
         let capacity: u64 = parse_json_u64("cell.capacity", &cell["capacity"], Some(0));
-        let lock_script = parse_json_script_das_lock(&cell);
+        let lock_script = parse_json_script_das_lock("cell.lock", &cell["lock"]);
         let type_script = parse_json_script("cell.type", &cell["type"]);
 
         fn gen_outputs_data<T: Entity>(cell: &Value, entity: Option<&T>) -> Vec<u8> {
@@ -1943,7 +1957,7 @@ impl TemplateGenerator {
     /// ```
     fn gen_account_sale_cell(&mut self, version: u32, cell: Value) -> (Value, Option<EntityWrapper>) {
         let capacity: u64 = parse_json_u64("cell.capacity", &cell["capacity"], Some(0));
-        let lock_script = parse_json_script_das_lock(&cell);
+        let lock_script = parse_json_script_das_lock("cell.lock", &cell["lock"]);
         let type_script = parse_json_script("cell.type", &cell["type"]);
 
         if !cell["witness"].is_null() {
@@ -2149,7 +2163,7 @@ impl TemplateGenerator {
     /// ```
     fn gen_reverse_record_cell(&mut self, cell: Value) -> (Value, Option<EntityWrapper>) {
         let capacity: u64 = parse_json_u64("cell.capacity", &cell["capacity"], Some(0));
-        let lock_script = parse_json_script_das_lock(&cell);
+        let lock_script = parse_json_script_das_lock("cell.lock", &cell["lock"]);
         let type_script = parse_json_script("cell.type", &cell["type"]);
 
         let outputs_data = if cell["data"].is_null() || cell["data"]["account"].is_null() {
@@ -2195,7 +2209,7 @@ impl TemplateGenerator {
     /// ```
     fn gen_offer_cell(&mut self, version: u32, cell: Value) -> (Value, Option<EntityWrapper>) {
         let capacity: u64 = parse_json_u64("cell.capacity", &cell["capacity"], Some(0));
-        let lock_script = parse_json_script_das_lock(&cell);
+        let lock_script = parse_json_script_das_lock("cell.lock", &cell["lock"]);
         let type_script = parse_json_script("cell.type", &cell["type"]);
 
         if !cell["witness"].is_null() {
@@ -2270,9 +2284,11 @@ impl TemplateGenerator {
 
         let type_script = match cell.get("type") {
             Some(type_) => {
-                let args = match type_["args"].as_str() {
-                    Some(_) => util::bytes_to_hex(&parse_json_str_to_account_id("cell.type.args", &type_["args"])),
-                    _ => String::from(""),
+                let args = if type_["args"].is_null() {
+                    String::from("0x")
+                } else {
+                    String::from("0x")
+                        + &util::bytes_to_hex(&parse_json_str_to_account_id("cell.type.args", &type_["args"]))
                 };
 
                 json!({
@@ -2320,7 +2336,7 @@ impl TemplateGenerator {
     /// ```
     fn gen_balance_cell(&mut self, cell: Value) -> (Value, Option<EntityWrapper>) {
         let capacity: u64 = parse_json_u64("cell.capacity", &cell["capacity"], Some(0));
-        let lock_script = parse_json_script_das_lock(&cell);
+        let lock_script = parse_json_script_das_lock("cell.lock", &cell["lock"]);
         let type_script = parse_json_script("cell.type", &cell["type"]);
 
         let outputs_data = if !cell["data"].is_null() {

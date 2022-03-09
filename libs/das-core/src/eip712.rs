@@ -603,6 +603,7 @@ fn to_typed_script(parser: &WitnessesParser, script_type: ScriptType, script: da
             Some(TypeScript::PreAccountCellType) => String::from("pre-account-cell-type"),
             Some(TypeScript::ProposalCellType) => String::from("proposal-cell-type"),
             Some(TypeScript::ReverseRecordCellType) => String::from("reverse-record-cell-type"),
+            Some(TypeScript::SubAccountCellType) => String::from("sub-account-cell-type"),
             _ => format!(
                 "0x{}...",
                 util::hex_string(&script.code_hash().raw_data().as_ref()[0..DATA_OMIT_SIZE])

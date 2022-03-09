@@ -189,11 +189,13 @@ pub fn push_input_account_cell_v2(template: &mut TemplateGenerator, cell_partial
 
 pub fn push_input_sub_account_cell(template: &mut TemplateGenerator, cell_partial: Value) {
     let mut cell = json!({
+        "capacity": SUB_ACCOUNT_BASIC_CAPACITY + SUB_ACCOUNT_PREPARED_FEE_CAPACITY,
         "lock": {
             "code_hash": "{{always_success}}"
         },
         "type": {
-            "code_hash": "{{sub-account-cell-type}}"
+            "code_hash": "{{sub-account-cell-type}}",
+            "args": ACCOUNT
         },
         "data": {
             "root": "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -206,11 +208,13 @@ pub fn push_input_sub_account_cell(template: &mut TemplateGenerator, cell_partia
 
 pub fn push_output_sub_account_cell(template: &mut TemplateGenerator, cell_partial: Value) {
     let mut cell = json!({
+        "capacity": SUB_ACCOUNT_BASIC_CAPACITY + SUB_ACCOUNT_PREPARED_FEE_CAPACITY,
         "lock": {
             "code_hash": "{{always_success}}"
         },
         "type": {
-            "code_hash": "{{sub-account-cell-type}}"
+            "code_hash": "{{sub-account-cell-type}}",
+            "args": ACCOUNT
         },
         "data": {
             "root": "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -364,7 +368,10 @@ pub fn push_input_test_env_cell(template: &mut TemplateGenerator) {
         json!({
             "capacity": 0,
             "lock": {
-                "code_hash": "{{test-env}}"
+                "code_hash": "{{always_success}}"
+            },
+            "type": {
+                "code_hash": "{{test-env}}}"
             }
         }),
         None,
