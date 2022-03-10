@@ -173,7 +173,7 @@ impl Configs {
     }
 
     pub fn sub_account(&self) -> Result<ConfigCellSubAccountReader, Error> {
-        get_or_try_init!(self, sub_account, ConfigCellSubAccount, DataType::SubAccount)
+        get_or_try_init!(self, sub_account, ConfigCellSubAccount, DataType::ConfigCellSubAccount)
     }
 
     pub fn record_key_namespace(&self) -> Result<&Vec<u8>, Error> {

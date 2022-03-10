@@ -174,7 +174,7 @@ pub fn main() -> Result<(), Error> {
 
         let chars_reader = pre_account_cell_witness_reader.account();
         verifiers::account_cell::verify_account_chars(&parser, chars_reader)?;
-        verifiers::account_cell::verify_account_chars_length(&parser, chars_reader)?;
+        verifiers::account_cell::verify_account_chars_max_length(&parser, chars_reader)?;
     } else {
         return Err(Error::ActionNotSupported);
     }

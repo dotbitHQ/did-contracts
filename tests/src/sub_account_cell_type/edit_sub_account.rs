@@ -54,7 +54,7 @@ fn before_each() -> TemplateGenerator {
 }
 
 #[test]
-fn test_edit_sub_account() {
+fn test_sub_account_edit() {
     let mut template = before_each();
 
     // outputs
@@ -71,7 +71,7 @@ fn test_edit_sub_account() {
                 "registered_at": TIMESTAMP,
                 "expired_at": u64::MAX,
             },
-            "edit_key": "owner",
+            "edit_key": "manager",
             // Simulate modifying manager.
             "edit_value": gen_das_lock_args(OWNER_1, Some(MANAGER_2))
         }),
@@ -91,7 +91,7 @@ fn test_edit_sub_account() {
             },
             "edit_key": "owner",
             // Simulate modifying owner.
-            "edit_value": gen_das_lock_args(OWNER_2, Some(MANAGER_1))
+            "edit_value": gen_das_lock_args(OWNER_1, Some(MANAGER_2))
         }),
     );
     template.push_sub_account_witness(

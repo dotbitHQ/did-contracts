@@ -49,7 +49,7 @@ fn before_each() -> TemplateGenerator {
 }
 
 #[test]
-fn test_create_sub_account() {
+fn test_sub_account_create() {
     let mut template = before_each();
 
     // outputs
@@ -120,7 +120,7 @@ fn test_create_sub_account() {
             }
         }),
     );
-    push_input_income_cell(
+    push_output_income_cell(
         &mut template,
         json!({
             "witness": {
@@ -143,7 +143,7 @@ fn test_create_sub_account() {
             }
         }),
     );
-    push_input_normal_cell(&mut template, 10_000_000_000 - new_sub_account_cost, OWNER);
+    push_output_normal_cell(&mut template, 10_000_000_000 - new_sub_account_cost, OWNER);
 
     test_tx(template.as_json())
 }

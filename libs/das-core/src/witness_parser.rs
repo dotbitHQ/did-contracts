@@ -89,6 +89,11 @@ impl WitnessesParser {
 
                             // If there is any ConfigCells in cell_deps, store its index and expected witness hash.
                             if Self::is_config_data_type(&data_type) {
+                                debug!(
+                                    "witnesses[{}] The witness of {:?} is think of ConfigCell.",
+                                    i, data_type
+                                );
+
                                 let args = Bytes::from((data_type.to_owned() as u32).to_le_bytes().to_vec());
                                 let type_script = config_cell_type().as_builder().args(args.into()).build();
                                 let config_cells = util::find_cells_by_script(
@@ -437,7 +442,7 @@ impl WitnessesParser {
         } else {
             // This error means the there is no witness.data.dep/old/new.index matches the index of the cell.
             warn!(
-                "  {:?}[{}] Can not find witness.(expected_hash: 0x{})",
+                "{:?}[{}] Can not find witness.(expected_hash: 0x{})",
                 source,
                 index,
                 util::hex_string(expected_hash)

@@ -580,7 +580,10 @@ pub fn verify_account_chars(parser: &WitnessesParser, chars_reader: AccountChars
     Ok(())
 }
 
-pub fn verify_account_chars_length(parser: &WitnessesParser, chars_reader: AccountCharsReader) -> Result<(), Error> {
+pub fn verify_account_chars_max_length(
+    parser: &WitnessesParser,
+    chars_reader: AccountCharsReader,
+) -> Result<(), Error> {
     let config = parser.configs.account()?;
     let max_chars_length = u32::from(config.max_length());
     let account_chars_length = chars_reader.len() as u32;

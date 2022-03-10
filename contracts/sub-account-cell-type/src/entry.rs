@@ -133,12 +133,9 @@ pub fn main() -> Result<(), Error> {
 
                                 debug!("Verify if the account is registrable.");
 
-                                let account = sub_account_reader.account().as_readable();
-                                verifiers::account_cell::verify_unavailable_accounts(&parser, &account)?;
-
                                 let account_chars = sub_account_reader.account();
                                 verifiers::account_cell::verify_account_chars(&parser, account_chars)?;
-                                verifiers::account_cell::verify_account_chars_length(&parser, account_chars)?;
+                                verifiers::account_cell::verify_account_chars_max_length(&parser, account_chars)?;
 
                                 debug!("Verify if every fields of sub-account is filled properly.");
 
