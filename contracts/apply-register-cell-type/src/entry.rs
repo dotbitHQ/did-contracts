@@ -6,7 +6,7 @@ use das_core::{
     constants::{ScriptType, TypeScript},
     data_parser, debug,
     error::Error,
-    util,
+    util, verifiers,
     witness_parser::WitnessesParser,
 };
 use das_types::{constants::DataType, prelude::*};
@@ -31,11 +31,12 @@ pub fn main() -> Result<(), Error> {
         let (input_cells, output_cells) =
             util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
 
-        assert!(
-            input_cells.len() == 0 && output_cells.len() == 1,
-            Error::InvalidTransactionStructure,
-            "There should be none ApplyRegisterCell in inputs and one in outputs."
-        );
+        verifiers::common::verify_created_cell_in_correct_position(
+            "ApplyRegisterCell",
+            &input_cells,
+            &output_cells,
+            None,
+        )?;
 
         // Verify the outputs_data of ApplyRegisterCell.
         let index = &output_cells[0];
@@ -77,11 +78,12 @@ pub fn main() -> Result<(), Error> {
         let (input_cells, output_cells) =
             util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
 
-        assert!(
-            input_cells.len() == 1 && output_cells.len() == 0,
-            Error::InvalidTransactionStructure,
-            "There should be one ApplyRegisterCell in inputs and none in outputs."
-        );
+        verifiers::common::verify_removed_cell_in_correct_position(
+            "ApplyRegisterCell",
+            &input_cells,
+            &output_cells,
+            None,
+        )?;
 
         debug!("Check if the ApplyRegisterCell is available for refund ...");
 

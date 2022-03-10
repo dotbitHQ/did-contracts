@@ -95,16 +95,12 @@ pub fn main() -> Result<(), Error> {
                 b"start_account_sale" => {
                     verify_eip712_hashes(&parser, start_account_sale_to_semantic)?;
 
-                    assert!(
-                        input_sale_cells.len() == 0 && output_sale_cells.len() == 1,
-                        Error::InvalidTransactionStructure,
-                        "There should be 0 AccountSaleCell in inputs and 1 AccountSaleCell in outputs."
-                    );
-                    assert!(
-                        output_sale_cells[0] == 1,
-                        Error::InvalidTransactionStructure,
-                        "The AccountSaleCell should only appear in outputs[1]."
-                    );
+                    verifiers::common::verify_created_cell_in_correct_position(
+                        "AccountSaleCell",
+                        &input_sale_cells,
+                        &output_sale_cells,
+                        Some(1),
+                    )?;
 
                     let sender_lock = high_level::load_cell_lock(0, Source::Input)?;
                     let sender_lock_reader = sender_lock.as_reader();
@@ -179,16 +175,12 @@ pub fn main() -> Result<(), Error> {
                 b"cancel_account_sale" => {
                     verify_eip712_hashes(&parser, cancel_account_sale_to_semantic)?;
 
-                    assert!(
-                        input_sale_cells.len() == 1 && output_sale_cells.len() == 0,
-                        Error::InvalidTransactionStructure,
-                        "There should be 0 AccountSaleCell in outputs and 1 AccountSaleCell in inputs."
-                    );
-                    assert!(
-                        input_sale_cells[0] == 1,
-                        Error::InvalidTransactionStructure,
-                        "The AccountSaleCell should only appear in inputs[1]."
-                    );
+                    verifiers::common::verify_removed_cell_in_correct_position(
+                        "AccountSaleCell",
+                        &input_sale_cells,
+                        &output_sale_cells,
+                        Some(1),
+                    )?;
 
                     let sender_lock = high_level::load_cell_lock(0, Source::Input)?;
                     let sender_lock_reader = sender_lock.as_reader();
@@ -246,16 +238,12 @@ pub fn main() -> Result<(), Error> {
                 b"buy_account" => {
                     verify_eip712_hashes(&parser, buy_account_to_semantic)?;
 
-                    assert!(
-                        input_sale_cells.len() == 1 && output_sale_cells.len() == 0,
-                        Error::InvalidTransactionStructure,
-                        "There should be 0 AccountSaleCell in outputs and 1 AccountSaleCell in inputs."
-                    );
-                    assert!(
-                        input_sale_cells[0] == 1,
-                        Error::InvalidTransactionStructure,
-                        "The AccountSaleCell should only appear in inputs[0]."
-                    );
+                    verifiers::common::verify_removed_cell_in_correct_position(
+                        "AccountSaleCell",
+                        &input_sale_cells,
+                        &output_sale_cells,
+                        Some(1),
+                    )?;
 
                     let config_profit_rate = parser.configs.profit_rate()?;
                     let config_income = parser.configs.income()?;
@@ -434,7 +422,13 @@ pub fn main() -> Result<(), Error> {
                 &output_cell_witness_reader,
             )?;
 
-            verify_tx_fee_spent_correctly(config_secondary_market_reader, input_cells[0], output_cells[0])?;
+            verifiers::common::verify_tx_fee_spent_correctly(
+                "AccountSaleCell",
+                input_cells[0],
+                output_cells[0],
+                u64::from(config_secondary_market_reader.common_fee()),
+                u64::from(config_secondary_market_reader.sale_cell_basic_capacity()),
+            )?;
 
             let mut changed = false;
 
@@ -823,39 +817,6 @@ fn verify_account_sale_cell_consistent<'a>(
     Ok(())
 }
 
-fn verify_tx_fee_spent_correctly(
-    config_reader: ConfigCellSecondaryMarketReader,
-    input_cell: usize,
-    output_cell: usize,
-) -> Result<(), Error> {
-    debug!("Verify if AccountSaleCell paid fee correctly.");
-
-    let basic_capacity = u64::from(config_reader.sale_cell_basic_capacity());
-    let input_capacity = high_level::load_cell_capacity(input_cell, Source::Input)?;
-    let output_capacity = high_level::load_cell_capacity(output_cell, Source::Output)?;
-
-    if input_capacity > output_capacity {
-        assert!(
-            output_capacity >= basic_capacity,
-            Error::AccountSaleCellFeeError,
-            "The AccountSaleCell has no more capacity as fee for this transaction.(current_capacity: {}, min_capacity: {})",
-            input_capacity,
-            basic_capacity
-        );
-
-        let expected_fee = u64::from(config_reader.common_fee());
-        assert!(
-            output_capacity >= input_capacity - expected_fee,
-            Error::AccountSaleCellFeeError,
-            "The fee should be equal to or less than ConfigCellSecondaryMarket.common_fee .(expected: {}, result: {})",
-            expected_fee,
-            input_capacity - output_capacity
-        );
-    }
-
-    Ok(())
-}
-
 fn verify_profit_distribution<'a>(
     parser: &WitnessesParser,
     config_main: ConfigCellMainReader,
@@ -878,16 +839,12 @@ fn verify_profit_distribution<'a>(
         util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, income_cell_type_id)?;
 
     // Because we do not verify the consistency of the creator, so there must be no IncomeCell in inputs.
-    assert!(
-        input_income_cells.len() == 0,
-        Error::InvalidTransactionStructure,
-        "There should be no IncomeCell in inputs."
-    );
-    assert!(
-        output_income_cells.len() == 1 && output_income_cells[0] == 1,
-        Error::InvalidTransactionStructure,
-        "There should be 1 IncomeCell at outputs[1]."
-    );
+    verifiers::common::verify_created_cell_in_correct_position(
+        "IncomeCell",
+        &input_income_cells,
+        &output_income_cells,
+        Some(1),
+    )?;
 
     verifiers::misc::verify_always_success_lock(output_income_cells[0], Source::Output)?;
 

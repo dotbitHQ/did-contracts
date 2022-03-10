@@ -44,27 +44,14 @@ pub fn main() -> Result<(), Error> {
             let config_second_market = parser.configs.secondary_market()?;
 
             if action == b"make_offer" {
-                assert!(
-                    input_cells.len() == 0 && output_cells.len() == 1,
-                    Error::InvalidTransactionStructure,
-                    "There should be only 1 OfferCell at outputs[0]."
-                );
-                assert!(
-                    output_cells[0] == 0,
-                    Error::InvalidTransactionStructure,
-                    "There should be only 1 OfferCell at outputs[0]."
-                );
+                verifiers::common::verify_created_cell_in_correct_position(
+                    "OfferCell",
+                    &input_cells,
+                    &output_cells,
+                    Some(0),
+                )?;
             } else {
-                assert!(
-                    input_cells.len() == 1 && output_cells.len() == 1,
-                    Error::InvalidTransactionStructure,
-                    "There should be at least 1 OfferCell in inputs and outputs."
-                );
-                assert!(
-                    input_cells[0] == 0 && output_cells[0] == 0,
-                    Error::InvalidTransactionStructure,
-                    "There should be 1 OfferCell in inputs[0] and outputs[0]."
-                );
+                verifiers::common::verify_modified_cell_in_correct_position("OfferCell", &input_cells, &output_cells)?;
             }
 
             let sender_lock = high_level::load_cell_lock(0, Source::Input)?;
@@ -302,16 +289,12 @@ pub fn main() -> Result<(), Error> {
             let config_profit_rate = parser.configs.profit_rate()?;
             let config_secondary_market = parser.configs.secondary_market()?;
 
-            assert!(
-                input_cells.len() == 1 && output_cells.len() == 0,
-                Error::InvalidTransactionStructure,
-                "There should be only 1 OfferCell in inputs."
-            );
-            assert!(
-                input_cells[0] == 0,
-                Error::InvalidTransactionStructure,
-                "The first OfferCell should be started at inputs[0]."
-            );
+            verifiers::common::verify_removed_cell_in_correct_position(
+                "OfferCell",
+                &input_cells,
+                &output_cells,
+                Some(0),
+            )?;
 
             let account_cell_type_id = config_main.type_id_table().account_cell();
             let (input_account_cells, output_account_cells) =
@@ -517,16 +500,12 @@ fn verify_profit_distribution(
         util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, income_cell_type_id)?;
 
     // Because we do not verify the consistency of the creator, so there must be no IncomeCell in inputs.
-    assert!(
-        input_income_cells.len() == 0,
-        Error::InvalidTransactionStructure,
-        "There should be no IncomeCell in inputs."
-    );
-    assert!(
-        output_income_cells.len() == 1 && output_income_cells[0] == 1,
-        Error::InvalidTransactionStructure,
-        "There should be 1 IncomeCell at outputs[1]."
-    );
+    verifiers::common::verify_created_cell_in_correct_position(
+        "IncomeCell",
+        &input_income_cells,
+        &output_income_cells,
+        Some(1),
+    )?;
 
     verifiers::misc::verify_always_success_lock(output_income_cells[0], Source::Output)?;
 

@@ -33,16 +33,12 @@ pub fn main() -> Result<(), Error> {
             let (input_cells, output_cells) =
                 util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
 
-            assert!(
-                input_cells.len() == 0,
-                Error::InvalidTransactionStructure,
-                "Consuming IncomeCell is not allowed in create_income action."
-            );
-            assert!(
-                output_cells.len() == 1,
-                Error::InvalidTransactionStructure,
-                "Only one IncomeCell can be created in create_income action."
-            );
+            verifiers::common::verify_created_cell_in_correct_position(
+                "IncomeCell",
+                &input_cells,
+                &output_cells,
+                None,
+            )?;
 
             verifiers::misc::verify_always_success_lock(output_cells[0], Source::Output)?;
 

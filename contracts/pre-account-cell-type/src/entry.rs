@@ -44,16 +44,12 @@ pub fn main() -> Result<(), Error> {
         let (input_cells, output_cells) =
             util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
 
-        assert!(
-            input_cells.len() == 0,
-            Error::PreRegisterFoundInvalidTransaction,
-            "There should be none PreRegisterCell in inputs."
-        );
-        assert!(
-            output_cells.len() == 1,
-            Error::PreRegisterFoundInvalidTransaction,
-            "There should be only one PreRegisterCell in outputs."
-        );
+        verifiers::common::verify_created_cell_in_correct_position(
+            "PreRegisterCell",
+            &input_cells,
+            &output_cells,
+            None,
+        )?;
 
         verifiers::misc::verify_always_success_lock(output_cells[0], Source::Output)?;
 
@@ -74,16 +70,12 @@ pub fn main() -> Result<(), Error> {
                 config_main_reader.type_id_table().apply_register_cell(),
             )?;
 
-        assert!(
-            input_apply_register_cells.len() == 1,
-            Error::PreRegisterFoundInvalidTransaction,
-            "There should be only one ApplyRegisterCell in outputs."
-        );
-        assert!(
-            output_apply_register_cells.len() == 0,
-            Error::PreRegisterFoundInvalidTransaction,
-            "There should be none ApplyRegisterCell in inputs."
-        );
+        verifiers::common::verify_removed_cell_in_correct_position(
+            "ApplyRegisterCell",
+            &input_apply_register_cells,
+            &output_apply_register_cells,
+            None,
+        )?;
 
         debug!("Read data of ApplyRegisterCell ...");
 

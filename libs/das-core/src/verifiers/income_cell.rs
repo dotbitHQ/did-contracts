@@ -62,9 +62,9 @@ pub fn verify_records_match_with_creating(
             continue;
         }
 
-        let key = record.belong_to().as_slice().to_vec();
+        let key_of_belong_to_lock = record.belong_to().as_slice().to_vec();
         let recorded_capacity = u64::from(record.capacity());
-        let result = profit_map.get(&key);
+        let result = profit_map.get(&key_of_belong_to_lock);
 
         // This will allow creating IncomeCell will NormalCells in inputs.
         if result.is_none() {
@@ -85,7 +85,7 @@ pub fn verify_records_match_with_creating(
             record.belong_to()
         );
 
-        profit_map.remove(&key);
+        profit_map.remove(&key_of_belong_to_lock);
     }
 
     if !profit_map.is_empty() {
