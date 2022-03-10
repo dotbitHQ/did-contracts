@@ -21,7 +21,7 @@ pub fn main() -> Result<(), Error> {
     };
     let action = action_cp.as_slice();
 
-    util::is_system_off(&mut parser)?;
+    util::is_system_off(&parser)?;
 
     if action == b"apply_register" {
         debug!("Route to apply_register action ...");
@@ -70,7 +70,6 @@ pub fn main() -> Result<(), Error> {
     } else if action == b"refund_apply" {
         debug!("Route to refund_apply action ...");
 
-        parser.parse_config(&[DataType::ConfigCellApply])?;
         let config = parser.configs.apply()?;
 
         // Find out ApplyRegisterCells in current transaction.
@@ -133,7 +132,7 @@ pub fn main() -> Result<(), Error> {
     } else if action == b"pre_register" {
         debug!("Route to pre_register action ...");
         util::require_type_script(
-            &mut parser,
+            &parser,
             TypeScript::PreAccountCellType,
             Source::Output,
             Error::InvalidTransactionStructure,

@@ -27,7 +27,7 @@ pub fn main() -> Result<(), Error> {
     let action = action_cp.as_slice();
 
     if action != b"init_account_chain" {
-        util::is_system_off(&mut parser)?;
+        util::is_system_off(&parser)?;
     }
 
     debug!(
@@ -43,7 +43,6 @@ pub fn main() -> Result<(), Error> {
 
             let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
-            parser.parse_config(&[DataType::ConfigCellMain, DataType::ConfigCellAccount])?;
             parser.parse_cell()?;
 
             let (input_account_cells, output_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
@@ -171,7 +170,6 @@ pub fn main() -> Result<(), Error> {
                 b"edit_records" => {
                     verify_eip712_hashes(&parser, edit_records_to_semantic)?;
 
-                    parser.parse_config(&[DataType::ConfigCellRecordKeyNamespace])?;
                     let config_account = parser.configs.account()?;
                     let record_key_namespace = parser.configs.record_key_namespace()?;
 
@@ -227,11 +225,6 @@ pub fn main() -> Result<(), Error> {
         }
         b"renew_account" => {
             parser.parse_cell()?;
-            parser.parse_config(&[
-                DataType::ConfigCellAccount,
-                DataType::ConfigCellPrice,
-                DataType::ConfigCellIncome,
-            ])?;
 
             let prices = parser.configs.price()?.prices();
             let config_main = parser.configs.main()?;
@@ -405,7 +398,7 @@ pub fn main() -> Result<(), Error> {
         }
         b"confirm_proposal" => {
             util::require_type_script(
-                &mut parser,
+                &parser,
                 TypeScript::ProposalCellType,
                 Source::Input,
                 Error::InvalidTransactionStructure,
@@ -416,7 +409,7 @@ pub fn main() -> Result<(), Error> {
         }
         b"start_account_sale" => {
             util::require_type_script(
-                &mut parser,
+                &parser,
                 TypeScript::AccountSaleCellType,
                 Source::Output,
                 Error::InvalidTransactionStructure,
@@ -424,7 +417,7 @@ pub fn main() -> Result<(), Error> {
         }
         b"cancel_account_sale" | b"buy_account" => {
             util::require_type_script(
-                &mut parser,
+                &parser,
                 TypeScript::AccountSaleCellType,
                 Source::Input,
                 Error::InvalidTransactionStructure,
@@ -432,14 +425,13 @@ pub fn main() -> Result<(), Error> {
         }
         b"accept_offer" => {
             util::require_type_script(
-                &mut parser,
+                &parser,
                 TypeScript::OfferCellType,
                 Source::Input,
                 Error::InvalidTransactionStructure,
             )?;
         }
         b"force_recover_account_status" => {
-            parser.parse_config(&[DataType::ConfigCellMain])?;
             parser.parse_cell()?;
 
             let config_main = parser.configs.main()?;
@@ -578,11 +570,6 @@ pub fn main() -> Result<(), Error> {
 
             let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
-            parser.parse_config(&[
-                DataType::ConfigCellMain,
-                DataType::ConfigCellAccount,
-                DataType::ConfigCellSubAccount,
-            ])?;
             parser.parse_cell()?;
 
             let config_main = parser.configs.main()?;
@@ -758,7 +745,7 @@ pub fn main() -> Result<(), Error> {
         }
         b"create_sub_account" => {
             util::require_type_script(
-                &mut parser,
+                &parser,
                 TypeScript::SubAccountCellType,
                 Source::Input,
                 Error::InvalidTransactionStructure,

@@ -33,14 +33,13 @@ pub fn main() -> Result<(), Error> {
         };
         let action = action_cp.as_slice();
 
-        parser.parse_config(&[DataType::ConfigCellMain])?;
         parser.parse_cell()?;
 
         // Because the semantic requirement of each action, some other type script is required to generate DAS_MESSAGE field in EIP712 properly.
         match action {
             b"transfer_account" | b"edit_manager" | b"edit_records" => {
                 util::require_type_script(
-                    &mut parser,
+                    &parser,
                     TypeScript::AccountCellType,
                     Source::Input,
                     Error::InvalidTransactionStructure,
@@ -48,7 +47,7 @@ pub fn main() -> Result<(), Error> {
             }
             b"start_account_sale" => {
                 util::require_type_script(
-                    &mut parser,
+                    &parser,
                     TypeScript::AccountSaleCellType,
                     Source::Output,
                     Error::InvalidTransactionStructure,
@@ -56,7 +55,7 @@ pub fn main() -> Result<(), Error> {
             }
             b"cancel_account_sale" | b"buy_account" | b"edit_account_sale" => {
                 util::require_type_script(
-                    &mut parser,
+                    &parser,
                     TypeScript::AccountSaleCellType,
                     Source::Input,
                     Error::InvalidTransactionStructure,
@@ -64,7 +63,7 @@ pub fn main() -> Result<(), Error> {
             }
             b"declare_reverse_record" => {
                 util::require_type_script(
-                    &mut parser,
+                    &parser,
                     TypeScript::ReverseRecordCellType,
                     Source::Output,
                     Error::InvalidTransactionStructure,
@@ -72,7 +71,7 @@ pub fn main() -> Result<(), Error> {
             }
             b"redeclare_reverse_record" | b"retract_reverse_record" => {
                 util::require_type_script(
-                    &mut parser,
+                    &parser,
                     TypeScript::ReverseRecordCellType,
                     Source::Input,
                     Error::InvalidTransactionStructure,
@@ -80,7 +79,7 @@ pub fn main() -> Result<(), Error> {
             }
             b"make_offer" | b"edit_offer" => {
                 util::require_type_script(
-                    &mut parser,
+                    &parser,
                     TypeScript::OfferCellType,
                     Source::Output,
                     Error::InvalidTransactionStructure,
@@ -88,7 +87,7 @@ pub fn main() -> Result<(), Error> {
             }
             b"cancel_offer" | b"accept_offer" => {
                 util::require_type_script(
-                    &mut parser,
+                    &parser,
                     TypeScript::OfferCellType,
                     Source::Input,
                     Error::InvalidTransactionStructure,
@@ -96,7 +95,7 @@ pub fn main() -> Result<(), Error> {
             }
             b"enable_sub_account" | b"create_sub_account" | b"renew_sub_account" => {
                 util::require_type_script(
-                    &mut parser,
+                    &parser,
                     TypeScript::SubAccountCellType,
                     Source::Output,
                     Error::InvalidTransactionStructure,
@@ -133,7 +132,6 @@ pub fn main() -> Result<(), Error> {
                             if available_type_scripts.is_empty() {
                                 debug!("Try to load type ID table from ConfigCellMain, because found some cells with das-lock not using balance-cell-type.");
                                 let mut parser = WitnessesParser::new()?;
-                                parser.parse_config(&[DataType::ConfigCellMain])?;
 
                                 macro_rules! push_type_script {
                                     ($type_id_name:ident) => {

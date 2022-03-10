@@ -23,6 +23,11 @@ pub fn init_create(action: &str, params_opt: Option<&str>) -> TemplateGenerator 
     template.push_contract_cell("account-cell-type", false);
     template.push_contract_cell("income-cell-type", false);
 
+    template.push_config_cell(DataType::ConfigCellCharSetEmoji, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellCharSetDigit, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellCharSetEn, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellUnAvailableAccount, Source::CellDep);
+
     template.push_config_cell(DataType::ConfigCellSubAccount, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellAccount, Source::CellDep);
 

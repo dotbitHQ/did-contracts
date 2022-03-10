@@ -32,7 +32,7 @@ fn push_input_account_cell(template: &mut TemplateGenerator, timestamp: u64, sta
         }),
         Some(2),
     );
-    template.push_empty_witness();
+    template.push_das_lock_witness("0000000000000000000000000000000000000000000000000000000000000000");
 }
 
 fn push_input_account_sale_cell(template: &mut TemplateGenerator, timestamp: u64) {

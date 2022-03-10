@@ -28,7 +28,7 @@ pub fn main() -> Result<(), Error> {
     };
     let action = action_cp.as_slice();
 
-    util::is_system_off(&mut parser)?;
+    util::is_system_off(&parser)?;
 
     let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
 
@@ -38,7 +38,6 @@ pub fn main() -> Result<(), Error> {
     );
     match action {
         b"make_offer" | b"edit_offer" => {
-            parser.parse_config(&[DataType::ConfigCellMain, DataType::ConfigCellSecondaryMarket])?;
             parser.parse_cell()?;
             let config_main = parser.configs.main()?;
             let config_second_market = parser.configs.secondary_market()?;
@@ -224,10 +223,9 @@ pub fn main() -> Result<(), Error> {
 
             let account = output_offer_cell_witness_reader.account().raw_data();
             let account_without_suffix = &account[0..account.len() - 4];
-            verifiers::account_cell::verify_unavailable_accounts(&mut parser, account_without_suffix)?;
+            verifiers::account_cell::verify_unavailable_accounts(&parser, account_without_suffix)?;
         }
         b"cancel_offer" => {
-            parser.parse_config(&[DataType::ConfigCellMain, DataType::ConfigCellSecondaryMarket])?;
             parser.parse_cell()?;
             let config_main = parser.configs.main()?;
             let config_second_market = parser.configs.secondary_market()?;
@@ -272,13 +270,6 @@ pub fn main() -> Result<(), Error> {
         b"accept_offer" => {
             let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
-            parser.parse_config(&[
-                DataType::ConfigCellMain,
-                DataType::ConfigCellAccount,
-                DataType::ConfigCellIncome,
-                DataType::ConfigCellProfitRate,
-                DataType::ConfigCellSecondaryMarket,
-            ])?;
             parser.parse_cell()?;
 
             verify_eip712_hashes(&parser, accept_offer_to_semantic)?;

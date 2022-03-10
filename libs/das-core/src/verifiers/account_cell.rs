@@ -2,8 +2,10 @@ use crate::{
     assert, constants::DasLockType, constants::*, data_parser, error::Error, util, warn,
     witness_parser::WitnessesParser,
 };
-use alloc::{boxed::Box, string::String, vec::Vec};
+use alloc::borrow::ToOwned;
+use alloc::{boxed::Box, string::String, vec, vec::Vec};
 use ckb_std::{ckb_constants::Source, debug, high_level};
+use core::convert::TryFrom;
 use das_types::{constants::*, mixer::AccountCellDataReaderMixer, packed::*, util as das_types_util};
 
 pub fn verify_unlock_role(action: &[u8], params: &[Bytes]) -> Result<(), Error> {
@@ -402,22 +404,21 @@ pub fn verify_account_cell_status<'a>(
     Ok(())
 }
 
-pub fn verify_preserved_accounts(parser: &mut WitnessesParser, account: &[u8]) -> Result<(), Error> {
+pub fn verify_preserved_accounts(parser: &WitnessesParser, account: &[u8]) -> Result<(), Error> {
     debug!("Verify if account is preserved.");
 
     let account_hash = util::blake2b_256(account);
     let account_id = account_hash.get(..ACCOUNT_ID_LENGTH).unwrap();
     let index = (account_id[0] % PRESERVED_ACCOUNT_CELL_COUNT) as usize;
     let data_type = das_types_util::preserved_accounts_group_to_data_type(index);
+    let preserved_accounts = parser.configs.preserved_account(data_type)?;
 
     // debug!(
-    //     "account: {}, account ID: {:?}",
+    //     "account: {}, account ID: {:?}, data_type: {:?}",
     //     String::from_utf8(account.to_vec()).unwrap(),
-    //     account_id
+    //     account_id,
+    //     data_type
     // );
-
-    parser.parse_config(&[data_type])?;
-    let preserved_accounts = parser.configs.preserved_account()?;
 
     if is_account_id_in_collection(account_id, preserved_accounts) {
         warn!(
@@ -433,10 +434,8 @@ pub fn verify_preserved_accounts(parser: &mut WitnessesParser, account: &[u8]) -
 }
 
 /// Verify if the account can never be registered.
-pub fn verify_unavailable_accounts(parser: &mut WitnessesParser, account: &[u8]) -> Result<(), Error> {
+pub fn verify_unavailable_accounts(parser: &WitnessesParser, account: &[u8]) -> Result<(), Error> {
     debug!("Verify if account if unavailable");
-
-    parser.parse_config(&[DataType::ConfigCellUnAvailableAccount])?;
 
     let account_hash = util::blake2b_256(account);
     let account_id = account_hash.get(..ACCOUNT_ID_LENGTH).unwrap();
@@ -451,6 +450,148 @@ pub fn verify_unavailable_accounts(parser: &mut WitnessesParser, account: &[u8])
         );
         return Err(Error::AccountIsUnAvailable);
     }
+
+    Ok(())
+}
+
+fn is_account_id_in_collection(account_id: &[u8], collection: &[u8]) -> bool {
+    let length = collection.len();
+
+    let first = &collection[0..20];
+    let last = &collection[length - 20..];
+
+    return if account_id < first {
+        debug!("The account is less than the first preserved account, skip.");
+        false
+    } else if account_id > last {
+        debug!("The account is bigger than the last preserved account, skip.");
+        false
+    } else {
+        let accounts_total = collection.len() / ACCOUNT_ID_LENGTH;
+        let mut start_account_index = 0;
+        let mut end_account_index = accounts_total - 1;
+
+        loop {
+            let mid_account_index = (start_account_index + end_account_index) / 2;
+            // debug!("mid_account_index = {:?}", mid_account_index);
+            let mid_account_start_byte_index = mid_account_index * ACCOUNT_ID_LENGTH;
+            let mid_account_end_byte_index = mid_account_start_byte_index + ACCOUNT_ID_LENGTH;
+            let mid_account_bytes = collection
+                .get(mid_account_start_byte_index..mid_account_end_byte_index)
+                .unwrap();
+
+            if mid_account_bytes < account_id {
+                start_account_index = mid_account_index + 1;
+                // debug!("<");
+            } else if mid_account_bytes > account_id {
+                // debug!(">");
+                end_account_index = if mid_account_index > 1 {
+                    mid_account_index - 1
+                } else {
+                    0
+                };
+            } else {
+                return true;
+            }
+
+            if start_account_index > end_account_index || end_account_index == 0 {
+                break;
+            }
+        }
+
+        false
+    };
+}
+
+pub fn verify_account_chars(parser: &WitnessesParser, chars_reader: AccountCharsReader) -> Result<(), Error> {
+    debug!("Verify if account chars is available.");
+
+    let mut prev_char_set_name: Option<_> = None;
+    for account_char in chars_reader.iter() {
+        // Loading different charset configs on demand.
+        let data_type =
+            das_types_util::char_set_to_data_type(CharSetType::try_from(account_char.char_set_name()).unwrap());
+        let char_set_index = das_types_util::data_type_to_char_set(data_type) as usize;
+        let char_sets = parser.configs.char_set();
+
+        // Check if account contains only one non-global character set.
+        match char_sets.get(char_set_index) {
+            Some(Ok(char_set)) => {
+                if !char_set.global {
+                    if prev_char_set_name.is_none() {
+                        prev_char_set_name = Some(char_set_index);
+                    } else {
+                        let pre_char_set_index = prev_char_set_name.as_ref().unwrap();
+                        assert!(
+                            pre_char_set_index == &char_set_index,
+                            Error::PreRegisterAccountCharSetConflict,
+                            "Non-global CharSet[{}] has been used by account, so CharSet[{}] can not be used together.",
+                            pre_char_set_index,
+                            char_set_index
+                        );
+                    }
+                }
+            }
+            Some(Err(err)) => {
+                return Err(err.to_owned());
+            }
+            None => {
+                warn!("CharSet[{}] is undefined.", char_set_index);
+                return Err(Error::PreRegisterFoundUndefinedCharSet);
+            }
+        }
+    }
+
+    let tmp = vec![0u8];
+    let char_sets = parser.configs.char_set();
+    let mut required_char_sets = vec![tmp.as_slice(); CHAR_SET_LENGTH];
+    for account_char in chars_reader.iter() {
+        let char_set_index = u32::from(account_char.char_set_name()) as usize;
+        if required_char_sets[char_set_index].len() <= 1 {
+            let char_set = char_sets[char_set_index].unwrap();
+            required_char_sets[char_set_index] = char_set.data.as_slice();
+        }
+
+        let account_char_bytes = account_char.bytes().raw_data();
+        let mut found = false;
+        let mut from = 0;
+        for (i, item) in required_char_sets[char_set_index].iter().enumerate() {
+            if item == &0 {
+                let char_bytes = required_char_sets[char_set_index].get(from..i).unwrap();
+                if account_char_bytes == char_bytes {
+                    found = true;
+                    break;
+                }
+
+                from = i + 1;
+            }
+        }
+
+        assert!(
+            found,
+            Error::PreRegisterAccountCharIsInvalid,
+            "The character {:?}(utf-8) can not be used in account, because it is not contained by CharSet[{}].",
+            // util::hex_string(account_char.bytes().raw_data()),
+            account_char.bytes().raw_data(),
+            char_set_index
+        );
+    }
+
+    Ok(())
+}
+
+pub fn verify_account_chars_length(parser: &WitnessesParser, chars_reader: AccountCharsReader) -> Result<(), Error> {
+    let config = parser.configs.account()?;
+    let max_chars_length = u32::from(config.max_length());
+    let account_chars_length = chars_reader.len() as u32;
+
+    assert!(
+        max_chars_length >= account_chars_length,
+        Error::PreRegisterAccountIsTooLong,
+        "The maximum length of account is {}, but {} found.",
+        max_chars_length,
+        account_chars_length
+    );
 
     Ok(())
 }
@@ -528,53 +669,4 @@ pub fn verify_records_keys<'a>(
     }
 
     Ok(())
-}
-
-fn is_account_id_in_collection(account_id: &[u8], collection: &[u8]) -> bool {
-    let length = collection.len();
-
-    let first = &collection[0..20];
-    let last = &collection[length - 20..];
-
-    return if account_id < first {
-        debug!("The account is less than the first preserved account, skip.");
-        false
-    } else if account_id > last {
-        debug!("The account is bigger than the last preserved account, skip.");
-        false
-    } else {
-        let accounts_total = collection.len() / ACCOUNT_ID_LENGTH;
-        let mut start_account_index = 0;
-        let mut end_account_index = accounts_total - 1;
-
-        loop {
-            let mid_account_index = (start_account_index + end_account_index) / 2;
-            // debug!("mid_account_index = {:?}", mid_account_index);
-            let mid_account_start_byte_index = mid_account_index * ACCOUNT_ID_LENGTH;
-            let mid_account_end_byte_index = mid_account_start_byte_index + ACCOUNT_ID_LENGTH;
-            let mid_account_bytes = collection
-                .get(mid_account_start_byte_index..mid_account_end_byte_index)
-                .unwrap();
-
-            if mid_account_bytes < account_id {
-                start_account_index = mid_account_index + 1;
-                // debug!("<");
-            } else if mid_account_bytes > account_id {
-                // debug!(">");
-                end_account_index = if mid_account_index > 1 {
-                    mid_account_index - 1
-                } else {
-                    0
-                };
-            } else {
-                return true;
-            }
-
-            if start_account_index > end_account_index || end_account_index == 0 {
-                break;
-            }
-        }
-
-        false
-    };
 }

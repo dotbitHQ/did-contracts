@@ -23,13 +23,12 @@ pub fn main() -> Result<(), Error> {
 
     match action {
         b"test_parse_witness_entity_config" => {
-            parser.parse_config(&[DataType::ConfigCellAccount])?;
+            parser.configs.account()?;
         }
         b"test_parse_witness_raw_config" => {
-            parser.parse_config(&[DataType::ConfigCellRecordKeyNamespace])?;
+            parser.configs.record_key_namespace()?;
         }
         b"test_parse_witness_cells" => {
-            parser.parse_config(&[DataType::ConfigCellMain])?;
             let config_main = parser.configs.main()?;
             let account_cell_type_id = config_main.type_id_table().account_cell();
             let account_cells = util::find_cells_by_type_id(ScriptType::Type, account_cell_type_id, Source::CellDep)?;
