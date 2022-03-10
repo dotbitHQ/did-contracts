@@ -20,8 +20,9 @@ pub fn verify_created_cell_in_correct_position(
         assert!(
             output_cell_indexes[0] == index,
             Error::InvalidTransactionStructure,
-            "To create cell, the {} should only appear at outputs[1], it actually appear at {}",
+            "To create {}, it should be at outputs[{}], it is actually at {}",
             cell_name,
+            index,
             output_cell_indexes[0]
         );
     }
@@ -49,8 +50,9 @@ pub fn verify_removed_cell_in_correct_position(
         assert!(
             input_cell_indexes[0] == index,
             Error::InvalidTransactionStructure,
-            "To remove cell, the {} should only appear at inputs[1], while received {}",
+            "To remove {}, it should be at inputs[{}], it is actually at {}",
             cell_name,
+            index,
             input_cell_indexes[0]
         );
     }

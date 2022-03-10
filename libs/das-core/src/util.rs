@@ -389,7 +389,7 @@ pub fn load_oracle_data(type_: OracleCellType) -> Result<u64, Error> {
     Ok(data_in_uint as u64)
 }
 
-pub fn load_cells_capacity(cells: &Vec<usize>, source: Source) -> Result<u64, Error> {
+pub fn load_cells_capacity(cells: &[usize], source: Source) -> Result<u64, Error> {
     let mut total_input_capacity = 0;
     for i in cells.iter() {
         total_input_capacity += high_level::load_cell_capacity(*i, source)?;
