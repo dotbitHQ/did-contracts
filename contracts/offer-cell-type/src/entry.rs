@@ -64,10 +64,7 @@ pub fn main() -> Result<(), Error> {
 
             debug!("Verify if the change is transferred back to the sender properly.");
 
-            let mut total_input_capacity = 0;
-            for i in all_input_cells.iter() {
-                total_input_capacity += high_level::load_cell_capacity(*i, Source::Input)?;
-            }
+            let total_input_capacity = util::load_cells_capacity(&all_input_cells, Source::Input)?;
             let offer_cell_capacity = high_level::load_cell_capacity(output_cells[0], Source::Output)?;
             let common_fee = u64::from(config_second_market.common_fee());
             if total_input_capacity > offer_cell_capacity + common_fee {

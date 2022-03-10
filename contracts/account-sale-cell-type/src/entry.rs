@@ -105,10 +105,7 @@ pub fn main() -> Result<(), Error> {
 
                     debug!("Verify if sender get their change properly.");
 
-                    let mut total_input_capacity = 0;
-                    for i in balance_cells.iter() {
-                        total_input_capacity += high_level::load_cell_capacity(*i, Source::Input)?;
-                    }
+                    let total_input_capacity = util::load_cells_capacity(&balance_cells, Source::Input)?;
 
                     let account_sale_cell_capacity =
                         high_level::load_cell_capacity(output_sale_cells[0], Source::Output)?;
@@ -319,11 +316,7 @@ pub fn main() -> Result<(), Error> {
                     );
 
                     debug!("Verify if buyer get their change properly.");
-
-                    let mut total_input_capacity = 0;
-                    for i in balance_cells.iter() {
-                        total_input_capacity += high_level::load_cell_capacity(*i, Source::Input)?;
-                    }
+                    let total_input_capacity = util::load_cells_capacity(&balance_cells, Source::Input)?;
 
                     let price = u64::from(input_sale_cell_witness_reader.price());
                     assert!(

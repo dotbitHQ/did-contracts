@@ -73,20 +73,16 @@ pub fn verify_user_get_change(
     user_lock_reader: ckb_packed::ScriptReader,
     expected_balance: u64,
 ) -> Result<(), Error> {
-    let mut current_capacity = 0;
-
-    let balance_cells = util::find_balance_cells(config_main, user_lock_reader, Source::Output)?;
-    for i in balance_cells {
-        current_capacity += high_level::load_cell_capacity(i, Source::Output)?;
-    }
+    let output_balance_cells = util::find_balance_cells(config_main, user_lock_reader, Source::Output)?;
+    let output_capacity = util::load_cells_capacity(&output_balance_cells, Source::Output)?;
 
     assert!(
-        current_capacity >= expected_balance,
+        output_capacity >= expected_balance,
         Error::ChangeError,
         "The change should be {} shannon in outputs.(current: {}, user_lock: {})",
         expected_balance,
-        current_capacity,
-        user_lock_reader
+        output_capacity,
+        util::hex_string(user_lock_reader.args().raw_data())
     );
 
     Ok(())

@@ -381,10 +381,7 @@ pub fn main() -> Result<(), Error> {
 
             debug!("Verify if sender get their change properly.");
 
-            let mut total_input_capacity = 0;
-            for i in balance_cells.iter() {
-                total_input_capacity += high_level::load_cell_capacity(*i, Source::Input)?;
-            }
+            let total_input_capacity = util::load_cells_capacity(&balance_cells, Source::Input)?;
 
             if total_input_capacity > paid {
                 verifiers::misc::verify_user_get_change(
@@ -730,10 +727,7 @@ pub fn main() -> Result<(), Error> {
 
             debug!("Verify if sender get their change properly.");
 
-            let mut total_input_capacity = 0;
-            for i in balance_cells.iter() {
-                total_input_capacity += high_level::load_cell_capacity(*i, Source::Input)?;
-            }
+            let total_input_capacity = util::load_cells_capacity(&balance_cells, Source::Input)?;
 
             if total_input_capacity > sub_account_cell_capacity {
                 verifiers::misc::verify_user_get_change(

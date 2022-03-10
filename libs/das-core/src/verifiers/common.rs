@@ -1,5 +1,4 @@
 use crate::{assert, debug, error::Error};
-use alloc::vec::Vec;
 use ckb_std::{ckb_constants::Source, high_level};
 
 pub fn verify_created_cell_in_correct_position(
