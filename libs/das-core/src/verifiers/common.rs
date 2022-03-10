@@ -4,8 +4,8 @@ use ckb_std::{ckb_constants::Source, high_level};
 
 pub fn verify_created_cell_in_correct_position(
     cell_name: &str,
-    input_cell_indexes: &Vec<usize>,
-    output_cell_indexes: &Vec<usize>,
+    input_cell_indexes: &[usize],
+    output_cell_indexes: &[usize],
     created_cell_index: Option<usize>, // None: No need to verify the index of the created cell; Some(index): the created cell should be at index, usually 1
 ) -> Result<(), Error> {
     assert!(
@@ -32,8 +32,8 @@ pub fn verify_created_cell_in_correct_position(
 
 pub fn verify_removed_cell_in_correct_position(
     cell_name: &str,
-    input_cell_indexes: &Vec<usize>,
-    output_cell_indexes: &Vec<usize>,
+    input_cell_indexes: &[usize],
+    output_cell_indexes: &[usize],
     removed_cell_index: Option<usize>, // None: No need to verify the index of the removed cell; Some(index): the removed cell should be at index, usually 1
 ) -> Result<(), Error> {
     assert!(
@@ -61,8 +61,8 @@ pub fn verify_removed_cell_in_correct_position(
 
 pub fn verify_modified_cell_in_correct_position(
     cell_name: &str,
-    input_cells: &Vec<usize>,
-    output_cells: &Vec<usize>,
+    input_cells: &[usize],
+    output_cells: &[usize],
 ) -> Result<(), Error> {
     assert!(
         input_cells.len() == 1 && output_cells.len() == 1,
@@ -87,7 +87,7 @@ pub fn verify_modified_cell_in_correct_position(
     Ok(())
 }
 
-// The tx fee is from a specific cell, here to verify the validity of the fee spent
+// The tx fee is from a specific cell (like AccountCell/AccountSaleCell), here to verify the validity of the fee spent
 pub fn verify_tx_fee_spent_correctly(
     cell_name: &str,
     input_cell: usize,

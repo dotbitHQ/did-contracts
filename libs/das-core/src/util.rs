@@ -391,8 +391,10 @@ pub fn load_oracle_data(type_: OracleCellType) -> Result<u64, Error> {
 
 pub fn load_self_cells_in_inputs_and_outputs() -> Result<(Vec<usize>, Vec<usize>), Error> {
     let this_type_script = high_level::load_script().map_err(Error::from)?;
-    let (input_cells, output_cells) =
-        find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
+    let this_type_script_reader = this_type_script.as_reader();
+
+    let input_cells = find_cells_by_script(ScriptType::Type, this_type_script_reader, Source::Input)?;
+    let output_cells = find_cells_by_script(ScriptType::Type, this_type_script_reader, Source::Output)?;
 
     Ok((input_cells, output_cells))
 }

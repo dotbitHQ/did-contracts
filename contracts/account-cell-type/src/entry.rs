@@ -805,7 +805,6 @@ fn edit_records_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
     Ok(format!("EDIT RECORDS OF ACCOUNT {}", account))
 }
 
-// todo: use verifiers::common::verify_tx_fee_spent_correctly to simplify code
 fn verify_transaction_fee_spent_correctly(
     action: &[u8],
     config: ConfigCellAccountReader,
@@ -823,14 +822,6 @@ fn verify_transaction_fee_spent_correctly(
         u64::from(config.basic_capacity())
     };
 
-    let input_capacity = high_level::load_cell_capacity(input_account_index, Source::Input)?;
-    let output_capacity = high_level::load_cell_capacity(output_account_index, Source::Output)?;
-
-    // The capacity is not changed, skip the following verification.
-    if input_capacity == output_capacity {
-        return Ok(());
-    }
-
     let input_data = util::load_cell_data(input_account_index, Source::Input)?;
     let account_length = data_parser::account_cell::get_account(&input_data).len() as u64;
 
@@ -842,24 +833,13 @@ fn verify_transaction_fee_spent_correctly(
     };
     let storage_capacity = basic_capacity + account_length * 100_000_000;
 
-    assert!(
-        output_capacity >= storage_capacity,
-        Error::AccountCellNoMoreFee,
-        "The AccountCell has no more capacity as fee for this transaction.(current_capacity: {}, min_capacity: {})",
-        input_capacity,
-        storage_capacity
-    );
-
-    // User put more capacity into the AccountCell or pay the transaction directly, that will be always acceptable.
-    if input_capacity > output_capacity {
-        assert!(
-            input_capacity - output_capacity <= fee,
-            Error::AccountCellNoMoreFee,
-            "The transaction fee should be less than or equal to {}, but {} found.",
-            fee,
-            input_capacity - output_capacity
-        );
-    }
+    verifiers::common::verify_tx_fee_spent_correctly(
+        "AccountCell",
+        input_account_index,
+        output_account_index,
+        fee,
+        storage_capacity,
+    )?;
 
     Ok(())
 }

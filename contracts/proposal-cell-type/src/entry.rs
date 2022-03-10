@@ -34,8 +34,7 @@ pub fn main() -> Result<(), Error> {
     // Find out PreAccountCells in current transaction.
     let this_type_script = load_script()?;
     let this_type_script_reader = this_type_script.as_reader();
-    let (input_cells, output_cells) =
-        util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script_reader)?;
+    let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
     let dep_cells = util::find_cells_by_script(ScriptType::Type, this_type_script_reader, Source::CellDep)?;
 
     debug!(
