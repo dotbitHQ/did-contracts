@@ -96,30 +96,20 @@ pub fn main() -> Result<(), Error> {
 
                     let sender_lock = high_level::load_cell_lock(0, Source::Input)?;
                     let sender_lock_reader = sender_lock.as_reader();
-                    let balance_cells = util::find_balance_cells(config_main, sender_lock_reader, Source::Input)?;
+                    let input_balance_cells = util::find_balance_cells(config_main, sender_lock_reader, Source::Input)?;
 
                     debug!("Verify if there is no redundant cells in inputs.");
 
-                    let all_cells = [input_account_cells.clone(), balance_cells.clone()].concat();
+                    let all_cells = [input_account_cells.clone(), input_balance_cells.clone()].concat();
                     verifiers::misc::verify_no_more_cells(&all_cells, Source::Input)?;
 
                     debug!("Verify if sender get their change properly.");
-
-                    let total_input_capacity = util::load_cells_capacity(&balance_cells, Source::Input)?;
-
-                    let account_sale_cell_capacity =
-                        high_level::load_cell_capacity(output_sale_cells[0], Source::Output)?;
-                    let common_fee = u64::from(config_secondary_market.common_fee());
-                    assert!(
-                        total_input_capacity >= account_sale_cell_capacity + common_fee,
-                        Error::InvalidTransactionStructure,
-                        "There is no enough capacity to satisfied the basic requirement.(require_at_least: {})",
-                        account_sale_cell_capacity + common_fee
-                    );
-                    verifiers::misc::verify_user_get_change(
+                    verifiers::misc::verify_user_get_change_when_inputs_removed(
                         config_main,
                         sender_lock_reader,
-                        total_input_capacity - account_sale_cell_capacity - common_fee,
+                        &input_balance_cells,
+                        &output_sale_cells,
+                        u64::from(config_secondary_market.common_fee()),
                     )?;
 
                     debug!("Verify if the AccountCell is consistent in inputs and outputs.");
@@ -154,7 +144,7 @@ pub fn main() -> Result<(), Error> {
                         Source::Output
                     );
 
-                    verify_sale_cell_capacity(config_secondary_market, account_sale_cell_capacity)?;
+                    verify_sale_cell_capacity(config_secondary_market, output_sale_cells[0])?;
                     verify_sale_cell_account_and_id(input_account_cells[0], &output_sale_cell_witness_reader)?;
                     verify_price(config_secondary_market, &output_sale_cell_witness_reader)?;
                     verify_description(config_secondary_market, &output_sale_cell_witness_reader)?;
@@ -171,9 +161,6 @@ pub fn main() -> Result<(), Error> {
                         Some(1),
                     )?;
 
-                    let sender_lock = high_level::load_cell_lock(0, Source::Input)?;
-                    let sender_lock_reader = sender_lock.as_reader();
-
                     debug!("Verify if there is no redundant cells in inputs.");
 
                     let all_cells = [input_account_cells.clone(), input_sale_cells.clone()].concat();
@@ -181,12 +168,14 @@ pub fn main() -> Result<(), Error> {
 
                     debug!("Verify if sender get their change properly.");
 
-                    let total_input_capacity = high_level::load_cell_capacity(input_sale_cells[0], Source::Input)?;
-                    let common_fee = u64::from(config_secondary_market.common_fee());
-                    verifiers::misc::verify_user_get_change(
+                    let sender_lock = high_level::load_cell_lock(0, Source::Input)?;
+                    let sender_lock_reader = sender_lock.as_reader();
+                    verifiers::misc::verify_user_get_change_when_inputs_removed(
                         config_main,
                         sender_lock_reader,
-                        total_input_capacity - common_fee,
+                        &input_sale_cells,
+                        &(vec![]),
+                        u64::from(config_secondary_market.common_fee()),
                     )?;
 
                     debug!(
@@ -239,13 +228,13 @@ pub fn main() -> Result<(), Error> {
 
                     let buyer_lock = high_level::load_cell_lock(2, Source::Input)?;
                     let buyer_lock_reader = buyer_lock.as_reader();
-                    let balance_cells = util::find_balance_cells(config_main, buyer_lock_reader, Source::Input)?;
+                    let input_balance_cells = util::find_balance_cells(config_main, buyer_lock_reader, Source::Input)?;
 
                     debug!("Verify if there is no redundant buyer's cells in inputs.");
 
                     verifiers::misc::verify_no_more_cells_with_same_lock(
                         buyer_lock_reader,
-                        &balance_cells,
+                        &input_balance_cells,
                         Source::Input,
                     )?;
 
@@ -316,20 +305,14 @@ pub fn main() -> Result<(), Error> {
                     );
 
                     debug!("Verify if buyer get their change properly.");
-                    let total_input_capacity = util::load_cells_capacity(&balance_cells, Source::Input)?;
 
                     let price = u64::from(input_sale_cell_witness_reader.price());
-                    assert!(
-                        total_input_capacity >= price,
-                        Error::InvalidTransactionStructure,
-                        "The buyer not pay enough to buy the account.(expected: {}, current: {})",
-                        price,
-                        total_input_capacity
-                    );
-                    verifiers::misc::verify_user_get_change(
+                    verifiers::misc::verify_user_get_change_when_inputs_removed(
                         config_main,
                         buyer_lock_reader,
-                        total_input_capacity - price,
+                        &input_balance_cells,
+                        &(vec![]),
+                        price,
                     )?;
 
                     debug!("Verify if the profit is distribute correctly.");
@@ -636,8 +619,9 @@ fn verify_account_cell_consistent_except_status<'a>(
 
 fn verify_sale_cell_capacity(
     config_reader: ConfigCellSecondaryMarketReader,
-    account_sale_cell_capacity: u64,
+    output_sale_cell_index: usize,
 ) -> Result<(), Error> {
+    let account_sale_cell_capacity = high_level::load_cell_capacity(output_sale_cell_index, Source::Output)?;
     let expected = u64::from(config_reader.sale_cell_basic_capacity())
         + u64::from(config_reader.sale_cell_prepared_fee_capacity());
 
