@@ -629,12 +629,12 @@ pub fn verify_records_keys<'a>(
         (va.len() == vb.len()) && va.iter().zip(vb).all(|(a, b)| a == b)
     }
 
-    // check if all the record.{type+key} are valid
+    // check if all the record.record_type and record.record_key are valid
     for record in records.iter() {
         let mut is_valid = false;
 
         let mut record_type = Vec::from(record.record_type().raw_data());
-        let mut record_key = Vec::from(record.record_key().raw_data());
+        let record_key = Vec::from(record.record_key().raw_data());
         if record_type == b"custom_key" {
             // CAREFUL Triple check
             for char in record_key.iter() {
@@ -647,8 +647,9 @@ pub fn verify_records_keys<'a>(
             continue;
         }
 
-        record_type.push(46);
-        record_type.append(&mut record_key);
+        // Combine record.record_type and record.record_key with a dot, for example, "address" + "." + "eth" will be "address.eth" .
+        record_type.extend(b".");
+        record_type.extend(record_key.iter());
 
         for key in &key_list {
             if vec_compare(record_type.as_slice(), *key) {
