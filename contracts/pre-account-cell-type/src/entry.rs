@@ -165,7 +165,8 @@ pub fn main() -> Result<(), Error> {
             }
         }
 
-        match verify_account_release_status(pre_account_cell_witness_reader) {
+        let config_release = parser.configs.release()?;
+        match verify_account_release_status(config_release, pre_account_cell_witness_reader) {
             Ok(_) => {}
             Err(code) => {
                 if !(code == Error::AccountStillCanNotBeRegister && cells_with_super_lock.len() > 0) {
@@ -597,37 +598,35 @@ fn verify_account_length_and_years(reader: PreAccountCellDataReader, current_tim
     Ok(())
 }
 
-fn verify_account_release_status(reader: PreAccountCellDataReader) -> Result<(), Error> {
+fn verify_account_release_status(
+    config_release: ConfigCellReleaseReader,
+    reader: PreAccountCellDataReader,
+) -> Result<(), Error> {
     debug!("Check if account is released for registration.");
+
+    if reader.account().len() >= 10 {
+        debug!("Ths account contains more than 9 characters, skip verification.");
+        return Ok(());
+    }
 
     let account: Vec<u8> = [reader.account().as_readable(), ACCOUNT_SUFFIX.as_bytes().to_vec()].concat();
     let hash = util::blake2b_das(account.as_slice());
     let lucky_num = u32::from_be_bytes((&hash[0..4]).try_into().unwrap());
+    let expected_lucky_num = u32::from(config_release.lucky_number());
 
-    if cfg!(feature = "mainnet") {
-        if reader.account().len() < 10 {
-            // CAREFUL Triple check.
-            let threshold = 1503238553;
-            assert!(
-                lucky_num <= threshold,
-                Error::AccountStillCanNotBeRegister,
-                "The registration is still not started.(lucky_num: {}, required: <= {})",
-                lucky_num,
-                threshold
-            );
-        }
-    } else {
-        if reader.account().len() < 10 {
-            let threshold = 3435973836;
-            assert!(
-                lucky_num <= threshold,
-                Error::AccountStillCanNotBeRegister,
-                "The registration is still not started.(lucky_num: {}, required: <= {})",
-                lucky_num,
-                threshold
-            );
-        }
-    }
+    // CAREFUL Triple check.
+    assert!(
+        lucky_num <= expected_lucky_num,
+        Error::AccountStillCanNotBeRegister,
+        "The registration is still not started.(lucky_num: {}, required: <= {})",
+        lucky_num,
+        expected_lucky_num
+    );
+
+    debug!(
+        "The account has been released.(lucky_num: {}, required: <= {})",
+        lucky_num, expected_lucky_num
+    );
 
     Ok(())
 }

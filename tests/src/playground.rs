@@ -6,7 +6,7 @@ fn init(action: &str) -> TemplateGenerator {
 
     template.push_contract_cell("always_success", true);
     template.push_contract_cell("playground", false);
-    template.push_shared_lib_cell("ckb_smt.so");
+    template.push_shared_lib_cell("ckb_smt.so", false);
 
     template
 }
@@ -17,5 +17,5 @@ fn test_playground() {
 
     push_input_playground_cell(&mut template);
 
-    test_tx(template.as_json());
+    // test_tx(template.as_json());
 }

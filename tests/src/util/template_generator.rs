@@ -667,32 +667,10 @@ impl TemplateGenerator {
     }
 
     fn gen_config_cell_release(&mut self) -> (Bytes, ConfigCellRelease) {
-        let data = vec![
-            (
-                2,
-                util::gen_timestamp("2021-06-28 00:00:00"),
-                util::gen_timestamp("2021-07-10 00:00:00"),
-            ),
-            (
-                0,
-                util::gen_timestamp("2021-06-01 00:00:00"),
-                util::gen_timestamp("2021-06-01 00:00:00"),
-            ),
-        ];
-
-        let mut release_rules = ReleaseRules::new_builder();
-        for item in data.into_iter() {
-            release_rules = release_rules.push(
-                ReleaseRule::new_builder()
-                    .length(Uint32::from(item.0))
-                    .release_start(Timestamp::from(item.1))
-                    .release_end(Timestamp::from(item.2))
-                    .build(),
-            );
-        }
-
+        // prod: 1503238553
+        // test: 3435973836
         let entity = ConfigCellRelease::new_builder()
-            .release_rules(release_rules.build())
+            .lucky_number(Uint32::from(3435973836))
             .build();
         let cell_data = Bytes::from(blake2b_256(entity.as_slice()).to_vec());
 

@@ -7,7 +7,7 @@ name = "account-auction-cell-type"
 version = "1.0.0"
 dependencies = [
  "chrono",
- "ckb-std",
+ "ckb-std 0.8.0",
  "das-core",
  "das-map",
  "das-types",
@@ -18,7 +18,7 @@ name = "account-cell-type"
 version = "1.4.0"
 dependencies = [
  "chrono",
- "ckb-std",
+ "ckb-std 0.8.0",
  "das-core",
  "das-map",
  "das-types",
@@ -30,7 +30,7 @@ name = "account-sale-cell-type"
 version = "1.1.0"
 dependencies = [
  "chrono",
- "ckb-std",
+ "ckb-std 0.8.0",
  "das-core",
  "das-map",
  "das-types",
@@ -75,7 +75,7 @@ dependencies = [
 name = "always-success"
 version = "1.0.0"
 dependencies = [
- "ckb-std",
+ "ckb-std 0.8.0",
 ]
 
 [[package]]
@@ -88,7 +88,7 @@ checksum = "afddf7f520a80dbf76e6f50a35bca42a2331ef227a28b3b6dc5c2e2338d114b1"
 name = "apply-register-cell-type"
 version = "1.0.2"
 dependencies = [
- "ckb-std",
+ "ckb-std 0.8.0",
  "das-core",
  "das-types",
  "hex",
@@ -104,7 +104,7 @@ checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 name = "balance-cell-type"
 version = "1.2.0"
 dependencies = [
- "ckb-std",
+ "ckb-std 0.8.0",
  "das-core",
  "das-map",
  "das-types",
@@ -528,12 +528,33 @@ dependencies = [
 
 [[package]]
 name = "ckb-standalone-types"
+version = "0.0.1-pre.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af2cdbdf65ee5b1da71504f5a03d6984bce77d0b4b46daff63f4ba4a3b0eef08"
+dependencies = [
+ "cfg-if 0.1.10",
+ "molecule 0.6.1",
+]
+
+[[package]]
+name = "ckb-standalone-types"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "22d7cbbdab96e6b809a102cf88bfec28795a0a3c06bfdea4abe4de89777801cd"
 dependencies = [
  "cfg-if 1.0.0",
- "molecule",
+ "molecule 0.7.2",
+]
+
+[[package]]
+name = "ckb-std"
+version = "0.7.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5247e68ff32c17714105e2460db6113fb99efde8c830bbdd99f8bf715100dd64"
+dependencies = [
+ "buddy-alloc",
+ "cc",
+ "ckb-standalone-types 0.0.1-pre.1",
 ]
 
 [[package]]
@@ -544,7 +565,7 @@ checksum = "8478fb713288ad5309023f0769790e489e732700e2e81ca51e4fba02eef6803e"
 dependencies = [
  "buddy-alloc",
  "cc",
- "ckb-standalone-types",
+ "ckb-standalone-types 0.1.2",
 ]
 
 [[package]]
@@ -580,7 +601,7 @@ dependencies = [
  "ckb-vm-definitions",
  "lazy_static",
  "linked_hash_set",
- "molecule",
+ "molecule 0.7.2",
  "rand 0.7.3",
  "tentacle-multiaddr",
  "tentacle-secio",
@@ -612,7 +633,7 @@ dependencies = [
  "ckb-rational",
  "derive_more",
  "merkle-cbt",
- "molecule",
+ "molecule 0.7.2",
  "numext-fixed-uint",
  "once_cell",
 ]
@@ -678,7 +699,7 @@ checksum = "158a0d1040eb06fc9803f5fa3fd71eff349624dd14a73266972a599ac008900e"
 name = "config-cell-type"
 version = "1.0.1"
 dependencies = [
- "ckb-std",
+ "ckb-std 0.8.0",
  "das-core",
  "das-types",
  "hex",
@@ -772,7 +793,7 @@ dependencies = [
  "blake2b-ref 0.3.0",
  "bs58 0.4.0",
  "chrono",
- "ckb-std",
+ "ckb-std 0.8.0",
  "das-map",
  "das-types",
  "eip712",
@@ -784,7 +805,7 @@ dependencies = [
 name = "das-dynamic-libs"
 version = "1.0.0"
 dependencies = [
- "ckb-std",
+ "ckb-std 0.8.0",
 ]
 
 [[package]]
@@ -807,8 +828,8 @@ dependencies = [
 name = "das-types"
 version = "1.8.1"
 dependencies = [
- "ckb-std",
- "molecule",
+ "ckb-std 0.8.0",
+ "molecule 0.7.2",
 ]
 
 [[package]]
@@ -816,7 +837,7 @@ name = "das-types-std"
 version = "1.8.1"
 dependencies = [
  "ckb-types",
- "molecule",
+ "molecule 0.7.2",
 ]
 
 [[package]]
@@ -1137,7 +1158,7 @@ dependencies = [
 name = "income-cell-type"
 version = "1.2.0"
 dependencies = [
- "ckb-std",
+ "ckb-std 0.8.0",
  "das-core",
  "das-types",
  "hex",
@@ -1250,6 +1271,15 @@ dependencies = [
 
 [[package]]
 name = "molecule"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3067ceba3d7f5dcc7427cfc584fc506e756f1161151032fec840455f5a3c2fd5"
+dependencies = [
+ "cfg-if 0.1.10",
+]
+
+[[package]]
+name = "molecule"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be5f63176422224eadd975789462a96cedaf339cd1009ef92fbdfaad39d35f5f"
@@ -1344,7 +1374,7 @@ dependencies = [
 name = "offer-cell-type"
 version = "1.0.0"
 dependencies = [
- "ckb-std",
+ "ckb-std 0.8.0",
  "das-core",
  "das-map",
  "das-types",
@@ -1489,12 +1519,10 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 name = "playground"
 version = "1.0.0"
 dependencies = [
- "ckb-std",
+ "ckb-std 0.7.4",
  "das-core",
- "das-dynamic-libs",
  "das-types",
  "hex",
- "sparse-merkle-tree 0.5.2",
 ]
 
 [[package]]
@@ -1518,7 +1546,7 @@ name = "pre-account-cell-type"
 version = "1.1.1"
 dependencies = [
  "chrono",
- "ckb-std",
+ "ckb-std 0.8.0",
  "das-core",
  "das-types",
  "hex",
@@ -1550,7 +1578,7 @@ name = "proposal-cell-type"
 version = "1.1.0"
 dependencies = [
  "chrono",
- "ckb-std",
+ "ckb-std 0.8.0",
  "das-core",
  "das-map",
  "das-sorted-list",
@@ -1694,7 +1722,7 @@ dependencies = [
 name = "reverse-record-cell-type"
 version = "1.0.0"
 dependencies = [
- "ckb-std",
+ "ckb-std 0.8.0",
  "das-core",
  "das-types",
  "hex",
@@ -1845,16 +1873,6 @@ checksum = "c111b5bd5695e56cffe5129854aa230b39c93a305372fdbb2668ca2394eea9f8"
 
 [[package]]
 name = "sparse-merkle-tree"
-version = "0.5.2"
-source = "git+https://github.com/joii2020/sparse-merkle-tree.git?branch=dev_CInc#c697a62b4e11397e6b3d23ca747eb64990ca725d"
-dependencies = [
- "blake2b-rs 0.2.0",
- "cc",
- "cfg-if 0.1.10",
-]
-
-[[package]]
-name = "sparse-merkle-tree"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f84214ec89cb9d304b5d54c7a266951c25bd396b2df5388420a9497a6896120a"
@@ -1937,7 +1955,7 @@ dependencies = [
  "futures",
  "hmac",
  "log",
- "molecule",
+ "molecule 0.7.2",
  "openssl",
  "openssl-sys",
  "rand 0.7.3",
@@ -1954,7 +1972,7 @@ dependencies = [
 name = "test-env"
 version = "1.0.0"
 dependencies = [
- "ckb-std",
+ "ckb-std 0.8.0",
  "das-core",
  "das-types",
  "hex",
@@ -1975,7 +1993,7 @@ dependencies = [
  "secp256k1 0.17.2",
  "serde",
  "serde_json",
- "sparse-merkle-tree 0.5.3",
+ "sparse-merkle-tree",
  "walkdir",
 ]
 
