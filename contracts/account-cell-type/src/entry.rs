@@ -97,21 +97,13 @@ pub fn main() -> Result<(), Error> {
                         input_account_cells[0],
                         timestamp,
                     )?;
-                    verifiers::account_cell::verify_account_lock_consistent(
-                        input_account_cells[0],
-                        output_account_cells[0],
-                        Some("owner"),
-                    )?;
-                    verifiers::account_cell::verify_account_data_consistent(
-                        input_account_cells[0],
-                        output_account_cells[0],
-                        vec![],
-                    )?;
-                    verifiers::account_cell::verify_account_witness_consistent(
+                    verifiers::account_cell::verify_account_cell_consistent_with_exception(
                         input_account_cells[0],
                         output_account_cells[0],
                         &input_cell_witness_reader,
                         &output_cell_witness_reader,
+                        Some("owner"),
+                        vec![],
                         vec!["last_transfer_account_at", "records"],
                     )?;
                     verifiers::account_cell::verify_account_witness_record_empty(
@@ -149,21 +141,13 @@ pub fn main() -> Result<(), Error> {
                         input_account_cells[0],
                         timestamp,
                     )?;
-                    verifiers::account_cell::verify_account_lock_consistent(
-                        input_account_cells[0],
-                        output_account_cells[0],
-                        Some("manager"),
-                    )?;
-                    verifiers::account_cell::verify_account_data_consistent(
-                        input_account_cells[0],
-                        output_account_cells[0],
-                        vec![],
-                    )?;
-                    verifiers::account_cell::verify_account_witness_consistent(
+                    verifiers::account_cell::verify_account_cell_consistent_with_exception(
                         input_account_cells[0],
                         output_account_cells[0],
                         &input_cell_witness_reader,
                         &output_cell_witness_reader,
+                        Some("manager"),
+                        vec![],
                         vec!["last_edit_manager_at"],
                     )?;
                 }
@@ -197,21 +181,13 @@ pub fn main() -> Result<(), Error> {
                         input_account_cells[0],
                         timestamp,
                     )?;
-                    verifiers::account_cell::verify_account_lock_consistent(
-                        input_account_cells[0],
-                        output_account_cells[0],
-                        None,
-                    )?;
-                    verifiers::account_cell::verify_account_data_consistent(
-                        input_account_cells[0],
-                        output_account_cells[0],
-                        vec![],
-                    )?;
-                    verifiers::account_cell::verify_account_witness_consistent(
+                    verifiers::account_cell::verify_account_cell_consistent_with_exception(
                         input_account_cells[0],
                         output_account_cells[0],
                         &input_cell_witness_reader,
                         &output_cell_witness_reader,
+                        None,
+                        vec![],
                         vec!["records", "last_edit_records_at"],
                     )?;
                     verifiers::account_cell::verify_records_keys(
@@ -248,21 +224,13 @@ pub fn main() -> Result<(), Error> {
                 input_account_cells[0],
                 output_account_cells[0],
             )?;
-            verifiers::account_cell::verify_account_lock_consistent(
-                input_account_cells[0],
-                output_account_cells[0],
-                None,
-            )?;
-            verifiers::account_cell::verify_account_data_consistent(
-                input_account_cells[0],
-                output_account_cells[0],
-                vec!["expired_at"],
-            )?;
-            verifiers::account_cell::verify_account_witness_consistent(
+            verifiers::account_cell::verify_account_cell_consistent_with_exception(
                 input_account_cells[0],
                 output_account_cells[0],
                 &input_cell_witness_reader,
                 &output_cell_witness_reader,
+                None,
+                vec!["expired_at"],
                 vec![],
             )?;
 
@@ -453,14 +421,14 @@ pub fn main() -> Result<(), Error> {
 
             debug!("Verify if the AccountCell is consistent in inputs and outputs.");
 
-            verifiers::account_cell::verify_account_lock_consistent(input_cells[0], output_cells[0], None)?;
-            verifiers::account_cell::verify_account_data_consistent(input_cells[0], output_cells[0], vec![])?;
             verifiers::account_cell::verify_account_capacity_not_decrease(input_cells[0], output_cells[0])?;
-            verifiers::account_cell::verify_account_witness_consistent(
+            verifiers::account_cell::verify_account_cell_consistent_with_exception(
                 input_cells[0],
                 output_cells[0],
                 &input_cell_witness_reader,
                 &output_cell_witness_reader,
+                None,
+                vec![],
                 vec!["status"],
             )?;
 
@@ -608,21 +576,13 @@ pub fn main() -> Result<(), Error> {
                 input_account_cells[0],
                 output_account_cells[0],
             )?;
-            verifiers::account_cell::verify_account_lock_consistent(
-                input_account_cells[0],
-                output_account_cells[0],
-                None,
-            )?;
-            verifiers::account_cell::verify_account_data_consistent(
-                input_account_cells[0],
-                output_account_cells[0],
-                vec![],
-            )?;
-            verifiers::account_cell::verify_account_witness_consistent(
+            verifiers::account_cell::verify_account_cell_consistent_with_exception(
                 input_account_cells[0],
                 output_account_cells[0],
                 &input_account_witness_reader,
                 &output_account_witness_reader,
+                None,
+                vec![],
                 vec!["enable_sub_account"],
             )?;
 
