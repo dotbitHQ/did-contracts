@@ -4,7 +4,7 @@ use core::result::Result;
 use das_core::{
     assert, assert_lock_equal,
     constants::{das_lock, ScriptType},
-    data_parser, debug,
+    debug,
     eip712::{to_semantic_address, verify_eip712_hashes_if_has_das_lock},
     error::Error,
     util, verifiers,
@@ -68,11 +68,7 @@ pub fn main() -> Result<(), Error> {
             );
 
             debug!("Verify if the change is transferred back to the sender properly.");
-
-            let mut total_input_capacity = 0;
-            for i in balance_cells.iter() {
-                total_input_capacity += high_level::load_cell_capacity(*i, Source::Input)?;
-            }
+            let total_input_capacity = util::load_cells_capacity(&balance_cells, Source::Input)?;
             // Allow the transaction builder to pay for the user, or something like that.
             if total_input_capacity > current_capacity + common_fee {
                 verifiers::misc::verify_user_get_change(

@@ -1,11 +1,10 @@
 use crate::{assert, debug, error::Error};
-use alloc::vec::Vec;
 use ckb_std::{ckb_constants::Source, high_level};
 
 pub fn verify_created_cell_in_correct_position(
     cell_name: &str,
-    input_cell_indexes: &Vec<usize>,
-    output_cell_indexes: &Vec<usize>,
+    input_cell_indexes: &[usize],
+    output_cell_indexes: &[usize],
     created_cell_index: Option<usize>, // None: No need to verify the index of the created cell; Some(index): the created cell should be at index, usually 1
 ) -> Result<(), Error> {
     assert!(
@@ -21,8 +20,9 @@ pub fn verify_created_cell_in_correct_position(
         assert!(
             output_cell_indexes[0] == index,
             Error::InvalidTransactionStructure,
-            "To create cell, the {} should only appear at outputs[1], it actually appear at {}",
+            "To create {}, it should be at outputs[{}], it is actually at {}",
             cell_name,
+            index,
             output_cell_indexes[0]
         );
     }
@@ -32,8 +32,8 @@ pub fn verify_created_cell_in_correct_position(
 
 pub fn verify_removed_cell_in_correct_position(
     cell_name: &str,
-    input_cell_indexes: &Vec<usize>,
-    output_cell_indexes: &Vec<usize>,
+    input_cell_indexes: &[usize],
+    output_cell_indexes: &[usize],
     removed_cell_index: Option<usize>, // None: No need to verify the index of the removed cell; Some(index): the removed cell should be at index, usually 1
 ) -> Result<(), Error> {
     assert!(
@@ -50,8 +50,9 @@ pub fn verify_removed_cell_in_correct_position(
         assert!(
             input_cell_indexes[0] == index,
             Error::InvalidTransactionStructure,
-            "To remove cell, the {} should only appear at inputs[1], while received {}",
+            "To remove {}, it should be at inputs[{}], it is actually at {}",
             cell_name,
+            index,
             input_cell_indexes[0]
         );
     }
@@ -61,8 +62,8 @@ pub fn verify_removed_cell_in_correct_position(
 
 pub fn verify_modified_cell_in_correct_position(
     cell_name: &str,
-    input_cells: &Vec<usize>,
-    output_cells: &Vec<usize>,
+    input_cells: &[usize],
+    output_cells: &[usize],
 ) -> Result<(), Error> {
     assert!(
         input_cells.len() == 1 && output_cells.len() == 1,
@@ -87,7 +88,7 @@ pub fn verify_modified_cell_in_correct_position(
     Ok(())
 }
 
-// The tx fee is from a specific cell, here to verify the validity of the fee spent
+// The tx fee is from a specific cell (like AccountCell/AccountSaleCell), here to verify the validity of the fee spent
 pub fn verify_tx_fee_spent_correctly(
     cell_name: &str,
     input_cell: usize,
@@ -101,6 +102,7 @@ pub fn verify_tx_fee_spent_correctly(
     let output_capacity = high_level::load_cell_capacity(output_cell, Source::Output)?;
 
     if input_capacity > output_capacity {
+        // when the capacity is decreased, we need to make sure the capacity is bigger than basic_capacity
         assert!(
             output_capacity >= basic_capacity,
             Error::TxFeeSpentError, // changed from Error::AccountSaleCellFeeError

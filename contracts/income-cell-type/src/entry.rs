@@ -25,13 +25,9 @@ pub fn main() -> Result<(), Error> {
     );
     match action {
         b"create_income" => {
-            debug!("Route to create_income action ...");
-
             debug!("Find out IncomeCells ...");
 
-            let this_type_script = high_level::load_script()?;
-            let (input_cells, output_cells) =
-                util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
+            let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
 
             verifiers::common::verify_created_cell_in_correct_position(
                 "IncomeCell",
@@ -92,9 +88,7 @@ pub fn main() -> Result<(), Error> {
         b"consolidate_income" => {
             debug!("Find out IncomeCells ...");
 
-            let this_type_script = high_level::load_script()?;
-            let (input_cells, output_cells) =
-                util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
+            let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
 
             assert!(
                 input_cells.len() >= 2,

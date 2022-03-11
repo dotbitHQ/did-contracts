@@ -389,10 +389,21 @@ pub fn load_oracle_data(type_: OracleCellType) -> Result<u64, Error> {
     Ok(data_in_uint as u64)
 }
 
+pub fn load_cells_capacity(cells: &[usize], source: Source) -> Result<u64, Error> {
+    let mut total_input_capacity = 0;
+    for i in cells.iter() {
+        total_input_capacity += high_level::load_cell_capacity(*i, source)?;
+    }
+
+    Ok(total_input_capacity)
+}
+
 pub fn load_self_cells_in_inputs_and_outputs() -> Result<(Vec<usize>, Vec<usize>), Error> {
     let this_type_script = high_level::load_script().map_err(Error::from)?;
-    let (input_cells, output_cells) =
-        find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
+    let this_type_script_reader = this_type_script.as_reader();
+
+    let input_cells = find_cells_by_script(ScriptType::Type, this_type_script_reader, Source::Input)?;
+    let output_cells = find_cells_by_script(ScriptType::Type, this_type_script_reader, Source::Output)?;
 
     Ok((input_cells, output_cells))
 }

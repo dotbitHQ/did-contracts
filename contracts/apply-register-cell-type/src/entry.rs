@@ -27,9 +27,7 @@ pub fn main() -> Result<(), Error> {
         debug!("Route to apply_register action ...");
 
         // Find out ApplyRegisterCells in current transaction.
-        let this_type_script = high_level::load_script().map_err(|e| Error::from(e))?;
-        let (input_cells, output_cells) =
-            util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
+        let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
 
         verifiers::common::verify_created_cell_in_correct_position(
             "ApplyRegisterCell",
@@ -73,9 +71,7 @@ pub fn main() -> Result<(), Error> {
         let config = parser.configs.apply()?;
 
         // Find out ApplyRegisterCells in current transaction.
-        let this_type_script = high_level::load_script().map_err(|e| Error::from(e))?;
-        let (input_cells, output_cells) =
-            util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
+        let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
 
         verifiers::common::verify_removed_cell_in_correct_position(
             "ApplyRegisterCell",

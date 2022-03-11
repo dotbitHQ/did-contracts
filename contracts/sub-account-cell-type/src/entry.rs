@@ -222,14 +222,6 @@ fn verify_transaction_fee_spent_correctly(
     debug!("Check if the fee in the AccountCell is spent correctly.");
 
     let storage_capacity = u64::from(config.basic_capacity());
-    let input_capacity = high_level::load_cell_capacity(input_sub_account, Source::Input)?;
-    let output_capacity = high_level::load_cell_capacity(output_sub_account, Source::Output)?;
-
-    // The capacity is not changed, skip the following verification.
-    if input_capacity == output_capacity {
-        return Ok(());
-    }
-
     let fee = match action {
         b"create_sub_account" => u64::from(config.create_fee()),
         b"edit_sub_account" => u64::from(config.edit_fee()),
@@ -238,24 +230,13 @@ fn verify_transaction_fee_spent_correctly(
         _ => u64::from(config.common_fee()),
     };
 
-    assert!(
-        output_capacity >= storage_capacity,
-        Error::AccountCellNoMoreFee,
-        "The AccountCell has no more capacity as fee for this transaction.(current_capacity: {}, min_capacity: {})",
-        input_capacity,
-        storage_capacity
-    );
-
-    // User put more capacity into the SubAccountCell or pay the transaction directly, that will be always acceptable.
-    if input_capacity > output_capacity {
-        assert!(
-            input_capacity - output_capacity <= fee,
-            Error::AccountCellNoMoreFee,
-            "The transaction fee should be less than or equal to {}, but {} found.",
-            fee,
-            input_capacity - output_capacity
-        );
-    }
+    verifiers::common::verify_tx_fee_spent_correctly(
+        "AccountCell",
+        input_sub_account,
+        output_sub_account,
+        fee,
+        storage_capacity,
+    )?;
 
     Ok(())
 }
