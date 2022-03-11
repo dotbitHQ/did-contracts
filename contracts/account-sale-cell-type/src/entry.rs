@@ -307,6 +307,17 @@ pub fn main() -> Result<(), Error> {
                     debug!("Verify if buyer get their change properly.");
 
                     let price = u64::from(input_sale_cell_witness_reader.price());
+
+                    let total_input_capacity = util::load_cells_capacity(&input_balance_cells, Source::Input)?;
+                    // Actually, this assertion is already covered by `verify_user_get_change_when_inputs_removed()`, we write it here explict for better understanding
+                    assert!(
+                        total_input_capacity >= price,
+                        Error::InvalidTransactionStructure,
+                        "The buyer not pay enough to buy the account.(expected: {}, current: {})",
+                        price,
+                        total_input_capacity
+                    );
+
                     verifiers::misc::verify_user_get_change_when_inputs_removed(
                         config_main,
                         buyer_lock_reader,
