@@ -102,6 +102,7 @@ pub fn verify_tx_fee_spent_correctly(
     let output_capacity = high_level::load_cell_capacity(output_cell, Source::Output)?;
 
     if input_capacity > output_capacity {
+        // when the capacity is decreased, we need to make sure the capacity is bigger than basic_capacity
         assert!(
             output_capacity >= basic_capacity,
             Error::TxFeeSpentError, // changed from Error::AccountSaleCellFeeError
