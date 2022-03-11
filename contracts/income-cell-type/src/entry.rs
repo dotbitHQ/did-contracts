@@ -17,7 +17,7 @@ pub fn main() -> Result<(), Error> {
     };
     let action = action_cp.as_slice();
 
-    util::is_system_off(&mut parser)?;
+    util::is_system_off(&parser)?;
 
     debug!(
         "Route to {:?} action ...",
@@ -43,7 +43,6 @@ pub fn main() -> Result<(), Error> {
             verifiers::misc::verify_always_success_lock(output_cells[0], Source::Output)?;
 
             parser.parse_cell()?;
-            parser.parse_config(&[DataType::ConfigCellIncome])?;
 
             let config_income = parser.configs.income()?;
 
@@ -108,11 +107,6 @@ pub fn main() -> Result<(), Error> {
                 "The number of IncomeCells in the outputs should be lesser than or equal to in the inputs."
             );
 
-            parser.parse_config(&[
-                DataType::ConfigCellMain,
-                DataType::ConfigCellIncome,
-                DataType::ConfigCellProfitRate,
-            ])?;
             parser.parse_cell()?;
 
             let config_income = parser.configs.income()?;
@@ -403,7 +397,7 @@ pub fn main() -> Result<(), Error> {
         }
         b"confirm_proposal" => {
             util::require_type_script(
-                &mut parser,
+                &parser,
                 TypeScript::ProposalCellType,
                 Source::Input,
                 Error::InvalidTransactionStructure,
@@ -411,7 +405,7 @@ pub fn main() -> Result<(), Error> {
         }
         b"buy_account" => {
             util::require_type_script(
-                &mut parser,
+                &parser,
                 TypeScript::AccountSaleCellType,
                 Source::Input,
                 Error::InvalidTransactionStructure,
@@ -419,7 +413,7 @@ pub fn main() -> Result<(), Error> {
         }
         b"accept_offer" => {
             util::require_type_script(
-                &mut parser,
+                &parser,
                 TypeScript::OfferCellType,
                 Source::Input,
                 Error::InvalidTransactionStructure,
@@ -427,7 +421,7 @@ pub fn main() -> Result<(), Error> {
         }
         b"bid_account_auction" => {
             util::require_type_script(
-                &mut parser,
+                &parser,
                 TypeScript::AccountAuctionCellType,
                 Source::Input,
                 Error::InvalidTransactionStructure,
@@ -435,7 +429,7 @@ pub fn main() -> Result<(), Error> {
         }
         b"renew_account" => {
             util::require_type_script(
-                &mut parser,
+                &parser,
                 TypeScript::AccountCellType,
                 Source::Input,
                 Error::InvalidTransactionStructure,
@@ -443,7 +437,7 @@ pub fn main() -> Result<(), Error> {
         }
         b"create_sub_account" | b"renew_sub_account" => {
             util::require_type_script(
-                &mut parser,
+                &parser,
                 TypeScript::SubAccountCellType,
                 Source::Input,
                 Error::InvalidTransactionStructure,

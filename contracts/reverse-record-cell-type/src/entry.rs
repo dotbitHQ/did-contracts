@@ -25,7 +25,7 @@ pub fn main() -> Result<(), Error> {
     };
     let action = action_cp.as_slice();
 
-    util::is_system_off(&mut parser)?;
+    util::is_system_off(&parser)?;
 
     debug!(
         "Route to {:?} action ...",
@@ -37,7 +37,6 @@ pub fn main() -> Result<(), Error> {
         b"declare_reverse_record" => {
             verify_eip712_hashes_if_has_das_lock(&parser, declare_reverse_record_to_semantic)?;
 
-            parser.parse_config(&[DataType::ConfigCellMain, DataType::ConfigCellReverseResolution])?;
             let config_main = parser.configs.main()?;
             let config_reverse_resolution = parser.configs.reverse_resolution()?;
 
@@ -105,7 +104,6 @@ pub fn main() -> Result<(), Error> {
         b"redeclare_reverse_record" => {
             verify_eip712_hashes_if_has_das_lock(&parser, redeclare_reverse_record_to_semantic)?;
 
-            parser.parse_config(&[DataType::ConfigCellMain, DataType::ConfigCellReverseResolution])?;
             let config_reverse_resolution = parser.configs.reverse_resolution()?;
 
             assert!(
@@ -158,7 +156,6 @@ pub fn main() -> Result<(), Error> {
         b"retract_reverse_record" => {
             verify_eip712_hashes_if_has_das_lock(&parser, retract_reverse_record_to_semantic)?;
 
-            parser.parse_config(&[DataType::ConfigCellMain, DataType::ConfigCellReverseResolution])?;
             let config_main = parser.configs.main()?;
             let config_reverse_resolution = parser.configs.reverse_resolution()?;
 

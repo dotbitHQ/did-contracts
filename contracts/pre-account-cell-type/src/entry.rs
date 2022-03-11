@@ -8,7 +8,7 @@ use das_core::{
     witness_parser::WitnessesParser,
 };
 use das_types::{
-    constants::{CharSetType, DataType, CHAR_SET_LENGTH, PRESERVED_ACCOUNT_CELL_COUNT},
+    constants::{CharSetType, DataType, CHAR_SET_LENGTH},
     packed::*,
     prelude::*,
     util as das_types_util,
@@ -24,12 +24,12 @@ pub fn main() -> Result<(), Error> {
     };
     let action = action_cp.as_slice();
 
-    util::is_system_off(&mut parser)?;
+    util::is_system_off(&parser)?;
 
     if action == b"confirm_proposal" {
         debug!("Route to confirm_proposal action ...");
         util::require_type_script(
-            &mut parser,
+            &parser,
             TypeScript::ProposalCellType,
             Source::Input,
             Error::InvalidTransactionStructure,
@@ -56,12 +56,6 @@ pub fn main() -> Result<(), Error> {
         debug!("Find out ApplyRegisterCell ...");
 
         parser.parse_cell()?;
-        parser.parse_config(&[
-            DataType::ConfigCellAccount,
-            DataType::ConfigCellApply,
-            DataType::ConfigCellPrice,
-            DataType::ConfigCellRelease,
-        ])?;
         let config_main_reader = parser.configs.main()?;
 
         let (input_apply_register_cells, output_apply_register_cells) =
@@ -142,7 +136,6 @@ pub fn main() -> Result<(), Error> {
         verify_created_at(timestamp, pre_account_cell_witness_reader)?;
 
         debug!("Verify if account is available for registration for now ...");
-        verify_account_max_length(config_account, pre_account_cell_witness_reader)?;
 
         let cells_with_super_lock =
             util::find_cells_by_script(ScriptType::Lock, super_lock().as_reader(), Source::Input)?;
@@ -167,7 +160,8 @@ pub fn main() -> Result<(), Error> {
             }
         }
 
-        match verify_preserved_accounts(&mut parser, pre_account_cell_witness_reader) {
+        let account = pre_account_cell_witness_reader.account().as_readable();
+        match verifiers::account_cell::verify_preserved_accounts(&parser, &account) {
             Ok(_) => {}
             Err(code) => {
                 if !(code == Error::AccountIsPreserved && cells_with_super_lock.len() > 0) {
@@ -176,10 +170,11 @@ pub fn main() -> Result<(), Error> {
                 debug!("Skip Error::AccountIsPreserved because of super lock.");
             }
         }
+        verifiers::account_cell::verify_unavailable_accounts(&parser, &account)?;
 
-        verify_unavailable_accounts(&mut parser, pre_account_cell_witness_reader)?;
-
-        verify_account_chars(&mut parser, pre_account_cell_witness_reader)?;
+        let chars_reader = pre_account_cell_witness_reader.account();
+        verifiers::account_cell::verify_account_chars(&parser, chars_reader)?;
+        verifiers::account_cell::verify_account_chars_max_length(&parser, chars_reader)?;
     } else {
         return Err(Error::ActionNotSupported);
     }
@@ -423,150 +418,6 @@ fn verify_price_and_capacity(
     Ok(())
 }
 
-fn verify_account_max_length(config: ConfigCellAccountReader, reader: PreAccountCellDataReader) -> Result<(), Error> {
-    let max_length = u32::from(config.max_length());
-    let account_length = reader.account().len() as u32;
-
-    assert!(
-        max_length >= account_length,
-        Error::PreRegisterAccountIsTooLong,
-        "The maximum length of account is {}, but {} found.",
-        max_length,
-        account_length
-    );
-
-    Ok(())
-}
-
-fn verify_account_chars(parser: &mut WitnessesParser, reader: PreAccountCellDataReader) -> Result<(), Error> {
-    debug!("Verify if account chars is available.");
-
-    let mut prev_char_set_name: Option<_> = None;
-    for account_char in reader.account().iter() {
-        // Loading different charset configs on demand.
-        let data_type =
-            das_types_util::char_set_to_data_type(CharSetType::try_from(account_char.char_set_name()).unwrap());
-        parser.parse_config(&[data_type])?;
-
-        let char_set_index = das_types_util::data_type_to_char_set(data_type) as usize;
-        let char_sets = parser.configs.char_set()?;
-        let char_set_opt = char_sets.get(char_set_index);
-        // Check if account contains only one non-global character set.
-        if let Some(Some(char_set)) = char_set_opt {
-            if !char_set.global {
-                if prev_char_set_name.is_none() {
-                    prev_char_set_name = Some(char_set_index);
-                } else {
-                    let pre_char_set_index = prev_char_set_name.as_ref().unwrap();
-                    assert!(
-                        pre_char_set_index == &char_set_index,
-                        Error::PreRegisterAccountCharSetConflict,
-                        "Non-global CharSet[{}] has been used by account, so CharSet[{}] can not be used together.",
-                        pre_char_set_index,
-                        char_set_index
-                    );
-                }
-            }
-        } else {
-            warn!("CharSet[{}] is undefined.", char_set_index);
-            return Err(Error::PreRegisterFoundUndefinedCharSet);
-        }
-    }
-
-    let tmp = vec![0u8];
-    let char_sets = parser.configs.char_set()?;
-    let mut required_char_sets = vec![tmp.as_slice(); CHAR_SET_LENGTH];
-    for account_char in reader.account().iter() {
-        let char_set_index = u32::from(account_char.char_set_name()) as usize;
-        if required_char_sets[char_set_index].len() <= 1 {
-            let char_set = char_sets[char_set_index].as_ref().unwrap();
-            required_char_sets[char_set_index] = char_set.data.as_slice();
-        }
-
-        let account_char_bytes = account_char.bytes().raw_data();
-        let mut found = false;
-        let mut from = 0;
-        for (i, item) in required_char_sets[char_set_index].iter().enumerate() {
-            if item == &0 {
-                let char_bytes = required_char_sets[char_set_index].get(from..i).unwrap();
-                if account_char_bytes == char_bytes {
-                    found = true;
-                    break;
-                }
-
-                from = i + 1;
-            }
-        }
-
-        assert!(
-            found,
-            Error::PreRegisterAccountCharIsInvalid,
-            "The character {:?}(utf-8) can not be used in account, because it is not contained by CharSet[{}].",
-            // util::hex_string(account_char.bytes().raw_data()),
-            account_char.bytes().raw_data(),
-            char_set_index
-        );
-    }
-
-    Ok(())
-}
-
-fn verify_preserved_accounts(
-    parser: &mut WitnessesParser,
-    pre_account_reader: PreAccountCellDataReader,
-) -> Result<(), Error> {
-    debug!("Verify if account is preserved.");
-
-    let account = pre_account_reader.account().as_readable();
-    let account_hash = util::blake2b_256(account.as_slice());
-    let first_20_bytes = account_hash.get(..ACCOUNT_ID_LENGTH).unwrap();
-    // debug!("first 20 bytes of account hash: {:?}", first_20_bytes);
-    let index = (first_20_bytes[0] % PRESERVED_ACCOUNT_CELL_COUNT) as usize;
-    let data_type = das_types_util::preserved_accounts_group_to_data_type(index);
-
-    parser.parse_config(&[data_type])?;
-    let preserved_accounts = parser.configs.preserved_account()?;
-
-    if preserved_accounts.len() > 0 {
-        let accounts_total = preserved_accounts.len() / ACCOUNT_ID_LENGTH;
-        let mut start_account = 0;
-        let mut end_account = accounts_total - 1;
-
-        loop {
-            let nth_account = (start_account + end_account) / 2;
-            // debug!(
-            //     "nth_account({:?}) = (end_account({:?}) - start_account({:?})) / 2 + start_account({:?}))",
-            //     nth_account, end_account, start_account, start_account
-            // );
-            let start_index = nth_account * ACCOUNT_ID_LENGTH;
-            let end_index = (nth_account + 1) * ACCOUNT_ID_LENGTH;
-            // debug!("start_index: {:?}, end_index: {:?}", start_index, end_index);
-            let bytes_of_nth_account = preserved_accounts.get(start_index..end_index).unwrap();
-            // debug!("bytes_of_nth_account: {:?}", bytes_of_nth_account);
-            if bytes_of_nth_account < first_20_bytes {
-                // debug!("<");
-                start_account = nth_account + 1;
-            } else if bytes_of_nth_account > first_20_bytes {
-                // debug!(">");
-                end_account = if nth_account > 1 { nth_account - 1 } else { 0 };
-            } else {
-                warn!(
-                    "Account 0x{} is preserved. (hash: 0x{})",
-                    util::hex_string(account.as_slice()),
-                    util::hex_string(&account_hash)
-                );
-                return Err(Error::AccountIsPreserved);
-            }
-
-            if start_account > end_account || end_account == 0 {
-                break;
-            }
-        }
-    }
-
-    Ok(())
-}
-
 fn verify_account_length_and_years(reader: PreAccountCellDataReader, current_timestamp: u64) -> Result<(), Error> {
     use chrono::{DateTime, NaiveDateTime, Utc};
 
@@ -618,68 +469,6 @@ fn verify_account_release_status(reader: PreAccountCellDataReader) -> Result<(),
                 lucky_num,
                 threshold
             );
-        }
-    }
-
-    Ok(())
-}
-
-/**
-check if the account is an account that can never be registered.
- **/
-fn verify_unavailable_accounts(
-    parser: &mut WitnessesParser,
-    pre_account_reader: PreAccountCellDataReader,
-) -> Result<(), Error> {
-    debug!("Verify if account if unavailable");
-
-    parser.parse_config(&[DataType::ConfigCellUnAvailableAccount])?;
-
-    let account = pre_account_reader.account().as_readable();
-    let account_hash = util::blake2b_256(account.as_slice());
-
-    let account_hash_first_20_bytes = account_hash.get(..ACCOUNT_ID_LENGTH).unwrap();
-    let unavailable_accounts = parser.configs.unavailable_account()?;
-
-    debug!(
-        "account {} account_hash {}",
-        alloc::string::String::from_utf8(account.clone()).unwrap(),
-        util::hex_string(&account_hash)
-    );
-
-    // todo: maybe a naive traverse is much faster and use less cycles
-    if unavailable_accounts.len() > 0 {
-        let accounts_total = unavailable_accounts.len() / ACCOUNT_ID_LENGTH;
-        let mut start_account_index = 0;
-        let mut end_account_index = accounts_total - 1;
-
-        loop {
-            let mid_account_index = (start_account_index + end_account_index) / 2;
-            let mid_account_start_byte_index = mid_account_index * ACCOUNT_ID_LENGTH;
-            let mid_account_end_byte_index = mid_account_start_byte_index + ACCOUNT_ID_LENGTH;
-            let mid_account_bytes = unavailable_accounts
-                .get(mid_account_start_byte_index..mid_account_end_byte_index)
-                .unwrap();
-
-            if mid_account_bytes < account_hash_first_20_bytes {
-                start_account_index = mid_account_index + 1;
-            } else if mid_account_bytes > account_hash_first_20_bytes {
-                end_account_index = if mid_account_index > 1 {
-                    mid_account_index - 1
-                } else {
-                    0
-                };
-            } else {
-                warn!(
-                    "Account 0x{} is unavailable. (hash: 0x{})",
-                    util::hex_string(account.as_slice()),
-                    util::hex_string(&account_hash)
-                );
-                return Err(Error::AccountIsUnAvailable);
-            }
-            if start_account_index > end_account_index || end_account_index == 0 {
-                break;
-            }
         }
     }
 

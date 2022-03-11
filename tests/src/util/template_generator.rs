@@ -2417,6 +2417,7 @@ impl TemplateGenerator {
     /// ```json
     /// json!({
     ///     "signature": null | "0x...", // If this is null, it will be filled with 65 bytes of 0.
+    ///     "sign_role": 0 | 1, // 0 means owner, 1 means manager.
     ///     "prev_root": null | "0x...", // If this is null, it will be calculated automatically from self.smt_with_history.
     ///     "current_root": null | "0x...", // If this is null, it will be calculated automatically from self.smt_with_history.
     ///     "proof": "0x...", // If this is null, it will be calculated automatically from self.smt_with_history.
@@ -2517,6 +2518,10 @@ impl TemplateGenerator {
             &witness["signature"],
             hex::decode("ffffffffffffffffffffffffffffffffffffffff").unwrap(),
         );
+        witness_bytes.extend(length_of(&field_value));
+        witness_bytes.extend(field_value);
+
+        let field_value = parse_json_hex_with_default("witness.sign_role", &witness["sign_role"], vec![0]);
         witness_bytes.extend(length_of(&field_value));
         witness_bytes.extend(field_value);
 

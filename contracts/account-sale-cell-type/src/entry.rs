@@ -30,7 +30,7 @@ pub fn main() -> Result<(), Error> {
     };
     let action = action_cp.as_slice();
 
-    util::is_system_off(&mut parser)?;
+    util::is_system_off(&parser)?;
     verifiers::account_cell::verify_unlock_role(action, &parser.params)?;
 
     debug!(
@@ -42,14 +42,6 @@ pub fn main() -> Result<(), Error> {
             let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
             parser.parse_cell()?;
-            parser.parse_config(&[
-                DataType::ConfigCellMain,
-                DataType::ConfigCellAccount,
-                DataType::ConfigCellSecondaryMarket,
-            ])?;
-            if action == b"buy_account" {
-                parser.parse_config(&[DataType::ConfigCellProfitRate, DataType::ConfigCellIncome])?;
-            }
 
             let config_main = parser.configs.main()?;
             let config_account = parser.configs.account()?;
@@ -372,7 +364,6 @@ pub fn main() -> Result<(), Error> {
             }
         }
         b"edit_account_sale" => {
-            parser.parse_config(&[DataType::ConfigCellSecondaryMarket])?;
             parser.parse_cell()?;
 
             verify_eip712_hashes(&parser, edit_account_sale_to_semantic)?;
@@ -484,7 +475,7 @@ pub fn main() -> Result<(), Error> {
         }
         b"force_recover_account_status" => {
             util::require_type_script(
-                &mut parser,
+                &parser,
                 TypeScript::AccountCellType,
                 Source::Input,
                 Error::InvalidTransactionStructure,

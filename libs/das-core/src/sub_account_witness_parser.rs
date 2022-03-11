@@ -1,11 +1,16 @@
 use super::{assert, debug, error::Error, util, warn};
-use alloc::{string::String, vec::Vec};
+use alloc::vec::Vec;
 use ckb_std::{ckb_constants::Source, error::SysError, syscalls};
 use core::{
     convert::{TryFrom, TryInto},
     lazy::OnceCell,
 };
-use das_types::{constants::*, packed::*, prelude::*, prettier::Prettier};
+use das_types::{constants::*, packed::*, prelude::*};
+
+#[cfg(all(debug_assertions))]
+use alloc::string::String;
+#[cfg(all(debug_assertions))]
+use das_types::prettier::Prettier;
 
 // Binary format: 'das'(3) + DATA_TYPE(4) + binary_data
 
@@ -15,6 +20,7 @@ pub struct SubAccountWitness {
     pub index: usize,
     // The rest is actually existing fields in the witness.
     pub signature: Vec<u8>,
+    pub sign_role: Vec<u8>,
     pub prev_root: Vec<u8>,
     pub current_root: Vec<u8>,
     pub proof: Vec<u8>,
@@ -137,6 +143,7 @@ impl SubAccountWitnessesParser {
 
         // Every sub-account witness has the next fields, here we parse it one by one.
         let (start, signature) = Self::parse_field(&raw, start)?;
+        let (start, sign_role) = Self::parse_field(&raw, start)?;
         let (start, prev_root) = Self::parse_field(&raw, start)?;
         let (start, current_root) = Self::parse_field(&raw, start)?;
         let (start, proof) = Self::parse_field(&raw, start)?;
@@ -196,13 +203,14 @@ impl SubAccountWitnessesParser {
         };
 
         debug!(
-                "  Sub-account witnesses[{}]: {{ prev_root: 0x{}, current_root: 0x{}, version: {}, sub_account: {}, edit_key: {} }}",
-                i, util::hex_string(prev_root), util::hex_string(current_root), version, sub_account.account().as_prettier(), String::from_utf8(edit_key.to_vec()).unwrap()
-            );
+            "  Sub-account witnesses[{}]: {{ prev_root: 0x{}, current_root: 0x{}, version: {}, sub_account: {}, edit_key: {} }}",
+            i, util::hex_string(prev_root), util::hex_string(current_root), version, sub_account.account().as_prettier(), String::from_utf8(edit_key.to_vec()).unwrap()
+        );
 
         Ok(SubAccountWitness {
             index: i,
             signature: signature.to_vec(),
+            sign_role: sign_role.to_vec(),
             prev_root: prev_root.to_vec(),
             current_root: current_root.to_vec(),
             proof: proof.to_vec(),

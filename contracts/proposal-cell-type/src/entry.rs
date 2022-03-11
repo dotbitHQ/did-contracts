@@ -27,7 +27,7 @@ pub fn main() -> Result<(), Error> {
     };
     let action = action_cp.as_slice();
 
-    util::is_system_off(&mut parser)?;
+    util::is_system_off(&parser)?;
 
     debug!("Find out ProposalCell ...");
 
@@ -47,7 +47,6 @@ pub fn main() -> Result<(), Error> {
             let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
             parser.parse_cell()?;
-            parser.parse_config(&[DataType::ConfigCellProposal])?;
             let config_main = parser.configs.main()?;
             let config_proposal = parser.configs.proposal()?;
 
@@ -130,12 +129,6 @@ pub fn main() -> Result<(), Error> {
             let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
             parser.parse_cell()?;
-            parser.parse_config(&[
-                DataType::ConfigCellAccount,
-                DataType::ConfigCellProfitRate,
-                DataType::ConfigCellIncome,
-                DataType::ConfigCellProposal,
-            ])?;
             let config_account = parser.configs.account()?;
             let config_main = parser.configs.main()?;
             let config_profit_rate = parser.configs.profit_rate()?;
@@ -188,7 +181,6 @@ pub fn main() -> Result<(), Error> {
         }
         b"recycle_proposal" => {
             parser.parse_cell()?;
-            parser.parse_config(&[DataType::ConfigCellProposal])?;
             let config_proposal_reader = parser.configs.proposal()?;
 
             verifiers::common::verify_removed_cell_in_correct_position(

@@ -521,8 +521,7 @@ pub fn is_cell_capacity_equal(cell_a: (usize, Source), cell_b: (usize, Source)) 
     Ok(())
 }
 
-pub fn is_system_off(parser: &mut WitnessesParser) -> Result<(), Error> {
-    parser.parse_config(&[DataType::ConfigCellMain])?;
+pub fn is_system_off(parser: &WitnessesParser) -> Result<(), Error> {
     let config_main = parser.configs.main()?;
     let status = u8::from(config_main.status());
     if status == 0 {
@@ -598,12 +597,11 @@ pub fn calc_duration_from_paid(paid: u64, yearly_price: u64, quote: u64, discoun
 }
 
 pub fn require_type_script(
-    parser: &mut WitnessesParser,
+    parser: &WitnessesParser,
     type_script: TypeScript,
     source: Source,
     err: Error,
 ) -> Result<(), Error> {
-    parser.parse_config(&[DataType::ConfigCellMain])?;
     let config = parser.configs.main()?;
 
     let type_id = match type_script {
