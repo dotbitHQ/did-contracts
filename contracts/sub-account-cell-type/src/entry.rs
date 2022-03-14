@@ -1,13 +1,13 @@
 use alloc::{borrow::ToOwned, vec, vec::Vec};
 use ckb_std::{ckb_constants::Source, high_level};
-use core::result::Result;
+use core::{result::Result, convert::TryInto};
 use das_core::{
     assert,
     constants::*,
     debug,
     error::Error,
     sub_account_witness_parser::{SubAccountEditValue, SubAccountWitness, SubAccountWitnessesParser},
-    util, verifiers,
+    util::{self, blake2b_256}, verifiers,
     witness_parser::WitnessesParser,
 };
 use das_types::{
@@ -176,6 +176,8 @@ pub fn main() -> Result<(), Error> {
 
                                 smt_verify_sub_account_is_editable(witness, new_sub_account_reader)?;
 
+                                verify_sub_account_sig(witness)?;
+
                                 verifiers::sub_account_cell::verify_expiration(
                                     config_account,
                                     witness.index,
@@ -301,10 +303,27 @@ fn verify_sub_account_cell_smt_root(
     Ok(())
 }
 
+fn gen_smt_key_by_account_id(account_id: &[u8]) -> [u8; 32] {
+    let mut key= [0u8; 32];
+    let key_pre = account_id.to_vec();
+    key.copy_from_slice(&key_pre);
+    debug!("gen_smt_key_by_account_id, key: {}", util::hex_string(&key));
+    key
+}
+
 fn smt_verify_sub_account_is_creatable(witness: &SubAccountWitness) -> Result<(), Error> {
+    let key = gen_smt_key_by_account_id(witness.sub_account.id().as_slice());
+    let proof = witness.proof.as_slice();
+
     debug!("Verify if the sub-account was not exist in the SMT before.");
+    let prev_root = witness.prev_root.as_slice();
+    let zero_val = [0u8; 32];
+    verifiers::sub_account_cell::verify_smt_proof(key, zero_val, prev_root.try_into().unwrap(), proof)?;
 
     debug!("Verify if the sub-account is in the SMT now.");
+    let current_root = witness.current_root.as_slice();
+    let current_val = blake2b_256(witness.sub_account.as_slice()).to_vec().try_into().unwrap();
+    verifiers::sub_account_cell::verify_smt_proof(key, current_val, current_root.try_into().unwrap(), proof)?;
 
     Ok(())
 }
@@ -313,11 +332,32 @@ fn smt_verify_sub_account_is_editable(
     witness: &SubAccountWitness,
     new_sub_account: SubAccountReader,
 ) -> Result<(), Error> {
+    let key = gen_smt_key_by_account_id(witness.sub_account.id().as_slice());
+    let proof = witness.proof.as_slice();
+
     debug!("Verify if the current state of the sub-account was in the SMT before.");
+    let prev_root = witness.prev_root.as_slice();
+    let prev_val = blake2b_256(witness.sub_account.as_slice()).to_vec().try_into().unwrap();
+    verifiers::sub_account_cell::verify_smt_proof(key, prev_val, prev_root.try_into().unwrap(), proof)?;
 
     debug!("Verify if the new state of the sub-account is in the SMT now.");
+    let current_root = witness.current_root.as_slice();
+    let current_val = blake2b_256(new_sub_account.as_slice()).to_vec().try_into().unwrap();
+    verifiers::sub_account_cell::verify_smt_proof(key, current_val, current_root.try_into().unwrap(), proof)?;
 
     Ok(())
+}
+
+fn verify_sub_account_sig(witness: &SubAccountWitness) -> Result<(), Error> {
+
+    let nonce = witness.sub_account.nonce();
+
+    verifiers::sub_account_cell::verify_sub_account_sig(
+        witness.edit_key.as_slice(), 
+        witness.edit_value_orignal.as_slice(), 
+        nonce.as_slice(), 
+        witness.signature.as_slice(), 
+        witness.sign_args.as_slice())
 }
 
 fn generate_new_sub_account_by_edit_value(sub_account: SubAccount, edit_value: &SubAccountEditValue) -> SubAccount {
