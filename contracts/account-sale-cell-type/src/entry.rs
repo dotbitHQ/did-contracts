@@ -245,14 +245,14 @@ pub fn main() -> Result<(), Error> {
                         input_account_cells[0],
                         timestamp,
                     )?;
+                    verifiers::account_cell::verify_account_capacity_not_decrease(
+                        input_account_cells[0],
+                        output_account_cells[0],
+                    )?;
                     verifiers::account_cell::verify_account_data_consistent(
                         input_account_cells[0],
                         output_account_cells[0],
                         vec![],
-                    )?;
-                    verifiers::account_cell::verify_account_capacity_not_decrease(
-                        input_account_cells[0],
-                        output_account_cells[0],
                     )?;
                     verifiers::account_cell::verify_account_witness_consistent(
                         input_account_cells[0],
@@ -614,14 +614,14 @@ fn verify_account_cell_consistent_except_status<'a>(
     output_account_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
 ) -> Result<(), Error> {
     verifiers::account_cell::verify_account_expiration(config_account, input_account_cell, timestamp)?;
-    verifiers::account_cell::verify_account_lock_consistent(input_account_cell, output_account_cell, None)?;
-    verifiers::account_cell::verify_account_data_consistent(input_account_cell, output_account_cell, vec![])?;
     verifiers::account_cell::verify_account_capacity_not_decrease(input_account_cell, output_account_cell)?;
-    verifiers::account_cell::verify_account_witness_consistent(
+    verifiers::account_cell::verify_account_cell_consistent_with_exception(
         input_account_cell,
         output_account_cell,
         &input_account_cell_witness_reader,
         &output_account_cell_witness_reader,
+        None,
+        vec![],
         vec!["status"],
     )?;
 

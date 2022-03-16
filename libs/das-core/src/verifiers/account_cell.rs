@@ -40,16 +40,19 @@ pub fn verify_unlock_role(action: &[u8], params: &[Bytes]) -> Result<(), Error> 
 pub fn verify_account_expiration(
     config: ConfigCellAccountReader,
     account_cell_index: usize,
-    current: u64,
+    current_timestamp: u64,
 ) -> Result<(), Error> {
-    debug!("Check if AccountCell is expired.");
-
     let data = util::load_cell_data(account_cell_index, Source::Input)?;
     let expired_at = data_parser::account_cell::get_expired_at(data.as_slice());
     let expiration_grace_period = u32::from(config.expiration_grace_period()) as u64;
 
-    if current > expired_at {
-        if current - expired_at > expiration_grace_period {
+    debug!(
+        "Check if AccountCell is expired. (current: {}, expired_at: {}, expiration_grace_period: {})",
+        current_timestamp, expired_at, expiration_grace_period
+    );
+
+    if current_timestamp > expired_at {
+        if current_timestamp - expired_at > expiration_grace_period {
             warn!("The AccountCell has been expired. Will be recycled soon.");
             return Err(Error::AccountCellHasExpired);
         } else {
@@ -185,13 +188,17 @@ pub fn verify_account_data_consistent(
         output_account_index
     );
     if !except.contains(&"expired_at") {
+        let input_expired_at = data_parser::account_cell::get_expired_at(&input_data);
+        let output_expired_at = data_parser::account_cell::get_expired_at(&output_data);
+
         assert!(
-            data_parser::account_cell::get_expired_at(&input_data)
-                == data_parser::account_cell::get_expired_at(&output_data),
+            input_expired_at == output_expired_at,
             Error::AccountCellDataNotConsistent,
-            "The data.expired_at field of inputs[{}] and outputs[{}] should be the same.",
+            "The data.expired_at field of inputs[{}] and outputs[{}] should be the same. (inputs: {}, outputs: {})",
             input_account_index,
-            output_account_index
+            output_account_index,
+            input_expired_at,
+            output_expired_at
         );
     }
 
@@ -365,14 +372,16 @@ pub fn verify_account_cell_status_update_correctly<'a>(
         assert!(
             input_status == expected_input_status as u8,
             Error::AccountCellStatusLocked,
-            "The AccountCell.witness.status should be {:?} in inputs.",
-            expected_input_status
+            "The AccountCell.witness.status should be {:?} in inputs, received {}",
+            expected_input_status,
+            input_status
         );
         assert!(
             output_status == expected_output_status as u8,
             Error::AccountCellStatusLocked,
-            "The AccountCell.witness.status should be {:?} in outputs.",
-            expected_output_status
+            "The AccountCell.witness.status should be {:?} in outputs, received {}",
+            expected_output_status,
+            output_status
         );
     }
 
@@ -400,6 +409,30 @@ pub fn verify_account_cell_status<'a>(
             expected_status
         );
     }
+
+    Ok(())
+}
+
+pub fn verify_account_cell_consistent_with_exception<'a>(
+    input_account_cell: usize,
+    output_account_cell: usize,
+    input_account_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
+    output_account_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
+    changed_lock: Option<&str>,
+    except_data: Vec<&str>,
+    except_witness: Vec<&str>,
+) -> Result<(), Error> {
+    debug!("Verify if the AccountCell's data & lock & witness is consistent in inputs and outputs.");
+
+    verify_account_lock_consistent(input_account_cell, output_account_cell, changed_lock)?;
+    verify_account_data_consistent(input_account_cell, output_account_cell, except_data)?;
+    verify_account_witness_consistent(
+        input_account_cell,
+        output_account_cell,
+        &input_account_cell_witness_reader,
+        &output_account_cell_witness_reader,
+        except_witness,
+    )?;
 
     Ok(())
 }
