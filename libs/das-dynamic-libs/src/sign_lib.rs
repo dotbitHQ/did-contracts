@@ -58,12 +58,12 @@ impl SignLib {
         Ok(())
     }
 
-    pub fn gen_digest(&self, edit_key: Vec<u8>, edit_value: Vec<u8>, nonce: u32) -> Vec<u8> {
+    pub fn gen_digest(&self, edit_key: Vec<u8>, edit_value: Vec<u8>, nonce: Vec<u8>) -> Vec<u8> {
         
         let mut blake2b = util::new_blake2b();
         blake2b.update(&edit_key);
         blake2b.update(&edit_value);
-        blake2b.update(&(nonce.to_le_bytes()));
+        blake2b.update(&nonce);
         let mut h = [0u8; 32];
         blake2b.finalize(&mut h);
         let s = "from did: ";
@@ -72,7 +72,7 @@ impl SignLib {
         message
     }
 
-    pub fn verify_sub_account_sig(&self, edit_key: Vec<u8>, edit_value: Vec<u8>, nonce: u32, sig: Vec<u8>, args: Vec<u8>) -> Result<(), i32> {
+    pub fn verify_sub_account_sig(&self, edit_key: Vec<u8>, edit_value: Vec<u8>, nonce: Vec<u8>, sig: Vec<u8>, args: Vec<u8>) -> Result<(), i32> {
 
         let message = self.gen_digest(edit_key, edit_value, nonce);
         let type_no = 0i32;

@@ -1,4 +1,4 @@
-use super::{assert, debug, error::Error, util, warn};
+use super::{assert, debug, error::Error, util, warn, data_parser};
 use alloc::vec::Vec;
 use ckb_std::{ckb_constants::Source, error::SysError, syscalls};
 use core::{
@@ -28,6 +28,8 @@ pub struct SubAccountWitness {
     pub sub_account: SubAccount,
     pub edit_key: Vec<u8>,
     pub edit_value: SubAccountEditValue,
+    pub edit_value_orignal: Vec<u8>,
+    pub sign_args: Vec<u8>,
 }
 
 #[derive(Debug)]
@@ -202,9 +204,18 @@ impl SubAccountWitnessesParser {
             _ => SubAccountEditValue::None,
         };
 
+        let sign_role_int = u32::from_le_bytes(sign_role.try_into().unwrap());
+        let args = sub_account.lock().args();
+        
+        let sign_args = if sign_role_int == LockRole::Owner as u32 {
+            data_parser::das_lock_args::get_owner_lock_args(args.as_slice())
+        } else {
+            data_parser::das_lock_args::get_manager_lock_args(args.as_slice())
+        };
+
         debug!(
-            "  Sub-account witnesses[{}]: {{ prev_root: 0x{}, current_root: 0x{}, version: {}, sub_account: {}, edit_key: {} }}",
-            i, util::hex_string(prev_root), util::hex_string(current_root), version, sub_account.account().as_prettier(), String::from_utf8(edit_key.to_vec()).unwrap()
+            "  Sub-account witnesses[{}]: {{ prev_root: 0x{}, current_root: 0x{}, version: {}, sub_account: {}, edit_key: {}, sign_args: {} }}",
+            i, util::hex_string(prev_root), util::hex_string(current_root), version, sub_account.account().as_prettier(), String::from_utf8(edit_key.to_vec()).unwrap(), util::hex_string(sign_args)
         );
 
         Ok(SubAccountWitness {
@@ -218,6 +229,8 @@ impl SubAccountWitnessesParser {
             sub_account,
             edit_key: edit_key.to_vec(),
             edit_value,
+            edit_value_orignal: edit_value_bytes.to_vec(),
+            sign_args: sign_args.to_vec(),
         })
     }
 

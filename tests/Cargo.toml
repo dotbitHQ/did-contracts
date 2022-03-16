@@ -19,4 +19,4 @@ das-types-std = { path = "../../das-types-std/rust" }
 walkdir = "2"
 rand = "0.8.3"
 chrono = { version = "0.4" }
-sparse-merkle-tree = "0.5.3"
+sparse-merkle-tree = { git = "https://github.com/nervosnetwork/sparse-merkle-tree.git", default-features = false }

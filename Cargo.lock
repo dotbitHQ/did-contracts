@@ -142,15 +142,6 @@ checksum = "88756126a7634ad9c13ed0a6da9aa3376a6b7000eb5fcdbb89d153196326bbcd"
 
 [[package]]
 name = "blake2b-rs"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e35e362830ef90ecea16f09b21b75d22d33a8562a679c74ab4f4fa49b4fcb87"
-dependencies = [
- "cc",
-]
-
-[[package]]
-name = "blake2b-rs"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a89a8565807f21b913288968e391819e7f9b2f0f46c7b89549c051cccf3a2771"
@@ -403,7 +394,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ad7917b0a4143327d5e0906ddcfa5793340289a4387307a8bcee81f9d829bf94"
 dependencies = [
  "blake2b-ref 0.2.1",
- "blake2b-rs 0.2.0",
+ "blake2b-rs",
 ]
 
 [[package]]
@@ -552,7 +543,7 @@ version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fa5c59063142de7a68cfad4449c6b3863563856219a2925dfb8c5f019ec2aa47"
 dependencies = [
- "blake2b-rs 0.2.0",
+ "blake2b-rs",
  "faster-hex",
  "includedir",
  "includedir_codegen",
@@ -772,11 +763,13 @@ dependencies = [
  "bs58 0.4.0",
  "chrono",
  "ckb-std",
+ "das-dynamic-libs",
  "das-map",
  "das-types",
  "eip712",
  "hex",
  "sha2",
+ "sparse-merkle-tree",
 ]
 
 [[package]]
@@ -1495,7 +1488,7 @@ dependencies = [
  "das-dynamic-libs",
  "das-types",
  "hex",
- "sparse-merkle-tree 0.5.3 (git+https://github.com/nervosnetwork/sparse-merkle-tree.git)",
+ "sparse-merkle-tree",
 ]
 
 [[package]]
@@ -1847,19 +1840,9 @@ checksum = "c111b5bd5695e56cffe5129854aa230b39c93a305372fdbb2668ca2394eea9f8"
 [[package]]
 name = "sparse-merkle-tree"
 version = "0.5.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f84214ec89cb9d304b5d54c7a266951c25bd396b2df5388420a9497a6896120a"
-dependencies = [
- "blake2b-rs 0.1.5",
- "cfg-if 0.1.10",
-]
-
-[[package]]
-name = "sparse-merkle-tree"
-version = "0.5.3"
 source = "git+https://github.com/nervosnetwork/sparse-merkle-tree.git#dddbed3c524011efb7bf7fb5314e93b06b7aebb0"
 dependencies = [
- "blake2b-rs 0.2.0",
+ "blake2b-rs",
  "cc",
  "cfg-if 0.1.10",
 ]
@@ -1880,7 +1863,7 @@ dependencies = [
  "das-dynamic-libs",
  "das-types",
  "hex",
- "sparse-merkle-tree 0.5.3 (git+https://github.com/nervosnetwork/sparse-merkle-tree.git)",
+ "sparse-merkle-tree",
 ]
 
 [[package]]
@@ -1989,7 +1972,7 @@ dependencies = [
  "secp256k1 0.17.2",
  "serde",
  "serde_json",
- "sparse-merkle-tree 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sparse-merkle-tree",
  "walkdir",
 ]
 

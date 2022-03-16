@@ -150,6 +150,7 @@ pub enum Error {
     SubAccountCellAccountIdError,
     SubAccountCellConsistencyError,
     SubAccountInitialValueError,
+    SubAccountSigVerifyError,
     UpgradeForWitnessIsRequired,
     UpgradeDefaultValueOfNewFieldIsError,
     UnittestError = -2,
