@@ -36,3 +36,12 @@ pub fn get_manager_lock_args(data: &[u8]) -> &[u8] {
 
     ret.expect("Das-lock should have some bytes for manager lock hash.")
 }
+
+pub fn get_owner_and_manager(data: &[u8]) -> (u8, &[u8], u8, &[u8]) {
+    let owner_type = get_owner_type(data);
+    let owner_args = get_owner_lock_args(data);
+    let manager_type = get_manager_type(data);
+    let manager_args = get_manager_lock_args(data);
+
+    (owner_type, owner_args, manager_type, manager_args)
+}

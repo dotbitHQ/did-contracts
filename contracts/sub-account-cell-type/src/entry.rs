@@ -1,13 +1,14 @@
 use alloc::{borrow::ToOwned, vec, vec::Vec};
 use ckb_std::{ckb_constants::Source, high_level};
-use core::{result::Result, convert::TryInto};
+use core::{convert::TryInto, result::Result};
 use das_core::{
     assert,
     constants::*,
-    debug,
+    data_parser, debug,
     error::Error,
     sub_account_witness_parser::{SubAccountEditValue, SubAccountWitness, SubAccountWitnessesParser},
-    util::{self, blake2b_256}, verifiers,
+    util::{self, blake2b_256},
+    verifiers, warn,
     witness_parser::WitnessesParser,
 };
 use das_types::{
@@ -190,7 +191,70 @@ pub fn main() -> Result<(), Error> {
                                     AccountStatus::Normal,
                                 )?;
 
-                                // match sub_account_reader.
+                                match &witness.edit_value {
+                                    SubAccountEditValue::Owner(new_args) | SubAccountEditValue::Manager(new_args) => {
+                                        let sub_account_reader = witness.sub_account.as_reader();
+                                        let current_args = sub_account_reader.lock().args().raw_data();
+                                        let (
+                                            current_owner_type,
+                                            current_owner_args,
+                                            current_manager_type,
+                                            current_manager_args,
+                                        ) = data_parser::das_lock_args::get_owner_and_manager(current_args);
+                                        let (new_owner_type, new_owner_args, new_manager_type, new_manager_args) =
+                                            data_parser::das_lock_args::get_owner_and_manager(new_args);
+
+                                        if let SubAccountEditValue::Owner(_) = &witness.edit_value {
+                                            debug!(
+                                                "witnesses[{}] Verify if owner has been changed correctly.",
+                                                witness.index
+                                            );
+
+                                            assert!(
+                                                current_owner_type != new_owner_type
+                                                    || current_owner_args != new_owner_args,
+                                                Error::SubAccountEditLockError,
+                                                "witnesses[{}] The owner fields in args should be consistent.",
+                                                witness.index
+                                            );
+
+                                            // Skip verifying manger, because owner has been changed.
+                                        } else {
+                                            debug!(
+                                                "witnesses[{}] Verify if manager has been changed correctly.",
+                                                witness.index
+                                            );
+
+                                            assert!(
+                                                current_owner_type == new_owner_type
+                                                    && current_owner_args == new_owner_args,
+                                                Error::SubAccountEditLockError,
+                                                "witnesses[{}] The owner fields in args should be consistent.",
+                                                witness.index
+                                            );
+
+                                            assert!(
+                                                current_manager_type != new_manager_type
+                                                    || current_manager_args != new_manager_args,
+                                                Error::SubAccountEditLockError,
+                                                "witnesses[{}] The manager fields in args should be changed.",
+                                                witness.index
+                                            );
+                                        }
+                                    }
+                                    SubAccountEditValue::Records(records) => {}
+                                    SubAccountEditValue::ExpiredAt(expired_at) => {
+                                        warn!("witnesses[{}] Can not edit witness.sub_account.expired_at in this transaction.", witness.index);
+                                        return Err(Error::SubAccountFieldNotEditable);
+                                    }
+                                    SubAccountEditValue::None => {
+                                        warn!(
+                                            "witnesses[{}] The witness.edit_value should not be empty.",
+                                            witness.index
+                                        );
+                                        return Err(Error::SubAccountFieldNotEditable);
+                                    }
+                                }
                             }
                             b"renew_sub_account" => todo!(),
                             b"recycle_sub_account" => todo!(),
@@ -304,7 +368,7 @@ fn verify_sub_account_cell_smt_root(
 }
 
 fn gen_smt_key_by_account_id(account_id: &[u8]) -> [u8; 32] {
-    let mut key= [0u8; 32];
+    let mut key = [0u8; 32];
     let key_pre = account_id.to_vec();
     key.copy_from_slice(&key_pre);
     debug!("gen_smt_key_by_account_id, key: {}", util::hex_string(&key));
@@ -349,15 +413,15 @@ fn smt_verify_sub_account_is_editable(
 }
 
 fn verify_sub_account_sig(witness: &SubAccountWitness) -> Result<(), Error> {
-
     let nonce = witness.sub_account.nonce();
 
     verifiers::sub_account_cell::verify_sub_account_sig(
-        witness.edit_key.as_slice(), 
-        witness.edit_value_orignal.as_slice(), 
-        nonce.as_slice(), 
-        witness.signature.as_slice(), 
-        witness.sign_args.as_slice())
+        witness.edit_key.as_slice(),
+        witness.edit_value_orignal.as_slice(),
+        nonce.as_slice(),
+        witness.signature.as_slice(),
+        witness.sign_args.as_slice(),
+    )
 }
 
 fn generate_new_sub_account_by_edit_value(sub_account: SubAccount, edit_value: &SubAccountEditValue) -> SubAccount {
