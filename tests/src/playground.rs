@@ -13,7 +13,7 @@ fn init(action: &str) -> TemplateGenerator {
 }
 
 #[test]
-fn test_playground() {
+fn xxx_playground() {
     let mut template = init("playground");
 
     push_input_playground_cell(&mut template);

@@ -255,3 +255,95 @@ fn challenge_sub_account_edit_manager_not_change() {
 
     challenge_tx(template.as_json(), Error::SubAccountEditLockError)
 }
+
+#[test]
+fn challenge_sub_account_edit_records_invalid_char() {
+    let mut template = before_each();
+
+    // outputs
+    template.push_sub_account_witness(
+        SubAccountActionType::Edit,
+        json!({
+            "sub_account": {
+                "lock": {
+                    "owner_lock_args": OWNER_1,
+                    "manager_lock_args": MANAGER_1
+                },
+                "account": SUB_ACCOUNT_1,
+                "suffix": SUB_ACCOUNT_SUFFIX,
+                "registered_at": TIMESTAMP,
+                "expired_at": u64::MAX,
+            },
+            "edit_key": "records",
+            "edit_value": [
+                {
+                    "type": "custom_key",
+                    // Simulate using invalid char in the key field of a record.
+                    "key": "eth+",
+                    "label": "Company",
+                    "value": "0x0000000000000000000000000000000000001111",
+                }
+            ]
+        }),
+    );
+    let current_root = template.smt_with_history.current_root();
+    push_output_sub_account_cell(
+        &mut template,
+        json!({
+            "type": {
+                "args": ACCOUNT_1
+            },
+            "data": {
+                "root": String::from("0x") + &hex::encode(&current_root)
+            }
+        }),
+    );
+
+    challenge_tx(template.as_json(), Error::AccountCellRecordKeyInvalid)
+}
+
+#[test]
+fn challenge_sub_account_edit_records_invalid_key() {
+    let mut template = before_each();
+
+    // outputs
+    template.push_sub_account_witness(
+        SubAccountActionType::Edit,
+        json!({
+            "sub_account": {
+                "lock": {
+                    "owner_lock_args": OWNER_1,
+                    "manager_lock_args": MANAGER_1
+                },
+                "account": SUB_ACCOUNT_1,
+                "suffix": SUB_ACCOUNT_SUFFIX,
+                "registered_at": TIMESTAMP,
+                "expired_at": u64::MAX,
+            },
+            "edit_key": "records",
+            "edit_value": [
+                {
+                    "type": "dweb",
+                    // Simulate using a key out of namespace.
+                    "key": "xxxx",
+                    "label": "xxxxx",
+                    "value": "0x0000000000000000000000000000000000001111",
+                }
+            ]
+        }),
+    );
+    let current_root = template.smt_with_history.current_root();
+    push_output_sub_account_cell(
+        &mut template,
+        json!({
+            "type": {
+                "args": ACCOUNT_1
+            },
+            "data": {
+                "root": String::from("0x") + &hex::encode(&current_root)
+            }
+        }),
+    );
+
+    challenge_tx(template.as_json(), Error::AccountCellRecordKeyInvalid)
+}

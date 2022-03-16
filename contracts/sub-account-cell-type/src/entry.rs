@@ -242,7 +242,9 @@ pub fn main() -> Result<(), Error> {
                                             );
                                         }
                                     }
-                                    SubAccountEditValue::Records(records) => {}
+                                    SubAccountEditValue::Records(records) => {
+                                        verifiers::account_cell::verify_records_keys(&parser, records.as_reader())?;
+                                    }
                                     SubAccountEditValue::ExpiredAt(expired_at) => {
                                         warn!("witnesses[{}] Can not edit witness.sub_account.expired_at in this transaction.", witness.index);
                                         return Err(Error::SubAccountFieldNotEditable);

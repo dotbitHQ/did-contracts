@@ -19,7 +19,7 @@ fn init(action: &str) -> TemplateGenerator {
 }
 
 #[test]
-fn test_parse_sub_account_witness_empty() {
+fn parse_sub_account_witness_empty() {
     let mut template = init("test_parse_sub_account_witness_empty");
 
     push_input_test_env_cell(&mut template);
@@ -28,7 +28,7 @@ fn test_parse_sub_account_witness_empty() {
 }
 
 #[test]
-fn test_parse_sub_account_witness_create() {
+fn parse_sub_account_witness_create() {
     let mut template = init("test_parse_sub_account_witness_create");
 
     push_input_test_env_cell(&mut template);
@@ -83,7 +83,7 @@ fn test_parse_sub_account_witness_create() {
 }
 
 #[test]
-fn test_parse_sub_account_witness_edit() {
+fn parse_sub_account_witness_edit() {
     let mut template = init("test_parse_sub_account_witness_edit");
     template.restore_sub_account(vec![
         json!({
