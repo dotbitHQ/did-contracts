@@ -1,12 +1,9 @@
 use crate::{assert, constants::*, debug, error::Error, warn, witness_parser::WitnessesParser};
 use alloc::{string::String, vec::Vec};
-use das_types::{constants::*, packed::*, prettier::Prettier};
-use sparse_merkle_tree::{
-    ckb_smt::SMTBuilder,
-    H256
-};
 use ckb_std::dynamic_loading_c_impl::CKBDLContext;
 use das_dynamic_libs::sign_lib::SignLib;
+use das_types::{constants::*, packed::*, prettier::Prettier};
+use sparse_merkle_tree::{ckb_smt::SMTBuilder, H256};
 
 pub fn verify_expiration(
     config: ConfigCellAccountReader,
@@ -116,6 +113,11 @@ pub fn verify_status(
 }
 
 pub fn verify_smt_proof(key: [u8; 32], val: [u8; 32], root: [u8; 32], proof: &[u8]) -> Result<(), Error> {
+    if cfg!(feature = "dev") {
+        // CAREFUL Proof verification has been skipped in development mode.
+        return Ok(());
+    }
+
     let builder = SMTBuilder::new();
     let builder = builder.insert(&H256::from(key), &H256::from(val)).unwrap();
 
@@ -130,20 +132,39 @@ pub fn verify_smt_proof(key: [u8; 32], val: [u8; 32], root: [u8; 32], proof: &[u
     Ok(())
 }
 
-pub fn verify_sub_account_sig(edit_key: &[u8], edit_value: &[u8], nonce: &[u8], sig: &[u8], args: &[u8]) -> Result<(), Error> {
+pub fn verify_sub_account_sig(
+    edit_key: &[u8],
+    edit_value: &[u8],
+    nonce: &[u8],
+    sig: &[u8],
+    args: &[u8],
+) -> Result<(), Error> {
+    if cfg!(feature = "dev") {
+        // CAREFUL Proof verification has been skipped in development mode.
+        return Ok(());
+    }
+
     let mut context = unsafe { CKBDLContext::<[u8; 128 * 1024]>::new() };
     // TODO: need to be used as a param
     #[cfg(feature = "mainnet")]
-        let code_hash: [u8; 32] = [
-        114,136,18,7,241,131,151,251,114,137,71,94,28,208,216,64,104,55,4,5,126,140,166,6,43,114,139,209,174,122,155,68
+    let code_hash: [u8; 32] = [
+        114, 136, 18, 7, 241, 131, 151, 251, 114, 137, 71, 94, 28, 208, 216, 64, 104, 55, 4, 5, 126, 140, 166, 6, 43,
+        114, 139, 209, 174, 122, 155, 68,
     ];
     #[cfg(not(feature = "mainnet"))]
-        let code_hash: [u8; 32] = [
-        114,136,18,7,241,131,151,251,114,137,71,94,28,208,216,64,104,55,4,5,126,140,166,6,43,114,139,209,174,122,155,68
+    let code_hash: [u8; 32] = [
+        114, 136, 18, 7, 241, 131, 151, 251, 114, 137, 71, 94, 28, 208, 216, 64, 104, 55, 4, 5, 126, 140, 166, 6, 43,
+        114, 139, 209, 174, 122, 155, 68,
     ];
 
     let lib = SignLib::load(&mut context, &code_hash);
-    let ret = lib.verify_sub_account_sig(edit_key.to_vec(), edit_value.to_vec(), nonce.to_vec(), sig.to_vec(), args.to_vec());
+    let ret = lib.verify_sub_account_sig(
+        edit_key.to_vec(),
+        edit_value.to_vec(),
+        nonce.to_vec(),
+        sig.to_vec(),
+        args.to_vec(),
+    );
     if let Err(error_code) = ret {
         debug!("verify_sub_account_sig failed, error_code: {}", error_code);
         return Err(Error::SubAccountSigVerifyError);

@@ -2535,7 +2535,7 @@ impl TemplateGenerator {
         let sub_account_entity = parse_json_to_sub_account("witness.sub_account", &witness["sub_account"]);
 
         match action {
-            SubAccountActionType::Edit | SubAccountActionType::Insert => {
+            SubAccountActionType::Insert => {
                 let sub_account_entity_bytes = sub_account_entity.as_slice().to_vec();
                 let value = util::blake2b_smt(&sub_account_entity_bytes);
                 let (prev_root, current_root, proof) = self.smt_with_history.insert(key.into(), value.into());
@@ -2546,6 +2546,47 @@ impl TemplateGenerator {
                     current_root,
                     proof,
                     sub_account_entity_bytes,
+                    &witness,
+                );
+                extend_edit_fields(&mut witness_bytes, &witness);
+            }
+            SubAccountActionType::Edit => {
+                let mut new_sub_account_builder = sub_account_entity.clone().as_builder();
+                let current_nonce = u64::from(sub_account_entity.nonce());
+
+                // Modify SubAccount base on edit_key and edit_value.
+                let edit_key = parse_json_str("witness.edit_key", &witness["edit_key"]);
+                match edit_key {
+                    "expired_at" => {
+                        let mol = Uint64::from(parse_json_u64("witness.edit_value", &witness["edit_value"], None));
+                        new_sub_account_builder = new_sub_account_builder.expired_at(mol)
+                    }
+                    "owner" | "manager" => {
+                        let mut lock_builder = sub_account_entity.lock().as_builder();
+                        let args = parse_json_hex("witness.edit_value", &witness["edit_value"]);
+                        lock_builder = lock_builder.args(Bytes::from(args));
+
+                        new_sub_account_builder = new_sub_account_builder.lock(lock_builder.build())
+                    }
+                    "records" => {
+                        let mol = parse_json_to_records_mol("witness.edit_value", &witness["edit_value"]);
+                        new_sub_account_builder = new_sub_account_builder.records(mol)
+                    }
+                    _ => panic!("Unsupported type of witness.edit_key !"),
+                };
+
+                new_sub_account_builder = new_sub_account_builder.nonce(Uint64::from(current_nonce + 1));
+                let new_sub_account_entity = new_sub_account_builder.build();
+                let new_sub_account_entity_bytes = new_sub_account_entity.as_slice().to_vec();
+                let value = util::blake2b_smt(&new_sub_account_entity_bytes);
+                let (prev_root, current_root, proof) = self.smt_with_history.insert(key.into(), value.into());
+
+                extend_main_fields(
+                    &mut witness_bytes,
+                    prev_root,
+                    current_root,
+                    proof,
+                    sub_account_entity.as_slice().to_vec(),
                     &witness,
                 );
                 extend_edit_fields(&mut witness_bytes, &witness);

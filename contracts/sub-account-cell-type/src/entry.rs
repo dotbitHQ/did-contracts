@@ -125,8 +125,6 @@ pub fn main() -> Result<(), Error> {
                             }
                         }
 
-                        debug!("Verify if the proof of witnesses[{}] is valid.", witness.index);
-
                         let sub_account_reader = witness.sub_account.as_reader();
                         match action {
                             b"create_sub_account" => {
@@ -371,7 +369,7 @@ fn verify_sub_account_cell_smt_root(
 
 fn gen_smt_key_by_account_id(account_id: &[u8]) -> [u8; 32] {
     let mut key = [0u8; 32];
-    let key_pre = account_id.to_vec();
+    let key_pre = [account_id, &[0u8; 12]].concat();
     key.copy_from_slice(&key_pre);
     debug!("gen_smt_key_by_account_id, key: {}", util::hex_string(&key));
     key
@@ -427,7 +425,9 @@ fn verify_sub_account_sig(witness: &SubAccountWitness) -> Result<(), Error> {
 }
 
 fn generate_new_sub_account_by_edit_value(sub_account: SubAccount, edit_value: &SubAccountEditValue) -> SubAccount {
-    let sub_account_builder = match edit_value {
+    let current_nonce = u64::from(sub_account.nonce());
+
+    let mut sub_account_builder = match edit_value {
         SubAccountEditValue::ExpiredAt(val) => {
             let sub_account_builder = sub_account.as_builder();
             sub_account_builder.expired_at(val.to_owned())
@@ -446,5 +446,7 @@ fn generate_new_sub_account_by_edit_value(sub_account: SubAccount, edit_value: &
         _ => unreachable!(),
     };
 
+    // Every time a sub-account is edited, its nonce must  increase by 1 .
+    sub_account_builder = sub_account_builder.nonce(Uint64::from(current_nonce + 1));
     sub_account_builder.build()
 }
