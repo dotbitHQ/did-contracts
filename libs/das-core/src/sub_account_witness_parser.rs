@@ -1,4 +1,4 @@
-use super::{assert, debug, error::Error, util, warn, data_parser};
+use super::{assert, data_parser, debug, error::Error, util, warn};
 use alloc::vec::Vec;
 use ckb_std::{ckb_constants::Source, error::SysError, syscalls};
 use core::{
@@ -204,10 +204,10 @@ impl SubAccountWitnessesParser {
             _ => SubAccountEditValue::None,
         };
 
-        let sign_role_int = u32::from_le_bytes(sign_role.try_into().unwrap());
+        let sign_role_int = u8::from_le_bytes(sign_role.try_into().unwrap());
         let args = sub_account.lock().args();
-        
-        let sign_args = if sign_role_int == LockRole::Owner as u32 {
+
+        let sign_args = if sign_role_int == LockRole::Owner as u8 {
             data_parser::das_lock_args::get_owner_lock_args(args.as_slice())
         } else {
             data_parser::das_lock_args::get_manager_lock_args(args.as_slice())

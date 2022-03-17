@@ -1,13 +1,14 @@
 use alloc::{borrow::ToOwned, vec, vec::Vec};
 use ckb_std::{ckb_constants::Source, high_level};
-use core::{result::Result, convert::TryInto};
+use core::{convert::TryInto, result::Result};
 use das_core::{
     assert,
     constants::*,
     debug,
     error::Error,
     sub_account_witness_parser::{SubAccountEditValue, SubAccountWitness, SubAccountWitnessesParser},
-    util::{self, blake2b_256}, verifiers,
+    util::{self, blake2b_256},
+    verifiers,
     witness_parser::WitnessesParser,
 };
 use das_types::{
@@ -304,8 +305,8 @@ fn verify_sub_account_cell_smt_root(
 }
 
 fn gen_smt_key_by_account_id(account_id: &[u8]) -> [u8; 32] {
-    let mut key= [0u8; 32];
-    let key_pre = account_id.to_vec();
+    let mut key = [0u8; 32];
+    let key_pre = [account_id, &[0u8; 12]].concat();
     key.copy_from_slice(&key_pre);
     debug!("gen_smt_key_by_account_id, key: {}", util::hex_string(&key));
     key
@@ -349,15 +350,15 @@ fn smt_verify_sub_account_is_editable(
 }
 
 fn verify_sub_account_sig(witness: &SubAccountWitness) -> Result<(), Error> {
-
     let nonce = witness.sub_account.nonce();
 
     verifiers::sub_account_cell::verify_sub_account_sig(
-        witness.edit_key.as_slice(), 
-        witness.edit_value_orignal.as_slice(), 
-        nonce.as_slice(), 
-        witness.signature.as_slice(), 
-        witness.sign_args.as_slice())
+        witness.edit_key.as_slice(),
+        witness.edit_value_orignal.as_slice(),
+        nonce.as_slice(),
+        witness.signature.as_slice(),
+        witness.sign_args.as_slice(),
+    )
 }
 
 fn generate_new_sub_account_by_edit_value(sub_account: SubAccount, edit_value: &SubAccountEditValue) -> SubAccount {
