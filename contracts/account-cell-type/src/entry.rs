@@ -190,11 +190,7 @@ pub fn main() -> Result<(), Error> {
                         vec![],
                         vec!["records", "last_edit_records_at"],
                     )?;
-                    verifiers::account_cell::verify_records_keys(
-                        &parser,
-                        record_key_namespace,
-                        &output_cell_witness_reader,
-                    )?;
+                    verifiers::account_cell::verify_records_keys(&parser, output_cell_witness_reader.records())?;
                 }
                 _ => unreachable!(),
             }

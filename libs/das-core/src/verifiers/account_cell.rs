@@ -632,14 +632,10 @@ pub fn verify_account_chars_max_length(
     Ok(())
 }
 
-pub fn verify_records_keys<'a>(
-    parser: &WitnessesParser,
-    record_key_namespace: &Vec<u8>,
-    output_account_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
-) -> Result<(), Error> {
-    let config = parser.configs.account()?;
-    let records_max_size = u32::from(config.record_size_limit()) as usize;
-    let records = output_account_witness_reader.records();
+pub fn verify_records_keys(parser: &WitnessesParser, records: RecordsReader) -> Result<(), Error> {
+    let config_account = parser.configs.account()?;
+    let record_key_namespace = parser.configs.record_key_namespace()?;
+    let records_max_size = u32::from(config_account.record_size_limit()) as usize;
 
     assert!(
         records.total_size() <= records_max_size,
@@ -665,12 +661,12 @@ pub fn verify_records_keys<'a>(
         (va.len() == vb.len()) && va.iter().zip(vb).all(|(a, b)| a == b)
     }
 
-    // check if all the record.record_type and record.record_key are valid
+    // check if all the record.{type+key} are valid
     for record in records.iter() {
         let mut is_valid = false;
 
         let mut record_type = Vec::from(record.record_type().raw_data());
-        let record_key = Vec::from(record.record_key().raw_data());
+        let mut record_key = Vec::from(record.record_key().raw_data());
         if record_type == b"custom_key" {
             // CAREFUL Triple check
             for char in record_key.iter() {
@@ -683,9 +679,8 @@ pub fn verify_records_keys<'a>(
             continue;
         }
 
-        // Combine record.record_type and record.record_key with a dot, for example, "address" + "." + "eth" will be "address.eth" .
-        record_type.extend(b".");
-        record_type.extend(record_key.iter());
+        record_type.push(46);
+        record_type.append(&mut record_key);
 
         for key in &key_list {
             if vec_compare(record_type.as_slice(), *key) {
@@ -698,7 +693,8 @@ pub fn verify_records_keys<'a>(
             assert!(
                 false,
                 Error::AccountCellRecordKeyInvalid,
-                "Account cell record key is invalid: {:?}", record_type
+                "Account cell record key is invalid: {:?}",
+                String::from_utf8(record_type)
             );
 
             break;

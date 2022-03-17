@@ -48,7 +48,7 @@ fn gen_config_cell_account() -> (Value, Value, Bytes, ConfigCellAccount) {
 }
 
 #[test]
-fn test_parse_witness_entity_config() {
+fn parse_witness_entity_config() {
     let mut template = init("test_parse_witness_entity_config");
 
     let (lock_script, type_script, cell_data, entity) = gen_config_cell_account();
@@ -64,7 +64,7 @@ fn test_parse_witness_entity_config() {
 }
 
 #[test]
-fn test_parse_witness_raw_config() {
+fn parse_witness_raw_config() {
     let mut template = init("test_parse_witness_raw_config");
 
     // Load record_key_namespace.txt
@@ -106,7 +106,7 @@ fn test_parse_witness_raw_config() {
 }
 
 #[test]
-fn challenge_parse_witness_entity_config_data_type() {
+fn parse_witness_error_entity_config_data_type() {
     let mut template = init("test_parse_witness_entity_config");
 
     let (lock_script, type_script, cell_data, entity) = gen_config_cell_account();
@@ -121,7 +121,7 @@ fn challenge_parse_witness_entity_config_data_type() {
 }
 
 #[test]
-fn challenge_parse_witness_entity_config_entity_hash() {
+fn parse_witness_error_entity_config_entity_hash() {
     let mut template = init("test_parse_witness_entity_config");
 
     let (lock_script, type_script, _, entity) = gen_config_cell_account();
@@ -171,7 +171,7 @@ fn gen_account_cell(outputs_data_opt: Option<String>) -> (Value, EntityWrapper) 
 }
 
 #[test]
-fn test_parse_witness_cells() {
+fn parse_witness_cells() {
     let mut template = init("test_parse_witness_cells");
 
     let (cell, entity) = gen_account_cell(None);
@@ -182,7 +182,7 @@ fn test_parse_witness_cells() {
 }
 
 #[test]
-fn challenge_parse_witness_cells_data_type() {
+fn parse_witness_error_cells_data_type() {
     let mut template = init("test_parse_witness_cells");
 
     let (cell, entity) = gen_account_cell(None);
@@ -193,7 +193,7 @@ fn challenge_parse_witness_cells_data_type() {
 }
 
 #[test]
-fn challenge_parse_witness_cells_hash() {
+fn parse_witness_error_cells_hash() {
     let mut template = init("test_parse_witness_cells");
 
     let (cell, entity) = gen_account_cell(Some(String::from(

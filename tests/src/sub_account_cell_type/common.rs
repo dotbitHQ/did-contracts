@@ -43,7 +43,9 @@ pub fn init_edit(action: &str, params_opt: Option<&str>) -> TemplateGenerator {
     template.push_shared_lib_cell("ckb_sign.so", false);
     template.push_shared_lib_cell("secp256k1_data", true);
 
+    template.push_config_cell(DataType::ConfigCellAccount, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellSubAccount, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellRecordKeyNamespace, Source::CellDep);
 
     template
 }

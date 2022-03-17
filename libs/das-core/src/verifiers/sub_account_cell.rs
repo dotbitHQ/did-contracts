@@ -1,12 +1,9 @@
 use crate::{assert, constants::*, debug, error::Error, warn, witness_parser::WitnessesParser};
-use alloc::vec::Vec;
-use das_types::{constants::*, packed::*, prettier::Prettier};
-use sparse_merkle_tree::{
-    ckb_smt::SMTBuilder,
-    H256
-};
+use alloc::{string::String, vec::Vec};
 use ckb_std::dynamic_loading_c_impl::CKBDLContext;
 use das_dynamic_libs::sign_lib::SignLib;
+use das_types::{constants::*, packed::*, prettier::Prettier};
+use sparse_merkle_tree::{ckb_smt::SMTBuilder, H256};
 
 pub fn verify_expiration(
     config: ConfigCellAccountReader,
@@ -115,82 +112,12 @@ pub fn verify_status(
     Ok(())
 }
 
-pub fn verify_records_keys(
-    parser: &WitnessesParser,
-    record_key_namespace: &Vec<u8>,
-    records: RecordsReader,
-) -> Result<(), Error> {
-    let config = parser.configs.account()?;
-    let records_max_size = u32::from(config.record_size_limit()) as usize;
-
-    assert!(
-        records.total_size() <= records_max_size,
-        Error::AccountCellRecordSizeTooLarge,
-        "The total size of all records can not be more than {} bytes.",
-        records_max_size
-    );
-
-    // extract all the keys, which are split by 0
-    let mut key_start_at = 0;
-    let mut key_list = Vec::new();
-    for (index, item) in record_key_namespace.iter().enumerate() {
-        if *item == 0 {
-            let key_vec = &record_key_namespace[key_start_at..index];
-            key_start_at = index + 1;
-
-            key_list.push(key_vec);
-        }
-    }
-
-    fn vec_compare(va: &[u8], vb: &[u8]) -> bool {
-        // zip stops at the shortest
-        (va.len() == vb.len()) && va.iter().zip(vb).all(|(a, b)| a == b)
-    }
-
-    // check if all the record.{type+key} are valid
-    for record in records.iter() {
-        let mut is_valid = false;
-
-        let mut record_type = Vec::from(record.record_type().raw_data());
-        let mut record_key = Vec::from(record.record_key().raw_data());
-        if record_type == b"custom_key" {
-            // CAREFUL Triple check
-            for char in record_key.iter() {
-                assert!(
-                    CUSTOM_KEYS_NAMESPACE.contains(char),
-                    Error::AccountCellRecordKeyInvalid,
-                    "The keys in custom_key should only contain digits, lowercase alphabet and underline."
-                );
-            }
-            continue;
-        }
-
-        record_type.push(46);
-        record_type.append(&mut record_key);
-
-        for key in &key_list {
-            if vec_compare(record_type.as_slice(), *key) {
-                is_valid = true;
-                break;
-            }
-        }
-
-        if !is_valid {
-            assert!(
-                false,
-                Error::AccountCellRecordKeyInvalid,
-                "Account cell record key is invalid: {:?}", record_type
-            );
-
-            break;
-        }
-    }
-
-    Ok(())
-}
-
-
 pub fn verify_smt_proof(key: [u8; 32], val: [u8; 32], root: [u8; 32], proof: &[u8]) -> Result<(), Error> {
+    if cfg!(feature = "dev") {
+        // CAREFUL Proof verification has been skipped in development mode.
+        return Ok(());
+    }
+
     let builder = SMTBuilder::new();
     let builder = builder.insert(&H256::from(key), &H256::from(val)).unwrap();
 
@@ -205,20 +132,39 @@ pub fn verify_smt_proof(key: [u8; 32], val: [u8; 32], root: [u8; 32], proof: &[u
     Ok(())
 }
 
-pub fn verify_sub_account_sig(edit_key: &[u8], edit_value: &[u8], nonce: &[u8], sig: &[u8], args: &[u8]) -> Result<(), Error> {
+pub fn verify_sub_account_sig(
+    edit_key: &[u8],
+    edit_value: &[u8],
+    nonce: &[u8],
+    sig: &[u8],
+    args: &[u8],
+) -> Result<(), Error> {
+    if cfg!(feature = "dev") {
+        // CAREFUL Proof verification has been skipped in development mode.
+        return Ok(());
+    }
+
     let mut context = unsafe { CKBDLContext::<[u8; 128 * 1024]>::new() };
     // TODO: need to be used as a param
     #[cfg(feature = "mainnet")]
     let code_hash: [u8; 32] = [
-        114,136,18,7,241,131,151,251,114,137,71,94,28,208,216,64,104,55,4,5,126,140,166,6,43,114,139,209,174,122,155,68
+        114, 136, 18, 7, 241, 131, 151, 251, 114, 137, 71, 94, 28, 208, 216, 64, 104, 55, 4, 5, 126, 140, 166, 6, 43,
+        114, 139, 209, 174, 122, 155, 68,
     ];
     #[cfg(not(feature = "mainnet"))]
     let code_hash: [u8; 32] = [
-        114,136,18,7,241,131,151,251,114,137,71,94,28,208,216,64,104,55,4,5,126,140,166,6,43,114,139,209,174,122,155,68
+        114, 136, 18, 7, 241, 131, 151, 251, 114, 137, 71, 94, 28, 208, 216, 64, 104, 55, 4, 5, 126, 140, 166, 6, 43,
+        114, 139, 209, 174, 122, 155, 68,
     ];
 
     let lib = SignLib::load(&mut context, &code_hash);
-    let ret = lib.verify_sub_account_sig(edit_key.to_vec(), edit_value.to_vec(), nonce.to_vec(), sig.to_vec(), args.to_vec());
+    let ret = lib.verify_sub_account_sig(
+        edit_key.to_vec(),
+        edit_value.to_vec(),
+        nonce.to_vec(),
+        sig.to_vec(),
+        args.to_vec(),
+    );
     if let Err(error_code) = ret {
         debug!("verify_sub_account_sig failed, error_code: {}", error_code);
         return Err(Error::SubAccountSigVerifyError);

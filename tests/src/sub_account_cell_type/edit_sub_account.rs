@@ -5,7 +5,7 @@ use crate::util::{
 use serde_json::json;
 
 fn before_each() -> TemplateGenerator {
-    let mut template = init_create("edit_sub_account", Some("0x00"));
+    let mut template = init_edit("edit_sub_account", Some("0x00"));
 
     template.restore_sub_account(vec![
         json!({
@@ -41,11 +41,15 @@ fn before_each() -> TemplateGenerator {
     ]);
 
     // inputs
+    let current_root = template.smt_with_history.current_root();
     push_input_sub_account_cell(
         &mut template,
         json!({
             "type": {
                 "args": ACCOUNT_1
+            },
+            "data": {
+                "root": String::from("0x") + &hex::encode(&current_root)
             }
         }),
     );
@@ -133,4 +137,213 @@ fn test_sub_account_edit() {
     );
 
     test_tx(template.as_json())
+}
+
+#[test]
+fn challenge_sub_account_edit_owner_not_change() {
+    let mut template = before_each();
+
+    // outputs
+    template.push_sub_account_witness(
+        SubAccountActionType::Edit,
+        json!({
+            "sub_account": {
+                "lock": {
+                    "owner_lock_args": OWNER_1,
+                    "manager_lock_args": MANAGER_1
+                },
+                "account": SUB_ACCOUNT_1,
+                "suffix": SUB_ACCOUNT_SUFFIX,
+                "registered_at": TIMESTAMP,
+                "expired_at": u64::MAX,
+            },
+            "edit_key": "owner",
+            // Simulate owner is not changed when editing it.
+            "edit_value": gen_das_lock_args(OWNER_1, Some(MANAGER_1))
+        }),
+    );
+    let current_root = template.smt_with_history.current_root();
+    push_output_sub_account_cell(
+        &mut template,
+        json!({
+            "type": {
+                "args": ACCOUNT_1
+            },
+            "data": {
+                "root": String::from("0x") + &hex::encode(&current_root)
+            }
+        }),
+    );
+
+    challenge_tx(template.as_json(), Error::SubAccountEditLockError)
+}
+
+#[test]
+fn challenge_sub_account_edit_owner_changed_when_edit_manager() {
+    let mut template = before_each();
+
+    // outputs
+    template.push_sub_account_witness(
+        SubAccountActionType::Edit,
+        json!({
+            "sub_account": {
+                "lock": {
+                    "owner_lock_args": OWNER_1,
+                    "manager_lock_args": MANAGER_1
+                },
+                "account": SUB_ACCOUNT_1,
+                "suffix": SUB_ACCOUNT_SUFFIX,
+                "registered_at": TIMESTAMP,
+                "expired_at": u64::MAX,
+            },
+            "edit_key": "manager",
+            // Simulate owner is changed when editing manager.
+            "edit_value": gen_das_lock_args(OWNER_2, Some(MANAGER_2))
+        }),
+    );
+    let current_root = template.smt_with_history.current_root();
+    push_output_sub_account_cell(
+        &mut template,
+        json!({
+            "type": {
+                "args": ACCOUNT_1
+            },
+            "data": {
+                "root": String::from("0x") + &hex::encode(&current_root)
+            }
+        }),
+    );
+
+    challenge_tx(template.as_json(), Error::SubAccountEditLockError)
+}
+
+#[test]
+fn challenge_sub_account_edit_manager_not_change() {
+    let mut template = before_each();
+
+    // outputs
+    template.push_sub_account_witness(
+        SubAccountActionType::Edit,
+        json!({
+            "sub_account": {
+                "lock": {
+                    "owner_lock_args": OWNER_1,
+                    "manager_lock_args": MANAGER_1
+                },
+                "account": SUB_ACCOUNT_1,
+                "suffix": SUB_ACCOUNT_SUFFIX,
+                "registered_at": TIMESTAMP,
+                "expired_at": u64::MAX,
+            },
+            "edit_key": "manager",
+            // Simulate manager is not changed when editing.
+            "edit_value": gen_das_lock_args(OWNER_1, Some(MANAGER_1))
+        }),
+    );
+    let current_root = template.smt_with_history.current_root();
+    push_output_sub_account_cell(
+        &mut template,
+        json!({
+            "type": {
+                "args": ACCOUNT_1
+            },
+            "data": {
+                "root": String::from("0x") + &hex::encode(&current_root)
+            }
+        }),
+    );
+
+    challenge_tx(template.as_json(), Error::SubAccountEditLockError)
+}
+
+#[test]
+fn challenge_sub_account_edit_records_invalid_char() {
+    let mut template = before_each();
+
+    // outputs
+    template.push_sub_account_witness(
+        SubAccountActionType::Edit,
+        json!({
+            "sub_account": {
+                "lock": {
+                    "owner_lock_args": OWNER_1,
+                    "manager_lock_args": MANAGER_1
+                },
+                "account": SUB_ACCOUNT_1,
+                "suffix": SUB_ACCOUNT_SUFFIX,
+                "registered_at": TIMESTAMP,
+                "expired_at": u64::MAX,
+            },
+            "edit_key": "records",
+            "edit_value": [
+                {
+                    "type": "custom_key",
+                    // Simulate using invalid char in the key field of a record.
+                    "key": "eth+",
+                    "label": "Company",
+                    "value": "0x0000000000000000000000000000000000001111",
+                }
+            ]
+        }),
+    );
+    let current_root = template.smt_with_history.current_root();
+    push_output_sub_account_cell(
+        &mut template,
+        json!({
+            "type": {
+                "args": ACCOUNT_1
+            },
+            "data": {
+                "root": String::from("0x") + &hex::encode(&current_root)
+            }
+        }),
+    );
+
+    challenge_tx(template.as_json(), Error::AccountCellRecordKeyInvalid)
+}
+
+#[test]
+fn challenge_sub_account_edit_records_invalid_key() {
+    let mut template = before_each();
+
+    // outputs
+    template.push_sub_account_witness(
+        SubAccountActionType::Edit,
+        json!({
+            "sub_account": {
+                "lock": {
+                    "owner_lock_args": OWNER_1,
+                    "manager_lock_args": MANAGER_1
+                },
+                "account": SUB_ACCOUNT_1,
+                "suffix": SUB_ACCOUNT_SUFFIX,
+                "registered_at": TIMESTAMP,
+                "expired_at": u64::MAX,
+            },
+            "edit_key": "records",
+            "edit_value": [
+                {
+                    "type": "dweb",
+                    // Simulate using a key out of namespace.
+                    "key": "xxxx",
+                    "label": "xxxxx",
+                    "value": "0x0000000000000000000000000000000000001111",
+                }
+            ]
+        }),
+    );
+    let current_root = template.smt_with_history.current_root();
+    push_output_sub_account_cell(
+        &mut template,
+        json!({
+            "type": {
+                "args": ACCOUNT_1
+            },
+            "data": {
+                "root": String::from("0x") + &hex::encode(&current_root)
+            }
+        }),
+    );
+
+    challenge_tx(template.as_json(), Error::AccountCellRecordKeyInvalid)
 }

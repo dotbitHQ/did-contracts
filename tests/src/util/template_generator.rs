@@ -2551,32 +2551,34 @@ impl TemplateGenerator {
                 extend_edit_fields(&mut witness_bytes, &witness);
             }
             SubAccountActionType::Edit => {
+                let mut new_sub_account_builder = sub_account_entity.clone().as_builder();
+                let current_nonce = u64::from(sub_account_entity.nonce());
+
                 // Modify SubAccount base on edit_key and edit_value.
                 let edit_key = parse_json_str("witness.edit_key", &witness["edit_key"]);
-                let sub_account_entity = match edit_key {
+                match edit_key {
                     "expired_at" => {
-                        let sub_account_builder = sub_account_entity.as_builder();
                         let mol = Uint64::from(parse_json_u64("witness.edit_value", &witness["edit_value"], None));
-                        sub_account_builder.expired_at(mol).build()
+                        new_sub_account_builder = new_sub_account_builder.expired_at(mol)
                     }
                     "owner" | "manager" => {
                         let mut lock_builder = sub_account_entity.lock().as_builder();
                         let args = parse_json_hex("witness.edit_value", &witness["edit_value"]);
                         lock_builder = lock_builder.args(Bytes::from(args));
 
-                        let sub_account_builder = sub_account_entity.as_builder();
-                        sub_account_builder.lock(lock_builder.build()).build()
+                        new_sub_account_builder = new_sub_account_builder.lock(lock_builder.build())
                     }
                     "records" => {
-                        let sub_account_builder = sub_account_entity.as_builder();
                         let mol = parse_json_to_records_mol("witness.edit_value", &witness["edit_value"]);
-                        sub_account_builder.records(mol).build()
+                        new_sub_account_builder = new_sub_account_builder.records(mol)
                     }
                     _ => panic!("Unsupported type of witness.edit_key !"),
                 };
 
-                let sub_account_entity_bytes = sub_account_entity.as_slice().to_vec();
-                let value = util::blake2b_smt(&sub_account_entity_bytes);
+                new_sub_account_builder = new_sub_account_builder.nonce(Uint64::from(current_nonce + 1));
+                let new_sub_account_entity = new_sub_account_builder.build();
+                let new_sub_account_entity_bytes = new_sub_account_entity.as_slice().to_vec();
+                let value = util::blake2b_smt(&new_sub_account_entity_bytes);
                 let (prev_root, current_root, proof) = self.smt_with_history.insert(key.into(), value.into());
 
                 extend_main_fields(
@@ -2584,7 +2586,7 @@ impl TemplateGenerator {
                     prev_root,
                     current_root,
                     proof,
-                    sub_account_entity_bytes,
+                    sub_account_entity.as_slice().to_vec(),
                     &witness,
                 );
                 extend_edit_fields(&mut witness_bytes, &witness);

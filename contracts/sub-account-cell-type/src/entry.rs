@@ -4,11 +4,11 @@ use core::{convert::TryInto, result::Result};
 use das_core::{
     assert,
     constants::*,
-    debug,
+    data_parser, debug,
     error::Error,
     sub_account_witness_parser::{SubAccountEditValue, SubAccountWitness, SubAccountWitnessesParser},
     util::{self, blake2b_256},
-    verifiers,
+    verifiers, warn,
     witness_parser::WitnessesParser,
 };
 use das_types::{
@@ -125,8 +125,6 @@ pub fn main() -> Result<(), Error> {
                             }
                         }
 
-                        debug!("Verify if the proof of witnesses[{}] is valid.", witness.index);
-
                         let sub_account_reader = witness.sub_account.as_reader();
                         match action {
                             b"create_sub_account" => {
@@ -191,7 +189,72 @@ pub fn main() -> Result<(), Error> {
                                     AccountStatus::Normal,
                                 )?;
 
-                                // match sub_account_reader.
+                                match &witness.edit_value {
+                                    SubAccountEditValue::Owner(new_args) | SubAccountEditValue::Manager(new_args) => {
+                                        let sub_account_reader = witness.sub_account.as_reader();
+                                        let current_args = sub_account_reader.lock().args().raw_data();
+                                        let (
+                                            current_owner_type,
+                                            current_owner_args,
+                                            current_manager_type,
+                                            current_manager_args,
+                                        ) = data_parser::das_lock_args::get_owner_and_manager(current_args);
+                                        let (new_owner_type, new_owner_args, new_manager_type, new_manager_args) =
+                                            data_parser::das_lock_args::get_owner_and_manager(new_args);
+
+                                        if let SubAccountEditValue::Owner(_) = &witness.edit_value {
+                                            debug!(
+                                                "witnesses[{}] Verify if owner has been changed correctly.",
+                                                witness.index
+                                            );
+
+                                            assert!(
+                                                current_owner_type != new_owner_type
+                                                    || current_owner_args != new_owner_args,
+                                                Error::SubAccountEditLockError,
+                                                "witnesses[{}] The owner fields in args should be consistent.",
+                                                witness.index
+                                            );
+
+                                            // Skip verifying manger, because owner has been changed.
+                                        } else {
+                                            debug!(
+                                                "witnesses[{}] Verify if manager has been changed correctly.",
+                                                witness.index
+                                            );
+
+                                            assert!(
+                                                current_owner_type == new_owner_type
+                                                    && current_owner_args == new_owner_args,
+                                                Error::SubAccountEditLockError,
+                                                "witnesses[{}] The owner fields in args should be consistent.",
+                                                witness.index
+                                            );
+
+                                            assert!(
+                                                current_manager_type != new_manager_type
+                                                    || current_manager_args != new_manager_args,
+                                                Error::SubAccountEditLockError,
+                                                "witnesses[{}] The manager fields in args should be changed.",
+                                                witness.index
+                                            );
+                                        }
+                                    }
+                                    SubAccountEditValue::Records(records) => {
+                                        verifiers::account_cell::verify_records_keys(&parser, records.as_reader())?;
+                                    }
+                                    SubAccountEditValue::ExpiredAt(expired_at) => {
+                                        warn!("witnesses[{}] Can not edit witness.sub_account.expired_at in this transaction.", witness.index);
+                                        return Err(Error::SubAccountFieldNotEditable);
+                                    }
+                                    SubAccountEditValue::None => {
+                                        warn!(
+                                            "witnesses[{}] The witness.edit_value should not be empty.",
+                                            witness.index
+                                        );
+                                        return Err(Error::SubAccountFieldNotEditable);
+                                    }
+                                }
                             }
                             b"renew_sub_account" => todo!(),
                             b"recycle_sub_account" => todo!(),
@@ -362,7 +425,9 @@ fn verify_sub_account_sig(witness: &SubAccountWitness) -> Result<(), Error> {
 }
 
 fn generate_new_sub_account_by_edit_value(sub_account: SubAccount, edit_value: &SubAccountEditValue) -> SubAccount {
-    let sub_account_builder = match edit_value {
+    let current_nonce = u64::from(sub_account.nonce());
+
+    let mut sub_account_builder = match edit_value {
         SubAccountEditValue::ExpiredAt(val) => {
             let sub_account_builder = sub_account.as_builder();
             sub_account_builder.expired_at(val.to_owned())
@@ -381,5 +446,7 @@ fn generate_new_sub_account_by_edit_value(sub_account: SubAccount, edit_value: &
         _ => unreachable!(),
     };
 
+    // Every time a sub-account is edited, its nonce must  increase by 1 .
+    sub_account_builder = sub_account_builder.nonce(Uint64::from(current_nonce + 1));
     sub_account_builder.build()
 }

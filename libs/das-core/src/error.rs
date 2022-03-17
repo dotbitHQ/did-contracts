@@ -151,6 +151,8 @@ pub enum Error {
     SubAccountCellConsistencyError,
     SubAccountInitialValueError,
     SubAccountSigVerifyError,
+    SubAccountFieldNotEditable,
+    SubAccountEditLockError,
     UpgradeForWitnessIsRequired,
     UpgradeDefaultValueOfNewFieldIsError,
     UnittestError = -2,
