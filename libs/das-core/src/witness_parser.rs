@@ -3,22 +3,16 @@ use super::{
     constants::*,
     debug,
     error::Error,
-    types::{CharSet, Configs, LockScriptTypeIdTable},
+    types::{Configs, LockScriptTypeIdTable},
     util, warn,
 };
-use alloc::{
-    collections::btree_map::BTreeMap,
-    format,
-    string::{String, ToString},
-};
+use alloc::{collections::btree_map::BTreeMap, string::ToString};
 use ckb_std::{ckb_constants::Source, error::SysError, syscalls};
 use core::convert::{TryFrom, TryInto};
-use das_types::constants::WITNESS_LENGTH_BYTES;
 use das_types::{
-    constants::{DataType, CHAR_SET_LENGTH, WITNESS_HEADER, WITNESS_HEADER_BYTES, WITNESS_TYPE_BYTES},
+    constants::{DataType, WITNESS_HEADER, WITNESS_HEADER_BYTES, WITNESS_LENGTH_BYTES, WITNESS_TYPE_BYTES},
     packed::*,
     prelude::*,
-    util as das_types_util,
 };
 
 #[derive(Debug)]

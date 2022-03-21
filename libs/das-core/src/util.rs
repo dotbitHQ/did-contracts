@@ -2,7 +2,7 @@ use super::{
     assert as das_assert, constants::*, data_parser, debug, error::Error, types::ScriptLiteral, warn,
     witness_parser::WitnessesParser,
 };
-use alloc::{boxed::Box, vec, vec::Vec};
+use alloc::{boxed::Box, string::String, vec, vec::Vec};
 use blake2b_ref::{Blake2b, Blake2bBuilder};
 use ckb_std::{
     ckb_constants::{CellField, Source},
@@ -697,6 +697,23 @@ pub fn derive_owner_lock_from_cell(input_cell: usize, source: Source) -> Result<
     let lock_of_balance_cell = lock.as_builder().args(args.into()).build();
 
     Ok(lock_of_balance_cell)
+}
+
+pub fn get_account_id_from_account(account: &[u8]) -> [u8; ACCOUNT_ID_LENGTH] {
+    let hash = blake2b_256(account);
+    let mut account_id = [0u8; ACCOUNT_ID_LENGTH];
+
+    account_id.copy_from_slice(&hash[0..ACCOUNT_ID_LENGTH]);
+
+    account_id
+}
+
+pub fn get_sub_account_name_from_reader(sub_account_reader: das_packed::SubAccountReader) -> String {
+    let mut account = sub_account_reader.account().as_readable();
+    let suffix = sub_account_reader.suffix().raw_data();
+    account.extend(suffix);
+
+    String::from_utf8(account).unwrap()
 }
 
 pub fn parse_account_cell_witness(

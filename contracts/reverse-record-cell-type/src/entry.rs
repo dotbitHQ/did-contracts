@@ -10,10 +10,7 @@ use das_core::{
     util, verifiers,
     witness_parser::WitnessesParser,
 };
-use das_types::{
-    constants::{DataType, LockRole},
-    packed::*,
-};
+use das_types::{constants::LockRole, packed::*};
 
 pub fn main() -> Result<(), Error> {
     debug!("====== Running reverse-record-cell-type ======");

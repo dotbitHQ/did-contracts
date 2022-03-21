@@ -9,10 +9,7 @@ use das_core::{
     witness_parser::WitnessesParser,
 };
 use das_map::{map::Map, util::add};
-use das_types::{
-    constants::{DataType, LockRole},
-    packed as das_packed,
-};
+use das_types::{constants::LockRole, packed as das_packed};
 
 pub fn main() -> Result<(), Error> {
     debug!("====== Running balance-cell-type ======");
@@ -131,7 +128,7 @@ pub fn main() -> Result<(), Error> {
                         } else {
                             if available_type_scripts.is_empty() {
                                 debug!("Try to load type ID table from ConfigCellMain, because found some cells with das-lock not using balance-cell-type.");
-                                let mut parser = WitnessesParser::new()?;
+                                let parser = WitnessesParser::new()?;
 
                                 macro_rules! push_type_script {
                                     ($type_id_name:ident) => {

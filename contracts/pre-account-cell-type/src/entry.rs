@@ -1,18 +1,14 @@
+use alloc::string::String;
 use ckb_std::{
     ckb_constants::Source,
-    high_level::{load_cell_capacity, load_cell_data, load_cell_lock, load_script},
+    high_level::{load_cell_capacity, load_cell_data, load_cell_lock},
 };
-use core::{convert::TryFrom, convert::TryInto, result::Result};
+use core::{convert::TryInto, result::Result};
 use das_core::{
-    assert, constants::*, data_parser, debug, error::Error, parse_witness, util, verifiers, warn,
+    assert, constants::*, data_parser, debug, error::Error, parse_witness, util, verifiers,
     witness_parser::WitnessesParser,
 };
-use das_types::{
-    constants::{CharSetType, DataType, CHAR_SET_LENGTH},
-    packed::*,
-    prelude::*,
-    util as das_types_util,
-};
+use das_types::{constants::DataType, packed::*, prelude::*};
 
 pub fn main() -> Result<(), Error> {
     debug!("====== Running pre-account-cell-type ======");
@@ -218,13 +214,12 @@ fn verify_apply_height(current_height: u64, config_reader: ConfigCellApplyReader
 
 fn verify_account_id(reader: PreAccountCellDataReader, account_id: &[u8]) -> Result<(), Error> {
     let account: Vec<u8> = [reader.account().as_readable(), ACCOUNT_SUFFIX.as_bytes().to_vec()].concat();
-    let hash = util::blake2b_256(account.as_slice());
 
     assert!(
-        &hash[..ACCOUNT_ID_LENGTH] == account_id,
+        verifiers::misc::verify_account_id(&account, account_id).is_ok(),
         Error::PreRegisterAccountIdIsInvalid,
-        "PreAccountCell.account_id should be calculated from account correctly.(expected: 0x{}, current: 0x{})",
-        util::hex_string(&hash),
+        "PreAccountCell.account_id should be calculated from account correctly.(account: {:?}, account_id: 0x{})",
+        String::from_utf8(account),
         util::hex_string(account_id)
     );
 

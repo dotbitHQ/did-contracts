@@ -1,7 +1,7 @@
 use ckb_std::{
     ckb_constants::Source,
     debug,
-    high_level::{load_cell_lock_hash, load_cell_type, load_script},
+    high_level::{load_cell_lock_hash, load_cell_type},
 };
 use core::convert::{TryFrom, TryInto};
 use core::result::Result;

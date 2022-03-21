@@ -9,7 +9,7 @@ use das_core::{
     util, verifiers,
     witness_parser::WitnessesParser,
 };
-use das_types::{constants::DataType, prelude::*};
+use das_types::prelude::*;
 
 pub fn main() -> Result<(), Error> {
     debug!("====== Running apply-register-cell-type ======");

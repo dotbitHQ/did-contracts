@@ -1,7 +1,7 @@
 use super::{assert, constants::ScriptHashType, debug, error::Error, util, warn};
 use alloc::{collections::BTreeMap, vec, vec::Vec};
 use core::convert::TryFrom;
-use core::{convert::TryInto, lazy::OnceCell};
+use core::lazy::OnceCell;
 use das_types::{
     constants::{
         CharSetType, DataType, CHAR_SET_LENGTH, WITNESS_HEADER_BYTES, WITNESS_LENGTH_BYTES, WITNESS_TYPE_BYTES,
@@ -77,7 +77,7 @@ impl Configs {
             account: OnceCell::new(),
             apply: OnceCell::new(),
             // Chinese charsets is still not enabled.
-            char_set: vec![OnceCell::new(); (CHAR_SET_LENGTH - 2)],
+            char_set: vec![OnceCell::new(); CHAR_SET_LENGTH - 2],
             income: OnceCell::new(),
             main: OnceCell::new(),
             price: OnceCell::new(),

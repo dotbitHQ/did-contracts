@@ -155,7 +155,6 @@ pub fn main() -> Result<(), Error> {
                     verify_eip712_hashes(&parser, edit_records_to_semantic)?;
 
                     let config_account = parser.configs.account()?;
-                    let record_key_namespace = parser.configs.record_key_namespace()?;
 
                     verify_transaction_fee_spent_correctly(
                         action,
