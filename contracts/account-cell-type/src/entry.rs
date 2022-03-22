@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use alloc::{boxed::Box, format, string::String, vec};
 use ckb_std::{ckb_constants::Source, ckb_types::prelude::*, high_level};
 use das_core::{
@@ -554,6 +555,17 @@ pub fn main() -> Result<(), Error> {
             let output_account_witness =
                 util::parse_account_cell_witness(&parser, output_account_cells[0], Source::Output)?;
             let output_account_witness_reader = output_account_witness.as_reader();
+
+            debug!("Verify if the AccountCell is in beta list.");
+
+            let beta_list: Vec<&[u8]> = vec![b"xxxxx.bit", b"xxxx.bit"];
+            let account = util::get_account_from_reader(&input_account_witness_reader);
+
+            assert!(
+                beta_list.contains(&account.as_bytes()),
+                Error::SubAccountJoinBetaError,
+                "The account is not allow to enable sub-account feature in beta test."
+            );
 
             debug!("Verify if the AccountCell is locked or expired.");
 

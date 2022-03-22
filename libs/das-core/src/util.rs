@@ -699,6 +699,13 @@ pub fn derive_owner_lock_from_cell(input_cell: usize, source: Source) -> Result<
     Ok(lock_of_balance_cell)
 }
 
+pub fn get_account_from_reader<'a>(account_reader: &Box<dyn AccountCellDataReaderMixer + 'a>) -> String {
+    let mut account = account_reader.account().as_readable();
+    account.extend(ACCOUNT_SUFFIX.as_bytes());
+
+    String::from_utf8(account).unwrap()
+}
+
 pub fn get_account_id_from_account(account: &[u8]) -> [u8; ACCOUNT_ID_LENGTH] {
     let hash = blake2b_256(account);
     let mut account_id = [0u8; ACCOUNT_ID_LENGTH];
