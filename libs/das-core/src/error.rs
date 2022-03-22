@@ -39,6 +39,7 @@ pub enum Error {
     AccountStillCanNotBeRegister = 35, // ⚠️ DO NOT CHANGE
     AccountIsPreserved,
     AccountIsUnAvailable,
+    AccountIdIsInvalid,
     WitnessStructureError = 40,
     WitnessDataTypeDecodingError,
     WitnessReadingError,

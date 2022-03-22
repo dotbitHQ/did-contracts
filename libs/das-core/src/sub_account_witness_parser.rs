@@ -21,6 +21,7 @@ pub struct SubAccountWitness {
     // The rest is actually existing fields in the witness.
     pub signature: Vec<u8>,
     pub sign_role: Vec<u8>,
+    pub sign_args: Vec<u8>,
     pub prev_root: Vec<u8>,
     pub current_root: Vec<u8>,
     pub proof: Vec<u8>,
@@ -28,8 +29,7 @@ pub struct SubAccountWitness {
     pub sub_account: SubAccount,
     pub edit_key: Vec<u8>,
     pub edit_value: SubAccountEditValue,
-    pub edit_value_orignal: Vec<u8>,
-    pub sign_args: Vec<u8>,
+    pub edit_value_bytes: Vec<u8>,
 }
 
 #[derive(Debug)]
@@ -222,6 +222,7 @@ impl SubAccountWitnessesParser {
             index: i,
             signature: signature.to_vec(),
             sign_role: sign_role.to_vec(),
+            sign_args: sign_args.to_vec(),
             prev_root: prev_root.to_vec(),
             current_root: current_root.to_vec(),
             proof: proof.to_vec(),
@@ -229,8 +230,7 @@ impl SubAccountWitnessesParser {
             sub_account,
             edit_key: edit_key.to_vec(),
             edit_value,
-            edit_value_orignal: edit_value_bytes.to_vec(),
-            sign_args: sign_args.to_vec(),
+            edit_value_bytes: edit_value_bytes.to_vec(),
         })
     }
 

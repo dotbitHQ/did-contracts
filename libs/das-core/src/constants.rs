@@ -96,6 +96,8 @@ pub const SECP_SIGNATURE_SIZE: usize = 65;
 pub const EIP712_CHAINID_SIZE: usize = 8;
 
 pub const DAY_SEC: u64 = 86400;
+pub const DAYS_OF_YEAR: u64 = 365;
+pub const YEAR_SEC: u64 = DAY_SEC * DAYS_OF_YEAR;
 
 pub fn super_lock() -> Script {
     #[cfg(feature = "dev")]

@@ -1,5 +1,5 @@
-use crate::{assert, constants::*, debug, error::Error, warn, witness_parser::WitnessesParser};
-use alloc::{string::String, vec::Vec};
+use crate::{assert, constants::*, data_parser, debug, error::Error, util, warn};
+use alloc::string::String;
 use ckb_std::dynamic_loading_c_impl::CKBDLContext;
 use das_dynamic_libs::sign_lib::SignLib;
 use das_types::{constants::*, packed::*, prettier::Prettier};
@@ -33,31 +33,65 @@ pub fn verify_expiration(
     Ok(())
 }
 
-pub fn verify_lock(sub_account_index: usize, sub_account_reader: SubAccountReader) -> Result<(), Error> {
+pub fn verify_initial_lock(sub_account_index: usize, sub_account_reader: SubAccountReader) -> Result<(), Error> {
+    let expected_lock = das_lock();
+    let current_lock = sub_account_reader.lock();
+
+    assert!(
+        util::is_type_id_equal(expected_lock.as_reader(), current_lock.into()),
+        Error::SubAccountInitialValueError,
+        "witnesses[{}] The witness.sub_account.lock of {} must be a das-lock.",
+        sub_account_index,
+        util::get_sub_account_name_from_reader(sub_account_reader)
+    );
+
+    data_parser::das_lock_args::get_owner_and_manager(current_lock.args().raw_data());
+
     Ok(())
 }
 
-pub fn verify_id(sub_account_index: usize, sub_account_reader: SubAccountReader) -> Result<(), Error> {
+pub fn verify_initial_id(sub_account_index: usize, sub_account_reader: SubAccountReader) -> Result<(), Error> {
+    let account = util::get_sub_account_name_from_reader(sub_account_reader);
+    let expected_account_id = util::get_account_id_from_account(account.as_bytes());
+    let account_id = sub_account_reader.id().raw_data();
+
+    assert!(
+        &expected_account_id == account_id,
+        Error::SubAccountInitialValueError,
+        "witnesses[{}] The witness.sub_account.id of {} do not match.(expected: 0x{}, current: 0x{})",
+        sub_account_index,
+        account,
+        util::hex_string(&expected_account_id),
+        util::hex_string(account_id)
+    );
+
     Ok(())
 }
 
-pub fn verify_suffix(
+pub fn verify_suffix_with_parent_account(
     sub_account_index: usize,
     sub_account_reader: SubAccountReader,
     parent_account: &[u8],
 ) -> Result<(), Error> {
+    let mut expected_suffix = b".".to_vec();
+    expected_suffix.extend(parent_account);
+
+    let suffix = sub_account_reader.suffix().raw_data();
+
+    assert!(
+        expected_suffix == suffix,
+        Error::SubAccountInitialValueError,
+        "witnesses[{}] The witness.sub_account.suffix of {} should come from the parent account.(expected: {:?}, current: {:?})",
+        sub_account_index,
+        util::get_sub_account_name_from_reader(sub_account_reader),
+        String::from_utf8(expected_suffix),
+        String::from_utf8(suffix.to_vec())
+    );
+
     Ok(())
 }
 
-pub fn verify_expired_at(
-    sub_account_index: usize,
-    sub_account_reader: SubAccountReader,
-    timestamp: u64,
-) -> Result<(), Error> {
-    Ok(())
-}
-
-pub fn verify_registered_at(
+pub fn verify_initial_registered_at(
     sub_account_index: usize,
     sub_account_reader: SubAccountReader,
     timestamp: u64,
@@ -69,23 +103,9 @@ pub fn verify_registered_at(
         Error::SubAccountInitialValueError,
         "witnesses[{}] The witness.sub_account.registered_at of {} should be the same as the timestamp in TimeCell.(expected: {}, current: {})",
         sub_account_index,
-        sub_account_reader.account().as_prettier(),
+        util::get_sub_account_name_from_reader(sub_account_reader),
         timestamp,
         registered_at
-    );
-
-    Ok(())
-}
-
-pub fn verify_record_empty(sub_account_index: usize, sub_account_reader: SubAccountReader) -> Result<(), Error> {
-    debug!("Check if witness.sub_account.records of sub-account is empty.");
-
-    assert!(
-        sub_account_reader.records().len() == 0,
-        Error::AccountCellRecordNotEmpty,
-        "witnesses[{}] The witness.sub_account.records of {} should be empty.",
-        sub_account_index,
-        sub_account_reader
     );
 
     Ok(())
@@ -96,16 +116,23 @@ pub fn verify_status(
     sub_account_reader: SubAccountReader,
     expected_status: AccountStatus,
 ) -> Result<(), Error> {
-    debug!("Verify if witness.sub_account.status of sub-account is not expected.");
+    debug!("Verify if witness.sub_account.status is not expected.");
 
     let sub_account_status = u8::from(sub_account_reader.status());
+
+    debug!(
+        "witnesses[{}] The witness.sub_account.status of {} should be {:?}.",
+        sub_account_index,
+        util::get_sub_account_name_from_reader(sub_account_reader),
+        expected_status
+    );
 
     assert!(
         sub_account_status == expected_status as u8,
         Error::AccountCellStatusLocked,
         "witnesses[{}] The witness.sub_account.status of {} should be {:?}.",
         sub_account_index,
-        sub_account_reader,
+        sub_account_reader.account().as_prettier(),
         expected_status
     );
 
@@ -123,8 +150,8 @@ pub fn verify_smt_proof(key: [u8; 32], val: [u8; 32], root: [u8; 32], proof: &[u
 
     let smt = builder.build().unwrap();
     let ret = smt.verify(&H256::from(root), &proof);
-    if let Err(e) = ret {
-        debug!("verify_smt_proof verification failed. Err: {:?}", e);
+    if let Err(_e) = ret {
+        debug!("verify_smt_proof verification failed. Err: {:?}", _e);
         return Err(Error::SubAccountWitnessSMTRootError);
     } else {
         debug!("verify_smt_proof verification passed.");
@@ -136,7 +163,7 @@ pub fn verify_sub_account_sig(
     edit_key: &[u8],
     edit_value: &[u8],
     nonce: &[u8],
-    sig: &[u8],
+    signature: &[u8],
     args: &[u8],
 ) -> Result<(), Error> {
     if cfg!(feature = "dev") {
@@ -162,11 +189,11 @@ pub fn verify_sub_account_sig(
         edit_key.to_vec(),
         edit_value.to_vec(),
         nonce.to_vec(),
-        sig.to_vec(),
+        signature.to_vec(),
         args.to_vec(),
     );
-    if let Err(error_code) = ret {
-        debug!("verify_sub_account_sig failed, error_code: {}", error_code);
+    if let Err(_error_code) = ret {
+        debug!("verify_sub_account_sig failed, error_code: {}", _error_code);
         return Err(Error::SubAccountSigVerifyError);
     } else {
         debug!("verify_sub_account_sig succeed.");

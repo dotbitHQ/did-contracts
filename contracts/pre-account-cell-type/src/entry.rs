@@ -214,13 +214,14 @@ fn verify_apply_height(current_height: u64, config_reader: ConfigCellApplyReader
 
 fn verify_account_id(reader: PreAccountCellDataReader, account_id: &[u8]) -> Result<(), Error> {
     let account: Vec<u8> = [reader.account().as_readable(), ACCOUNT_SUFFIX.as_bytes().to_vec()].concat();
+    let expected_account_id = util::get_account_id_from_account(&account);
 
     assert!(
-        verifiers::misc::verify_account_id(&account, account_id).is_ok(),
+        &expected_account_id == account_id,
         Error::PreRegisterAccountIdIsInvalid,
-        "PreAccountCell.account_id should be calculated from account correctly.(account: {:?}, account_id: 0x{})",
+        "PreAccountCell.account_id should be calculated from account correctly.(account: {:?}, expected_account_id: 0x{})",
         String::from_utf8(account),
-        util::hex_string(account_id)
+        util::hex_string(&expected_account_id)
     );
 
     Ok(())

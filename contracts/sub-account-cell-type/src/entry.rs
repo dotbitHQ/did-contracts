@@ -12,7 +12,7 @@ use das_core::{
     witness_parser::WitnessesParser,
 };
 use das_types::{
-    constants::{AccountStatus, DataType},
+    constants::AccountStatus,
     packed::*,
     prelude::{Builder, Entity},
 };
@@ -72,7 +72,15 @@ pub fn main() -> Result<(), Error> {
                         util::parse_account_cell_witness(&parser, output_account_cells[0], Source::Output)?;
                     let output_account_cell_reader = output_account_cell_witness.as_reader();
 
-                    // TODO Verify AccountCells in inputs and outputs are consistent.
+                    verifiers::account_cell::verify_account_cell_consistent_with_exception(
+                        input_account_cells[0],
+                        output_account_cells[0],
+                        &input_account_cell_reader,
+                        &output_account_cell_reader,
+                        None,
+                        vec![],
+                        vec![],
+                    )?;
 
                     parent_account = output_account_cell_reader.account().as_readable();
                     parent_account.extend(ACCOUNT_SUFFIX.as_bytes());
@@ -90,6 +98,7 @@ pub fn main() -> Result<(), Error> {
             let mut first_root = &vec![];
             let mut last_root = &vec![];
             let sub_account_parser = SubAccountWitnessesParser::new()?;
+            let mut expected_register_fee = 0;
             for witness_ret in sub_account_parser.iter() {
                 match witness_ret {
                     Ok(witness) => {
@@ -136,35 +145,76 @@ pub fn main() -> Result<(), Error> {
                                 verifiers::account_cell::verify_account_chars(&parser, account_chars)?;
                                 verifiers::account_cell::verify_account_chars_max_length(&parser, account_chars)?;
 
-                                debug!("Verify if every fields of sub-account is filled properly.");
+                                debug!("Verify if the initial values of sub-account's fields is filled properly.");
 
-                                verifiers::sub_account_cell::verify_lock(witness.index, sub_account_reader)?;
-                                verifiers::sub_account_cell::verify_id(witness.index, sub_account_reader)?;
-                                verifiers::sub_account_cell::verify_suffix(
+                                verifiers::sub_account_cell::verify_initial_lock(witness.index, sub_account_reader)?;
+                                verifiers::sub_account_cell::verify_initial_id(witness.index, sub_account_reader)?;
+                                verifiers::sub_account_cell::verify_initial_registered_at(
+                                    witness.index,
+                                    sub_account_reader,
+                                    timestamp,
+                                )?;
+                                verifiers::sub_account_cell::verify_suffix_with_parent_account(
                                     witness.index,
                                     sub_account_reader,
                                     &parent_account,
                                 )?;
-                                verifiers::sub_account_cell::verify_registered_at(
-                                    witness.index,
-                                    sub_account_reader,
-                                    timestamp,
-                                )?;
-                                verifiers::sub_account_cell::verify_expired_at(
-                                    witness.index,
-                                    sub_account_reader,
-                                    timestamp,
-                                )?;
-                                verifiers::sub_account_cell::verify_record_empty(witness.index, sub_account_reader)?;
                                 verifiers::sub_account_cell::verify_status(
                                     witness.index,
                                     sub_account_reader,
                                     AccountStatus::Normal,
                                 )?;
 
-                                // TODO Verify nonce, enable_sub_account, renew_sub_account_price is 0.
+                                assert!(
+                                    sub_account_reader.records().len() == 0,
+                                    Error::AccountCellRecordNotEmpty,
+                                    "witnesses[{}] The witness.sub_account.records of {} should be empty.",
+                                    witness.index,
+                                    util::get_sub_account_name_from_reader(sub_account_reader)
+                                );
 
-                                // TODO Verify profit is distribute to IncomeCell correctly.
+                                let enable_sub_account = u8::from(sub_account_reader.enable_sub_account());
+                                assert!(
+                                    enable_sub_account == 0,
+                                    Error::SubAccountInitialValueError,
+                                    "witnesses[{}] The witness.sub_account.enable_sub_account of {} should be 0 .",
+                                    witness.index,
+                                    util::get_sub_account_name_from_reader(sub_account_reader)
+                                );
+
+                                let renew_sub_account_price = u64::from(sub_account_reader.renew_sub_account_price());
+                                assert!(
+                                    renew_sub_account_price == 0,
+                                    Error::SubAccountInitialValueError,
+                                    "witnesses[{}] The witness.sub_account.renew_sub_account_price of {} should be 0 .",
+                                    witness.index,
+                                    util::get_sub_account_name_from_reader(sub_account_reader)
+                                );
+
+                                let nonce = u64::from(sub_account_reader.nonce());
+                                assert!(
+                                    nonce == 0,
+                                    Error::SubAccountInitialValueError,
+                                    "witnesses[{}] The witness.sub_account.nonce of {} should be 0 .",
+                                    witness.index,
+                                    util::get_sub_account_name_from_reader(sub_account_reader)
+                                );
+
+                                debug!("Verify and count witness.sub_account.expired_at in every sub-account.");
+
+                                let expired_at = u64::from(sub_account_reader.expired_at());
+                                assert!(
+                                    expired_at >= timestamp + YEAR_SEC,
+                                    Error::SubAccountInitialValueError,
+                                    "witnesses[{}] The witness.sub_account.expired_at should be at least one year.(expected: >= {}, current: {})",
+                                    witness.index,
+                                    timestamp + YEAR_SEC,
+                                    expired_at
+                                );
+
+                                let expiration_years = expired_at / YEAR_SEC;
+                                expected_register_fee +=
+                                    u64::from(config_sub_account.new_sub_account_price()) * expiration_years;
                             }
                             b"edit_sub_account" => {
                                 let new_sub_account = generate_new_sub_account_by_edit_value(
@@ -175,7 +225,13 @@ pub fn main() -> Result<(), Error> {
 
                                 smt_verify_sub_account_is_editable(witness, new_sub_account_reader)?;
 
-                                verify_sub_account_sig(witness)?;
+                                verifiers::sub_account_cell::verify_sub_account_sig(
+                                    witness.edit_key.as_slice(),
+                                    witness.edit_value_bytes.as_slice(),
+                                    witness.sub_account.nonce().as_slice(),
+                                    witness.signature.as_slice(),
+                                    witness.sign_args.as_slice(),
+                                )?;
 
                                 verifiers::sub_account_cell::verify_expiration(
                                     config_account,
@@ -243,7 +299,7 @@ pub fn main() -> Result<(), Error> {
                                     SubAccountEditValue::Records(records) => {
                                         verifiers::account_cell::verify_records_keys(&parser, records.as_reader())?;
                                     }
-                                    SubAccountEditValue::ExpiredAt(expired_at) => {
+                                    SubAccountEditValue::ExpiredAt(_) => {
                                         warn!("witnesses[{}] Can not edit witness.sub_account.expired_at in this transaction.", witness.index);
                                         return Err(Error::SubAccountFieldNotEditable);
                                     }
@@ -410,18 +466,6 @@ fn smt_verify_sub_account_is_editable(
     verifiers::sub_account_cell::verify_smt_proof(key, current_val, current_root.try_into().unwrap(), proof)?;
 
     Ok(())
-}
-
-fn verify_sub_account_sig(witness: &SubAccountWitness) -> Result<(), Error> {
-    let nonce = witness.sub_account.nonce();
-
-    verifiers::sub_account_cell::verify_sub_account_sig(
-        witness.edit_key.as_slice(),
-        witness.edit_value_orignal.as_slice(),
-        nonce.as_slice(),
-        witness.signature.as_slice(),
-        witness.sign_args.as_slice(),
-    )
 }
 
 fn generate_new_sub_account_by_edit_value(sub_account: SubAccount, edit_value: &SubAccountEditValue) -> SubAccount {
