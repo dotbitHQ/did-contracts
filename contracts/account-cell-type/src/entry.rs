@@ -695,12 +695,12 @@ pub fn main() -> Result<(), Error> {
             debug!("Verify if sender get their change properly.");
 
             let total_input_capacity = util::load_cells_capacity(&balance_cells, Source::Input)?;
-
+            let available_fee = u64::from(config_account.common_fee());
             if total_input_capacity > sub_account_cell_capacity {
                 verifiers::misc::verify_user_get_change(
                     config_main,
                     sender_lock.as_reader(),
-                    total_input_capacity - sub_account_cell_capacity,
+                    total_input_capacity - sub_account_cell_capacity - available_fee,
                 )?;
             }
         }
