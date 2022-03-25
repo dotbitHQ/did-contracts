@@ -204,25 +204,28 @@ impl SubAccountWitnessesParser {
             _ => SubAccountEditValue::None,
         };
 
-        let sign_role_int = u8::from_le_bytes(sign_role.try_into().unwrap());
-        let args = sub_account.lock().args();
+        let mut sign_args = Vec::new();
+        if sign_role.len() == 1 {
+            let sign_role_int = u8::from_le_bytes(sign_role.try_into().unwrap());
+            let args = sub_account.lock().args();
 
-        let sign_args = if sign_role_int == LockRole::Owner as u8 {
-            data_parser::das_lock_args::get_owner_lock_args(args.as_slice())
-        } else {
-            data_parser::das_lock_args::get_manager_lock_args(args.as_slice())
-        };
+            sign_args = if sign_role_int == LockRole::Owner as u8 {
+                data_parser::das_lock_args::get_owner_lock_args(args.as_slice()).to_vec()
+            } else {
+                data_parser::das_lock_args::get_manager_lock_args(args.as_slice()).to_vec()
+            };
+        }
 
         debug!(
-            "  Sub-account witnesses[{}]: {{ prev_root: 0x{}, current_root: 0x{}, version: {}, sub_account: {}, edit_key: {}, sign_args: {} }}",
-            i, util::hex_string(prev_root), util::hex_string(current_root), version, sub_account.account().as_prettier(), String::from_utf8(edit_key.to_vec()).unwrap(), util::hex_string(sign_args)
+            "  Sub-account witnesses[{}]: {{ signature: 0x{}, sign_role: 0x{}, prev_root: 0x{}, current_root: 0x{}, version: {}, sub_account: {}, edit_key: {}, sign_args: {} }}",
+            i, util::hex_string(signature), util::hex_string(sign_role), util::hex_string(prev_root), util::hex_string(current_root), version, sub_account.account().as_prettier(), String::from_utf8(edit_key.to_vec()).unwrap(), util::hex_string(&sign_args)
         );
 
         Ok(SubAccountWitness {
             index: i,
             signature: signature.to_vec(),
             sign_role: sign_role.to_vec(),
-            sign_args: sign_args.to_vec(),
+            sign_args,
             prev_root: prev_root.to_vec(),
             current_root: current_root.to_vec(),
             proof: proof.to_vec(),
