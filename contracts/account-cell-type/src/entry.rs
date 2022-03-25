@@ -12,7 +12,7 @@ use das_core::{
 };
 use das_map::{map::Map, util as map_util};
 use das_types::{
-    constants::{AccountStatus, DataType, LockRole, SubAccountEnableStatus},
+    constants::{AccountStatus, LockRole, SubAccountEnableStatus},
     mixer::*,
     packed::*,
 };
@@ -200,8 +200,6 @@ pub fn main() -> Result<(), Error> {
 
             let prices = parser.configs.price()?.prices();
             let config_main = parser.configs.main()?;
-            let config_income = parser.configs.income()?;
-            let income_cell_type_id = config_main.type_id_table().income_cell();
 
             let (input_account_cells, output_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
             assert!(
@@ -230,68 +228,59 @@ pub fn main() -> Result<(), Error> {
                 vec![],
             )?;
 
-            debug!("Check if IncomeCells in this transaction is correct.");
-
-            let input_income_cells = util::find_cells_by_type_id(ScriptType::Type, income_cell_type_id, Source::Input)?;
-            let output_income_cells =
-                util::find_cells_by_type_id(ScriptType::Type, income_cell_type_id, Source::Output)?;
-
-            assert!(
-                input_income_cells.len() <= 1,
-                Error::InvalidTransactionStructure,
-                "The number of IncomeCells in inputs should be less than or equal to 1. (expected: <= 1, current: {})",
-                input_income_cells.len()
-            );
-
             debug!("Verify if there is no redundant cells in inputs.");
 
             let sender_lock = util::derive_owner_lock_from_cell(input_account_cells[0], Source::Input)?;
             let balance_cells = util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Input)?;
-            let all_cells = [
-                input_account_cells.clone(),
-                input_income_cells.clone(),
-                balance_cells.clone(),
-            ]
-            .concat();
+            let all_cells = [input_account_cells.clone(), balance_cells.clone()].concat();
             verifiers::misc::verify_no_more_cells_with_same_lock(sender_lock.as_reader(), &all_cells, Source::Input)?;
 
             debug!("Verify if the profit is distribute correctly.");
-
-            assert!(
-                output_income_cells.len() == 1,
-                Error::InvalidTransactionStructure,
-                "The number of IncomeCells in outputs should be exactly 1. (expected: == 1, current: {})",
-                output_income_cells.len()
-            );
-
-            verifiers::misc::verify_always_success_lock(output_income_cells[0], Source::Output)?;
-
-            let (_, _, entity) =
-                parser.verify_and_get(DataType::IncomeCellData, output_income_cells[0], Source::Output)?;
-            let income_cell_witness = IncomeCellData::from_slice(entity.as_reader().raw_data())
-                .map_err(|_| Error::WitnessEntityDecodingError)?;
-            let income_cell_witness_reader = income_cell_witness.as_reader();
+            // TODO Unify the following codes to calculate profit from duration.
 
             let mut profit_map = Map::new();
             let das_wallet_lock = Script::from(das_wallet_lock());
 
-            let paid = if income_cell_witness_reader.records().len() == 1 {
-                u64::from(income_cell_witness_reader.records().get(0).unwrap().capacity())
-            } else if income_cell_witness_reader.records().len() == 2 {
-                u64::from(income_cell_witness_reader.records().get(1).unwrap().capacity())
-            } else {
-                warn!("The IncomeCell should contain at most two records in this transaction.");
-                return Err(Error::InvalidTransactionStructure);
-            };
-            map_util::add(&mut profit_map, das_wallet_lock.as_slice().to_vec(), paid);
-
-            verifiers::income_cell::verify_records_match_with_creating(
-                config_income,
-                output_income_cells[0],
-                Source::Output,
-                income_cell_witness_reader,
-                profit_map,
+            let (input_income_cells, output_income_cells) = util::find_cells_by_type_id_in_inputs_and_outputs(
+                ScriptType::Type,
+                config_main.type_id_table().income_cell(),
             )?;
+
+            let mut exist_capacity = 0;
+            if input_income_cells.len() == 1 {
+                let input_income_cell_witness =
+                    util::parse_income_cell_witness(&parser, input_income_cells[0], Source::Input)?;
+                let input_income_cell_witness_reader = input_income_cell_witness.as_reader();
+
+                for item in input_income_cell_witness_reader.records().iter() {
+                    if util::is_reader_eq(item.belong_to(), das_wallet_lock.as_reader()) {
+                        exist_capacity += u64::from(item.capacity());
+                    }
+                }
+            }
+
+            let output_income_cell_witness =
+                util::parse_income_cell_witness(&parser, output_income_cells[0], Source::Output)?;
+            let output_income_cell_witness_reader = output_income_cell_witness.as_reader();
+            let mut paid = 0;
+            for item in output_income_cell_witness_reader.records().iter() {
+                if util::is_reader_eq(item.belong_to(), das_wallet_lock.as_reader()) {
+                    paid += u64::from(item.capacity());
+                }
+            }
+
+            assert!(
+                paid > exist_capacity,
+                Error::IncomeCellConsolidateConditionNotSatisfied,
+                "outputs[{}] There is some record in outputs has less capacity than itself in inputs which is not allowed. (belong_to: {})",
+                output_income_cells[0],
+                das_wallet_lock
+            );
+
+            paid -= exist_capacity;
+
+            map_util::add(&mut profit_map, das_wallet_lock.as_slice().to_vec(), paid);
+            verifiers::income_cell::verify_income_cells(&parser, profit_map)?;
 
             debug!("Check if the renewal duration is longer than or equal to one year.");
 

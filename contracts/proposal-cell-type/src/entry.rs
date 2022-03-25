@@ -954,37 +954,7 @@ fn verify_proposal_execution_result(
         }
     }
 
-    let income_cell_type_id = config_main.type_id_table().income_cell();
-    let output_income_cells = util::find_cells_by_type_id(ScriptType::Type, income_cell_type_id, Source::Output)?;
-
-    debug!("Check if the IncomeCell in outputs records everyone's profit correctly.");
-
-    assert!(
-        output_income_cells.len() == 1,
-        Error::InvalidTransactionStructure,
-        "The number of IncomeCells in outputs should be exactly 1 . (expected: == 1, current: {})",
-        output_income_cells.len()
-    );
-
-    let output_income_cell_witness;
-    let output_income_cell_witness_reader;
-    parse_witness!(
-        output_income_cell_witness,
-        output_income_cell_witness_reader,
-        parser,
-        output_income_cells[0],
-        Source::Output,
-        DataType::IncomeCellData,
-        IncomeCellData
-    );
-
-    verifiers::income_cell::verify_records_match_with_creating(
-        parser.configs.income()?,
-        output_income_cells[0],
-        Source::Output,
-        output_income_cell_witness_reader,
-        profit_map,
-    )?;
+    verifiers::income_cell::verify_income_cells(&parser, profit_map)?;
 
     Ok(())
 }

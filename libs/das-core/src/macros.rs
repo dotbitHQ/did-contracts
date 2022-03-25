@@ -90,30 +90,3 @@ macro_rules! parse_account_cell_witness {
         }
     }};
 }
-
-#[macro_export]
-macro_rules! parse_account_sale_cell_witness {
-    ($entity:expr, $entity_reader:expr, $parser:expr, $index:expr, $source:expr) => {{
-        let (version, _, mol_bytes) =
-            $parser.verify_and_get(das_types::constants::DataType::AccountSaleCellData, $index, $source)?;
-        if version == 1 {
-            $entity = Box::new(
-                das_types::packed::AccountSaleCellDataV1::from_slice(mol_bytes.as_reader().raw_data()).map_err(
-                    |_| {
-                        $crate::warn!("Decoding AccountSaleCellDataV1 failed");
-                        Error::WitnessEntityDecodingError
-                    },
-                )?,
-            );
-            $entity_reader = $entity.as_reader();
-        } else {
-            $entity = Box::new(
-                das_types::packed::AccountSaleCellData::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
-                    $crate::warn!("Decoding AccountSaleCellData failed");
-                    Error::WitnessEntityDecodingError
-                })?,
-            );
-            $entity_reader = $entity.as_reader();
-        }
-    }};
-}

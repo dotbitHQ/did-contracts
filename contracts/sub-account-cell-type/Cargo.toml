@@ -16,4 +16,5 @@ das-core = { path = "../../libs/das-core", default-features = false }
 das-types = { path = "../../../das-types/rust", default-features = false }
 sparse-merkle-tree = { git = "https://github.com/nervosnetwork/sparse-merkle-tree.git", default-features = false }
 das-dynamic-libs = { path = "../../libs/das-dynamic-libs" }
+das-map = { path = "../../libs/das-map" }
 blake2b-ref = "0.3"

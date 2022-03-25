@@ -11,6 +11,7 @@ use das_core::{
     verifiers, warn,
     witness_parser::WitnessesParser,
 };
+use das_map::map::Map;
 use das_types::{
     constants::AccountStatus,
     packed::*,
@@ -328,6 +329,14 @@ pub fn main() -> Result<(), Error> {
                 first_root,
                 last_root,
             )?;
+
+            if action == b"create_sub_account" {
+                let das_wallet_lock = Script::from(das_wallet_lock());
+                let mut profit_map = Map::new();
+                profit_map.insert(das_wallet_lock.as_reader().as_slice().to_vec(), expected_register_fee);
+
+                verifiers::income_cell::verify_income_cells(&parser, profit_map)?;
+            }
         }
         _ => return Err(Error::ActionNotSupported),
     }
@@ -353,7 +362,7 @@ fn verify_transaction_fee_spent_correctly(
     };
 
     verifiers::common::verify_tx_fee_spent_correctly(
-        "AccountCell",
+        "SubAccountCell",
         input_sub_account,
         output_sub_account,
         fee,

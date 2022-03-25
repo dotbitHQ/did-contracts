@@ -723,6 +723,20 @@ pub fn get_sub_account_name_from_reader(sub_account_reader: das_packed::SubAccou
     String::from_utf8(account).unwrap()
 }
 
+pub fn parse_income_cell_witness(
+    parser: &WitnessesParser,
+    index: usize,
+    source: Source,
+) -> Result<das_packed::IncomeCellData, Error> {
+    let (_, _, mol_bytes) = parser.verify_and_get(DataType::IncomeCellData, index, source)?;
+    let ret = das_packed::IncomeCellData::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
+        warn!("Decoding IncomeCellData failed");
+        Error::WitnessEntityDecodingError
+    })?;
+
+    Ok(ret)
+}
+
 pub fn parse_account_cell_witness(
     parser: &WitnessesParser,
     index: usize,
@@ -742,7 +756,7 @@ pub fn parse_account_cell_witness(
     } else {
         Box::new(
             das_packed::AccountCellData::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
-                warn!("Decoding AccountCellDataV2 failed");
+                warn!("Decoding AccountCellData failed");
                 Error::WitnessEntityDecodingError
             })?,
         )

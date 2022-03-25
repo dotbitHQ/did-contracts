@@ -1861,6 +1861,7 @@ dependencies = [
  "ckb-std",
  "das-core",
  "das-dynamic-libs",
+ "das-map",
  "das-types",
  "hex",
  "sparse-merkle-tree",
