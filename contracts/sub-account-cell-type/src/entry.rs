@@ -213,7 +213,8 @@ pub fn main() -> Result<(), Error> {
                                     expired_at
                                 );
 
-                                let expiration_years = expired_at / YEAR_SEC;
+                                let registered_at = u64::from(sub_account_reader.registered_at());
+                                let expiration_years = (expired_at - registered_at) / YEAR_SEC;
                                 expected_register_fee +=
                                     u64::from(config_sub_account.new_sub_account_price()) * expiration_years;
                             }

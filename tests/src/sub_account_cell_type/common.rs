@@ -30,6 +30,7 @@ pub fn init_create(action: &str, params_opt: Option<&str>) -> TemplateGenerator 
 
     template.push_config_cell(DataType::ConfigCellSubAccount, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellAccount, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellIncome, Source::CellDep);
 
     template
 }

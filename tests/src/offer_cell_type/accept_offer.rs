@@ -483,7 +483,7 @@ fn challenge_offer_accept_offer_no_income_cell() {
         }),
     );
 
-    push_output_balance_cell(&mut template, 194_000_000_000 - 1, SELLER);
+    push_output_balance_cell(&mut template, 194_000_000_000, SELLER);
 
     challenge_tx(template.as_json(), Error::InvalidTransactionStructure);
 }
@@ -553,7 +553,7 @@ fn challenge_offer_accept_offer_income_cell_lock_error() {
         }),
     );
 
-    push_output_balance_cell(&mut template, 194_000_000_000 - 1, SELLER);
+    push_output_balance_cell(&mut template, 194_000_000_000, SELLER);
 
     challenge_tx(template.as_json(), Error::AlwaysSuccessLockIsRequired);
 }
