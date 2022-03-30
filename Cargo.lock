@@ -778,6 +778,7 @@ version = "1.0.0"
 dependencies = [
  "blake2b-ref 0.3.0",
  "ckb-std",
+ "das-types",
 ]
 
 [[package]]

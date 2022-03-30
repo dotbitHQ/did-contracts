@@ -1,5 +1,6 @@
 use super::util;
-use alloc::vec::Vec;
+use alloc::{string::String, vec::Vec};
+use ckb_std::debug;
 use ckb_std::dynamic_loading_c_impl::{CKBDLContext, Symbol};
 
 // int validate(int type, uint8_t* message, uint8_t* lock_bytes, uint8_t* eth_address)
@@ -84,10 +85,9 @@ impl SignLib {
         blake2b.update(&nonce);
         let mut h = [0u8; 32];
         blake2b.finalize(&mut h);
-        let s = "from did: ";
-        let mut message = s.as_bytes().to_vec();
-        message.append(&mut h.to_vec());
-        message
+        let h_hex = util::hex_string(&h);
+        let s = String::from("from did: ") + &h_hex;
+        s.as_bytes().to_vec()
     }
 
     pub fn verify_sub_account_sig(
