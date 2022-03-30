@@ -222,7 +222,7 @@ pub fn main() -> Result<(), Error> {
                                 let new_sub_account = generate_new_sub_account_by_edit_value(
                                     witness.sub_account.clone(),
                                     &witness.edit_value,
-                                );
+                                )?;
                                 let new_sub_account_reader = new_sub_account.as_reader();
 
                                 smt_verify_sub_account_is_editable(witness, new_sub_account_reader)?;
@@ -256,9 +256,9 @@ pub fn main() -> Result<(), Error> {
                                             current_owner_args,
                                             current_manager_type,
                                             current_manager_args,
-                                        ) = data_parser::das_lock_args::get_owner_and_manager(current_args);
+                                        ) = data_parser::das_lock_args::get_owner_and_manager(current_args)?;
                                         let (new_owner_type, new_owner_args, new_manager_type, new_manager_args) =
-                                            data_parser::das_lock_args::get_owner_and_manager(new_args);
+                                            data_parser::das_lock_args::get_owner_and_manager(new_args)?;
 
                                         if let SubAccountEditValue::Owner(_) = &witness.edit_value {
                                             debug!(
@@ -467,18 +467,27 @@ fn smt_verify_sub_account_is_editable(
 
     debug!("Verify if the current state of the sub-account was in the SMT before.");
     let prev_root = witness.prev_root.as_slice();
-    let prev_val = blake2b_256(witness.sub_account.as_slice()).to_vec().try_into().unwrap();
+    let prev_val: [u8; 32] = blake2b_256(witness.sub_account.as_slice()).to_vec().try_into().unwrap();
+    // debug!("prev_val = 0x{}", util::hex_string(&prev_val));
+    // debug!("prev_val_raw = 0x{}", util::hex_string(witness.sub_account.as_slice()));
+    // debug!("prev_val_prettier = {}", witness.sub_account.as_prettier());
     verifiers::sub_account_cell::verify_smt_proof(key, prev_val, prev_root.try_into().unwrap(), proof)?;
 
     debug!("Verify if the new state of the sub-account is in the SMT now.");
     let current_root = witness.current_root.as_slice();
-    let current_val = blake2b_256(new_sub_account.as_slice()).to_vec().try_into().unwrap();
+    let current_val: [u8; 32] = blake2b_256(new_sub_account.as_slice()).to_vec().try_into().unwrap();
+    // debug!("current_val = 0x{}", util::hex_string(&current_val));
+    // debug!("current_val_raw = 0x{}", util::hex_string(new_sub_account.as_slice()));
+    // debug!("current_val_prettier = {}", new_sub_account.as_prettier());
     verifiers::sub_account_cell::verify_smt_proof(key, current_val, current_root.try_into().unwrap(), proof)?;
 
     Ok(())
 }
 
-fn generate_new_sub_account_by_edit_value(sub_account: SubAccount, edit_value: &SubAccountEditValue) -> SubAccount {
+fn generate_new_sub_account_by_edit_value(
+    sub_account: SubAccount,
+    edit_value: &SubAccountEditValue,
+) -> Result<SubAccount, Error> {
     let current_nonce = u64::from(sub_account.nonce());
 
     let mut sub_account_builder = match edit_value {
@@ -489,6 +498,9 @@ fn generate_new_sub_account_by_edit_value(sub_account: SubAccount, edit_value: &
         SubAccountEditValue::Owner(val) | SubAccountEditValue::Manager(val) => {
             let mut lock_builder = sub_account.lock().as_builder();
             let sub_account_builder = sub_account.as_builder();
+
+            // Verify if the edit_value is a valid format.
+            data_parser::das_lock_args::get_owner_and_manager(val)?;
 
             lock_builder = lock_builder.args(Bytes::from(val.to_owned()));
             sub_account_builder.lock(lock_builder.build())
@@ -502,5 +514,6 @@ fn generate_new_sub_account_by_edit_value(sub_account: SubAccount, edit_value: &
 
     // Every time a sub-account is edited, its nonce must  increase by 1 .
     sub_account_builder = sub_account_builder.nonce(Uint64::from(current_nonce + 1));
-    sub_account_builder.build()
+
+    Ok(sub_account_builder.build())
 }

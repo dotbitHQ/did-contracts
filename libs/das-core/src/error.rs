@@ -21,6 +21,7 @@ pub enum Error {
     ConfigCellWitnessIsCorrupted,
     ConfigCellWitnessDecodingError,
     TxFeeSpentError,
+    DasLockArgsInvalid,
     CellLockCanNotBeModified = 20,
     CellTypeCanNotBeModified,
     CellDataCanNotBeModified,

@@ -45,7 +45,7 @@ pub fn verify_initial_lock(sub_account_index: usize, sub_account_reader: SubAcco
         util::get_sub_account_name_from_reader(sub_account_reader)
     );
 
-    data_parser::das_lock_args::get_owner_and_manager(current_lock.args().raw_data());
+    data_parser::das_lock_args::get_owner_and_manager(current_lock.args().raw_data())?;
 
     Ok(())
 }
