@@ -210,9 +210,9 @@ impl SubAccountWitnessesParser {
             let args = sub_account.lock().args();
 
             sign_args = if sign_role_int == LockRole::Owner as u8 {
-                data_parser::das_lock_args::get_owner_lock_args(args.as_slice()).to_vec()
+                data_parser::das_lock_args::get_owner_lock_args(args.as_reader().raw_data()).to_vec()
             } else {
-                data_parser::das_lock_args::get_manager_lock_args(args.as_slice()).to_vec()
+                data_parser::das_lock_args::get_manager_lock_args(args.as_reader().raw_data()).to_vec()
             };
         }
 
