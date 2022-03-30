@@ -16,6 +16,7 @@ use das_types::{
     constants::AccountStatus,
     packed::*,
     prelude::{Builder, Entity},
+    prettier::Prettier,
 };
 
 pub fn main() -> Result<(), Error> {
@@ -224,6 +225,12 @@ pub fn main() -> Result<(), Error> {
                                     &witness.edit_value,
                                 )?;
                                 let new_sub_account_reader = new_sub_account.as_reader();
+
+                                debug!(
+                                    "witnesses[{}] Calculated new sub-account structure is: {}",
+                                    witness.index,
+                                    new_sub_account_reader.as_prettier()
+                                );
 
                                 smt_verify_sub_account_is_editable(witness, new_sub_account_reader)?;
 
@@ -497,13 +504,19 @@ fn generate_new_sub_account_by_edit_value(
         }
         SubAccountEditValue::Owner(val) | SubAccountEditValue::Manager(val) => {
             let mut lock_builder = sub_account.lock().as_builder();
-            let sub_account_builder = sub_account.as_builder();
+            let mut sub_account_builder = sub_account.as_builder();
 
             // Verify if the edit_value is a valid format.
             data_parser::das_lock_args::get_owner_and_manager(val)?;
 
             lock_builder = lock_builder.args(Bytes::from(val.to_owned()));
-            sub_account_builder.lock(lock_builder.build())
+            sub_account_builder = sub_account_builder.lock(lock_builder.build());
+
+            if let SubAccountEditValue::Owner(_) = edit_value {
+                sub_account_builder = sub_account_builder.records(Records::default())
+            }
+
+            sub_account_builder
         }
         SubAccountEditValue::Records(val) => {
             let sub_account_builder = sub_account.as_builder();
