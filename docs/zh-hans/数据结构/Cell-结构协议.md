@@ -520,7 +520,10 @@ table OfferCellData {
 
 ```
 lock: <always_success>
-type: <sub-account-cell-type>
+type: 
+  code_hash: <sub-account-cell-type>,
+  type: type,
+  args: [account_id], // 账户 ID ，也就是和 AccountCell.data.id 相同的值
 
 data: SMTRoot
 ```
