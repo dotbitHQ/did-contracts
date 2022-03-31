@@ -827,7 +827,7 @@ impl TemplateGenerator {
 
     fn gen_config_cell_release(&mut self) -> (Vec<u8>, EntityWrapper) {
         let entity = ConfigCellRelease::new_builder()
-            .lucky_number(Uint32::from(u32::MAX))
+            .lucky_number(Uint32::from(3435973836))
             .build();
         let cell_data = blake2b_256(entity.as_slice()).to_vec();
 
