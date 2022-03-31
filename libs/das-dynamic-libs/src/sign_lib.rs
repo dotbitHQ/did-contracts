@@ -1,6 +1,5 @@
 use super::util;
 use alloc::{string::String, vec::Vec};
-use ckb_std::debug;
 use ckb_std::dynamic_loading_c_impl::{CKBDLContext, Symbol};
 
 // int validate(int type, uint8_t* message, uint8_t* lock_bytes, uint8_t* eth_address)

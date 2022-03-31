@@ -671,14 +671,12 @@ pub fn main() -> Result<(), Error> {
             );
 
             let sub_account_outputs_data = high_level::load_cell_data(output_sub_account_cells[0], Source::Output)?;
-            let empty_smt_root = vec![
-                0u8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            ];
+            let expected_default_data = vec![0u8; 40];
 
             assert!(
-                empty_smt_root == sub_account_outputs_data,
+                expected_default_data == sub_account_outputs_data,
                 Error::SubAccountCellSMTRootError,
-                "The SMT root of SubAccountCell should be empty."
+                "The default outputs_data of SubAccountCell should be [0u8; 40] ."
             );
 
             debug!("Verify if sender get their change properly.");

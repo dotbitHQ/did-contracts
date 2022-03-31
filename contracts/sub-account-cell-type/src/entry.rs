@@ -11,7 +11,6 @@ use das_core::{
     verifiers, warn,
     witness_parser::WitnessesParser,
 };
-use das_map::map::Map;
 use das_types::{
     constants::AccountStatus,
     packed::*,
@@ -51,13 +50,6 @@ pub fn main() -> Result<(), Error> {
 
             let timestamp = util::load_oracle_data(OracleCellType::Time)?;
             let (input_sub_account_cells, output_sub_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
-
-            verify_transaction_fee_spent_correctly(
-                action,
-                config_sub_account,
-                input_sub_account_cells[0],
-                output_sub_account_cells[0],
-            )?;
 
             let mut parent_account = Vec::new();
             match action {
@@ -338,12 +330,24 @@ pub fn main() -> Result<(), Error> {
                 last_root,
             )?;
 
-            if action == b"create_sub_account" {
-                let das_wallet_lock = Script::from(das_wallet_lock());
-                let mut profit_map = Map::new();
-                profit_map.insert(das_wallet_lock.as_reader().as_slice().to_vec(), expected_register_fee);
-
-                verifiers::income_cell::verify_income_cells(&parser, profit_map)?;
+            match action {
+                b"create_sub_account" => {
+                    verify_sub_account_profit(
+                        config_sub_account,
+                        action,
+                        input_sub_account_cells[0],
+                        output_sub_account_cells[0],
+                        expected_register_fee,
+                    )?;
+                }
+                _ => {
+                    verify_transaction_fee_spent_correctly(
+                        action,
+                        config_sub_account,
+                        input_sub_account_cells[0],
+                        output_sub_account_cells[0],
+                    )?;
+                }
             }
         }
         _ => return Err(Error::ActionNotSupported),
@@ -417,24 +421,98 @@ fn verify_sub_account_cell_smt_root(
 ) -> Result<(), Error> {
     debug!("Verify if the first SMT root in sub-account witnesses is equal to the SubAccountCell.data in inputs.");
 
-    let first_root = high_level::load_cell_data(input_sub_account_cell, Source::Input)?;
+    let data = high_level::load_cell_data(input_sub_account_cell, Source::Input)?;
+    let first_root = data_parser::sub_account_cell::get_smt_root(&data);
 
     assert!(
-        &first_root == first_root_in_witnesses,
+        first_root == Some(first_root_in_witnesses),
         Error::SubAccountWitnessSMTRootError,
         "The first SMT root in sub-account witnesses should be equal to the SubAccountCell.data in inputs.(root_in_cell: 0x{}, root_in_witness: 0x{})",
-        util::hex_string(&first_root),
+        util::hex_string(first_root.or(Some(&[])).unwrap()),
         util::hex_string(first_root_in_witnesses)
     );
 
-    let last_root = high_level::load_cell_data(output_sub_account_cell, Source::Output)?;
+    let data = high_level::load_cell_data(output_sub_account_cell, Source::Output)?;
+    let last_root = data_parser::sub_account_cell::get_smt_root(&data);
 
     assert!(
-        &last_root == last_root_in_witnesses,
+        last_root == Some(last_root_in_witnesses),
         Error::SubAccountWitnessSMTRootError,
         "The last SMT root in sub-account witnesses should be equal to the SubAccountCell.data in outputs.(root_in_cell: 0x{}, root_in_witness: 0x{})",
-        util::hex_string(&last_root),
+        util::hex_string(last_root.or(Some(&[])).unwrap()),
         util::hex_string(last_root_in_witnesses)
+    );
+
+    Ok(())
+}
+
+fn verify_sub_account_profit(
+    config: ConfigCellSubAccountReader,
+    action: &[u8],
+    input_sub_account_cell: usize,
+    output_sub_account_cell: usize,
+    expected_register_fee: u64,
+) -> Result<(), Error> {
+    let basic_capacity = u64::from(config.basic_capacity());
+    let fee = match action {
+        b"create_sub_account" => u64::from(config.create_fee()),
+        _ => u64::from(config.common_fee()),
+    };
+
+    let input_capacity = high_level::load_cell_capacity(input_sub_account_cell, Source::Input)?;
+    let output_capacity = high_level::load_cell_capacity(output_sub_account_cell, Source::Output)?;
+    let input_data = high_level::load_cell_data(input_sub_account_cell, Source::Input)?;
+    let output_data = high_level::load_cell_data(output_sub_account_cell, Source::Output)?;
+    let input_profit = data_parser::sub_account_cell::get_profit(&input_data)
+        .or(Some(0))
+        .unwrap();
+    let output_profit = data_parser::sub_account_cell::get_profit(&output_data)
+        .or(Some(0))
+        .unwrap();
+
+    assert!(
+        input_capacity > input_profit + basic_capacity,
+        Error::SubAccountCellCapacityError,
+        "inputs[{}] The capacity of SubAccountCell should contains profit and basic_capacity, but its not enough.(capacity: {}, profit: {})",
+        input_sub_account_cell,
+        input_capacity,
+        input_profit
+    );
+    assert!(
+        output_capacity > output_profit + basic_capacity,
+        Error::SubAccountCellCapacityError,
+        "outputs[{}] The capacity of SubAccountCell should contains profit and basic_capacity, but its not enough.(capacity: {}, profit: {})",
+        input_sub_account_cell,
+        output_capacity,
+        output_profit
+    );
+
+    if action == b"create_sub_account" {
+        assert!(
+            output_profit == input_profit + expected_register_fee,
+            Error::SubAccountCellCapacityError,
+            "outputs[{}] The profit of SubAccountCell should contains the new register fees. (output_profit: {}, input_profit: {}, expected_register_fee: {})",
+            output_sub_account_cell,
+            output_profit,
+            input_profit,
+            expected_register_fee
+        );
+    } else {
+        // TODO Implement withdraw action
+        todo!();
+    }
+
+    let input_remain_fees = input_capacity - input_profit - basic_capacity;
+    let output_remain_fees = output_capacity - output_profit - basic_capacity;
+
+    assert!(
+        input_remain_fees <= fee + output_remain_fees,
+        Error::SubAccountCellCapacityError,
+        "outputs[{}] The transaction fee should be equal to or less than {} .(output_remain_fees: {} = output_capacity - output_profit - basic_capacity, input_remain_fees: {})",
+        output_sub_account_cell,
+        fee,
+        output_remain_fees,
+        input_remain_fees
     );
 
     Ok(())
