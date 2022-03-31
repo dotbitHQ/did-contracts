@@ -826,32 +826,8 @@ impl TemplateGenerator {
     }
 
     fn gen_config_cell_release(&mut self) -> (Vec<u8>, EntityWrapper) {
-        let data = vec![
-            (
-                2,
-                util::gen_timestamp("2021-06-28 00:00:00"),
-                util::gen_timestamp("2021-07-10 00:00:00"),
-            ),
-            (
-                0,
-                util::gen_timestamp("2021-06-01 00:00:00"),
-                util::gen_timestamp("2021-06-01 00:00:00"),
-            ),
-        ];
-
-        let mut release_rules = ReleaseRules::new_builder();
-        for item in data.into_iter() {
-            release_rules = release_rules.push(
-                ReleaseRule::new_builder()
-                    .length(Uint32::from(item.0))
-                    .release_start(Uint64::from(item.1))
-                    .release_end(Uint64::from(item.2))
-                    .build(),
-            );
-        }
-
         let entity = ConfigCellRelease::new_builder()
-            .release_rules(release_rules.build())
+            .lucky_number(Uint32::from(u32::MAX))
             .build();
         let cell_data = blake2b_256(entity.as_slice()).to_vec();
 
@@ -2275,6 +2251,7 @@ impl TemplateGenerator {
     ///     },
     ///     "data": {
     ///         "root": null | "0x..." // If this is null, it will be an invalid cell.
+    ///         "profit": 0
     ///     }
     /// })
     /// ```
@@ -2300,10 +2277,22 @@ impl TemplateGenerator {
             _ => panic!("cell.type is missing"),
         };
 
-        let outputs_data = if cell["data"].is_null() || cell["data"]["root"].is_null() {
+        let data = &cell["data"];
+
+        let outputs_data = if cell["data"].is_null() {
             String::from("")
         } else {
-            let root = parse_json_hex("cell.data.root", &cell["data"]["root"]);
+            let data = &cell["data"];
+            let mut root = parse_json_hex("cell.data.root", &data["root"]);
+            let mut profit = if data["profit"].is_null() {
+                Vec::new()
+            } else {
+                parse_json_u64("cell.data.profit", &data["profit"], None)
+                    .to_le_bytes()
+                    .to_vec()
+            };
+
+            root.append(&mut profit);
             util::bytes_to_hex(&root)
         };
 

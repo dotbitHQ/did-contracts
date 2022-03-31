@@ -23,6 +23,7 @@ pub enum Error {
     ConfigCellWitnessIsCorrupted,
     ConfigCellWitnessDecodingError,
     TxFeeSpentError,
+    DasLockArgsInvalid,
     CellLockCanNotBeModified = 20,
     CellTypeCanNotBeModified,
     CellDataCanNotBeModified,
@@ -157,7 +158,7 @@ pub enum Error {
     SubAccountFieldNotEditable,
     SubAccountEditLockError,
     SubAccountJoinBetaError,
-    UpgradeForWitnessIsRequired,
+    UpgradeForWitnessIsRequired, // -40
     UpgradeDefaultValueOfNewFieldIsError,
     UnittestError = -2,
     SystemOff = -1,

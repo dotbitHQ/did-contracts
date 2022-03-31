@@ -27,22 +27,6 @@ fn before_each() -> TemplateGenerator {
             }
         }),
     );
-    push_input_income_cell(
-        &mut template,
-        json!({
-            "witness": {
-                "records": [
-                    {
-                        "belong_to": {
-                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
-                            "args": COMMON_INCOME_CREATOR
-                        },
-                        "capacity": "20_000_000_000"
-                    },
-                ]
-            }
-        }),
-    );
     push_input_normal_cell(&mut template, 10_000_000_000, OWNER);
 
     template
@@ -60,7 +44,7 @@ fn push_simple_output_account_cell(template: &mut TemplateGenerator) {
     );
 }
 
-fn push_simple_output_sub_account_cell(template: &mut TemplateGenerator) {
+fn push_simple_output_sub_account_cell(template: &mut TemplateGenerator, profit: u64) {
     let current_root = template.smt_with_history.current_root();
     push_output_sub_account_cell(
         template,
@@ -69,39 +53,25 @@ fn push_simple_output_sub_account_cell(template: &mut TemplateGenerator) {
                 "args": ACCOUNT_1
             },
             "data": {
-                "root": String::from("0x") + &hex::encode(&current_root)
+                "root": String::from("0x") + &hex::encode(&current_root),
+                "profit": profit
             }
         }),
     );
 }
 
-fn push_simple_output_income_cell_and_change(template: &mut TemplateGenerator) {
-    let new_sub_account_cost = SUB_ACCOUNT_NEW_PRICE * template.sub_account_outer_witnesses.len() as u64;
-    push_output_income_cell(
-        template,
-        json!({
-            "witness": {
-                "records": [
-                    {
-                        "belong_to": {
-                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
-                            "args": COMMON_INCOME_CREATOR
-                        },
-                        "capacity": "20_000_000_000"
-                    },
-                    {
-                        "belong_to": {
-                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
-                            "args": DAS_WALLET_LOCK_ARGS
-                        },
-                        "capacity": new_sub_account_cost
-                    },
-                ]
-            }
-        }),
-    );
+fn push_common_output_cells(template: &mut TemplateGenerator) {
+    let new_sub_account_cost = calculate_sub_account_cost(template);
+    push_simple_output_account_cell(template);
+    push_simple_output_sub_account_cell(template, new_sub_account_cost);
     push_output_normal_cell(template, 10_000_000_000 - new_sub_account_cost, OWNER);
 }
+
+fn calculate_sub_account_cost(template: &TemplateGenerator) -> u64 {
+    SUB_ACCOUNT_NEW_PRICE * template.sub_account_outer_witnesses.len() as u64
+}
+
+// push_output_normal_cell(template, 10_000_000_000 - new_sub_account_cost, OWNER);
 
 #[test]
 fn test_sub_account_create() {
@@ -153,10 +123,7 @@ fn test_sub_account_create() {
             }
         }),
     );
-
-    push_simple_output_account_cell(&mut template);
-    push_simple_output_sub_account_cell(&mut template);
-    push_simple_output_income_cell_and_change(&mut template);
+    push_common_output_cells(&mut template);
 
     test_tx(template.as_json())
 }
@@ -182,10 +149,7 @@ fn challenge_sub_account_create_invalid_char() {
             }
         }),
     );
-
-    push_simple_output_account_cell(&mut template);
-    push_simple_output_sub_account_cell(&mut template);
-    push_simple_output_income_cell_and_change(&mut template);
+    push_common_output_cells(&mut template);
 
     challenge_tx(template.as_json(), Error::PreRegisterAccountCharIsInvalid);
 }
@@ -211,10 +175,7 @@ fn challenge_sub_account_create_undefined_char() {
             }
         }),
     );
-
-    push_simple_output_account_cell(&mut template);
-    push_simple_output_sub_account_cell(&mut template);
-    push_simple_output_income_cell_and_change(&mut template);
+    push_common_output_cells(&mut template);
 
     challenge_tx(template.as_json(), Error::PreRegisterFoundUndefinedCharSet);
 }
@@ -240,10 +201,7 @@ fn challenge_sub_account_create_too_long() {
             }
         }),
     );
-
-    push_simple_output_account_cell(&mut template);
-    push_simple_output_sub_account_cell(&mut template);
-    push_simple_output_income_cell_and_change(&mut template);
+    push_common_output_cells(&mut template);
 
     challenge_tx(template.as_json(), Error::PreRegisterAccountIsTooLong);
 }
@@ -269,10 +227,7 @@ fn challenge_sub_account_create_suffix_not_match() {
             }
         }),
     );
-
-    push_simple_output_account_cell(&mut template);
-    push_simple_output_sub_account_cell(&mut template);
-    push_simple_output_income_cell_and_change(&mut template);
+    push_common_output_cells(&mut template);
 
     challenge_tx(template.as_json(), Error::SubAccountInitialValueError);
 }
@@ -299,10 +254,7 @@ fn challenge_sub_account_create_id_not_match() {
             }
         }),
     );
-
-    push_simple_output_account_cell(&mut template);
-    push_simple_output_sub_account_cell(&mut template);
-    push_simple_output_income_cell_and_change(&mut template);
+    push_common_output_cells(&mut template);
 
     challenge_tx(template.as_json(), Error::SubAccountInitialValueError);
 }
@@ -328,10 +280,7 @@ fn challenge_sub_account_create_registered_at_is_invalid() {
             }
         }),
     );
-
-    push_simple_output_account_cell(&mut template);
-    push_simple_output_sub_account_cell(&mut template);
-    push_simple_output_income_cell_and_change(&mut template);
+    push_common_output_cells(&mut template);
 
     challenge_tx(template.as_json(), Error::SubAccountInitialValueError);
 }
@@ -357,10 +306,80 @@ fn challenge_sub_account_create_expired_at_less_than_one_year() {
             }
         }),
     );
-
-    push_simple_output_account_cell(&mut template);
-    push_simple_output_sub_account_cell(&mut template);
-    push_simple_output_income_cell_and_change(&mut template);
+    push_common_output_cells(&mut template);
 
     challenge_tx(template.as_json(), Error::SubAccountInitialValueError);
+}
+
+#[test]
+fn challenge_sub_account_create_no_profit_record() {
+    let mut template = before_each();
+
+    // outputs
+    template.push_sub_account_witness(
+        SubAccountActionType::Insert,
+        json!({
+            "sub_account": {
+                "lock": {
+                    "owner_lock_args": OWNER_1,
+                    "manager_lock_args": MANAGER_1
+                },
+                "account": SUB_ACCOUNT_1,
+                "suffix": SUB_ACCOUNT_SUFFIX,
+                "registered_at": TIMESTAMP,
+                "expired_at": TIMESTAMP + YEAR_SEC,
+            }
+        }),
+    );
+    let new_sub_account_cost = calculate_sub_account_cost(&template);
+    push_simple_output_account_cell(&mut template);
+    // Simulate forget record correct profit in the outputs_data of the SubAccountCell
+    push_simple_output_sub_account_cell(&mut template, 0);
+    push_output_normal_cell(&mut template, 10_000_000_000 - new_sub_account_cost, OWNER);
+
+    challenge_tx(template.as_json(), Error::SubAccountCellCapacityError);
+}
+
+#[test]
+fn challenge_sub_account_create_profit_not_match_capacity() {
+    let mut template = before_each();
+
+    // outputs
+    template.push_sub_account_witness(
+        SubAccountActionType::Insert,
+        json!({
+            "sub_account": {
+                "lock": {
+                    "owner_lock_args": OWNER_1,
+                    "manager_lock_args": MANAGER_1
+                },
+                "account": SUB_ACCOUNT_1,
+                "suffix": SUB_ACCOUNT_SUFFIX,
+                "registered_at": TIMESTAMP,
+                "expired_at": TIMESTAMP + YEAR_SEC,
+            }
+        }),
+    );
+    let new_sub_account_cost = calculate_sub_account_cost(&template);
+    push_simple_output_account_cell(&mut template);
+
+    let current_root = template.smt_with_history.current_root();
+    push_output_sub_account_cell(
+        &mut template,
+        json!({
+            // Simulate forget put profit into the capacity of the SubAccountCell
+            "capacity": SUB_ACCOUNT_BASIC_CAPACITY + SUB_ACCOUNT_PREPARED_FEE_CAPACITY,
+            "type": {
+                "args": ACCOUNT_1
+            },
+            "data": {
+                "root": String::from("0x") + &hex::encode(&current_root),
+                "profit": new_sub_account_cost
+            }
+        }),
+    );
+
+    push_output_normal_cell(&mut template, 10_000_000_000 - new_sub_account_cost, OWNER);
+
+    challenge_tx(template.as_json(), Error::SubAccountCellCapacityError);
 }

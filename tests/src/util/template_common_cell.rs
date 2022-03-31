@@ -207,8 +207,17 @@ pub fn push_input_sub_account_cell(template: &mut TemplateGenerator, cell_partia
 }
 
 pub fn push_output_sub_account_cell(template: &mut TemplateGenerator, cell_partial: Value) {
+    let profit = if cell_partial["data"]["profit"].is_null() {
+        0
+    } else {
+        match cell_partial["data"]["profit"].as_u64() {
+            Some(val) => val,
+            _ => 0,
+        }
+    };
+
     let mut cell = json!({
-        "capacity": SUB_ACCOUNT_BASIC_CAPACITY + SUB_ACCOUNT_PREPARED_FEE_CAPACITY,
+        "capacity": SUB_ACCOUNT_BASIC_CAPACITY + SUB_ACCOUNT_PREPARED_FEE_CAPACITY + profit,
         "lock": {
             "code_hash": "{{always_success}}"
         },
@@ -217,7 +226,8 @@ pub fn push_output_sub_account_cell(template: &mut TemplateGenerator, cell_parti
             "args": ACCOUNT
         },
         "data": {
-            "root": "0x0000000000000000000000000000000000000000000000000000000000000000"
+            "root": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "profit": 0
         }
     });
     util::merge_json(&mut cell, cell_partial);
