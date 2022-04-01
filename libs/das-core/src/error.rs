@@ -156,6 +156,7 @@ pub enum Error {
     SubAccountFieldNotEditable,
     SubAccountEditLockError,
     SubAccountJoinBetaError,
+    SubAccountProfitError,
     UpgradeForWitnessIsRequired, // -40
     UpgradeDefaultValueOfNewFieldIsError,
     UnittestError = -2,

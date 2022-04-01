@@ -114,7 +114,7 @@ pub fn verify_tx_fee_spent_correctly(
         );
 
         assert!(
-            input_capacity - output_capacity <= expected_fee, //  output_capacity >= input_capacity - expected_fee,
+            input_capacity <= expected_fee + output_capacity, //  output_capacity >= input_capacity - expected_fee,
             Error::TxFeeSpentError,
             "The {} fee should be equal to or less than {}, result: {})",
             cell_name,

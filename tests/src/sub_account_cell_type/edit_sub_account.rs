@@ -347,3 +347,43 @@ fn challenge_sub_account_edit_records_invalid_key() {
 
     challenge_tx(template.as_json(), Error::AccountCellRecordKeyInvalid)
 }
+
+#[test]
+fn challenge_sub_account_profit_changed() {
+    let mut template = before_each();
+
+    // outputs
+    template.push_sub_account_witness(
+        SubAccountActionType::Edit,
+        json!({
+            "sub_account": {
+                "lock": {
+                    "owner_lock_args": OWNER_1,
+                    "manager_lock_args": MANAGER_1
+                },
+                "account": SUB_ACCOUNT_1,
+                "suffix": SUB_ACCOUNT_SUFFIX,
+                "registered_at": TIMESTAMP,
+                "expired_at": u64::MAX,
+            },
+            "edit_key": "manager",
+            // Simulate modifying manager.
+            "edit_value": gen_das_lock_args(OWNER_1, Some(MANAGER_2))
+        }),
+    );
+    let current_root = template.smt_with_history.current_root();
+    push_output_sub_account_cell(
+        &mut template,
+        json!({
+            "type": {
+                "args": ACCOUNT_1
+            },
+            "data": {
+                "root": String::from("0x") + &hex::encode(&current_root),
+                "profit": 1
+            }
+        }),
+    );
+
+    challenge_tx(template.as_json(), Error::SubAccountProfitError)
+}

@@ -341,7 +341,7 @@ pub fn main() -> Result<(), Error> {
                     )?;
                 }
                 _ => {
-                    verify_transaction_fee_spent_correctly(
+                    verify_transaction_profit_not_change_and_fee_spent_correctly(
                         action,
                         config_sub_account,
                         input_sub_account_cells[0],
@@ -352,34 +352,6 @@ pub fn main() -> Result<(), Error> {
         }
         _ => return Err(Error::ActionNotSupported),
     }
-
-    Ok(())
-}
-
-fn verify_transaction_fee_spent_correctly(
-    action: &[u8],
-    config: ConfigCellSubAccountReader,
-    input_sub_account: usize,
-    output_sub_account: usize,
-) -> Result<(), Error> {
-    debug!("Check if the fee in the AccountCell is spent correctly.");
-
-    let storage_capacity = u64::from(config.basic_capacity());
-    let fee = match action {
-        b"create_sub_account" => u64::from(config.create_fee()),
-        b"edit_sub_account" => u64::from(config.edit_fee()),
-        b"renew_sub_account" => u64::from(config.renew_fee()),
-        b"recycle_sub_account" => u64::from(config.recycle_fee()),
-        _ => u64::from(config.common_fee()),
-    };
-
-    verifiers::common::verify_tx_fee_spent_correctly(
-        "SubAccountCell",
-        input_sub_account,
-        output_sub_account,
-        fee,
-        storage_capacity,
-    )?;
 
     Ok(())
 }
@@ -456,7 +428,8 @@ fn verify_sub_account_profit(
     let basic_capacity = u64::from(config.basic_capacity());
     let fee = match action {
         b"create_sub_account" => u64::from(config.create_fee()),
-        _ => u64::from(config.common_fee()),
+        b"renew_sub_account" => u64::from(config.renew_fee()),
+        _ => unreachable!(),
     };
 
     let input_capacity = high_level::load_cell_capacity(input_sub_account_cell, Source::Input)?;
@@ -490,7 +463,7 @@ fn verify_sub_account_profit(
     if action == b"create_sub_account" {
         assert!(
             output_profit == input_profit + expected_register_fee,
-            Error::SubAccountCellCapacityError,
+            Error::SubAccountProfitError,
             "outputs[{}] The profit of SubAccountCell should contains the new register fees. (output_profit: {}, input_profit: {}, expected_register_fee: {})",
             output_sub_account_cell,
             output_profit,
@@ -513,6 +486,56 @@ fn verify_sub_account_profit(
         fee,
         output_remain_fees,
         input_remain_fees
+    );
+
+    Ok(())
+}
+
+fn verify_transaction_profit_not_change_and_fee_spent_correctly(
+    action: &[u8],
+    config: ConfigCellSubAccountReader,
+    input_sub_account_cell: usize,
+    output_sub_account_cell: usize,
+) -> Result<(), Error> {
+    debug!("Check if the fee in the SubAccountCell is spent correctly.");
+
+    let storage_capacity = u64::from(config.basic_capacity());
+    let fee = match action {
+        b"create_sub_account" => u64::from(config.create_fee()),
+        b"edit_sub_account" => u64::from(config.edit_fee()),
+        b"renew_sub_account" => u64::from(config.renew_fee()),
+        b"recycle_sub_account" => u64::from(config.recycle_fee()),
+        _ => u64::from(config.common_fee()),
+    };
+
+    verifiers::common::verify_tx_fee_spent_correctly(
+        "SubAccountCell",
+        input_sub_account_cell,
+        output_sub_account_cell,
+        fee,
+        storage_capacity,
+    )?;
+
+    debug!("Check if outputs_data.profit of the SubAccountCell is consistent.");
+    // CAREFUL! Because verify_tx_fee_spent_correctly will check the whole capacity of the SubAccountCells, so the verification here do not
+    // check capacity again.
+
+    let input_data = high_level::load_cell_data(input_sub_account_cell, Source::Input)?;
+    let output_data = high_level::load_cell_data(output_sub_account_cell, Source::Output)?;
+    let input_profit = data_parser::sub_account_cell::get_profit(&input_data)
+        .or(Some(0))
+        .unwrap();
+    let output_profit = data_parser::sub_account_cell::get_profit(&output_data)
+        .or(Some(0))
+        .unwrap();
+
+    assert!(
+        input_profit == output_profit,
+        Error::SubAccountProfitError,
+        "outputs[{}] The outputs_data.profit of the SubAccountCell should be consistent with inputs.(input_profit: {}, output_profit: {})",
+        output_sub_account_cell,
+        input_profit,
+        output_profit
     );
 
     Ok(())

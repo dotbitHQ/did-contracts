@@ -337,7 +337,7 @@ fn challenge_sub_account_create_no_profit_record() {
     push_simple_output_sub_account_cell(&mut template, 0);
     push_output_normal_cell(&mut template, 10_000_000_000 - new_sub_account_cost, OWNER);
 
-    challenge_tx(template.as_json(), Error::SubAccountCellCapacityError);
+    challenge_tx(template.as_json(), Error::SubAccountProfitError);
 }
 
 #[test]
