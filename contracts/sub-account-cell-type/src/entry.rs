@@ -11,6 +11,7 @@ use das_core::{
     verifiers, warn,
     witness_parser::WitnessesParser,
 };
+use das_dynamic_libs::sign_lib::SignLib;
 use das_types::{
     constants::AccountStatus,
     packed::*,
@@ -50,6 +51,8 @@ pub fn main() -> Result<(), Error> {
 
             let timestamp = util::load_oracle_data(OracleCellType::Time)?;
             let (input_sub_account_cells, output_sub_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
+
+            let sign_lib = SignLib::new();
 
             let mut parent_account = Vec::new();
             match action {
@@ -227,6 +230,7 @@ pub fn main() -> Result<(), Error> {
                                 smt_verify_sub_account_is_editable(witness, new_sub_account_reader)?;
 
                                 verifiers::sub_account_cell::verify_sub_account_sig(
+                                    &sign_lib,
                                     witness.edit_key.as_slice(),
                                     witness.edit_value_bytes.as_slice(),
                                     witness.sub_account.nonce().as_slice(),

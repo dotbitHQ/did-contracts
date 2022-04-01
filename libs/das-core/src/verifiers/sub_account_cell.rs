@@ -160,6 +160,7 @@ pub fn verify_smt_proof(key: [u8; 32], val: [u8; 32], root: [u8; 32], proof: &[u
 }
 
 pub fn verify_sub_account_sig(
+    sign_lib: &SignLib,
     edit_key: &[u8],
     edit_value: &[u8],
     nonce: &[u8],
@@ -171,21 +172,7 @@ pub fn verify_sub_account_sig(
         return Ok(());
     }
 
-    let mut context = unsafe { CKBDLContext::<[u8; 128 * 1024]>::new() };
-    // TODO: need to be used as a param
-    #[cfg(feature = "mainnet")]
-    let code_hash: [u8; 32] = [
-        114, 136, 18, 7, 241, 131, 151, 251, 114, 137, 71, 94, 28, 208, 216, 64, 104, 55, 4, 5, 126, 140, 166, 6, 43,
-        114, 139, 209, 174, 122, 155, 68,
-    ];
-    #[cfg(not(feature = "mainnet"))]
-    let code_hash: [u8; 32] = [
-        114, 136, 18, 7, 241, 131, 151, 251, 114, 137, 71, 94, 28, 208, 216, 64, 104, 55, 4, 5, 126, 140, 166, 6, 43,
-        114, 139, 209, 174, 122, 155, 68,
-    ];
-
-    let lib = SignLib::load(&mut context, &code_hash);
-    let ret = lib.verify_sub_account_sig(
+    let ret = sign_lib.verify_sub_account_sig(
         edit_key.to_vec(),
         edit_value.to_vec(),
         nonce.to_vec(),

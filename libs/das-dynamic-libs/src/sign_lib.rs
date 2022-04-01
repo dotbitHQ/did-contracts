@@ -1,6 +1,7 @@
-use super::util;
+use super::{constants::*, util};
 use alloc::{string::String, vec::Vec};
 use ckb_std::dynamic_loading_c_impl::{CKBDLContext, Symbol};
+use core::{fmt::Error, lazy::OnceCell};
 
 // int validate(int type, uint8_t* message, uint8_t* lock_bytes, uint8_t* eth_address)
 type ValidateFunction =
@@ -13,21 +14,40 @@ type ValidateStrFunction = unsafe extern "C" fn(
     lock_args: *const u8,
 ) -> i32;
 
-pub struct SignLib {
+pub struct SignLibMethods<T> {
+    context: CKBDLContext<T>,
     c_validate: Symbol<ValidateFunction>,
     c_validate_str: Symbol<ValidateStrFunction>,
 }
 
+pub struct SignLib {
+    ckb_sign_hash_all: OnceCell<SignLibMethods<[u8; 128 * 1024]>>,
+    ckb_multi_sig_all: OnceCell<SignLibMethods<[u8; 128 * 1024]>>,
+    eth: OnceCell<SignLibMethods<[u8; 128 * 1024]>>,
+    tron: OnceCell<SignLibMethods<[u8; 128 * 1024]>>,
+}
+
 impl SignLib {
+    pub fn new() -> Self {
+        SignLib {
+            ckb_sign_hash_all: OnceCell::new(),
+            ckb_multi_sig_all: OnceCell::new(),
+            eth: OnceCell::new(),
+            tron: OnceCell::new(),
+        }
+    }
+
     /// Load signature validation libraries from das-lock
     ///
-    /// Required memory size: about 128 * 1024
-    pub fn load<T>(context: &mut CKBDLContext<T>, code_hash: &[u8]) -> Self {
+    /// Required memory size: about 128 * 1024 for each script
+    pub fn load(code_hash: &[u8]) -> SignLibMethods<[u8; 128 * 1024]> {
+        let mut context = unsafe { CKBDLContext::<[u8; 128 * 1024]>::new() };
         let lib = context
             .load(code_hash)
             .expect("The shared lib should be loaded successfully.");
 
-        SignLib {
+        SignLibMethods {
+            context,
             c_validate: unsafe {
                 lib.get(b"validate")
                     .expect("Load function 'validate' from library failed.")
@@ -39,11 +59,16 @@ impl SignLib {
         }
     }
 
+    pub fn eth_lib(&self) -> &SignLibMethods<[u8; 128 * 1024]> {
+        self.eth.get_or_init(|| Self::load(&ETH_LIB_CODE_HASH))
+    }
+
     /// Validate signatures
     ///
     /// costs: about 2_000_000 cycles
     pub fn validate(&self, type_no: i32, digest: Vec<u8>, lock_bytes: Vec<u8>, lock_args: Vec<u8>) -> Result<(), i32> {
-        let func = &self.c_validate;
+        let lib = self.eth_lib();
+        let func = &lib.c_validate;
         let error_code: i32 = unsafe { func(type_no, digest.as_ptr(), lock_bytes.as_ptr(), lock_args.as_ptr()) };
         if error_code != 0 {
             return Err(error_code);
@@ -60,7 +85,8 @@ impl SignLib {
         lock_bytes: Vec<u8>,
         lock_args: Vec<u8>,
     ) -> Result<(), i32> {
-        let func = &self.c_validate_str;
+        let lib = self.eth_lib();
+        let func = &lib.c_validate_str;
         let error_code: i32 = unsafe {
             func(
                 type_no,
