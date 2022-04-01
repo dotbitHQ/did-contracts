@@ -96,7 +96,7 @@ pub fn main() -> Result<(), Error> {
             let mut last_root = &vec![];
             let sub_account_parser = SubAccountWitnessesParser::new()?;
             let mut expected_register_fee = 0;
-            for witness_ret in sub_account_parser.iter() {
+            for (i, witness_ret) in sub_account_parser.iter().enumerate() {
                 match witness_ret {
                     Ok(witness) => {
                         // Store the first SMT root in the transaction, and verify it later.
@@ -110,7 +110,7 @@ pub fn main() -> Result<(), Error> {
                             witness.index + 1
                         );
 
-                        match sub_account_parser.get(witness.index + 1) {
+                        match sub_account_parser.get(i + 1) {
                             Some(Ok(next_witness)) => {
                                 let current_root = &witness.current_root;
                                 let prev_root_of_next = &next_witness.prev_root;

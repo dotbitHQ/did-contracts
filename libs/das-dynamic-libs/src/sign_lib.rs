@@ -1,7 +1,7 @@
 use super::{constants::*, util};
 use alloc::{string::String, vec::Vec};
 use ckb_std::dynamic_loading_c_impl::{CKBDLContext, Symbol};
-use core::{fmt::Error, lazy::OnceCell};
+use core::lazy::OnceCell;
 
 // int validate(int type, uint8_t* message, uint8_t* lock_bytes, uint8_t* eth_address)
 type ValidateFunction =
@@ -15,25 +15,25 @@ type ValidateStrFunction = unsafe extern "C" fn(
 ) -> i32;
 
 pub struct SignLibMethods<T> {
-    context: CKBDLContext<T>,
+    _context: CKBDLContext<T>,
     c_validate: Symbol<ValidateFunction>,
     c_validate_str: Symbol<ValidateStrFunction>,
 }
 
 pub struct SignLib {
-    ckb_sign_hash_all: OnceCell<SignLibMethods<[u8; 128 * 1024]>>,
-    ckb_multi_sig_all: OnceCell<SignLibMethods<[u8; 128 * 1024]>>,
+    // ckb_sign_hash_all: OnceCell<SignLibMethods<[u8; 128 * 1024]>>,
+    // ckb_multi_sig_all: OnceCell<SignLibMethods<[u8; 128 * 1024]>>,
     eth: OnceCell<SignLibMethods<[u8; 128 * 1024]>>,
-    tron: OnceCell<SignLibMethods<[u8; 128 * 1024]>>,
+    // tron: OnceCell<SignLibMethods<[u8; 128 * 1024]>>,
 }
 
 impl SignLib {
     pub fn new() -> Self {
         SignLib {
-            ckb_sign_hash_all: OnceCell::new(),
-            ckb_multi_sig_all: OnceCell::new(),
+            // ckb_sign_hash_all: OnceCell::new(),
+            // ckb_multi_sig_all: OnceCell::new(),
             eth: OnceCell::new(),
-            tron: OnceCell::new(),
+            // tron: OnceCell::new(),
         }
     }
 
@@ -47,7 +47,7 @@ impl SignLib {
             .expect("The shared lib should be loaded successfully.");
 
         SignLibMethods {
-            context,
+            _context: context,
             c_validate: unsafe {
                 lib.get(b"validate")
                     .expect("Load function 'validate' from library failed.")

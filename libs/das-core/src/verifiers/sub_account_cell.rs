@@ -1,6 +1,5 @@
 use crate::{assert, constants::*, data_parser, debug, error::Error, util, warn};
 use alloc::string::String;
-use ckb_std::dynamic_loading_c_impl::CKBDLContext;
 use das_dynamic_libs::sign_lib::SignLib;
 use das_types::{constants::*, packed::*, prettier::Prettier};
 use sparse_merkle_tree::{ckb_smt::SMTBuilder, H256};
