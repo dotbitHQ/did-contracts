@@ -1,4 +1,3 @@
-use alloc::vec::Vec;
 use alloc::{boxed::Box, format, string::String, vec};
 use ckb_std::{ckb_constants::Source, ckb_types::prelude::*, high_level};
 use das_core::{
@@ -545,16 +544,25 @@ pub fn main() -> Result<(), Error> {
                 util::parse_account_cell_witness(&parser, output_account_cells[0], Source::Output)?;
             let output_account_witness_reader = output_account_witness.as_reader();
 
-            debug!("Verify if the AccountCell is in beta list.");
+            #[cfg(not(feature = "dev"))]
+            {
+                debug!("Verify if the AccountCell is in beta list.");
+                use alloc::vec::Vec;
 
-            let beta_list: Vec<&[u8]> = vec![b"xxxxx.bit", b"xxxx.bit"];
-            let account = util::get_account_from_reader(&input_account_witness_reader);
+                #[cfg(feature = "mainnet")]
+                let beta_list: Vec<&[u8]> = vec![];
 
-            assert!(
-                beta_list.contains(&account.as_bytes()),
-                Error::SubAccountJoinBetaError,
-                "The account is not allow to enable sub-account feature in beta test."
-            );
+                #[cfg(feature = "testnet")]
+                let beta_list: Vec<&[u8]> = vec![b"66666.bit", b"66666xx.bit", b"11111111.bit", b"0001.bit"];
+
+                let account = util::get_account_from_reader(&input_account_witness_reader);
+
+                assert!(
+                    beta_list.contains(&account.as_bytes()),
+                    Error::SubAccountJoinBetaError,
+                    "The account is not allow to enable sub-account feature in beta test."
+                );
+            }
 
             debug!("Verify if the AccountCell is locked or expired.");
 
@@ -579,7 +587,7 @@ pub fn main() -> Result<(), Error> {
                 &output_account_witness_reader,
                 None,
                 vec![],
-                vec!["enable_sub_account"],
+                vec!["enable_sub_account", "renew_sub_account_price"],
             )?;
 
             debug!("Verify if the AccountCell can enable sub-account function.");
@@ -588,11 +596,11 @@ pub fn main() -> Result<(), Error> {
                 Ok(reader) => {
                     let enable_status = u8::from(reader.enable_sub_account());
                     assert!(
-                        enable_status == SubAccountEnableStatus::On as u8,
+                        enable_status == SubAccountEnableStatus::Off as u8,
                         Error::AccountCellPermissionDenied,
-                        "{:?}[{}]Only AccountCells with enable_sub_account field is {} can enable its sub-account function.",
-                        Source::Output,
-                        output_account_cells[0],
+                        "{:?}[{}] Only AccountCells with enable_sub_account field is {} can enable its sub-account function.",
+                        Source::Input,
+                        input_account_cells[0],
                         SubAccountEnableStatus::Off as u8
                     );
                 }
