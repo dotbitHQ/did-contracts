@@ -3,7 +3,7 @@
 # Docker image name
 DOCKER_IMAGE="thewawar/ckb-capsule:2021-08-16"
 # Docker container name
-DOCKER_CONTAINER="capsule-dev-"$(whoami)
+DOCKER_CONTAINER="capsule-dev"${PWD//\//_}
 # Name of capsule cache volume
 CACHE_VOLUME="capsule-cache"
 
