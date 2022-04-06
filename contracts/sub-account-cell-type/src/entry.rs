@@ -231,6 +231,7 @@ pub fn main() -> Result<(), Error> {
 
                                 verifiers::sub_account_cell::verify_sub_account_sig(
                                     &sign_lib,
+                                    witness.sub_account.id().as_slice(),
                                     witness.edit_key.as_slice(),
                                     witness.edit_value_bytes.as_slice(),
                                     witness.sub_account.nonce().as_slice(),

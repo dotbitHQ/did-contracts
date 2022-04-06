@@ -1,4 +1,4 @@
-use crate::{assert, constants::*, data_parser, debug, error::Error, util, warn};
+use crate::{assert, constants::*, data_parser::{self, account_cell}, debug, error::Error, util, warn};
 use alloc::string::String;
 use das_dynamic_libs::sign_lib::SignLib;
 use das_types::{constants::*, packed::*, prettier::Prettier};
@@ -160,6 +160,7 @@ pub fn verify_smt_proof(key: [u8; 32], val: [u8; 32], root: [u8; 32], proof: &[u
 
 pub fn verify_sub_account_sig(
     sign_lib: &SignLib,
+    account_id: &[u8],
     edit_key: &[u8],
     edit_value: &[u8],
     nonce: &[u8],
@@ -172,6 +173,7 @@ pub fn verify_sub_account_sig(
     }
 
     let ret = sign_lib.verify_sub_account_sig(
+        account_id.to_vec(),
         edit_key.to_vec(),
         edit_value.to_vec(),
         nonce.to_vec(),

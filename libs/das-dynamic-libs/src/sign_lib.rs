@@ -103,8 +103,9 @@ impl SignLib {
         Ok(())
     }
 
-    pub fn gen_digest(&self, edit_key: Vec<u8>, edit_value: Vec<u8>, nonce: Vec<u8>) -> Vec<u8> {
+    pub fn gen_digest(&self, account_id: Vec<u8>, edit_key: Vec<u8>, edit_value: Vec<u8>, nonce: Vec<u8>) -> Vec<u8> {
         let mut blake2b = util::new_blake2b();
+        blake2b.update(&account_id);
         blake2b.update(&edit_key);
         blake2b.update(&edit_value);
         blake2b.update(&nonce);
@@ -117,13 +118,14 @@ impl SignLib {
 
     pub fn verify_sub_account_sig(
         &self,
+        account_id: Vec<u8>,
         edit_key: Vec<u8>,
         edit_value: Vec<u8>,
         nonce: Vec<u8>,
         sig: Vec<u8>,
         args: Vec<u8>,
     ) -> Result<(), i32> {
-        let message = self.gen_digest(edit_key, edit_value, nonce);
+        let message = self.gen_digest(account_id, edit_key, edit_value, nonce);
         let type_no = 0i32;
         let m_len = message.len();
         let ret = self.validate_str(type_no, message, m_len, sig, args);
