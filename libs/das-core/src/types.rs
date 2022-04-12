@@ -68,6 +68,7 @@ pub struct Configs {
     pub record_key_namespace: OnceCell<Vec<u8>>,
     pub preserved_account: OnceCell<Vec<u8>>,
     pub unavailable_account: OnceCell<Vec<u8>>,
+    pub sub_account_beta_list: OnceCell<Vec<u8>>,
 }
 
 impl Configs {
@@ -90,6 +91,7 @@ impl Configs {
             record_key_namespace: OnceCell::new(),
             preserved_account: OnceCell::new(),
             unavailable_account: OnceCell::new(),
+            sub_account_beta_list: OnceCell::new(),
         }
     }
 
@@ -211,6 +213,22 @@ impl Configs {
     pub fn unavailable_account(&self) -> Result<&Vec<u8>, Error> {
         self.unavailable_account.get_or_try_init(|| {
             let data_type = DataType::ConfigCellUnAvailableAccount;
+            let (i, raw) = Self::parse_witness(&self.config_witnesses, data_type)?;
+            let data = match raw.get(WITNESS_LENGTH_BYTES..) {
+                Some(data) => data.to_vec(),
+                None => {
+                    warn!("witnesses[{}] The data of {:?} is empty.", i, data_type);
+                    return Err(Error::ConfigIsPartialMissing);
+                }
+            };
+
+            Ok(data)
+        })
+    }
+
+    pub fn sub_account_beta_list(&self) -> Result<&Vec<u8>, Error> {
+        self.unavailable_account.get_or_try_init(|| {
+            let data_type = DataType::ConfigCellSubAccountBetaList;
             let (i, raw) = Self::parse_witness(&self.config_witnesses, data_type)?;
             let data = match raw.get(WITNESS_LENGTH_BYTES..) {
                 Some(data) => data.to_vec(),

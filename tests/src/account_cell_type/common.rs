@@ -40,6 +40,7 @@ pub fn init_for_sub_account(action: &str, params_opt: Option<&str>) -> TemplateG
 
     template.push_config_cell(DataType::ConfigCellIncome, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellSubAccount, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellSubAccountBetaList, Source::CellDep);
 
     template
 }

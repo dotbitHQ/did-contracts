@@ -999,6 +999,32 @@ impl TemplateGenerator {
         (cell_data, raw)
     }
 
+    fn gen_config_cell_sub_account_beta_list(&mut self) -> (Vec<u8>, Vec<u8>) {
+        // Load and group unavailable accounts
+        let mut sub_account_beta_list = Vec::new();
+        let lines = util::read_lines("sub_account_beta_list.txt")
+            .expect("Expect file ./tests/data/sub_account_beta_list.txt exist.");
+
+        for line in lines {
+            if let Ok(account) = line {
+                let account_hash = blake2b_256(account.as_bytes())
+                    .get(..ACCOUNT_ID_LENGTH)
+                    .unwrap()
+                    .to_vec();
+
+                sub_account_beta_list.push(account_hash);
+            }
+        }
+
+        sub_account_beta_list.sort();
+        let mut raw = sub_account_beta_list.into_iter().flatten().collect::<Vec<u8>>();
+        raw = util::prepend_molecule_like_length(raw);
+
+        let cell_data = blake2b_256(raw.as_slice()).to_vec();
+
+        (cell_data, raw)
+    }
+
     pub fn push_config_cell(&mut self, config_type: DataType, source: Source) {
         fn push_cell(
             generator: &mut TemplateGenerator,
@@ -1112,6 +1138,7 @@ impl TemplateGenerator {
             DataType::ConfigCellCharSetEmoji => push_cell!(@char_set gen_config_cell_char_set, "char_set_emoji.txt", 1),
             DataType::ConfigCellCharSetDigit => push_cell!(@char_set gen_config_cell_char_set, "char_set_digit.txt", 1),
             DataType::ConfigCellCharSetEn => push_cell!(@char_set gen_config_cell_char_set, "char_set_en.txt", 0),
+            DataType::ConfigCellSubAccountBetaList => push_cell!(@raw gen_config_cell_sub_account_beta_list),
             DataType::ConfigCellCharSetZhHans => {
                 push_cell!(@char_set gen_config_cell_char_set, "char_set_zh_hans.txt", 0)
             }
@@ -2276,8 +2303,6 @@ impl TemplateGenerator {
             }
             _ => panic!("cell.type is missing"),
         };
-
-        let data = &cell["data"];
 
         let outputs_data = if cell["data"].is_null() {
             String::from("")

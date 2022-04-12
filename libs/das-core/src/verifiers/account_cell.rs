@@ -453,7 +453,7 @@ pub fn verify_preserved_accounts(parser: &WitnessesParser, account: &[u8]) -> Re
     //     data_type
     // );
 
-    if is_account_id_in_collection(account_id, preserved_accounts) {
+    if util::is_account_id_in_collection(account_id, preserved_accounts) {
         warn!(
             "Account {} is preserved. (hex: 0x{}, hash: 0x{})",
             String::from_utf8(account.to_vec()).unwrap(),
@@ -474,7 +474,7 @@ pub fn verify_unavailable_accounts(parser: &WitnessesParser, account: &[u8]) -> 
     let account_id = account_hash.get(..ACCOUNT_ID_LENGTH).unwrap();
     let unavailable_accounts = parser.configs.unavailable_account()?;
 
-    if is_account_id_in_collection(account_id, unavailable_accounts) {
+    if util::is_account_id_in_collection(account_id, unavailable_accounts) {
         warn!(
             "Account {} is unavailable. (hex: 0x{}, hash: 0x{})",
             String::from_utf8(account.to_vec()).unwrap(),
@@ -485,55 +485,6 @@ pub fn verify_unavailable_accounts(parser: &WitnessesParser, account: &[u8]) -> 
     }
 
     Ok(())
-}
-
-fn is_account_id_in_collection(account_id: &[u8], collection: &[u8]) -> bool {
-    let length = collection.len();
-
-    let first = &collection[0..20];
-    let last = &collection[length - 20..];
-
-    return if account_id < first {
-        debug!("The account is less than the first preserved account, skip.");
-        false
-    } else if account_id > last {
-        debug!("The account is bigger than the last preserved account, skip.");
-        false
-    } else {
-        let accounts_total = collection.len() / ACCOUNT_ID_LENGTH;
-        let mut start_account_index = 0;
-        let mut end_account_index = accounts_total - 1;
-
-        loop {
-            let mid_account_index = (start_account_index + end_account_index) / 2;
-            // debug!("mid_account_index = {:?}", mid_account_index);
-            let mid_account_start_byte_index = mid_account_index * ACCOUNT_ID_LENGTH;
-            let mid_account_end_byte_index = mid_account_start_byte_index + ACCOUNT_ID_LENGTH;
-            let mid_account_bytes = collection
-                .get(mid_account_start_byte_index..mid_account_end_byte_index)
-                .unwrap();
-
-            if mid_account_bytes < account_id {
-                start_account_index = mid_account_index + 1;
-                // debug!("<");
-            } else if mid_account_bytes > account_id {
-                // debug!(">");
-                end_account_index = if mid_account_index > 1 {
-                    mid_account_index - 1
-                } else {
-                    0
-                };
-            } else {
-                return true;
-            }
-
-            if start_account_index > end_account_index || end_account_index == 0 {
-                break;
-            }
-        }
-
-        false
-    };
 }
 
 pub fn verify_account_chars(parser: &WitnessesParser, chars_reader: AccountCharsReader) -> Result<(), Error> {

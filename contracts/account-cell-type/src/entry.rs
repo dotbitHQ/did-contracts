@@ -534,7 +534,7 @@ pub fn main() -> Result<(), Error> {
             assert!(
                 output_account_cells.len() == 1 && output_account_cells[0] == 0,
                 Error::InvalidTransactionStructure,
-                "There should be one AccountCell at outputs[0]."
+                "There should bze one AccountCell at outputs[0]."
             );
 
             let input_account_witness =
@@ -544,25 +544,8 @@ pub fn main() -> Result<(), Error> {
                 util::parse_account_cell_witness(&parser, output_account_cells[0], Source::Output)?;
             let output_account_witness_reader = output_account_witness.as_reader();
 
-            #[cfg(not(feature = "dev"))]
-            {
-                debug!("Verify if the AccountCell is in beta list.");
-                use alloc::vec::Vec;
-
-                #[cfg(feature = "mainnet")]
-                let beta_list: Vec<&[u8]> = vec![];
-
-                #[cfg(feature = "testnet")]
-                let beta_list: Vec<&[u8]> = vec![b"66666.bit", b"66666xx.bit", b"11111111.bit", b"0001.bit"];
-
-                let account = util::get_account_from_reader(&input_account_witness_reader);
-
-                assert!(
-                    beta_list.contains(&account.as_bytes()),
-                    Error::SubAccountJoinBetaError,
-                    "The account is not allow to enable sub-account feature in beta test."
-                );
-            }
+            let account = util::get_account_from_reader(&input_account_witness_reader);
+            verifiers::sub_account_cell::verify_beta_list(&parser, account.as_bytes())?;
 
             debug!("Verify if the AccountCell is locked or expired.");
 

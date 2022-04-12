@@ -1,4 +1,4 @@
-use crate::{assert, constants::*, data_parser::{self, account_cell}, debug, error::Error, util, warn};
+use crate::{assert, constants::*, data_parser, debug, error::Error, util, warn, witness_parser::WitnessesParser};
 use alloc::string::String;
 use das_dynamic_libs::sign_lib::SignLib;
 use das_types::{constants::*, packed::*, prettier::Prettier};
@@ -186,5 +186,25 @@ pub fn verify_sub_account_sig(
     } else {
         debug!("verify_sub_account_sig succeed.");
     }
+    Ok(())
+}
+
+/// Verify if the account can join sub-account feature beta.
+pub fn verify_beta_list(parser: &WitnessesParser, account: &[u8]) -> Result<(), Error> {
+    debug!("Verify if the account can join sub-account feature beta");
+
+    let account_hash = util::blake2b_256(account);
+    let account_id = account_hash.get(..ACCOUNT_ID_LENGTH).unwrap();
+    let sub_account_beta_list = parser.configs.sub_account_beta_list()?;
+
+    if !util::is_account_id_in_collection(account_id, sub_account_beta_list) {
+        warn!(
+            "The account is not allow to enable sub-account feature in beta test.(account: {}, account_id: 0x{})",
+            String::from_utf8(account.to_vec()).unwrap(),
+            util::hex_string(account_id)
+        );
+        return Err(Error::SubAccountJoinBetaError);
+    }
+
     Ok(())
 }
