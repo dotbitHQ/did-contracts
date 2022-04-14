@@ -1,86 +1,62 @@
-use super::common::init;
-use crate::util::{self, constants::*, error::Error, template_parser::TemplateParser};
-use ckb_testtool::context::Context;
+use super::common::*;
+use crate::util::{self, constants::*, error::Error, template_common_cell::*, template_parser::*};
 use das_types_std::constants::*;
+use serde_json::json;
 
-test_with_generator!(test_pre_register_char_set, || {
-    let (mut template, account, timestamp) = init("✨abc0002.bit");
-    template.push_config_cell_derived_by_account("✨abc0002", Source::CellDep);
+#[test]
+fn challenge_pre_register_invalid_char() {
+    // Simulate registering an account with invalid character.
+    // ⚠️ Need to delete the emoji from char_set_emoji.txt first, otherwise the test can not pass.
+    let account = "✨das🎱001.bit";
+    let mut template = init();
+    template.push_config_cell_derived_by_account(account, Source::CellDep);
 
-    let (cell_data, entity) = template.gen_pre_account_cell_data(
-        account,
-        "0x000000000000000000000000000000000000FFFF",
-        "0x0000000000000000000000000000000000001100",
-        "0x0000000000000000000000000000000000001111",
-        "0x0000000000000000000000000000000000002222",
-        CKB_QUOTE,
-        INVITED_DISCOUNT,
-        timestamp,
+    push_input_simple_apply_register_cell(&mut template, account);
+
+    push_output_pre_account_cell(
+        &mut template,
+        json!({
+            "capacity": util::gen_register_fee(8, false),
+            "witness": {
+                "account": account,
+                "created_at": TIMESTAMP,
+                "price": {
+                    "length": 8,
+                    "new": ACCOUNT_PRICE_5_CHAR,
+                    "renew": ACCOUNT_PRICE_5_CHAR
+                }
+            }
+        }),
     );
-    template.push_pre_account_cell(
-        cell_data,
-        Some((1, 0, entity)),
-        util::gen_register_fee(8, true),
-        Source::Output,
+
+    challenge_tx(template.as_json(), Error::PreRegisterAccountCharIsInvalid)
+}
+
+#[test]
+fn challenge_pre_register_unsupported_char_set() {
+    // Simulate registering an account with invalid character.
+    // ⚠️ Need to delete the emoji from char_set_emoji.txt first, otherwise the test can not pass.
+    let account = "✨das大001.bit";
+    let mut template = init();
+    template.push_config_cell_derived_by_account(account, Source::CellDep);
+
+    push_input_simple_apply_register_cell(&mut template, account);
+
+    push_output_pre_account_cell(
+        &mut template,
+        json!({
+            "capacity": util::gen_register_fee(8, false),
+            "witness": {
+                "account": account,
+                "created_at": TIMESTAMP,
+                "price": {
+                    "length": 8,
+                    "new": ACCOUNT_PRICE_5_CHAR,
+                    "renew": ACCOUNT_PRICE_5_CHAR
+                }
+            }
+        }),
     );
 
-    template.as_json()
-});
-
-challenge_with_generator!(
-    challenge_pre_register_invalid_char,
-    Error::PreRegisterAccountCharIsInvalid,
-    || {
-        // ⚠️ Need to delete the emoji from char_set_emoji.txt first, otherwise the test can not pass.
-        let (mut template, account, timestamp) = init("✨das🎱001.bit");
-        template.push_config_cell_derived_by_account("✨das🎱001", Source::CellDep);
-
-        let (cell_data, entity) = template.gen_pre_account_cell_data(
-            account,
-            "0x0000000000000000000000000000000000002222",
-            "0x000000000000000000000000000000000000FFFF",
-            "0x0000000000000000000000000000000000001111",
-            "0x0000000000000000000000000000000000002222",
-            CKB_QUOTE,
-            INVITED_DISCOUNT,
-            timestamp,
-        );
-        template.push_pre_account_cell(
-            cell_data,
-            Some((1, 0, entity)),
-            util::gen_register_fee(8, true),
-            Source::Output,
-        );
-
-        template.as_json()
-    }
-);
-
-challenge_with_generator!(
-    challenge_pre_register_unsupported_char_set,
-    Error::PreRegisterFoundUndefinedCharSet,
-    || {
-        // ⚠️ Need to delete the emoji from char_set_emoji.txt first, otherwise the test can not pass.
-        let (mut template, account, timestamp) = init("✨das大001.bit");
-        template.push_config_cell_derived_by_account("✨das大001", Source::CellDep);
-
-        let (cell_data, entity) = template.gen_pre_account_cell_data(
-            account,
-            "0x0000000000000000000000000000000000002222",
-            "0x000000000000000000000000000000000000FFFF",
-            "0x0000000000000000000000000000000000001111",
-            "0x0000000000000000000000000000000000002222",
-            CKB_QUOTE,
-            INVITED_DISCOUNT,
-            timestamp,
-        );
-        template.push_pre_account_cell(
-            cell_data,
-            Some((1, 0, entity)),
-            util::gen_register_fee(8, true),
-            Source::Output,
-        );
-
-        template.as_json()
-    }
-);
+    challenge_tx(template.as_json(), Error::PreRegisterFoundUndefinedCharSet)
+}

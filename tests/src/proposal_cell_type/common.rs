@@ -5,9 +5,6 @@ use das_types_std::constants::*;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
-pub const TIMESTAMP: u64 = 1611200090u64;
-pub const HEIGHT: u64 = 1000u64;
-
 pub struct LockScripts {
     pub inviter_1: Value,
     pub inviter_2: Value,

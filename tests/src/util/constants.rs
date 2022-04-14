@@ -6,6 +6,9 @@ use std::collections::HashMap;
 // ⚠️ The maximum cycles on-chain is 70_000_000.
 pub const MAX_CYCLES: u64 = u64::MAX;
 
+pub const APPLY_MIN_WAITING_BLOCK: u64 = 1;
+pub const APPLY_MAX_WAITING_BLOCK: u64 = 5760;
+
 pub const ACCOUNT_ID_LENGTH: usize = 20;
 pub const ACCOUNT_BASIC_CAPACITY: u64 = 20_600_000_000;
 pub const ACCOUNT_PREPARED_FEE_CAPACITY: u64 = 100_000_000;
@@ -20,6 +23,8 @@ pub const ACCOUNT_PRICE_5_CHAR: u64 = 5_000_000;
 pub const INVITED_DISCOUNT: u64 = 500;
 pub const CONSOLIDATING_FEE: u64 = 100;
 pub const CKB_QUOTE: u64 = 1000;
+pub const TIMESTAMP: u64 = 1611200090u64;
+pub const HEIGHT: u64 = 1000000u64;
 
 pub const INCOME_BASIC_CAPACITY: u64 = 20_000_000_000;
 

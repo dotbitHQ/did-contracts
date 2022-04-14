@@ -1027,6 +1027,7 @@ enum DataType {
     ConfigCellSecondaryMarket,            // args: 0x6f000000
     ConfigCellReverseResolution,          // args: 0x70000000
     ConfigCellSubAccount,                 // args: 0x71000000
+    ConfigCellSubAccountBeta,             // args: 0x72000000
     ConfigCellPreservedAccount00 = 10000, // args: 0x10270000
     ConfigCellPreservedAccount01,
     ConfigCellPreservedAccount02,
