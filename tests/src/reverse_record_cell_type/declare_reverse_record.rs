@@ -68,32 +68,6 @@ fn test_reverse_record_declare_multiple_balance_cells() {
 }
 
 #[test]
-fn challenge_reverse_record_declare_no_account_cell() {
-    let mut template = init("declare_reverse_record");
-    let account = "xxxxx.bit";
-    let owner = "0x050000000000000000000000000000000000001111";
-
-    // inputs
-    let total_input = 100_000_000_000;
-    push_input_balance_cell(&mut template, total_input, owner);
-
-    // outputs
-    push_output_reverse_record_cell(
-        &mut template,
-        REVERSE_RECORD_BASIC_CAPACITY + REVERSE_RECORD_PREPARED_FEE_CAPACITY,
-        owner,
-        account,
-    );
-    push_output_balance_cell(
-        &mut template,
-        total_input - REVERSE_RECORD_BASIC_CAPACITY - REVERSE_RECORD_PREPARED_FEE_CAPACITY - REVERSE_RECORD_COMMON_FEE,
-        owner,
-    );
-
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure)
-}
-
-#[test]
 fn challenge_reverse_record_declare_no_reverse_record_cell() {
     let (mut template, _, owner, total_input) = before_each();
 
@@ -136,27 +110,6 @@ fn challenge_reverse_record_declare_multi_reverse_record_cell() {
     );
 
     challenge_tx(template.as_json(), Error::InvalidTransactionStructure)
-}
-
-#[test]
-fn challenge_reverse_record_declare_account() {
-    let (mut template, _, owner, total_input) = before_each();
-
-    // outputs
-    push_output_reverse_record_cell(
-        &mut template,
-        REVERSE_RECORD_BASIC_CAPACITY + REVERSE_RECORD_PREPARED_FEE_CAPACITY,
-        owner,
-        // Simulate the ReverseRecordCell.data.account is not the same as the AccountCell.data.account.
-        "yyyyy.bit",
-    );
-    push_output_balance_cell(
-        &mut template,
-        total_input - REVERSE_RECORD_BASIC_CAPACITY - REVERSE_RECORD_PREPARED_FEE_CAPACITY - REVERSE_RECORD_COMMON_FEE,
-        owner,
-    );
-
-    challenge_tx(template.as_json(), Error::ReverseRecordCellAccountError)
 }
 
 #[test]

@@ -2,6 +2,7 @@
 ///
 /// This is copied from libs/das-core/src/error.rs. Because das-core depends on ckb-std and it can not be used in std environment any more,
 /// so we need to copy the `Error` from there manually.                 
+/// Error
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[repr(i8)]
 pub enum Error {
@@ -21,6 +22,8 @@ pub enum Error {
     ConfigCellIsRequired,
     ConfigCellWitnessIsCorrupted,
     ConfigCellWitnessDecodingError,
+    TxFeeSpentError,
+    DasLockArgsInvalid,
     CellLockCanNotBeModified = 20,
     CellTypeCanNotBeModified,
     CellDataCanNotBeModified,
@@ -39,6 +42,7 @@ pub enum Error {
     AccountStillCanNotBeRegister = 35, // ⚠️ DO NOT CHANGE
     AccountIsPreserved,
     AccountIsUnAvailable,
+    AccountIdIsInvalid,
     WitnessStructureError = 40,
     WitnessDataTypeDecodingError,
     WitnessReadingError,
@@ -49,6 +53,7 @@ pub enum Error {
     WitnessDataHashOrTypeMissMatch,
     WitnessDataIndexMissMatch,
     WitnessEntityDecodingError,
+    WitnessEmpty,
     ApplyRegisterCellDataDecodingError = 60,
     ApplyRegisterCellHeightInvalid,
     ApplyRegisterCellTimeInvalid,
@@ -80,12 +85,7 @@ pub enum Error {
     ProposalWitnessCanNotBeModified,
     ProposalConfirmNewAccountCellDataError = 100,
     ProposalConfirmNewAccountCellCapacityError,
-    ProposalConfirmWitnessIDError,
-    ProposalConfirmWitnessAccountError,
-    ProposalConfirmWitnessOwnerError,
-    ProposalConfirmWitnessManagerError, // 105
-    ProposalConfirmWitnessStatusError,
-    ProposalConfirmWitnessRecordsError,
+    ProposalConfirmNewAccountWitnessError, // 105
     ProposalConfirmPreAccountCellExpired,
     ProposalConfirmNeedWaitLonger,
     ProposalConfirmAccountLockArgsIsInvalid = 110,
@@ -129,7 +129,6 @@ pub enum Error {
     EIP712SignatureError,
     BalanceCellFoundSomeOutputsLackOfType = -80,
     AccountSaleCellCapacityError,
-    AccountSaleCellFeeError,
     AccountSaleCellRefundError,
     AccountSaleCellAccountIdInvalid,
     AccountSaleCellStartedAtInvalid,
@@ -149,7 +148,18 @@ pub enum Error {
     ReverseRecordCellCapacityError,
     ReverseRecordCellAccountError,
     ReverseRecordCellChangeError,
-    UpgradeForWitnessIsRequired,
+    SubAccountCellSMTRootError = -50,
+    SubAccountWitnessSMTRootError,
+    SubAccountCellCapacityError,
+    SubAccountCellAccountIdError,
+    SubAccountCellConsistencyError,
+    SubAccountInitialValueError,
+    SubAccountSigVerifyError,
+    SubAccountFieldNotEditable,
+    SubAccountEditLockError,
+    SubAccountJoinBetaError,
+    SubAccountProfitError,
+    UpgradeForWitnessIsRequired, // -40
     UpgradeDefaultValueOfNewFieldIsError,
     UnittestError = -2,
     SystemOff = -1,

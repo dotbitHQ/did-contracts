@@ -1,5 +1,6 @@
 use super::{assert, constants::*, data_parser, debug, error::Error, util, warn, witness_parser::WitnessesParser};
 use alloc::{
+    boxed::Box,
     collections::btree_map::BTreeMap,
     format,
     string::{String, ToString},
@@ -17,6 +18,7 @@ use ckb_std::{
     high_level,
 };
 use core::convert::{TryFrom, TryInto};
+use das_types::mixer::AccountCellDataMixer;
 use das_types::{
     constants::{DataType, LockRole},
     packed as das_packed,
@@ -601,6 +603,7 @@ fn to_typed_script(parser: &WitnessesParser, script_type: ScriptType, script: da
             Some(TypeScript::PreAccountCellType) => String::from("pre-account-cell-type"),
             Some(TypeScript::ProposalCellType) => String::from("proposal-cell-type"),
             Some(TypeScript::ReverseRecordCellType) => String::from("reverse-record-cell-type"),
+            Some(TypeScript::SubAccountCellType) => String::from("sub-account-cell-type"),
             _ => format!(
                 "0x{}...",
                 util::hex_string(&script.code_hash().raw_data().as_ref()[0..DATA_OMIT_SIZE])
@@ -647,11 +650,22 @@ fn to_semantic_account_witness(
     index: usize,
     source: Source,
 ) -> Result<String, Error> {
-    let (_, _, entity) = parser.verify_with_hash_and_get(expected_hash, data_type, index, source)?;
-    let witness = das_packed::AccountCellData::from_slice(entity.as_reader().raw_data()).map_err(|_| {
-        warn!("EIP712 decoding AccountCellData failed");
-        Error::WitnessEntityDecodingError
-    })?;
+    let (version, _, entity) = parser.verify_with_hash_and_get(expected_hash, data_type, index, source)?;
+    let witness: Box<dyn AccountCellDataMixer> = if version == 2 {
+        Box::new(
+            das_packed::AccountCellDataV2::from_slice(entity.as_reader().raw_data()).map_err(|_| {
+                warn!("EIP712 decoding AccountCellDataV2 failed");
+                Error::WitnessEntityDecodingError
+            })?,
+        )
+    } else {
+        Box::new(
+            das_packed::AccountCellData::from_slice(entity.as_reader().raw_data()).map_err(|_| {
+                warn!("EIP712 decoding AccountCellData failed");
+                Error::WitnessEntityDecodingError
+            })?,
+        )
+    };
     let witness_reader = witness.as_reader();
 
     let status = u8::from(witness_reader.status());

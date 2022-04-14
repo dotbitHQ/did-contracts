@@ -36,31 +36,6 @@ fn test_reverse_record_redeclare() {
 }
 
 #[test]
-fn challenge_reverse_record_redeclare_no_account_cell() {
-    let mut template = init("redeclare_reverse_record");
-    let account = "yyyyy.bit";
-    let owner = "0x050000000000000000000000000000000000001111";
-
-    // inputs
-    push_input_reverse_record_cell(
-        &mut template,
-        REVERSE_RECORD_BASIC_CAPACITY + REVERSE_RECORD_PREPARED_FEE_CAPACITY,
-        owner,
-        "xxxxx.bit",
-    );
-
-    // outputs
-    push_output_reverse_record_cell(
-        &mut template,
-        REVERSE_RECORD_BASIC_CAPACITY + REVERSE_RECORD_PREPARED_FEE_CAPACITY - REVERSE_RECORD_COMMON_FEE,
-        owner,
-        account,
-    );
-
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure)
-}
-
-#[test]
 fn challenge_reverse_record_redeclare_no_reverse_record_cell() {
     let (mut template, _, owner) = before_each();
 

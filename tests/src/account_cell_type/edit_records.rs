@@ -1,14 +1,12 @@
 use super::common::init;
-use crate::util::{
-    accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
-};
+use crate::util::{accounts::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*};
 use das_types_std::constants::*;
 use serde_json::json;
 
 fn before_each() -> (TemplateGenerator, u64) {
     let (mut template, timestamp) = init("edit_records", Some("0x01"));
 
-    template.push_config_cell(DataType::ConfigCellRecordKeyNamespace, true, 0, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellRecordKeyNamespace, Source::CellDep);
 
     push_input_account_cell(
         &mut template,
@@ -122,7 +120,7 @@ fn challenge_account_edit_records_multiple_cells() {
 fn challenge_account_edit_records_with_other_cells() {
     let (mut template, timestamp) = init("edit_records", Some("0x01"));
 
-    template.push_config_cell(DataType::ConfigCellRecordKeyNamespace, true, 0, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellRecordKeyNamespace, Source::CellDep);
     template.push_contract_cell("balance-cell-type", false);
 
     // inputs

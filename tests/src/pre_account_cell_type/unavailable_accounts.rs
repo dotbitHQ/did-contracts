@@ -8,7 +8,7 @@ challenge_with_generator!(
     Error::AccountIsUnAvailable,
     || {
         let (mut template, account, timestamp) = init("thiscantr.bit");
-        template.push_config_cell_derived_by_account("thiscantr", true, 0, Source::CellDep);
+        template.push_config_cell_derived_by_account("thiscantr", Source::CellDep);
 
         let (cell_data, entity) = template.gen_pre_account_cell_data(
             account,
@@ -34,7 +34,7 @@ challenge_with_generator!(
 // challenge if the index will overflow
 test_with_generator!(test_pre_register_unavailable_accounts_below_all, || {
     let (mut template, account, timestamp) = init("🐭🐂🐯🐰🐲🐍🐎🐑🐒🐔🐶🐷.bit");
-    template.push_config_cell_derived_by_account("🐭🐂🐯🐰🐲🐍🐎🐑🐒🐔🐶🐷", true, 0, Source::CellDep);
+    template.push_config_cell_derived_by_account("🐭🐂🐯🐰🐲🐍🐎🐑🐒🐔🐶🐷", Source::CellDep);
 
     let (cell_data, entity) = template.gen_pre_account_cell_data(
         account,

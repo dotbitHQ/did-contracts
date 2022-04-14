@@ -1,5 +1,7 @@
 use super::common::*;
-use crate::util::{constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*};
+use crate::util::{
+    accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
+};
 use das_types_std::constants::Source;
 use serde_json::json;
 
@@ -10,7 +12,7 @@ fn before_each() -> (TemplateGenerator, u64) {
 
     let account_without_suffix = &ACCOUNT[0..ACCOUNT.len() - 4];
     // println!("account_without_suffix = {:?}", account_without_suffix);
-    template.push_config_cell_derived_by_account(account_without_suffix, true, 0, Source::CellDep);
+    template.push_config_cell_derived_by_account(account_without_suffix, Source::CellDep);
 
     // inputs
     let total_input = 600_000_000_000;

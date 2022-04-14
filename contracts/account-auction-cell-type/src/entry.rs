@@ -10,7 +10,7 @@ pub fn main() -> Result<(), Error> {
     };
     let action = action_cp.as_slice();
 
-    util::is_system_off(&mut parser)?;
+    util::is_system_off(&parser)?;
     parser.parse_cell()?;
 
     if action == b"start_account_auction"
@@ -35,7 +35,7 @@ pub fn main() -> Result<(), Error> {
         }
     } else if action == b"force_recover_account_status" {
         util::require_type_script(
-            &mut parser,
+            &parser,
             TypeScript::AccountCellType,
             Source::Input,
             Error::InvalidTransactionStructure,

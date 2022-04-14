@@ -34,6 +34,10 @@ mod proposal_cell_type;
 #[cfg(test)]
 mod reverse_record_cell_type;
 #[cfg(test)]
+mod sub_account_cell_type;
+#[cfg(test)]
+mod sub_account_witness_parser;
+#[cfg(test)]
 mod witness_parser;
 
 #[cfg(test)]

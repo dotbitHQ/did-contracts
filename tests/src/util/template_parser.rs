@@ -1,4 +1,5 @@
 use super::{constants::*, error::Error, util};
+use crate::util::template_generator::TemplateGenerator;
 use ckb_testtool::{
     ckb_error, ckb_jsonrpc_types as rpc_types,
     ckb_types::{
@@ -32,7 +33,7 @@ pub fn test_tx(tx: Value) {
     // );
     let cycles = parser
         .execute_tx(&tx_view)
-        .expect("Transaction verification should pass.");
+        .expect("Transaction verification should pass");
 
     println!(
         r#"︎↑︎======================================↑︎
@@ -76,6 +77,15 @@ pub fn challenge_tx(tx: Value, expected_error: Error) {
             );
         }
     }
+}
+
+// another style of text_tx/challenge_tx
+pub fn test_tx2(tx: fn() -> TemplateGenerator) {
+    test_tx(tx().as_json())
+}
+
+pub fn challenge_tx2(expected_error: Error, tx: fn() -> TemplateGenerator) {
+    challenge_tx(tx().as_json(), expected_error)
 }
 
 pub struct TemplateParser {
@@ -538,7 +548,7 @@ impl TemplateParser {
                     }
                 };
                 // Tip: If contract can not find some cell by type ID, you can uncomment the following line to ensure transaction has correct type ID.
-                // println!("Replace code_hash {} with {} .", code_hash, real_code_hash);
+                // println!("Replace code_hash {} with {} .", script_name, real_code_hash);
 
                 // else parse script field by field.
             } else {

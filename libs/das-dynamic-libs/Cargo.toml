@@ -9,3 +9,5 @@ no_std = []
 
 [dependencies]
 ckb-std = "0.8.0"
+blake2b-ref = "0.3"
+das-types = { path = "../../../das-types/rust", default-features = false }

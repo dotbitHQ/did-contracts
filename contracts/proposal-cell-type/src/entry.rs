@@ -27,15 +27,14 @@ pub fn main() -> Result<(), Error> {
     };
     let action = action_cp.as_slice();
 
-    util::is_system_off(&mut parser)?;
+    util::is_system_off(&parser)?;
 
     debug!("Find out ProposalCell ...");
 
     // Find out PreAccountCells in current transaction.
     let this_type_script = load_script()?;
     let this_type_script_reader = this_type_script.as_reader();
-    let (input_cells, output_cells) =
-        util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script_reader)?;
+    let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
     let dep_cells = util::find_cells_by_script(ScriptType::Type, this_type_script_reader, Source::CellDep)?;
 
     debug!(
@@ -47,24 +46,29 @@ pub fn main() -> Result<(), Error> {
             let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
             parser.parse_cell()?;
-            parser.parse_config(&[DataType::ConfigCellProposal])?;
             let config_main = parser.configs.main()?;
             let config_proposal = parser.configs.proposal()?;
 
             if action == b"propose" {
                 assert!(
-                    dep_cells.len() == 0 && input_cells.len() == 0 && output_cells.len() == 1,
+                    dep_cells.len() == 0,
                     Error::InvalidTransactionStructure,
-                    "There should be only one ProposalCell found in the outputs."
+                    "There should be 0 ProposalCell in the cell_deps."
                 );
             } else {
                 assert!(
-                    dep_cells.len() == 1 && input_cells.len() == 0 && output_cells.len() == 1,
+                    dep_cells.len() == 1,
                     Error::InvalidTransactionStructure,
-                    "There should be one ProposalCell found in the cell_deps and one in the outputs."
+                    "There should be 1 ProposalCell found in the cell_deps"
                 );
             }
 
+            verifiers::common::verify_created_cell_in_correct_position(
+                "ProposalCell",
+                &input_cells,
+                &output_cells,
+                None,
+            )?;
             verifiers::misc::verify_always_success_lock(output_cells[0], Source::Output)?;
 
             let dep_cell_witness;
@@ -124,22 +128,17 @@ pub fn main() -> Result<(), Error> {
             let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
             parser.parse_cell()?;
-            parser.parse_config(&[
-                DataType::ConfigCellAccount,
-                DataType::ConfigCellProfitRate,
-                DataType::ConfigCellIncome,
-                DataType::ConfigCellProposal,
-            ])?;
             let config_account = parser.configs.account()?;
             let config_main = parser.configs.main()?;
             let config_profit_rate = parser.configs.profit_rate()?;
             let config_proposal_reader = parser.configs.proposal()?;
 
-            assert!(
-                dep_cells.len() == 0 && input_cells.len() == 1 && output_cells.len() == 0,
-                Error::InvalidTransactionStructure,
-                "There should be only one ProposalCell found in the inputs."
-            );
+            verifiers::common::verify_removed_cell_in_correct_position(
+                "ProposalCell",
+                &input_cells,
+                &output_cells,
+                None,
+            )?;
 
             let input_cell_witness;
             let input_cell_witness_reader;
@@ -181,14 +180,14 @@ pub fn main() -> Result<(), Error> {
         }
         b"recycle_proposal" => {
             parser.parse_cell()?;
-            parser.parse_config(&[DataType::ConfigCellProposal])?;
             let config_proposal_reader = parser.configs.proposal()?;
 
-            assert!(
-                dep_cells.len() == 0 && input_cells.len() == 1 && output_cells.len() == 0,
-                Error::InvalidTransactionStructure,
-                "There should be only one ProposalCell found in the inputs."
-            );
+            verifiers::common::verify_removed_cell_in_correct_position(
+                "ProposalCell",
+                &input_cells,
+                &output_cells,
+                None,
+            )?;
 
             debug!("Check if ProposalCell can be recycled.");
 
@@ -265,9 +264,25 @@ fn inspect_related_cells(
         let code_hash = Hash::from(script.code_hash());
 
         if util::is_reader_eq(config_main.type_id_table().account_cell(), code_hash.as_reader()) {
-            let (version, _, entity) = parser.verify_and_get(DataType::AccountCellData, i, related_cells_source)?;
+            let account_cell_witness: Box<dyn AccountCellDataMixer>;
+            let account_cell_witness_reader;
+            parse_account_cell_witness!(
+                account_cell_witness,
+                account_cell_witness_reader,
+                parser,
+                i,
+                related_cells_source
+            );
+            let (version, _, _) = parser.verify_and_get(DataType::AccountCellData, i, related_cells_source)?;
             let data = util::load_cell_data(i, related_cells_source)?;
-            das_core::inspect::account_cell(related_cells_source, i, &data, version, Some(entity.as_reader()), None);
+            das_core::inspect::account_cell(
+                related_cells_source,
+                i,
+                &data,
+                version,
+                None,
+                Some(account_cell_witness_reader),
+            );
         } else if util::is_reader_eq(config_main.type_id_table().pre_account_cell(), code_hash.as_reader()) {
             let (_, _, entity) = parser.verify_and_get(DataType::PreAccountCellData, i, related_cells_source)?;
             let data = util::load_cell_data(i, related_cells_source)?;
@@ -865,7 +880,10 @@ fn verify_proposal_execution_result(
                 // Check all fields in the witness of new AccountCell.
                 verify_witness_id(item_index, &output_cell_data, output_cell_witness_reader)?;
                 verify_witness_account(item_index, &output_cell_data, output_cell_witness_reader)?;
+                verify_witness_registered_at(item_index, timestamp, output_cell_witness_reader)?;
+                verify_witness_throttle_fields(item_index, output_cell_witness_reader)?;
                 verify_witness_status(item_index, output_cell_witness_reader)?;
+                verify_witness_sub_account_fields(item_index, output_cell_witness_reader)?;
 
                 let mut inviter_profit = 0;
                 if input_cell_witness_reader.inviter_lock().is_some() {
@@ -936,37 +954,7 @@ fn verify_proposal_execution_result(
         }
     }
 
-    let income_cell_type_id = config_main.type_id_table().income_cell();
-    let output_income_cells = util::find_cells_by_type_id(ScriptType::Type, income_cell_type_id, Source::Output)?;
-
-    debug!("Check if the IncomeCell in outputs records everyone's profit correctly.");
-
-    assert!(
-        output_income_cells.len() == 1,
-        Error::InvalidTransactionStructure,
-        "The number of IncomeCells in outputs should be exactly 1 . (expected: == 1, current: {})",
-        output_income_cells.len()
-    );
-
-    let output_income_cell_witness;
-    let output_income_cell_witness_reader;
-    parse_witness!(
-        output_income_cell_witness,
-        output_income_cell_witness_reader,
-        parser,
-        output_income_cells[0],
-        Source::Output,
-        DataType::IncomeCellData,
-        IncomeCellData
-    );
-
-    verifiers::income_cell::verify_records_match_with_creating(
-        parser.configs.income()?,
-        output_income_cells[0],
-        Source::Output,
-        output_income_cell_witness_reader,
-        profit_map,
-    )?;
+    verifiers::income_cell::verify_income_cells(&parser, profit_map)?;
 
     Ok(())
 }
@@ -1241,7 +1229,7 @@ fn verify_witness_id(
         "witness.id",
         account_id,
         expected_account_id,
-        Error::ProposalConfirmWitnessIDError,
+        Error::ProposalConfirmNewAccountWitnessError,
     )
 }
 
@@ -1259,8 +1247,45 @@ fn verify_witness_account(
         "witness.account",
         account.as_slice(),
         expected_account,
-        Error::ProposalConfirmWitnessAccountError,
+        Error::ProposalConfirmNewAccountWitnessError,
     )
+}
+
+fn verify_witness_registered_at(
+    item_index: usize,
+    timestamp: u64,
+    output_cell_witness_reader: AccountCellDataReader,
+) -> Result<(), Error> {
+    let registered_at = u64::from(output_cell_witness_reader.registered_at());
+
+    assert!(
+        registered_at == timestamp,
+        Error::ProposalConfirmNewAccountWitnessError,
+        "  Item[{}] The AccountCell.registered_at should be the same as the timestamp in TimeCell.(expected: {}, current: {})",
+        item_index,
+        timestamp,
+        registered_at
+    );
+
+    Ok(())
+}
+
+fn verify_witness_throttle_fields(
+    item_index: usize,
+    output_cell_witness_reader: AccountCellDataReader,
+) -> Result<(), Error> {
+    let last_transfer_account_at = u64::from(output_cell_witness_reader.last_transfer_account_at());
+    let last_edit_manager_at = u64::from(output_cell_witness_reader.last_edit_manager_at());
+    let last_edit_records_at = u64::from(output_cell_witness_reader.last_edit_records_at());
+
+    assert!(
+        last_transfer_account_at == 0 && last_edit_manager_at == 0 && last_edit_records_at == 0,
+        Error::ProposalConfirmNewAccountWitnessError,
+        "  Item[{}] The AccountCell.last_transfer_account_at/last_edit_manager_at/last_edit_records_at should be 0 .",
+        item_index
+    );
+
+    Ok(())
 }
 
 fn verify_witness_status(item_index: usize, output_cell_witness_reader: AccountCellDataReader) -> Result<(), Error> {
@@ -1268,10 +1293,36 @@ fn verify_witness_status(item_index: usize, output_cell_witness_reader: AccountC
 
     assert!(
         status == AccountStatus::Normal as u8,
-        Error::ProposalConfirmWitnessManagerError,
-        "  Item[{}] Check if outputs[].AccountCell.status is normal. (result: {}, expected: 0)",
+        Error::ProposalConfirmNewAccountWitnessError,
+        "  Item[{}] The AccountCell.status should be normal. (expected: 0, current: {})",
         item_index,
         status
+    );
+
+    Ok(())
+}
+
+fn verify_witness_sub_account_fields(
+    item_index: usize,
+    output_cell_witness_reader: AccountCellDataReader,
+) -> Result<(), Error> {
+    let enable_sub_account = u8::from(output_cell_witness_reader.enable_sub_account());
+    let renew_sub_account_price = u64::from(output_cell_witness_reader.renew_sub_account_price());
+
+    assert!(
+        enable_sub_account == SubAccountEnableStatus::Off as u8,
+        Error::ProposalConfirmNewAccountWitnessError,
+        "  Item[{}] The AccountCell.enable_sub_account should be off. (expected: 0, current: {})",
+        item_index,
+        enable_sub_account
+    );
+
+    assert!(
+        renew_sub_account_price == 0,
+        Error::ProposalConfirmNewAccountWitnessError,
+        "  Item[{}] The AccountCell.renew_sub_account_price should be 0. (expected: 0, current: {})",
+        item_index,
+        renew_sub_account_price
     );
 
     Ok(())

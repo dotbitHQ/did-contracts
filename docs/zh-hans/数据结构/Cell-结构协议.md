@@ -520,7 +520,10 @@ table OfferCellData {
 
 ```
 lock: <always_success>
-type: <sub-account-cell-type>
+type: 
+  code_hash: <sub-account-cell-type>,
+  type: type,
+  args: [account_id], // 账户 ID ，也就是和 AccountCell.data.id 相同的值
 
 data: SMTRoot
 ```
@@ -936,9 +939,9 @@ type:
   type: type
   args: "0x01"
 data:
-    [index] // 1 字节小端编码的 u8 整形，存放当前是 TimeCell 中的第几个
+    [index] // 1 字节大端编码的 u8 整形，存放当前是 TimeCell 中的第几个
     [type] // 1 字节的类型，用于标识当前 Cell 是 HeightCell
-    [timestamp] // 4 字节小端编码的 u32 整形，存放当前的 UTC 时间戳
+    [timestamp] // 4 字节大端编码的 u32 整形，存放当前的 UTC 时间戳
 ```
 
 > TimeCell 因为 TimeCell 的时间戳实际上还是基于链上的时间戳产生，所以与现实时间存在 5 分钟左右的误差。
@@ -952,9 +955,9 @@ type:
   type: type
   args: "0x02"
 data:
-    [index] // 1 字节小端编码的 u8 整形，存放当前是 Height 中的第几个
+    [index] // 1 字节大端编码的 u8 整形，存放当前是 Height 中的第几个
     [type] // 1 字节的类型，用于标识当前 Cell 是 HeightCell
-    [block_height] // 8 字节小端编码的 u64 整形，存放当前的区块高度
+    [block_height] // 8 字节大端编码的 u64 整形，存放当前的区块高度
 ```
 
 #### QuoteCell
@@ -968,9 +971,9 @@ type:
   type: type
   args: "0x00"
 data:
-    [index] // 1 字节小端编码的 u8 整形，存放当前是 Height 中的第几个
+    [index] // 1 字节大端编码的 u8 整形，存放当前是 Height 中的第几个
     [type] // 1 字节的类型，用于标识当前 Cell 是 HeightCell
-    [block_height] // 8 字节小端编码的 u64 整形，存放当前的区块高度
+    [block_height] // 8 字节大端编码的 u64 整形，存放当前的区块高度
 ```
 
 #### 体积
@@ -1011,19 +1014,20 @@ enum DataType {
     IncomeCellData,
     OfferCellData,
     SubAccount,
-    ConfigCellAccount = 100,  // args: 0x64000000
-    ConfigCellApply = 101,    // args: 0x65000000
-    ConfigCellIncome = 103,   // args: 0x67000000
-    ConfigCellMain, // args: 0x68000000           
-    ConfigCellPrice, // args: 0x69000000           
-    ConfigCellProposal, // args: 0x6a000000           
-    ConfigCellProfitRate, // args: 0x6b000000           
-    ConfigCellRecordKeyNamespace, // args: 0x6c000000           
-    ConfigCellRelease, // args: 0x6d000000           
-    ConfigCellUnAvailableAccount, // args: 0x6e000000           
-    ConfigCellSecondaryMarket, // args: 0x6f000000           
-    ConfigCellReverseResolution, // args: 0x7000000           
-    ConfigCellPreservedAccount00 = 10000, // args: 0x10270000           
+    ConfigCellAccount = 100,              // args: 0x64000000
+    ConfigCellApply = 101,                // args: 0x65000000
+    ConfigCellIncome = 103,               // args: 0x67000000
+    ConfigCellMain,                       // args: 0x68000000
+    ConfigCellPrice,                      // args: 0x69000000
+    ConfigCellProposal,                   // args: 0x6a000000
+    ConfigCellProfitRate,                 // args: 0x6b000000
+    ConfigCellRecordKeyNamespace,         // args: 0x6c000000
+    ConfigCellRelease,                    // args: 0x6d000000
+    ConfigCellUnAvailableAccount,         // args: 0x6e000000
+    ConfigCellSecondaryMarket,            // args: 0x6f000000
+    ConfigCellReverseResolution,          // args: 0x70000000
+    ConfigCellSubAccount,                 // args: 0x71000000
+    ConfigCellPreservedAccount00 = 10000, // args: 0x10270000
     ConfigCellPreservedAccount01,
     ConfigCellPreservedAccount02,
     ConfigCellPreservedAccount03,
@@ -1042,10 +1046,10 @@ enum DataType {
     ConfigCellPreservedAccount16,
     ConfigCellPreservedAccount17,
     ConfigCellPreservedAccount18,
-    ConfigCellPreservedAccount19, // args: 0x23270000
-    ConfigCellCharSetEmoji = 100000, // args: 0xa0860100
-    ConfigCellCharSetDigit = 100001, // args: 0xa1860100
-    ConfigCellCharSetEn = 100002, // args: 0xa2860100
+    ConfigCellPreservedAccount19,     // args: 0x23270000
+    ConfigCellCharSetEmoji = 100000,  // args: 0xa0860100
+    ConfigCellCharSetDigit = 100001,  // args: 0xa1860100
+    ConfigCellCharSetEn = 100002,     // args: 0xa2860100
     ConfigCellCharSetZhHans = 100003, // args: 0xa3860100, not available yet
     ConfigCellCharSetZhHant = 100004, // args: 0xa4860100, not available yet
 }

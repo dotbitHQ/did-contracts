@@ -21,6 +21,8 @@ pub const INVITED_DISCOUNT: u64 = 500;
 pub const CONSOLIDATING_FEE: u64 = 100;
 pub const CKB_QUOTE: u64 = 1000;
 
+pub const INCOME_BASIC_CAPACITY: u64 = 20_000_000_000;
+
 pub const SALE_BUYER_INVITER_PROFIT_RATE: u64 = 100;
 pub const SALE_BUYER_CHANNEL_PROFIT_RATE: u64 = 100;
 
@@ -35,6 +37,16 @@ pub const SECONDARY_MARKET_COMMON_FEE: u64 = 10_000;
 pub const REVERSE_RECORD_BASIC_CAPACITY: u64 = 20_000_000_000;
 pub const REVERSE_RECORD_PREPARED_FEE_CAPACITY: u64 = 100_000_000;
 pub const REVERSE_RECORD_COMMON_FEE: u64 = 10_000;
+
+pub const SUB_ACCOUNT_BASIC_CAPACITY: u64 = 20_000_000_000;
+pub const SUB_ACCOUNT_PREPARED_FEE_CAPACITY: u64 = 1_000_000_000;
+pub const SUB_ACCOUNT_NEW_PRICE: u64 = 100_000_000;
+pub const SUB_ACCOUNT_RENEW_PRICE: u64 = 100_000_000;
+pub const SUB_ACCOUNT_COMMON_FEE: u64 = 30_000;
+pub const SUB_ACCOUNT_CREATE_FEE: u64 = 30_000;
+pub const SUB_ACCOUNT_EDIT_FEE: u64 = 30_000;
+pub const SUB_ACCOUNT_RENEW_FEE: u64 = 30_000;
+pub const SUB_ACCOUNT_RECYCLE_FEE: u64 = 30_000;
 
 pub const HOUR_SEC: u64 = 3600;
 pub const DAY_SEC: u64 = 86400;
@@ -55,9 +67,6 @@ pub const DAO_TYPE_HASH: H256 = h256!("0x82d76d1b75fe2fd9a27dfbaa65a039221a380d7
 pub const CONFIG_LOCK_ARGS: &str = "0x0000000000000000000000000000000000000000";
 pub const DAS_WALLET_LOCK_ARGS: &str = "0x0300000000000000000000000000000000000000";
 pub const QUOTE_LOCK_ARGS: &str = "0x0100000000000000000000000000000000000000";
-pub const COMMON_INCOME_CREATOR_LOCK_ARGS: &str = "0x9900000000000000000000000000000000000000";
-pub const INVITER_LOCK_ARGS: &str = "0x050000000000000000000000000000000000007777";
-pub const CHANNEL_LOCK_ARGS: &str = "0x050000000000000000000000000000000000008888";
 
 #[derive(Debug)]
 #[repr(u8)]
@@ -77,6 +86,9 @@ pub enum OracleCellType {
 lazy_static! {
     pub static ref TYPE_ID_TABLE: HashMap<&'static str, &'static str> = {
         // For calculation of these type ID, you need uncomment a line of debug code in the funtion **deploy_contract** in src/util.rs.
+        //
+        // CAREFUL! There may be some error in the map, but the contracts will still work. It is because when parsing scripts in cell_deps, their type
+        // ID will be calculated dynamically and insert into the map.
         let mut map = HashMap::new();
         map.insert(
             "fake-das-lock",
@@ -99,8 +111,8 @@ lazy_static! {
             "0x3acbbdc4c0f0dc7433f5aac30b079a3fd3bfaaf3aeeea904af830dad99da1e49",
         );
         map.insert(
-            "always-success",
-            "0x3f67f5b5761db78ce746f0b140e0e63783fa84598e7e19a02ae8d417c0dfb882",
+            "always_success",
+            "0x9d6f2919e328f3217d7dd3dab5f7cee9d8e062bee6a80d5d05cd495ca3416378",
         );
         map.insert(
             "apply-register-cell-type",
@@ -133,6 +145,10 @@ lazy_static! {
         map.insert(
             "reverse-record-cell-type",
             "0x666163a5626501ca714b96cbcb4730b0a111ec2640fb432d0ba7f4ba5fa2855b",
+        );
+        map.insert(
+            "sub-account-cell-type",
+            "0xbdbe9526416cd0a86c7a3b78ae8907aed9fa37ef1d51d4c54638d81dd423e5b5",
         );
         map.insert(
             "test-env",
