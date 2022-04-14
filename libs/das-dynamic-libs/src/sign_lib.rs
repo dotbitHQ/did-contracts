@@ -1,4 +1,4 @@
-use super::{constants::*, util};
+use super::{constants::*, macros::*, util};
 use alloc::{string::String, vec::Vec};
 use ckb_std::dynamic_loading_c_impl::{CKBDLContext, Symbol};
 use core::lazy::OnceCell;
@@ -41,6 +41,8 @@ impl SignLib {
     ///
     /// Required memory size: about 128 * 1024 for each script
     pub fn load(code_hash: &[u8]) -> SignLibMethods<[u8; 128 * 1024]> {
+        debug!("Load dynamic library with code_hash: 0x{}", util::hex_string(code_hash));
+
         let mut context = unsafe { CKBDLContext::<[u8; 128 * 1024]>::new() };
         let lib = context
             .load(code_hash)

@@ -4,5 +4,6 @@
 extern crate alloc;
 
 pub mod constants;
+mod macros;
 pub mod sign_lib;
 mod util;
