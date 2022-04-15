@@ -160,6 +160,7 @@ pub fn verify_smt_proof(key: [u8; 32], val: [u8; 32], root: [u8; 32], proof: &[u
 
 pub fn verify_sub_account_sig(
     sign_lib: &SignLib,
+    alg_id: i8,
     account_id: &[u8],
     edit_key: &[u8],
     edit_value: &[u8],
@@ -171,8 +172,11 @@ pub fn verify_sub_account_sig(
         // CAREFUL Proof verification has been skipped in development mode.
         return Ok(());
     }
-
+    if alg_id != 3 || alg_id != 5 {
+        return Err(SubAccountSigVerifyError);
+    }
     let ret = sign_lib.verify_sub_account_sig(
+        alg_id,
         account_id.to_vec(),
         edit_key.to_vec(),
         edit_value.to_vec(),

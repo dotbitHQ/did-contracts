@@ -229,8 +229,10 @@ pub fn main() -> Result<(), Error> {
 
                                 smt_verify_sub_account_is_editable(witness, new_sub_account_reader)?;
 
+                                alg_id = 3i8; // TODO
                                 verifiers::sub_account_cell::verify_sub_account_sig(
                                     &sign_lib,
+                                    alg_id,
                                     witness.sub_account.id().as_slice(),
                                     witness.edit_key.as_slice(),
                                     witness.edit_value_bytes.as_slice(),
