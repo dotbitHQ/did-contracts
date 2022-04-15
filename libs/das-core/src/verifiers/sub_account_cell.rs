@@ -189,6 +189,10 @@ pub fn verify_sub_account_sig(
     Ok(())
 }
 
+const SUB_ACCOUNT_BETA_LIST_WILDCARD: [u8; 20] = [
+    216, 59, 196, 4, 163, 94, 224, 196, 194, 5, 93, 90, 193, 58, 92, 50, 58, 174, 73, 74,
+];
+
 /// Verify if the account can join sub-account feature beta.
 pub fn verify_beta_list(parser: &WitnessesParser, account: &[u8]) -> Result<(), Error> {
     debug!("Verify if the account can join sub-account feature beta");
@@ -197,7 +201,10 @@ pub fn verify_beta_list(parser: &WitnessesParser, account: &[u8]) -> Result<(), 
     let account_id = account_hash.get(..ACCOUNT_ID_LENGTH).unwrap();
     let sub_account_beta_list = parser.configs.sub_account_beta_list()?;
 
-    if !util::is_account_id_in_collection(account_id, sub_account_beta_list) {
+    if sub_account_beta_list == &SUB_ACCOUNT_BETA_LIST_WILDCARD {
+        debug!("The wildcard '*' of beta list is matched.");
+        return Ok(());
+    } else if !util::is_account_id_in_collection(account_id, sub_account_beta_list) {
         warn!(
             "The account is not allow to enable sub-account feature in beta test.(account: {}, account_id: 0x{})",
             String::from_utf8(account.to_vec()).unwrap(),
@@ -205,6 +212,11 @@ pub fn verify_beta_list(parser: &WitnessesParser, account: &[u8]) -> Result<(), 
         );
         return Err(Error::SubAccountJoinBetaError);
     }
+
+    debug!(
+        "Found account {:?} in the beta list.",
+        String::from_utf8(account.to_vec())
+    );
 
     Ok(())
 }
