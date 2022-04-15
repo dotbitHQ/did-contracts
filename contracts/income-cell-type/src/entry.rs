@@ -429,14 +429,6 @@ pub fn main() -> Result<(), Error> {
                 Error::InvalidTransactionStructure,
             )?;
         }
-        b"create_sub_account" | b"renew_sub_account" => {
-            util::require_type_script(
-                &parser,
-                TypeScript::SubAccountCellType,
-                Source::Input,
-                Error::InvalidTransactionStructure,
-            )?;
-        }
         _ => {
             warn!("The ActionData in witness has an undefined action.");
             return Err(Error::ActionNotSupported);

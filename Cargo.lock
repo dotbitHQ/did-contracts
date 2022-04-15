@@ -26,7 +26,7 @@ dependencies = [
 
 [[package]]
 name = "account-sale-cell-type"
-version = "1.1.0"
+version = "1.1.1"
 dependencies = [
  "chrono",
  "ckb-std",
@@ -85,7 +85,7 @@ checksum = "afddf7f520a80dbf76e6f50a35bca42a2331ef227a28b3b6dc5c2e2338d114b1"
 
 [[package]]
 name = "apply-register-cell-type"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "ckb-std",
  "das-core",
@@ -101,7 +101,7 @@ checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 
 [[package]]
 name = "balance-cell-type"
-version = "1.2.0"
+version = "1.3.0"
 dependencies = [
  "ckb-std",
  "das-core",
@@ -666,7 +666,7 @@ checksum = "158a0d1040eb06fc9803f5fa3fd71eff349624dd14a73266972a599ac008900e"
 
 [[package]]
 name = "config-cell-type"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "ckb-std",
  "das-core",
@@ -1129,7 +1129,7 @@ dependencies = [
 
 [[package]]
 name = "income-cell-type"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "ckb-std",
  "das-core",
@@ -1336,7 +1336,7 @@ dependencies = [
 
 [[package]]
 name = "offer-cell-type"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "ckb-std",
  "das-core",
@@ -1510,7 +1510,7 @@ checksum = "ac74c624d6b2d21f425f752262f42188365d7b8ff1aff74c82e45136510a4857"
 
 [[package]]
 name = "pre-account-cell-type"
-version = "1.1.1"
+version = "1.2.0"
 dependencies = [
  "chrono",
  "ckb-std",
@@ -1542,7 +1542,7 @@ dependencies = [
 
 [[package]]
 name = "proposal-cell-type"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "chrono",
  "ckb-std",
@@ -1687,7 +1687,7 @@ dependencies = [
 
 [[package]]
 name = "reverse-record-cell-type"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "ckb-std",
  "das-core",
