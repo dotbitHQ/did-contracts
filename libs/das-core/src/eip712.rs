@@ -345,7 +345,7 @@ pub fn to_semantic_address(
 
                     address = format!("{}", script_to_legacy_address(vec![0], vec![1], pubkey_hash)?)
                 }
-                DasLockType::TRX => {
+                DasLockType::TRON => {
                     let mut raw = [0u8; 21];
                     raw[0] = TRX_ADDR_PREFIX;
                     if role == LockRole::Owner {

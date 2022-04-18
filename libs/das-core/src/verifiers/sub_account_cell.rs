@@ -1,7 +1,10 @@
-use crate::{assert, constants::*, data_parser, debug, error::Error, util, warn, witness_parser::WitnessesParser};
+use crate::{
+    assert, constants::*, data_parser, debug, error::Error, sub_account_witness_parser::SubAccountWitness, util, warn,
+    witness_parser::WitnessesParser,
+};
 use alloc::string::String;
-use das_dynamic_libs::sign_lib::SignLib;
-use das_types::{constants::*, packed::*, prettier::Prettier};
+use das_dynamic_libs::{error::Error as DasDynamicLibError, sign_lib::SignLib};
+use das_types::{constants::*, packed::*, prelude::Entity, prettier::Prettier};
 use sparse_merkle_tree::{ckb_smt::SMTBuilder, H256};
 
 pub fn verify_expiration(
@@ -158,39 +161,60 @@ pub fn verify_smt_proof(key: [u8; 32], val: [u8; 32], root: [u8; 32], proof: &[u
     Ok(())
 }
 
-pub fn verify_sub_account_sig(
-    sign_lib: &SignLib,
-    alg_id: i8,
-    account_id: &[u8],
-    edit_key: &[u8],
-    edit_value: &[u8],
-    nonce: &[u8],
-    signature: &[u8],
-    args: &[u8],
-) -> Result<(), Error> {
+pub fn verify_sub_account_sig(witness: &SubAccountWitness, sign_lib: &SignLib) -> Result<(), Error> {
     if cfg!(feature = "dev") {
         // CAREFUL Proof verification has been skipped in development mode.
         return Ok(());
     }
-    if alg_id != 3 || alg_id != 5 {
-        return Err(SubAccountSigVerifyError);
-    }
+
+    let das_lock_type = match witness.sign_type {
+        Some(val) => val,
+        _ => {
+            warn!(
+                "witnesses[{}] Parsing das-lock(witness.sub_account.lock.args) algorithm failed, but it is required in this transaction.",
+                witness.index
+            );
+            return Err(Error::InvalidTransactionStructure);
+        }
+    };
+
+    let account_id = witness.sub_account.id().as_slice().to_vec();
+    let edit_key = witness.edit_key.as_slice();
+    let edit_value = witness.edit_value_bytes.as_slice();
+    let nonce = witness.sub_account.nonce().as_slice().to_vec();
+    let signature = witness.signature.as_slice();
+    let args = witness.sign_args.as_slice();
+
     let ret = sign_lib.verify_sub_account_sig(
-        alg_id,
-        account_id.to_vec(),
+        das_lock_type,
+        account_id,
         edit_key.to_vec(),
         edit_value.to_vec(),
-        nonce.to_vec(),
+        nonce,
         signature.to_vec(),
         args.to_vec(),
     );
-    if let Err(_error_code) = ret {
-        debug!("verify_sub_account_sig failed, error_code: {}", _error_code);
-        return Err(Error::SubAccountSigVerifyError);
-    } else {
-        debug!("verify_sub_account_sig succeed.");
+
+    match ret {
+        Err(_error_code) if _error_code == DasDynamicLibError::UndefinedDasLockType as i32 => {
+            warn!(
+                "witnesses[{}] The signature algorithm has not been supported",
+                witness.index
+            );
+            Err(Error::HardCodedError)
+        }
+        Err(_error_code) => {
+            warn!(
+                "witnesses[{}] The witness.signature is invalid, the error_code returned by dynamic library is: {}",
+                witness.index, _error_code
+            );
+            Err(Error::SubAccountSigVerifyError)
+        }
+        _ => {
+            debug!("witnesses[{}] The witness.signature is valid.", witness.index);
+            Ok(())
+        }
     }
-    Ok(())
 }
 
 const SUB_ACCOUNT_BETA_LIST_WILDCARD: [u8; 20] = [

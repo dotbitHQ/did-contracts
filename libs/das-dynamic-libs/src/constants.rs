@@ -1,6 +1,5 @@
 use core::convert::TryFrom;
 
-// TODO This is copy from das-core/src/constants, it should be unified as soon as possible.
 #[derive(Debug, PartialEq, Copy, Clone)]
 #[repr(u8)]
 pub enum DasLockType {
@@ -8,7 +7,7 @@ pub enum DasLockType {
     CKBMulti,
     XXX,
     ETH,
-    TRX,
+    TRON,
     ETHTypedData,
     MIXIN,
 }
@@ -22,7 +21,7 @@ impl TryFrom<u8> for DasLockType {
             x if x == DasLockType::CKBMulti as u8 => Ok(DasLockType::CKBMulti),
             x if x == DasLockType::XXX as u8 => Ok(DasLockType::XXX),
             x if x == DasLockType::ETH as u8 => Ok(DasLockType::ETH),
-            x if x == DasLockType::TRX as u8 => Ok(DasLockType::TRX),
+            x if x == DasLockType::TRON as u8 => Ok(DasLockType::TRON),
             x if x == DasLockType::ETHTypedData as u8 => Ok(DasLockType::ETHTypedData),
             x if x == DasLockType::MIXIN as u8 => Ok(DasLockType::MIXIN),
             _ => Err(()),

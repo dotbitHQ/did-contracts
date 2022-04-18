@@ -5,6 +5,7 @@ use core::{
     convert::{TryFrom, TryInto},
     lazy::OnceCell,
 };
+use das_dynamic_libs::constants::DasLockType;
 use das_types::{constants::*, packed::*, prelude::*};
 
 #[cfg(all(debug_assertions))]
@@ -21,6 +22,7 @@ pub struct SubAccountWitness {
     // The rest is actually existing fields in the witness.
     pub signature: Vec<u8>,
     pub sign_role: Vec<u8>,
+    pub sign_type: Option<DasLockType>,
     pub sign_args: Vec<u8>,
     pub prev_root: Vec<u8>,
     pub current_root: Vec<u8>,
@@ -204,16 +206,25 @@ impl SubAccountWitnessesParser {
             _ => SubAccountEditValue::None,
         };
 
+        let mut sign_type = None;
         let mut sign_args = Vec::new();
         if sign_role.len() == 1 {
             let sign_role_int = u8::from_le_bytes(sign_role.try_into().unwrap());
-            let args = sub_account.lock().args();
+            let args = sub_account.as_reader().lock().args();
+            let args_bytes = args.raw_data();
 
-            sign_args = if sign_role_int == LockRole::Owner as u8 {
-                data_parser::das_lock_args::get_owner_lock_args(args.as_reader().raw_data()).to_vec()
+            let sign_type_int;
+            let sign_args_ref;
+            if sign_role_int == LockRole::Owner as u8 {
+                sign_type_int = data_parser::das_lock_args::get_owner_type(args_bytes);
+                sign_args_ref = data_parser::das_lock_args::get_owner_lock_args(args_bytes);
             } else {
-                data_parser::das_lock_args::get_manager_lock_args(args.as_reader().raw_data()).to_vec()
+                sign_type_int = data_parser::das_lock_args::get_manager_type(args_bytes);
+                sign_args_ref = data_parser::das_lock_args::get_manager_lock_args(args_bytes);
             };
+
+            sign_type = DasLockType::try_from(sign_type_int).ok();
+            sign_args = sign_args_ref.to_vec();
         }
 
         debug!(
@@ -225,6 +236,7 @@ impl SubAccountWitnessesParser {
             index: i,
             signature: signature.to_vec(),
             sign_role: sign_role.to_vec(),
+            sign_type,
             sign_args,
             prev_root: prev_root.to_vec(),
             current_root: current_root.to_vec(),

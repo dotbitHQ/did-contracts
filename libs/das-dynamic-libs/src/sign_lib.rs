@@ -40,8 +40,12 @@ impl SignLib {
     /// Load signature validation libraries from das-lock
     ///
     /// Required memory size: about 128 * 1024 for each script
-    pub fn load(code_hash: &[u8]) -> SignLibMethods<[u8; 128 * 1024]> {
-        debug!("Load dynamic library with code_hash: 0x{}", util::hex_string(code_hash));
+    pub fn load(name: &str, code_hash: &[u8]) -> SignLibMethods<[u8; 128 * 1024]> {
+        debug!(
+            "Load dynamic library of {} with code_hash: 0x{}",
+            name,
+            util::hex_string(code_hash)
+        );
 
         let mut context = unsafe { CKBDLContext::<[u8; 128 * 1024]>::new() };
         let lib = context
@@ -62,18 +66,29 @@ impl SignLib {
     }
 
     pub fn eth_lib(&self) -> &SignLibMethods<[u8; 128 * 1024]> {
-        self.eth.get_or_init(|| Self::load(&ETH_LIB_CODE_HASH))
+        self.eth.get_or_init(|| Self::load("ETH", &ETH_LIB_CODE_HASH))
     }
 
     pub fn tron_lib(&self) -> &SignLibMethods<[u8; 128 * 1024]> {
-        self.tron.get_or_init(|| Self::load(&TRON_LIB_CODE_HASH))
+        self.tron.get_or_init(|| Self::load("TRON", &TRON_LIB_CODE_HASH))
     }
 
     /// Validate signatures
     ///
     /// costs: about 2_000_000 cycles
-    pub fn validate(&self, type_no: i32, digest: Vec<u8>, lock_bytes: Vec<u8>, lock_args: Vec<u8>) -> Result<(), i32> {
-        let lib = self.eth_lib();
+    pub fn validate(
+        &self,
+        das_lock_type: DasLockType,
+        type_no: i32,
+        digest: Vec<u8>,
+        lock_bytes: Vec<u8>,
+        lock_args: Vec<u8>,
+    ) -> Result<(), i32> {
+        let lib = match das_lock_type {
+            DasLockType::ETH | DasLockType::ETHTypedData => self.eth_lib(),
+            DasLockType::TRON => self.tron_lib(),
+            _ => return Err(-1),
+        };
         let func = &lib.c_validate;
         let error_code: i32 = unsafe { func(type_no, digest.as_ptr(), lock_bytes.as_ptr(), lock_args.as_ptr()) };
         if error_code != 0 {
@@ -85,17 +100,17 @@ impl SignLib {
 
     pub fn validate_str(
         &self,
-        alg_id: i8,
+        das_lock_type: DasLockType,
         type_no: i32,
         digest: Vec<u8>,
         digest_len: usize,
         lock_bytes: Vec<u8>,
         lock_args: Vec<u8>,
     ) -> Result<(), i32> {
-        let lib = if alg_id == 3 { 
-            self.eth_lib()
-        } else {
-            self.tron_lib()
+        let lib = match das_lock_type {
+            DasLockType::ETH | DasLockType::ETHTypedData => self.eth_lib(),
+            DasLockType::TRON => self.tron_lib(),
+            _ => return Err(-1),
         };
         let func = &lib.c_validate_str;
         let error_code: i32 = unsafe {
@@ -114,7 +129,14 @@ impl SignLib {
         Ok(())
     }
 
-    pub fn gen_digest(&self, alg_id: i8, account_id: Vec<u8>, edit_key: Vec<u8>, edit_value: Vec<u8>, nonce: Vec<u8>) -> Vec<u8> {
+    pub fn gen_digest(
+        &self,
+        das_lock_type: DasLockType,
+        account_id: Vec<u8>,
+        edit_key: Vec<u8>,
+        edit_value: Vec<u8>,
+        nonce: Vec<u8>,
+    ) -> Vec<u8> {
         let mut blake2b = util::new_blake2b();
         blake2b.update(&account_id);
         blake2b.update(&edit_key);
@@ -123,12 +145,10 @@ impl SignLib {
         let mut h = [0u8; 32];
         blake2b.finalize(&mut h);
         let h_hex = util::hex_string(&h);
-        let prefix = if alg_id == 3 { // eth sign 
-            String::from("from did: ")
-        } else if alg_id == 5 { // tron sign
-            String::from("d1d")
-        } else {
-            String::from("")
+        let prefix = match das_lock_type {
+            DasLockType::ETH => String::from("from did: "),
+            DasLockType::TRON => String::from("d1d"),
+            _ => String::from(""),
         };
         let s = prefix + &h_hex;
         s.as_bytes().to_vec()
@@ -136,7 +156,7 @@ impl SignLib {
 
     pub fn verify_sub_account_sig(
         &self,
-        alg_id: i8,
+        das_lock_type: DasLockType,
         account_id: Vec<u8>,
         edit_key: Vec<u8>,
         edit_value: Vec<u8>,
@@ -144,10 +164,10 @@ impl SignLib {
         sig: Vec<u8>,
         args: Vec<u8>,
     ) -> Result<(), i32> {
-        let message = self.gen_digest(alg_id, account_id, edit_key, edit_value, nonce);
+        let message = self.gen_digest(das_lock_type, account_id, edit_key, edit_value, nonce);
         let type_no = 0i32;
         let m_len = message.len();
-        let ret = self.validate_str(alg_id, type_no, message, m_len, sig, args);
+        let ret = self.validate_str(das_lock_type, type_no, message, m_len, sig, args);
         if let Err(error_code) = ret {
             return Err(error_code);
         } else {
