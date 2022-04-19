@@ -167,10 +167,8 @@ pub fn verify_sub_account_sig(witness: &SubAccountWitness, sign_lib: &SignLib) -
         return Ok(());
     }
 
-    let das_lock_type = match witness.sign_type.unwrap() {
-        DasLockType::ETH | DasLockType::ETHTypedData | DasLockType::TRON => {
-            witness.sign_type.unwrap()
-        },
+    let das_lock_type = match witness.sign_type {
+        Some(val) if val == DasLockType::ETH || val == DasLockType::ETHTypedData || val == DasLockType::TRON => val,
         _ => {
             warn!(
                 "witnesses[{}] Parsing das-lock(witness.sub_account.lock.args) algorithm failed (maybe not supported for now), but it is required in this transaction.",

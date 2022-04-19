@@ -147,7 +147,8 @@ impl SignLib {
         let h_hex = util::hex_string(&h);
         let prefix = match das_lock_type {
             DasLockType::ETH | DasLockType::ETHTypedData => String::from("from did: "),
-            DasLockType::TRON => String::from("66726f6d206469643a20"), // "from did: "
+            // DasLockType::TRON => String::from("66726f6d206469643a20"), // "from did: "
+            DasLockType::TRON => util::hex_string("from did: ".as_bytes()),
             _ => String::from(""),
         };
         let s = prefix + &h_hex;
