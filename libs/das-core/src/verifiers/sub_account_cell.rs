@@ -167,11 +167,13 @@ pub fn verify_sub_account_sig(witness: &SubAccountWitness, sign_lib: &SignLib) -
         return Ok(());
     }
 
-    let das_lock_type = match witness.sign_type {
-        Some(val) => val,
+    let das_lock_type = match witness.sign_type.unwrap() {
+        DasLockType::ETH | DasLockType::ETHTypedData | DasLockType::TRON => {
+            witness.sign_type.unwrap()
+        },
         _ => {
             warn!(
-                "witnesses[{}] Parsing das-lock(witness.sub_account.lock.args) algorithm failed, but it is required in this transaction.",
+                "witnesses[{}] Parsing das-lock(witness.sub_account.lock.args) algorithm failed (maybe not supported for now), but it is required in this transaction.",
                 witness.index
             );
             return Err(Error::InvalidTransactionStructure);

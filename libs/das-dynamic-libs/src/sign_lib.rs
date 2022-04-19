@@ -146,8 +146,8 @@ impl SignLib {
         blake2b.finalize(&mut h);
         let h_hex = util::hex_string(&h);
         let prefix = match das_lock_type {
-            DasLockType::ETH => String::from("from did: "),
-            DasLockType::TRON => String::from("d1d"),
+            DasLockType::ETH | DasLockType::ETHTypedData => String::from("from did: "),
+            DasLockType::TRON => String::from("66726f6d206469643a20"), // "from did: "
             _ => String::from(""),
         };
         let s = prefix + &h_hex;
