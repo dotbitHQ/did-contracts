@@ -1,9 +1,5 @@
 use alloc::{collections::BTreeMap, string::String};
-use ckb_std::{
-    ckb_constants::Source,
-    high_level,
-    high_level::{load_cell_capacity, load_cell_data, load_cell_lock},
-};
+use ckb_std::{ckb_constants::Source, high_level};
 use core::{convert::TryInto, result::Result};
 use das_core::{
     assert, constants::*, data_parser, debug, error::Error, util, verifiers, witness_parser::WitnessesParser,
@@ -73,12 +69,12 @@ pub fn main() -> Result<(), Error> {
 
             // Read the hash from outputs_data of the ApplyRegisterCell.
             let index = &input_apply_register_cells[0];
-            let data = load_cell_data(index.to_owned(), Source::Input)?;
+            let data = high_level::load_cell_data(index.to_owned(), Source::Input)?;
             let apply_register_hash = match data.get(..32) {
                 Some(bytes) => bytes,
                 _ => return Err(Error::InvalidCellData),
             };
-            let apply_register_lock = load_cell_lock(index.to_owned(), Source::Input)?;
+            let apply_register_lock = high_level::load_cell_lock(index.to_owned(), Source::Input)?;
 
             #[cfg(debug_assertions)]
             das_core::inspect::apply_register_cell(Source::Input, index.to_owned(), &data);
@@ -90,9 +86,9 @@ pub fn main() -> Result<(), Error> {
             debug!("Read witness of PreAccountCell ...");
 
             // Read outputs_data and witness of the PreAccountCell.
-            let data = load_cell_data(output_cells[0], Source::Output)?;
+            let data = high_level::load_cell_data(output_cells[0], Source::Output)?;
             let account_id = data_parser::pre_account_cell::get_id(&data);
-            let capacity = load_cell_capacity(output_cells[0], Source::Output)?;
+            let capacity = high_level::load_cell_capacity(output_cells[0], Source::Output)?;
 
             let pre_account_cell_witness =
                 util::parse_pre_account_cell_witness(&parser, output_cells[0], Source::Output)?;
