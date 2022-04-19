@@ -2,7 +2,7 @@ use super::{
     assert as das_assert, constants::*, data_parser, debug, error::Error, types::ScriptLiteral, warn,
     witness_parser::WitnessesParser,
 };
-use alloc::{boxed::Box, string::String, vec, vec::Vec};
+use alloc::{borrow::ToOwned, boxed::Box, collections::BTreeMap, string::String, vec, vec::Vec};
 use blake2b_ref::{Blake2b, Blake2bBuilder};
 use ckb_std::{
     ckb_constants::{CellField, Source},
@@ -10,7 +10,7 @@ use ckb_std::{
     error::SysError,
     high_level, syscalls,
 };
-use core::convert::TryInto;
+use core::{convert::TryInto, fmt::Debug};
 use das_types::{
     constants::{DataType, LockRole, WITNESS_HEADER},
     mixer::*,
@@ -789,6 +789,20 @@ pub fn parse_income_cell_witness(
     Ok(ret)
 }
 
+pub fn parse_pre_account_cell_witness(
+    parser: &WitnessesParser,
+    index: usize,
+    source: Source,
+) -> Result<das_packed::PreAccountCellData, Error> {
+    let (_, _, mol_bytes) = parser.verify_and_get(DataType::PreAccountCellData, index, source)?;
+    let ret = das_packed::PreAccountCellData::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
+        warn!("Decoding PreAccountCellData failed");
+        Error::WitnessEntityDecodingError
+    })?;
+
+    Ok(ret)
+}
+
 pub fn parse_account_cell_witness(
     parser: &WitnessesParser,
     index: usize,
@@ -840,4 +854,20 @@ pub fn parse_account_sale_cell_witness(
     };
 
     Ok(ret)
+}
+
+pub fn map_add<K, V>(btree_map: &mut BTreeMap<K, V>, key: K, value: V)
+where
+    K: Clone + Debug + PartialEq + core::cmp::Ord,
+    V: Clone + Debug + PartialEq + core::ops::Add<Output = V>,
+{
+    match btree_map.get(&key) {
+        Some(exist_value) => {
+            let new_value = exist_value.to_owned() + value;
+            btree_map.insert(key.clone(), new_value);
+        }
+        _ => {
+            btree_map.insert(key.clone(), value);
+        }
+    }
 }
