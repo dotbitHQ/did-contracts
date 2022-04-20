@@ -1,5 +1,5 @@
-use super::{constants::*, macros::*, util};
-use alloc::{string::String, vec::Vec};
+use super::{constants::*, error::Error, macros::*, util};
+use alloc::vec::Vec;
 use ckb_std::dynamic_loading_c_impl::{CKBDLContext, Symbol};
 use core::lazy::OnceCell;
 
@@ -40,10 +40,10 @@ impl SignLib {
     /// Load signature validation libraries from das-lock
     ///
     /// Required memory size: about 128 * 1024 for each script
-    pub fn load(name: &str, code_hash: &[u8]) -> SignLibMethods<[u8; 128 * 1024]> {
+    pub fn load(_name: &str, code_hash: &[u8]) -> SignLibMethods<[u8; 128 * 1024]> {
         debug!(
             "Load dynamic library of {} with code_hash: 0x{}",
-            name,
+            _name,
             util::hex_string(code_hash)
         );
 
@@ -87,7 +87,7 @@ impl SignLib {
         let lib = match das_lock_type {
             DasLockType::ETH | DasLockType::ETHTypedData => self.eth_lib(),
             DasLockType::TRON => self.tron_lib(),
-            _ => return Err(-1),
+            _ => return Err(Error::UndefinedDasLockType as i32),
         };
         let func = &lib.c_validate;
         let error_code: i32 = unsafe { func(type_no, digest.as_ptr(), lock_bytes.as_ptr(), lock_args.as_ptr()) };
@@ -110,7 +110,7 @@ impl SignLib {
         let lib = match das_lock_type {
             DasLockType::ETH | DasLockType::ETHTypedData => self.eth_lib(),
             DasLockType::TRON => self.tron_lib(),
-            _ => return Err(-1),
+            _ => return Err(Error::UndefinedDasLockType as i32),
         };
         let func = &lib.c_validate_str;
 
@@ -146,7 +146,7 @@ impl SignLib {
         edit_key: Vec<u8>,
         edit_value: Vec<u8>,
         nonce: Vec<u8>,
-    ) -> Vec<u8> {
+    ) -> Result<Vec<u8>, i32> {
         let mut blake2b = util::new_blake2b();
         blake2b.update(&account_id);
         blake2b.update(&edit_key);
@@ -156,18 +156,11 @@ impl SignLib {
         blake2b.finalize(&mut h);
 
         match das_lock_type {
-            DasLockType::ETH | DasLockType::ETHTypedData => {
-                let h_hex = util::hex_string(&h);
-                let prefix = String::from("from did: ");
-                let s = prefix + &h_hex;
-                s.as_bytes().to_vec()
-            }
-            // DasLockType::TRON => String::from("66726f6d206469643a20"), // "from did: "
-            DasLockType::TRON => {
+            DasLockType::ETH | DasLockType::ETHTypedData | DasLockType::TRON => {
                 let prefix = "from did: ".as_bytes();
-                [prefix, &h].concat()
+                Ok([prefix, &h].concat())
             }
-            _ => Vec::new(),
+            _ => Err(Error::UndefinedDasLockType as i32),
         }
     }
 
@@ -181,7 +174,7 @@ impl SignLib {
         sig: Vec<u8>,
         args: Vec<u8>,
     ) -> Result<(), i32> {
-        let message = self.gen_digest(das_lock_type, account_id, edit_key, edit_value, nonce);
+        let message = self.gen_digest(das_lock_type, account_id, edit_key, edit_value, nonce)?;
         let type_no = 0i32;
         let m_len = message.len();
         let ret = self.validate_str(das_lock_type, type_no, message, m_len, sig, args);
