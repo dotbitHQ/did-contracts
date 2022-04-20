@@ -154,15 +154,21 @@ impl SignLib {
         blake2b.update(&nonce);
         let mut h = [0u8; 32];
         blake2b.finalize(&mut h);
-        let h_hex = util::hex_string(&h);
-        let prefix = match das_lock_type {
-            DasLockType::ETH | DasLockType::ETHTypedData => String::from("from did: "),
+
+        match das_lock_type {
+            DasLockType::ETH | DasLockType::ETHTypedData => {
+                let h_hex = util::hex_string(&h);
+                let prefix = String::from("from did: ");
+                let s = prefix + &h_hex;
+                s.as_bytes().to_vec()
+            }
             // DasLockType::TRON => String::from("66726f6d206469643a20"), // "from did: "
-            DasLockType::TRON => util::hex_string("from did: ".as_bytes()),
-            _ => String::from(""),
-        };
-        let s = prefix + &h_hex;
-        s.as_bytes().to_vec()
+            DasLockType::TRON => {
+                let prefix = "from did: ".as_bytes();
+                [prefix, &h].concat()
+            }
+            _ => Vec::new(),
+        }
     }
 
     pub fn verify_sub_account_sig(
