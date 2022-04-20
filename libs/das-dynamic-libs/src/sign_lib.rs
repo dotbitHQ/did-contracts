@@ -113,6 +113,16 @@ impl SignLib {
             _ => return Err(-1),
         };
         let func = &lib.c_validate_str;
+
+        debug!(
+            "SignLib::validate_str The params pass to dynamic lib is {{ type_no: {}, digest: 0x{}, digest_len: {}, lock_bytes: 0x{}, lock_args: 0x{} }}",
+            type_no,
+            util::hex_string(&digest),
+            digest_len,
+            util::hex_string(&lock_bytes),
+            util::hex_string(&lock_args)
+        );
+
         let error_code: i32 = unsafe {
             func(
                 type_no,
