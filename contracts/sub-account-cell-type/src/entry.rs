@@ -1,5 +1,5 @@
 use alloc::{borrow::ToOwned, vec, vec::Vec};
-use ckb_std::{ckb_constants::Source, high_level};
+use ckb_std::{ckb_constants::Source, dynamic_loading_c_impl::CKBDLContext, high_level};
 use core::{convert::TryInto, result::Result};
 use das_core::{
     assert,
@@ -11,7 +11,9 @@ use das_core::{
     verifiers, warn,
     witness_parser::WitnessesParser,
 };
-use das_dynamic_libs::sign_lib::SignLib;
+use das_dynamic_libs::constants::{ETH_LIB_CODE_HASH, TRON_LIB_CODE_HASH};
+use das_dynamic_libs::sign_lib::SignLibMethods;
+use das_dynamic_libs::{constants::DymLibSize, sign_lib::SignLib};
 use das_types::{
     constants::AccountStatus,
     packed::*,
@@ -52,8 +54,10 @@ pub fn main() -> Result<(), Error> {
             let timestamp = util::load_oracle_data(OracleCellType::Time)?;
             let (input_sub_account_cells, output_sub_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
 
-            let sign_lib = SignLib::new();
-
+            let mut eth_lib = unsafe { CKBDLContext::<DymLibSize>::new() };
+            let mut tron_lib = unsafe { CKBDLContext::<DymLibSize>::new() };
+            let mut eth = None;
+            let mut tron = None;
             let mut parent_account = Vec::new();
             match action {
                 b"create_sub_account" => {
@@ -83,12 +87,40 @@ pub fn main() -> Result<(), Error> {
                     parent_account.extend(ACCOUNT_SUFFIX.as_bytes());
                 }
                 b"edit_sub_account" => {
-                    // Nothing to do here
+                    let lib = eth_lib
+                        .load(&ETH_LIB_CODE_HASH)
+                        .expect("The shared lib should be loaded successfully.");
+                    eth = Some(SignLibMethods {
+                        c_validate: unsafe {
+                            lib.get(b"validate")
+                                .expect("Load function 'validate' from library failed.")
+                        },
+                        c_validate_str: unsafe {
+                            lib.get(b"validate_str")
+                                .expect("Load function 'validate_str' from library failed.")
+                        },
+                    });
+
+                    let lib = tron_lib
+                        .load(&TRON_LIB_CODE_HASH)
+                        .expect("The shared lib should be loaded successfully.");
+                    tron = Some(SignLibMethods {
+                        c_validate: unsafe {
+                            lib.get(b"validate")
+                                .expect("Load function 'validate' from library failed.")
+                        },
+                        c_validate_str: unsafe {
+                            lib.get(b"validate_str")
+                                .expect("Load function 'validate_str' from library failed.")
+                        },
+                    });
                 }
                 b"renew_sub_account" => todo!(),
                 b"recycle_sub_account" => todo!(),
                 _ => unreachable!(),
             }
+
+            let sign_lib = SignLib::new(eth, tron);
 
             debug!("Start iterating sub-account witnesses ...");
 

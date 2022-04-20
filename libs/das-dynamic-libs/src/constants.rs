@@ -1,5 +1,7 @@
 use core::convert::TryFrom;
 
+pub type DymLibSize = [u8; 128 * 1024];
+
 #[derive(Debug, PartialEq, Copy, Clone)]
 #[repr(u8)]
 pub enum DasLockType {
@@ -49,6 +51,6 @@ pub const TRON_LIB_CODE_HASH: [u8; 32] = [
 
 #[cfg(not(feature = "mainnet"))]
 pub const TRON_LIB_CODE_HASH: [u8; 32] = [
-    77, 158, 173, 37, 107, 104, 190, 10, 210, 155, 235, 159, 227, 120, 157, 62, 225, 193, 26, 104, 28, 192, 50, 29, 1,
-    118, 45, 246, 222, 214, 29, 43,
+    170, 97, 164, 212, 192, 24, 68, 18, 215, 238, 129, 129, 59, 215, 28, 198, 72, 222, 68, 16, 49, 230, 111, 167, 153,
+    172, 66, 113, 180, 208, 117, 131,
 ];

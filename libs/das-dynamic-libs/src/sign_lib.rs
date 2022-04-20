@@ -1,7 +1,6 @@
 use super::{constants::*, error::Error, macros::*, util};
-use alloc::vec::Vec;
+use alloc::{string::String, vec::Vec};
 use ckb_std::dynamic_loading_c_impl::{CKBDLContext, Symbol};
-use core::lazy::OnceCell;
 
 // int validate(int type, uint8_t* message, uint8_t* lock_bytes, uint8_t* eth_address)
 type ValidateFunction =
@@ -14,89 +13,50 @@ type ValidateStrFunction = unsafe extern "C" fn(
     lock_args: *const u8,
 ) -> i32;
 
-pub struct SignLibMethods<T> {
-    _context: CKBDLContext<T>,
-    c_validate: Symbol<ValidateFunction>,
-    c_validate_str: Symbol<ValidateStrFunction>,
+pub struct SignLibMethods {
+    pub c_validate: Symbol<ValidateFunction>,
+    pub c_validate_str: Symbol<ValidateStrFunction>,
 }
 
 pub struct SignLib {
-    // ckb_sign_hash_all: OnceCell<SignLibMethods<[u8; 128 * 1024]>>,
-    // ckb_multi_sig_all: OnceCell<SignLibMethods<[u8; 128 * 1024]>>,
-    eth: OnceCell<SignLibMethods<[u8; 128 * 1024]>>,
-    tron: OnceCell<SignLibMethods<[u8; 128 * 1024]>>,
+    eth: Option<SignLibMethods>,
+    tron: Option<SignLibMethods>,
 }
 
 impl SignLib {
-    pub fn new() -> Self {
+    pub fn new(eth: Option<SignLibMethods>, tron: Option<SignLibMethods>) -> Self {
         SignLib {
             // ckb_sign_hash_all: OnceCell::new(),
             // ckb_multi_sig_all: OnceCell::new(),
-            eth: OnceCell::new(),
-            tron: OnceCell::new(),
+            eth,
+            tron,
         }
-    }
-
-    /// Load signature validation libraries from das-lock
-    ///
-    /// Required memory size: about 128 * 1024 for each script
-    pub fn load(_name: &str, code_hash: &[u8]) -> SignLibMethods<[u8; 128 * 1024]> {
-        debug!(
-            "Load dynamic library of {} with code_hash: 0x{}",
-            _name,
-            util::hex_string(code_hash)
-        );
-
-        let mut context = unsafe { CKBDLContext::<[u8; 128 * 1024]>::new() };
-        let lib = context
-            .load(code_hash)
-            .expect("The shared lib should be loaded successfully.");
-
-        SignLibMethods {
-            _context: context,
-            c_validate: unsafe {
-                lib.get(b"validate")
-                    .expect("Load function 'validate' from library failed.")
-            },
-            c_validate_str: unsafe {
-                lib.get(b"validate_str")
-                    .expect("Load function 'validate_str' from library failed.")
-            },
-        }
-    }
-
-    pub fn eth_lib(&self) -> &SignLibMethods<[u8; 128 * 1024]> {
-        self.eth.get_or_init(|| Self::load("ETH", &ETH_LIB_CODE_HASH))
-    }
-
-    pub fn tron_lib(&self) -> &SignLibMethods<[u8; 128 * 1024]> {
-        self.tron.get_or_init(|| Self::load("TRON", &TRON_LIB_CODE_HASH))
     }
 
     /// Validate signatures
     ///
     /// costs: about 2_000_000 cycles
-    pub fn validate(
-        &self,
-        das_lock_type: DasLockType,
-        type_no: i32,
-        digest: Vec<u8>,
-        lock_bytes: Vec<u8>,
-        lock_args: Vec<u8>,
-    ) -> Result<(), i32> {
-        let lib = match das_lock_type {
-            DasLockType::ETH | DasLockType::ETHTypedData => self.eth_lib(),
-            DasLockType::TRON => self.tron_lib(),
-            _ => return Err(Error::UndefinedDasLockType as i32),
-        };
-        let func = &lib.c_validate;
-        let error_code: i32 = unsafe { func(type_no, digest.as_ptr(), lock_bytes.as_ptr(), lock_args.as_ptr()) };
-        if error_code != 0 {
-            return Err(error_code);
-        }
-
-        Ok(())
-    }
+    // pub fn validate(
+    //     &self,
+    //     das_lock_type: DasLockType,
+    //     type_no: i32,
+    //     digest: Vec<u8>,
+    //     lock_bytes: Vec<u8>,
+    //     lock_args: Vec<u8>,
+    // ) -> Result<(), i32> {
+    //     let lib = match das_lock_type {
+    //         DasLockType::ETH | DasLockType::ETHTypedData => self.eth_lib(),
+    //         DasLockType::TRON => self.tron_lib(),
+    //         _ => return Err(Error::UndefinedDasLockType as i32),
+    //     };
+    //     let func = &lib.c_validate;
+    //     let error_code: i32 = unsafe { func(type_no, digest.as_ptr(), lock_bytes.as_ptr(), lock_args.as_ptr()) };
+    //     if error_code != 0 {
+    //         return Err(error_code);
+    //     }
+    //
+    //     Ok(())
+    // }
 
     pub fn validate_str(
         &self,
@@ -107,13 +67,6 @@ impl SignLib {
         lock_bytes: Vec<u8>,
         lock_args: Vec<u8>,
     ) -> Result<(), i32> {
-        let lib = match das_lock_type {
-            DasLockType::ETH | DasLockType::ETHTypedData => self.eth_lib(),
-            DasLockType::TRON => self.tron_lib(),
-            _ => return Err(Error::UndefinedDasLockType as i32),
-        };
-        let func = &lib.c_validate_str;
-
         debug!(
             "SignLib::validate_str The params pass to dynamic lib is {{ type_no: {}, digest: 0x{}, digest_len: {}, lock_bytes: 0x{}, lock_args: 0x{} }}",
             type_no,
@@ -123,15 +76,36 @@ impl SignLib {
             util::hex_string(&lock_args)
         );
 
-        let error_code: i32 = unsafe {
-            func(
-                type_no,
-                digest.as_ptr(),
-                digest_len,
-                lock_bytes.as_ptr(),
-                lock_args.as_ptr(),
-            )
+        let error_code: i32 = match das_lock_type {
+            DasLockType::ETH | DasLockType::ETHTypedData => {
+                let lib = self.eth.as_ref().unwrap();
+                let func = &lib.c_validate_str;
+                unsafe {
+                    func(
+                        type_no,
+                        digest.as_ptr(),
+                        digest_len,
+                        lock_bytes.as_ptr(),
+                        lock_args.as_ptr(),
+                    )
+                }
+            }
+            DasLockType::TRON => {
+                let lib = self.tron.as_ref().unwrap();
+                let func = &lib.c_validate_str;
+                unsafe {
+                    func(
+                        type_no,
+                        digest.as_ptr(),
+                        digest_len,
+                        lock_bytes.as_ptr(),
+                        lock_args.as_ptr(),
+                    )
+                }
+            }
+            _ => return Err(Error::UndefinedDasLockType as i32),
         };
+
         if error_code != 0 {
             return Err(error_code);
         }
