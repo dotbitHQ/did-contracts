@@ -74,6 +74,8 @@ pub enum Error {
     PreRegisterQuoteIsInvalid, // 80
     PreRegisterDiscountIsInvalid,
     PreRegisterOwnerLockArgsIsInvalid,
+    PreRegisterIsNotTimeout,
+    PreRegisterRefundCapacityError,
     ProposalSliceIsNotSorted = 90,
     ProposalSliceIsDiscontinuity,
     ProposalSliceRelatedCellNotFound,
@@ -158,8 +160,8 @@ pub enum Error {
     SubAccountFieldNotEditable,
     SubAccountEditLockError,
     SubAccountJoinBetaError,
-    SubAccountProfitError,
-    UpgradeForWitnessIsRequired, // -40
+    SubAccountProfitError, // -40
+    UpgradeForWitnessIsRequired,
     UpgradeDefaultValueOfNewFieldIsError,
     UnittestError = -2,
     SystemOff = -1,

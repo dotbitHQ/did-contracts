@@ -723,8 +723,8 @@ impl TemplateGenerator {
 
     fn gen_config_cell_apply(&mut self) -> (Vec<u8>, EntityWrapper) {
         let entity = ConfigCellApply::new_builder()
-            .apply_min_waiting_block_number(Uint32::from(1))
-            .apply_max_waiting_block_number(Uint32::from(5760))
+            .apply_min_waiting_block_number(Uint32::from(APPLY_MIN_WAITING_BLOCK as u32))
+            .apply_max_waiting_block_number(Uint32::from(APPLY_MAX_WAITING_BLOCK as u32))
             .build();
 
         let cell_data = blake2b_256(entity.as_slice()).to_vec();
@@ -1209,7 +1209,11 @@ impl TemplateGenerator {
         }
     }
 
-    pub fn push_config_cell_derived_by_account(&mut self, account_without_suffix: &str, source: Source) {
+    pub fn push_config_cell_derived_by_account(&mut self, account: &str, source: Source) {
+        let account_without_suffix = match account.strip_suffix(".bit") {
+            Some(val) => val,
+            _ => account,
+        };
         let first_byte_of_account_hash = blake2b_256(account_without_suffix.as_bytes())[0];
         let index = (first_byte_of_account_hash % PRESERVED_ACCOUNT_CELL_COUNT) as usize;
         let config_type = das_util::preserved_accounts_group_to_data_type(index);
@@ -1219,89 +1223,6 @@ impl TemplateGenerator {
         //     first_byte_of_account_hash, config_type
         // );
         self.push_config_cell(config_type, source);
-    }
-
-    pub fn gen_pre_account_cell_data(
-        &mut self,
-        account: &str,
-        refund_lock_args: &str,
-        owner_lock_args: &str,
-        inviter_lock_args: &str,
-        channel_lock_args: &str,
-        quote: u64,
-        invited_discount: u64,
-        created_at: u64,
-    ) -> (Bytes, PreAccountCellData) {
-        let account_chars_raw = account[..account.len() - 4]
-            .chars()
-            .map(|c| c.to_string())
-            .collect::<Vec<String>>();
-        let account_chars = gen_account_chars(account_chars_raw);
-        let account_length = if account_chars.len() > 8 {
-            8u8
-        } else {
-            account_chars.len() as u8
-        };
-
-        let price = self.prices.get(&account_length).unwrap();
-        let owner_lock_args = Bytes::from(util::hex_to_bytes(&gen_das_lock_args(owner_lock_args, None)));
-        let mut entity_builder = PreAccountCellData::new_builder()
-            .account(account_chars.to_owned())
-            .owner_lock_args(owner_lock_args)
-            .refund_lock(gen_fake_signhash_all_lock(refund_lock_args))
-            .channel_lock(ScriptOpt::from(gen_fake_signhash_all_lock(channel_lock_args)))
-            .price(price.to_owned())
-            .quote(Uint64::from(quote))
-            .invited_discount(Uint32::from(invited_discount as u32))
-            .created_at(Uint64::from(created_at));
-
-        if inviter_lock_args.is_empty() {
-            entity_builder = entity_builder.inviter_lock(ScriptOpt::default());
-            entity_builder = entity_builder.inviter_id(Bytes::default());
-        } else {
-            entity_builder =
-                entity_builder.inviter_lock(ScriptOpt::from(gen_fake_signhash_all_lock(inviter_lock_args)));
-            entity_builder = entity_builder.inviter_id(Bytes::from(vec![
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            ]))
-        }
-
-        if channel_lock_args.is_empty() {
-            entity_builder = entity_builder.channel_lock(ScriptOpt::default());
-        } else {
-            entity_builder =
-                entity_builder.channel_lock(ScriptOpt::from(gen_fake_signhash_all_lock(channel_lock_args)));
-        }
-
-        let entity = entity_builder.build();
-        let id = util::account_to_id(account);
-
-        let hash = Hash::try_from(blake2b_256(entity.as_slice()).to_vec()).unwrap();
-        let raw = [hash.as_reader().raw_data(), id.as_slice()].concat();
-        let cell_data = Bytes::from(raw);
-
-        (cell_data, entity)
-    }
-
-    pub fn push_pre_account_cell(
-        &mut self,
-        cell_data: Bytes,
-        entity_opt: Option<(u32, u32, impl Entity)>,
-        capacity: u64,
-        source: Source,
-    ) {
-        let lock_script = json!({
-          "code_hash": "{{always_success}}"
-        });
-        let type_script = json!({
-          "code_hash": "{{pre-account-cell-type}}"
-        });
-
-        self.push_cell(capacity, lock_script, type_script, Some(cell_data), source);
-
-        if let Some(entity) = entity_opt {
-            self.push_witness_with_group(DataType::PreAccountCellData, source, entity);
-        }
     }
 
     pub fn push_signall_cell(&mut self, lock_args: &str, capacity: u64, source: Source) {
@@ -1399,6 +1320,7 @@ impl TemplateGenerator {
                     "account-sale-cell-type" => {
                         push_cell!(DataType::AccountSaleCellData, gen_account_sale_cell, version_opt, cell)
                     }
+                    "apply-register-cell-type" => push_cell!(gen_apply_register_cell, cell),
                     "balance-cell-type" => push_cell!(gen_balance_cell, cell),
                     "sub-account-cell-type" => push_cell!(gen_sub_account_cell, cell),
                     "income-cell-type" => {
@@ -1477,6 +1399,77 @@ impl TemplateGenerator {
     /// json!({
     ///     "capacity": u64,
     ///     "lock": {
+    ///         "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+    ///         "args": "0x..."
+    ///     },
+    ///     "type": {
+    ///         "code_hash": "{{apply-register-cell-type}}"
+    ///     },
+    ///     "data": {
+    ///         "account": null | "xxxxx.bit", // If this is null, it will be an invalid cell.
+    ///         "height": u64,
+    ///         "timestamp": u64
+    ///     }
+    /// })
+    /// ```
+    fn gen_apply_register_cell(&mut self, cell: Value) -> (Value, Option<EntityWrapper>) {
+        let capacity = parse_json_u64("cell.capacity", &cell["capacity"], Some(0));
+        let lock_script = parse_json_script("cell.lock", &cell["lock"]);
+        let type_script = parse_json_script("cell.type", &cell["type"]);
+
+        let outputs_data = if cell["data"].is_null() {
+            String::from("")
+        } else {
+            let data = &cell["data"];
+            let mut raw = Vec::new();
+            let mut account_hash_bytes = if data["account"].is_null() {
+                Vec::new()
+            } else {
+                let account = parse_json_str("cell.data.account", &data["account"]);
+                let lock_args = parse_json_hex("cell.lock.args", &lock_script["args"]);
+
+                blake2b_256([&lock_args, account.as_bytes()].concat().as_slice()).to_vec()
+            };
+
+            let mut height = if data["height"].is_null() {
+                Vec::new()
+            } else {
+                parse_json_u64("cell.data.height", &data["height"], None)
+                    .to_le_bytes()
+                    .to_vec()
+            };
+            let mut timestamp = if data["timestamp"].is_null() {
+                Vec::new()
+            } else {
+                parse_json_u64("cell.data.timestamp", &data["timestamp"], None)
+                    .to_le_bytes()
+                    .to_vec()
+            };
+
+            raw.append(&mut account_hash_bytes);
+            raw.append(&mut height);
+            raw.append(&mut timestamp);
+            util::bytes_to_hex(&raw)
+        };
+
+        (
+            json!({
+              "tmp_type": "full",
+              "capacity": capacity,
+              "lock": lock_script,
+              "type": type_script,
+              "tmp_data": outputs_data
+            }),
+            None,
+        )
+    }
+
+    /// Cell structure:
+    ///
+    /// ```json
+    /// json!({
+    ///     "capacity": u64,
+    ///     "lock": {
     ///         "code_hash": "{{always_success}}",
     ///     },
     ///     "type": {
@@ -1512,9 +1505,12 @@ impl TemplateGenerator {
         if !cell["witness"].is_null() {
             let witness = &cell["witness"];
             let account = parse_json_str("cell.witness.account", &witness["account"]);
-            let account_chars_raw = account
+            let account_without_suffix = match account.strip_suffix(".bit") {
+                Some(val) => val,
+                _ => account,
+            };
+            let account_chars_raw = account_without_suffix
                 .chars()
-                .take(account.len() - 4)
                 .map(|c| c.to_string())
                 .collect::<Vec<String>>();
             let account_chars = gen_account_chars(account_chars_raw);

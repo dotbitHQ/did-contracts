@@ -1,6 +1,51 @@
-use super::{accounts::*, constants::*, template_generator::TemplateGenerator, util};
+use super::{
+    accounts::*,
+    constants::*,
+    template_generator::{gen_das_lock_args, TemplateGenerator},
+    util,
+};
 use das_types_std::constants::AccountStatus;
 use serde_json::{json, Value};
+
+pub fn push_input_apply_register_cell(template: &mut TemplateGenerator, cell_partial: Value) {
+    let mut cell = json!({
+        "lock": {
+            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+            "args": OWNER_WITHOUT_TYPE
+        },
+        "type": {
+            "code_hash": "{{apply-register-cell-type}}"
+        },
+        "data": {
+            "account": ACCOUNT,
+            "height": Value::Null,
+            "timestamp": Value::Null,
+        }
+    });
+    util::merge_json(&mut cell, cell_partial);
+
+    template.push_input(cell, None);
+}
+
+pub fn push_output_apply_register_cell(template: &mut TemplateGenerator, cell_partial: Value) {
+    let mut cell = json!({
+        "lock": {
+            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+            "args": OWNER_WITHOUT_TYPE
+        },
+        "type": {
+            "code_hash": "{{apply-register-cell-type}}"
+        },
+        "data": {
+            "account": ACCOUNT,
+            "height": Value::Null,
+            "timestamp": Value::Null,
+        }
+    });
+    util::merge_json(&mut cell, cell_partial);
+
+    template.push_output(cell, None);
+}
 
 pub fn push_dep_pre_account_cell(template: &mut TemplateGenerator, cell_partial: Value) {
     let mut cell = json!({
@@ -49,10 +94,10 @@ pub fn push_input_pre_account_cell(template: &mut TemplateGenerator, cell_partia
             "account": ACCOUNT,
             "refund_lock": {
                 "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
-                "args": "0x0000000000000000000000000000000000001111"
+                "args": OWNER_WITHOUT_TYPE
             },
-            "owner_lock_args": "0x050000000000000000000000000000000000001111050000000000000000000000000000000000001111",
-            "inviter_id": Value::Null,
+            "owner_lock_args": gen_das_lock_args(OWNER, None),
+            "inviter_id": INVITER_ID,
             "inviter_lock": Value::Null,
             "channel_lock": Value::Null,
             "price": {
@@ -68,6 +113,40 @@ pub fn push_input_pre_account_cell(template: &mut TemplateGenerator, cell_partia
     util::merge_json(&mut cell, cell_partial);
 
     template.push_input(cell, None);
+}
+
+pub fn push_output_pre_account_cell(template: &mut TemplateGenerator, cell_partial: Value) {
+    let mut cell = json!({
+        "capacity": util::gen_register_fee(5, false),
+        "lock": {
+            "code_hash": "{{always_success}}"
+        },
+        "type": {
+            "code_hash": "{{pre-account-cell-type}}"
+        },
+        "witness": {
+            "account": ACCOUNT,
+            "refund_lock": {
+                "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                "args": OWNER_WITHOUT_TYPE
+            },
+            "owner_lock_args": gen_das_lock_args(OWNER, None),
+            "inviter_id": Value::Null,
+            "inviter_lock": Value::Null,
+            "channel_lock": Value::Null,
+            "price": {
+                "length": 5,
+                "new": ACCOUNT_PRICE_5_CHAR,
+                "renew": ACCOUNT_PRICE_5_CHAR
+            },
+            "quote": CKB_QUOTE,
+            "invited_discount": 0,
+            "created_at": Value::Null
+        }
+    });
+    util::merge_json(&mut cell, cell_partial);
+
+    template.push_output(cell, None);
 }
 
 pub fn push_dep_account_cell(template: &mut TemplateGenerator, cell_partial: Value) {

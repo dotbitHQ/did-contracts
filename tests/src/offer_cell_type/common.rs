@@ -3,7 +3,6 @@ use das_types_std::{constants::*, packed::*};
 use serde_json::{json, Value};
 
 pub const PRICE: u64 = 200_000_000_000;
-pub const TIMESTAMP: u64 = 1611200090u64;
 
 pub fn init(action: &str) -> TemplateGenerator {
     let mut template = TemplateGenerator::new(action, Some(Bytes::from(vec![0])));
