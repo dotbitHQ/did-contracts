@@ -1,6 +1,6 @@
-use super::{constants::*, error::Error, macros::*, util};
-use alloc::{string::String, vec::Vec};
-use ckb_std::dynamic_loading_c_impl::{CKBDLContext, Symbol};
+use super::{constants::*, error::Error, util};
+use alloc::vec::Vec;
+use ckb_std::dynamic_loading_c_impl::Symbol;
 
 // int validate(int type, uint8_t* message, uint8_t* lock_bytes, uint8_t* eth_address)
 type ValidateFunction =
@@ -67,7 +67,7 @@ impl SignLib {
         lock_bytes: Vec<u8>,
         lock_args: Vec<u8>,
     ) -> Result<(), i32> {
-        debug!(
+        warn_log!(
             "SignLib::validate_str The params pass to dynamic lib is {{ type_no: {}, digest: 0x{}, digest_len: {}, lock_bytes: 0x{}, lock_args: 0x{} }}",
             type_no,
             util::hex_string(&digest),

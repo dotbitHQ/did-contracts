@@ -120,6 +120,7 @@ pub fn main() -> Result<(), Error> {
                 _ => unreachable!(),
             }
 
+            // TODO Refactor the temporary solution of dynamic library loading ...
             let sign_lib = SignLib::new(eth, tron);
 
             debug!("Start iterating sub-account witnesses ...");

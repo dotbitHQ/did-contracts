@@ -2,9 +2,9 @@
 #![no_std]
 
 extern crate alloc;
-
+#[macro_use]
+mod macros;
 pub mod constants;
 pub mod error;
-mod macros;
 pub mod sign_lib;
 mod util;
