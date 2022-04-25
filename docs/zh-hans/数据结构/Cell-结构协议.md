@@ -11,9 +11,12 @@ data: ...
 witness: ...
 ```
 
-其中 `lock, type, outputs_data` 都是每个 cell 必定包含的信息，从 RPC 接口返回的数据结构中也可以看到，而 `data` 就是这笔交易中与 cell 对应的 `outputs_data` 。`witness` 比较特殊，它和 cell 之间是没有关联关系的，所以这里的 `witness` 特指 DAS witness ，而且仅仅指 DAS witness 中的 `entity` 部分，因为 DAS witness 中存放了它自己对应哪个 cell 的相关信息，所以才有了关联关系，详见 [数据存储方案.md](数据存储方案.md) 。
+其中 `lock, type, outputs_data` 都是每个 cell 必定包含的信息，从 RPC 接口返回的数据结构中也可以看到，而 `data` 就是这笔交易中与 cell 对应的 `outputs_data` 。`witness` 比较特殊，它和 cell
+之间是没有关联关系的，所以这里的 `witness` 特指 DAS witness ，而且仅仅指 DAS witness 中的 `entity` 部分，因为 DAS witness 中存放了它自己对应哪个 cell
+的相关信息，所以才有了关联关系，详见 [数据存储方案.md](数据存储方案.md) 。
 
-**data 中所有的字段名意味着一段按照特定偏移量解析的数据**，因为 data 的体积会影响需要质押的 CKB 数量，所以其中除了按照文档中给出的偏移量来切分数据外本身没有任何数据结构。**witness 中所有的字段名意味着一个 molecule 编码的数据结构**，首先需要使用对应结构的结构体/类去解析数据，然后才能访问对应字段。
+**data 中所有的字段名意味着一段按照特定偏移量解析的数据**，因为 data 的体积会影响需要质押的 CKB 数量，所以其中除了按照文档中给出的偏移量来切分数据外本身没有任何数据结构。**witness 中所有的字段名意味着一个 molecule 编码的数据结构**
+，首先需要使用对应结构的结构体/类去解析数据，然后才能访问对应字段。
 
 在描述 cell 结构时可能看到以下符号：
 
@@ -29,7 +32,8 @@ witness: ...
 
 ### ApplyRegisterCell
 
-申请注册账户，用户在真正执行注册前必须先创建此 Cell 进行申请，然后等待 `ConfigCellApply.apply_min_waiting_block_number` 时间后才能使用此 Cell 进行注册。这样设计的目的是为了防止用户注册账户的交易在上链的过程中被恶意拦截并被抢注。
+申请注册账户，用户在真正执行注册前必须先创建此 Cell 进行申请，然后等待 `ConfigCellApply.apply_min_waiting_block_number` 时间后才能使用此 Cell
+进行注册。这样设计的目的是为了防止用户注册账户的交易在上链的过程中被恶意拦截并被抢注。
 
 #### 结构
 
@@ -50,10 +54,10 @@ data:
 
 实际体积：142 Bytes
 
-
 ### PreAccountCell
 
-当 [ApplyRegisterCell](#ApplyRegisterCell) 在链上存在超过 `ConfigCellApply.apply_min_waiting_time` 时间之后，用户就可以将其转换为一个 PreAccountCell ，等待 Keeper 通过创建 [ProposalCell](#ProposalCell) 提案将其最终转换为 [AccountCell](#AccountCell) 。
+当 [ApplyRegisterCell](#ApplyRegisterCell) 在链上存在超过 `ConfigCellApply.apply_min_waiting_time` 时间之后，用户就可以将其转换为一个 PreAccountCell ，等待 Keeper
+通过创建 [ProposalCell](#ProposalCell) 提案将其最终转换为 [AccountCell](#AccountCell) 。
 
 #### 结构
 
@@ -112,7 +116,7 @@ table AccountChar {
 
 - account，用户实际注册的账户名，不包含 `.bit` 后缀；
 - refund_lock，假如 PreAccountCell 最终无法通过提案时，退款的 lock 脚本，即地址；
-- owner_lock_args，假如 PreAccountCell 最终通过提案时，[AccountCell.lock.args](#AccountCell) 的值，即 das-lock 的  args；
+- owner_lock_args，假如 PreAccountCell 最终通过提案时，[AccountCell.lock.args](#AccountCell) 的值，即 das-lock 的 args；
 - inviter_id: 主要目的方便服务端展示邀请者名称；
 - inviter_lock，邀请者的 lock script，利润分配会被转入 IncomeCell 中并以此 lock script 记账；
 - channel_lock，渠道商的 lock script，利润分配会被转入 IncomeCell 中并以此 lock script 记账；
@@ -143,21 +147,22 @@ CKB 年费 = CKB 年费 - (CKB 年费 * 折扣率 / 10000) // 折扣率是以 10
 
 - 年份需要大于等于 1 ，实际计算时按照 365 \* 86400 秒为一年来计算；
 - **账户注册年费** 保存在 [ConfigCellPrice.prices](#ConfigCell) 中，单位为 **美元**；
-- **CKB 汇率**从 QuoteCell 获取，单位为 **美元/CKB**，前面在 [数据存储方案.md](#数据存储方案.md) 的 **美元的单位** 一节我们约定了 1 美元记为 `1_000_000` ，因此如果 QuoteCell 中记录的是 `1_000` 那么也就意味着 CKB 汇率就是 `0.001 美元/CKB`；
+- **CKB 汇率**从 QuoteCell 获取，单位为 **美元/CKB**，前面在 [数据存储方案.md](#数据存储方案.md) 的 **美元的单位** 一节我们约定了 1 美元记为 `1_000_000` ，因此如果 QuoteCell 中记录的是 `1_000`
+  那么也就意味着 CKB 汇率就是 `0.001 美元/CKB`；
 - **AccountCell 基础成本** 只在调整 Cell 数据结构时会发生变化，可以认为是固定的常量，查看对应 Cell 的 **体积** 即可获得；
 - **Account 字节长度**，由于 AccountCell 会在 data 字段保存完整的账户，比如 `das.bit` 那么保存的就是 `0x6461732E626974` ，因此需要再加上这部分体积；
 - 带除法的都是自动取整
 
-####  体积
+#### 体积
 
 基础体积：126 Bytes
 
 实际体积：取决于注册的账户的长短、注册的年份、注册时刻的 CKB 单价、是否是请注册等
 
-
 ### ProposalCell
 
-用户创建 [PreAccountCell](#PreAccountCell) 之后，就需要 Keeper 将它们收集起来发起提案，也就是创建 ProposalCell ，只有当提案等待一定时间后才能通过，所谓通过就是创建一笔交易消费提案，并将其应用的 [PreAccountCell ](#PreAccountCell) 转换为最终的 [AccountCell](#AccountCell)。这一过程会确保账户名在链上的唯一性。
+用户创建 [PreAccountCell](#PreAccountCell) 之后，就需要 Keeper 将它们收集起来发起提案，也就是创建 ProposalCell
+，只有当提案等待一定时间后才能通过，所谓通过就是创建一笔交易消费提案，并将其应用的 [PreAccountCell ](#PreAccountCell) 转换为最终的 [AccountCell](#AccountCell)。这一过程会确保账户名在链上的唯一性。
 
 #### 结构
 
@@ -225,9 +230,9 @@ table ProposalCellData {
 - created_at_height ，提案发起时从时间 cell 获取到的当前高度；
 - slices，当前提案通过后 AccountCell 链表被修改部分的最终状态，其解释详见 `TODO`；
 - item_type 含义说明
-  - exist ，值对应 0x00 ，表明此提案发起时，account_id 所指账户已经为注册状态，可以在链上找到 AccountCell；
-  - proposed ，值对应 0x01，表明此提案发起时，account_id 所指账户已经为预注册状态，可以在链上找到 PreAccountCell，当此提案的前置提案通过时会将其转换为 AccountCell；
-  - new ，值对应 0x02，表明此提案发起时，account_id 所指账户已经为预注册状态，可以在链上找到 PreAccountCell ，此提案通过时会将其转换为 AccountCell；
+    - exist ，值对应 0x00 ，表明此提案发起时，account_id 所指账户已经为注册状态，可以在链上找到 AccountCell；
+    - proposed ，值对应 0x01，表明此提案发起时，account_id 所指账户已经为预注册状态，可以在链上找到 PreAccountCell，当此提案的前置提案通过时会将其转换为 AccountCell；
+    - new ，值对应 0x02，表明此提案发起时，account_id 所指账户已经为预注册状态，可以在链上找到 PreAccountCell ，此提案通过时会将其转换为 AccountCell；
 
 #### 体积
 
@@ -312,17 +317,19 @@ vector Records <Record>;
 - account ，账户名字段；
 - registered_at ，注册时间；
 - status ，状态字段：
-  - 0 ，正常；
-  - 1 ，出售中；
-  - 2 ，拍卖中；
+    - 0 ，正常；
+    - 1 ，出售中；
+    - 2 ，拍卖中；
+    - 3 ，到期拍卖中；
 - records ，解析记录字段，**此字段仅限有管理权的用户编辑**；
 - enable_sub_account ，状态字段：
-  - 0 ，未启用子账户；
-  - 1 ，已启用子账户；
+    - 0 ，未启用子账户；
+    - 1 ，已启用子账户；
 
 #### das-lock
 
-das-lock 是为 DAS 设计的一个特殊 lock script ，它 **会根据 args 中的 xx_algorithm_id 部分去动态加载不同的验签逻辑执行**。args 中的 **xx_algorithm_id 都是 1 byte，pubkey_hash 都是取前 20 bytes** 。
+das-lock 是为 DAS 设计的一个特殊 lock script ，它 **会根据 args 中的 xx_algorithm_id 部分去动态加载不同的验签逻辑执行**。args 中的 **xx_algorithm_id 都是 1 byte，pubkey_hash 都是取前
+20 bytes** 。
 
 涉及验签的交易需要在 witnesses 中的 ActionData.params 标明当前交易使用的权限是 owner 还是 manager ，**owner 使用 0，manager 使用 1**。
 
@@ -419,6 +426,7 @@ Witness 中的主要字段如下：
 这是一个描述账户竞拍信息的 Cell，每一个竞拍中的账户都有一个对应的 AccountAuctionCell。
 
 #### 结构
+
 ```
 lock: <das-lock>
 type: <accont-sale-cell-type>
@@ -534,6 +542,9 @@ data: SMTRoot
 
 `106` Bytes
 
+### ExpiredAccountAuctionCell
+
+#### 结构
 
 ## ConfigCell
 
@@ -573,6 +584,10 @@ table ConfigCellAccount {
     prepared_fee_capacity: Uint64,
     // The grace period for account expiration in seconds
     expiration_grace_period: Uint32,
+    // The initial price of auction in USD
+    exipred_auction_start_price: Uint32,
+    // The auction period for expired account in seconds
+    expired_auction_period: Uint32,
     // The minimum ttl of record in seconds
     record_min_ttl: Uint32,
     // The maximum size of all records in molecule encoding
@@ -621,7 +636,8 @@ table ConfigCellApply {
 length|global|char|char|char ...
 ```
 
-这个 cell 的 witness 在其 entity 部分**存储的是纯二进制数据**，未进行 molecule 编码。其中前 4 bytes 是 uint32 的数据总长度，**包括这 4 bytes 自身**；第 5 bytes 记录当前字符集是否为全局字符集，0x00 就不是，0x01 就是；之后就是可用字符的字节，全部为 utf-8 编码对应的字节，每个字符之间以 `0x00` 分割。
+这个 cell 的 witness 在其 entity 部分**存储的是纯二进制数据**，未进行 molecule 编码。其中前 4 bytes 是 uint32 的数据总长度，**包括这 4 bytes 自身**；第 5 bytes 记录当前字符集是否为全局字符集，0x00
+就不是，0x01 就是；之后就是可用字符的字节，全部为 utf-8 编码对应的字节，每个字符之间以 `0x00` 分割。
 
 目前已经有的字符集为：
 
@@ -910,7 +926,8 @@ table ConfigCellReverseResolution {
 length|key|key|key ...
 ```
 
-这个 cell 的 witness 在其 entity 部分**存储的是纯二进制数据**，未进行 molecule 编码。其中前 4 bytes 是 uint32 的数据总长度，**包括这 4 bytes 自身**，之后就是解析记录中可用的各个 key 值字符串的 ASCII 编码，比如原本的 key 是 `address.eth` 那么存储的就是 `0x616464726573732E657468` ，每个 key 之间以 `0x00` 分割。
+这个 cell 的 witness 在其 entity 部分**存储的是纯二进制数据**，未进行 molecule 编码。其中前 4 bytes 是 uint32 的数据总长度，**包括这 4 bytes 自身**，之后就是解析记录中可用的各个 key 值字符串的 ASCII
+编码，比如原本的 key 是 `address.eth` 那么存储的就是 `0x616464726573732E657468` ，每个 key 之间以 `0x00` 分割。
 
 #### ConfigCellPreservedAccountXX
 
@@ -922,7 +939,8 @@ length|key|key|key ...
 length|hash|hash|hash ...
 ```
 
-这个 cell 的 witness 在其 entity 部分**存储的是纯二进制数据**，未进行 molecule 编码。其中前 4 bytes 是 uint32 的数据总长度，**包括这 4 bytes 自身**，之后就是各个账户名不含后缀的部分 hash 后前 20 bytes 拼接而成的数据，因为每段数据固定为 20 bytes 所以**无分隔符等字节**。
+这个 cell 的 witness 在其 entity 部分**存储的是纯二进制数据**，未进行 molecule 编码。其中前 4 bytes 是 uint32 的数据总长度，**包括这 4 bytes 自身**，之后就是各个账户名不含后缀的部分 hash 后前 20
+bytes 拼接而成的数据，因为每段数据固定为 20 bytes 所以**无分隔符等字节**。
 
 ### TimeCell、HeightCell、QuoteCell
 
@@ -962,7 +980,8 @@ data:
 
 #### QuoteCell
 
-由于 CKB 链上目前暂无和美元挂钩的稳定币，DAS 官方会通过一个报价 Cell 公布当前采用的 CKB 对美元的汇率。单位为 CKB/USD ，因为 USD 采用了扩大 `1_000_000` 倍的方式精确到小数点后 6 位，所以 CKB 也要等比扩大，既市价为 0.001 CKB/USD 时，QuoteCell 需要记录为 1000 CKB/USD 。
+由于 CKB 链上目前暂无和美元挂钩的稳定币，DAS 官方会通过一个报价 Cell 公布当前采用的 CKB 对美元的汇率。单位为 CKB/USD ，因为 USD 采用了扩大 `1_000_000` 倍的方式精确到小数点后 6 位，所以 CKB 也要等比扩大，既市价为 0.001
+CKB/USD 时，QuoteCell 需要记录为 1000 CKB/USD 。
 
 ```
 lock: <ckb_lock_script>
@@ -979,7 +998,6 @@ data:
 #### 体积
 
 `105` Bytes
-
 
 ## 其他
 
@@ -1027,7 +1045,7 @@ enum DataType {
     ConfigCellSecondaryMarket,            // args: 0x6f000000
     ConfigCellReverseResolution,          // args: 0x70000000
     ConfigCellSubAccount,                 // args: 0x71000000
-    ConfigCellSubAccountBeta,             // args: 0x72000000
+    ConfigCellSubAccountBetaList,         // args: 0x72000000
     ConfigCellPreservedAccount00 = 10000, // args: 0x10270000
     ConfigCellPreservedAccount01,
     ConfigCellPreservedAccount02,
