@@ -186,12 +186,12 @@ pub fn main() -> Result<(), Error> {
                 let created_at = u64::from(pre_account_cell_witness.created_at());
 
                 assert!(
-                    timestamp >= created_at + 86400,
+                    timestamp >= created_at + PRE_ACCOUNT_CELL_TIMEOUT,
                     Error::PreRegisterIsNotTimeout,
                     "The PreAccountCell is not timeout, so it can not be refunded for now.(current: {}, created_at: {}, timeout_limit: {})",
                     timestamp,
                     created_at,
-                    86400
+                    PRE_ACCOUNT_CELL_TIMEOUT
                 );
 
                 util::map_add(

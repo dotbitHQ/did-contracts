@@ -789,6 +789,20 @@ pub fn parse_income_cell_witness(
     Ok(ret)
 }
 
+pub fn parse_proposal_cell_witness(
+    parser: &WitnessesParser,
+    index: usize,
+    source: Source,
+) -> Result<das_packed::ProposalCellData, Error> {
+    let (_, _, mol_bytes) = parser.verify_and_get(DataType::ProposalCellData, index, source)?;
+    let ret = das_packed::ProposalCellData::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
+        warn!("Decoding IncomeCellData failed");
+        Error::WitnessEntityDecodingError
+    })?;
+
+    Ok(ret)
+}
+
 pub fn parse_pre_account_cell_witness(
     parser: &WitnessesParser,
     index: usize,

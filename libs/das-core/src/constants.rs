@@ -71,6 +71,8 @@ pub const DAY_SEC: u64 = 86400;
 pub const DAYS_OF_YEAR: u64 = 365;
 pub const YEAR_SEC: u64 = DAY_SEC * DAYS_OF_YEAR;
 
+pub const PRE_ACCOUNT_CELL_TIMEOUT: u64 = DAY_SEC;
+
 pub fn super_lock() -> Script {
     #[cfg(feature = "dev")]
     let super_lock = ScriptLiteral {

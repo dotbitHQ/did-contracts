@@ -87,40 +87,43 @@ pub fn main() -> Result<(), Error> {
                     parent_account.extend(ACCOUNT_SUFFIX.as_bytes());
                 }
                 b"edit_sub_account" => {
-                    let lib = eth_lib
-                        .load(&ETH_LIB_CODE_HASH)
-                        .expect("The shared lib should be loaded successfully.");
-                    eth = Some(SignLibMethods {
-                        c_validate: unsafe {
-                            lib.get(b"validate")
-                                .expect("Load function 'validate' from library failed.")
-                        },
-                        c_validate_str: unsafe {
-                            lib.get(b"validate_str")
-                                .expect("Load function 'validate_str' from library failed.")
-                        },
-                    });
+                    if cfg!(not(feature = "dev")) {
+                        // CAREFUL Proof verification has been skipped in development mode.
+                        // TODO Refactor the temporary solution of dynamic library loading ...
+                        let lib = eth_lib
+                            .load(&ETH_LIB_CODE_HASH)
+                            .expect("The shared lib should be loaded successfully.");
+                        eth = Some(SignLibMethods {
+                            c_validate: unsafe {
+                                lib.get(b"validate")
+                                    .expect("Load function 'validate' from library failed.")
+                            },
+                            c_validate_str: unsafe {
+                                lib.get(b"validate_str")
+                                    .expect("Load function 'validate_str' from library failed.")
+                            },
+                        });
 
-                    let lib = tron_lib
-                        .load(&TRON_LIB_CODE_HASH)
-                        .expect("The shared lib should be loaded successfully.");
-                    tron = Some(SignLibMethods {
-                        c_validate: unsafe {
-                            lib.get(b"validate")
-                                .expect("Load function 'validate' from library failed.")
-                        },
-                        c_validate_str: unsafe {
-                            lib.get(b"validate_str")
-                                .expect("Load function 'validate_str' from library failed.")
-                        },
-                    });
+                        let lib = tron_lib
+                            .load(&TRON_LIB_CODE_HASH)
+                            .expect("The shared lib should be loaded successfully.");
+                        tron = Some(SignLibMethods {
+                            c_validate: unsafe {
+                                lib.get(b"validate")
+                                    .expect("Load function 'validate' from library failed.")
+                            },
+                            c_validate_str: unsafe {
+                                lib.get(b"validate_str")
+                                    .expect("Load function 'validate_str' from library failed.")
+                            },
+                        });
+                    }
                 }
                 b"renew_sub_account" => todo!(),
                 b"recycle_sub_account" => todo!(),
                 _ => unreachable!(),
             }
 
-            // TODO Refactor the temporary solution of dynamic library loading ...
             let sign_lib = SignLib::new(eth, tron);
 
             debug!("Start iterating sub-account witnesses ...");
