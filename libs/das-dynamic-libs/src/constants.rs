@@ -5,9 +5,9 @@ pub type DymLibSize = [u8; 128 * 1024];
 #[derive(Debug, PartialEq, Copy, Clone)]
 #[repr(u8)]
 pub enum DasLockType {
-    CKBSingle,
-    CKBMulti,
     XXX,
+    CKBMulti,
+    CKBSingle,
     ETH,
     TRON,
     ETHTypedData,
@@ -19,9 +19,9 @@ impl TryFrom<u8> for DasLockType {
 
     fn try_from(v: u8) -> Result<Self, Self::Error> {
         match v {
-            x if x == DasLockType::CKBSingle as u8 => Ok(DasLockType::CKBSingle),
-            x if x == DasLockType::CKBMulti as u8 => Ok(DasLockType::CKBMulti),
             x if x == DasLockType::XXX as u8 => Ok(DasLockType::XXX),
+            x if x == DasLockType::CKBMulti as u8 => Ok(DasLockType::CKBMulti),
+            x if x == DasLockType::CKBSingle as u8 => Ok(DasLockType::CKBSingle),
             x if x == DasLockType::ETH as u8 => Ok(DasLockType::ETH),
             x if x == DasLockType::TRON as u8 => Ok(DasLockType::TRON),
             x if x == DasLockType::ETHTypedData as u8 => Ok(DasLockType::ETHTypedData),
