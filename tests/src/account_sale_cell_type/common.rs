@@ -9,6 +9,7 @@ pub fn init(action: &str, params_opt: Option<&str>) -> TemplateGenerator {
 
     template.push_contract_cell("always_success", true);
     template.push_contract_cell("fake-das-lock", true);
+    template.push_contract_cell("eip712-lib", false);
     template.push_contract_cell("balance-cell-type", false);
     template.push_contract_cell("account-cell-type", false);
     template.push_contract_cell("account-sale-cell-type", false);

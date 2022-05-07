@@ -757,6 +757,7 @@ impl TemplateGenerator {
             .proposal_cell(Hash::try_from(util::get_type_id_bytes("proposal-cell-type")).unwrap())
             .reverse_record_cell(Hash::try_from(util::get_type_id_bytes("reverse-record-cell-type")).unwrap())
             .sub_account_cell(Hash::try_from(util::get_type_id_bytes("sub-account-cell-type")).unwrap())
+            .eip712_lib(Hash::try_from(util::get_type_id_bytes("eip712-lib")).unwrap())
             .build();
 
         let entity = ConfigCellMain::new_builder()

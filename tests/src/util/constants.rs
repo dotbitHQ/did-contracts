@@ -98,6 +98,7 @@ lazy_static! {
         // CAREFUL! There may be some error in the map, but the contracts will still work. It is because when parsing scripts in cell_deps, their type
         // ID will be calculated dynamically and insert into the map.
         let mut map = HashMap::new();
+        // fake locks
         map.insert(
             "fake-das-lock",
             "0xcd289a6d68ca96b6b8df89e721aeb09350db5769a5e46908dfc797dbbf2a835f",
@@ -106,6 +107,15 @@ lazy_static! {
             "fake-secp256k1-blake160-signhash-all",
             "0xdc34ec56c0d6ec64c8f66f14dd53f1bcea08d54ed4e944606816b4ee95be9646",
         );
+        map.insert(
+            "always_success",
+            "0x9d6f2919e328f3217d7dd3dab5f7cee9d8e062bee6a80d5d05cd495ca3416378",
+        );
+        map.insert(
+            "always-success",
+            "0x3f67f5b5761db78ce746f0b140e0e63783fa84598e7e19a02ae8d417c0dfb882",
+        );
+        // types
         map.insert(
             "account-cell-type",
             "0x3d216e5bfb54b9e2ec0f0fbb1cdf23703f550a7ec7c35264742fce69308482e1",
@@ -117,10 +127,6 @@ lazy_static! {
         map.insert(
             "account-auction-cell-type",
             "0x3acbbdc4c0f0dc7433f5aac30b079a3fd3bfaaf3aeeea904af830dad99da1e49",
-        );
-        map.insert(
-            "always_success",
-            "0x9d6f2919e328f3217d7dd3dab5f7cee9d8e062bee6a80d5d05cd495ca3416378",
         );
         map.insert(
             "apply-register-cell-type",
@@ -158,6 +164,12 @@ lazy_static! {
             "sub-account-cell-type",
             "0xbdbe9526416cd0a86c7a3b78ae8907aed9fa37ef1d51d4c54638d81dd423e5b5",
         );
+        // libs
+        map.insert(
+            "eip712-lib",
+            "0x4b12f102c83c05c9624f6e7bf371a3caaa75bf95ffb2e4a4916530671dd5b926",
+        );
+        // others
         map.insert(
             "test-env",
             "0x4939a7b6baf71149795f59844c215af0c117f381ac615fe3f563e77509063e19",

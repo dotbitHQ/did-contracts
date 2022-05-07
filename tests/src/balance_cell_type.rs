@@ -7,6 +7,7 @@ fn init(action: &str) -> TemplateGenerator {
 
     template.push_contract_cell("fake-das-lock", true);
     template.push_contract_cell("fake-secp256k1-blake160-signhash-all", true);
+    template.push_contract_cell("eip712-lib", false);
     template.push_contract_cell("balance-cell-type", false);
 
     template.push_config_cell(DataType::ConfigCellMain, Source::CellDep);

@@ -473,7 +473,7 @@ pub fn push_input_playground_cell(template: &mut TemplateGenerator) {
         json!({
             "capacity": 0,
             "lock": {
-                "code_hash": "{{always_success}}"
+                "code_hash": "{{always-success}}"
             },
             "type": {
                 "code_hash": "{{playground}}"
