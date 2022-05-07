@@ -659,12 +659,7 @@ pub fn calc_duration_from_paid(paid: u64, yearly_price: u64, quote: u64, discoun
     paid * 365 / yearly_capacity * 86400
 }
 
-pub fn require_type_script(
-    parser: &WitnessesParser,
-    type_script: TypeScript,
-    source: Source,
-    err: Error,
-) -> Result<(), Error> {
+fn get_type_id(parser: &WitnessesParser, type_script: TypeScript) -> Result<das_packed::HashReader, Error> {
     let config = parser.configs.main()?;
 
     let type_id = match type_script {
@@ -680,7 +675,19 @@ pub fn require_type_script(
         TypeScript::ProposalCellType => config.type_id_table().proposal_cell(),
         TypeScript::ReverseRecordCellType => config.type_id_table().reverse_record_cell(),
         TypeScript::SubAccountCellType => config.type_id_table().sub_account_cell(),
+        TypeScript::EIP712Lib => config.type_id_table().eip712_lib(),
     };
+
+    Ok(type_id)
+}
+
+pub fn require_type_script(
+    parser: &WitnessesParser,
+    type_script: TypeScript,
+    source: Source,
+    err: Error,
+) -> Result<(), Error> {
+    let type_id = get_type_id(parser, type_script.clone())?;
 
     debug!(
         "Require on: 0x{}({:?}) in {:?}",
@@ -884,4 +891,16 @@ where
             btree_map.insert(key.clone(), value);
         }
     }
+}
+
+pub fn exec_by_type_id(parser: &WitnessesParser, type_script: TypeScript, argv: &[&CStr]) -> Result<u64, Error> {
+    let type_id = get_type_id(parser, type_script.clone())?;
+
+    debug!(
+        "Execute script {:?} by type ID 0x{}",
+        type_script,
+        hex_string(type_id.raw_data())
+    );
+
+    high_level::exec_cell(type_id.raw_data(), ScriptHashType::Type, 0, 0, argv).map_err(Error::from)
 }

@@ -1,24 +1,15 @@
-use alloc::{boxed::Box, format, string::String, vec};
+use alloc::{boxed::Box, vec};
 use ckb_std::{
     ckb_constants::Source,
     ckb_types::{packed as ckb_packed, prelude::*},
     high_level,
 };
 use das_core::{
-    assert, assert_lock_equal,
-    constants::*,
-    data_parser, debug,
-    eip712::{to_semantic_capacity, verify_eip712_hashes},
-    error::Error,
-    util, verifiers, warn,
+    assert, assert_lock_equal, constants::*, data_parser, debug, error::Error, util, verifiers, warn,
     witness_parser::WitnessesParser,
 };
 use das_map::{map::Map, util as map_util};
-use das_types::{
-    constants::{AccountStatus, DataType},
-    mixer::*,
-    packed::*,
-};
+use das_types::{constants::AccountStatus, mixer::*, packed::*};
 
 pub fn main() -> Result<(), Error> {
     debug!("====== Running account-sale-cell-type ======");
@@ -72,8 +63,6 @@ pub fn main() -> Result<(), Error> {
 
             match action {
                 b"start_account_sale" => {
-                    verify_eip712_hashes(&parser, start_account_sale_to_semantic)?;
-
                     verifiers::common::verify_created_cell_in_correct_position(
                         "AccountSaleCell",
                         &input_sale_cells,
@@ -131,10 +120,10 @@ pub fn main() -> Result<(), Error> {
                     verify_description(config_secondary_market, &output_sale_cell_witness_reader)?;
                     verify_buyer_inviter_profit_rate(&output_sale_cell_witness_reader)?;
                     verify_started_at(timestamp, &output_sale_cell_witness_reader)?;
+
+                    util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
                 }
                 b"cancel_account_sale" => {
-                    verify_eip712_hashes(&parser, cancel_account_sale_to_semantic)?;
-
                     verifiers::common::verify_removed_cell_in_correct_position(
                         "AccountSaleCell",
                         &input_sale_cells,
@@ -187,10 +176,10 @@ pub fn main() -> Result<(), Error> {
                     let input_sale_cell_witness_reader = input_sale_cell_witness.as_reader();
 
                     verify_sale_cell_account_and_id(input_account_cells[0], &input_sale_cell_witness_reader)?;
+
+                    util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
                 }
                 b"buy_account" => {
-                    verify_eip712_hashes(&parser, buy_account_to_semantic)?;
-
                     verifiers::common::verify_removed_cell_in_correct_position(
                         "AccountSaleCell",
                         &input_sale_cells,
@@ -310,14 +299,14 @@ pub fn main() -> Result<(), Error> {
                         account_sale_cell_capacity,
                         common_fee,
                     )?;
+
+                    util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
                 }
                 _ => unreachable!(),
             }
         }
         b"edit_account_sale" => {
             parser.parse_cell()?;
-
-            verify_eip712_hashes(&parser, edit_account_sale_to_semantic)?;
 
             let config_secondary_market_reader = parser.configs.secondary_market()?;
 
@@ -408,6 +397,8 @@ pub fn main() -> Result<(), Error> {
                 Error::InvalidTransactionStructure,
                 "Either price or description should be modified."
             );
+
+            util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
         }
         b"force_recover_account_status" => {
             util::require_type_script(
@@ -441,117 +432,6 @@ fn decode_scripts_from_params(params: &[Bytes]) -> Result<(ckb_packed::Script, c
     let channel_lock = decode_script!(params[1].as_reader(), "channel_lock");
 
     Ok((inviter_lock, channel_lock))
-}
-
-fn start_account_sale_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
-    let type_id_table_reader = parser.configs.main()?.type_id_table();
-    let account_cells =
-        util::find_cells_by_type_id(ScriptType::Type, type_id_table_reader.account_cell(), Source::Input)?;
-    let account_sale_cells = util::find_cells_by_type_id(
-        ScriptType::Type,
-        type_id_table_reader.account_sale_cell(),
-        Source::Output,
-    )?;
-
-    // Parse account from the data of the AccountCell in inputs.
-    let data_in_bytes = util::load_cell_data(account_cells[0], Source::Input)?;
-    let account_in_bytes = data_parser::account_cell::get_account(&data_in_bytes);
-    let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| Error::EIP712SerializationError)?;
-
-    let (version, _, witness) =
-        parser.verify_and_get(DataType::AccountSaleCellData, account_sale_cells[0], Source::Output)?;
-
-    let price = if version == 1 {
-        let entity = AccountSaleCellDataV1::from_slice(witness.as_reader().raw_data()).map_err(|_| {
-            warn!("EIP712 decoding AccountSaleCellData failed");
-            Error::WitnessEntityDecodingError
-        })?;
-        to_semantic_capacity(u64::from(entity.price()))
-    } else {
-        let entity = AccountSaleCellData::from_slice(witness.as_reader().raw_data()).map_err(|_| {
-            warn!("EIP712 decoding AccountSaleCellData failed");
-            Error::WitnessEntityDecodingError
-        })?;
-        to_semantic_capacity(u64::from(entity.price()))
-    };
-
-    Ok(format!("SELL {} FOR {}", account, price))
-}
-
-fn edit_account_sale_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
-    let type_id_table_reader = parser.configs.main()?.type_id_table();
-    let account_sale_cells = util::find_cells_by_type_id(
-        ScriptType::Type,
-        type_id_table_reader.account_sale_cell(),
-        Source::Output,
-    )?;
-
-    let (version, _, witness) =
-        parser.verify_and_get(DataType::AccountSaleCellData, account_sale_cells[0], Source::Output)?;
-
-    let price = if version == 1 {
-        let entity = AccountSaleCellDataV1::from_slice(witness.as_reader().raw_data()).map_err(|_| {
-            warn!("EIP712 decoding AccountSaleCellData failed");
-            Error::WitnessEntityDecodingError
-        })?;
-        to_semantic_capacity(u64::from(entity.price()))
-    } else {
-        let entity = AccountSaleCellData::from_slice(witness.as_reader().raw_data()).map_err(|_| {
-            warn!("EIP712 decoding AccountSaleCellData failed");
-            Error::WitnessEntityDecodingError
-        })?;
-        to_semantic_capacity(u64::from(entity.price()))
-    };
-
-    Ok(format!("EDIT SALE INFO, CURRENT PRICE IS {}", price))
-}
-
-fn cancel_account_sale_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
-    let type_id_table_reader = parser.configs.main()?.type_id_table();
-    let account_cells =
-        util::find_cells_by_type_id(ScriptType::Type, type_id_table_reader.account_cell(), Source::Input)?;
-
-    // Parse account from the data of the AccountCell in inputs.
-    let data_in_bytes = util::load_cell_data(account_cells[0], Source::Input)?;
-    let account_in_bytes = data_parser::account_cell::get_account(&data_in_bytes);
-    let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| Error::EIP712SerializationError)?;
-
-    Ok(format!("CANCEL SALE OF {}", account))
-}
-
-fn buy_account_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
-    let type_id_table_reader = parser.configs.main()?.type_id_table();
-    let account_cells =
-        util::find_cells_by_type_id(ScriptType::Type, type_id_table_reader.account_cell(), Source::Input)?;
-    let account_sale_cells = util::find_cells_by_type_id(
-        ScriptType::Type,
-        type_id_table_reader.account_sale_cell(),
-        Source::Input,
-    )?;
-
-    // Parse account from the data of the AccountCell in inputs.
-    let data_in_bytes = util::load_cell_data(account_cells[0], Source::Input)?;
-    let account_in_bytes = data_parser::account_cell::get_account(&data_in_bytes);
-    let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| Error::EIP712SerializationError)?;
-
-    let (version, _, witness) =
-        parser.verify_and_get(DataType::AccountSaleCellData, account_sale_cells[0], Source::Input)?;
-
-    let price = if version == 1 {
-        let entity = AccountSaleCellDataV1::from_slice(witness.as_reader().raw_data()).map_err(|_| {
-            warn!("EIP712 decoding AccountSaleCellData failed");
-            Error::WitnessEntityDecodingError
-        })?;
-        to_semantic_capacity(u64::from(entity.price()))
-    } else {
-        let entity = AccountSaleCellData::from_slice(witness.as_reader().raw_data()).map_err(|_| {
-            warn!("EIP712 decoding AccountSaleCellData failed");
-            Error::WitnessEntityDecodingError
-        })?;
-        to_semantic_capacity(u64::from(entity.price()))
-    };
-
-    Ok(format!("BUY {} WITH {}", account, price))
 }
 
 fn verify_account_cell_consistent_except_status<'a>(

@@ -1,17 +1,11 @@
-use alloc::{boxed::Box, format, string::String, vec};
+use alloc::{boxed::Box, vec};
 use ckb_std::{ckb_constants::Source, ckb_types::prelude::*, high_level};
 use das_core::{
-    assert,
-    constants::{das_wallet_lock, DasLockType, OracleCellType, ScriptType, TypeScript},
-    data_parser, debug,
-    eip712::{to_semantic_address, verify_eip712_hashes},
-    error::Error,
-    util, verifiers, warn,
-    witness_parser::WitnessesParser,
+    assert, constants::*, data_parser, debug, error::Error, util, verifiers, warn, witness_parser::WitnessesParser,
 };
 use das_map::{map::Map, util as map_util};
 use das_types::{
-    constants::{AccountStatus, LockRole, SubAccountEnableStatus},
+    constants::{AccountStatus, SubAccountEnableStatus},
     mixer::*,
     packed::*,
 };
@@ -69,8 +63,6 @@ pub fn main() -> Result<(), Error> {
 
             match action {
                 b"transfer_account" => {
-                    verify_eip712_hashes(&parser, transfer_account_to_semantic)?;
-
                     let config_account = parser.configs.account()?;
 
                     verify_transaction_fee_spent_correctly(
@@ -111,10 +103,10 @@ pub fn main() -> Result<(), Error> {
                         output_account_cells[0],
                         Source::Output,
                     )?;
+
+                    util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
                 }
                 b"edit_manager" => {
-                    verify_eip712_hashes(&parser, edit_manager_to_semantic)?;
-
                     let config_account = parser.configs.account()?;
 
                     verify_transaction_fee_spent_correctly(
@@ -150,10 +142,10 @@ pub fn main() -> Result<(), Error> {
                         vec![],
                         vec!["last_edit_manager_at"],
                     )?;
+
+                    util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
                 }
                 b"edit_records" => {
-                    verify_eip712_hashes(&parser, edit_records_to_semantic)?;
-
                     let config_account = parser.configs.account()?;
 
                     verify_transaction_fee_spent_correctly(
@@ -190,6 +182,8 @@ pub fn main() -> Result<(), Error> {
                         vec!["records", "last_edit_records_at"],
                     )?;
                     verifiers::account_cell::verify_records_keys(&parser, output_cell_witness_reader.records())?;
+
+                    util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
                 }
                 _ => unreachable!(),
             }
@@ -694,54 +688,6 @@ pub fn main() -> Result<(), Error> {
     }
 
     Ok(())
-}
-
-fn transfer_account_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
-    let type_id_table_reader = parser.configs.main()?.type_id_table();
-    let (input_cells, output_cells) =
-        util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, type_id_table_reader.account_cell())?;
-
-    // Parse account from the data of the AccountCell in inputs.
-    let data_in_bytes = util::load_cell_data(input_cells[0], Source::Input)?;
-    let account_in_bytes = data_parser::account_cell::get_account(&data_in_bytes);
-    let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| Error::EIP712SerializationError)?;
-
-    // Parse from address from the AccountCell's lock script in inputs.
-    // let from_lock = high_level::load_cell_lock(input_cells[0], Source::Input)?;
-    // let from_address = to_semantic_address(from_lock.as_reader().into(), 1..21)?;
-    // Parse to address from the AccountCell's lock script in outputs.
-    let to_lock = high_level::load_cell_lock(output_cells[0], Source::Output)?;
-    let to_address = to_semantic_address(parser, to_lock.as_reader().into(), LockRole::Owner)?;
-
-    Ok(format!("TRANSFER THE ACCOUNT {} TO {}", account, to_address))
-}
-
-fn edit_manager_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
-    let type_id_table_reader = parser.configs.main()?.type_id_table();
-    let (input_cells, _output_cells) =
-        util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, type_id_table_reader.account_cell())?;
-
-    // Parse account from the data of the AccountCell in inputs.
-    let data_in_bytes = util::load_cell_data(input_cells[0], Source::Input)?;
-    let account_in_bytes = data_parser::account_cell::get_account(&data_in_bytes);
-    let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| Error::EIP712SerializationError)?;
-
-    // TODO Improve semantic message of this transaction.
-    Ok(format!("EDIT MANAGER OF ACCOUNT {}", account))
-}
-
-fn edit_records_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
-    let type_id_table_reader = parser.configs.main()?.type_id_table();
-    let (input_cells, _output_cells) =
-        util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, type_id_table_reader.account_cell())?;
-
-    // Parse account from the data of the AccountCell in inputs.
-    let data_in_bytes = util::load_cell_data(input_cells[0], Source::Input)?;
-    let account_in_bytes = data_parser::account_cell::get_account(&data_in_bytes);
-    let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| Error::EIP712SerializationError)?;
-
-    // TODO Improve semantic message of this transaction.
-    Ok(format!("EDIT RECORDS OF ACCOUNT {}", account))
 }
 
 fn verify_transaction_fee_spent_correctly(

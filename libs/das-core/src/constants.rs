@@ -18,7 +18,7 @@ pub enum ScriptType {
     Type,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TypeScript {
     AccountCellType,
     AccountSaleCellType,
@@ -32,6 +32,7 @@ pub enum TypeScript {
     ProposalCellType,
     ReverseRecordCellType,
     SubAccountCellType,
+    EIP712Lib,
 }
 
 #[derive(Debug)]
