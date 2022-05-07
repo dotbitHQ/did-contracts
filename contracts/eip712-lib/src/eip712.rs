@@ -1,4 +1,3 @@
-use super::{assert, constants::*, data_parser, debug, error::Error, util, warn, witness_parser::WitnessesParser};
 use alloc::{
     boxed::Box,
     collections::btree_map::BTreeMap,
@@ -18,9 +17,12 @@ use ckb_std::{
     high_level,
 };
 use core::convert::{TryFrom, TryInto};
-use das_types::mixer::AccountCellDataMixer;
+use das_core::{
+    assert as das_assert, constants::*, data_parser, debug, error::Error, util, warn, witness_parser::WitnessesParser,
+};
 use das_types::{
     constants::{DataType, LockRole},
+    mixer::AccountCellDataMixer,
     packed as das_packed,
     prelude::*,
 };
@@ -112,7 +114,7 @@ pub fn verify_eip712_hashes(
 
             // CAREFUL We need to skip the final verification here because transactions are often change when developing, that will break all tests contains EIP712 verification.
             if cfg!(not(feature = "dev")) {
-                assert!(
+                das_assert!(
                     &item.typed_data_hash == expected_hash.as_slice(),
                     Error::EIP712SignatureError,
                     "Inputs[{}] The hash of EIP712 typed data is mismatched.(current: 0x{}, expected: 0x{})",
@@ -213,7 +215,7 @@ fn tx_to_digest(
                     util::hex_string(&message)
                 );
 
-                assert!(
+                das_assert!(
                     lock_of_witness.len() == SECP_SIGNATURE_SIZE + CKB_HASH_DIGEST + EIP712_CHAINID_SIZE,
                     Error::EIP712SignatureError,
                     "Inputs[{}] The length of signature is invalid.(current: {}, expected: {})",

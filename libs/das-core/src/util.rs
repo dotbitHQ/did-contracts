@@ -6,7 +6,8 @@ use alloc::{borrow::ToOwned, boxed::Box, collections::BTreeMap, string::String, 
 use blake2b_ref::{Blake2b, Blake2bBuilder};
 use ckb_std::{
     ckb_constants::{CellField, Source},
-    ckb_types::{bytes, packed::*, prelude::*},
+    ckb_types::{bytes, core::ScriptHashType, packed::*, prelude::*},
+    cstr_core::CStr,
     error::SysError,
     high_level, syscalls,
 };
@@ -873,6 +874,20 @@ pub fn parse_account_sale_cell_witness(
             })?,
         )
     };
+
+    Ok(ret)
+}
+
+pub fn parse_offer_cell_witness(
+    parser: &WitnessesParser,
+    index: usize,
+    source: Source,
+) -> Result<das_packed::OfferCellData, Error> {
+    let (_, _, mol_bytes) = parser.verify_and_get(DataType::OfferCellData, index, source)?;
+    let ret = das_packed::OfferCellData::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
+        warn!("Decoding OfferCellData failed");
+        Error::WitnessEntityDecodingError
+    })?;
 
     Ok(ret)
 }
