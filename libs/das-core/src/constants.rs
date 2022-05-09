@@ -74,6 +74,11 @@ pub const YEAR_SEC: u64 = DAY_SEC * DAYS_OF_YEAR;
 
 pub const PRE_ACCOUNT_CELL_TIMEOUT: u64 = DAY_SEC;
 
+pub const CROSS_CHAIN_BLACK_ARGS: [u8; 42] = [
+    3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0,
+];
+
 pub fn super_lock() -> Script {
     #[cfg(feature = "dev")]
     let super_lock = ScriptLiteral {

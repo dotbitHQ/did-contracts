@@ -161,6 +161,7 @@ pub enum Error {
     SubAccountProfitError, // -40
     UpgradeForWitnessIsRequired,
     UpgradeDefaultValueOfNewFieldIsError,
+    CrossChainLockError,
     UnittestError = -2,
     SystemOff = -1,
 }
