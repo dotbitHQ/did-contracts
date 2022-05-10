@@ -344,15 +344,15 @@ pub fn load_oracle_data(type_: OracleCellType) -> Result<u64, Error> {
     let type_script;
     match type_ {
         OracleCellType::Height => {
-            debug!("Reading HeightCell ...");
+            debug!("Finding HeightCell in cell_deps ...");
             type_script = height_cell_type();
         }
         OracleCellType::Time => {
-            debug!("Reading TimeCell ...");
+            debug!("Finding TimeCell in cell_deps ...");
             type_script = time_cell_type();
         }
         OracleCellType::Quote => {
-            debug!("Reading QuoteCell ...");
+            debug!("Finding QuoteCell in cell_deps ...");
             type_script = quote_cell_type();
         }
     }
@@ -367,7 +367,7 @@ pub fn load_oracle_data(type_: OracleCellType) -> Result<u64, Error> {
         ret.len()
     );
 
-    debug!("Reading outputs_data of the cell of {:?} ...", type_);
+    debug!("cell_deps[{}] Parsing outputs_data of {:?}Cell ...", ret[0], type_);
 
     // Read the passed timestamp from outputs_data of TimeCell
     let data = load_cell_data(ret[0], Source::CellDep)?;
