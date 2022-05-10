@@ -1,0 +1,16 @@
+[package]
+name = "das-dynamic-libs"
+version = "1.0.0"
+edition = "2018"
+
+[features]
+default = ["dev"]
+dev = []
+local = []
+testnet = []
+mainnet = []
+
+[dependencies]
+ckb-std = "0.8.0"
+blake2b-ref = "0.3"
+das-types = { path = "../../../das-types/rust", default-features = false }

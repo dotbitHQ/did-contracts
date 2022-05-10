@@ -1,5 +1,5 @@
 use super::util::{constants::*, template_common_cell::*, template_generator::*, template_parser::*};
-use das_types::constants::*;
+use das_types_std::constants::*;
 
 fn init() -> TemplateGenerator {
     let mut template = TemplateGenerator::new("config", None);
@@ -17,14 +17,14 @@ fn test_config_create() {
 
     push_input_normal_cell(&mut template, 0, CONFIG_LOCK_ARGS);
 
-    template.push_config_cell(DataType::ConfigCellAccount, true, 0, Source::Output);
-    template.push_config_cell(DataType::ConfigCellApply, true, 0, Source::Output);
-    template.push_config_cell(DataType::ConfigCellCharSetDigit, true, 0, Source::Output);
-    template.push_config_cell(DataType::ConfigCellIncome, true, 0, Source::Output);
-    template.push_config_cell(DataType::ConfigCellMain, true, 0, Source::Output);
-    template.push_config_cell(DataType::ConfigCellPrice, true, 0, Source::Output);
-    template.push_config_cell(DataType::ConfigCellProposal, true, 0, Source::Output);
-    template.push_config_cell(DataType::ConfigCellProfitRate, true, 0, Source::Output);
+    template.push_config_cell(DataType::ConfigCellAccount, Source::Output);
+    template.push_config_cell(DataType::ConfigCellApply, Source::Output);
+    template.push_config_cell(DataType::ConfigCellCharSetDigit, Source::Output);
+    template.push_config_cell(DataType::ConfigCellIncome, Source::Output);
+    template.push_config_cell(DataType::ConfigCellMain, Source::Output);
+    template.push_config_cell(DataType::ConfigCellPrice, Source::Output);
+    template.push_config_cell(DataType::ConfigCellProposal, Source::Output);
+    template.push_config_cell(DataType::ConfigCellProfitRate, Source::Output);
     // template.push_config_cell(
     //     DataType::ConfigCellPreservedAccount00,
     //     true,
@@ -41,23 +41,23 @@ fn test_config_edit() {
 
     push_input_normal_cell(&mut template, 0, CONFIG_LOCK_ARGS);
 
-    template.push_config_cell(DataType::ConfigCellAccount, true, 0, Source::Input);
-    template.push_config_cell(DataType::ConfigCellApply, true, 0, Source::Input);
-    template.push_config_cell(DataType::ConfigCellCharSetDigit, true, 0, Source::Input);
-    template.push_config_cell(DataType::ConfigCellIncome, true, 0, Source::Input);
-    template.push_config_cell(DataType::ConfigCellMain, true, 0, Source::Input);
-    template.push_config_cell(DataType::ConfigCellPrice, true, 0, Source::Input);
-    template.push_config_cell(DataType::ConfigCellProposal, true, 0, Source::Input);
-    template.push_config_cell(DataType::ConfigCellProfitRate, true, 0, Source::Input);
+    template.push_config_cell(DataType::ConfigCellAccount, Source::Input);
+    template.push_config_cell(DataType::ConfigCellApply, Source::Input);
+    template.push_config_cell(DataType::ConfigCellCharSetDigit, Source::Input);
+    template.push_config_cell(DataType::ConfigCellIncome, Source::Input);
+    template.push_config_cell(DataType::ConfigCellMain, Source::Input);
+    template.push_config_cell(DataType::ConfigCellPrice, Source::Input);
+    template.push_config_cell(DataType::ConfigCellProposal, Source::Input);
+    template.push_config_cell(DataType::ConfigCellProfitRate, Source::Input);
 
-    template.push_config_cell(DataType::ConfigCellAccount, true, 0, Source::Output);
-    template.push_config_cell(DataType::ConfigCellApply, true, 0, Source::Output);
-    template.push_config_cell(DataType::ConfigCellCharSetDigit, true, 0, Source::Output);
-    template.push_config_cell(DataType::ConfigCellIncome, true, 0, Source::Output);
-    template.push_config_cell(DataType::ConfigCellMain, true, 0, Source::Output);
-    template.push_config_cell(DataType::ConfigCellPrice, true, 0, Source::Output);
-    template.push_config_cell(DataType::ConfigCellProposal, true, 0, Source::Output);
-    template.push_config_cell(DataType::ConfigCellProfitRate, true, 0, Source::Output);
+    template.push_config_cell(DataType::ConfigCellAccount, Source::Output);
+    template.push_config_cell(DataType::ConfigCellApply, Source::Output);
+    template.push_config_cell(DataType::ConfigCellCharSetDigit, Source::Output);
+    template.push_config_cell(DataType::ConfigCellIncome, Source::Output);
+    template.push_config_cell(DataType::ConfigCellMain, Source::Output);
+    template.push_config_cell(DataType::ConfigCellPrice, Source::Output);
+    template.push_config_cell(DataType::ConfigCellProposal, Source::Output);
+    template.push_config_cell(DataType::ConfigCellProfitRate, Source::Output);
 
     test_tx(template.as_json());
 }

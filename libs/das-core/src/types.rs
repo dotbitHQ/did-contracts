@@ -1,27 +1,31 @@
-use super::{constants::ScriptHashType, error::Error, warn};
-use alloc::vec::Vec;
+use super::{assert, constants::ScriptHashType, debug, error::Error, util, warn};
+use alloc::{collections::BTreeMap, vec, vec::Vec};
+use core::convert::TryFrom;
+use core::lazy::OnceCell;
 use das_types::{
-    constants::{CharSetType, DataType},
+    constants::{
+        CharSetType, DataType, CHAR_SET_LENGTH, WITNESS_HEADER_BYTES, WITNESS_LENGTH_BYTES, WITNESS_TYPE_BYTES,
+    },
     packed::*,
+    prelude::Entity,
+    util as das_types_util,
 };
 
-macro_rules! config_getter {
-    ( $property:ident, $config_type:ty, $config_name:expr ) => {
-        pub fn $property(&self) -> Result<$config_type, Error> {
-            let reader = self
-                .$property
-                .as_ref()
-                .map(|item| item.as_reader())
-                .ok_or_else(|| {
-                    warn!(
-                        "Can not load {:?}, you need use WitnessesParser::parse_config to parse it first.",
-                        $config_name
-                    );
-                    Error::ConfigIsPartialMissing
+macro_rules! get_or_try_init {
+    ( $self:expr, $property:ident, $entity_type:ty, $data_type:expr ) => {{
+        $self
+            .$property
+            .get_or_try_init(|| {
+                let (i, raw) = Configs::parse_witness(&$self.config_witnesses, $data_type)?;
+                let entity = <$entity_type>::from_slice(&raw).map_err(|e| {
+                    warn!("witnesses[{}] Decoding {:?} failed: {}", i, $data_type, e);
+                    Error::ConfigCellWitnessDecodingError
                 })?;
-            Ok(reader)
-        }
-    };
+
+                Ok(entity)
+            })
+            .map(|entity| entity.as_reader())
+    }};
 }
 
 #[derive(Debug)]
@@ -46,89 +50,246 @@ pub struct LockScriptTypeIdTable {
     pub secp256k1_blake160_multisig_all: Script,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Configs {
-    pub account: Option<ConfigCellAccount>,
-    pub apply: Option<ConfigCellApply>,
-    pub char_set: Option<Vec<Option<CharSet>>>,
-    pub income: Option<ConfigCellIncome>,
-    pub main: Option<ConfigCellMain>,
-    pub price: Option<ConfigCellPrice>,
-    pub proposal: Option<ConfigCellProposal>,
-    pub profit_rate: Option<ConfigCellProfitRate>,
-    pub release: Option<ConfigCellRelease>,
-    pub secondary_market: Option<ConfigCellSecondaryMarket>,
-    pub reverse_resolution: Option<ConfigCellReverseResolution>,
-    pub record_key_namespace: Option<Vec<u8>>,
-    pub preserved_account: Option<Vec<u8>>,
-    pub unavailable_account: Option<Vec<u8>>,
+    config_witnesses: BTreeMap<u32, (usize, [u8; 32])>,
+    pub account: OnceCell<ConfigCellAccount>,
+    pub apply: OnceCell<ConfigCellApply>,
+    pub char_set: Vec<OnceCell<CharSet>>,
+    pub income: OnceCell<ConfigCellIncome>,
+    pub main: OnceCell<ConfigCellMain>,
+    pub price: OnceCell<ConfigCellPrice>,
+    pub proposal: OnceCell<ConfigCellProposal>,
+    pub profit_rate: OnceCell<ConfigCellProfitRate>,
+    pub release: OnceCell<ConfigCellRelease>,
+    pub secondary_market: OnceCell<ConfigCellSecondaryMarket>,
+    pub reverse_resolution: OnceCell<ConfigCellReverseResolution>,
+    pub sub_account: OnceCell<ConfigCellSubAccount>,
+    pub record_key_namespace: OnceCell<Vec<u8>>,
+    pub preserved_account: OnceCell<Vec<u8>>,
+    pub unavailable_account: OnceCell<Vec<u8>>,
+    pub sub_account_beta_list: OnceCell<Vec<u8>>,
 }
 
 impl Configs {
-    pub fn new() -> Self {
-        Configs::default()
+    pub fn new(config_witnesses: BTreeMap<u32, (usize, [u8; 32])>) -> Self {
+        Configs {
+            config_witnesses,
+            account: OnceCell::new(),
+            apply: OnceCell::new(),
+            // Chinese charsets is still not enabled.
+            char_set: vec![OnceCell::new(); CHAR_SET_LENGTH - 2],
+            income: OnceCell::new(),
+            main: OnceCell::new(),
+            price: OnceCell::new(),
+            proposal: OnceCell::new(),
+            profit_rate: OnceCell::new(),
+            release: OnceCell::new(),
+            secondary_market: OnceCell::new(),
+            reverse_resolution: OnceCell::new(),
+            sub_account: OnceCell::new(),
+            record_key_namespace: OnceCell::new(),
+            preserved_account: OnceCell::new(),
+            unavailable_account: OnceCell::new(),
+            sub_account_beta_list: OnceCell::new(),
+        }
     }
 
-    config_getter!(account, ConfigCellAccountReader, DataType::ConfigCellAccount);
-    config_getter!(apply, ConfigCellApplyReader, DataType::ConfigCellApply);
-    config_getter!(income, ConfigCellIncomeReader, DataType::ConfigCellIncome);
-    config_getter!(main, ConfigCellMainReader, DataType::ConfigCellMain);
-    config_getter!(price, ConfigCellPriceReader, DataType::ConfigCellPrice);
-    config_getter!(proposal, ConfigCellProposalReader, DataType::ConfigCellProposal);
-    config_getter!(profit_rate, ConfigCellProfitRateReader, DataType::ConfigCellProfitRate);
-    config_getter!(release, ConfigCellReleaseReader, DataType::ConfigCellRelease);
-    config_getter!(
-        secondary_market,
-        ConfigCellSecondaryMarketReader,
-        "ConfigCellSecondaryMarketReader"
-    );
-    config_getter!(
-        reverse_resolution,
-        ConfigCellReverseResolutionReader,
-        "ConfigCellReverseResolutionReader"
-    );
+    fn parse_witness(
+        config_witnesses: &BTreeMap<u32, (usize, [u8; 32])>,
+        data_type: DataType,
+    ) -> Result<(usize, Vec<u8>), Error> {
+        let &(i, expected_hash) = config_witnesses.get(&(data_type as u32)).ok_or_else(|| {
+            warn!("Can not find {:?} in witnesses.", data_type);
+            Error::ConfigIsPartialMissing
+        })?;
+
+        debug!("Parsing witnesses[{}] as {:?} ...", i, data_type);
+
+        let raw = util::load_das_witnesses(i)?;
+        let entity = raw
+            .get((WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES)..)
+            .ok_or(Error::ConfigCellWitnessDecodingError)?;
+        let hash = util::blake2b_256(entity);
+
+        assert!(
+            hash == expected_hash,
+            Error::ConfigCellWitnessIsCorrupted,
+            "witnesses[{}] The witness is corrupted!(expected_hash: 0x{} current_hash: 0x{})",
+            i,
+            util::hex_string(&expected_hash),
+            util::hex_string(&hash)
+        );
+
+        Ok((i, entity.to_vec()))
+    }
+
+    pub fn account(&self) -> Result<ConfigCellAccountReader, Error> {
+        get_or_try_init!(self, account, ConfigCellAccount, DataType::ConfigCellAccount)
+    }
+
+    pub fn apply(&self) -> Result<ConfigCellApplyReader, Error> {
+        get_or_try_init!(self, apply, ConfigCellApply, DataType::ConfigCellApply)
+    }
+
+    pub fn income(&self) -> Result<ConfigCellIncomeReader, Error> {
+        get_or_try_init!(self, income, ConfigCellIncome, DataType::ConfigCellIncome)
+    }
+
+    pub fn main(&self) -> Result<ConfigCellMainReader, Error> {
+        get_or_try_init!(self, main, ConfigCellMain, DataType::ConfigCellMain)
+    }
+
+    pub fn price(&self) -> Result<ConfigCellPriceReader, Error> {
+        get_or_try_init!(self, price, ConfigCellPrice, DataType::ConfigCellPrice)
+    }
+
+    pub fn proposal(&self) -> Result<ConfigCellProposalReader, Error> {
+        get_or_try_init!(self, proposal, ConfigCellProposal, DataType::ConfigCellProposal)
+    }
+
+    pub fn profit_rate(&self) -> Result<ConfigCellProfitRateReader, Error> {
+        get_or_try_init!(self, profit_rate, ConfigCellProfitRate, DataType::ConfigCellProfitRate)
+    }
+
+    pub fn release(&self) -> Result<ConfigCellReleaseReader, Error> {
+        get_or_try_init!(self, release, ConfigCellRelease, DataType::ConfigCellRelease)
+    }
+
+    pub fn secondary_market(&self) -> Result<ConfigCellSecondaryMarketReader, Error> {
+        get_or_try_init!(
+            self,
+            secondary_market,
+            ConfigCellSecondaryMarket,
+            DataType::ConfigCellSecondaryMarket
+        )
+    }
+
+    pub fn reverse_resolution(&self) -> Result<ConfigCellReverseResolutionReader, Error> {
+        get_or_try_init!(
+            self,
+            reverse_resolution,
+            ConfigCellReverseResolution,
+            DataType::ConfigCellReverseResolution
+        )
+    }
+
+    pub fn sub_account(&self) -> Result<ConfigCellSubAccountReader, Error> {
+        get_or_try_init!(self, sub_account, ConfigCellSubAccount, DataType::ConfigCellSubAccount)
+    }
 
     pub fn record_key_namespace(&self) -> Result<&Vec<u8>, Error> {
-        let reader = self.record_key_namespace.as_ref().map(|item| item).ok_or_else(|| {
-            warn!(
-                "Can not load {:?}, you need use WitnessesParser::parse_config to parse it first.",
-                DataType::ConfigCellRecordKeyNamespace
-            );
-            Error::ConfigIsPartialMissing
-        })?;
-        Ok(reader)
+        self.record_key_namespace.get_or_try_init(|| {
+            let data_type = DataType::ConfigCellRecordKeyNamespace;
+            let (i, raw) = Self::parse_witness(&self.config_witnesses, data_type)?;
+            let data = match raw.get(WITNESS_LENGTH_BYTES..) {
+                Some(data) => data.to_vec(),
+                None => {
+                    warn!("witnesses[{}] The data of {:?} is empty.", i, data_type);
+                    return Err(Error::ConfigIsPartialMissing);
+                }
+            };
+
+            Ok(data)
+        })
     }
 
-    pub fn preserved_account(&self) -> Result<&[u8], Error> {
-        let reader = self.preserved_account.as_ref().ok_or_else(|| {
-            warn!(
-                "Can not load {}, you need use WitnessesParser::parse_config to parse it first.",
-                "ConfigCellPreservedAccountXX"
-            );
-            Error::ConfigIsPartialMissing
-        })?;
-        Ok(reader)
+    pub fn preserved_account(&self, data_type: DataType) -> Result<&Vec<u8>, Error> {
+        self.preserved_account.get_or_try_init(|| {
+            let (i, raw) = Self::parse_witness(&self.config_witnesses, data_type)?;
+            let data = match raw.get(WITNESS_LENGTH_BYTES..) {
+                Some(data) => data.to_vec(),
+                None => {
+                    warn!("witnesses[{}] The data of {:?} is empty.", i, data_type);
+
+                    return Err(Error::ConfigIsPartialMissing);
+                }
+            };
+
+            Ok(data)
+        })
     }
 
-    pub fn unavailable_account(&self) -> Result<&[u8], Error> {
-        let reader = self.unavailable_account.as_ref().ok_or_else(|| {
-            warn!(
-                "Can not load {:?}, you need use WitnessesParser::parse_config to parse it first.",
-                DataType::ConfigCellUnAvailableAccount
-            );
-            Error::ConfigIsPartialMissing
-        })?;
-        Ok(reader)
+    pub fn unavailable_account(&self) -> Result<&Vec<u8>, Error> {
+        self.unavailable_account.get_or_try_init(|| {
+            let data_type = DataType::ConfigCellUnAvailableAccount;
+            let (i, raw) = Self::parse_witness(&self.config_witnesses, data_type)?;
+            let data = match raw.get(WITNESS_LENGTH_BYTES..) {
+                Some(data) => data.to_vec(),
+                None => {
+                    warn!("witnesses[{}] The data of {:?} is empty.", i, data_type);
+                    return Err(Error::ConfigIsPartialMissing);
+                }
+            };
+
+            Ok(data)
+        })
     }
 
-    pub fn char_set(&self) -> Result<&Vec<Option<CharSet>>, Error> {
-        let reader = self.char_set.as_ref().map(|item| item).ok_or_else(|| {
-            warn!(
-                "Can not load {}, you need use WitnessesParser::parse_config to parse it first.",
-                "ConfigCellCharSetXX"
-            );
-            Error::ConfigIsPartialMissing
-        })?;
-        Ok(reader)
+    pub fn sub_account_beta_list(&self) -> Result<&Vec<u8>, Error> {
+        self.unavailable_account.get_or_try_init(|| {
+            let data_type = DataType::ConfigCellSubAccountBetaList;
+            let (i, raw) = Self::parse_witness(&self.config_witnesses, data_type)?;
+            let data = match raw.get(WITNESS_LENGTH_BYTES..) {
+                Some(data) => data.to_vec(),
+                None => {
+                    warn!("witnesses[{}] The data of {:?} is empty.", i, data_type);
+                    return Err(Error::ConfigIsPartialMissing);
+                }
+            };
+
+            Ok(data)
+        })
+    }
+
+    pub fn char_set(&self) -> Vec<Result<&CharSet, Error>> {
+        let mut ret = Vec::new();
+        for (i, char_set) in self.char_set.iter().enumerate() {
+            let item = char_set.get_or_try_init(|| {
+                let char_set_type = match CharSetType::try_from(i as u32) {
+                    Ok(char_set_type) => char_set_type,
+                    Err(_) => {
+                        warn!("Invalid CharSetType[{}]", i);
+                        return Err(Error::ConfigCellWitnessDecodingError);
+                    }
+                };
+                let data_type = das_types_util::char_set_to_data_type(char_set_type);
+                let (i, raw) = Self::parse_witness(&self.config_witnesses, data_type)?;
+                let length = match raw.get(..WITNESS_LENGTH_BYTES) {
+                    Some(length_bytes) => {
+                        let mut tmp = [0u8; 4];
+                        tmp.copy_from_slice(length_bytes);
+                        u32::from_le_bytes(tmp) as usize
+                    }
+                    None => {
+                        warn!("witnesses[{}] The data of {:?} is empty.", i, data_type);
+                        return Err(Error::ConfigIsPartialMissing);
+                    }
+                };
+
+                assert!(
+                    raw.len() == length,
+                    Error::ConfigCellWitnessDecodingError,
+                    "witnesses[{}] The {:?} should have length of {} bytes, but {} bytes found.",
+                    i,
+                    data_type,
+                    length,
+                    raw.len()
+                );
+
+                let char_set = CharSet {
+                    name: char_set_type,
+                    // skip WITNESS_LENGTH_BYTES bytes length, and the WITNESS_LENGTH_BYTES+1 byte is global flag, then the following bytes is data
+                    global: raw.get(WITNESS_LENGTH_BYTES).unwrap() == &1u8,
+                    data: raw.get((WITNESS_LENGTH_BYTES + 1)..).unwrap().to_vec(),
+                };
+
+                Ok(char_set)
+            });
+
+            ret.push(item);
+        }
+
+        ret
     }
 }

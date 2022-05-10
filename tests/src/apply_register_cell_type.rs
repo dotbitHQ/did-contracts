@@ -1,6 +1,6 @@
 use crate::util::{constants::*, error::Error, template_generator::*, template_parser::TemplateParser};
 use ckb_testtool::context::Context;
-use das_types::{constants::DataType, packed::*};
+use das_types_std::{constants::*, packed::*};
 use serde_json::json;
 
 fn init(action: &str) -> (TemplateGenerator, u64, u64) {
@@ -15,8 +15,8 @@ fn init(action: &str) -> (TemplateGenerator, u64, u64) {
     let timestamp = 1611200000u64;
     template.push_oracle_cell(1, OracleCellType::Time, timestamp);
 
-    template.push_config_cell(DataType::ConfigCellMain, true, 0, Source::CellDep);
-    template.push_config_cell(DataType::ConfigCellApply, true, 0, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellMain, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellApply, Source::CellDep);
 
     (template, height, timestamp)
 }

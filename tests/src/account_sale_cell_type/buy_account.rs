@@ -1,8 +1,8 @@
 use super::common::*;
 use crate::util::{
-    self, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
+    self, accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
 };
-use das_types::{constants::*, packed::*, prelude::*};
+use das_types_std::{constants::*, packed::*, prelude::*};
 use serde_json::json;
 
 fn push_simple_output_income_cell(template: &mut TemplateGenerator) {
@@ -13,22 +13,22 @@ fn push_simple_output_income_cell(template: &mut TemplateGenerator) {
                 "records": [
                     {
                         "belong_to": {
-                            "code_hash": "{{fake-das-lock}}",
-                            "args": COMMON_INCOME_CREATOR_LOCK_ARGS
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": COMMON_INCOME_CREATOR
                         },
                         "capacity": "20_000_000_000"
                     },
                     {
                         "belong_to": {
                             "code_hash": "{{fake-das-lock}}",
-                            "args": gen_das_lock_args(INVITER_LOCK_ARGS, None)
+                            "args": gen_das_lock_args(INVITER, None)
                         },
                         "capacity": 2_000_000_000.to_string()
                     },
                     {
                         "belong_to": {
                             "code_hash": "{{fake-das-lock}}",
-                            "args": gen_das_lock_args(CHANNEL_LOCK_ARGS, None)
+                            "args": gen_das_lock_args(CHANNEL, None)
                         },
                         "capacity": 2_000_000_000.to_string()
                     },
@@ -91,7 +91,7 @@ fn gen_params(inviter_args: &str, channel_args: &str) -> String {
 }
 
 fn before_each(paid: u64) -> TemplateGenerator {
-    let params = gen_params(INVITER_LOCK_ARGS, CHANNEL_LOCK_ARGS);
+    let params = gen_params(INVITER, CHANNEL);
     let mut template = init_with_profit_rate("buy_account", Some(&params));
 
     // inputs
@@ -142,7 +142,7 @@ fn test_account_sale_buy_create_income_cell() {
 fn test_account_sale_buy_not_create_income_cell() {
     let price = 1_000_000_000_000u64;
     let paid = 1_100_000_000_000u64;
-    let params = gen_params(INVITER_LOCK_ARGS, CHANNEL_LOCK_ARGS);
+    let params = gen_params(INVITER, CHANNEL);
     let mut template = init_with_profit_rate("buy_account", Some(&params));
 
     // inputs
@@ -201,14 +201,14 @@ fn test_account_sale_buy_not_create_income_cell() {
                     {
                         "belong_to": {
                             "code_hash": "{{fake-das-lock}}",
-                            "args": gen_das_lock_args(INVITER_LOCK_ARGS, None)
+                            "args": gen_das_lock_args(INVITER, None)
                         },
                         "capacity": "10_000_000_000"
                     },
                     {
                         "belong_to": {
                             "code_hash": "{{fake-das-lock}}",
-                            "args": gen_das_lock_args(CHANNEL_LOCK_ARGS, None)
+                            "args": gen_das_lock_args(CHANNEL, None)
                         },
                         "capacity": "10_000_000_000"
                     },
@@ -321,7 +321,7 @@ fn test_account_sale_buy_no_inviter_and_channel() {
 #[test]
 fn test_account_sale_buy_create_with_custom_buyer_inviter_profit_rate() {
     let paid = PRICE;
-    let params = gen_params(INVITER_LOCK_ARGS, CHANNEL_LOCK_ARGS);
+    let params = gen_params(INVITER, CHANNEL);
     let mut template = init_with_profit_rate("buy_account", Some(&params));
 
     // inputs
@@ -380,15 +380,15 @@ fn test_account_sale_buy_create_with_custom_buyer_inviter_profit_rate() {
                 "records": [
                     {
                         "belong_to": {
-                            "code_hash": "{{fake-das-lock}}",
-                            "args": COMMON_INCOME_CREATOR_LOCK_ARGS
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": COMMON_INCOME_CREATOR
                         },
                         "capacity": "20_000_000_000"
                     },
                     {
                         "belong_to": {
                             "code_hash": "{{fake-das-lock}}",
-                            "args": gen_das_lock_args(INVITER_LOCK_ARGS, None)
+                            "args": gen_das_lock_args(INVITER, None)
                         },
                         // Simulate custom the profit rate of the buyer's inviter to 20% .
                         "capacity": 40_000_000_000u64.to_string()
@@ -396,7 +396,7 @@ fn test_account_sale_buy_create_with_custom_buyer_inviter_profit_rate() {
                     {
                         "belong_to": {
                             "code_hash": "{{fake-das-lock}}",
-                            "args": gen_das_lock_args(CHANNEL_LOCK_ARGS, None)
+                            "args": gen_das_lock_args(CHANNEL, None)
                         },
                         "capacity": 2_000_000_000.to_string()
                     },
@@ -424,7 +424,7 @@ fn test_account_sale_buy_create_with_custom_buyer_inviter_profit_rate() {
 #[test]
 fn test_account_sale_buy_old_version() {
     let paid = PRICE;
-    let params = gen_params(INVITER_LOCK_ARGS, CHANNEL_LOCK_ARGS);
+    let params = gen_params(INVITER, CHANNEL);
     let mut template = init_with_profit_rate("buy_account", Some(&params));
 
     // inputs
@@ -466,7 +466,7 @@ fn test_account_sale_buy_old_version() {
 
 #[test]
 fn challenge_account_sale_buy_account_expired() {
-    let params = gen_params(INVITER_LOCK_ARGS, CHANNEL_LOCK_ARGS);
+    let params = gen_params(INVITER, CHANNEL);
     let mut template = init_with_profit_rate("buy_account", Some(&params));
 
     // inputs
@@ -545,7 +545,7 @@ fn challenge_account_sale_buy_account_capacity() {
 
 #[test]
 fn challenge_account_sale_buy_input_account_status() {
-    let params = gen_params(INVITER_LOCK_ARGS, CHANNEL_LOCK_ARGS);
+    let params = gen_params(INVITER, CHANNEL);
     let mut template = init_with_profit_rate("buy_account", Some(&params));
 
     // inputs
@@ -621,7 +621,7 @@ fn challenge_account_sale_buy_output_account_status() {
 
 #[test]
 fn challenge_account_sale_buy_sale_account() {
-    let params = gen_params(INVITER_LOCK_ARGS, CHANNEL_LOCK_ARGS);
+    let params = gen_params(INVITER, CHANNEL);
     let mut template = init_with_profit_rate("buy_account", Some(&params));
 
     // inputs
@@ -839,7 +839,7 @@ fn challenge_account_sale_buy_seller_profit_capacity() {
 
 #[test]
 fn challenge_account_sale_buy_not_clear_records() {
-    let params = gen_params(INVITER_LOCK_ARGS, CHANNEL_LOCK_ARGS);
+    let params = gen_params(INVITER, CHANNEL);
     let mut template = init_with_profit_rate("buy_account", Some(&params));
 
     // inputs

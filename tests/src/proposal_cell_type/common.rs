@@ -1,13 +1,9 @@
-use crate::util::{self, constants::*, template_generator::*};
-use ckb_tool::ckb_types::prelude::Pack;
+use crate::util::{self, accounts::*, constants::*, template_generator::*};
+use ckb_testtool::ckb_types::prelude::Pack;
 use das_sorted_list::DasSortedList;
-use das_types::constants::*;
+use das_types_std::constants::*;
 use serde_json::{json, Value};
 use std::collections::HashMap;
-
-pub const PROPOSER: &str = "0x9999000000000000000000000000000000000000";
-pub const TIMESTAMP: u64 = 1611200090u64;
-pub const HEIGHT: u64 = 1000u64;
 
 pub struct LockScripts {
     pub inviter_1: Value,
@@ -38,7 +34,7 @@ pub fn gen_lock_scripts() -> LockScripts {
         }),
         proposer: json!({
             "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
-            "args": PROPOSER
+            "args": COMMON_PROPOSER
         }),
         das_wallet: json!({
             "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
@@ -147,8 +143,8 @@ pub fn init(action: &str) -> TemplateGenerator {
     template.push_oracle_cell(1, OracleCellType::Time, TIMESTAMP);
     template.push_oracle_cell(1, OracleCellType::Height, HEIGHT);
 
-    template.push_config_cell(DataType::ConfigCellMain, true, 0, Source::CellDep);
-    template.push_config_cell(DataType::ConfigCellProposal, true, 0, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellMain, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellProposal, Source::CellDep);
 
     template
 }
@@ -160,9 +156,9 @@ pub fn init_with_confirm() -> TemplateGenerator {
     template.push_contract_cell("pre-account-cell-type", false);
     template.push_contract_cell("income-cell-type", false);
 
-    template.push_config_cell(DataType::ConfigCellAccount, true, 0, Source::CellDep);
-    template.push_config_cell(DataType::ConfigCellProfitRate, true, 0, Source::CellDep);
-    template.push_config_cell(DataType::ConfigCellIncome, true, 0, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellAccount, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellProfitRate, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellIncome, Source::CellDep);
 
     template
 }
@@ -179,7 +175,7 @@ pub fn push_dep_proposal_cell(template: &mut TemplateGenerator, cell_partial: Va
         "witness": {
             "proposer_lock": {
                 "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
-                "args": PROPOSER
+                "args": COMMON_PROPOSER
             },
             "created_at_height": HEIGHT,
             "slices": Value::Null
@@ -202,7 +198,7 @@ pub fn push_input_proposal_cell(template: &mut TemplateGenerator, cell_partial: 
         "witness": {
             "proposer_lock": {
                 "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
-                "args": PROPOSER
+                "args": COMMON_PROPOSER
             },
             "created_at_height": HEIGHT,
             "slices": Value::Null
@@ -226,7 +222,7 @@ pub fn push_output_proposal_cell(template: &mut TemplateGenerator, cell_partial:
         "witness": {
             "proposer_lock": {
                 "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
-                "args": PROPOSER
+                "args": COMMON_PROPOSER
             },
             "created_at_height": HEIGHT,
             "slices": Value::Null

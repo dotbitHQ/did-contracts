@@ -1,56 +1,78 @@
-use super::common::init;
-use crate::util::{self, constants::*, error::Error, template_parser::TemplateParser};
-use ckb_testtool::context::Context;
+use super::common::*;
+use crate::util::{self, constants::*, error::Error, template_common_cell::*, template_parser::*};
+use das_types_std::constants::*;
+use serde_json::json;
 
-challenge_with_generator!(
-    challenge_pre_register_unavailable_accounts,
-    Error::AccountIsUnAvailable,
-    || {
-        let (mut template, account, timestamp) = init("thiscantr.bit");
-        template.push_config_cell_derived_by_account("thiscantr", true, 0, Source::CellDep);
+#[test]
+fn challenge_pre_register_unavailable_accounts() {
+    // Simulate registering an unavailable account.
+    let account = "thiscantr.bit";
+    let mut template = init();
+    template.push_config_cell_derived_by_account(account, Source::CellDep);
 
-        let (cell_data, entity) = template.gen_pre_account_cell_data(
-            account,
-            "0x0000000000000000000000000000000000002222",
-            "0x000000000000000000000000000000000000FFFF",
-            "0x0000000000000000000000000000000000001111",
-            "0x0000000000000000000000000000000000002222",
-            CKB_QUOTE,
-            INVITED_DISCOUNT,
-            timestamp,
-        );
-        template.push_pre_account_cell(
-            cell_data,
-            Some((1, 0, entity)),
-            util::gen_register_fee("thiscantr".len(), true),
-            Source::Output,
-        );
-
-        template.as_json()
-    }
-);
-
-// challenge if the index will overflow
-test_with_generator!(test_pre_register_unavailable_accounts_below_all, || {
-    let (mut template, account, timestamp) = init("🐭🐂🐯🐰🐲🐍🐎🐑🐒🐔🐶🐷.bit");
-    template.push_config_cell_derived_by_account("🐭🐂🐯🐰🐲🐍🐎🐑🐒🐔🐶🐷", true, 0, Source::CellDep);
-
-    let (cell_data, entity) = template.gen_pre_account_cell_data(
-        account,
-        "0x0000000000000000000000000000000000002222",
-        "0x000000000000000000000000000000000000FFFF",
-        "0x0000000000000000000000000000000000001111",
-        "0x0000000000000000000000000000000000002222",
-        CKB_QUOTE,
-        INVITED_DISCOUNT,
-        timestamp,
-    );
-    template.push_pre_account_cell(
-        cell_data,
-        Some((1, 0, entity)),
-        util::gen_register_fee("🐭🐂🐯🐰🐲🐍🐎🐑🐒🐔🐶🐷".len(), true),
-        Source::Output,
+    push_input_apply_register_cell(
+        &mut template,
+        json!({
+            "data": {
+                "account": account,
+                "height": HEIGHT - 4,
+                "timestamp": TIMESTAMP - 60,
+            }
+        }),
     );
 
-    template.as_json()
-});
+    push_output_pre_account_cell(
+        &mut template,
+        json!({
+            "capacity": util::gen_register_fee(9, false),
+            "witness": {
+                "account": account,
+                "created_at": TIMESTAMP,
+                "price": {
+                    "length": 8,
+                    "new": ACCOUNT_PRICE_5_CHAR,
+                    "renew": ACCOUNT_PRICE_5_CHAR
+                }
+            }
+        }),
+    );
+
+    challenge_tx(template.as_json(), Error::AccountIsUnAvailable)
+}
+
+#[test]
+fn test_pre_register_unavailable_accounts_below_all() {
+    // Challenge if the index of ConfigCells will overflow
+    let account = "🐭🐂🐯🐰🐲🐍🐎🐑🐒🐔🐶🐷.bit";
+    let mut template = init();
+    template.push_config_cell_derived_by_account(account, Source::CellDep);
+
+    push_input_apply_register_cell(
+        &mut template,
+        json!({
+            "data": {
+                "account": account,
+                "height": HEIGHT - 4,
+                "timestamp": TIMESTAMP - 60,
+            }
+        }),
+    );
+
+    push_output_pre_account_cell(
+        &mut template,
+        json!({
+            "capacity": util::gen_register_fee(12, false),
+            "witness": {
+                "account": account,
+                "created_at": TIMESTAMP,
+                "price": {
+                    "length": 8,
+                    "new": ACCOUNT_PRICE_5_CHAR,
+                    "renew": ACCOUNT_PRICE_5_CHAR
+                }
+            }
+        }),
+    );
+
+    test_tx(template.as_json())
+}

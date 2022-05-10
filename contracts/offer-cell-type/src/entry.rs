@@ -28,7 +28,7 @@ pub fn main() -> Result<(), Error> {
     };
     let action = action_cp.as_slice();
 
-    util::is_system_off(&mut parser)?;
+    util::is_system_off(&parser)?;
 
     let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
 
@@ -38,33 +38,19 @@ pub fn main() -> Result<(), Error> {
     );
     match action {
         b"make_offer" | b"edit_offer" => {
-            parser.parse_config(&[DataType::ConfigCellMain, DataType::ConfigCellSecondaryMarket])?;
             parser.parse_cell()?;
             let config_main = parser.configs.main()?;
             let config_second_market = parser.configs.secondary_market()?;
 
             if action == b"make_offer" {
-                assert!(
-                    input_cells.len() == 0 && output_cells.len() == 1,
-                    Error::InvalidTransactionStructure,
-                    "There should be only 1 OfferCell at outputs[0]."
-                );
-                assert!(
-                    output_cells[0] == 0,
-                    Error::InvalidTransactionStructure,
-                    "There should be only 1 OfferCell at outputs[0]."
-                );
+                verifiers::common::verify_created_cell_in_correct_position(
+                    "OfferCell",
+                    &input_cells,
+                    &output_cells,
+                    Some(0),
+                )?;
             } else {
-                assert!(
-                    input_cells.len() == 1 && output_cells.len() == 1,
-                    Error::InvalidTransactionStructure,
-                    "There should be at least 1 OfferCell in inputs and outputs."
-                );
-                assert!(
-                    input_cells[0] == 0 && output_cells[0] == 0,
-                    Error::InvalidTransactionStructure,
-                    "There should be 1 OfferCell in inputs[0] and outputs[0]."
-                );
+                verifiers::common::verify_modified_cell_in_correct_position("OfferCell", &input_cells, &output_cells)?;
             }
 
             let sender_lock = high_level::load_cell_lock(0, Source::Input)?;
@@ -78,10 +64,7 @@ pub fn main() -> Result<(), Error> {
 
             debug!("Verify if the change is transferred back to the sender properly.");
 
-            let mut total_input_capacity = 0;
-            for i in all_input_cells.iter() {
-                total_input_capacity += high_level::load_cell_capacity(*i, Source::Input)?;
-            }
+            let total_input_capacity = util::load_cells_capacity(&all_input_cells, Source::Input)?;
             let offer_cell_capacity = high_level::load_cell_capacity(output_cells[0], Source::Output)?;
             let common_fee = u64::from(config_second_market.common_fee());
             if total_input_capacity > offer_cell_capacity + common_fee {
@@ -237,10 +220,9 @@ pub fn main() -> Result<(), Error> {
 
             let account = output_offer_cell_witness_reader.account().raw_data();
             let account_without_suffix = &account[0..account.len() - 4];
-            verifiers::account_cell::verify_unavailable_accounts(&mut parser, account_without_suffix)?;
+            verifiers::account_cell::verify_unavailable_accounts(&parser, account_without_suffix)?;
         }
         b"cancel_offer" => {
-            parser.parse_config(&[DataType::ConfigCellMain, DataType::ConfigCellSecondaryMarket])?;
             parser.parse_cell()?;
             let config_main = parser.configs.main()?;
             let config_second_market = parser.configs.secondary_market()?;
@@ -285,33 +267,20 @@ pub fn main() -> Result<(), Error> {
         b"accept_offer" => {
             let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
-            parser.parse_config(&[
-                DataType::ConfigCellMain,
-                DataType::ConfigCellAccount,
-                DataType::ConfigCellIncome,
-                DataType::ConfigCellProfitRate,
-                DataType::ConfigCellSecondaryMarket,
-            ])?;
             parser.parse_cell()?;
 
             verify_eip712_hashes(&parser, accept_offer_to_semantic)?;
 
             let config_main = parser.configs.main()?;
             let config_account = parser.configs.account()?;
-            let config_income = parser.configs.income()?;
-            let config_profit_rate = parser.configs.profit_rate()?;
             let config_secondary_market = parser.configs.secondary_market()?;
 
-            assert!(
-                input_cells.len() == 1 && output_cells.len() == 0,
-                Error::InvalidTransactionStructure,
-                "There should be only 1 OfferCell in inputs."
-            );
-            assert!(
-                input_cells[0] == 0,
-                Error::InvalidTransactionStructure,
-                "The first OfferCell should be started at inputs[0]."
-            );
+            verifiers::common::verify_removed_cell_in_correct_position(
+                "OfferCell",
+                &input_cells,
+                &output_cells,
+                Some(0),
+            )?;
 
             let account_cell_type_id = config_main.type_id_table().account_cell();
             let (input_account_cells, output_account_cells) =
@@ -429,8 +398,6 @@ pub fn main() -> Result<(), Error> {
             verify_profit_distribution(
                 &parser,
                 config_main,
-                config_income,
-                config_profit_rate,
                 seller_lock.as_reader().into(),
                 inviter_lock,
                 channel_lock,
@@ -500,8 +467,6 @@ fn verify_price(
 fn verify_profit_distribution(
     parser: &WitnessesParser,
     config_main: ConfigCellMainReader,
-    config_income: ConfigCellIncomeReader,
-    config_profit_rate: ConfigCellProfitRateReader,
     seller_lock_reader: ScriptReader,
     inviter_lock_reader: ScriptReader,
     channel_lock_reader: ScriptReader,
@@ -509,26 +474,9 @@ fn verify_profit_distribution(
     common_fee: u64,
     offer_cell_capacity: u64,
 ) -> Result<(), Error> {
+    let config_profit_rate = parser.configs.profit_rate()?;
     let default_script = Script::default();
     let default_script_reader = default_script.as_reader();
-
-    let income_cell_type_id = config_main.type_id_table().income_cell();
-    let (input_income_cells, output_income_cells) =
-        util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, income_cell_type_id)?;
-
-    // Because we do not verify the consistency of the creator, so there must be no IncomeCell in inputs.
-    assert!(
-        input_income_cells.len() == 0,
-        Error::InvalidTransactionStructure,
-        "There should be no IncomeCell in inputs."
-    );
-    assert!(
-        output_income_cells.len() == 1 && output_income_cells[0] == 1,
-        Error::InvalidTransactionStructure,
-        "There should be 1 IncomeCell at outputs[1]."
-    );
-
-    verifiers::misc::verify_always_success_lock(output_income_cells[0], Source::Output)?;
 
     let mut profit_map = Map::new();
 
@@ -577,35 +525,7 @@ fn verify_profit_distribution(
     };
     verifiers::misc::verify_user_get_change(config_main, seller_lock_reader.into(), expected_capacity)?;
 
-    debug!("Check if other roles get their profit properly.");
-
-    let output_income_cell_witness;
-    let output_income_cell_witness_reader;
-    parse_witness!(
-        output_income_cell_witness,
-        output_income_cell_witness_reader,
-        parser,
-        output_income_cells[0],
-        Source::Output,
-        DataType::IncomeCellData,
-        IncomeCellData
-    );
-
-    verifiers::income_cell::verify_records_match_with_creating(
-        parser.configs.income()?,
-        output_income_cells[0],
-        Source::Output,
-        output_income_cell_witness_reader,
-        profit_map,
-    )?;
-
-    let income_cell_max_records = u32::from(config_income.max_records()) as usize;
-    assert!(
-        output_income_cell_witness_reader.records().len() <= income_cell_max_records,
-        Error::InvalidTransactionStructure,
-        "The IncomeCell can not store more than {} records.",
-        income_cell_max_records
-    );
+    verifiers::income_cell::verify_income_cells(parser, profit_map)?;
 
     Ok(())
 }

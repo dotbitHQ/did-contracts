@@ -3,7 +3,7 @@
 # Docker image name
 DOCKER_IMAGE="thewawar/ckb-capsule:2021-08-16"
 # Docker container name
-DOCKER_CONTAINER="capsule-dev-"$(whoami)
+DOCKER_CONTAINER="capsule-dev"${PWD//\//_}
 # Name of capsule cache volume
 CACHE_VOLUME="capsule-cache"
 
@@ -79,7 +79,7 @@ function build() {
       docker exec -it -w /code $DOCKER_CONTAINER bash -c \
         "cp /code/target/riscv64imac-unknown-none-elf/release/${contract} /code/build/release/"
   else
-    command="cargo build --features \"${feature}\" --target riscv64imac-unknown-none-elf && ckb-binary-patcher -i /code/target/riscv64imac-unknown-none-elf/debug/${contract} -o /code/target/riscv64imac-unknown-none-elf/debug/${contract}"
+    command="RUSTFLAGS=\"-Z pre-link-arg=-zseparate-code -Z pre-link-arg=-zseparate-loadable-segments\" cargo build --features \"${feature}\" --target riscv64imac-unknown-none-elf && ckb-binary-patcher -i /code/target/riscv64imac-unknown-none-elf/debug/${contract} -o /code/target/riscv64imac-unknown-none-elf/debug/${contract}"
     echo "Run build command: "$command
 
     # Build debug version
@@ -100,7 +100,7 @@ function build() {
 function build_all() {
   local dirs=$(ls -a contracts)
   for contract in $dirs; do
-    if [[ $contract != "." && $contract != ".." && $contract != "test-env" && -d contracts/$contract ]]; then
+    if [[ $contract != "." && $contract != ".." && $contract != "test-env" && $contract != "playground" && -d contracts/$contract ]]; then
       build $contract $1
     fi
   done
@@ -141,8 +141,10 @@ start)
   if [[ $2 == "-b" || $2 == "--background" ]]; then
     docker run -d -t --rm \
       --name $DOCKER_CONTAINER \
+      --network host \
       -v ${dir}/das-contracts:/code \
       -v ${dir}/das-types:/das-types \
+      -v ${dir}/das-types-std:/das-types-std \
       -v $CACHE_VOLUME:/root/.cargo \
       -e RUSTFLAGS="-Z pre-link-arg=-zseparate-code -Z pre-link-arg=-zseparate-loadable-segments" \
       -e CAPSULE_TEST_ENV=debug \
@@ -150,8 +152,10 @@ start)
   else
     docker run -it --rm \
       --name $DOCKER_CONTAINER \
+      --network host \
       -v ${dir}/das-contracts:/code \
       -v ${dir}/das-types:/das-types \
+      -v ${dir}/das-types-std:/das-types-std \
       -v $CACHE_VOLUME:/root/.cargo \
       -e RUSTFLAGS="-Z pre-link-arg=-zseparate-code -Z pre-link-arg=-zseparate-loadable-segments" \
       -e CAPSULE_TEST_ENV=debug \
@@ -179,6 +183,11 @@ build-all)
   switch_target_dir target_build
   create_output_dir
   build_all
+  ;;
+test-debug)
+  switch_target_dir target_test
+  echo "Run test with name: $2"
+  docker exec -it -w /code $DOCKER_CONTAINER bash -c "cargo test -p tests $2 -- --nocapture"
   ;;
 test)
   switch_target_dir target_test

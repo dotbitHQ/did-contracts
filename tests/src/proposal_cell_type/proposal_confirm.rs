@@ -1,9 +1,9 @@
 use super::common::*;
 use crate::util::{
-    self, constants::*, error::Error, template_common_cell::*, template_generator::TemplateGenerator,
+    self, accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::TemplateGenerator,
     template_parser::*,
 };
-use das_types::constants::*;
+use das_types_std::constants::*;
 use serde_json::json;
 
 fn push_input_proposal_cell_with_slices(template: &mut TemplateGenerator) {
@@ -14,7 +14,7 @@ fn push_input_proposal_cell_with_slices(template: &mut TemplateGenerator) {
             "witness": {
                 "proposer_lock": {
                     "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
-                    "args": PROPOSER
+                    "args": COMMON_PROPOSER
                 },
                 "created_at_height": HEIGHT - 4,
                 "slices": [
@@ -56,7 +56,7 @@ fn push_input_proposal_cell_with_slices(template: &mut TemplateGenerator) {
 fn push_input_slice_0(template: &mut TemplateGenerator) {
     let lock_scripts = gen_lock_scripts();
 
-    push_input_account_cell(
+    push_input_account_cell_v2(
         template,
         json!({
             "capacity": util::gen_account_cell_capacity(8),
@@ -281,7 +281,7 @@ fn push_output_income_cell_with_profit(template: &mut TemplateGenerator) {
 
 fn push_output_normal_cell_with_refund(template: &mut TemplateGenerator) {
     // A refund of ProposalCell's capacity to proposer.
-    push_output_normal_cell(template, 20_000_000_000, PROPOSER);
+    push_output_normal_cell(template, 20_000_000_000, COMMON_PROPOSER);
 }
 
 fn before_each() -> TemplateGenerator {
@@ -325,8 +325,8 @@ fn test_proposal_confirm_create_income_cell() {
                 "records": [
                     {
                         "belong_to": {
-                            "code_hash": "{{fake-das-lock}}",
-                            "args": COMMON_INCOME_CREATOR_LOCK_ARGS
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": COMMON_INCOME_CREATOR
                         },
                         "capacity": "20_000_000_000"
                     },
@@ -376,7 +376,7 @@ fn challenge_proposal_confirm_height() {
             "witness": {
                 "proposer_lock": {
                     "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
-                    "args": PROPOSER
+                    "args": COMMON_PROPOSER
                 },
                 "created_at_height": HEIGHT,
                 "slices": [
@@ -476,7 +476,7 @@ fn challenge_proposal_confirm_account_cell_modified_1() {
     push_output_income_cell_with_profit(&mut template);
     push_output_normal_cell_with_refund(&mut template);
 
-    challenge_tx(template.as_json(), Error::ProposalFieldCanNotBeModified);
+    challenge_tx(template.as_json(), Error::AccountCellProtectFieldIsModified);
 }
 
 #[test]
@@ -596,7 +596,7 @@ fn challenge_proposal_confirm_refund() {
     push_output_income_cell_with_profit(&mut template);
 
     // Simulate refund capacity is less than the ProposalCell.capacity .
-    push_output_normal_cell(&mut template, 20_000_000_000 - 1, PROPOSER);
+    push_output_normal_cell(&mut template, 20_000_000_000 - 1, COMMON_PROPOSER);
 
     challenge_tx(template.as_json(), Error::ProposalConfirmRefundError);
 }

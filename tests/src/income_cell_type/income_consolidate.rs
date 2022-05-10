@@ -1,742 +1,990 @@
-use crate::util::{self, constants::*, error::Error, template_generator::*, template_parser::TemplateParser};
-use ckb_testtool::context::Context;
-use das_types::constants::DataType;
+use crate::util::{
+    accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
+};
+use das_types_std::constants::{DataType, Source};
 use serde_json::json;
 
-use super::common::init as common_init;
+use super::common::init;
 
-fn init(action: &str) -> TemplateGenerator {
-    let mut template = common_init(action);
-    template.push_config_cell(DataType::ConfigCellProfitRate, true, 0, Source::CellDep);
+fn before() -> TemplateGenerator {
+    let mut template = init("consolidate_income");
+
+    template.push_config_cell(DataType::ConfigCellProfitRate, Source::CellDep);
 
     template
 }
 
-#[test]
-fn gen_income_consolidate_need_pad_1() {
-    let mut template = init("consolidate_income");
-
-    let capacity_of_10 = 20_000_000_000;
-    let capacity_of_20 = 10_200_000_000;
-
-    // inputs
-    let records_param = vec![
-        IncomeRecordParam {
-            belong_to: "0x0000000000000000000000000000000000000000".to_string(),
-            capacity: 20_000_000_000,
-        },
-        IncomeRecordParam {
-            belong_to: "0x0000000000000000000000000000000000000010".to_string(),
-            capacity: capacity_of_10 / 2, // 100 CKB
-        },
-        IncomeRecordParam {
-            belong_to: "0x0000000000000000000000000000000000000020".to_string(),
-            capacity: capacity_of_20 - 200_000_000, // 100 CKB
-        },
-        IncomeRecordParam {
-            belong_to: "0x0000000000000000000000000000000000000030".to_string(),
-            capacity: 100_000_000,
-        },
-        IncomeRecordParam {
-            belong_to: "0x0000000000000000000000000000000000000040".to_string(),
-            capacity: 9_900_000_000,
-        },
-    ];
-    push_income_cell!(template, records_param, 0, Source::Input);
-
-    let records_param = vec![
-        IncomeRecordParam {
-            belong_to: "0x0000000000000000000000000000000000000000".to_string(),
-            capacity: 20_000_000_000,
-        },
-        IncomeRecordParam {
-            belong_to: "0x0000000000000000000000000000000000000010".to_string(),
-            capacity: capacity_of_10 / 2, // 100 CKB
-        },
-        IncomeRecordParam {
-            belong_to: "0x0000000000000000000000000000000000000020".to_string(),
-            capacity: capacity_of_20 - 10_000_000_000, // 2 CKB
-        },
-        IncomeRecordParam {
-            belong_to: "0x0000000000000000000000000000000000000030".to_string(),
-            capacity: 100_000_000,
-        },
-    ];
-    push_income_cell!(template, records_param, 1, Source::Input);
-
-    // 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF is the keeper who pushed the consolidate_income transaction.
-    template.push_signall_cell(
-        "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
-        6_100_000_000,
-        Source::Input,
+fn push_common_inputs(template: &mut TemplateGenerator) {
+    push_input_income_cell(
+        template,
+        json!({
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": COMMON_INCOME_CREATOR
+                        },
+                        "capacity": 20_000_000_000u64,
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000010"
+                        },
+                        "capacity": 1_000_000_000u64,
+                    },
+                ]
+            }
+        }),
     );
-
-    // outputs
-    let records_param = vec![
-        IncomeRecordParam {
-            belong_to: "0x0000000000000000000000000000000000000010".to_string(),
-            capacity: 10_000_000_000,
-        },
-        IncomeRecordParam {
-            belong_to: "0x0000000000000000000000000000000000000030".to_string(),
-            capacity: 200_000_000,
-        },
-        IncomeRecordParam {
-            belong_to: "0x0000000000000000000000000000000000000040".to_string(),
-            capacity: 9_900_000_000,
-        },
-    ];
-    push_income_cell!(template, records_param, 0, Source::Output);
-
-    template.push_signall_cell(
-        "0x0000000000000000000000000000000000000000",
-        40_000_000_000,
-        Source::Output,
+    push_input_income_cell(
+        template,
+        json!({
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": COMMON_INCOME_CREATOR
+                        },
+                        "capacity": 20_000_000_000u64,
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000010"
+                        },
+                        "capacity": 1_000_000_000u64,
+                    },
+                ]
+            }
+        }),
     );
-    template.push_signall_cell(
-        "0x0000000000000000000000000000000000000010",
-        9_900_000_000,
-        Source::Output,
-    );
-    template.push_signall_cell(
-        "0x0000000000000000000000000000000000000020",
-        10_098_000_000,
-        Source::Output,
-    );
-    // 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF can take some from user as their profit.
-    template.push_signall_cell(
-        "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
-        6_300_000_000,
-        Source::Output,
-    );
-
-    template.write_template("income_consolidate.json");
 }
 
-test_with_template!(test_income_consolidate_need_pad_1, "income_consolidate.json");
+#[test]
+fn test_income_consolidate_need_pad_1() {
+    let mut template = before();
 
-test_with_generator!(test_income_consolidate_need_pad_2, || {
-    let mut template = init("consolidate_income");
-
-    // inputs
-    let mut records_param = Vec::new();
-    for i in 0u64..50 {
-        records_param.push(IncomeRecordParam {
-            belong_to: util::hex_string(&i.to_be_bytes()),
-            capacity: 5_000_000_000,
-        })
-    }
-    push_income_cell!(template, records_param, 0, Source::Input);
-
-    let records_param = vec![
-        IncomeRecordParam {
-            belong_to: "0x000000000000EEEE".to_string(),
-            capacity: 5_000_000_000,
-        },
-        IncomeRecordParam {
-            belong_to: "0x000000000000FFFF".to_string(),
-            capacity: 20_000_000_000,
-        },
-    ];
-    push_income_cell!(template, records_param, 1, Source::Input);
-
-    // outputs
-    let mut records_param = Vec::new();
-    for i in 0u64..25 {
-        records_param.push(IncomeRecordParam {
-            belong_to: util::hex_string(&i.to_be_bytes()),
-            capacity: 5_000_000_000,
-        })
-    }
-    push_income_cell!(template, records_param, 0, Source::Output);
-
-    let mut records_param = Vec::new();
-    for i in 25u64..50 {
-        records_param.push(IncomeRecordParam {
-            belong_to: util::hex_string(&i.to_be_bytes()),
-            capacity: 5_000_000_000,
-        })
-    }
-    records_param.push(IncomeRecordParam {
-        belong_to: "0x000000000000EEEE".to_string(),
-        capacity: 5_000_000_000,
-    });
-    push_income_cell!(template, records_param, 1, Source::Output);
-
-    template.push_signall_cell("0x000000000000FFFF", 19_800_000_000, Source::Output);
-
-    template.as_json()
-});
-
-test_with_generator!(test_income_consolidate_no_pad, || {
-    let mut template = init("consolidate_income");
+    let capacity_of_10 = 20_000_000_000u64;
+    let capacity_of_20 = 10_200_000_000u64;
 
     // inputs
-    let records_param = vec![
-        IncomeRecordParam {
-            belong_to: "0x0000000000000000000000000000000000000000".to_string(),
-            capacity: 20_000_000_000,
-        },
-        IncomeRecordParam {
-            belong_to: "0x0000000000000000000000000000000000000010".to_string(),
-            capacity: 10_000_000_000,
-        },
-    ];
-    push_income_cell!(template, records_param, 0, Source::Input);
+    push_input_income_cell(
+        &mut template,
+        json!({
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": COMMON_INCOME_CREATOR
+                        },
+                        "capacity": 20_000_000_000u64
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000010"
+                        },
+                        "capacity": capacity_of_10 / 2, // 100 CKB
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000020"
+                        },
+                        "capacity": capacity_of_20 - 200_000_000, // 100 CKB
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000030"
+                        },
+                        "capacity": 100_000_000u64
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000040"
+                        },
+                        "capacity": 9_900_000_000u64
+                    },
+                ]
+            }
+        }),
+    );
 
-    let records_param = vec![
-        IncomeRecordParam {
-            belong_to: "0x0000000000000000000000000000000000000000".to_string(),
-            capacity: 20_000_000_000,
-        },
-        IncomeRecordParam {
-            belong_to: "0x0000000000000000000000000000000000000010".to_string(),
-            capacity: 200_000_000,
-        },
-    ];
-    push_income_cell!(template, records_param, 1, Source::Input);
+    push_input_income_cell(
+        &mut template,
+        json!({
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": COMMON_INCOME_CREATOR
+                        },
+                        "capacity": 20_000_000_000u64
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000010"
+                        },
+                        "capacity": capacity_of_10 / 2, // 100 CKB
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000020"
+                        },
+                        "capacity": capacity_of_20 - 10_000_000_000, // 2 CKB
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000030"
+                        },
+                        "capacity": 100_000_000u64
+                    },
+                ]
+            }
+        }),
+    );
 
     // 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF is the keeper who pushed the consolidate_income transaction.
-    template.push_signall_cell(
-        "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+    push_input_normal_cell(
+        &mut template,
         6_100_000_000,
-        Source::Input,
+        "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
     );
 
     // outputs
-    template.push_signall_cell(
-        "0x0000000000000000000000000000000000000000",
-        40_000_000_000,
-        Source::Output,
+    push_output_income_cell(
+        &mut template,
+        json!({
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000010"
+                        },
+                        "capacity": 10_000_000_000u64
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000030"
+                        },
+                        "capacity": 200_000_000u64
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000040"
+                        },
+                        "capacity": 9_900_000_000u64
+                    },
+                ]
+            }
+        }),
     );
-    template.push_signall_cell(
+    push_output_normal_cell(&mut template, 40_000_000_000, COMMON_INCOME_CREATOR);
+    push_output_normal_cell(
+        &mut template,
+        9_900_000_000,
         "0x0000000000000000000000000000000000000010",
+    );
+    push_output_normal_cell(
+        &mut template,
         10_098_000_000,
-        Source::Output,
+        "0x0000000000000000000000000000000000000020",
     );
     // 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF can take some from user as their profit.
-    template.push_signall_cell(
+    push_output_normal_cell(
+        &mut template,
+        6_300_000_000,
         "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
-        6_162_000_000,
-        Source::Output,
     );
 
-    template.as_json()
-});
+    test_tx(template.as_json())
+}
 
-test_with_generator!(test_income_consolidate_free_fee, || {
-    let mut template = init("consolidate_income");
+#[test]
+fn test_income_consolidate_no_pad() {
+    let mut template = before();
 
     // inputs
-    let records_param = vec![
-        IncomeRecordParam {
-            belong_to: "0x0000000000000000000000000000000000000000".to_string(),
-            capacity: 20_000_000_000,
-        },
-        IncomeRecordParam {
-            belong_to: "0x0300000000000000000000000000000000000000".to_string(),
-            capacity: 10_000_000_000,
-        },
-    ];
-    push_income_cell!(template, records_param, 0, Source::Input);
-
-    let records_param = vec![IncomeRecordParam {
-        belong_to: "0x0300000000000000000000000000000000000000".to_string(),
-        capacity: 10_000_000_000,
-    }];
-    push_income_cell!(template, records_param, 1, Source::Input);
+    push_input_income_cell(
+        &mut template,
+        json!({
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": COMMON_INCOME_CREATOR
+                        },
+                        "capacity": 20_000_000_000u64
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000010"
+                        },
+                        "capacity": 10_000_000_000u64, // 100 CKB
+                    },
+                ]
+            }
+        }),
+    );
+    push_input_income_cell(
+        &mut template,
+        json!({
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": COMMON_INCOME_CREATOR
+                        },
+                        "capacity": 20_000_000_000u64
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000010"
+                        },
+                        "capacity": 200_000_000, // 2 CKB
+                    },
+                ]
+            }
+        }),
+    );
+    // 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF is the keeper who pushed the consolidate_income transaction.
+    push_input_normal_cell(
+        &mut template,
+        6_100_000_000,
+        "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+    );
 
     // outputs
-    template.push_signall_cell(
-        "0x0000000000000000000000000000000000000000",
-        20_000_000_000,
-        Source::Output,
-    );
-    // DAS should be free from consolidating fee.
-    template.push_signall_cell(
-        "0x0300000000000000000000000000000000000000",
-        20_000_000_000,
-        Source::Output,
-    );
-
-    template.as_json()
-});
-
-test_with_generator!(test_income_consolidate_big_capacity, || {
-    let mut template = init("consolidate_income");
-
-    let capacity_of_10 = 1000_000_000_000_000_000;
-
-    // inputs
-    let records_param = vec![
-        IncomeRecordParam {
-            belong_to: "0x0000000000000000000000000000000000000010".to_string(),
-            capacity: capacity_of_10,
-        },
-        IncomeRecordParam {
-            belong_to: "0x0000000000000000000000000000000000000020".to_string(),
-            capacity: 500_000_000,
-        },
-    ];
-    push_income_cell!(template, records_param, 0, Source::Input);
-
-    let records_param = vec![IncomeRecordParam {
-        belong_to: "0x0000000000000000000000000000000000000010".to_string(),
-        capacity: capacity_of_10,
-    }];
-    push_income_cell!(template, records_param, 1, Source::Input);
-
-    // outputs
-    let records_param = vec![
-        IncomeRecordParam {
-            belong_to: "0x0000000000000000000000000000000000000010".to_string(),
-            capacity: capacity_of_10,
-        },
-        IncomeRecordParam {
-            belong_to: "0x0000000000000000000000000000000000000020".to_string(),
-            capacity: 500_000_000,
-        },
-    ];
-    push_income_cell!(template, records_param, 0, Source::Output);
-
-    template.push_signall_cell(
+    push_output_normal_cell(&mut template, 40_000_000_000, COMMON_INCOME_CREATOR);
+    push_output_normal_cell(
+        &mut template,
+        10_098_000_000,
         "0x0000000000000000000000000000000000000010",
-        capacity_of_10 / RATE_BASE * (RATE_BASE - CONSOLIDATING_FEE),
-        Source::Output,
     );
-    template.push_signall_cell(
-        "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+    // 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF can take some from user as their profit.
+    push_output_normal_cell(
+        &mut template,
         6_162_000_000,
-        Source::Output,
+        "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
     );
 
-    template.as_json()
-});
+    test_tx(template.as_json())
+}
 
-challenge_with_generator!(
-    challenge_income_consolidate_newly_created,
-    Error::IncomeCellConsolidateConditionNotSatisfied,
-    || {
-        let mut template = init("consolidate_income");
+#[test]
+fn test_income_consolidate_free_fee() {
+    let mut template = before();
 
-        // inputs
-        // This IncomeCell only contains one record of the creator, it should not be consolidated.
-        let records_param = vec![IncomeRecordParam {
-            belong_to: "0x0000000000000000000000000000000000000000".to_string(),
-            capacity: 20_000_000_000,
-        }];
-        push_income_cell!(template, records_param, 0, Source::Input);
+    // inputs
+    push_input_income_cell(
+        &mut template,
+        json!({
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": COMMON_INCOME_CREATOR
+                        },
+                        "capacity": 20_000_000_000u64
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": DAS_WALLET_LOCK_ARGS
+                        },
+                        "capacity": 10_000_000_000u64, // 100 CKB
+                    },
+                ]
+            }
+        }),
+    );
+    push_input_income_cell(
+        &mut template,
+        json!({
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": COMMON_INCOME_CREATOR
+                        },
+                        "capacity": 20_000_000_000u64
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": DAS_WALLET_LOCK_ARGS
+                        },
+                        "capacity": 10_000_000_000u64, // 100 CKB
+                    },
+                ]
+            }
+        }),
+    );
 
-        let records_param = vec![
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000000".to_string(),
-                capacity: 20_000_000_000,
-            },
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000010".to_string(),
-                capacity: 1_000_000_000,
-            },
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000020".to_string(),
-                capacity: 1_000_000_000,
-            },
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000030".to_string(),
-                capacity: 500_000_000,
-            },
-        ];
-        push_income_cell!(template, records_param, 1, Source::Input);
+    // outputs
+    push_output_normal_cell(&mut template, 40_000_000_000, COMMON_INCOME_CREATOR);
+    // DAS should be free from consolidating fee.
+    push_output_normal_cell(&mut template, 20_000_000_000, DAS_WALLET_LOCK_ARGS);
 
-        // outputs
-        let records_param = vec![
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000000".to_string(),
-                capacity: 20_000_000_000,
-            },
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000010".to_string(),
-                capacity: 1_000_000_000,
-            },
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000020".to_string(),
-                capacity: 1_000_000_000,
-            },
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000030".to_string(),
-                capacity: 500_000_000,
-            },
-        ];
-        push_income_cell!(template, records_param, 0, Source::Output);
+    test_tx(template.as_json())
+}
 
-        template.push_signall_cell(
-            "0x0000000000000000000000000000000000000000",
-            20_000_000_000,
-            Source::Output,
-        );
+#[test]
+fn test_income_consolidate_big_capacity() {
+    let mut template = before();
 
-        template.as_json()
-    }
-);
+    let capacity_of_10 = 1_000_000_000_000_000_000u64; // 10 billion CKB
 
-challenge_with_generator!(
-    challenge_income_consolidate_no_redundant_records,
-    Error::IncomeCellConsolidateError,
-    || {
-        let mut template = init("consolidate_income");
+    // inputs
+    push_input_income_cell_no_creator(
+        &mut template,
+        json!({
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000010"
+                        },
+                        "capacity": capacity_of_10,
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000020"
+                        },
+                        "capacity": 500_000_000,
+                    },
+                ]
+            }
+        }),
+    );
+    push_input_income_cell_no_creator(
+        &mut template,
+        json!({
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000010"
+                        },
+                        "capacity": capacity_of_10,
+                    },
+                ]
+            }
+        }),
+    );
 
-        // inputs
-        let records_param = vec![
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000000".to_string(),
-                capacity: 20_000_000_000,
-            },
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000010".to_string(),
-                capacity: 1_000_000_000,
-            },
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000020".to_string(),
-                capacity: 1_000_000_000,
-            },
-        ];
-        push_income_cell!(template, records_param, 0, Source::Input);
+    // outputs
+    push_output_income_cell_no_creator(
+        &mut template,
+        json!({
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000010"
+                        },
+                        "capacity": 19_500_000_000u64, // 195 CKB
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000020"
+                        },
+                        "capacity": 500_000_000,
+                    },
+                ]
+            }
+        }),
+    );
+    push_output_normal_cell(
+        &mut template,
+        (capacity_of_10 + capacity_of_10 - 19_500_000_000u64) / RATE_BASE * (RATE_BASE - CONSOLIDATING_FEE),
+        "0x0000000000000000000000000000000000000010",
+    );
+    push_output_normal_cell(
+        &mut template,
+        20_000_000_000_000_000,
+        "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+    );
 
-        let records_param = vec![
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000000".to_string(),
-                capacity: 20_000_000_000,
-            },
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000010".to_string(),
-                capacity: 1_000_000_000,
-            },
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000020".to_string(),
-                capacity: 1_000_000_000,
-            },
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000030".to_string(),
-                capacity: 500_000_000,
-            },
-        ];
-        push_income_cell!(template, records_param, 1, Source::Input);
+    test_tx(template.as_json());
+}
 
-        // outputs
-        let records_param = vec![
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000000".to_string(),
-                capacity: 20_000_000_000,
-            },
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000010".to_string(),
-                capacity: 2_000_000_000,
-            },
-            // The consolidated records should not contain more than one record which has the same belong_to field.
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000020".to_string(),
-                capacity: 1_000_000_000,
-            },
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000020".to_string(),
-                capacity: 1_000_000_000,
-            },
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000030".to_string(),
-                capacity: 500_000_000,
-            },
-        ];
-        push_income_cell!(template, records_param, 0, Source::Output);
+#[test]
+fn challenge_income_consolidate_newly_created() {
+    let mut template = before();
 
-        template.push_signall_cell(
-            "0x0000000000000000000000000000000000000000",
-            20_000_000_000,
-            Source::Output,
-        );
+    // inputs
+    // This IncomeCell only contains one record of the creator, it should not be consolidated.
+    push_input_income_cell(
+        &mut template,
+        json!({
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": COMMON_INCOME_CREATOR
+                        },
+                        "capacity": 20_000_000_000u64,
+                    },
+                ]
+            }
+        }),
+    );
+    push_input_income_cell(
+        &mut template,
+        json!({
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": COMMON_INCOME_CREATOR
+                        },
+                        "capacity": 20_000_000_000u64,
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000010"
+                        },
+                        "capacity": 1_000_000_000u64,
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000020"
+                        },
+                        "capacity": 1_000_000_000u64,
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000030"
+                        },
+                        "capacity": 500_000_000u64,
+                    },
+                ]
+            }
+        }),
+    );
 
-        template.as_json()
-    }
-);
+    // outputs
+    push_output_income_cell(
+        &mut template,
+        json!({
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": COMMON_INCOME_CREATOR
+                        },
+                        "capacity": 20_000_000_000u64,
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000010"
+                        },
+                        "capacity": 1_000_000_000u64,
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000020"
+                        },
+                        "capacity": 1_000_000_000u64,
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000030"
+                        },
+                        "capacity": 500_000_000u64,
+                    },
+                ]
+            }
+        }),
+    );
+    push_output_normal_cell(&mut template, 20_000_000_000, COMMON_INCOME_CREATOR);
 
-challenge_with_generator!(
-    challenge_income_consolidate_no_redundant_cells,
-    Error::IncomeCellConsolidateConditionNotSatisfied,
-    || {
-        let mut template = init("consolidate_income");
+    challenge_tx(template.as_json(), Error::IncomeCellConsolidateConditionNotSatisfied);
+}
 
-        // inputs
-        let records_param = vec![
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000000".to_string(),
-                capacity: 20_000_000_000,
-            },
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000010".to_string(),
-                capacity: 1_000_000_000,
-            },
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000030".to_string(),
-                capacity: 21_000_000_000,
-            },
-        ];
-        push_income_cell!(template, records_param, 0, Source::Input);
+#[test]
+fn challenge_income_consolidate_redundant_records() {
+    let mut template = before();
 
-        let records_param = vec![
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000000".to_string(),
-                capacity: 20_000_000_000,
-            },
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000020".to_string(),
-                capacity: 1_000_000_000,
-            },
-        ];
-        push_income_cell!(template, records_param, 1, Source::Input);
+    // inputs
+    push_common_inputs(&mut template);
 
-        // outputs
-        let records_param = vec![
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000000".to_string(),
-                capacity: 20_000_000_000,
-            },
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000010".to_string(),
-                capacity: 1_000_000_000,
-            },
-        ];
-        push_income_cell!(template, records_param, 0, Source::Output);
+    // outputs
+    push_output_income_cell(
+        &mut template,
+        json!({
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": COMMON_INCOME_CREATOR
+                        },
+                        "capacity": 40_000_000_000u64,
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000010"
+                        },
+                        "capacity": 1_000_000_000u64,
+                    },
+                    // Simulate redundant records for the same lock.
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000010"
+                        },
+                        "capacity": 1_000_000_000u64,
+                    },
+                ]
+            }
+        }),
+    );
 
-        let records_param = vec![
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000000".to_string(),
-                capacity: 20_000_000_000,
-            },
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000020".to_string(),
-                capacity: 1_000_000_000,
-            },
-        ];
-        push_income_cell!(template, records_param, 1, Source::Output);
+    challenge_tx(template.as_json(), Error::IncomeCellConsolidateError);
+}
 
-        let records_param = vec![IncomeRecordParam {
-            belong_to: "0x0000000000000000000000000000000000000030".to_string(),
-            capacity: 21_000_000_000,
-        }];
-        push_income_cell!(template, records_param, 2, Source::Output);
+#[test]
+fn challenge_income_consolidate_redundant_cells() {
+    let mut template = before();
 
-        template.as_json()
-    }
-);
+    // inputs
+    push_common_inputs(&mut template);
 
-challenge_with_generator!(
-    challenge_income_consolidate_missing_some_records,
-    Error::IncomeCellConsolidateError,
-    || {
-        let mut template = init("consolidate_income");
+    // outputs
+    push_output_income_cell(
+        &mut template,
+        json!({
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": COMMON_INCOME_CREATOR
+                        },
+                        "capacity": 0_000_000_000u64,
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000010"
+                        },
+                        "capacity": 1_000_000_000u64,
+                    },
+                ]
+            }
+        }),
+    );
+    push_output_income_cell(
+        &mut template,
+        json!({
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": COMMON_INCOME_CREATOR
+                        },
+                        "capacity": 20_000_000_000u64,
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000010"
+                        },
+                        "capacity": 500_000_000u64,
+                    },
+                ]
+            }
+        }),
+    );
+    // Simulate creating extra IncomeCell when consolidating.
+    push_output_income_cell(
+        &mut template,
+        json!({
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": COMMON_INCOME_CREATOR
+                        },
+                        "capacity": 20_000_000_000u64,
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000010"
+                        },
+                        "capacity": 500_000_000u64,
+                    },
+                ]
+            }
+        }),
+    );
 
-        // inputs
-        let mut records_param = Vec::new();
-        for i in 0u64..50 {
-            records_param.push(IncomeRecordParam {
-                belong_to: util::hex_string(&i.to_be_bytes()),
-                capacity: 5_000_000_000,
-            })
-        }
-        push_income_cell!(template, records_param, 0, Source::Input);
+    challenge_tx(template.as_json(), Error::IncomeCellConsolidateConditionNotSatisfied);
+}
 
-        let records_param = vec![
-            IncomeRecordParam {
-                belong_to: "0x000000000000EEEE".to_string(),
-                capacity: 5_000_000_000,
-            },
-            IncomeRecordParam {
-                belong_to: "0x000000000000FFFF".to_string(),
-                capacity: 20_000_000_000,
-            },
-        ];
-        push_income_cell!(template, records_param, 1, Source::Input);
+#[test]
+fn challenge_income_consolidate_missing_some_records() {
+    let mut template = before();
 
-        // outputs
-        let mut records_param = Vec::new();
-        for i in 0u64..25 {
-            records_param.push(IncomeRecordParam {
-                belong_to: util::hex_string(&i.to_be_bytes()),
-                capacity: 5_000_000_000,
-            })
-        }
-        push_income_cell!(template, records_param, 0, Source::Output);
+    // inputs
+    push_common_inputs(&mut template);
 
-        let mut records_param = Vec::new();
-        for i in 25u64..50 {
-            records_param.push(IncomeRecordParam {
-                belong_to: util::hex_string(&i.to_be_bytes()),
-                capacity: 5_000_000_000,
-            })
-        }
-        push_income_cell!(template, records_param, 1, Source::Output);
+    // outputs
+    push_output_income_cell(
+        &mut template,
+        json!({
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": COMMON_INCOME_CREATOR
+                        },
+                        "capacity": 40_000_000_000u64,
+                    },
+                    // Simulate missing some records in outputs.
+                    // {
+                    //     "belong_to": {
+                    //         "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                    //         "args": "0x0000000000000000000000000000000000000010"
+                    //     },
+                    //     "capacity": 2_000_000_000u64,
+                    // },
+                ]
+            }
+        }),
+    );
 
-        template.push_signall_cell("0x000000000000FFFF", 19_800_000_000, Source::Output);
+    challenge_tx(template.as_json(), Error::IncomeCellConsolidateError);
+}
 
-        template.as_json()
-    }
-);
+#[test]
+fn challenge_income_consolidate_wasted_capacity_1() {
+    let mut template = before();
 
-challenge_with_generator!(
-    challenge_income_consolidate_wasted_capacity,
-    Error::IncomeCellConsolidateWaste,
-    || {
-        let mut template = init("consolidate_income");
+    // inputs
+    push_common_inputs(&mut template);
 
-        let capacity_of_10 = 20_000_000_000;
-        let capacity_of_20 = 10_200_000_000;
+    // outputs
+    push_output_income_cell(
+        &mut template,
+        json!({
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": COMMON_INCOME_CREATOR
+                        },
+                        "capacity": 18_000_000_000u64,
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000010"
+                        },
+                        "capacity": 2_000_000_000u64,
+                    },
+                ]
+            }
+        }),
+    );
+    // Simulate missing some capacity which should be transferred to COMMON_INCOME_CREATOR.
+    push_output_normal_cell(&mut template, 20_000_000_000u64, COMMON_INCOME_CREATOR);
 
-        // inputs
-        let records_param = vec![
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000010".to_string(),
-                capacity: capacity_of_10 / 2, // 100 CKB
-            },
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000020".to_string(),
-                capacity: capacity_of_20 - 200_000_000, // 100 CKB
-            },
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000040".to_string(),
-                capacity: 9_900_000_000,
-            },
-        ];
-        push_income_cell!(template, records_param, 0, Source::Input);
+    challenge_tx(template.as_json(), Error::IncomeCellConsolidateError);
+}
 
-        let records_param = vec![
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000010".to_string(),
-                capacity: capacity_of_10 / 2, // 100 CKB
-            },
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000020".to_string(),
-                capacity: capacity_of_20 - 10_000_000_000, // 2 CKB
-            },
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000030".to_string(),
-                capacity: 200_000_000,
-            },
-        ];
-        push_income_cell!(template, records_param, 1, Source::Input);
+#[test]
+fn challenge_income_consolidate_wasted_capacity_2() {
+    let mut template = before();
 
-        // 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF is the keeper who pushed the consolidate_income transaction.
-        template.push_signall_cell(
-            "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
-            6_100_000_000,
-            Source::Input,
-        );
+    // inputs
+    push_input_income_cell(
+        &mut template,
+        json!({
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": COMMON_INCOME_CREATOR
+                        },
+                        "capacity": 20_000_000_000u64,
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000010"
+                        },
+                        "capacity": 1_000_000_000u64,
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000020"
+                        },
+                        "capacity": 18_000_000_000u64,
+                    },
+                ]
+            }
+        }),
+    );
+    push_input_income_cell(
+        &mut template,
+        json!({
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": COMMON_INCOME_CREATOR
+                        },
+                        "capacity": 20_000_000_000u64,
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000010"
+                        },
+                        "capacity": 1_000_000_000u64,
+                    },
+                ]
+            }
+        }),
+    );
 
-        // outputs
-        let records_param = vec![
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000010".to_string(),
-                capacity: 10_000_000_000,
-            },
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000030".to_string(),
-                capacity: 200_000_000,
-            },
-            IncomeRecordParam {
-                belong_to: "0x0000000000000000000000000000000000000040".to_string(),
-                capacity: 9_900_000_000,
-            },
-        ];
-        push_income_cell!(template, records_param, 0, Source::Output);
+    // outputs
+    push_output_income_cell(
+        &mut template,
+        json!({
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": COMMON_INCOME_CREATOR
+                        },
+                        "capacity": 18_000_000_000u64,
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000010"
+                        },
+                        "capacity": 2_000_000_000u64,
+                    },
+                ]
+            }
+        }),
+    );
+    // Simulate missing some capacity which should be transferred to COMMON_INCOME_CREATOR.
+    push_output_normal_cell(&mut template, 22_000_000_000u64, COMMON_INCOME_CREATOR);
 
-        template.push_signall_cell(
-            "0x0000000000000000000000000000000000000010",
-            9_900_000_000,
-            Source::Output,
-        );
-        // Waste 198_000_000 CKBytes
-        template.push_signall_cell(
-            "0x0000000000000000000000000000000000000020",
-            9_900_000_000,
-            Source::Output,
-        );
-        // 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF can take some from user as their profit.
-        template.push_signall_cell(
-            "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
-            6_300_000_000,
-            Source::Output,
-        );
+    challenge_tx(template.as_json(), Error::IncomeCellConsolidateWaste);
+}
 
-        template.as_json()
-    }
-);
+#[test]
+fn challenge_income_consolidate_wasted_capacity_3() {
+    let mut template = before();
 
-challenge_with_generator!(
-    challenge_income_consolidate_eip712_cells_without_type_script,
-    [
-        Error::InvalidTransactionStructure,
-        Error::BalanceCellFoundSomeOutputsLackOfType
-    ],
-    || {
-        let mut template = init("consolidate_income");
+    // inputs
+    push_input_income_cell(
+        &mut template,
+        json!({
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": COMMON_INCOME_CREATOR
+                        },
+                        "capacity": 20_000_000_000u64,
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000010"
+                        },
+                        "capacity": 10_000_000_000u64,
+                    },
+                ]
+            }
+        }),
+    );
+    push_input_income_cell(
+        &mut template,
+        json!({
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": COMMON_INCOME_CREATOR
+                        },
+                        "capacity": 20_000_000_000u64,
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000010"
+                        },
+                        "capacity": 10_000_000_000u64,
+                    },
+                ]
+            }
+        }),
+    );
 
-        template.push_contract_cell("fake-das-lock", true);
-        template.push_contract_cell("balance-cell-type", false);
+    // outputs
+    // Simulate missing some capacity which should be transferred to COMMON_INCOME_CREATOR.
+    push_output_normal_cell(&mut template, 20_000_000_000u64, COMMON_INCOME_CREATOR);
+    push_output_normal_cell(
+        &mut template,
+        20_000_000_000u64,
+        "0x0000000000000000000000000000000000000010",
+    );
 
-        // inputs
-        let records_param = vec![
-            IncomeRecordParam {
-                belong_to: "0x050000000000000000000000000000000000000000".to_string(),
-                capacity: 20_000_000_000,
-            },
-            IncomeRecordParam {
-                belong_to: "0x030000000000000000000000000000000000000010".to_string(),
-                capacity: 10_000_000_000,
-            },
-        ];
-        push_income_cell_with_das_lock!(template, records_param, 0, Source::Input);
+    challenge_tx(template.as_json(), Error::IncomeCellTransferError);
+}
 
-        let records_param = vec![
-            IncomeRecordParam {
-                belong_to: "0x050000000000000000000000000000000000000000".to_string(),
-                capacity: 20_000_000_000,
-            },
-            IncomeRecordParam {
-                belong_to: "0x030000000000000000000000000000000000000010".to_string(),
-                capacity: 200_000_000,
-            },
-        ];
-        push_income_cell_with_das_lock!(template, records_param, 1, Source::Input);
+#[test]
+fn challenge_income_consolidate_eip712_cells_without_type_script() {
+    let mut template = before();
 
-        // 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF is the keeper who pushed the consolidate_income transaction.
-        template.push_signall_cell(
-            "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
-            6_100_000_000,
-            Source::Input,
-        );
+    template.push_contract_cell("fake-das-lock", true);
+    template.push_contract_cell("balance-cell-type", false);
 
-        // outputs
-        let lock_script = json!({
-          "code_hash": "{{fake-das-lock}}",
-          "args": "0x050000000000000000000000000000000000000000"
-        });
-        template.push_cell(39_600_000_000, lock_script, json!(null), None, Source::Output);
-        template.push_empty_witness();
+    // inputs
+    push_input_income_cell_no_creator(
+        &mut template,
+        json!({
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-das-lock}}",
+                            "args": gen_das_lock_args("0x050000000000000000000000000000000000000000", None)
+                        },
+                        "capacity": 20_000_000_000u64,
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-das-lock}}",
+                            "args": gen_das_lock_args("0x030000000000000000000000000000000000000010", None)
+                        },
+                        "capacity": 10_000_000_000u64,
+                    },
+                ]
+            }
+        }),
+    );
+    push_input_income_cell_no_creator(
+        &mut template,
+        json!({
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-das-lock}}",
+                            "args": gen_das_lock_args("0x050000000000000000000000000000000000000000", None)
+                        },
+                        "capacity": 20_000_000_000u64,
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-das-lock}}",
+                            "args": gen_das_lock_args("0x030000000000000000000000000000000000000010", None)
+                        },
+                        "capacity": 200_000_000u64,
+                    },
+                ]
+            }
+        }),
+    );
+    // 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF is the keeper who pushed the consolidate_income transaction.
+    push_input_normal_cell(
+        &mut template,
+        6_100_000_000,
+        "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+    );
 
-        let lock_script = json!({
-          "code_hash": "{{fake-das-lock}}",
-          "args": "0x030000000000000000000000000000000000000010"
-        });
-        let type_script = json!({
-          "code_hash": "{{balance-cell-type}}",
-        });
-        template.push_cell(10_098_000_000, lock_script, type_script, None, Source::Output);
-        template.push_empty_witness();
+    // outputs
+    template.push_output(
+        json!({
+            "capacity": 39_600_000_000u64,
+            "lock": json!({
+                "code_hash": "{{fake-das-lock}}",
+                "hash_type": "type",
+                "args": gen_das_lock_args("0x050000000000000000000000000000000000000000", None)
+            }),
+        }),
+        None,
+    );
+    template.push_output(
+        json!({
+            "capacity": 10_098_000_000u64,
+            "lock": json!({
+                "code_hash": "{{fake-das-lock}}",
+                "hash_type": "type",
+                "args": gen_das_lock_args("0x030000000000000000000000000000000000000010", None)
+            }),
+        }),
+        None,
+    );
+    // 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF can take some from user as their profit.
+    push_output_normal_cell(
+        &mut template,
+        6_162_000_000,
+        "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+    );
 
-        // 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF can take some from user as their profit.
-        template.push_signall_cell(
-            "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
-            6_162_000_000,
-            Source::Output,
-        );
+    challenge_tx(template.as_json(), Error::InvalidTransactionStructure);
 
-        template.as_json()
-    }
-);
+    // challenge_tx(
+    //     template.as_json(),
+    //     [
+    //         Error::InvalidTransactionStructure,
+    //         Error::BalanceCellFoundSomeOutputsLackOfType,
+    //     ],
+    // );
+}

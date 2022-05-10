@@ -1,8 +1,9 @@
 use super::common::*;
 use crate::util::{
-    constants::*, error::Error, template_common_cell::*, template_generator::TemplateGenerator, template_parser::*,
+    accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::TemplateGenerator,
+    template_parser::*,
 };
-use das_types::constants::*;
+use das_types_std::constants::*;
 use serde_json::json;
 
 fn before_each() -> TemplateGenerator {
@@ -67,7 +68,7 @@ fn before_each() -> TemplateGenerator {
     );
 
     // inputs
-    push_input_normal_cell(&mut template, 100_000_000_000, PROPOSER);
+    push_input_normal_cell(&mut template, 100_000_000_000, COMMON_PROPOSER);
 
     template
 }
@@ -170,7 +171,7 @@ fn test_proposal_exist_account_misunderstand() {
     );
 
     // inputs
-    push_input_normal_cell(&mut template, 100_000_000_000, PROPOSER);
+    push_input_normal_cell(&mut template, 100_000_000_000, COMMON_PROPOSER);
 
     // outputs
     push_output_proposal_cell(
@@ -487,7 +488,7 @@ fn challenge_proposal_create_empty_slices() {
     let mut template = init("propose");
 
     // inputs
-    push_input_normal_cell(&mut template, 100_000_000_000, PROPOSER);
+    push_input_normal_cell(&mut template, 100_000_000_000, COMMON_PROPOSER);
 
     // outputs
     push_output_proposal_cell(
@@ -508,7 +509,7 @@ fn challenge_proposal_create_empty_slice() {
     let mut template = init("propose");
 
     // inputs
-    push_input_normal_cell(&mut template, 100_000_000_000, PROPOSER);
+    push_input_normal_cell(&mut template, 100_000_000_000, COMMON_PROPOSER);
 
     // outputs
     push_output_proposal_cell(
@@ -543,7 +544,7 @@ fn challenge_proposal_create_only_one_item() {
     );
 
     // inputs
-    push_input_normal_cell(&mut template, 100_000_000_000, PROPOSER);
+    push_input_normal_cell(&mut template, 100_000_000_000, COMMON_PROPOSER);
 
     // outputs
     push_output_proposal_cell(
@@ -594,7 +595,7 @@ fn challenge_proposal_create_start_with_pre_account_cell() {
     );
 
     // inputs
-    push_input_normal_cell(&mut template, 100_000_000_000, PROPOSER);
+    push_input_normal_cell(&mut template, 100_000_000_000, COMMON_PROPOSER);
 
     // outputs
     push_output_proposal_cell(
@@ -664,7 +665,7 @@ fn challenge_proposal_create_multiple_account_cell_in_one_slice() {
     );
 
     // inputs
-    push_input_normal_cell(&mut template, 100_000_000_000, PROPOSER);
+    push_input_normal_cell(&mut template, 100_000_000_000, COMMON_PROPOSER);
 
     // outputs
     push_output_proposal_cell(
@@ -737,7 +738,7 @@ fn challenge_proposal_create_discontinued_accounts() {
     );
 
     // inputs
-    push_input_normal_cell(&mut template, 100_000_000_000, PROPOSER);
+    push_input_normal_cell(&mut template, 100_000_000_000, COMMON_PROPOSER);
 
     // outputs
     push_output_proposal_cell(
@@ -810,7 +811,7 @@ fn challenge_proposal_create_invalid_order() {
     );
 
     // inputs
-    push_input_normal_cell(&mut template, 100_000_000_000, PROPOSER);
+    push_input_normal_cell(&mut template, 100_000_000_000, COMMON_PROPOSER);
 
     // outputs
     push_output_proposal_cell(
@@ -883,7 +884,7 @@ fn challenge_proposal_create_exist_account_1() {
     );
 
     // inputs
-    push_input_normal_cell(&mut template, 100_000_000_000, PROPOSER);
+    push_input_normal_cell(&mut template, 100_000_000_000, COMMON_PROPOSER);
 
     // outputs
     push_output_proposal_cell(
@@ -969,7 +970,7 @@ fn challenge_proposal_create_exist_account_2() {
     );
 
     // inputs
-    push_input_normal_cell(&mut template, 100_000_000_000, PROPOSER);
+    push_input_normal_cell(&mut template, 100_000_000_000, COMMON_PROPOSER);
 
     // outputs
     push_output_proposal_cell(
@@ -1039,7 +1040,7 @@ fn challenge_proposal_create_exist_account_3() {
     );
 
     // inputs
-    push_input_normal_cell(&mut template, 100_000_000_000, PROPOSER);
+    push_input_normal_cell(&mut template, 100_000_000_000, COMMON_PROPOSER);
 
     // outputs
     push_output_proposal_cell(
@@ -1119,7 +1120,7 @@ fn challenge_proposal_create_exist_account_4() {
     );
 
     // inputs
-    push_input_normal_cell(&mut template, 100_000_000_000, PROPOSER);
+    push_input_normal_cell(&mut template, 100_000_000_000, COMMON_PROPOSER);
 
     // outputs
     push_output_proposal_cell(

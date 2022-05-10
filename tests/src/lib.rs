@@ -5,11 +5,11 @@ use std::fs;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use ckb_tool::ckb_types::bytes;
+use ckb_testtool::ckb_types::bytes;
 
-#[cfg(test)]
 #[macro_use]
 mod util;
+mod ckb_types_relay;
 
 #[cfg(test)]
 mod account_cell_type;
@@ -26,11 +26,17 @@ mod income_cell_type;
 #[cfg(test)]
 mod offer_cell_type;
 #[cfg(test)]
+mod playground;
+#[cfg(test)]
 mod pre_account_cell_type;
 #[cfg(test)]
 mod proposal_cell_type;
 #[cfg(test)]
 mod reverse_record_cell_type;
+#[cfg(test)]
+mod sub_account_cell_type;
+#[cfg(test)]
+mod sub_account_witness_parser;
 #[cfg(test)]
 mod witness_parser;
 

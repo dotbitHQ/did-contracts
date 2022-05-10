@@ -1,6 +1,6 @@
 [package]
 name = "account-cell-type"
-version = "1.4.0"
+version = "1.5.0"
 edition = "2018"
 
 [features]
@@ -10,8 +10,8 @@ testnet = ["das-core/testnet"]
 mainnet = ["das-core/mainnet"]
 
 [dependencies]
-ckb-std = "0.7.1"
+ckb-std = "0.8.0"
 das-core = { path = "../../libs/das-core", default-features = false }
+das-map = { path = "../../libs/das-map", default-features = false }
 eip712 = { path = "../../libs/eip712" }
 das-types = { path = "../../../das-types/rust", default-features = false }
-chrono = { version = "0.4", default-features = false }

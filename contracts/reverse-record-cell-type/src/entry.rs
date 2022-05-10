@@ -4,16 +4,13 @@ use core::result::Result;
 use das_core::{
     assert, assert_lock_equal,
     constants::{das_lock, ScriptType},
-    data_parser, debug,
+    debug,
     eip712::{to_semantic_address, verify_eip712_hashes_if_has_das_lock},
     error::Error,
     util, verifiers,
     witness_parser::WitnessesParser,
 };
-use das_types::{
-    constants::{DataType, LockRole},
-    packed::*,
-};
+use das_types::{constants::LockRole, packed::*};
 
 pub fn main() -> Result<(), Error> {
     debug!("====== Running reverse-record-cell-type ======");
@@ -25,7 +22,7 @@ pub fn main() -> Result<(), Error> {
     };
     let action = action_cp.as_slice();
 
-    util::is_system_off(&mut parser)?;
+    util::is_system_off(&parser)?;
 
     debug!(
         "Route to {:?} action ...",
@@ -37,20 +34,15 @@ pub fn main() -> Result<(), Error> {
         b"declare_reverse_record" => {
             verify_eip712_hashes_if_has_das_lock(&parser, declare_reverse_record_to_semantic)?;
 
-            parser.parse_config(&[DataType::ConfigCellMain, DataType::ConfigCellReverseResolution])?;
             let config_main = parser.configs.main()?;
             let config_reverse_resolution = parser.configs.reverse_resolution()?;
 
-            assert!(
-                input_cells.len() == 0 && output_cells.len() == 1,
-                Error::InvalidTransactionStructure,
-                "There should be only 1 ReverseRecordCell at outputs[0]."
-            );
-            assert!(
-                output_cells[0] == 0,
-                Error::InvalidTransactionStructure,
-                "There should be only 1 ReverseRecordCell at outputs[0]."
-            );
+            verifiers::common::verify_created_cell_in_correct_position(
+                "ReverseRecordCell",
+                &input_cells,
+                &output_cells,
+                Some(0),
+            )?;
 
             let sender_lock = high_level::load_cell_lock(0, Source::Input)?;
             let reverse_record_cell_capacity = u64::from(config_reverse_resolution.record_basic_capacity())
@@ -73,11 +65,7 @@ pub fn main() -> Result<(), Error> {
             );
 
             debug!("Verify if the change is transferred back to the sender properly.");
-
-            let mut total_input_capacity = 0;
-            for i in balance_cells.iter() {
-                total_input_capacity += high_level::load_cell_capacity(*i, Source::Input)?;
-            }
+            let total_input_capacity = util::load_cells_capacity(&balance_cells, Source::Input)?;
             // Allow the transaction builder to pay for the user, or something like that.
             if total_input_capacity > current_capacity + common_fee {
                 verifiers::misc::verify_user_get_change(
@@ -105,14 +93,10 @@ pub fn main() -> Result<(), Error> {
                 Error::ReverseRecordCellLockError,
                 "The ReverseRecordCell.lock should be the das-lock."
             );
-
-            verify_account_exist(config_main, output_cells[0])?;
         }
         b"redeclare_reverse_record" => {
             verify_eip712_hashes_if_has_das_lock(&parser, redeclare_reverse_record_to_semantic)?;
 
-            parser.parse_config(&[DataType::ConfigCellMain, DataType::ConfigCellReverseResolution])?;
-            let config_main = parser.configs.main()?;
             let config_reverse_resolution = parser.configs.reverse_resolution()?;
 
             assert!(
@@ -161,13 +145,10 @@ pub fn main() -> Result<(), Error> {
                 Error::InvalidTransactionStructure,
                 "The ReverseRecordCell.data.account should be modified."
             );
-
-            verify_account_exist(config_main, output_cells[0])?;
         }
         b"retract_reverse_record" => {
             verify_eip712_hashes_if_has_das_lock(&parser, retract_reverse_record_to_semantic)?;
 
-            parser.parse_config(&[DataType::ConfigCellMain, DataType::ConfigCellReverseResolution])?;
             let config_main = parser.configs.main()?;
             let config_reverse_resolution = parser.configs.reverse_resolution()?;
 
@@ -255,27 +236,4 @@ fn retract_reverse_record_to_semantic(parser: &WitnessesParser) -> Result<String
     let address = to_semantic_address(parser, lock.as_reader(), LockRole::Owner)?;
 
     Ok(format!("RETRACT REVERSE RECORDS ON {}", address))
-}
-
-fn verify_account_exist(config_main: ConfigCellMainReader, output_cell: usize) -> Result<(), Error> {
-    debug!("Verify if the ReverseRecordCell.data.account is really exist.");
-
-    let account_cell_type_id = config_main.type_id_table().account_cell();
-    let account_cells = util::find_cells_by_type_id(ScriptType::Type, account_cell_type_id, Source::CellDep)?;
-    assert!(
-        account_cells.len() == 1,
-        Error::InvalidTransactionStructure,
-        "There should be only 1 AccountCell in cell_deps."
-    );
-
-    let account_cell_data = high_level::load_cell_data(account_cells[0], Source::CellDep)?;
-    let expected_account = data_parser::account_cell::get_account(&account_cell_data);
-    let current_account = high_level::load_cell_data(output_cell, Source::Output)?;
-    assert!(
-        expected_account == current_account.as_slice(),
-        Error::ReverseRecordCellAccountError,
-        "The ReverseRecordCell.data.account should be the same as the account of the AccountCell."
-    );
-
-    Ok(())
 }

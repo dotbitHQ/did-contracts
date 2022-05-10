@@ -1,6 +1,8 @@
 use super::common::*;
-use crate::util::{constants::*, template_common_cell::*, template_generator::TemplateGenerator, template_parser::*};
-use das_types::constants::*;
+use crate::util::{
+    accounts::*, constants::*, template_common_cell::*, template_generator::TemplateGenerator, template_parser::*,
+};
+use das_types_std::constants::*;
 use serde_json::json;
 
 fn before_each() -> TemplateGenerator {
@@ -84,7 +86,7 @@ fn before_each() -> TemplateGenerator {
     );
 
     // inputs
-    push_input_normal_cell(&mut template, 100_000_000_000, PROPOSER);
+    push_input_normal_cell(&mut template, 100_000_000_000, COMMON_PROPOSER);
 
     template
 }

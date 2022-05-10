@@ -9,7 +9,6 @@ std = ["no-std-compat/std"]
 no_std = []
 
 [dependencies]
-ckb-std = "0.7.1"
 no-std-compat = { version = "0.4", features = [ "alloc", "compat_macros" ] }
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 hex = { version = "0.4", default-features = false }

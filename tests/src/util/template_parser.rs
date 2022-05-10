@@ -1,6 +1,6 @@
 use super::{constants::*, error::Error, util};
-use ckb_testtool::context::Context;
-use ckb_tool::{
+use crate::util::template_generator::TemplateGenerator;
+use ckb_testtool::{
     ckb_error, ckb_jsonrpc_types as rpc_types,
     ckb_types::{
         bytes,
@@ -11,7 +11,9 @@ use ckb_tool::{
         prelude::*,
         H160, H256,
     },
+    context::Context,
 };
+use das_types_std::constants::Source;
 use serde_json::Value;
 use std::{
     collections::{hash_map::RandomState, HashMap, HashSet},
@@ -31,7 +33,7 @@ pub fn test_tx(tx: Value) {
     // );
     let cycles = parser
         .execute_tx(&tx_view)
-        .expect("Transaction verification should pass.");
+        .expect("Transaction verification should pass");
 
     println!(
         r#"︎↑︎======================================↑︎
@@ -66,7 +68,7 @@ pub fn challenge_tx(tx: Value, expected_error: Error) {
             let msg = err.to_string();
             println!("Error message(single code): {}", msg);
 
-            let search = format!("ValidationFailure({})", expected_error as i8);
+            let search = format!("error code {}", expected_error as i8);
             assert!(
                 msg.contains(search.as_str()),
                 "The test should failed with error code: {:?}({})",
@@ -75,6 +77,15 @@ pub fn challenge_tx(tx: Value, expected_error: Error) {
             );
         }
     }
+}
+
+// another style of text_tx/challenge_tx
+pub fn test_tx2(tx: fn() -> TemplateGenerator) {
+    test_tx(tx().as_json())
+}
+
+pub fn challenge_tx2(expected_error: Error, tx: fn() -> TemplateGenerator) {
+    challenge_tx(tx().as_json(), expected_error)
 }
 
 pub struct TemplateParser {
@@ -353,24 +364,29 @@ impl TemplateParser {
     fn parse_cell_deps(&mut self, cell_deps: Vec<Value>) -> Result<(), Box<dyn StdError>> {
         for (i, item) in cell_deps.into_iter().enumerate() {
             match item["tmp_type"].as_str() {
-                Some("contract") => {
+                Some("contract") | Some("deployed_contract") => {
+                    let deployed = if item["tmp_type"].as_str() == Some("deployed_contract") {
+                        true
+                    } else {
+                        false
+                    };
+
                     let name = item["tmp_file_name"].as_str().unwrap();
-                    let (type_id, _, cell_dep) = util::deploy_dev_contract(&mut self.context, name, Some(i));
+                    let (type_id, _, cell_dep) = util::deploy_contract(&mut self.context, name, deployed, Some(i));
                     // println!("{:>30}: {}", name, type_id);
                     self.deps.push(cell_dep);
                     self.contracts.insert(name.to_string(), type_id);
                 }
-                Some("deployed_contract") => {
+                Some("shared_lib") | Some("deployed_shared_lib") => {
+                    let deployed = if item["tmp_type"].as_str() == Some("deployed_shared_lib") {
+                        true
+                    } else {
+                        false
+                    };
+
                     let name = item["tmp_file_name"].as_str().unwrap();
-                    let (type_id, _, cell_dep) = util::deploy_builtin_contract(&mut self.context, name, Some(i));
-                    // println!("{:>30}: {}", name, type_id);
-                    self.deps.push(cell_dep);
-                    self.contracts.insert(name.to_string(), type_id);
-                }
-                Some("shared_lib") => {
-                    let name = item["tmp_file_name"].as_str().unwrap();
-                    let (code_hash, _, cell_dep) = util::deploy_shared_lib(&mut self.context, name, Some(i));
-                    // println!("{:>30}: {}", name, type_id);
+                    let (code_hash, _, cell_dep) = util::deploy_shared_lib(&mut self.context, name, deployed, Some(i));
+                    // println!("{:>30}: {}", name, code_hash);
                     self.deps.push(cell_dep);
                     self.contracts.insert(name.to_string(), code_hash);
                 }
@@ -532,7 +548,7 @@ impl TemplateParser {
                     }
                 };
                 // Tip: If contract can not find some cell by type ID, you can uncomment the following line to ensure transaction has correct type ID.
-                // println!("Replace code_hash {} with {} .", code_hash, real_code_hash);
+                // println!("Replace code_hash {} with {} .", script_name, real_code_hash);
 
                 // else parse script field by field.
             } else {

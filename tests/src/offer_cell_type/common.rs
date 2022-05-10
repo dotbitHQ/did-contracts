@@ -1,12 +1,8 @@
-use crate::util::{self, constants::*, template_generator::*};
-use das_types::{constants::DataType, packed::*};
+use crate::util::{self, accounts::*, constants::*, template_generator::*};
+use das_types_std::{constants::*, packed::*};
 use serde_json::{json, Value};
 
-pub const ACCOUNT: &str = "xxxxx.bit";
-pub const SELLER: &str = "0x050000000000000000000000000000000000001111";
-pub const BUYER: &str = "0x050000000000000000000000000000000000002222";
 pub const PRICE: u64 = 200_000_000_000;
-pub const TIMESTAMP: u64 = 1611200090u64;
 
 pub fn init(action: &str) -> TemplateGenerator {
     let mut template = TemplateGenerator::new(action, Some(Bytes::from(vec![0])));
@@ -16,9 +12,9 @@ pub fn init(action: &str) -> TemplateGenerator {
     template.push_contract_cell("balance-cell-type", false);
     template.push_contract_cell("offer-cell-type", false);
 
-    template.push_config_cell(DataType::ConfigCellMain, true, 0, Source::CellDep);
-    template.push_config_cell(DataType::ConfigCellSecondaryMarket, true, 0, Source::CellDep);
-    template.push_config_cell(DataType::ConfigCellUnAvailableAccount, true, 0, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellMain, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellSecondaryMarket, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellUnAvailableAccount, Source::CellDep);
 
     template
 }
@@ -31,9 +27,9 @@ pub fn init_with_timestamp(action: &str) -> TemplateGenerator {
 
     template.push_oracle_cell(1, OracleCellType::Time, TIMESTAMP);
 
-    template.push_config_cell(DataType::ConfigCellAccount, true, 0, Source::CellDep);
-    template.push_config_cell(DataType::ConfigCellIncome, true, 0, Source::CellDep);
-    template.push_config_cell(DataType::ConfigCellProfitRate, true, 0, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellAccount, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellIncome, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellProfitRate, Source::CellDep);
 
     template
 }
@@ -54,11 +50,11 @@ pub fn push_input_offer_cell(template: &mut TemplateGenerator, cell_partial: Val
             "message": "Take my money.🍀",
             "inviter_lock": {
                 "code_hash": "{{fake-das-lock}}",
-                "args": gen_das_lock_args(INVITER_LOCK_ARGS, None)
+                "args": gen_das_lock_args(INVITER, None)
             },
             "channel_lock": {
                 "code_hash": "{{fake-das-lock}}",
-                "args": gen_das_lock_args(CHANNEL_LOCK_ARGS, None)
+                "args": gen_das_lock_args(CHANNEL, None)
             }
         }
     });
@@ -84,11 +80,11 @@ pub fn push_output_offer_cell(template: &mut TemplateGenerator, cell_partial: Va
             "message": "Take my money.🍀",
             "inviter_lock": {
                 "code_hash": "{{fake-das-lock}}",
-                "args": gen_das_lock_args(INVITER_LOCK_ARGS, None)
+                "args": gen_das_lock_args(INVITER, None)
             },
             "channel_lock": {
                 "code_hash": "{{fake-das-lock}}",
-                "args": gen_das_lock_args(CHANNEL_LOCK_ARGS, None)
+                "args": gen_das_lock_args(CHANNEL, None)
             }
         }
     });

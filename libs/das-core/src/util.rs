@@ -2,6 +2,7 @@ use super::{
     assert as das_assert, constants::*, data_parser, debug, error::Error, types::ScriptLiteral, warn,
     witness_parser::WitnessesParser,
 };
+use alloc::{borrow::ToOwned, boxed::Box, collections::BTreeMap, string::String, vec, vec::Vec};
 use blake2b_ref::{Blake2b, Blake2bBuilder};
 use ckb_std::{
     ckb_constants::{CellField, Source},
@@ -9,12 +10,12 @@ use ckb_std::{
     error::SysError,
     high_level, syscalls,
 };
-use core::convert::TryInto;
+use core::{convert::TryInto, fmt::Debug};
 use das_types::{
     constants::{DataType, LockRole, WITNESS_HEADER},
+    mixer::*,
     packed as das_packed,
 };
-use std::prelude::v1::*;
 
 #[cfg(test)]
 use hex::FromHexError;
@@ -388,10 +389,21 @@ pub fn load_oracle_data(type_: OracleCellType) -> Result<u64, Error> {
     Ok(data_in_uint as u64)
 }
 
+pub fn load_cells_capacity(cells: &[usize], source: Source) -> Result<u64, Error> {
+    let mut total_input_capacity = 0;
+    for i in cells.iter() {
+        total_input_capacity += high_level::load_cell_capacity(*i, source)?;
+    }
+
+    Ok(total_input_capacity)
+}
+
 pub fn load_self_cells_in_inputs_and_outputs() -> Result<(Vec<usize>, Vec<usize>), Error> {
     let this_type_script = high_level::load_script().map_err(Error::from)?;
-    let (input_cells, output_cells) =
-        find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_type_script.as_reader())?;
+    let this_type_script_reader = this_type_script.as_reader();
+
+    let input_cells = find_cells_by_script(ScriptType::Type, this_type_script_reader, Source::Input)?;
+    let output_cells = find_cells_by_script(ScriptType::Type, this_type_script_reader, Source::Output)?;
 
     Ok((input_cells, output_cells))
 }
@@ -454,37 +466,32 @@ pub fn new_blake2b() -> Blake2b {
         .build()
 }
 
-pub fn blake2b_256(s: &[u8]) -> [u8; 32] {
+pub fn blake2b_256<T: AsRef<[u8]>>(s: T) -> [u8; 32] {
     let mut result = [0u8; CKB_HASH_DIGEST];
     let mut blake2b = Blake2bBuilder::new(CKB_HASH_DIGEST)
         .personal(CKB_HASH_PERSONALIZATION)
         .build();
-    blake2b.update(s);
+    blake2b.update(s.as_ref());
     blake2b.finalize(&mut result);
     result
 }
 
-pub fn blake2b_das(s: &[u8]) -> [u8; 32] {
+pub fn blake2b_das<T: AsRef<[u8]>>(s: T) -> [u8; 32] {
     let mut result = [0u8; CKB_HASH_DIGEST];
     let mut blake2b = Blake2bBuilder::new(CKB_HASH_DIGEST)
         .personal(b"2021-07-22 12:00")
         .build();
-    blake2b.update(s);
+    blake2b.update(s.as_ref());
     blake2b.finalize(&mut result);
     result
 }
 
-pub fn is_cell_only_lock_changed(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
-    debug!(
-        "Compare if only the cells' lock script are different: {:?}[{}] & {:?}[{}]",
-        cell_a.1, cell_a.0, cell_b.1, cell_b.0
-    );
-
-    is_cell_capacity_equal(cell_a, cell_b)?;
-    is_cell_type_equal(cell_a, cell_b)?;
-    is_cell_data_equal(cell_a, cell_b)?;
-
-    Ok(())
+pub fn blake2b_smt<T: AsRef<[u8]>>(s: T) -> [u8; 32] {
+    let mut result = [0u8; 32];
+    let mut blake2b = Blake2bBuilder::new(32).personal(b"sparsemerkletree").key(&[]).build();
+    blake2b.update(s.as_ref());
+    blake2b.finalize(&mut result);
+    result
 }
 
 pub fn is_cell_lock_equal(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
@@ -501,88 +508,6 @@ pub fn is_cell_lock_equal(cell_a: (usize, Source), cell_b: (usize, Source)) -> R
         cell_b.1,
         cell_b.0,
         hex_string(&b_lock_hash)
-    );
-
-    Ok(())
-}
-
-pub fn is_cell_type_equal(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
-    let a_type_script = high_level::load_cell_type_hash(cell_a.0, cell_a.1)
-        .map_err(Error::from)?
-        .unwrap();
-    let b_type_script = high_level::load_cell_type_hash(cell_b.0, cell_b.1)
-        .map_err(Error::from)?
-        .unwrap();
-
-    das_assert!(
-        a_type_script == b_type_script,
-        Error::CellLockCanNotBeModified,
-        "The type script of {:?}[{}]({}) and {:?}[{}]({}) should be the same.",
-        cell_a.1,
-        cell_a.0,
-        hex_string(&a_type_script),
-        cell_b.1,
-        cell_b.0,
-        hex_string(&b_type_script)
-    );
-
-    Ok(())
-}
-
-pub fn is_cell_data_equal(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
-    let a_data = high_level::load_cell_data(cell_a.0, cell_a.1).map_err(Error::from)?;
-    let b_data = high_level::load_cell_data(cell_b.0, cell_b.1).map_err(Error::from)?;
-
-    das_assert!(
-        a_data == b_data,
-        Error::CellLockCanNotBeModified,
-        "The data of {:?}[{}]({}) and {:?}[{}]({}) should be the same.",
-        cell_a.1,
-        cell_a.0,
-        hex_string(&a_data),
-        cell_b.1,
-        cell_b.0,
-        hex_string(&b_data)
-    );
-
-    Ok(())
-}
-
-pub fn is_cell_capacity_lt(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
-    let a_capacity = high_level::load_cell_capacity(cell_a.0, cell_a.1).map_err(Error::from)?;
-    let b_capacity = high_level::load_cell_capacity(cell_b.0, cell_b.1).map_err(Error::from)?;
-
-    // ⚠️ Equal is not allowed here because we want to avoid abuse cell.
-    das_assert!(
-        a_capacity < b_capacity,
-        Error::CellLockCanNotBeModified,
-        "The capacity of {:?}[{}]({}) should be less than {:?}[{}]({}).",
-        cell_a.1,
-        cell_a.0,
-        a_capacity,
-        cell_b.1,
-        cell_b.0,
-        b_capacity
-    );
-
-    Ok(())
-}
-
-pub fn is_cell_capacity_gt(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
-    let a_capacity = high_level::load_cell_capacity(cell_a.0, cell_a.1).map_err(Error::from)?;
-    let b_capacity = high_level::load_cell_capacity(cell_b.0, cell_b.1).map_err(Error::from)?;
-
-    // ⚠️ Equal is not allowed here because we want to avoid abuse cell.
-    das_assert!(
-        a_capacity > b_capacity,
-        Error::CellLockCanNotBeModified,
-        "The capacity of {:?}[{}]({}) should be greater than {:?}[{}]({}).",
-        cell_a.1,
-        cell_a.0,
-        a_capacity,
-        cell_b.1,
-        cell_b.0,
-        b_capacity
     );
 
     Ok(())
@@ -607,8 +532,7 @@ pub fn is_cell_capacity_equal(cell_a: (usize, Source), cell_b: (usize, Source)) 
     Ok(())
 }
 
-pub fn is_system_off(parser: &mut WitnessesParser) -> Result<(), Error> {
-    parser.parse_config(&[DataType::ConfigCellMain])?;
+pub fn is_system_off(parser: &WitnessesParser) -> Result<(), Error> {
     let config_main = parser.configs.main()?;
     let status = u8::from(config_main.status());
     if status == 0 {
@@ -646,11 +570,72 @@ pub fn is_init_day(current_timestamp: u64) -> Result<(), Error> {
     Ok(())
 }
 
+pub fn is_account_id_in_collection(account_id: &[u8], collection: &[u8]) -> bool {
+    let length = collection.len();
+    if length <= 0 {
+        return false;
+    }
+
+    let first = &collection[0..20];
+    let last = &collection[length - 20..];
+
+    return if account_id < first {
+        debug!("The account is less than the first preserved account, skip.");
+        false
+    } else if account_id > last {
+        debug!("The account is bigger than the last preserved account, skip.");
+        false
+    } else {
+        let accounts_total = collection.len() / ACCOUNT_ID_LENGTH;
+        let mut start_account_index = 0;
+        let mut end_account_index = accounts_total - 1;
+
+        loop {
+            let mid_account_index = (start_account_index + end_account_index) / 2;
+            // debug!("mid_account_index = {:?}", mid_account_index);
+            let mid_account_start_byte_index = mid_account_index * ACCOUNT_ID_LENGTH;
+            let mid_account_end_byte_index = mid_account_start_byte_index + ACCOUNT_ID_LENGTH;
+            let mid_account_bytes = collection
+                .get(mid_account_start_byte_index..mid_account_end_byte_index)
+                .unwrap();
+
+            if mid_account_bytes < account_id {
+                start_account_index = mid_account_index + 1;
+                // debug!("<");
+            } else if mid_account_bytes > account_id {
+                // debug!(">");
+                end_account_index = if mid_account_index > 1 {
+                    mid_account_index - 1
+                } else {
+                    0
+                };
+            } else {
+                return true;
+            }
+
+            if start_account_index > end_account_index || end_account_index == 0 {
+                break;
+            }
+        }
+
+        false
+    };
+}
+
 pub fn calc_account_storage_capacity(
     config_account: das_packed::ConfigCellAccountReader,
     account_name_storage: u64,
+    owner_lock_args: das_packed::BytesReader,
 ) -> u64 {
-    let basic_capacity = u64::from(config_account.basic_capacity());
+    // TODO MIXIN Fix this with new data structure.
+    let lock_type = data_parser::das_lock_args::get_owner_type(owner_lock_args.raw_data());
+    let basic_capacity = if lock_type == DasLockType::MIXIN as u8 {
+        23_000_000_000u64
+    } else {
+        u64::from(config_account.basic_capacity())
+    };
+
+    let basic_capacity = basic_capacity;
     let prepared_fee_capacity = u64::from(config_account.prepared_fee_capacity());
     basic_capacity + prepared_fee_capacity + (account_name_storage * 100_000_000)
 }
@@ -675,12 +660,11 @@ pub fn calc_duration_from_paid(paid: u64, yearly_price: u64, quote: u64, discoun
 }
 
 pub fn require_type_script(
-    parser: &mut WitnessesParser,
+    parser: &WitnessesParser,
     type_script: TypeScript,
     source: Source,
     err: Error,
 ) -> Result<(), Error> {
-    parser.parse_config(&[DataType::ConfigCellMain])?;
     let config = parser.configs.main()?;
 
     let type_id = match type_script {
@@ -695,6 +679,7 @@ pub fn require_type_script(
         TypeScript::PreAccountCellType => config.type_id_table().pre_account_cell(),
         TypeScript::ProposalCellType => config.type_id_table().proposal_cell(),
         TypeScript::ReverseRecordCellType => config.type_id_table().reverse_record_cell(),
+        TypeScript::SubAccountCellType => config.type_id_table().sub_account_cell(),
     };
 
     debug!(
@@ -735,6 +720,7 @@ pub fn get_action_required_role(action: &[u8]) -> Option<LockRole> {
         b"transfer_account" => Some(LockRole::Owner),
         b"edit_manager" => Some(LockRole::Owner),
         b"edit_records" => Some(LockRole::Manager),
+        b"enable_sub_account" => Some(LockRole::Owner),
         // account-sale-cell-type
         b"start_account_sale" => Some(LockRole::Owner),
         b"edit_account_sale" => Some(LockRole::Owner),
@@ -763,4 +749,139 @@ pub fn derive_owner_lock_from_cell(input_cell: usize, source: Source) -> Result<
     let lock_of_balance_cell = lock.as_builder().args(args.into()).build();
 
     Ok(lock_of_balance_cell)
+}
+
+pub fn get_account_from_reader<'a>(account_reader: &Box<dyn AccountCellDataReaderMixer + 'a>) -> String {
+    let mut account = account_reader.account().as_readable();
+    account.extend(ACCOUNT_SUFFIX.as_bytes());
+
+    String::from_utf8(account).unwrap()
+}
+
+pub fn get_account_id_from_account(account: &[u8]) -> [u8; ACCOUNT_ID_LENGTH] {
+    let hash = blake2b_256(account);
+    let mut account_id = [0u8; ACCOUNT_ID_LENGTH];
+
+    account_id.copy_from_slice(&hash[0..ACCOUNT_ID_LENGTH]);
+
+    account_id
+}
+
+pub fn get_sub_account_name_from_reader(sub_account_reader: das_packed::SubAccountReader) -> String {
+    let mut account = sub_account_reader.account().as_readable();
+    let suffix = sub_account_reader.suffix().raw_data();
+    account.extend(suffix);
+
+    String::from_utf8(account).unwrap()
+}
+
+pub fn parse_income_cell_witness(
+    parser: &WitnessesParser,
+    index: usize,
+    source: Source,
+) -> Result<das_packed::IncomeCellData, Error> {
+    let (_, _, mol_bytes) = parser.verify_and_get(DataType::IncomeCellData, index, source)?;
+    let ret = das_packed::IncomeCellData::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
+        warn!("Decoding IncomeCellData failed");
+        Error::WitnessEntityDecodingError
+    })?;
+
+    Ok(ret)
+}
+
+pub fn parse_proposal_cell_witness(
+    parser: &WitnessesParser,
+    index: usize,
+    source: Source,
+) -> Result<das_packed::ProposalCellData, Error> {
+    let (_, _, mol_bytes) = parser.verify_and_get(DataType::ProposalCellData, index, source)?;
+    let ret = das_packed::ProposalCellData::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
+        warn!("Decoding IncomeCellData failed");
+        Error::WitnessEntityDecodingError
+    })?;
+
+    Ok(ret)
+}
+
+pub fn parse_pre_account_cell_witness(
+    parser: &WitnessesParser,
+    index: usize,
+    source: Source,
+) -> Result<das_packed::PreAccountCellData, Error> {
+    let (_, _, mol_bytes) = parser.verify_and_get(DataType::PreAccountCellData, index, source)?;
+    let ret = das_packed::PreAccountCellData::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
+        warn!("Decoding PreAccountCellData failed");
+        Error::WitnessEntityDecodingError
+    })?;
+
+    Ok(ret)
+}
+
+pub fn parse_account_cell_witness(
+    parser: &WitnessesParser,
+    index: usize,
+    source: Source,
+) -> Result<Box<dyn AccountCellDataMixer>, Error> {
+    let (version, _, mol_bytes) = parser.verify_and_get(DataType::AccountCellData, index, source)?;
+    let ret: Box<dyn AccountCellDataMixer> = if version <= 1 {
+        // CAREFUL! The early versions will no longer be supported.
+        return Err(Error::InvalidTransactionStructure);
+    } else if version == 2 {
+        Box::new(
+            das_packed::AccountCellDataV2::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
+                warn!("Decoding AccountCellDataV2 failed");
+                Error::WitnessEntityDecodingError
+            })?,
+        )
+    } else {
+        Box::new(
+            das_packed::AccountCellData::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
+                warn!("Decoding AccountCellData failed");
+                Error::WitnessEntityDecodingError
+            })?,
+        )
+    };
+
+    Ok(ret)
+}
+
+pub fn parse_account_sale_cell_witness(
+    parser: &WitnessesParser,
+    index: usize,
+    source: Source,
+) -> Result<Box<dyn AccountSaleCellDataMixer>, Error> {
+    let (version, _, mol_bytes) = parser.verify_and_get(DataType::AccountSaleCellData, index, source)?;
+    let ret: Box<dyn AccountSaleCellDataMixer> = if version <= 1 {
+        Box::new(
+            das_packed::AccountSaleCellDataV1::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
+                warn!("Decoding AccountSaleCellDataV1 failed");
+                Error::WitnessEntityDecodingError
+            })?,
+        )
+    } else {
+        Box::new(
+            das_packed::AccountSaleCellData::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
+                warn!("Decoding AccountSaleCellData failed");
+                Error::WitnessEntityDecodingError
+            })?,
+        )
+    };
+
+    Ok(ret)
+}
+
+pub fn map_add<K, V>(btree_map: &mut BTreeMap<K, V>, key: K, value: V)
+where
+    K: Clone + Debug + PartialEq + core::cmp::Ord,
+    V: Clone + Debug + PartialEq + core::ops::Add<Output = V>,
+{
+    match btree_map.get(&key) {
+        Some(exist_value) => {
+            let new_value = exist_value.to_owned() + value;
+            btree_map.insert(key.clone(), new_value);
+        }
+        _ => {
+            btree_map.insert(key.clone(), value);
+        }
+    }
 }

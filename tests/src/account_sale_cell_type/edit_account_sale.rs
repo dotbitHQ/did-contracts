@@ -1,5 +1,5 @@
 use super::common::*;
-use crate::util::{constants::*, error::Error, template_generator::*, template_parser::*};
+use crate::util::{accounts::*, constants::*, error::Error, template_generator::*, template_parser::*};
 use serde_json::json;
 
 fn before_each() -> TemplateGenerator {
@@ -241,7 +241,7 @@ fn challenge_account_sale_edit_fee_spent() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountSaleCellFeeError)
+    challenge_tx(template.as_json(), Error::TxFeeSpentError)
 }
 
 #[test]
@@ -280,7 +280,7 @@ fn challenge_account_sale_edit_fee_empty() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountSaleCellFeeError)
+    challenge_tx(template.as_json(), Error::TxFeeSpentError)
 }
 
 #[test]

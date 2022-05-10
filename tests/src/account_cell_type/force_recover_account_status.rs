@@ -1,23 +1,17 @@
 use super::common::init;
 use crate::util::{
-    self, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
+    self, accounts::*, constants::*, template_common_cell::*, template_generator::*, template_parser::*,
 };
-use das_types::constants::AccountStatus;
+use das_types_std::constants::AccountStatus;
 use serde_json::json;
 
-fn push_input_account_cell(
-    template: &mut TemplateGenerator,
-    timestamp: u64,
-    owner: &str,
-    manager: &str,
-    status: AccountStatus,
-) {
+fn push_input_account_cell(template: &mut TemplateGenerator, timestamp: u64, status: AccountStatus) {
     template.push_input(
         json!({
             "capacity": util::gen_account_cell_capacity(8),
             "lock": {
-                "owner_lock_args": owner,
-                "manager_lock_args": manager
+                "owner_lock_args": OWNER,
+                "manager_lock_args": MANAGER
             },
             "type": {
                 "code_hash": "{{account-cell-type}}"
@@ -38,16 +32,16 @@ fn push_input_account_cell(
         }),
         Some(2),
     );
-    template.push_empty_witness();
+    template.push_das_lock_witness("0000000000000000000000000000000000000000000000000000000000000000");
 }
 
-fn push_input_account_sale_cell(template: &mut TemplateGenerator, timestamp: u64, owner: &str) {
+fn push_input_account_sale_cell(template: &mut TemplateGenerator, timestamp: u64) {
     template.push_input(
         json!({
             "capacity": "20_100_000_000",
             "lock": {
-                "owner_lock_args": owner,
-                "manager_lock_args": owner
+                "owner_lock_args": OWNER,
+                "manager_lock_args": MANAGER
             },
             "type": {
                 "code_hash": "{{account-sale-cell-type}}"
@@ -60,34 +54,32 @@ fn push_input_account_sale_cell(template: &mut TemplateGenerator, timestamp: u64
                 "buyer_inviter_profit_rate": SALE_BUYER_INVITER_PROFIT_RATE
             }
         }),
-        None,
+        Some(2),
     );
 }
 
-fn before_each() -> (TemplateGenerator, u64, &'static str, &'static str) {
+fn before_each() -> (TemplateGenerator, u64) {
     let (mut template, timestamp) = init("force_recover_account_status", None);
-    let owner = "0x000000000000000000000000000000000000001111";
-    let manager = "0x000000000000000000000000000000000000001111";
 
     template.push_contract_cell("account-sale-cell-type", false);
     template.push_contract_cell("balance-cell-type", false);
 
-    push_input_account_cell(&mut template, timestamp, owner, manager, AccountStatus::Selling);
-    push_input_account_sale_cell(&mut template, timestamp, owner);
+    push_input_account_cell(&mut template, timestamp, AccountStatus::Selling);
+    push_input_account_sale_cell(&mut template, timestamp);
 
-    (template, timestamp, owner, manager)
+    (template, timestamp)
 }
 
 #[test]
 fn test_account_force_recover_account_status() {
-    let (mut template, timestamp, owner, manager) = before_each();
+    let (mut template, timestamp) = before_each();
 
     template.push_output(
         json!({
             "capacity": util::gen_account_cell_capacity(8),
             "lock": {
-                "owner_lock_args": owner,
-                "manager_lock_args": manager
+                "owner_lock_args": OWNER,
+                "manager_lock_args": MANAGER
             },
             "type": {
                 "code_hash": "{{account-cell-type}}"
@@ -106,10 +98,10 @@ fn test_account_force_recover_account_status() {
                 "status": (AccountStatus::Normal as u8)
             }
         }),
-        Some(2),
+        Some(3),
     );
 
-    push_output_balance_cell(&mut template, 20_099_990_000, owner);
+    push_output_balance_cell(&mut template, 20_099_990_000, OWNER);
 
     test_tx(template.as_json());
 }

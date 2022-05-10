@@ -1,6 +1,9 @@
 use super::common::*;
-use crate::util::{error::Error, template_common_cell::*, template_generator::TemplateGenerator, template_parser::*};
-use das_types::constants::*;
+use crate::util::{
+    accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::TemplateGenerator,
+    template_parser::*,
+};
+use das_types_std::constants::*;
 use serde_json::json;
 
 fn before_each(height: u64) -> TemplateGenerator {
@@ -54,7 +57,7 @@ fn test_proposal_recycle() {
     let mut template = before_each(HEIGHT - 6);
 
     // outputs
-    push_output_normal_cell(&mut template, 20_000_000_000, PROPOSER);
+    push_output_normal_cell(&mut template, 20_000_000_000, COMMON_PROPOSER);
 
     test_tx(template.as_json());
 }
@@ -64,7 +67,7 @@ fn challenge_proposal_recycle_too_early() {
     let mut template = before_each(HEIGHT - 5);
 
     // outputs
-    push_output_normal_cell(&mut template, 20_000_000_000, PROPOSER);
+    push_output_normal_cell(&mut template, 20_000_000_000, COMMON_PROPOSER);
 
     challenge_tx(template.as_json(), Error::ProposalRecycleNeedWaitLonger);
 }
@@ -74,7 +77,7 @@ fn challenge_proposal_recycle_refund_capacity() {
     let mut template = before_each(HEIGHT - 6);
 
     // outputs
-    push_output_normal_cell(&mut template, 20_000_000_000 - 10000 - 1, PROPOSER);
+    push_output_normal_cell(&mut template, 20_000_000_000 - 10000 - 1, COMMON_PROPOSER);
 
     challenge_tx(template.as_json(), Error::ProposalConfirmRefundError);
 }

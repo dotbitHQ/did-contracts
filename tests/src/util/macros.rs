@@ -23,25 +23,6 @@ macro_rules! test_with_template {
     };
 }
 
-macro_rules! test_with_generator {
-    ($test_name:ident, $generator_fn:expr) => {
-        #[test]
-        fn $test_name() {
-            let generator = $generator_fn;
-            let template = generator();
-            // println!("{}", serde_json::to_string_pretty(&template).unwrap());
-            let mut parser = TemplateParser::from_data(Context::default(), template.clone());
-            parser.parse();
-
-            let cycles = parser
-                .execute_tx_directly()
-                .expect("Transaction verification should pass.");
-
-            println!("{} costs: {} cycles", stringify!($test_name), cycles);
-        }
-    };
-}
-
 macro_rules! challenge_with_generator {
     ($test_name:ident, [ $( $error_code:expr ),+ ], $generator_fn:expr) => {
         #[test]
@@ -66,7 +47,7 @@ macro_rules! challenge_with_generator {
 
                     let mut matched = false;
                     for code in [ $($error_code),+ ] {
-                        let search = format!("ValidationFailure({})", code as i8);
+                        let search = format!("error code {}", code as i8);
                         // println!("{:?}: {}", search, msg.contains(search.as_str()));
                         if msg.contains(search.as_str()) {
                             matched = true;
@@ -103,7 +84,7 @@ macro_rules! challenge_with_generator {
                     let msg = err.to_string();
                     println!("Error message(single code): {}", msg);
 
-                    let search = format!("ValidationFailure({})", $error_code as i8);
+                    let search = format!("error code {}", $error_code as i8);
                     assert!(
                         msg.contains(search.as_str()),
                         "The test should failed with error code: {}",

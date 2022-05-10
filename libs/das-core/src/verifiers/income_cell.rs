@@ -1,6 +1,6 @@
-use crate::{assert, debug, error::Error, warn};
+use crate::{assert, constants::ScriptType, debug, error::Error, util, warn, witness_parser::WitnessesParser};
 use ckb_std::{ckb_constants::Source, high_level};
-use das_map::map::Map;
+use das_map::{map::Map, util as map_util};
 use das_types::{packed::*, prelude::*};
 
 pub fn verify_newly_created(
@@ -20,15 +20,61 @@ pub fn verify_newly_created(
     Ok(())
 }
 
-pub fn verify_records_match_with_creating(
-    config_income: ConfigCellIncomeReader,
+fn verify_records_limit(
+    config_reader: ConfigCellIncomeReader,
+    income_cell_witness_reader: IncomeCellDataReader,
+) -> Result<(), Error> {
+    debug!("  Verify if the IncomeCell's records is out of limit.");
+
+    let income_cell_max_records = u32::from(config_reader.max_records()) as usize;
+    assert!(
+        income_cell_witness_reader.records().len() <= income_cell_max_records,
+        Error::InvalidTransactionStructure,
+        "The IncomeCell can not store more than {} records.",
+        income_cell_max_records
+    );
+
+    Ok(())
+}
+
+fn verify_cell_capacity_with_records_capacity(
+    config_reader: ConfigCellIncomeReader,
     index: usize,
     source: Source,
     income_cell_witness_reader: IncomeCellDataReader,
-    mut profit_map: Map<Vec<u8>, u64>,
 ) -> Result<(), Error> {
-    #[cfg(debug_assertions)]
-    crate::inspect::income_cell(source, index, None, Some(income_cell_witness_reader));
+    debug!("  Verify if the IncomeCell's capacity is equal to the sum of its records.");
+
+    let basic_capacity = u64::from(config_reader.basic_capacity());
+    let current_capacity = high_level::load_cell_capacity(index, source).map_err(Error::from)?;
+
+    let mut expected_capacity = 0;
+    for record in income_cell_witness_reader.records().iter() {
+        expected_capacity += u64::from(record.capacity());
+    }
+
+    assert!(
+        current_capacity >= basic_capacity,
+        Error::IncomeCellCapacityError,
+        "{:?}[{}] The IncomeCell should have capacity bigger than or equal to the value in ConfigCellIncome.basic_capacity.",
+        source,
+        index
+    );
+    assert!(
+        current_capacity == expected_capacity,
+        Error::IncomeCellCapacityError,
+        "{:?}[{}] The capacity of the IncomeCell should be {} shannon, but {} shannon found.",
+        source,
+        index,
+        expected_capacity,
+        current_capacity
+    );
+
+    Ok(())
+}
+
+pub fn verify_income_cells(parser: &WitnessesParser, profit_map: Map<Vec<u8>, u64>) -> Result<(), Error> {
+    debug!("Verify the IncomeCells in inputs and outputs.");
 
     #[cfg(debug_assertions)]
     {
@@ -39,91 +85,113 @@ pub fn verify_records_match_with_creating(
         }
     }
 
-    let income_cell_basic_capacity = u64::from(config_income.basic_capacity());
-    let total_profit = profit_map.items.iter().map(|(_, v)| v).sum::<u64>();
+    let config_main = parser.configs.main()?;
+    let config_income = parser.configs.income()?;
 
-    // Verify if the IncomeCell.capacity is equal to the sum of all records.
+    let (input_income_cells, output_income_cells) =
+        util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, config_main.type_id_table().income_cell())?;
 
-    let skip = if total_profit >= income_cell_basic_capacity {
-        debug!(
-            "The total profit in IncomeCell is {} shannon, which is enough for the basic_capacity of IncomeCell.",
-            total_profit
-        );
-        false
-    } else {
-        // If the profit is sufficient for IncomeCell's basic capacity skip the first record, because it is a convention that the first
-        // always belong to the IncomeCell creator in this transaction.
-        debug!("The total profit in IncomeCell is {} shannon, required {} more shannon to fill the basic_capacity of IncomeCell.", total_profit, income_cell_basic_capacity - total_profit);
-        true
-    };
+    assert!(
+        input_income_cells.len() <= 1 && output_income_cells.len() == 1,
+        Error::InvalidTransactionStructure,
+        "There should be 0 or 1 IncomeCell in inputs and 1 IncomeCell in outputs.(inputs: {:?}, outputs: {:?})",
+        input_income_cells,
+        output_income_cells
+    );
 
-    for (i, record) in income_cell_witness_reader.records().iter().enumerate() {
-        if skip && i == 0 {
-            continue;
+    // If an existing IncomeCell is used, collect all its records for later usage.
+    let mut exist_records_opt = None;
+    if input_income_cells.len() == 1 {
+        let input_income_witness = util::parse_income_cell_witness(parser, input_income_cells[0], Source::Input)?;
+        let input_income_witness_reader = input_income_witness.as_reader();
+
+        let mut tmp = Map::new();
+        for item in input_income_witness_reader.records().iter() {
+            let key = item.belong_to().as_slice().to_vec();
+            let value = u64::from(item.capacity());
+
+            map_util::add(&mut tmp, key, value);
         }
-
-        let key = record.belong_to().as_slice().to_vec();
-        let recorded_capacity = u64::from(record.capacity());
-        let result = profit_map.get(&key);
-
-        // This will allow creating IncomeCell will NormalCells in inputs.
-        if result.is_none() {
-            debug!("Can not find this record in profit_map: {}", record.belong_to());
-            continue;
-        }
-
-        let expected_capacity = result.unwrap();
-        assert!(
-            &recorded_capacity == expected_capacity,
-            Error::IncomeCellProfitMismatch,
-            "{:?}[{}] IncomeCell.records[{}] The capacity of a profit record is incorrect. (expected: {}, current: {}, belong_to: {})",
-            source,
-            index,
-            i,
-            expected_capacity,
-            recorded_capacity,
-            record.belong_to()
-        );
-
-        profit_map.remove(&key);
+        exist_records_opt = Some(tmp);
     }
 
-    if !profit_map.is_empty() {
-        for (script_bytes, capacity) in profit_map.items {
-            let script_reader = ScriptReader::new_unchecked(&script_bytes);
-            warn!(
-                "  {:?}[{}] Missing {} shannon capacity profit for lock script {} .",
-                source, index, capacity, script_reader
+    let output_income_witness = util::parse_income_cell_witness(parser, output_income_cells[0], Source::Output)?;
+    let output_income_witness_reader = output_income_witness.as_reader();
+
+    #[cfg(debug_assertions)]
+    crate::inspect::income_cell(
+        Source::Output,
+        output_income_cells[0],
+        None,
+        Some(output_income_witness_reader),
+    );
+
+    super::misc::verify_always_success_lock(output_income_cells[0], Source::Output)?;
+    verify_records_limit(config_income, output_income_witness_reader)?;
+    verify_cell_capacity_with_records_capacity(
+        config_income,
+        output_income_cells[0],
+        Source::Output,
+        output_income_witness_reader,
+    )?;
+
+    // Combine records with the same belong_to.
+    let mut output_records = Map::new();
+    for item in output_income_witness_reader.records().iter() {
+        let key = item.belong_to().as_slice().to_vec();
+        let value = u64::from(item.capacity());
+
+        map_util::add(&mut output_records, key, value);
+    }
+
+    if let Some(exist_records) = exist_records_opt.as_ref() {
+        debug!("  Verify if the records in the IncomeCell in inputs is reserved correctly in outputs");
+
+        for (key, exist_capacity) in exist_records.items.iter() {
+            if let Some(current_capacity) = output_records.get(key) {
+                assert!(
+                    current_capacity >= exist_capacity,
+                    Error::IncomeCellConsolidateConditionNotSatisfied,
+                    "outputs[{}] There is some record in outputs has less capacity than itself in inputs which is not allowed. (belong_to: {})",
+                    output_income_cells[0],
+                    Script::from_slice(key.as_slice()).unwrap()
+                );
+            } else {
+                warn!(
+                    "outputs[{}] There is some records missing in outputs. (belong_to: {})",
+                    output_income_cells[0],
+                    Script::from_slice(key.as_slice()).unwrap()
+                );
+                return Err(Error::IncomeCellConsolidateConditionNotSatisfied);
+            }
+        }
+    }
+
+    // Compare every records with profit_map to find out if every user get their profit properly.
+    debug!("  Verify if the records in IncomeCell in outputs has carried profits of all users properly.");
+
+    for (key, value) in output_records.items.iter() {
+        let mut current_capacity = *value;
+
+        if let Some(exist_records) = exist_records_opt.as_ref() {
+            if let Some(&exist_capacity) = exist_records.get(key) {
+                // In above verification we have assert current capacity must bigger than or equal to existing capacity.
+                current_capacity -= exist_capacity;
+            }
+        }
+
+        if let Some(&expected_capacity) = profit_map.get(key) {
+            assert!(
+                current_capacity >= expected_capacity,
+                Error::IncomeCellProfitMismatch,
+                "outputs[{}] The IncomeCell has a wrong record for some user.(belong_to: {}, expected: {}, current: {})",
+                output_income_cells[0],
+                Script::from_slice(key.as_slice()).unwrap(),
+                expected_capacity,
+                current_capacity
             );
         }
-
-        return Err(Error::IncomeCellProfitMismatch);
     }
-
-    // Verify if the IncomeCell.capacity is equal to the sum of all records.
-
-    let mut expected_income_cell_capacity = 0;
-    for record in income_cell_witness_reader.records().iter() {
-        expected_income_cell_capacity += u64::from(record.capacity());
-    }
-
-    let current_capacity = high_level::load_cell_capacity(index, source).map_err(Error::from)?;
-    assert!(
-        current_capacity >= income_cell_basic_capacity,
-        Error::IncomeCellCapacityError,
-        "{:?}[{}] The IncomeCell should have capacity bigger than or equal to the value in ConfigCellIncome.basic_capacity.",
-        source,
-        index
-    );
-    assert!(
-        current_capacity == expected_income_cell_capacity,
-        Error::IncomeCellCapacityError,
-        "{:?}[{}] The capacity of the IncomeCell should be {} shannon, but {} shannon found.",
-        source,
-        index,
-        expected_income_cell_capacity,
-        current_capacity
-    );
 
     Ok(())
 }

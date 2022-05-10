@@ -1,10 +1,8 @@
-use super::{constants::*, error};
-use crate::Loader;
+use super::{super::ckb_types_relay::*, super::Loader, constants::*, error};
 use chrono::{DateTime, NaiveDateTime, Utc};
-use ckb_testtool::context::Context;
-use ckb_tool::{
+use ckb_testtool::{
     ckb_chain_spec::consensus::TYPE_ID_CODE_HASH,
-    ckb_hash::{blake2b_256, new_blake2b},
+    ckb_hash::{blake2b_256, new_blake2b, Blake2bBuilder},
     ckb_jsonrpc_types as rpc_types,
     ckb_types::{
         bytes,
@@ -14,13 +12,12 @@ use ckb_tool::{
         prelude::*,
         H160, H256,
     },
+    context::Context,
 };
-use das_types::{packed as das_packed, util as das_types_util};
 use lazy_static::lazy_static;
 use serde_json::Value;
 use std::{
     collections::HashSet,
-    convert::TryFrom,
     env,
     error::Error,
     fs::File,
@@ -33,8 +30,6 @@ use std::{
 lazy_static! {
     pub static ref SECP256K1: secp256k1::Secp256k1<secp256k1::All> = secp256k1::Secp256k1::new();
 }
-
-pub use das_types_util::hex_string;
 
 pub fn contains_error(message: &str, err_code: error::Error) -> bool {
     let err_str = format!("ValidationFailure({})", (err_code as i8).to_string());
@@ -60,9 +55,8 @@ pub fn bytes_to_hex(input: &[u8]) -> String {
 
 pub fn hex_to_byte32(input: &str) -> Result<Byte32, Box<dyn Error>> {
     let bytes = hex_to_bytes(input);
-    let hash = das_packed::Hash::try_from(bytes).expect("Expect input to have length of 32 bytes.");
 
-    Ok(hash.into())
+    Ok(byte32_new(&bytes))
 }
 
 pub fn hex_to_u64(input: &str) -> Result<u64, Box<dyn Error>> {
@@ -92,6 +86,14 @@ pub fn merge_json(target: &mut Value, source: Value) {
     }
 }
 
+pub fn blake2b_smt<T: AsRef<[u8]>>(s: T) -> [u8; 32] {
+    let mut result = [0u8; 32];
+    let mut blake2b = Blake2bBuilder::new(32).personal(b"sparsemerkletree").key(&[]).build();
+    blake2b.update(s.as_ref());
+    blake2b.finalize(&mut result);
+    result
+}
+
 pub fn get_type_id_bytes(name: &str) -> Vec<u8> {
     hex_to_bytes(
         TYPE_ID_TABLE
@@ -109,32 +111,18 @@ pub fn account_to_id_hex(account: &str) -> String {
     format!("0x{}", hex_string(account_to_id(account).as_slice()))
 }
 
-pub fn deploy_dev_contract(
+pub fn deploy_contract(
     context: &mut Context,
     binary_name: &str,
+    deployed: bool,
     index_opt: Option<usize>,
 ) -> (Byte32, OutPoint, CellDep) {
-    let contract_bin: bytes::Bytes = Loader::default().load_binary(binary_name);
+    let file: bytes::Bytes = if deployed {
+        Loader::with_deployed_scripts().load_binary(binary_name)
+    } else {
+        Loader::default().load_binary(binary_name)
+    };
 
-    deploy_contract(context, binary_name, contract_bin, index_opt)
-}
-
-pub fn deploy_builtin_contract(
-    context: &mut Context,
-    binary_name: &str,
-    index_opt: Option<usize>,
-) -> (Byte32, OutPoint, CellDep) {
-    let contract_bin: bytes::Bytes = Loader::with_deployed_scripts().load_binary(binary_name);
-
-    deploy_contract(context, binary_name, contract_bin, index_opt)
-}
-
-fn deploy_contract(
-    context: &mut Context,
-    binary_name: &str,
-    contract_bin: bytes::Bytes,
-    index_opt: Option<usize>,
-) -> (Byte32, OutPoint, CellDep) {
     let args = binary_name
         .as_bytes()
         .to_vec()
@@ -154,10 +142,10 @@ fn deploy_contract(
     mock_cell_with_outpoint(
         context,
         out_point.clone(),
-        contract_bin.len() as u64,
+        file.len() as u64,
         Script::default(),
         Some(type_),
-        Some(contract_bin.to_vec()),
+        Some(file.to_vec()),
     );
 
     let cell_dep = CellDep::new_builder().out_point(out_point.clone()).build();
@@ -168,9 +156,14 @@ fn deploy_contract(
 pub fn deploy_shared_lib(
     context: &mut Context,
     binary_name: &str,
+    deployed: bool,
     index_opt: Option<usize>,
 ) -> (Byte32, OutPoint, CellDep) {
-    let file: bytes::Bytes = Loader::default().load_binary(binary_name);
+    let file: bytes::Bytes = if deployed {
+        Loader::with_deployed_scripts().load_binary(binary_name)
+    } else {
+        Loader::default().load_binary(binary_name)
+    };
 
     let hash = blake2b_256(file.clone());
     let mut inner = [Byte::new(0); 32];

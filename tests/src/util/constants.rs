@@ -1,12 +1,13 @@
-use ckb_tool::ckb_types::{h256, H256};
+use ckb_testtool::ckb_types::{h256, H256};
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::collections::HashMap;
 
-pub use ckb_std::ckb_constants::Source;
-
 // ⚠️ The maximum cycles on-chain is 70_000_000.
 pub const MAX_CYCLES: u64 = u64::MAX;
+
+pub const APPLY_MIN_WAITING_BLOCK: u64 = 1;
+pub const APPLY_MAX_WAITING_BLOCK: u64 = 5760;
 
 pub const ACCOUNT_ID_LENGTH: usize = 20;
 pub const ACCOUNT_BASIC_CAPACITY: u64 = 20_600_000_000;
@@ -22,6 +23,13 @@ pub const ACCOUNT_PRICE_5_CHAR: u64 = 5_000_000;
 pub const INVITED_DISCOUNT: u64 = 500;
 pub const CONSOLIDATING_FEE: u64 = 100;
 pub const CKB_QUOTE: u64 = 1000;
+pub const TIMESTAMP: u64 = 1611200090u64;
+pub const HEIGHT: u64 = 1000000u64;
+
+pub const PRE_ACCOUNT_REFUND_WAITING_TIME: u64 = 86400;
+pub const PRE_ACCOUNT_REFUND_AVAILABLE_FEE: u64 = 86400;
+
+pub const INCOME_BASIC_CAPACITY: u64 = 20_000_000_000;
 
 pub const SALE_BUYER_INVITER_PROFIT_RATE: u64 = 100;
 pub const SALE_BUYER_CHANNEL_PROFIT_RATE: u64 = 100;
@@ -37,6 +45,16 @@ pub const SECONDARY_MARKET_COMMON_FEE: u64 = 10_000;
 pub const REVERSE_RECORD_BASIC_CAPACITY: u64 = 20_000_000_000;
 pub const REVERSE_RECORD_PREPARED_FEE_CAPACITY: u64 = 100_000_000;
 pub const REVERSE_RECORD_COMMON_FEE: u64 = 10_000;
+
+pub const SUB_ACCOUNT_BASIC_CAPACITY: u64 = 20_000_000_000;
+pub const SUB_ACCOUNT_PREPARED_FEE_CAPACITY: u64 = 1_000_000_000;
+pub const SUB_ACCOUNT_NEW_PRICE: u64 = 100_000_000;
+pub const SUB_ACCOUNT_RENEW_PRICE: u64 = 100_000_000;
+pub const SUB_ACCOUNT_COMMON_FEE: u64 = 30_000;
+pub const SUB_ACCOUNT_CREATE_FEE: u64 = 30_000;
+pub const SUB_ACCOUNT_EDIT_FEE: u64 = 30_000;
+pub const SUB_ACCOUNT_RENEW_FEE: u64 = 30_000;
+pub const SUB_ACCOUNT_RECYCLE_FEE: u64 = 30_000;
 
 pub const HOUR_SEC: u64 = 3600;
 pub const DAY_SEC: u64 = 86400;
@@ -57,9 +75,6 @@ pub const DAO_TYPE_HASH: H256 = h256!("0x82d76d1b75fe2fd9a27dfbaa65a039221a380d7
 pub const CONFIG_LOCK_ARGS: &str = "0x0000000000000000000000000000000000000000";
 pub const DAS_WALLET_LOCK_ARGS: &str = "0x0300000000000000000000000000000000000000";
 pub const QUOTE_LOCK_ARGS: &str = "0x0100000000000000000000000000000000000000";
-pub const COMMON_INCOME_CREATOR_LOCK_ARGS: &str = "0x9900000000000000000000000000000000000000";
-pub const INVITER_LOCK_ARGS: &str = "0x050000000000000000000000000000000000007777";
-pub const CHANNEL_LOCK_ARGS: &str = "0x050000000000000000000000000000000000008888";
 
 #[derive(Debug)]
 #[repr(u8)]
@@ -79,6 +94,9 @@ pub enum OracleCellType {
 lazy_static! {
     pub static ref TYPE_ID_TABLE: HashMap<&'static str, &'static str> = {
         // For calculation of these type ID, you need uncomment a line of debug code in the funtion **deploy_contract** in src/util.rs.
+        //
+        // CAREFUL! There may be some error in the map, but the contracts will still work. It is because when parsing scripts in cell_deps, their type
+        // ID will be calculated dynamically and insert into the map.
         let mut map = HashMap::new();
         map.insert(
             "fake-das-lock",
@@ -101,8 +119,8 @@ lazy_static! {
             "0x3acbbdc4c0f0dc7433f5aac30b079a3fd3bfaaf3aeeea904af830dad99da1e49",
         );
         map.insert(
-            "always-success",
-            "0x3f67f5b5761db78ce746f0b140e0e63783fa84598e7e19a02ae8d417c0dfb882",
+            "always_success",
+            "0x9d6f2919e328f3217d7dd3dab5f7cee9d8e062bee6a80d5d05cd495ca3416378",
         );
         map.insert(
             "apply-register-cell-type",
@@ -137,8 +155,16 @@ lazy_static! {
             "0x666163a5626501ca714b96cbcb4730b0a111ec2640fb432d0ba7f4ba5fa2855b",
         );
         map.insert(
+            "sub-account-cell-type",
+            "0xbdbe9526416cd0a86c7a3b78ae8907aed9fa37ef1d51d4c54638d81dd423e5b5",
+        );
+        map.insert(
             "test-env",
             "0x4939a7b6baf71149795f59844c215af0c117f381ac615fe3f563e77509063e19",
+        );
+        map.insert(
+            "playground",
+            "0x193bd634ba7196519e7374deb64a1c96be718296add1fd038d611a50aa5c6af7",
         );
         map
     };

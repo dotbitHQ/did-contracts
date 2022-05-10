@@ -1,0 +1,20 @@
+[package]
+name = "sub-account-cell-type"
+version = "1.0.0"
+edition = "2018"
+
+[features]
+dev = ["das-core/dev", "das-dynamic-libs/dev"]
+local = ["das-core/local", "das-dynamic-libs/local"]
+testnet = ["das-core/testnet", "das-dynamic-libs/testnet"]
+mainnet = ["das-core/mainnet", "das-dynamic-libs/mainnet"]
+
+[dependencies]
+ckb-std = "0.8.0"
+hex = { default-features = false, version = "0.4.2"}
+das-core = { path = "../../libs/das-core", default-features = false }
+das-types = { path = "../../../das-types/rust", default-features = false }
+sparse-merkle-tree = { git = "https://github.com/nervosnetwork/sparse-merkle-tree.git", default-features = false }
+das-dynamic-libs = { path = "../../libs/das-dynamic-libs" }
+das-map = { path = "../../libs/das-map" }
+blake2b-ref = "0.3"
