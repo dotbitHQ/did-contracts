@@ -66,30 +66,6 @@ fn gen_account_char(char: &str, char_set_type: CharSetType) -> AccountChar {
         .build()
 }
 
-pub fn gen_account_record(type_: &str, key: &str, label: &str, value: impl AsRef<[u8]>, ttl: u32) -> Record {
-    Record::new_builder()
-        .record_type(Bytes::from(type_.as_bytes()))
-        .record_key(Bytes::from(key.as_bytes()))
-        .record_label(Bytes::from(label.as_bytes()))
-        .record_value(Bytes::from(value.as_ref()))
-        .record_ttl(Uint32::from(ttl))
-        .build()
-}
-
-pub fn gen_account_records(records_param: Vec<AccountRecordParam>) -> Records {
-    let mut records = Records::new_builder();
-    for record_param in records_param.into_iter() {
-        records = records.push(gen_account_record(
-            record_param.type_,
-            record_param.key,
-            record_param.label,
-            record_param.value,
-            300,
-        ));
-    }
-    records.build()
-}
-
 pub fn gen_account_chars(chars: Vec<impl AsRef<str>>) -> AccountChars {
     let mut builder = AccountChars::new_builder();
     for char in chars {
@@ -541,20 +517,6 @@ impl TemplateGenerator {
         }
     }
 
-    pub fn get_price(&self, account_length: usize) -> &PriceConfig {
-        let key = if account_length > 8 { 8u8 } else { account_length as u8 };
-        self.prices.get(&key).unwrap()
-    }
-
-    pub fn push_witness_with_group<T: Entity>(&mut self, data_type: DataType, group: Source, entity: (u32, u32, T)) {
-        let witness = match group {
-            Source::Input => das_util::wrap_data_witness::<T, T, T>(data_type, None, Some(entity), None),
-            Source::Output => das_util::wrap_data_witness::<T, T, T>(data_type, Some(entity), None, None),
-            _ => das_util::wrap_data_witness::<T, T, T>(data_type, None, None, Some(entity)),
-        };
-        self.outer_witnesses.push(witness_bytes_to_hex(witness));
-    }
-
     pub fn push_witness_args(
         &mut self,
         lock_opt: Option<&[u8]>,
@@ -664,40 +626,6 @@ impl TemplateGenerator {
             Some(cell_data),
             Source::CellDep,
         );
-    }
-
-    pub fn push_apply_register_cell(
-        &mut self,
-        lock_args: &str,
-        account: &str,
-        height: u64,
-        timestamp: u64,
-        capacity: u64,
-        source: Source,
-    ) {
-        let hash_of_account = Hash::new_unchecked(
-            blake2b_256([&util::hex_to_bytes(lock_args), account.as_bytes()].concat().as_slice())
-                .to_vec()
-                .into(),
-        );
-
-        let raw = [
-            hash_of_account.as_reader().raw_data(),
-            &height.to_le_bytes(),
-            &timestamp.to_le_bytes(),
-        ]
-        .concat();
-        let cell_data = Bytes::from(raw);
-
-        let lock_script = json!({
-            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
-            "args": lock_args
-        });
-        let type_script = json!({
-            "code_hash": "{{apply-register-cell-type}}"
-        });
-
-        self.push_cell(capacity, lock_script, type_script, Some(cell_data), source);
     }
 
     fn gen_config_cell_account(&mut self) -> (Vec<u8>, EntityWrapper) {
@@ -1224,16 +1152,6 @@ impl TemplateGenerator {
         //     first_byte_of_account_hash, config_type
         // );
         self.push_config_cell(config_type, source);
-    }
-
-    pub fn push_signall_cell(&mut self, lock_args: &str, capacity: u64, source: Source) {
-        let lock_script = json!({
-          "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
-          "args": lock_args
-        });
-
-        self.push_cell(capacity, lock_script, json!(null), None, source);
-        self.push_empty_witness();
     }
 
     // ======
@@ -2288,8 +2206,7 @@ impl TemplateGenerator {
                 let args = if type_["args"].is_null() {
                     String::from("0x")
                 } else {
-                    String::from("0x")
-                        + &util::bytes_to_hex(&parse_json_str_to_account_id("cell.type.args", &type_["args"]))
+                    util::bytes_to_hex(&parse_json_str_to_account_id("cell.type.args", &type_["args"]))
                 };
 
                 json!({
@@ -2353,7 +2270,7 @@ impl TemplateGenerator {
         let outputs_data = if !cell["data"].is_null() {
             util::bytes_to_hex(&parse_json_hex("cell.data", &cell["data"]))
         } else {
-            String::from("")
+            String::from("0x")
         };
 
         (
@@ -2386,7 +2303,7 @@ impl TemplateGenerator {
         let outputs_data = if !cell["data"].is_null() {
             util::bytes_to_hex(&parse_json_hex("cell.data", &cell["data"]))
         } else {
-            String::from("")
+            String::from("0x")
         };
 
         (

@@ -49,7 +49,7 @@ pub fn bytes_to_hex(input: &[u8]) -> String {
     if input.is_empty() {
         String::from("0x")
     } else {
-        hex::encode(input)
+        String::from("0x") + &hex::encode(input)
     }
 }
 

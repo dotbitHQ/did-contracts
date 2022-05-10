@@ -53,11 +53,8 @@ pub enum Error {
     WitnessDataHashOrTypeMissMatch,
     WitnessDataIndexMissMatch,
     WitnessEntityDecodingError,
-    WitnessEmpty,
-    ApplyRegisterCellDataDecodingError = 60,
-    ApplyRegisterCellHeightInvalid,
-    ApplyRegisterCellTimeInvalid,
-    ApplyRegisterNeedWaitLonger,
+    WitnessEmpty, // 50
+    ApplyRegisterNeedWaitLonger = 60,
     ApplyRegisterHasTimeout,
     ApplyRegisterRefundNeedWaitLonger,
     ApplyRegisterRefundCapacityError,
@@ -163,6 +160,8 @@ pub enum Error {
     SubAccountProfitError, // -40
     UpgradeForWitnessIsRequired,
     UpgradeDefaultValueOfNewFieldIsError,
+    CrossChainLockError,
+    CrossChainUnlockError,
     UnittestError = -2,
     SystemOff = -1,
 }
