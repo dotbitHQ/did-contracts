@@ -22,7 +22,6 @@ pub fn main() -> Result<(), Error> {
     let action = action_cp.as_slice();
 
     util::is_system_off(&parser)?;
-    verifiers::account_cell::verify_unlock_role(action, &parser.params)?;
 
     debug!(
         "Route to {:?} action ...",
@@ -63,6 +62,8 @@ pub fn main() -> Result<(), Error> {
 
             match action {
                 b"start_account_sale" => {
+                    verifiers::account_cell::verify_unlock_role(action, &parser.params)?;
+
                     verifiers::common::verify_created_cell_in_correct_position(
                         "AccountSaleCell",
                         &input_sale_cells,
@@ -124,6 +125,8 @@ pub fn main() -> Result<(), Error> {
                     util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
                 }
                 b"cancel_account_sale" => {
+                    verifiers::account_cell::verify_unlock_role(action, &parser.params)?;
+
                     verifiers::common::verify_removed_cell_in_correct_position(
                         "AccountSaleCell",
                         &input_sale_cells,
@@ -306,6 +309,8 @@ pub fn main() -> Result<(), Error> {
             }
         }
         b"edit_account_sale" => {
+            verifiers::account_cell::verify_unlock_role(action, &parser.params)?;
+
             parser.parse_cell()?;
 
             let config_secondary_market_reader = parser.configs.secondary_market()?;

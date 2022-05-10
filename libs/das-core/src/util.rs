@@ -722,19 +722,13 @@ pub fn require_super_lock() -> Result<(), Error> {
 }
 
 /// Get the role required by each action
+///
+/// Only the actions require manager role is list here for simplified purpose.
 pub fn get_action_required_role(action: &[u8]) -> Option<LockRole> {
     match action {
         // account-cell-type
-        b"transfer_account" => Some(LockRole::Owner),
-        b"edit_manager" => Some(LockRole::Owner),
         b"edit_records" => Some(LockRole::Manager),
-        b"enable_sub_account" => Some(LockRole::Owner),
-        // account-sale-cell-type
-        b"start_account_sale" => Some(LockRole::Owner),
-        b"edit_account_sale" => Some(LockRole::Owner),
-        b"cancel_account_sale" => Some(LockRole::Owner),
-        b"buy_account" => Some(LockRole::Owner),
-        _ => None,
+        _ => Some(LockRole::Owner),
     }
 }
 
