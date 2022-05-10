@@ -162,6 +162,7 @@ pub enum Error {
     UpgradeForWitnessIsRequired,
     UpgradeDefaultValueOfNewFieldIsError,
     CrossChainLockError,
+    CrossChainUnlockError,
     UnittestError = -2,
     SystemOff = -1,
 }

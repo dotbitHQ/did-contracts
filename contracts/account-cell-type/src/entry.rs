@@ -651,7 +651,57 @@ pub fn main() -> Result<(), Error> {
                 Error::InvalidTransactionStructure,
             )?;
         }
-        b"unlock_account_for_cross_chain" => {}
+        b"unlock_account_for_cross_chain" => {
+            parser.parse_cell()?;
+
+            debug!("Verify if there is no redundant AccountCells.");
+
+            let (input_account_cells, output_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
+            das_assert!(
+                input_account_cells.len() == 1
+                    && output_account_cells.len() == 1
+                    && input_account_cells[0] == 0
+                    && output_account_cells[0] == 0,
+                Error::InvalidTransactionStructure,
+                "There should be only one AccountCell in inputs[0] and outputs[0]."
+            );
+
+            let input_cell_witness = util::parse_account_cell_witness(&parser, input_account_cells[0], Source::Input)?;
+            let input_cell_witness_reader = input_cell_witness.as_reader();
+            let output_cell_witness =
+                util::parse_account_cell_witness(&parser, output_account_cells[0], Source::Output)?;
+            let output_cell_witness_reader = output_cell_witness.as_reader();
+
+            let config_account = parser.configs.account()?;
+
+            verify_transaction_fee_spent_correctly(
+                action,
+                config_account,
+                input_account_cells[0],
+                output_account_cells[0],
+            )?;
+
+            verifiers::account_cell::verify_account_cell_status(
+                &input_cell_witness_reader,
+                AccountStatus::LockedForCrossChain,
+                input_account_cells[0],
+                Source::Input,
+            )?;
+
+            verifiers::account_cell::verify_account_cell_consistent_with_exception(
+                input_account_cells[0],
+                output_account_cells[0],
+                &input_cell_witness_reader,
+                &output_cell_witness_reader,
+                Some("owner"),
+                vec![],
+                vec!["status"],
+            )?;
+
+            verify_account_is_unlocked_for_cross_chain(output_account_cells[0], &output_cell_witness_reader)?;
+
+            // TODO Verify multisig signature
+        }
         _ => return Err(Error::ActionNotSupported),
     }
 
@@ -682,8 +732,7 @@ fn verify_transaction_fee_spent_correctly(
         b"transfer_account" => u64::from(config.transfer_account_fee()),
         b"edit_manager" => u64::from(config.edit_manager_fee()),
         b"edit_records" => u64::from(config.edit_records_fee()),
-        b"lock_account_for_cross_chain" => u64::from(config.common_fee()),
-        _ => return Err(Error::ActionNotSupported),
+        _ => u64::from(config.common_fee()),
     };
     let storage_capacity = basic_capacity + account_length * 100_000_000;
 
@@ -805,6 +854,27 @@ fn verify_account_is_locked_for_cross_chain<'a>(
             account_cell_status == AccountStatus::LockedForCrossChain as u8,
             Error::CrossChainLockError,
             "outputs[{}]The AccountCell.witness.status should be LockedForCrossChain .",
+            output_account_index
+        );
+    }
+
+    Ok(())
+}
+
+fn verify_account_is_unlocked_for_cross_chain<'a>(
+    output_account_index: usize,
+    output_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
+) -> Result<(), Error> {
+    if output_witness_reader.version() <= 1 {
+        // CAREFUL! The early versions will no longer be supported.
+        return Err(Error::InvalidTransactionStructure);
+    } else {
+        let account_cell_status = u8::from(output_witness_reader.status());
+
+        das_assert!(
+            account_cell_status == AccountStatus::Normal as u8,
+            Error::CrossChainUnlockError,
+            "outputs[{}]The AccountCell.witness.status should be Normal .",
             output_account_index
         );
     }
