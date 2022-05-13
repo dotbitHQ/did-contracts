@@ -24,8 +24,8 @@ fn push_simple_output_income_cell(template: &mut TemplateGenerator) {
     );
 }
 
-fn before_each() -> (TemplateGenerator, u64) {
-    let (mut template, timestamp) = init_for_renew("renew_account", None);
+fn before_each() -> TemplateGenerator {
+    let mut template = init_for_renew("renew_account", None);
 
     // inputs
     push_input_account_cell(
@@ -35,18 +35,18 @@ fn before_each() -> (TemplateGenerator, u64) {
                 "owner_lock_args": OWNER
             },
             "data": {
-                "expired_at": timestamp
+                "expired_at": TIMESTAMP
             }
         }),
     );
     push_input_balance_cell(&mut template, 1_000_000_000_000, OWNER);
 
-    (template, timestamp)
+    template
 }
 
 #[test]
 fn test_account_renew_not_create_income_cell() {
-    let (mut template, timestamp) = before_each();
+    let mut template = before_each();
 
     // outputs
     push_output_account_cell(
@@ -56,7 +56,7 @@ fn test_account_renew_not_create_income_cell() {
                 "owner_lock_args": OWNER,
             },
             "data": {
-                "expired_at": timestamp + 31_536_000,
+                "expired_at": TIMESTAMP + 31_536_000,
             }
         }),
     );
@@ -68,7 +68,7 @@ fn test_account_renew_not_create_income_cell() {
 
 #[test]
 fn test_account_renew_create_income_cell() {
-    let (mut template, timestamp) = init_for_renew("renew_account", None);
+    let mut template = init_for_renew("renew_account", None);
 
     // inputs
     push_input_account_cell(
@@ -78,7 +78,7 @@ fn test_account_renew_create_income_cell() {
                 "owner_lock_args": OWNER
             },
             "data": {
-                "expired_at": timestamp
+                "expired_at": TIMESTAMP
             }
         }),
     );
@@ -97,7 +97,7 @@ fn test_account_renew_create_income_cell() {
                 "owner_lock_args": OWNER,
             },
             "data": {
-                "expired_at": timestamp + 31_536_000,
+                "expired_at": TIMESTAMP + 31_536_000,
             }
         }),
     );
@@ -131,7 +131,7 @@ fn test_account_renew_create_income_cell() {
 
 #[test]
 fn challenge_account_renew_modify_owner() {
-    let (mut template, timestamp) = before_each();
+    let mut template = before_each();
 
     // outputs
     push_output_account_cell(
@@ -142,7 +142,7 @@ fn challenge_account_renew_modify_owner() {
                 "owner_lock_args": "0x000000000000000000000000000000000000003333",
             },
             "data": {
-                "expired_at": timestamp + 31_536_000,
+                "expired_at": TIMESTAMP + 31_536_000,
             }
         }),
     );
@@ -154,7 +154,7 @@ fn challenge_account_renew_modify_owner() {
 
 #[test]
 fn challenge_account_renew_less_than_one_year() {
-    let (mut template, timestamp) = before_each();
+    let mut template = before_each();
 
     // outputs
     push_output_account_cell(
@@ -165,7 +165,7 @@ fn challenge_account_renew_less_than_one_year() {
             },
             "data": {
                 // Simulate the increment of the expired_at is less than one year.
-                "expired_at": timestamp + 31_536_000 - 1,
+                "expired_at": TIMESTAMP + 31_536_000 - 1,
             }
         }),
     );
@@ -177,7 +177,7 @@ fn challenge_account_renew_less_than_one_year() {
 
 #[test]
 fn challenge_account_renew_payment_less_than_one_year() {
-    let (mut template, timestamp) = before_each();
+    let mut template = before_each();
 
     // outputs
     push_output_account_cell(
@@ -187,7 +187,7 @@ fn challenge_account_renew_payment_less_than_one_year() {
                 "owner_lock_args": OWNER,
             },
             "data": {
-                "expired_at": timestamp + 31_536_000,
+                "expired_at": TIMESTAMP + 31_536_000,
             }
         }),
     );
@@ -215,7 +215,7 @@ fn challenge_account_renew_payment_less_than_one_year() {
 
 #[test]
 fn challenge_account_renew_payment_less_than_increment() {
-    let (mut template, timestamp) = before_each();
+    let mut template = before_each();
 
     // outputs
     push_output_account_cell(
@@ -225,7 +225,7 @@ fn challenge_account_renew_payment_less_than_increment() {
                 "owner_lock_args": OWNER,
             },
             "data": {
-                "expired_at": timestamp + 31_536_000 * 3,
+                "expired_at": TIMESTAMP + 31_536_000 * 3,
             }
         }),
     );
@@ -253,7 +253,7 @@ fn challenge_account_renew_payment_less_than_increment() {
 
 #[test]
 fn challenge_account_renew_change_amount() {
-    let (mut template, timestamp) = before_each();
+    let mut template = before_each();
 
     // outputs
     push_output_account_cell(
@@ -263,7 +263,7 @@ fn challenge_account_renew_change_amount() {
                 "owner_lock_args": OWNER,
             },
             "data": {
-                "expired_at": timestamp + 31_536_000,
+                "expired_at": TIMESTAMP + 31_536_000,
             }
         }),
     );
@@ -275,7 +275,7 @@ fn challenge_account_renew_change_amount() {
 
 #[test]
 fn challenge_account_renew_change_owner() {
-    let (mut template, timestamp) = before_each();
+    let mut template = before_each();
 
     // outputs
     push_output_account_cell(
@@ -285,7 +285,7 @@ fn challenge_account_renew_change_owner() {
                 "owner_lock_args": OWNER,
             },
             "data": {
-                "expired_at": timestamp + 31_536_000,
+                "expired_at": TIMESTAMP + 31_536_000,
             }
         }),
     );
@@ -301,7 +301,7 @@ fn challenge_account_renew_change_owner() {
 
 #[test]
 fn challenge_account_renew_income_cell_capacity() {
-    let (mut template, timestamp) = init_for_renew("renew_account", None);
+    let mut template = init_for_renew("renew_account", None);
 
     // inputs
     push_input_account_cell(
@@ -311,7 +311,7 @@ fn challenge_account_renew_income_cell_capacity() {
                 "owner_lock_args": OWNER
             },
             "data": {
-                "expired_at": timestamp
+                "expired_at": TIMESTAMP
             }
         }),
     );
@@ -330,7 +330,7 @@ fn challenge_account_renew_income_cell_capacity() {
                 "owner_lock_args": OWNER,
             },
             "data": {
-                "expired_at": timestamp + 31_536_000,
+                "expired_at": TIMESTAMP + 31_536_000,
             }
         }),
     );

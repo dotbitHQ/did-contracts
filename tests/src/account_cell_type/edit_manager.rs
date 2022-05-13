@@ -1,9 +1,11 @@
 use super::common::init;
-use crate::util::{accounts::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*};
+use crate::util::{
+    accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
+};
 use serde_json::json;
 
-fn before_each() -> (TemplateGenerator, u64) {
-    let (mut template, timestamp) = init("edit_manager", Some("0x00"));
+fn before_each() -> TemplateGenerator {
+    let mut template = init("edit_manager", Some("0x00"));
 
     // inputs
     push_input_account_cell(
@@ -15,12 +17,12 @@ fn before_each() -> (TemplateGenerator, u64) {
         }),
     );
 
-    (template, timestamp)
+    template
 }
 
 #[test]
-fn test_account_edit_manager() {
-    let (mut template, timestamp) = before_each();
+fn test_account_edit_manager_simple() {
+    let mut template = before_each();
 
     // outputs
     push_output_account_cell(
@@ -30,7 +32,7 @@ fn test_account_edit_manager() {
                 "manager_lock_args": RECEIVER
             },
             "witness": {
-                "last_edit_manager_at": timestamp,
+                "last_edit_manager_at": TIMESTAMP,
             }
         }),
     );
@@ -40,7 +42,7 @@ fn test_account_edit_manager() {
 
 #[test]
 fn test_account_edit_manager_and_upgrade_lock_type() {
-    let (mut template, timestamp) = before_each();
+    let mut template = before_each();
 
     // outputs
     push_output_account_cell(
@@ -50,7 +52,7 @@ fn test_account_edit_manager_and_upgrade_lock_type() {
                 "manager_lock_args": "0x050000000000000000000000000000000000002222"
             },
             "witness": {
-                "last_edit_manager_at": timestamp,
+                "last_edit_manager_at": TIMESTAMP,
             }
         }),
     );
@@ -60,7 +62,7 @@ fn test_account_edit_manager_and_upgrade_lock_type() {
 
 #[test]
 fn challenge_account_edit_manager_multiple_cells() {
-    let (mut template, timestamp) = init("edit_manager", Some("0x00"));
+    let mut template = init("edit_manager", Some("0x00"));
 
     // Simulate editing multiple AccountCells at one time.
     // inputs
@@ -89,7 +91,7 @@ fn challenge_account_edit_manager_multiple_cells() {
                 "manager_lock_args": RECEIVER
             },
             "witness": {
-                "last_edit_manager_at": timestamp,
+                "last_edit_manager_at": TIMESTAMP,
             }
         }),
     );
@@ -100,7 +102,7 @@ fn challenge_account_edit_manager_multiple_cells() {
                 "manager_lock_args": RECEIVER
             },
             "witness": {
-                "last_edit_manager_at": timestamp,
+                "last_edit_manager_at": TIMESTAMP,
             }
         }),
     );
@@ -110,7 +112,7 @@ fn challenge_account_edit_manager_multiple_cells() {
 
 #[test]
 fn challenge_account_edit_manager_with_other_cells() {
-    let (mut template, timestamp) = init("edit_manager", Some("0x00"));
+    let mut template = init("edit_manager", Some("0x00"));
 
     template.push_contract_cell("balance-cell-type", false);
 
@@ -136,7 +138,7 @@ fn challenge_account_edit_manager_with_other_cells() {
                 "manager_lock_args": RECEIVER
             },
             "witness": {
-                "last_edit_manager_at": timestamp,
+                "last_edit_manager_at": TIMESTAMP,
             }
         }),
     );
@@ -146,7 +148,7 @@ fn challenge_account_edit_manager_with_other_cells() {
 
 #[test]
 fn challenge_account_edit_manager_not_modified() {
-    let (mut template, timestamp) = before_each();
+    let mut template = before_each();
 
     // outputs
     push_output_account_cell(
@@ -157,7 +159,7 @@ fn challenge_account_edit_manager_not_modified() {
                 "manager_lock_args": SENDER
             },
             "witness": {
-                "last_edit_manager_at": timestamp,
+                "last_edit_manager_at": TIMESTAMP,
             }
         }),
     );

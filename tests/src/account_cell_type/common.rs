@@ -1,9 +1,8 @@
 use crate::util::{self, constants::*, template_generator::*};
 use das_types_std::{constants::*, packed::*};
 
-pub fn init(action: &str, params_opt: Option<&str>) -> (TemplateGenerator, u64) {
+pub fn init(action: &str, params_opt: Option<&str>) -> TemplateGenerator {
     let mut template = TemplateGenerator::new(action, params_opt.map(|raw| Bytes::from(util::hex_to_bytes(raw))));
-    let timestamp = 1611200000u64;
 
     template.push_contract_cell("always_success", true);
     template.push_contract_cell("fake-das-lock", true);
@@ -11,16 +10,16 @@ pub fn init(action: &str, params_opt: Option<&str>) -> (TemplateGenerator, u64) 
     template.push_contract_cell("eip712-lib", false);
     template.push_contract_cell("account-cell-type", false);
 
-    template.push_oracle_cell(1, OracleCellType::Time, timestamp);
+    template.push_oracle_cell(1, OracleCellType::Time, TIMESTAMP);
 
     template.push_config_cell(DataType::ConfigCellMain, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellAccount, Source::CellDep);
 
-    (template, timestamp)
+    template
 }
 
-pub fn init_for_renew(action: &str, params_opt: Option<&str>) -> (TemplateGenerator, u64) {
-    let (mut template, timestamp) = init(action, params_opt);
+pub fn init_for_renew(action: &str, params_opt: Option<&str>) -> TemplateGenerator {
+    let mut template = init(action, params_opt);
 
     template.push_contract_cell("income-cell-type", false);
     template.push_contract_cell("balance-cell-type", false);
@@ -29,11 +28,11 @@ pub fn init_for_renew(action: &str, params_opt: Option<&str>) -> (TemplateGenera
     template.push_config_cell(DataType::ConfigCellPrice, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellIncome, Source::CellDep);
 
-    (template, timestamp)
+    template
 }
 
 pub fn init_for_sub_account(action: &str, params_opt: Option<&str>) -> TemplateGenerator {
-    let (mut template, _) = init(action, params_opt);
+    let mut template = init(action, params_opt);
 
     template.push_contract_cell("income-cell-type", false);
     template.push_contract_cell("balance-cell-type", false);

@@ -553,6 +553,20 @@ impl TemplateGenerator {
         self.push_witness_args(Some(&lock), None, None);
     }
 
+    pub fn push_multi_sign_witness(
+        &mut self,
+        require_first_n: u8,
+        threshold: u8,
+        sign_address_len: u8,
+        args_hex: &str,
+    ) {
+        let args = util::hex_to_bytes(args_hex);
+        let mut lock = vec![0, require_first_n, threshold, sign_address_len];
+        lock.extend_from_slice(&args);
+
+        self.push_witness_args(Some(&lock), None, None);
+    }
+
     pub fn push_cell(
         &mut self,
         capacity: u64,
