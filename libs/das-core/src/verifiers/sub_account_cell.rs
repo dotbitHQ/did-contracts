@@ -1,3 +1,4 @@
+use crate::sub_account_witness_parser::SubAccountEditValue;
 use crate::{
     assert, constants::*, data_parser, debug, error::Error, sub_account_witness_parser::SubAccountWitness, util, warn,
     witness_parser::WitnessesParser,
@@ -7,13 +8,38 @@ use das_dynamic_libs::{error::Error as DasDynamicLibError, sign_lib::SignLib};
 use das_types::{constants::*, packed::*, prelude::Entity, prettier::Prettier};
 use sparse_merkle_tree::{ckb_smt::SMTBuilder, H256};
 
+pub fn verify_unlock_role(witness: &SubAccountWitness) -> Result<(), Error> {
+    debug!(
+        "witnesses[{}] Verify if the witness is unlocked by expected role.",
+        witness.index
+    );
+
+    let required_role = match witness.edit_value {
+        SubAccountEditValue::Records(_) => LockRole::Manager,
+        _ => LockRole::Owner,
+    };
+
+    assert!(
+        witness.sign_role == Some(required_role),
+        Error::AccountCellPermissionDenied,
+        "witnesses[{}] This witness should be unlocked by the {:?}'s signature.",
+        witness.index,
+        required_role
+    );
+
+    Ok(())
+}
+
 pub fn verify_expiration(
     config: ConfigCellAccountReader,
     sub_account_index: usize,
     sub_account_reader: SubAccountReader,
     current: u64,
 ) -> Result<(), Error> {
-    debug!("Verify if witness.sub_account.expired_at of sub-account is expired.");
+    debug!(
+        "witnesses[{}] Verify if the witness.sub_account.expired_at of sub-account is expired.",
+        sub_account_index
+    );
 
     let expired_at = u64::from(sub_account_reader.expired_at());
     let expiration_grace_period = u32::from(config.expiration_grace_period()) as u64;
@@ -118,7 +144,10 @@ pub fn verify_status(
     sub_account_reader: SubAccountReader,
     expected_status: AccountStatus,
 ) -> Result<(), Error> {
-    debug!("Verify if witness.sub_account.status is not expected.");
+    debug!(
+        "witnesses[{}] Verify if the witness.sub_account.status is not expected.",
+        sub_account_index
+    );
 
     let sub_account_status = u8::from(sub_account_reader.status());
 

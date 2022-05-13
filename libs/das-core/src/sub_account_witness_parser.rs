@@ -21,7 +21,7 @@ pub struct SubAccountWitness {
     pub index: usize,
     // The rest is actually existing fields in the witness.
     pub signature: Vec<u8>,
-    pub sign_role: Vec<u8>,
+    pub sign_role: Option<LockRole>,
     pub sign_type: Option<DasLockType>,
     pub sign_args: Vec<u8>,
     pub prev_root: Vec<u8>,
@@ -147,7 +147,7 @@ impl SubAccountWitnessesParser {
 
         // Every sub-account witness has the next fields, here we parse it one by one.
         let (start, signature) = Self::parse_field(&raw, start)?;
-        let (start, sign_role) = Self::parse_field(&raw, start)?;
+        let (start, sign_role_byte) = Self::parse_field(&raw, start)?;
         let (start, prev_root) = Self::parse_field(&raw, start)?;
         let (start, current_root) = Self::parse_field(&raw, start)?;
         let (start, proof) = Self::parse_field(&raw, start)?;
@@ -208,8 +208,9 @@ impl SubAccountWitnessesParser {
 
         let mut sign_type = None;
         let mut sign_args = Vec::new();
-        if sign_role.len() == 1 {
-            let sign_role_int = u8::from_le_bytes(sign_role.try_into().unwrap());
+        let mut sign_role = None;
+        if sign_role_byte.len() == 1 {
+            let sign_role_int = u8::from_le_bytes(sign_role_byte.try_into().unwrap());
             let args = sub_account.as_reader().lock().args();
             let args_bytes = args.raw_data();
 
@@ -218,9 +219,11 @@ impl SubAccountWitnessesParser {
             if sign_role_int == LockRole::Owner as u8 {
                 sign_type_int = data_parser::das_lock_args::get_owner_type(args_bytes);
                 sign_args_ref = data_parser::das_lock_args::get_owner_lock_args(args_bytes);
+                sign_role = Some(LockRole::Owner);
             } else {
                 sign_type_int = data_parser::das_lock_args::get_manager_type(args_bytes);
                 sign_args_ref = data_parser::das_lock_args::get_manager_lock_args(args_bytes);
+                sign_role = Some(LockRole::Manager);
             };
 
             sign_type = DasLockType::try_from(sign_type_int).ok();
@@ -229,13 +232,13 @@ impl SubAccountWitnessesParser {
 
         debug!(
             "  Sub-account witnesses[{}]: {{ signature: 0x{}, sign_role: 0x{}, prev_root: 0x{}, current_root: 0x{}, version: {}, sub_account: {}, edit_key: {}, sign_args: {} }}",
-            i, util::hex_string(signature), util::hex_string(sign_role), util::hex_string(prev_root), util::hex_string(current_root), version, sub_account.account().as_prettier(), String::from_utf8(edit_key.to_vec()).unwrap(), util::hex_string(&sign_args)
+            i, util::hex_string(signature), util::hex_string(sign_role_byte), util::hex_string(prev_root), util::hex_string(current_root), version, sub_account.account().as_prettier(), String::from_utf8(edit_key.to_vec()).unwrap(), util::hex_string(&sign_args)
         );
 
         Ok(SubAccountWitness {
             index: i,
             signature: signature.to_vec(),
-            sign_role: sign_role.to_vec(),
+            sign_role,
             sign_type,
             sign_args,
             prev_root: prev_root.to_vec(),

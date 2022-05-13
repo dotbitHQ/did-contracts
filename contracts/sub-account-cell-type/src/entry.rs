@@ -142,7 +142,8 @@ pub fn main() -> Result<(), Error> {
                         }
 
                         debug!(
-                            "Verify if the root of witnesses[{}] and witnesses[{}] is sequential.",
+                            "witnesses[{}] Verify if the root of witnesses[{}] and witnesses[{}] is sequential.",
+                            witness.index,
                             witness.index,
                             witness.index + 1
                         );
@@ -155,7 +156,8 @@ pub fn main() -> Result<(), Error> {
                                 assert!(
                                     current_root == prev_root_of_next,
                                     Error::SubAccountCellSMTRootError,
-                                    "The roots in sub-account witnesses should be sequential, but witnesses[{}] and witnesses[{}] is not.",
+                                    "witnesses[{}] The roots in sub-account witnesses should be sequential, but witnesses[{}] and witnesses[{}] is not.",
+                                    witness.index,
                                     witness.index,
                                     next_witness.index
                                 );
@@ -173,13 +175,13 @@ pub fn main() -> Result<(), Error> {
                             b"create_sub_account" => {
                                 smt_verify_sub_account_is_creatable(witness)?;
 
-                                debug!("Verify if the account is registrable.");
+                                debug!("witnesses[{}] Verify if the account is registrable.", witness.index);
 
                                 let account_chars = sub_account_reader.account();
                                 verifiers::account_cell::verify_account_chars(&parser, account_chars)?;
                                 verifiers::account_cell::verify_account_chars_max_length(&parser, account_chars)?;
 
-                                debug!("Verify if the initial values of sub-account's fields is filled properly.");
+                                debug!("witnesses[{}] Verify if the initial values of sub-account's fields is filled properly.", witness.index);
 
                                 verifiers::sub_account_cell::verify_initial_lock(witness.index, sub_account_reader)?;
                                 verifiers::sub_account_cell::verify_initial_id(witness.index, sub_account_reader)?;
@@ -265,6 +267,8 @@ pub fn main() -> Result<(), Error> {
                                 );
 
                                 smt_verify_sub_account_is_editable(witness, new_sub_account_reader)?;
+
+                                verifiers::sub_account_cell::verify_unlock_role(witness)?;
 
                                 verifiers::sub_account_cell::verify_sub_account_sig(witness, &sign_lib)?;
 
@@ -579,7 +583,6 @@ fn gen_smt_key_by_account_id(account_id: &[u8]) -> [u8; 32] {
     let mut key = [0u8; 32];
     let key_pre = [account_id, &[0u8; 12]].concat();
     key.copy_from_slice(&key_pre);
-    debug!("gen_smt_key_by_account_id, key: {}", util::hex_string(&key));
     key
 }
 
@@ -587,12 +590,19 @@ fn smt_verify_sub_account_is_creatable(witness: &SubAccountWitness) -> Result<()
     let key = gen_smt_key_by_account_id(witness.sub_account.id().as_slice());
     let proof = witness.proof.as_slice();
 
-    debug!("Verify if the sub-account was not exist in the SMT before.");
+    debug!(
+        "witnesses[{}] Verify if the sub-account was not exist in the SMT before.(key: 0x{})",
+        witness.index,
+        util::hex_string(&key)
+    );
     let prev_root = witness.prev_root.as_slice();
     let zero_val = [0u8; 32];
     verifiers::sub_account_cell::verify_smt_proof(key, zero_val, prev_root.try_into().unwrap(), proof)?;
 
-    debug!("Verify if the sub-account is in the SMT now.");
+    debug!(
+        "witnesses[{}] Verify if the sub-account is in the SMT now.",
+        witness.index
+    );
     let current_root = witness.current_root.as_slice();
     let current_val = blake2b_256(witness.sub_account.as_slice()).to_vec().try_into().unwrap();
     verifiers::sub_account_cell::verify_smt_proof(key, current_val, current_root.try_into().unwrap(), proof)?;
@@ -607,7 +617,11 @@ fn smt_verify_sub_account_is_editable(
     let key = gen_smt_key_by_account_id(witness.sub_account.id().as_slice());
     let proof = witness.proof.as_slice();
 
-    debug!("Verify if the current state of the sub-account was in the SMT before.");
+    debug!(
+        "witnesses[{}] Verify if the current state of the sub-account was in the SMT before.(key: 0x{})",
+        witness.index,
+        util::hex_string(&key)
+    );
     let prev_root = witness.prev_root.as_slice();
     let prev_val: [u8; 32] = blake2b_256(witness.sub_account.as_slice()).to_vec().try_into().unwrap();
     // debug!("prev_val = 0x{}", util::hex_string(&prev_val));
@@ -615,7 +629,10 @@ fn smt_verify_sub_account_is_editable(
     // debug!("prev_val_prettier = {}", witness.sub_account.as_prettier());
     verifiers::sub_account_cell::verify_smt_proof(key, prev_val, prev_root.try_into().unwrap(), proof)?;
 
-    debug!("Verify if the new state of the sub-account is in the SMT now.");
+    debug!(
+        "witnesses[{}] Verify if the new state of the sub-account is in the SMT now.",
+        witness.index
+    );
     let current_root = witness.current_root.as_slice();
     let current_val: [u8; 32] = blake2b_256(new_sub_account.as_slice()).to_vec().try_into().unwrap();
     // debug!("current_val = 0x{}", util::hex_string(&current_val));
