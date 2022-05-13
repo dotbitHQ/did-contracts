@@ -51,6 +51,14 @@ pub enum OracleCellType {
     Height = 2,
 }
 
+#[derive(Debug, PartialEq, Copy, Clone)]
+#[repr(u8)]
+pub enum SignType {
+    Secp256k1Blake160SignhashAll,
+    Secp256k1Blake160MultiSigAll,
+    EIP712Custom,
+}
+
 pub const CKB_HASH_DIGEST: usize = 32;
 pub const CKB_HASH_PERSONALIZATION: &[u8] = b"ckb-default-hash";
 

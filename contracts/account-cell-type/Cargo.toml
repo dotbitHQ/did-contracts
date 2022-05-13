@@ -14,3 +14,4 @@ ckb-std = "0.9.0"
 das-core = { path = "../../libs/das-core", default-features = false }
 das-map = { path = "../../libs/das-map", default-features = false }
 das-types = { path = "../../../das-types/rust", default-features = false }
+das-dynamic-libs = { path = "../../libs/das-dynamic-libs" }

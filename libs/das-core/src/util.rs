@@ -2,7 +2,7 @@ use super::{
     assert as das_assert, constants::*, data_parser, debug, error::Error, types::ScriptLiteral, warn,
     witness_parser::WitnessesParser,
 };
-use alloc::{borrow::ToOwned, boxed::Box, collections::BTreeMap, string::String, vec, vec::Vec};
+use alloc::{borrow::ToOwned, boxed::Box, collections::BTreeMap, format, string::String, vec, vec::Vec};
 use blake2b_ref::{Blake2b, Blake2bBuilder};
 use ckb_std::{
     ckb_constants::{CellField, Source},
@@ -51,6 +51,14 @@ pub fn hex_to_byte32(input: &str) -> Result<Byte32, FromHexError> {
     inner.copy_from_slice(&data);
 
     Ok(Byte32::new_builder().set(inner).build())
+}
+
+pub fn first_n_bytes_to_hex(bytes: &[u8], n: usize) -> String {
+    bytes
+        .get(..n)
+        .map(|v| format!("0x{}...", hex_string(v)))
+        .or(Some(String::from("0x")))
+        .unwrap()
 }
 
 pub fn script_literal_to_script(script: ScriptLiteral) -> Script {

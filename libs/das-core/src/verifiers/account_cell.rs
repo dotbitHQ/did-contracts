@@ -4,7 +4,7 @@ use crate::{
 };
 use alloc::borrow::ToOwned;
 use alloc::{boxed::Box, string::String, vec, vec::Vec};
-use ckb_std::{ckb_constants::Source, debug, high_level};
+use ckb_std::{ckb_constants::Source, high_level};
 use core::convert::TryFrom;
 use das_types::{constants::*, mixer::AccountCellDataReaderMixer, packed::*, util as das_types_util};
 

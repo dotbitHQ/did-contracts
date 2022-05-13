@@ -19,6 +19,7 @@ version = "1.5.0"
 dependencies = [
  "ckb-std",
  "das-core",
+ "das-dynamic-libs",
  "das-map",
  "das-types",
 ]

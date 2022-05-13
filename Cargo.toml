@@ -3,8 +3,8 @@ members = [
     # Common libs
     "libs/das-core",
     "libs/das-dynamic-libs",
-    "libs/das-sorted-list",
     "libs/das-map",
+    "libs/das-sorted-list",
     "libs/eip712",
     # Contracts
     "contracts/always-success",

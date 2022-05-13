@@ -1,8 +1,12 @@
 use alloc::{boxed::Box, vec};
-use ckb_std::{ckb_constants::Source, ckb_types::prelude::*, high_level};
+use ckb_std::{ckb_constants::Source, ckb_types::prelude::*, dynamic_loading_c_impl::CKBDLContext, high_level};
 use das_core::{
-    assert as das_assert, constants::*, data_parser, debug, error::Error, util, verifiers, warn,
+    assert as das_assert, constants::*, data_parser, debug, error::Error, sign_util, util, verifiers, warn,
     witness_parser::WitnessesParser,
+};
+use das_dynamic_libs::{
+    constants::{DymLibSize, CKB_MULTI_LIB_CODE_HASH},
+    sign_lib::{SignLib, SignLibMethods},
 };
 use das_map::{map::Map, util as map_util};
 use das_types::{
@@ -700,7 +704,7 @@ pub fn main() -> Result<(), Error> {
 
             verify_account_is_unlocked_for_cross_chain(output_account_cells[0], &output_cell_witness_reader)?;
 
-            // TODO Verify multisig signature
+            verify_multi_sign(input_account_cells[0])?;
         }
         _ => return Err(Error::ActionNotSupported),
     }
@@ -877,6 +881,57 @@ fn verify_account_is_unlocked_for_cross_chain<'a>(
             "outputs[{}]The AccountCell.witness.status should be Normal .",
             output_account_index
         );
+    }
+
+    Ok(())
+}
+
+fn verify_multi_sign(input_account_index: usize) -> Result<(), Error> {
+    debug!("Verify the signatures of secp256k1-blake160-multisig-all ...");
+
+    let (digest, signatures) =
+        sign_util::calc_digest_by_input_group(SignType::Secp256k1Blake160MultiSigAll, vec![input_account_index])?;
+    let lock_script = high_level::load_cell_lock(input_account_index, Source::Input)?;
+    let args = lock_script.as_reader().args().raw_data().to_vec();
+
+    debug!(
+        "Loading dynamic library by code_hash: 0x{}",
+        util::hex_string(&CKB_MULTI_LIB_CODE_HASH)
+    );
+
+    if cfg!(not(feature = "dev")) {
+        let mut context = unsafe { CKBDLContext::<DymLibSize>::new() };
+        let lib = context
+            .load(&CKB_MULTI_LIB_CODE_HASH)
+            .expect("The shared lib should be loaded successfully.");
+        let methods = SignLibMethods {
+            c_validate: unsafe {
+                lib.get(b"validate")
+                    .expect("Load function 'validate' from library failed.")
+            },
+            c_validate_str: unsafe {
+                lib.get(b"validate_str")
+                    .expect("Load function 'validate_str' from library failed.")
+            },
+        };
+        let sign_lib = SignLib::new(Some(methods), None);
+
+        sign_lib
+            .validate_str(
+                DasLockType::CKBMulti,
+                0i32,
+                digest.to_vec(),
+                digest.len(),
+                signatures,
+                args,
+            )
+            .map_err(|err_code| {
+                warn!(
+                    "inputs[{}] Verify signature failed, error code: {}",
+                    input_account_index, err_code
+                );
+                return Error::EIP712SignatureError;
+            })?;
     }
 
     Ok(())
