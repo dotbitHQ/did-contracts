@@ -45,11 +45,7 @@ pub fn main() -> Result<(), Error> {
             parser.parse_cell()?;
 
             let (input_account_cells, output_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
-            das_assert!(
-                input_account_cells.len() == 1 && output_account_cells.len() == 1,
-                Error::InvalidTransactionStructure,
-                "There should be only one AccountCell in inputs and outputs."
-            );
+            verifiers::common::verify_cell_number("AccountCell", &input_account_cells, 1, &output_account_cells, 1)?;
 
             debug!("Verify if there is no redundant cells in inputs.");
 
@@ -166,11 +162,7 @@ pub fn main() -> Result<(), Error> {
             let config_main = parser.configs.main()?;
 
             let (input_account_cells, output_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
-            das_assert!(
-                input_account_cells.len() == 1 && output_account_cells.len() == 1,
-                Error::InvalidTransactionStructure,
-                "There should be only one AccountCell in inputs and outputs."
-            );
+            verifiers::common::verify_cell_number("AccountCell", &input_account_cells, 1, &output_account_cells, 1)?;
 
             let input_cell_witness = util::parse_account_cell_witness(&parser, input_account_cells[0], Source::Input)?;
             let input_cell_witness_reader = input_cell_witness.as_reader();
@@ -352,16 +344,7 @@ pub fn main() -> Result<(), Error> {
             let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
             let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
-            das_assert!(
-                input_cells.len() == 1 && output_cells.len() == 1,
-                Error::InvalidTransactionStructure,
-                "There should be one AccountCell in outputs and one in inputs."
-            );
-            das_assert!(
-                input_cells[0] == 0 && output_cells[0] == 0,
-                Error::InvalidTransactionStructure,
-                "The AccountCells should only appear at inputs[0] and outputs[0]."
-            );
+            verifiers::common::verify_cell_number_and_position("AccountCell", &input_cells, &[0], &output_cells, &[0])?;
 
             let input_cell_witness = util::parse_account_cell_witness(&parser, input_cells[0], Source::Input)?;
             let input_cell_witness_reader = input_cell_witness.as_reader();
@@ -416,12 +399,12 @@ pub fn main() -> Result<(), Error> {
                 let type_id = parser.configs.main()?.type_id_table().account_sale_cell();
                 let (input_sale_cells, output_sale_cells) =
                     util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, type_id)?;
-
-                verifiers::common::verify_removed_cell_in_correct_position(
+                verifiers::common::verify_cell_number_and_position(
                     "AccountSaleCell",
                     &input_sale_cells,
+                    &[1],
                     &output_sale_cells,
-                    Some(1),
+                    &[],
                 )?;
 
                 let cell_witness = util::parse_account_sale_cell_witness(&parser, input_sale_cells[0], Source::Input)?;
@@ -448,12 +431,12 @@ pub fn main() -> Result<(), Error> {
             let balance_cell_type_id = config_main.type_id_table().balance_cell();
             let (input_balance_cells, outputs_balance_cells) =
                 util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, balance_cell_type_id)?;
-
-            verifiers::common::verify_created_cell_in_correct_position(
+            verifiers::common::verify_cell_number_and_position(
                 "BalanceCell",
                 &input_balance_cells,
+                &[],
                 &outputs_balance_cells,
-                Some(1),
+                &[1],
             )?;
 
             let expected_lock = util::derive_owner_lock_from_cell(input_cells[0], Source::Input)?;
@@ -591,12 +574,12 @@ pub fn main() -> Result<(), Error> {
             let sub_account_cell_type_id = config_main.type_id_table().sub_account_cell();
             let (input_sub_account_cells, output_sub_account_cells) =
                 util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, sub_account_cell_type_id)?;
-
-            verifiers::common::verify_created_cell_in_correct_position(
+            verifiers::common::verify_cell_number_and_position(
                 "SubAccountCell",
                 &input_sub_account_cells,
+                &[],
                 &output_sub_account_cells,
-                Some(1),
+                &[1],
             )?;
 
             verifiers::misc::verify_always_success_lock(output_sub_account_cells[0], Source::Output)?;
@@ -661,14 +644,13 @@ pub fn main() -> Result<(), Error> {
             debug!("Verify if there is no redundant AccountCells.");
 
             let (input_account_cells, output_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
-            das_assert!(
-                input_account_cells.len() == 1
-                    && output_account_cells.len() == 1
-                    && input_account_cells[0] == 0
-                    && output_account_cells[0] == 0,
-                Error::InvalidTransactionStructure,
-                "There should be only one AccountCell in inputs[0] and outputs[0]."
-            );
+            verifiers::common::verify_cell_number_and_position(
+                "AccountCell",
+                &input_account_cells,
+                &[0],
+                &output_account_cells,
+                &[0],
+            )?;
 
             let input_cell_witness = util::parse_account_cell_witness(&parser, input_account_cells[0], Source::Input)?;
             let input_cell_witness_reader = input_cell_witness.as_reader();

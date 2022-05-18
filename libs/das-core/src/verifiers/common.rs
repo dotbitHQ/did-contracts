@@ -1,88 +1,139 @@
-use crate::{assert, debug, error::Error};
+use crate::{assert as das_assert, debug, error::Error};
+use alloc::format;
 use ckb_std::{ckb_constants::Source, high_level};
+use core::cmp::Ordering;
 
-pub fn verify_created_cell_in_correct_position(
+pub fn verify_cell_number(
     cell_name: &str,
-    input_cell_indexes: &[usize],
-    output_cell_indexes: &[usize],
-    created_cell_index: Option<usize>, // None: No need to verify the index of the created cell; Some(index): the created cell should be at index, usually 1
+    current_inputs: &[usize],
+    expected_inputs_len: usize,
+    current_outputs: &[usize],
+    expected_outputs_len: usize,
 ) -> Result<(), Error> {
-    assert!(
-        input_cell_indexes.len() == 0 && output_cell_indexes.len() == 1,
+    debug!("Verify if the number of {}s is correct.", cell_name);
+
+    das_assert!(
+        current_inputs.len() == expected_inputs_len,
         Error::InvalidTransactionStructure,
-        "To create cell, there should be 0 {} in inputs and 1 {} in outputs, while there is actually {} in inputs and {} in outputs.",
-        cell_name,
-        cell_name,
-        input_cell_indexes.len(),
-        output_cell_indexes.len()
+        "{}",
+        match expected_inputs_len {
+            0 => format!("There should be none {} in inputs.", cell_name),
+            1 => format!("There should be only one {} in inputs.", cell_name),
+            _ => format!("There should be {} {}s in inputs.", expected_inputs_len, cell_name),
+        }
     );
-    if let Some(index) = created_cell_index {
-        assert!(
-            output_cell_indexes[0] == index,
-            Error::InvalidTransactionStructure,
-            "To create {}, it should be at outputs[{}], it is actually at {}",
-            cell_name,
-            index,
-            output_cell_indexes[0]
-        );
-    }
+
+    das_assert!(
+        current_outputs.len() == expected_outputs_len,
+        Error::InvalidTransactionStructure,
+        "{}",
+        match expected_outputs_len {
+            0 => format!("There should be none {} in outputs.", cell_name),
+            1 => format!("There should be only one {} in outputs.", cell_name),
+            _ => format!("There should be {} {}s in outputs.", expected_outputs_len, cell_name),
+        }
+    );
 
     Ok(())
 }
 
-pub fn verify_removed_cell_in_correct_position(
+pub fn verify_cell_number_range(
     cell_name: &str,
-    input_cell_indexes: &[usize],
-    output_cell_indexes: &[usize],
-    removed_cell_index: Option<usize>, // None: No need to verify the index of the removed cell; Some(index): the removed cell should be at index, usually 1
+    current_inputs: &[usize],
+    expected_inputs_range: (Ordering, usize),
+    current_outputs: &[usize],
+    expected_outputs_range: (Ordering, usize),
 ) -> Result<(), Error> {
-    assert!(
-        input_cell_indexes.len() == 1 && output_cell_indexes.len() == 0,
+    debug!("Verify if the number of {}s is correct.", cell_name);
+
+    das_assert!(
+        current_inputs.len().cmp(&expected_inputs_range.1) == expected_inputs_range.0,
         Error::InvalidTransactionStructure,
-        "To remove cell, there should be 1 {} in inputs and 0 {} in outputs. (received inputs: {}, outputs: {})",
-        cell_name,
-        cell_name,
-        input_cell_indexes.len(),
-        output_cell_indexes.len()
+        "{}",
+        match expected_inputs_range.0 {
+            Ordering::Less => format!(
+                "There should be less than {} {}s in inputs.",
+                expected_inputs_range.1, cell_name
+            ),
+            Ordering::Greater => format!(
+                "There should be more than {} {}s in inputs.",
+                expected_inputs_range.1, cell_name
+            ),
+            Ordering::Equal => format!(
+                "There should be exactly {} {}s in inputs.",
+                expected_inputs_range.1, cell_name
+            ),
+        }
     );
 
-    if let Some(index) = removed_cell_index {
-        assert!(
-            input_cell_indexes[0] == index,
-            Error::InvalidTransactionStructure,
-            "To remove {}, it should be at inputs[{}], it is actually at {}",
-            cell_name,
-            index,
-            input_cell_indexes[0]
-        );
-    }
+    das_assert!(
+        current_outputs.len().cmp(&expected_outputs_range.1) == expected_outputs_range.0,
+        Error::InvalidTransactionStructure,
+        "{}",
+        match expected_outputs_range.0 {
+            Ordering::Less => format!(
+                "There should be less than {} {}s in inputs.",
+                expected_outputs_range.1, cell_name
+            ),
+            Ordering::Greater => format!(
+                "There should be more than {} {}s in inputs.",
+                expected_outputs_range.1, cell_name
+            ),
+            Ordering::Equal => format!(
+                "There should be exactly {} {}s in inputs.",
+                expected_outputs_range.1, cell_name
+            ),
+        }
+    );
 
     Ok(())
 }
 
-pub fn verify_modified_cell_in_correct_position(
+pub fn verify_cell_number_and_position(
     cell_name: &str,
-    input_cells: &[usize],
-    output_cells: &[usize],
+    current_inputs: &[usize],
+    expected_inputs: &[usize],
+    current_outputs: &[usize],
+    expected_outputs: &[usize],
 ) -> Result<(), Error> {
-    assert!(
-        input_cells.len() == 1 && output_cells.len() == 1,
+    debug!("Verify if the number and position of {}s is correct.", cell_name);
+
+    das_assert!(
+        current_inputs == expected_inputs,
         Error::InvalidTransactionStructure,
-        "To modify {}, there should be 1 {} in inputs and 1 {} in outputs, while received {} in inputs and {} in outputs",
-        cell_name,
-        cell_name,
-        cell_name,
-        input_cells.len(),
-        output_cells.len()
+        "{}",
+        match expected_inputs.len() {
+            0 => format!("There should be none {} in inputs.", cell_name),
+            1 => format!(
+                "There should be only one {} in inputs[{}]",
+                cell_name, &expected_inputs[0]
+            ),
+            _ => format!(
+                "There should be {} {}s in inputs{:?}",
+                expected_inputs.len(),
+                cell_name,
+                expected_inputs
+            ),
+        }
     );
-    assert!(
-        input_cells[0] == 0 && output_cells[0] == 0,
+
+    das_assert!(
+        current_outputs == expected_outputs,
         Error::InvalidTransactionStructure,
-        "To modify {}, the {} should only appear at inputs[0] and outputs[0], while received {} and {}",
-        cell_name,
-        cell_name,
-        input_cells[0],
-        output_cells[0]
+        "{}",
+        match expected_outputs.len() {
+            0 => format!("There should be none {} in outputs.", cell_name),
+            1 => format!(
+                "There should be only one {} in outputs[{}]",
+                cell_name, &expected_outputs[0]
+            ),
+            _ => format!(
+                "There should be {} {}s in outputs{:?}",
+                expected_outputs.len(),
+                cell_name,
+                expected_outputs
+            ),
+        }
     );
 
     Ok(())

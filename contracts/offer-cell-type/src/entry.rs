@@ -38,14 +38,21 @@ pub fn main() -> Result<(), Error> {
             let config_second_market = parser.configs.secondary_market()?;
 
             if action == b"make_offer" {
-                verifiers::common::verify_created_cell_in_correct_position(
+                verifiers::common::verify_cell_number_and_position(
                     "OfferCell",
                     &input_cells,
+                    &[],
                     &output_cells,
-                    Some(0),
+                    &[0],
                 )?;
             } else {
-                verifiers::common::verify_modified_cell_in_correct_position("OfferCell", &input_cells, &output_cells)?;
+                verifiers::common::verify_cell_number_and_position(
+                    "OfferCell",
+                    &input_cells,
+                    &[0],
+                    &output_cells,
+                    &[0],
+                )?;
             }
 
             let sender_lock = high_level::load_cell_lock(0, Source::Input)?;
@@ -266,27 +273,18 @@ pub fn main() -> Result<(), Error> {
             let config_account = parser.configs.account()?;
             let config_secondary_market = parser.configs.secondary_market()?;
 
-            verifiers::common::verify_removed_cell_in_correct_position(
-                "OfferCell",
-                &input_cells,
-                &output_cells,
-                Some(0),
-            )?;
+            verifiers::common::verify_cell_number("AccountSaleCell", &input_cells, 1, &output_cells, 0)?;
 
             let account_cell_type_id = config_main.type_id_table().account_cell();
             let (input_account_cells, output_account_cells) =
                 util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, account_cell_type_id)?;
-
-            assert!(
-                input_account_cells.len() == 1 && output_account_cells.len() == 1,
-                Error::InvalidTransactionStructure,
-                "There should be 1 AccountCell in both inputs and outputs."
-            );
-            assert!(
-                input_account_cells[0] == 1 && output_account_cells[0] == 0,
-                Error::InvalidTransactionStructure,
-                "The AccountCell should only appear in inputs[1] and outputs[0]."
-            );
+            verifiers::common::verify_cell_number_and_position(
+                "AccountCell",
+                &input_account_cells,
+                &[1],
+                &output_account_cells,
+                &[0],
+            )?;
 
             let input_account_cell_witness: Box<dyn AccountCellDataMixer>;
             let input_account_cell_witness_reader;

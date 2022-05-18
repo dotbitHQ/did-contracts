@@ -1,4 +1,5 @@
 use ckb_std::{ckb_constants::Source, high_level};
+use core::cmp::Ordering;
 use core::result::Result;
 use das_core::{
     assert, assert_lock_equal,
@@ -32,11 +33,12 @@ pub fn main() -> Result<(), Error> {
             let config_main = parser.configs.main()?;
             let config_reverse_resolution = parser.configs.reverse_resolution()?;
 
-            verifiers::common::verify_created_cell_in_correct_position(
+            verifiers::common::verify_cell_number_and_position(
                 "ReverseRecordCell",
                 &input_cells,
+                &[],
                 &output_cells,
-                Some(0),
+                &[0],
             )?;
 
             let sender_lock = high_level::load_cell_lock(0, Source::Input)?;
@@ -93,17 +95,13 @@ pub fn main() -> Result<(), Error> {
         }
         b"redeclare_reverse_record" => {
             let config_reverse_resolution = parser.configs.reverse_resolution()?;
-
-            assert!(
-                input_cells.len() == 1 && output_cells.len() == 1,
-                Error::InvalidTransactionStructure,
-                "There should be 1 ReverseRecordCell in both inputs and outputs."
-            );
-            assert!(
-                input_cells[0] == 0 && output_cells[0] == 0,
-                Error::InvalidTransactionStructure,
-                "The ReverseRecordCells should only exist at inputs[0] and outputs[0]."
-            );
+            verifiers::common::verify_cell_number_and_position(
+                "ReverseRecordCell",
+                &input_cells,
+                &[0],
+                &output_cells,
+                &[0],
+            )?;
 
             // Stop transaction builder to spend users other cells in this transaction.
             // TODO Support extra cells to pay for transaction fees.
@@ -147,11 +145,13 @@ pub fn main() -> Result<(), Error> {
             let config_main = parser.configs.main()?;
             let config_reverse_resolution = parser.configs.reverse_resolution()?;
 
-            assert!(
-                input_cells.len() >= 1 && output_cells.len() == 0,
-                Error::InvalidTransactionStructure,
-                "There should be at least 1 ReverseRecordCell in inputs."
-            );
+            verifiers::common::verify_cell_number_range(
+                "ReverseRecordCell",
+                &input_cells,
+                (Ordering::Greater, 0),
+                &output_cells,
+                (Ordering::Equal, 0),
+            )?;
 
             verifiers::misc::verify_no_more_cells(&input_cells, Source::Input)?;
 

@@ -28,13 +28,7 @@ pub fn main() -> Result<(), Error> {
     match action {
         b"apply_register" => {
             let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
-
-            verifiers::common::verify_created_cell_in_correct_position(
-                "ApplyRegisterCell",
-                &input_cells,
-                &output_cells,
-                None,
-            )?;
+            verifiers::common::verify_cell_number("ApplyRegisterCell", &input_cells, 0, &output_cells, 1)?;
 
             let data = util::load_cell_data(output_cells[0], Source::Output)?;
 
@@ -71,13 +65,7 @@ pub fn main() -> Result<(), Error> {
 
             // Find out ApplyRegisterCells in current transaction.
             let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
-
-            verifiers::common::verify_removed_cell_in_correct_position(
-                "ApplyRegisterCell",
-                &input_cells,
-                &output_cells,
-                None,
-            )?;
+            verifiers::common::verify_cell_number("ApplyRegisterCell", &input_cells, 1, &output_cells, 0)?;
 
             debug!("Check if the ApplyRegisterCell is available for refund ...");
 

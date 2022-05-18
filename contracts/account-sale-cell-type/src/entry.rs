@@ -41,17 +41,13 @@ pub fn main() -> Result<(), Error> {
             let (input_account_cells, output_account_cells) =
                 util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, account_cell_type_id)?;
             let (input_sale_cells, output_sale_cells) = util::load_self_cells_in_inputs_and_outputs()?;
-
-            assert!(
-                input_account_cells.len() == 1 && output_account_cells.len() == 1,
-                Error::InvalidTransactionStructure,
-                "There should be 1 AccountCell in both inputs and outputs."
-            );
-            assert!(
-                input_account_cells[0] == 0 && output_account_cells[0] == 0,
-                Error::InvalidTransactionStructure,
-                "The AccountCells should only appear in inputs[0] and outputs[0]."
-            );
+            verifiers::common::verify_cell_number_and_position(
+                "AccountCell",
+                &input_account_cells,
+                &[0],
+                &output_account_cells,
+                &[0],
+            )?;
 
             let input_account_cell_witness =
                 util::parse_account_cell_witness(&parser, input_account_cells[0], Source::Input)?;
@@ -63,12 +59,12 @@ pub fn main() -> Result<(), Error> {
             match action {
                 b"start_account_sale" => {
                     verifiers::account_cell::verify_unlock_role(action, &parser.params)?;
-
-                    verifiers::common::verify_created_cell_in_correct_position(
+                    verifiers::common::verify_cell_number_and_position(
                         "AccountSaleCell",
                         &input_sale_cells,
+                        &[],
                         &output_sale_cells,
-                        Some(1),
+                        &[1],
                     )?;
 
                     let sender_lock = high_level::load_cell_lock(0, Source::Input)?;
@@ -117,12 +113,12 @@ pub fn main() -> Result<(), Error> {
                 }
                 b"cancel_account_sale" => {
                     verifiers::account_cell::verify_unlock_role(action, &parser.params)?;
-
-                    verifiers::common::verify_removed_cell_in_correct_position(
+                    verifiers::common::verify_cell_number_and_position(
                         "AccountSaleCell",
                         &input_sale_cells,
+                        &[1],
                         &output_sale_cells,
-                        Some(1),
+                        &[],
                     )?;
 
                     debug!("Verify if there is no redundant cells in inputs.");
@@ -163,11 +159,12 @@ pub fn main() -> Result<(), Error> {
                     verify_sale_cell_account_and_id(input_account_cells[0], &input_sale_cell_witness_reader)?;
                 }
                 b"buy_account" => {
-                    verifiers::common::verify_removed_cell_in_correct_position(
+                    verifiers::common::verify_cell_number_and_position(
                         "AccountSaleCell",
                         &input_sale_cells,
+                        &[1],
                         &output_sale_cells,
-                        Some(1),
+                        &[],
                     )?;
 
                     let buyer_lock = high_level::load_cell_lock(2, Source::Input)?;
@@ -270,16 +267,13 @@ pub fn main() -> Result<(), Error> {
             let config_secondary_market_reader = parser.configs.secondary_market()?;
 
             let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
-            assert!(
-                input_cells.len() == 1 && output_cells.len() == 1,
-                Error::InvalidTransactionStructure,
-                "There should be one AccountSaleCell in outputs and one AccountSaleCell in inputs."
-            );
-            assert!(
-                input_cells[0] == 0 && output_cells[0] == 0,
-                Error::InvalidTransactionStructure,
-                "The AccountSaleCells should only appear at inputs[0] and outputs[0]."
-            );
+            verifiers::common::verify_cell_number_and_position(
+                "AccountSaleCell",
+                &input_cells,
+                &[0],
+                &output_cells,
+                &[0],
+            )?;
 
             debug!("Verify if there is no redundant cells in inputs.");
 
