@@ -153,7 +153,7 @@ impl SignLib {
         let m_len = message.len();
         let ret = self.validate_str(das_lock_type, type_no, message, m_len, sig, args);
         if let Err(error_code) = ret {
-            return Err(error_code);
+            Err(error_code)
         } else {
             Ok(())
         }

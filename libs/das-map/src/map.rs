@@ -29,10 +29,13 @@ impl<K: Debug + PartialEq, V: Clone + Debug + PartialEq> Map<K, V> {
             }
         }
 
-        if index.is_none() {
-            self.items.push((key, value));
-        } else {
-            self.items[index.unwrap()] = (key, value);
+        match index {
+            Some(i) => {
+                self.items[i] = (key, value);
+            }
+            None => {
+                self.items.push((key, value));
+            }
         }
     }
 

@@ -81,6 +81,7 @@ pub fn main() -> Result<(), Error> {
                     verifiers::misc::verify_no_more_cells(&all_cells, Source::Input)?;
 
                     debug!("Verify if sender get their change properly.");
+
                     verifiers::misc::verify_user_get_change_when_inputs_removed(
                         config_main,
                         sender_lock_reader,
@@ -89,24 +90,16 @@ pub fn main() -> Result<(), Error> {
                         u64::from(config_secondary_market.common_fee()),
                     )?;
 
-                    debug!("Verify if the AccountCell is consistent in inputs and outputs.");
-
-                    // The AccountCell should be consistent in inputs and outputs except the status field.
-                    verify_account_cell_consistent_except_status(
+                    verify_account_cell_expiration_status_and_consistent(
                         config_account,
                         timestamp,
                         input_account_cells[0],
                         output_account_cells[0],
                         &input_account_cell_witness_reader,
                         &output_account_cell_witness_reader,
-                    )?;
-
-                    // If a user willing to sell owned account, the AccountCell should be in AccountStatus::Normal status.
-                    verifiers::account_cell::verify_account_cell_status_update_correctly(
-                        &input_account_cell_witness_reader,
-                        &output_account_cell_witness_reader,
                         AccountStatus::Normal,
                         AccountStatus::Selling,
+                        false,
                     )?;
 
                     debug!("Verify if all fields of AccountSaleCell is properly set.");
@@ -121,8 +114,6 @@ pub fn main() -> Result<(), Error> {
                     verify_description(config_secondary_market, &output_sale_cell_witness_reader)?;
                     verify_buyer_inviter_profit_rate(&output_sale_cell_witness_reader)?;
                     verify_started_at(timestamp, &output_sale_cell_witness_reader)?;
-
-                    util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
                 }
                 b"cancel_account_sale" => {
                     verifiers::account_cell::verify_unlock_role(action, &parser.params)?;
@@ -151,25 +142,16 @@ pub fn main() -> Result<(), Error> {
                         u64::from(config_secondary_market.common_fee()),
                     )?;
 
-                    debug!(
-                        "Verify if the AccountCell is consistent in inputs and outputs and its status is updated correctly."
-                    );
-
-                    verify_account_cell_consistent_except_status(
+                    verify_account_cell_expiration_status_and_consistent(
                         config_account,
                         timestamp,
                         input_account_cells[0],
                         output_account_cells[0],
                         &input_account_cell_witness_reader,
                         &output_account_cell_witness_reader,
-                    )?;
-
-                    // If a user want to cancel account sale, the AccountCell should be in AccountStatus::Selling status.
-                    verifiers::account_cell::verify_account_cell_status_update_correctly(
-                        &input_account_cell_witness_reader,
-                        &output_account_cell_witness_reader,
                         AccountStatus::Selling,
                         AccountStatus::Normal,
+                        false,
                     )?;
 
                     debug!("Verify if the AccountSaleCell has the same account ID with the AccountCell inputs.");
@@ -179,8 +161,6 @@ pub fn main() -> Result<(), Error> {
                     let input_sale_cell_witness_reader = input_sale_cell_witness.as_reader();
 
                     verify_sale_cell_account_and_id(input_account_cells[0], &input_sale_cell_witness_reader)?;
-
-                    util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
                 }
                 b"buy_account" => {
                     verifiers::common::verify_removed_cell_in_correct_position(
@@ -202,42 +182,16 @@ pub fn main() -> Result<(), Error> {
                         Source::Input,
                     )?;
 
-                    debug!("Verify if the AccountCell is consistent in inputs and outputs.");
-
-                    verifiers::account_cell::verify_account_expiration(
+                    verify_account_cell_expiration_status_and_consistent(
                         config_account,
-                        input_account_cells[0],
                         timestamp,
-                    )?;
-                    verifiers::account_cell::verify_account_capacity_not_decrease(
                         input_account_cells[0],
                         output_account_cells[0],
-                    )?;
-                    verifiers::account_cell::verify_account_data_consistent(
-                        input_account_cells[0],
-                        output_account_cells[0],
-                        vec![],
-                    )?;
-                    verifiers::account_cell::verify_account_witness_consistent(
-                        input_account_cells[0],
-                        output_account_cells[0],
-                        &input_account_cell_witness_reader,
-                        &output_account_cell_witness_reader,
-                        vec!["status", "records"],
-                    )?;
-
-                    // If a user willing to buy the account, the AccountCell should be in AccountStatus::Selling status.
-                    verifiers::account_cell::verify_account_cell_status_update_correctly(
                         &input_account_cell_witness_reader,
                         &output_account_cell_witness_reader,
                         AccountStatus::Selling,
                         AccountStatus::Normal,
-                    )?;
-
-                    verifiers::account_cell::verify_account_witness_record_empty(
-                        &output_account_cell_witness_reader,
-                        output_account_cells[0],
-                        Source::Output,
+                        true,
                     )?;
 
                     debug!("Verify if the AccountSaleCell is belong to the AccountCell.");
@@ -302,11 +256,11 @@ pub fn main() -> Result<(), Error> {
                         account_sale_cell_capacity,
                         common_fee,
                     )?;
-
-                    util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
                 }
                 _ => unreachable!(),
             }
+
+            util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
         }
         b"edit_account_sale" => {
             verifiers::account_cell::verify_unlock_role(action, &parser.params)?;
@@ -439,25 +393,60 @@ fn decode_scripts_from_params(params: &[Bytes]) -> Result<(ckb_packed::Script, c
     Ok((inviter_lock, channel_lock))
 }
 
-fn verify_account_cell_consistent_except_status<'a>(
+fn verify_account_cell_expiration_status_and_consistent<'a>(
     config_account: ConfigCellAccountReader,
     timestamp: u64,
     input_account_cell: usize,
     output_account_cell: usize,
     input_account_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
     output_account_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
+    input_status: AccountStatus,
+    output_status: AccountStatus,
+    owner_changed: bool,
 ) -> Result<(), Error> {
+    debug!("Verify if the AccountCell is expired and its status is Selling.");
+
     verifiers::account_cell::verify_account_expiration(config_account, input_account_cell, timestamp)?;
-    verifiers::account_cell::verify_account_capacity_not_decrease(input_account_cell, output_account_cell)?;
-    verifiers::account_cell::verify_account_cell_consistent_with_exception(
-        input_account_cell,
-        output_account_cell,
+
+    // If a user want to cancel account sale, the AccountCell should be in AccountStatus::Selling status.
+    verifiers::account_cell::verify_account_cell_status_update_correctly(
         &input_account_cell_witness_reader,
         &output_account_cell_witness_reader,
-        None,
-        vec![],
-        vec!["status"],
+        input_status,
+        output_status,
     )?;
+
+    debug!("Verify if the AccountCell is consistent in inputs and outputs and its status is updated correctly.");
+
+    verifiers::account_cell::verify_account_capacity_not_decrease(input_account_cell, output_account_cell)?;
+
+    if !owner_changed {
+        verifiers::account_cell::verify_account_cell_consistent_with_exception(
+            input_account_cell,
+            output_account_cell,
+            &input_account_cell_witness_reader,
+            &output_account_cell_witness_reader,
+            None,
+            vec![],
+            vec!["status"],
+        )?;
+    } else {
+        verifiers::account_cell::verify_account_cell_consistent_with_exception(
+            input_account_cell,
+            output_account_cell,
+            &input_account_cell_witness_reader,
+            &output_account_cell_witness_reader,
+            Some("owner"),
+            vec![],
+            vec!["status", "records"],
+        )?;
+
+        verifiers::account_cell::verify_account_witness_record_empty(
+            &output_account_cell_witness_reader,
+            output_account_cell,
+            Source::Output,
+        )?;
+    }
 
     Ok(())
 }
