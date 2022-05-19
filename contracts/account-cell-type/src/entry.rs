@@ -873,7 +873,7 @@ fn verify_multi_sign(input_account_index: usize) -> Result<(), Error> {
 
     let (digest, signatures) =
         sign_util::calc_digest_by_input_group(SignType::Secp256k1Blake160MultiSigAll, vec![input_account_index])?;
-    let lock_script = high_level::load_cell_lock(input_account_index, Source::Input)?;
+    let lock_script = cross_chain_lock();
     let args = lock_script.as_reader().args().raw_data().to_vec();
 
     debug!(
@@ -896,7 +896,7 @@ fn verify_multi_sign(input_account_index: usize) -> Result<(), Error> {
                     .expect("Load function 'validate_str' from library failed.")
             },
         };
-        let sign_lib = SignLib::new(Some(methods), None);
+        let sign_lib = SignLib::new(None, None, Some(methods));
 
         sign_lib
             .validate_str(

@@ -126,7 +126,7 @@ pub fn main() -> Result<(), Error> {
                 _ => unreachable!(),
             }
 
-            let sign_lib = SignLib::new(eth, tron);
+            let sign_lib = SignLib::new(eth, tron, None);
 
             debug!("Start iterating sub-account witnesses ...");
 

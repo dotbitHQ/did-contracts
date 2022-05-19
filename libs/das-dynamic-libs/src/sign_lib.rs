@@ -21,15 +21,17 @@ pub struct SignLibMethods {
 pub struct SignLib {
     eth: Option<SignLibMethods>,
     tron: Option<SignLibMethods>,
+    multi: Option<SignLibMethods>,
 }
 
 impl SignLib {
-    pub fn new(eth: Option<SignLibMethods>, tron: Option<SignLibMethods>) -> Self {
+    pub fn new(eth: Option<SignLibMethods>, tron: Option<SignLibMethods>, multi: Option<SignLibMethods>) -> Self {
         SignLib {
             // ckb_sign_hash_all: OnceCell::new(),
             // ckb_multi_sig_all: OnceCell::new(),
             eth,
             tron,
+            multi,
         }
     }
 
@@ -92,6 +94,19 @@ impl SignLib {
             }
             DasLockType::TRON => {
                 let lib = self.tron.as_ref().unwrap();
+                let func = &lib.c_validate_str;
+                unsafe {
+                    func(
+                        type_no,
+                        digest.as_ptr(),
+                        digest_len,
+                        lock_bytes.as_ptr(),
+                        lock_args.as_ptr(),
+                    )
+                }
+            }
+            DasLockType::CKBMulti => {
+                let lib = self.multi.as_ref().unwrap();
                 let func = &lib.c_validate_str;
                 unsafe {
                     func(
