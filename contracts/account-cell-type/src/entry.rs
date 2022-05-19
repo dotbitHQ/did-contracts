@@ -813,9 +813,9 @@ fn verify_account_is_locked_for_cross_chain<'a>(
     let data = util::load_cell_data(output_account_index, source)?;
     let expired_at = data_parser::account_cell::get_expired_at(data.as_slice());
     das_assert!(
-        current_timestamp + 90 * DAY_SEC <= expired_at,
+        current_timestamp + 30 * DAY_SEC <= expired_at,
         Error::CrossChainLockError,
-        "outputs[{}] Current time should be 90 days(in seconds) before the AccountCell.expired_at.(current_timestamp: {}, expired_at: {})",
+        "outputs[{}] Current time should be 30 days(in seconds) before the AccountCell.expired_at.(current_timestamp: {}, expired_at: {})",
         output_account_index,
         current_timestamp,
         expired_at
