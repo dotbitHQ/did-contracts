@@ -7,7 +7,10 @@ use das_types_std::constants::AccountStatus;
 use serde_json::json;
 
 fn before_each() -> TemplateGenerator {
-    let mut template = init("lock_account_for_cross_chain", Some("0x00"));
+    let mut template = init(
+        "lock_account_for_cross_chain",
+        Some("0x0000000000000011000000000000002200"),
+    );
 
     // inputs
     push_input_account_cell(
@@ -46,7 +49,10 @@ fn test_account_lock_account_for_cross_chain() {
 
 #[test]
 fn challenge_account_lock_account_for_cross_chain_account_multiple_cells() {
-    let mut template = init("lock_account_for_cross_chain", Some("0x00"));
+    let mut template = init(
+        "lock_account_for_cross_chain",
+        Some("0x0000000000000011000000000000002200"),
+    );
 
     // Simulate locking multiple AccountCells at one time.
     // inputs
@@ -100,7 +106,10 @@ fn challenge_account_lock_account_for_cross_chain_account_multiple_cells() {
 
 #[test]
 fn challenge_account_lock_account_for_cross_chain_account_with_other_cells() {
-    let mut template = init("lock_account_for_cross_chain", Some("0x00"));
+    let mut template = init(
+        "lock_account_for_cross_chain",
+        Some("0x0000000000000011000000000000002200"),
+    );
 
     template.push_contract_cell("balance-cell-type", false);
 
@@ -158,7 +167,10 @@ fn challenge_account_lock_account_for_cross_chain_account_not_modified() {
 
 #[test]
 fn challenge_account_lock_account_for_cross_chain_not_clear_records() {
-    let mut template = init("lock_account_for_cross_chain", Some("0x00"));
+    let mut template = init(
+        "lock_account_for_cross_chain",
+        Some("0x0000000000000011000000000000002200"),
+    );
 
     // inputs
     push_input_account_cell(
@@ -405,7 +417,10 @@ fn challenge_account_lock_account_for_cross_chain_modify_witness_last_edit_recor
 
 #[test]
 fn challenge_account_lock_account_for_cross_chain_is_near_expired() {
-    let mut template = init("lock_account_for_cross_chain", Some("0x00"));
+    let mut template = init(
+        "lock_account_for_cross_chain",
+        Some("0x0000000000000011000000000000002200"),
+    );
     let expired_at = TIMESTAMP + 90 * DAY_SEC - 1;
 
     // inputs
