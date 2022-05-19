@@ -35,6 +35,7 @@ pub fn main() -> Result<(), Error> {
         b"declare_reverse_record" => declare_reverse_record_to_semantic,
         b"redeclare_reverse_record" => redeclare_reverse_record_to_semantic,
         b"retract_reverse_record" => retract_reverse_record_to_semantic,
+        b"lock_account_for_cross_chain" => lock_account_for_cross_chain_to_semantic,
         _ => transfer_to_semantic,
     };
 
@@ -291,6 +292,19 @@ fn retract_reverse_record_to_semantic(parser: &WitnessesParser) -> Result<String
     let address = to_semantic_address(parser, lock.as_reader(), LockRole::Owner)?;
 
     Ok(format!("RETRACT REVERSE RECORDS ON {}", address))
+}
+
+fn lock_account_for_cross_chain_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
+    let type_id_table_reader = parser.configs.main()?.type_id_table();
+    let account_cells =
+        util::find_cells_by_type_id(ScriptType::Type, type_id_table_reader.account_cell(), Source::Input)?;
+
+    // Parse account from the data of the AccountCell in inputs.
+    let data_in_bytes = util::load_cell_data(account_cells[0], Source::Input)?;
+    let account_in_bytes = data_parser::account_cell::get_account(&data_in_bytes);
+    let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| Error::EIP712SerializationError)?;
+
+    Ok(format!("LOCK {} FOR CROSS CHAIN", account))
 }
 
 fn transfer_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
