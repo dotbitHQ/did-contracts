@@ -6,7 +6,7 @@ use das_core::{
 };
 use das_dynamic_libs::{
     constants::{DymLibSize, CKB_MULTI_LIB_CODE_HASH},
-    sign_lib::{SignLib, SignLibMethods},
+    sign_lib::{SignLib, SignLibWith1Methods},
 };
 use das_map::{map::Map, util as map_util};
 use das_types::{
@@ -871,10 +871,14 @@ fn verify_account_is_unlocked_for_cross_chain<'a>(
 fn verify_multi_sign(input_account_index: usize) -> Result<(), Error> {
     debug!("Verify the signatures of secp256k1-blake160-multisig-all ...");
 
-    let (digest, signatures) =
+    let (digest, _, witness_args_lock) =
         sign_util::calc_digest_by_input_group(SignType::Secp256k1Blake160MultiSigAll, vec![input_account_index])?;
     let lock_script = cross_chain_lock();
-    let args = lock_script.as_reader().args().raw_data().to_vec();
+    let mut args = lock_script.as_reader().args().raw_data().to_vec();
+    let since = high_level::load_input_since(input_account_index, Source::Input)?;
+
+    // It is the signature validation requirement.
+    args.extend_from_slice(&since.to_le_bytes());
 
     debug!(
         "Loading dynamic library by code_hash: 0x{}",
@@ -886,27 +890,16 @@ fn verify_multi_sign(input_account_index: usize) -> Result<(), Error> {
         let lib = context
             .load(&CKB_MULTI_LIB_CODE_HASH)
             .expect("The shared lib should be loaded successfully.");
-        let methods = SignLibMethods {
+        let methods = SignLibWith1Methods {
             c_validate: unsafe {
                 lib.get(b"validate")
                     .expect("Load function 'validate' from library failed.")
-            },
-            c_validate_str: unsafe {
-                lib.get(b"validate_str")
-                    .expect("Load function 'validate_str' from library failed.")
             },
         };
         let sign_lib = SignLib::new(None, None, Some(methods));
 
         sign_lib
-            .validate_str(
-                DasLockType::CKBMulti,
-                0i32,
-                digest.to_vec(),
-                digest.len(),
-                signatures,
-                args,
-            )
+            .validate(DasLockType::CKBMulti, 0i32, digest.to_vec(), witness_args_lock, args)
             .map_err(|err_code| {
                 warn!(
                     "inputs[{}] Verify signature failed, error code: {}",

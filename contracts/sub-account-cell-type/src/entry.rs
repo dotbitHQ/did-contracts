@@ -13,7 +13,7 @@ use das_core::{
 };
 use das_dynamic_libs::{
     constants::{DymLibSize, ETH_LIB_CODE_HASH, TRON_LIB_CODE_HASH},
-    sign_lib::{SignLib, SignLibMethods},
+    sign_lib::{SignLib, SignLibWith2Methods},
 };
 use das_types::{
     constants::AccountStatus,
@@ -95,7 +95,7 @@ pub fn main() -> Result<(), Error> {
                         let lib = eth_lib
                             .load(&ETH_LIB_CODE_HASH)
                             .expect("The shared lib should be loaded successfully.");
-                        eth = Some(SignLibMethods {
+                        eth = Some(SignLibWith2Methods {
                             c_validate: unsafe {
                                 lib.get(b"validate")
                                     .expect("Load function 'validate' from library failed.")
@@ -109,7 +109,7 @@ pub fn main() -> Result<(), Error> {
                         let lib = tron_lib
                             .load(&TRON_LIB_CODE_HASH)
                             .expect("The shared lib should be loaded successfully.");
-                        tron = Some(SignLibMethods {
+                        tron = Some(SignLibWith2Methods {
                             c_validate: unsafe {
                                 lib.get(b"validate")
                                     .expect("Load function 'validate' from library failed.")
