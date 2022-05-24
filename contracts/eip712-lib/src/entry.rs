@@ -1,7 +1,8 @@
 use super::eip712::{to_semantic_address, to_semantic_capacity, verify_eip712_hashes_if_has_das_lock};
-use alloc::{collections::BTreeMap, format, string::String};
+use alloc::{format, string::String};
 use ckb_std::{ckb_constants::Source, error::SysError, high_level};
 use das_core::{assert, constants::*, data_parser, debug, error::Error, util, warn, witness_parser::WitnessesParser};
+use das_map::{map::Map, util as map_util};
 use das_types::{
     constants::{DataType, LockRole},
     packed::*,
@@ -310,14 +311,14 @@ fn lock_account_for_cross_chain_to_semantic(parser: &WitnessesParser) -> Result<
 fn transfer_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
     fn sum_cells(parser: &WitnessesParser, source: Source) -> Result<String, Error> {
         let mut i = 0;
-        let mut capacity_map = BTreeMap::new();
+        let mut capacity_map = Map::new();
         loop {
             let ret = high_level::load_cell_capacity(i, source);
             match ret {
                 Ok(capacity) => {
                     let lock = Script::from(high_level::load_cell_lock(i, source).map_err(|e| Error::from(e))?);
                     let address = to_semantic_address(parser, lock.as_reader(), LockRole::Owner)?;
-                    util::map_add(&mut capacity_map, address, capacity);
+                    map_util::add(&mut capacity_map, address, capacity);
                 }
                 Err(SysError::IndexOutOfBound) => {
                     break;
@@ -332,7 +333,7 @@ fn transfer_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
 
         let mut comma = "";
         let mut ret = String::new();
-        for (address, capacity) in capacity_map {
+        for (address, capacity) in capacity_map.items {
             ret += format!("{}{}({})", comma, address, to_semantic_capacity(capacity)).as_str();
             comma = ", ";
         }
