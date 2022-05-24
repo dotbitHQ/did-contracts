@@ -3,6 +3,7 @@ use crate::util::{
     accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::TemplateGenerator,
     template_parser::*,
 };
+use das_types_std::constants::AccountStatus;
 use serde_json::json;
 
 fn push_simple_output_income_cell(template: &mut TemplateGenerator) {
@@ -361,4 +362,46 @@ fn challenge_account_renew_income_cell_capacity() {
     );
 
     challenge_tx(template.as_json(), Error::IncomeCellCapacityError)
+}
+
+#[test]
+fn challenge_account_renew_locked_for_cross_chain() {
+    let mut template = init_for_renew("renew_account", None);
+
+    // inputs
+    push_input_account_cell(
+        &mut template,
+        json!({
+            "lock": {
+                "owner_lock_args": OWNER
+            },
+            "data": {
+                "expired_at": TIMESTAMP
+            },
+            "witness": {
+                "status": (AccountStatus::LockedForCrossChain as u8)
+            }
+        }),
+    );
+    push_input_balance_cell(&mut template, 1_000_000_000_000, OWNER);
+
+    // outputs
+    push_output_account_cell(
+        &mut template,
+        json!({
+            "lock": {
+                "owner_lock_args": OWNER,
+            },
+            "data": {
+                "expired_at": TIMESTAMP + 31_536_000,
+            },
+            "witness": {
+                "status": (AccountStatus::LockedForCrossChain as u8)
+            }
+        }),
+    );
+    push_simple_output_income_cell(&mut template);
+    push_output_balance_cell(&mut template, 500_000_000_000, OWNER);
+
+    challenge_tx(template.as_json(), Error::AccountCellStatusLocked)
 }

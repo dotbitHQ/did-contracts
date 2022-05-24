@@ -184,6 +184,16 @@ pub fn main() -> Result<(), Error> {
                 vec![],
             )?;
 
+            debug!("Verify if the AccountCell is locked for cross chain.");
+
+            let status = u8::from(input_cell_witness_reader.status());
+            das_assert!(
+                status != (AccountStatus::LockedForCrossChain as u8),
+                Error::AccountCellStatusLocked,
+                "inputs[{}] The AccountCell has been locked for cross chain, it is required to unlock first for renew.",
+                input_account_cells[0]
+            );
+
             debug!("Verify if there is no redundant cells in inputs.");
 
             let sender_lock = util::derive_owner_lock_from_cell(input_account_cells[0], Source::Input)?;
