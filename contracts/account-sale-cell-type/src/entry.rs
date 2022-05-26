@@ -400,10 +400,10 @@ fn verify_account_cell_expiration_status_and_consistent<'a>(
 ) -> Result<(), Error> {
     debug!("Verify if the AccountCell is expired and its status is Selling.");
 
-    verifiers::account_cell::verify_account_expiration(config_account, input_account_cell, timestamp)?;
+    verifiers::account_cell::verify_account_expiration(config_account, input_account_cell, Source::Input, timestamp)?;
 
     // If a user want to cancel account sale, the AccountCell should be in AccountStatus::Selling status.
-    verifiers::account_cell::verify_account_cell_status_update_correctly(
+    verifiers::account_cell::verify_status_conversion(
         &input_account_cell_witness_reader,
         &output_account_cell_witness_reader,
         input_status,

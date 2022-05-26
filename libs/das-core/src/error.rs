@@ -147,7 +147,8 @@ pub enum Error {
     ReverseRecordCellCapacityError,
     ReverseRecordCellAccountError,
     ReverseRecordCellChangeError,
-    SubAccountCellSMTRootError = -50,
+    SubAccountFeatureNotEnabled = -50,
+    SubAccountCellSMTRootError,
     SubAccountWitnessSMTRootError,
     SubAccountCellCapacityError,
     SubAccountCellAccountIdError,
@@ -157,7 +158,8 @@ pub enum Error {
     SubAccountFieldNotEditable,
     SubAccountEditLockError,
     SubAccountJoinBetaError,
-    SubAccountProfitError, // -40
+    SubAccountProfitError,
+    // -40
     UpgradeForWitnessIsRequired,
     UpgradeDefaultValueOfNewFieldIsError,
     CrossChainLockError,

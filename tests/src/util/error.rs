@@ -48,12 +48,16 @@ pub enum Error {
     WitnessReadingError,
     WitnessActionDecodingError,
     WitnessDataParseLengthHeaderFailed,
-    WitnessDataReadDataBodyFailed, // 45
+    WitnessDataReadDataBodyFailed,
+    // 45
     WitnessDataDecodingError,
     WitnessDataHashOrTypeMissMatch,
     WitnessDataIndexMissMatch,
     WitnessEntityDecodingError,
-    WitnessEmpty, // 50
+    WitnessEmpty,
+    // 50
+    WitnessArgsInvalid,
+    WitnessArgsDecodingError,
     ApplyRegisterNeedWaitLonger = 60,
     ApplyRegisterHasTimeout,
     ApplyRegisterRefundNeedWaitLonger,
@@ -63,7 +67,8 @@ pub enum Error {
     PreRegisterApplyHashIsInvalid,
     PreRegisterCreateAtIsInvalid,
     PreRegisterPriceInvalid,
-    PreRegisterFoundUndefinedCharSet, // 75
+    PreRegisterFoundUndefinedCharSet,
+    // 75
     PreRegisterCKBInsufficient,
     PreRegisterAccountIsTooLong,
     PreRegisterAccountCharSetConflict,
@@ -147,7 +152,8 @@ pub enum Error {
     ReverseRecordCellCapacityError,
     ReverseRecordCellAccountError,
     ReverseRecordCellChangeError,
-    SubAccountCellSMTRootError = -50,
+    SubAccountFeatureNotEnabled = -50,
+    SubAccountCellSMTRootError,
     SubAccountWitnessSMTRootError,
     SubAccountCellCapacityError,
     SubAccountCellAccountIdError,
@@ -157,7 +163,8 @@ pub enum Error {
     SubAccountFieldNotEditable,
     SubAccountEditLockError,
     SubAccountJoinBetaError,
-    SubAccountProfitError, // -40
+    SubAccountProfitError,
+    // -40
     UpgradeForWitnessIsRequired,
     UpgradeDefaultValueOfNewFieldIsError,
     CrossChainLockError,

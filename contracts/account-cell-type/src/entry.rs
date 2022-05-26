@@ -80,13 +80,13 @@ pub fn main() -> Result<(), Error> {
                 )?;
             }
 
-            verifiers::account_cell::verify_account_cell_status(
+            verifiers::account_cell::verify_status(
                 &input_cell_witness_reader,
                 AccountStatus::Normal,
                 input_account_cells[0],
                 Source::Input,
             )?;
-            verifiers::account_cell::verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
+            verifiers::account_cell::verify_account_expiration(config_account, input_account_cells[0], Source::Input, timestamp)?;
 
             match action {
                 b"transfer_account" => {
@@ -383,12 +383,12 @@ pub fn main() -> Result<(), Error> {
                 "The AccountCell in inputs should not be in NORMAL status."
             );
 
-            let output_status = u8::from(output_cell_witness_reader.status());
-            das_assert!(
-                output_status == AccountStatus::Normal as u8,
-                Error::InvalidTransactionStructure,
-                "The AccountCell in outputs should be in NORMAL status."
-            );
+            verifiers::account_cell::verify_status(
+                &output_cell_witness_reader,
+                AccountStatus::Normal,
+                output_cells[0],
+                Source::Output,
+            )?;
 
             debug!("Verify if the AccountCell is actually expired.");
 
@@ -507,13 +507,13 @@ pub fn main() -> Result<(), Error> {
 
             debug!("Verify if the AccountCell is locked or expired.");
 
-            verifiers::account_cell::verify_account_cell_status(
+            verifiers::account_cell::verify_status(
                 &input_account_witness_reader,
                 AccountStatus::Normal,
                 input_account_cells[0],
                 Source::Input,
             )?;
-            verifiers::account_cell::verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
+            verifiers::account_cell::verify_account_expiration(config_account, input_account_cells[0], Source::Input, timestamp)?;
 
             debug!("Verify if every aspects of the AccountCell is consistent.");
 
@@ -584,6 +584,7 @@ pub fn main() -> Result<(), Error> {
             let sub_account_cell_type_id = config_main.type_id_table().sub_account_cell();
             let (input_sub_account_cells, output_sub_account_cells) =
                 util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, sub_account_cell_type_id)?;
+            // manual::verify_sub_account_cell_created
             verifiers::common::verify_cell_number_and_position(
                 "SubAccountCell",
                 &input_sub_account_cells,
@@ -677,7 +678,7 @@ pub fn main() -> Result<(), Error> {
                 output_account_cells[0],
             )?;
 
-            verifiers::account_cell::verify_account_cell_status(
+            verifiers::account_cell::verify_status(
                 &input_cell_witness_reader,
                 AccountStatus::LockedForCrossChain,
                 input_account_cells[0],

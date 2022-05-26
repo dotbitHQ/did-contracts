@@ -1,9 +1,8 @@
 use crate::{
-    assert, constants::DasLockType, constants::*, data_parser, error::Error, util, warn,
+    assert as das_assert, constants::DasLockType, constants::*, data_parser, error::Error, util, warn,
     witness_parser::WitnessesParser,
 };
-use alloc::borrow::ToOwned;
-use alloc::{boxed::Box, string::String, vec, vec::Vec};
+use alloc::{borrow::ToOwned, boxed::Box, string::String, vec, vec::Vec};
 use ckb_std::{ckb_constants::Source, high_level};
 use core::convert::TryFrom;
 use das_types::{constants::*, mixer::AccountCellDataReaderMixer, packed::*, util as das_types_util};
@@ -17,7 +16,7 @@ pub fn verify_unlock_role(action: &[u8], params: &[Bytes]) -> Result<(), Error> 
 
     debug!("Check if the transaction is unlocked by expected role.");
 
-    assert!(
+    das_assert!(
         params.len() > 0,
         Error::AccountCellPermissionDenied,
         "This transaction should have a role param."
@@ -27,7 +26,7 @@ pub fn verify_unlock_role(action: &[u8], params: &[Bytes]) -> Result<(), Error> 
     // It is a convention that the param of role should always be the last param.
     let current_role = params[params.len() - 1].raw_data()[0];
 
-    assert!(
+    das_assert!(
         current_role == required_role as u8,
         Error::AccountCellPermissionDenied,
         "This transaction should be unlocked by the {:?}'s signature.",
@@ -39,17 +38,15 @@ pub fn verify_unlock_role(action: &[u8], params: &[Bytes]) -> Result<(), Error> 
 
 pub fn verify_account_expiration(
     config: ConfigCellAccountReader,
-    account_cell_index: usize,
+    index: usize,
+    source: Source,
     current_timestamp: u64,
 ) -> Result<(), Error> {
-    let data = util::load_cell_data(account_cell_index, Source::Input)?;
+    debug!("{:?}[{}] Verify if the AccountCell is expired.", source, index);
+
+    let data = util::load_cell_data(index, source)?;
     let expired_at = data_parser::account_cell::get_expired_at(data.as_slice());
     let expiration_grace_period = u32::from(config.expiration_grace_period()) as u64;
-
-    debug!(
-        "Check if AccountCell is expired. (current: {}, expired_at: {}, expiration_grace_period: {})",
-        current_timestamp, expired_at, expiration_grace_period
-    );
 
     if current_timestamp > expired_at {
         if current_timestamp - expired_at > expiration_grace_period {
@@ -81,7 +78,7 @@ pub fn verify_account_lock_consistent(
         let output_args = output_lock.as_reader().args().raw_data();
 
         if lock == "owner" {
-            assert!(
+            das_assert!(
                 data_parser::das_lock_args::get_owner_type(input_args)
                     != data_parser::das_lock_args::get_owner_type(output_args)
                     || data_parser::das_lock_args::get_owner_lock_args(input_args)
@@ -102,13 +99,13 @@ pub fn verify_account_lock_consistent(
             } else {
                 output_lock_type == input_lock_type
             };
-            assert!(
+            das_assert!(
                 lock_type_consistent && input_pubkey_hash == output_pubkey_hash,
                 Error::AccountCellOwnerLockShouldNotBeModified,
                 "The owner lock args in AccountCell.lock should be consistent in inputs and outputs."
             );
 
-            assert!(
+            das_assert!(
                 data_parser::das_lock_args::get_manager_type(input_args)
                     != data_parser::das_lock_args::get_manager_type(output_args)
                     || data_parser::das_lock_args::get_manager_lock_args(input_args)
@@ -123,7 +120,7 @@ pub fn verify_account_lock_consistent(
         let output_lock = high_level::load_cell_lock(output_account_index, Source::Output).map_err(Error::from)?;
         let output_args = output_lock.as_reader().args().raw_data();
 
-        assert!(
+        das_assert!(
             util::is_type_id_equal(input_lock.as_reader(), output_lock.as_reader()),
             Error::CellLockCanNotBeModified,
             "The AccountCell.lock should be consistent in inputs and outputs."
@@ -141,7 +138,7 @@ pub fn verify_account_lock_consistent(
                 } else {
                     output_lock_type == input_lock_type
                 };
-                assert!(
+                das_assert!(
                     lock_type_consistent && input_pubkey_hash == output_pubkey_hash,
                     Error::CellLockCanNotBeModified,
                     "The pubkey hash of AccountCell's owner should be consistent in inputs and outputs."
@@ -166,21 +163,21 @@ pub fn verify_account_data_consistent(
     let input_data = util::load_cell_data(input_account_index, Source::Input)?;
     let output_data = util::load_cell_data(output_account_index, Source::Output)?;
 
-    assert!(
+    das_assert!(
         data_parser::account_cell::get_id(&input_data) == data_parser::account_cell::get_id(&output_data),
         Error::AccountCellDataNotConsistent,
         "The data.id field of inputs[{}] and outputs[{}] should be the same.",
         input_account_index,
         output_account_index
     );
-    assert!(
+    das_assert!(
         data_parser::account_cell::get_next(&input_data) == data_parser::account_cell::get_next(&output_data),
         Error::AccountCellDataNotConsistent,
         "The data.next field of inputs[{}] and outputs[{}] should be the same.",
         input_account_index,
         output_account_index
     );
-    assert!(
+    das_assert!(
         data_parser::account_cell::get_account(&input_data) == data_parser::account_cell::get_account(&output_data),
         Error::AccountCellDataNotConsistent,
         "The data.account field of inputs[{}] and outputs[{}] should be the same.",
@@ -191,7 +188,7 @@ pub fn verify_account_data_consistent(
         let input_expired_at = data_parser::account_cell::get_expired_at(&input_data);
         let output_expired_at = data_parser::account_cell::get_expired_at(&output_data);
 
-        assert!(
+        das_assert!(
             input_expired_at == output_expired_at,
             Error::AccountCellDataNotConsistent,
             "The data.expired_at field of inputs[{}] and outputs[{}] should be the same. (inputs: {}, outputs: {})",
@@ -215,7 +212,7 @@ pub fn verify_account_capacity_not_decrease(
     let output = high_level::load_cell_capacity(output_account_index, Source::Output).map_err(Error::from)?;
 
     // ⚠️ Equal is not allowed here because we want to avoid abuse cell.
-    assert!(
+    das_assert!(
         input <= output,
         Error::AccountCellChangeCapacityError,
         "The capacity of the AccountCell should be consistent or increased.(input: {}, output: {})",
@@ -235,10 +232,10 @@ pub fn verify_account_witness_consistent<'a>(
 ) -> Result<(), Error> {
     debug!("Check if AccountCell.witness is consistent in input and output.");
 
-    macro_rules! assert_field_consistent {
+    macro_rules! das_assert_field_consistent {
         ($input_witness_reader:expr, $output_witness_reader:expr, $( ($field:ident, $field_name:expr) ),*) => {
             $(
-                assert!(
+                das_assert!(
                     util::is_reader_eq(
                         $input_witness_reader.$field(),
                         $output_witness_reader.$field()
@@ -253,11 +250,11 @@ pub fn verify_account_witness_consistent<'a>(
         };
     }
 
-    macro_rules! assert_field_consistent_if_not_except {
+    macro_rules! das_assert_field_consistent_if_not_except {
         ($input_witness_reader:expr, $output_witness_reader:expr, $( ($field:ident, $field_name:expr) ),*) => {
             $(
                 if !except.contains(&$field_name) {
-                    assert_field_consistent!(
+                    das_assert_field_consistent!(
                         $input_witness_reader,
                         $output_witness_reader,
                         ($field, $field_name)
@@ -267,7 +264,7 @@ pub fn verify_account_witness_consistent<'a>(
         };
     }
 
-    assert_field_consistent!(
+    das_assert_field_consistent!(
         input_witness_reader,
         output_witness_reader,
         (id, "id"),
@@ -275,7 +272,7 @@ pub fn verify_account_witness_consistent<'a>(
         (registered_at, "registered_at")
     );
 
-    assert_field_consistent_if_not_except!(
+    das_assert_field_consistent_if_not_except!(
         input_witness_reader,
         output_witness_reader,
         (records, "records"),
@@ -290,7 +287,7 @@ pub fn verify_account_witness_consistent<'a>(
         return Err(Error::InvalidTransactionStructure);
     } else if input_witness_reader.version() == 2 {
         // The output witness should be upgraded to the latest version.
-        assert!(
+        das_assert!(
             output_witness_reader.version() == 3,
             Error::UpgradeForWitnessIsRequired,
             "The witness of outputs[{}] should be upgraded to latest version.",
@@ -303,7 +300,7 @@ pub fn verify_account_witness_consistent<'a>(
 
         // If field enable_sub_account is excepted, skip verifying their defaults.
         if !except.contains(&"enable_sub_account") {
-            assert!(
+            das_assert!(
                 u8::from(output_witness_reader.enable_sub_account()) == 0
                     && u64::from(output_witness_reader.renew_sub_account_price()) == 0,
                 Error::UpgradeDefaultValueOfNewFieldIsError,
@@ -320,7 +317,7 @@ pub fn verify_account_witness_consistent<'a>(
             .try_into_latest()
             .map_err(|_| Error::NarrowMixerTypeFailed)?;
 
-        assert_field_consistent_if_not_except!(
+        das_assert_field_consistent_if_not_except!(
             input_witness_reader,
             output_witness_reader,
             (enable_sub_account, "enable_sub_account"),
@@ -344,7 +341,7 @@ pub fn verify_account_witness_record_empty<'a>(
     } else {
         let records = account_cell_witness_reader.records();
 
-        assert!(
+        das_assert!(
             records.len() == 0,
             Error::AccountCellRecordNotEmpty,
             "{:?}[{}]The AccountCell.witness.records should be empty.",
@@ -356,7 +353,7 @@ pub fn verify_account_witness_record_empty<'a>(
     Ok(())
 }
 
-pub fn verify_account_cell_status_update_correctly<'a>(
+pub fn verify_status_conversion<'a>(
     input_account_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
     output_account_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
     expected_input_status: AccountStatus,
@@ -369,14 +366,14 @@ pub fn verify_account_cell_status_update_correctly<'a>(
         let input_status = u8::from(input_account_cell_witness_reader.status());
         let output_status = u8::from(output_account_cell_witness_reader.status());
 
-        assert!(
+        das_assert!(
             input_status == expected_input_status as u8,
             Error::AccountCellStatusLocked,
             "The AccountCell.witness.status should be {:?} in inputs, received {}",
             expected_input_status,
             input_status
         );
-        assert!(
+        das_assert!(
             output_status == expected_output_status as u8,
             Error::AccountCellStatusLocked,
             "The AccountCell.witness.status should be {:?} in outputs, received {}",
@@ -388,25 +385,63 @@ pub fn verify_account_cell_status_update_correctly<'a>(
     Ok(())
 }
 
-pub fn verify_account_cell_status<'a>(
+pub fn verify_status<'a>(
     account_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
     expected_status: AccountStatus,
     index: usize,
     source: Source,
 ) -> Result<(), Error> {
+    debug!(
+        "{:?}[{}] Verify if AccountCell is in {:?} status.",
+        source, index, expected_status
+    );
+
     if account_cell_witness_reader.version() <= 1 {
         // CAREFUL! The early versions will no longer be supported.
         return Err(Error::InvalidTransactionStructure);
     } else {
         let account_cell_status = u8::from(account_cell_witness_reader.status());
 
-        assert!(
+        das_assert!(
             account_cell_status == expected_status as u8,
             Error::AccountCellStatusLocked,
-            "{:?}[{}]The AccountCell.witness.status should be {:?}.",
+            "{:?}[{}] The AccountCell.witness.status should be {:?}.",
             source,
             index,
             expected_status
+        );
+    }
+
+    Ok(())
+}
+
+pub fn verify_sub_account_enabled<'a>(
+    account_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
+    index: usize,
+    source: Source,
+) -> Result<(), Error> {
+    debug!(
+        "{:?}[{}] Verify if the AccountCell has enabled sub-account feature.",
+        source, index
+    );
+
+    if account_cell_witness_reader.version() <= 1 {
+        // CAREFUL! The early versions will no longer be supported.
+        return Err(Error::InvalidTransactionStructure);
+    } else if account_cell_witness_reader.version() == 2 {
+        return Err(Error::SubAccountFeatureNotEnabled);
+    } else {
+        let reader = account_cell_witness_reader
+            .try_into_latest()
+            .map_err(|_| Error::NarrowMixerTypeFailed)?;
+        let enable_sub_account = u8::from(reader.enable_sub_account());
+
+        das_assert!(
+            enable_sub_account == 1,
+            Error::SubAccountFeatureNotEnabled,
+            "{:?}[{}]The AccountCell.witness.enable_sub_account should be 1.",
+            source,
+            index
         );
     }
 
@@ -506,7 +541,7 @@ pub fn verify_account_chars(parser: &WitnessesParser, chars_reader: AccountChars
                         prev_char_set_name = Some(char_set_index);
                     } else {
                         let pre_char_set_index = prev_char_set_name.as_ref().unwrap();
-                        assert!(
+                        das_assert!(
                             pre_char_set_index == &char_set_index,
                             Error::PreRegisterAccountCharSetConflict,
                             "Non-global CharSet[{}] has been used by account, so CharSet[{}] can not be used together.",
@@ -551,7 +586,7 @@ pub fn verify_account_chars(parser: &WitnessesParser, chars_reader: AccountChars
             }
         }
 
-        assert!(
+        das_assert!(
             found,
             Error::PreRegisterAccountCharIsInvalid,
             "The character {:?}(utf-8) can not be used in account, because it is not contained by CharSet[{}].",
@@ -572,7 +607,7 @@ pub fn verify_account_chars_max_length(
     let max_chars_length = u32::from(config.max_length());
     let account_chars_length = chars_reader.len() as u32;
 
-    assert!(
+    das_assert!(
         max_chars_length >= account_chars_length,
         Error::PreRegisterAccountIsTooLong,
         "The maximum length of account is {}, but {} found.",
@@ -588,7 +623,7 @@ pub fn verify_records_keys(parser: &WitnessesParser, records: RecordsReader) -> 
     let record_key_namespace = parser.configs.record_key_namespace()?;
     let records_max_size = u32::from(config_account.record_size_limit()) as usize;
 
-    assert!(
+    das_assert!(
         records.total_size() <= records_max_size,
         Error::AccountCellRecordSizeTooLarge,
         "The total size of all records can not be more than {} bytes.",
@@ -621,7 +656,7 @@ pub fn verify_records_keys(parser: &WitnessesParser, records: RecordsReader) -> 
         if record_type == b"custom_key" {
             // CAREFUL Triple check
             for char in record_key.iter() {
-                assert!(
+                das_assert!(
                     CUSTOM_KEYS_NAMESPACE.contains(char),
                     Error::AccountCellRecordKeyInvalid,
                     "The keys in custom_key should only contain digits, lowercase alphabet and underline."
@@ -641,7 +676,7 @@ pub fn verify_records_keys(parser: &WitnessesParser, records: RecordsReader) -> 
         }
 
         if !is_valid {
-            assert!(
+            das_assert!(
                 false,
                 Error::AccountCellRecordKeyInvalid,
                 "Account cell record key is invalid: {:?}",

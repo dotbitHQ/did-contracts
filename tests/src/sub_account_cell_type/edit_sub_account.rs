@@ -7,6 +7,18 @@ use serde_json::json;
 fn before_each() -> TemplateGenerator {
     let mut template = init_edit("edit_sub_account", None);
 
+    push_dep_account_cell(
+        &mut template,
+        json!({
+            "data": {
+                "account": ACCOUNT_1,
+            },
+            "witness": {
+                "enable_sub_account": 1,
+            }
+        }),
+    );
+
     template.restore_sub_account(vec![
         json!({
             "lock": {
@@ -41,20 +53,41 @@ fn before_each() -> TemplateGenerator {
     ]);
 
     // inputs
+    push_simple_input_sub_account_cell(&mut template, 0);
+
+    template
+}
+
+fn push_simple_input_sub_account_cell(template: &mut TemplateGenerator, profit: u64) {
     let current_root = template.smt_with_history.current_root();
     push_input_sub_account_cell(
-        &mut template,
+        template,
         json!({
             "type": {
                 "args": ACCOUNT_1
             },
             "data": {
-                "root": String::from("0x") + &hex::encode(&current_root)
+                "root": String::from("0x") + &hex::encode(&current_root),
+                "profit": profit
             }
         }),
     );
+}
 
-    template
+fn push_simple_output_sub_account_cell(template: &mut TemplateGenerator, profit: u64) {
+    let current_root = template.smt_with_history.current_root();
+    push_output_sub_account_cell(
+        template,
+        json!({
+            "type": {
+                "args": ACCOUNT_1
+            },
+            "data": {
+                "root": String::from("0x") + &hex::encode(&current_root),
+                "profit": profit
+            }
+        }),
+    );
 }
 
 #[test]
@@ -126,20 +159,128 @@ fn test_sub_account_edit() {
             ]
         }),
     );
-    let current_root = template.smt_with_history.current_root();
-    push_output_sub_account_cell(
+    push_simple_output_sub_account_cell(&mut template, 0);
+
+    test_tx(template.as_json())
+}
+
+#[test]
+fn challenge_sub_account_edit_parent_expired() {
+    let mut template = init_edit("edit_sub_account", None);
+
+    push_dep_account_cell(
         &mut template,
         json!({
-            "type": {
-                "args": ACCOUNT_1
+            "data": {
+                "account": ACCOUNT_1,
             },
             "data": {
-                "root": String::from("0x") + &hex::encode(&current_root)
+                // Simulate the parent AccountCell has been expired.
+                "expired_at": TIMESTAMP - 1
+            },
+            "witness": {
+                "enable_sub_account": 1,
             }
         }),
     );
 
-    test_tx(template.as_json())
+    template.restore_sub_account(vec![
+        json!({
+            "lock": {
+                "owner_lock_args": OWNER_1,
+                "manager_lock_args": MANAGER_1
+            },
+            "account": SUB_ACCOUNT_1,
+            "suffix": SUB_ACCOUNT_SUFFIX,
+            "registered_at": TIMESTAMP,
+            "expired_at": u64::MAX,
+        }),
+    ]);
+
+    // inputs
+    push_simple_input_sub_account_cell(&mut template, 0);
+
+    // outputs
+    template.push_sub_account_witness(
+        SubAccountActionType::Edit,
+        json!({
+            "sign_role": "0x00",
+            "sub_account": {
+                "lock": {
+                    "owner_lock_args": OWNER_1,
+                    "manager_lock_args": MANAGER_1
+                },
+                "account": SUB_ACCOUNT_1,
+                "suffix": SUB_ACCOUNT_SUFFIX,
+                "registered_at": TIMESTAMP,
+                "expired_at": u64::MAX,
+            },
+            "edit_key": "manager",
+            // Simulate modifying manager.
+            "edit_value": gen_das_lock_args(OWNER_1, Some(MANAGER_2))
+        }),
+    );
+    push_simple_output_sub_account_cell(&mut template, 0);
+
+    challenge_tx(template.as_json(), Error::AccountCellInExpirationGracePeriod)
+}
+
+#[test]
+fn challenge_sub_account_edit_parent_not_enable_feature() {
+    let mut template = init_edit("edit_sub_account", None);
+
+    push_dep_account_cell(
+        &mut template,
+        json!({
+            "data": {
+                "account": ACCOUNT_1,
+            },
+            "witness": {
+                // Simulate the parent AccountCell has not enabled the sub-account feature.
+                "enable_sub_account": 0,
+            }
+        }),
+    );
+
+    template.restore_sub_account(vec![
+        json!({
+            "lock": {
+                "owner_lock_args": OWNER_1,
+                "manager_lock_args": MANAGER_1
+            },
+            "account": SUB_ACCOUNT_1,
+            "suffix": SUB_ACCOUNT_SUFFIX,
+            "registered_at": TIMESTAMP,
+            "expired_at": u64::MAX,
+        }),
+    ]);
+
+    // inputs
+    push_simple_input_sub_account_cell(&mut template, 0);
+
+    // outputs
+    template.push_sub_account_witness(
+        SubAccountActionType::Edit,
+        json!({
+            "sign_role": "0x00",
+            "sub_account": {
+                "lock": {
+                    "owner_lock_args": OWNER_1,
+                    "manager_lock_args": MANAGER_1
+                },
+                "account": SUB_ACCOUNT_1,
+                "suffix": SUB_ACCOUNT_SUFFIX,
+                "registered_at": TIMESTAMP,
+                "expired_at": u64::MAX,
+            },
+            "edit_key": "manager",
+            // Simulate modifying manager.
+            "edit_value": gen_das_lock_args(OWNER_1, Some(MANAGER_2))
+        }),
+    );
+    push_simple_output_sub_account_cell(&mut template, 0);
+
+    challenge_tx(template.as_json(), Error::SubAccountFeatureNotEnabled)
 }
 
 #[test]
@@ -423,7 +564,6 @@ fn challenge_sub_account_profit_changed() {
                 "expired_at": u64::MAX,
             },
             "edit_key": "manager",
-            // Simulate modifying manager.
             "edit_value": gen_das_lock_args(OWNER_1, Some(MANAGER_2))
         }),
     );
@@ -436,10 +576,11 @@ fn challenge_sub_account_profit_changed() {
             },
             "data": {
                 "root": String::from("0x") + &hex::encode(&current_root),
+                // Simulate modifying profit of the SubAccountCell.
                 "profit": 1
             }
         }),
     );
 
-    challenge_tx(template.as_json(), Error::SubAccountProfitError)
+    challenge_tx(template.as_json(), Error::SubAccountCellConsistencyError)
 }

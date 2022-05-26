@@ -3,6 +3,23 @@ use alloc::format;
 use ckb_std::{ckb_constants::Source, high_level};
 use core::cmp::Ordering;
 
+pub fn verify_cell_dep_number(cell_name: &str, current_deps: &[usize], expected_deps_len: usize) -> Result<(), Error> {
+    debug!("Verify if the number of {}s is correct.", cell_name);
+
+    das_assert!(
+        current_deps.len() == expected_deps_len,
+        Error::InvalidTransactionStructure,
+        "{}",
+        match expected_deps_len {
+            0 => format!("There should be none {} in inputs.", cell_name),
+            1 => format!("There should be only one {} in inputs.", cell_name),
+            _ => format!("There should be {} {}s in inputs.", expected_deps_len, cell_name),
+        }
+    );
+
+    Ok(())
+}
+
 pub fn verify_cell_number(
     cell_name: &str,
     current_inputs: &[usize],
