@@ -421,7 +421,7 @@ fn challenge_account_lock_account_for_cross_chain_is_near_expired() {
         "lock_account_for_cross_chain",
         Some("0x0000000000000011000000000000002200"),
     );
-    let expired_at = TIMESTAMP + 90 * DAY_SEC - 1;
+    let expired_at = TIMESTAMP + 30 * DAY_SEC - 1;
 
     // inputs
     push_input_account_cell(
