@@ -9,15 +9,15 @@ pub struct DasSortedList {
 
 impl DasSortedList {
     pub fn new(mut items: Vec<Vec<u8>>) -> Self {
-        if items.len() > 0 {
-            items.sort_by(cmp);
+        if !items.is_empty() {
+            items.sort_by(|a, b| cmp(a, b));
         }
 
         DasSortedList { items }
     }
 
     pub fn items(&self) -> &[Vec<u8>] {
-        return &self.items;
+        &self.items
     }
 
     pub fn cmp_order_with(&self, targets: &[Vec<u8>]) -> bool {
@@ -40,21 +40,18 @@ mod test {
     #[test]
     fn test_sorted_list_cmp() {
         let raw: Vec<&str> = vec![
-            "0x1000", "0x2000", "0x1100", "0x1200", "0xa000", "0xb000", "0xa100", "0xb100",
-            "0x1234", "0x0000", "0x0001",
+            "0x1000", "0x2000", "0x1100", "0x1200", "0xa000", "0xb000", "0xa100", "0xb100", "0x1234", "0x0000",
+            "0x0001",
         ];
         let data = raw.into_iter().map(|item| hex_to_bytes(item)).collect();
 
         let sorted_list = DasSortedList::new(data);
 
         let expected_raw: Vec<&str> = vec![
-            "0x0000", "0x0001", "0x1000", "0x1100", "0x1200", "0x1234", "0x2000", "0xa000",
-            "0xa100", "0xb000", "0xb100",
+            "0x0000", "0x0001", "0x1000", "0x1100", "0x1200", "0x1234", "0x2000", "0xa000", "0xa100", "0xb000",
+            "0xb100",
         ];
-        let expected_data: Vec<Vec<u8>> = expected_raw
-            .into_iter()
-            .map(|item| hex_to_bytes(item))
-            .collect();
+        let expected_data: Vec<Vec<u8>> = expected_raw.into_iter().map(|item| hex_to_bytes(item)).collect();
 
         assert!(sorted_list.cmp_order_with(&expected_data));
     }

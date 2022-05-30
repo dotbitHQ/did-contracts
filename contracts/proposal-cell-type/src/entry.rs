@@ -63,12 +63,7 @@ pub fn main() -> Result<(), Error> {
                 );
             }
 
-            verifiers::common::verify_created_cell_in_correct_position(
-                "ProposalCell",
-                &input_cells,
-                &output_cells,
-                None,
-            )?;
+            verifiers::common::verify_cell_number("ProposalCell", &input_cells, 0, &output_cells, 1)?;
             verifiers::misc::verify_always_success_lock(output_cells[0], Source::Output)?;
 
             let dep_cell_witness;
@@ -117,12 +112,7 @@ pub fn main() -> Result<(), Error> {
             let config_profit_rate = parser.configs.profit_rate()?;
             let config_proposal_reader = parser.configs.proposal()?;
 
-            verifiers::common::verify_removed_cell_in_correct_position(
-                "ProposalCell",
-                &input_cells,
-                &output_cells,
-                None,
-            )?;
+            verifiers::common::verify_cell_number("ProposalCell", &input_cells, 1, &output_cells, 0)?;
 
             let input_cell_witness = util::parse_proposal_cell_witness(&parser, input_cells[0], Source::Input)?;
             let input_cell_witness_reader = input_cell_witness.as_reader();
@@ -157,12 +147,7 @@ pub fn main() -> Result<(), Error> {
             parser.parse_cell()?;
             let config_proposal_reader = parser.configs.proposal()?;
 
-            verifiers::common::verify_removed_cell_in_correct_position(
-                "ProposalCell",
-                &input_cells,
-                &output_cells,
-                None,
-            )?;
+            verifiers::common::verify_cell_number("ProposalCell", &input_cells, 1, &output_cells, 0)?;
 
             debug!("Check if ProposalCell can be recycled.");
 

@@ -5,9 +5,9 @@ pub type DymLibSize = [u8; 128 * 1024];
 #[derive(Debug, PartialEq, Copy, Clone)]
 #[repr(u8)]
 pub enum DasLockType {
-    CKBSingle,
-    CKBMulti,
     XXX,
+    CKBMulti,
+    CKBSingle,
     ETH,
     TRON,
     ETHTypedData,
@@ -19,9 +19,9 @@ impl TryFrom<u8> for DasLockType {
 
     fn try_from(v: u8) -> Result<Self, Self::Error> {
         match v {
-            x if x == DasLockType::CKBSingle as u8 => Ok(DasLockType::CKBSingle),
-            x if x == DasLockType::CKBMulti as u8 => Ok(DasLockType::CKBMulti),
             x if x == DasLockType::XXX as u8 => Ok(DasLockType::XXX),
+            x if x == DasLockType::CKBMulti as u8 => Ok(DasLockType::CKBMulti),
+            x if x == DasLockType::CKBSingle as u8 => Ok(DasLockType::CKBSingle),
             x if x == DasLockType::ETH as u8 => Ok(DasLockType::ETH),
             x if x == DasLockType::TRON as u8 => Ok(DasLockType::TRON),
             x if x == DasLockType::ETHTypedData as u8 => Ok(DasLockType::ETHTypedData),
@@ -30,6 +30,18 @@ impl TryFrom<u8> for DasLockType {
         }
     }
 }
+
+#[cfg(feature = "mainnet")]
+pub const CKB_MULTI_LIB_CODE_HASH: [u8; 32] = [
+    92, 242, 239, 171, 70, 16, 214, 147, 41, 174, 69, 38, 201, 116, 104, 179, 105, 177, 196, 174, 158, 76, 242, 29,
+    228, 181, 153, 93, 6, 227, 169, 197,
+];
+
+#[cfg(not(feature = "mainnet"))]
+pub const CKB_MULTI_LIB_CODE_HASH: [u8; 32] = [
+    103, 34, 170, 109, 16, 228, 36, 225, 200, 32, 117, 90, 105, 190, 113, 36, 46, 167, 229, 138, 143, 115, 94, 145, 61,
+    152, 187, 231, 33, 188, 236, 226,
+];
 
 #[cfg(feature = "mainnet")]
 pub const ETH_LIB_CODE_HASH: [u8; 32] = [

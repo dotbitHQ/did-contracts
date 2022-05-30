@@ -18,7 +18,7 @@ pub enum ScriptType {
     Type,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TypeScript {
     AccountCellType,
     AccountSaleCellType,
@@ -32,6 +32,7 @@ pub enum TypeScript {
     ProposalCellType,
     ReverseRecordCellType,
     SubAccountCellType,
+    EIP712Lib,
 }
 
 #[derive(Debug)]
@@ -48,6 +49,14 @@ pub enum OracleCellType {
     Quote = 0,
     Time = 1,
     Height = 2,
+}
+
+#[derive(Debug, PartialEq, Copy, Clone)]
+#[repr(u8)]
+pub enum SignType {
+    Secp256k1Blake160SignhashAll,
+    Secp256k1Blake160MultiSigAll,
+    EIP712Custom,
 }
 
 pub const CKB_HASH_DIGEST: usize = 32;
@@ -72,6 +81,11 @@ pub const DAYS_OF_YEAR: u64 = 365;
 pub const YEAR_SEC: u64 = DAY_SEC * DAYS_OF_YEAR;
 
 pub const PRE_ACCOUNT_CELL_TIMEOUT: u64 = DAY_SEC;
+
+pub const CROSS_CHAIN_BLACK_ARGS: [u8; 42] = [
+    3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0,
+];
 
 pub fn super_lock() -> Script {
     #[cfg(feature = "dev")]
@@ -197,6 +211,31 @@ pub fn das_lock() -> Script {
         ],
         hash_type: ScriptHashType::Type,
         args: Vec::new(),
+    };
+
+    #[cfg(feature = "mainnet")]
+    let das_lock: ScriptLiteral = ScriptLiteral {
+        code_hash: [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ],
+        hash_type: ScriptHashType::Type,
+        args: Vec::new(),
+    };
+
+    util::script_literal_to_script(das_lock)
+}
+
+pub fn cross_chain_lock() -> Script {
+    #[cfg(not(feature = "mainnet"))]
+    let das_lock: ScriptLiteral = ScriptLiteral {
+        code_hash: [
+            92, 80, 105, 235, 8, 87, 239, 198, 94, 27, 202, 12, 7, 223, 52, 195, 22, 99, 179, 98, 47, 211, 135, 108,
+            135, 99, 32, 252, 150, 52, 226, 168,
+        ],
+        hash_type: ScriptHashType::Type,
+        args: vec![
+            7, 189, 69, 77, 230, 250, 195, 106, 195, 109, 54, 2, 32, 199, 40, 195, 154, 36, 73, 87,
+        ],
     };
 
     #[cfg(feature = "mainnet")]

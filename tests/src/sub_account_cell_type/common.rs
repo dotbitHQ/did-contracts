@@ -36,8 +36,6 @@ pub fn init_create(action: &str, params_opt: Option<&str>) -> TemplateGenerator 
 pub fn init_edit(action: &str, params_opt: Option<&str>) -> TemplateGenerator {
     let mut template = init(action, params_opt);
 
-    template.push_contract_cell("account-cell-type", false);
-
     template.push_shared_lib_cell("eth_sign.so", false);
     template.push_shared_lib_cell("ckb_sign.so", false);
     template.push_shared_lib_cell("secp256k1_data", true);

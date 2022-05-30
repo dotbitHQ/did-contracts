@@ -1,24 +1,15 @@
-use alloc::{boxed::Box, format, string::String, vec};
+use alloc::{boxed::Box, vec};
 use ckb_std::{
     ckb_constants::Source,
     ckb_types::{packed as ckb_packed, prelude::*},
     high_level,
 };
 use das_core::{
-    assert, assert_lock_equal,
-    constants::*,
-    data_parser, debug,
-    eip712::{to_semantic_capacity, verify_eip712_hashes},
-    error::Error,
-    util, verifiers, warn,
+    assert, assert_lock_equal, constants::*, data_parser, debug, error::Error, util, verifiers, warn,
     witness_parser::WitnessesParser,
 };
 use das_map::{map::Map, util as map_util};
-use das_types::{
-    constants::{AccountStatus, DataType},
-    mixer::*,
-    packed::*,
-};
+use das_types::{constants::AccountStatus, mixer::*, packed::*};
 
 pub fn main() -> Result<(), Error> {
     debug!("====== Running account-sale-cell-type ======");
@@ -31,7 +22,6 @@ pub fn main() -> Result<(), Error> {
     let action = action_cp.as_slice();
 
     util::is_system_off(&parser)?;
-    verifiers::account_cell::verify_unlock_role(action, &parser.params)?;
 
     debug!(
         "Route to {:?} action ...",
@@ -51,17 +41,13 @@ pub fn main() -> Result<(), Error> {
             let (input_account_cells, output_account_cells) =
                 util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, account_cell_type_id)?;
             let (input_sale_cells, output_sale_cells) = util::load_self_cells_in_inputs_and_outputs()?;
-
-            assert!(
-                input_account_cells.len() == 1 && output_account_cells.len() == 1,
-                Error::InvalidTransactionStructure,
-                "There should be 1 AccountCell in both inputs and outputs."
-            );
-            assert!(
-                input_account_cells[0] == 0 && output_account_cells[0] == 0,
-                Error::InvalidTransactionStructure,
-                "The AccountCells should only appear in inputs[0] and outputs[0]."
-            );
+            verifiers::common::verify_cell_number_and_position(
+                "AccountCell",
+                &input_account_cells,
+                &[0],
+                &output_account_cells,
+                &[0],
+            )?;
 
             let input_account_cell_witness =
                 util::parse_account_cell_witness(&parser, input_account_cells[0], Source::Input)?;
@@ -72,13 +58,13 @@ pub fn main() -> Result<(), Error> {
 
             match action {
                 b"start_account_sale" => {
-                    verify_eip712_hashes(&parser, start_account_sale_to_semantic)?;
-
-                    verifiers::common::verify_created_cell_in_correct_position(
+                    verifiers::account_cell::verify_unlock_role(action, &parser.params)?;
+                    verifiers::common::verify_cell_number_and_position(
                         "AccountSaleCell",
                         &input_sale_cells,
+                        &[],
                         &output_sale_cells,
-                        Some(1),
+                        &[1],
                     )?;
 
                     let sender_lock = high_level::load_cell_lock(0, Source::Input)?;
@@ -91,6 +77,7 @@ pub fn main() -> Result<(), Error> {
                     verifiers::misc::verify_no_more_cells(&all_cells, Source::Input)?;
 
                     debug!("Verify if sender get their change properly.");
+
                     verifiers::misc::verify_user_get_change_when_inputs_removed(
                         config_main,
                         sender_lock_reader,
@@ -99,24 +86,16 @@ pub fn main() -> Result<(), Error> {
                         u64::from(config_secondary_market.common_fee()),
                     )?;
 
-                    debug!("Verify if the AccountCell is consistent in inputs and outputs.");
-
-                    // The AccountCell should be consistent in inputs and outputs except the status field.
-                    verify_account_cell_consistent_except_status(
+                    verify_account_cell_expiration_status_and_consistent(
                         config_account,
                         timestamp,
                         input_account_cells[0],
                         output_account_cells[0],
                         &input_account_cell_witness_reader,
                         &output_account_cell_witness_reader,
-                    )?;
-
-                    // If a user willing to sell owned account, the AccountCell should be in AccountStatus::Normal status.
-                    verifiers::account_cell::verify_account_cell_status_update_correctly(
-                        &input_account_cell_witness_reader,
-                        &output_account_cell_witness_reader,
                         AccountStatus::Normal,
                         AccountStatus::Selling,
+                        false,
                     )?;
 
                     debug!("Verify if all fields of AccountSaleCell is properly set.");
@@ -133,13 +112,13 @@ pub fn main() -> Result<(), Error> {
                     verify_started_at(timestamp, &output_sale_cell_witness_reader)?;
                 }
                 b"cancel_account_sale" => {
-                    verify_eip712_hashes(&parser, cancel_account_sale_to_semantic)?;
-
-                    verifiers::common::verify_removed_cell_in_correct_position(
+                    verifiers::account_cell::verify_unlock_role(action, &parser.params)?;
+                    verifiers::common::verify_cell_number_and_position(
                         "AccountSaleCell",
                         &input_sale_cells,
+                        &[1],
                         &output_sale_cells,
-                        Some(1),
+                        &[],
                     )?;
 
                     debug!("Verify if there is no redundant cells in inputs.");
@@ -159,25 +138,16 @@ pub fn main() -> Result<(), Error> {
                         u64::from(config_secondary_market.common_fee()),
                     )?;
 
-                    debug!(
-                        "Verify if the AccountCell is consistent in inputs and outputs and its status is updated correctly."
-                    );
-
-                    verify_account_cell_consistent_except_status(
+                    verify_account_cell_expiration_status_and_consistent(
                         config_account,
                         timestamp,
                         input_account_cells[0],
                         output_account_cells[0],
                         &input_account_cell_witness_reader,
                         &output_account_cell_witness_reader,
-                    )?;
-
-                    // If a user want to cancel account sale, the AccountCell should be in AccountStatus::Selling status.
-                    verifiers::account_cell::verify_account_cell_status_update_correctly(
-                        &input_account_cell_witness_reader,
-                        &output_account_cell_witness_reader,
                         AccountStatus::Selling,
                         AccountStatus::Normal,
+                        false,
                     )?;
 
                     debug!("Verify if the AccountSaleCell has the same account ID with the AccountCell inputs.");
@@ -189,13 +159,12 @@ pub fn main() -> Result<(), Error> {
                     verify_sale_cell_account_and_id(input_account_cells[0], &input_sale_cell_witness_reader)?;
                 }
                 b"buy_account" => {
-                    verify_eip712_hashes(&parser, buy_account_to_semantic)?;
-
-                    verifiers::common::verify_removed_cell_in_correct_position(
+                    verifiers::common::verify_cell_number_and_position(
                         "AccountSaleCell",
                         &input_sale_cells,
+                        &[1],
                         &output_sale_cells,
-                        Some(1),
+                        &[],
                     )?;
 
                     let buyer_lock = high_level::load_cell_lock(2, Source::Input)?;
@@ -210,42 +179,16 @@ pub fn main() -> Result<(), Error> {
                         Source::Input,
                     )?;
 
-                    debug!("Verify if the AccountCell is consistent in inputs and outputs.");
-
-                    verifiers::account_cell::verify_account_expiration(
+                    verify_account_cell_expiration_status_and_consistent(
                         config_account,
-                        input_account_cells[0],
                         timestamp,
-                    )?;
-                    verifiers::account_cell::verify_account_capacity_not_decrease(
                         input_account_cells[0],
                         output_account_cells[0],
-                    )?;
-                    verifiers::account_cell::verify_account_data_consistent(
-                        input_account_cells[0],
-                        output_account_cells[0],
-                        vec![],
-                    )?;
-                    verifiers::account_cell::verify_account_witness_consistent(
-                        input_account_cells[0],
-                        output_account_cells[0],
-                        &input_account_cell_witness_reader,
-                        &output_account_cell_witness_reader,
-                        vec!["status", "records"],
-                    )?;
-
-                    // If a user willing to buy the account, the AccountCell should be in AccountStatus::Selling status.
-                    verifiers::account_cell::verify_account_cell_status_update_correctly(
                         &input_account_cell_witness_reader,
                         &output_account_cell_witness_reader,
                         AccountStatus::Selling,
                         AccountStatus::Normal,
-                    )?;
-
-                    verifiers::account_cell::verify_account_witness_record_empty(
-                        &output_account_cell_witness_reader,
-                        output_account_cells[0],
-                        Source::Output,
+                        true,
                     )?;
 
                     debug!("Verify if the AccountSaleCell is belong to the AccountCell.");
@@ -313,25 +256,24 @@ pub fn main() -> Result<(), Error> {
                 }
                 _ => unreachable!(),
             }
+
+            util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
         }
         b"edit_account_sale" => {
-            parser.parse_cell()?;
+            verifiers::account_cell::verify_unlock_role(action, &parser.params)?;
 
-            verify_eip712_hashes(&parser, edit_account_sale_to_semantic)?;
+            parser.parse_cell()?;
 
             let config_secondary_market_reader = parser.configs.secondary_market()?;
 
             let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
-            assert!(
-                input_cells.len() == 1 && output_cells.len() == 1,
-                Error::InvalidTransactionStructure,
-                "There should be one AccountSaleCell in outputs and one AccountSaleCell in inputs."
-            );
-            assert!(
-                input_cells[0] == 0 && output_cells[0] == 0,
-                Error::InvalidTransactionStructure,
-                "The AccountSaleCells should only appear at inputs[0] and outputs[0]."
-            );
+            verifiers::common::verify_cell_number_and_position(
+                "AccountSaleCell",
+                &input_cells,
+                &[0],
+                &output_cells,
+                &[0],
+            )?;
 
             debug!("Verify if there is no redundant cells in inputs.");
 
@@ -408,6 +350,8 @@ pub fn main() -> Result<(), Error> {
                 Error::InvalidTransactionStructure,
                 "Either price or description should be modified."
             );
+
+            util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
         }
         b"force_recover_account_status" => {
             util::require_type_script(
@@ -443,136 +387,60 @@ fn decode_scripts_from_params(params: &[Bytes]) -> Result<(ckb_packed::Script, c
     Ok((inviter_lock, channel_lock))
 }
 
-fn start_account_sale_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
-    let type_id_table_reader = parser.configs.main()?.type_id_table();
-    let account_cells =
-        util::find_cells_by_type_id(ScriptType::Type, type_id_table_reader.account_cell(), Source::Input)?;
-    let account_sale_cells = util::find_cells_by_type_id(
-        ScriptType::Type,
-        type_id_table_reader.account_sale_cell(),
-        Source::Output,
-    )?;
-
-    // Parse account from the data of the AccountCell in inputs.
-    let data_in_bytes = util::load_cell_data(account_cells[0], Source::Input)?;
-    let account_in_bytes = data_parser::account_cell::get_account(&data_in_bytes);
-    let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| Error::EIP712SerializationError)?;
-
-    let (version, _, witness) =
-        parser.verify_and_get(DataType::AccountSaleCellData, account_sale_cells[0], Source::Output)?;
-
-    let price = if version == 1 {
-        let entity = AccountSaleCellDataV1::from_slice(witness.as_reader().raw_data()).map_err(|_| {
-            warn!("EIP712 decoding AccountSaleCellData failed");
-            Error::WitnessEntityDecodingError
-        })?;
-        to_semantic_capacity(u64::from(entity.price()))
-    } else {
-        let entity = AccountSaleCellData::from_slice(witness.as_reader().raw_data()).map_err(|_| {
-            warn!("EIP712 decoding AccountSaleCellData failed");
-            Error::WitnessEntityDecodingError
-        })?;
-        to_semantic_capacity(u64::from(entity.price()))
-    };
-
-    Ok(format!("SELL {} FOR {}", account, price))
-}
-
-fn edit_account_sale_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
-    let type_id_table_reader = parser.configs.main()?.type_id_table();
-    let account_sale_cells = util::find_cells_by_type_id(
-        ScriptType::Type,
-        type_id_table_reader.account_sale_cell(),
-        Source::Output,
-    )?;
-
-    let (version, _, witness) =
-        parser.verify_and_get(DataType::AccountSaleCellData, account_sale_cells[0], Source::Output)?;
-
-    let price = if version == 1 {
-        let entity = AccountSaleCellDataV1::from_slice(witness.as_reader().raw_data()).map_err(|_| {
-            warn!("EIP712 decoding AccountSaleCellData failed");
-            Error::WitnessEntityDecodingError
-        })?;
-        to_semantic_capacity(u64::from(entity.price()))
-    } else {
-        let entity = AccountSaleCellData::from_slice(witness.as_reader().raw_data()).map_err(|_| {
-            warn!("EIP712 decoding AccountSaleCellData failed");
-            Error::WitnessEntityDecodingError
-        })?;
-        to_semantic_capacity(u64::from(entity.price()))
-    };
-
-    Ok(format!("EDIT SALE INFO, CURRENT PRICE IS {}", price))
-}
-
-fn cancel_account_sale_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
-    let type_id_table_reader = parser.configs.main()?.type_id_table();
-    let account_cells =
-        util::find_cells_by_type_id(ScriptType::Type, type_id_table_reader.account_cell(), Source::Input)?;
-
-    // Parse account from the data of the AccountCell in inputs.
-    let data_in_bytes = util::load_cell_data(account_cells[0], Source::Input)?;
-    let account_in_bytes = data_parser::account_cell::get_account(&data_in_bytes);
-    let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| Error::EIP712SerializationError)?;
-
-    Ok(format!("CANCEL SALE OF {}", account))
-}
-
-fn buy_account_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
-    let type_id_table_reader = parser.configs.main()?.type_id_table();
-    let account_cells =
-        util::find_cells_by_type_id(ScriptType::Type, type_id_table_reader.account_cell(), Source::Input)?;
-    let account_sale_cells = util::find_cells_by_type_id(
-        ScriptType::Type,
-        type_id_table_reader.account_sale_cell(),
-        Source::Input,
-    )?;
-
-    // Parse account from the data of the AccountCell in inputs.
-    let data_in_bytes = util::load_cell_data(account_cells[0], Source::Input)?;
-    let account_in_bytes = data_parser::account_cell::get_account(&data_in_bytes);
-    let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| Error::EIP712SerializationError)?;
-
-    let (version, _, witness) =
-        parser.verify_and_get(DataType::AccountSaleCellData, account_sale_cells[0], Source::Input)?;
-
-    let price = if version == 1 {
-        let entity = AccountSaleCellDataV1::from_slice(witness.as_reader().raw_data()).map_err(|_| {
-            warn!("EIP712 decoding AccountSaleCellData failed");
-            Error::WitnessEntityDecodingError
-        })?;
-        to_semantic_capacity(u64::from(entity.price()))
-    } else {
-        let entity = AccountSaleCellData::from_slice(witness.as_reader().raw_data()).map_err(|_| {
-            warn!("EIP712 decoding AccountSaleCellData failed");
-            Error::WitnessEntityDecodingError
-        })?;
-        to_semantic_capacity(u64::from(entity.price()))
-    };
-
-    Ok(format!("BUY {} WITH {}", account, price))
-}
-
-fn verify_account_cell_consistent_except_status<'a>(
+fn verify_account_cell_expiration_status_and_consistent<'a>(
     config_account: ConfigCellAccountReader,
     timestamp: u64,
     input_account_cell: usize,
     output_account_cell: usize,
     input_account_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
     output_account_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
+    input_status: AccountStatus,
+    output_status: AccountStatus,
+    owner_changed: bool,
 ) -> Result<(), Error> {
-    verifiers::account_cell::verify_account_expiration(config_account, input_account_cell, timestamp)?;
-    verifiers::account_cell::verify_account_capacity_not_decrease(input_account_cell, output_account_cell)?;
-    verifiers::account_cell::verify_account_cell_consistent_with_exception(
-        input_account_cell,
-        output_account_cell,
+    debug!("Verify if the AccountCell is expired and its status is Selling.");
+
+    verifiers::account_cell::verify_account_expiration(config_account, input_account_cell, Source::Input, timestamp)?;
+
+    // If a user want to cancel account sale, the AccountCell should be in AccountStatus::Selling status.
+    verifiers::account_cell::verify_status_conversion(
         &input_account_cell_witness_reader,
         &output_account_cell_witness_reader,
-        None,
-        vec![],
-        vec!["status"],
+        input_status,
+        output_status,
     )?;
+
+    debug!("Verify if the AccountCell is consistent in inputs and outputs and its status is updated correctly.");
+
+    verifiers::account_cell::verify_account_capacity_not_decrease(input_account_cell, output_account_cell)?;
+
+    if !owner_changed {
+        verifiers::account_cell::verify_account_cell_consistent_with_exception(
+            input_account_cell,
+            output_account_cell,
+            &input_account_cell_witness_reader,
+            &output_account_cell_witness_reader,
+            None,
+            vec![],
+            vec!["status"],
+        )?;
+    } else {
+        verifiers::account_cell::verify_account_cell_consistent_with_exception(
+            input_account_cell,
+            output_account_cell,
+            &input_account_cell_witness_reader,
+            &output_account_cell_witness_reader,
+            Some("owner"),
+            vec![],
+            vec!["status", "records"],
+        )?;
+
+        verifiers::account_cell::verify_account_witness_record_empty(
+            &output_account_cell_witness_reader,
+            output_account_cell,
+            Source::Output,
+        )?;
+    }
 
     Ok(())
 }

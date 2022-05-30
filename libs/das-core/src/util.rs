@@ -2,11 +2,12 @@ use super::{
     assert as das_assert, constants::*, data_parser, debug, error::Error, types::ScriptLiteral, warn,
     witness_parser::WitnessesParser,
 };
-use alloc::{borrow::ToOwned, boxed::Box, collections::BTreeMap, string::String, vec, vec::Vec};
+use alloc::{borrow::ToOwned, boxed::Box, collections::BTreeMap, format, string::String, vec, vec::Vec};
 use blake2b_ref::{Blake2b, Blake2bBuilder};
 use ckb_std::{
     ckb_constants::{CellField, Source},
-    ckb_types::{bytes, packed::*, prelude::*},
+    ckb_types::{bytes, core::ScriptHashType, packed::*, prelude::*},
+    cstr_core::CStr,
     error::SysError,
     high_level, syscalls,
 };
@@ -50,6 +51,14 @@ pub fn hex_to_byte32(input: &str) -> Result<Byte32, FromHexError> {
     inner.copy_from_slice(&data);
 
     Ok(Byte32::new_builder().set(inner).build())
+}
+
+pub fn first_n_bytes_to_hex(bytes: &[u8], n: usize) -> String {
+    bytes
+        .get(..n)
+        .map(|v| format!("0x{}...", hex_string(v)))
+        .or(Some(String::from("0x")))
+        .unwrap()
 }
 
 pub fn script_literal_to_script(script: ScriptLiteral) -> Script {
@@ -343,15 +352,15 @@ pub fn load_oracle_data(type_: OracleCellType) -> Result<u64, Error> {
     let type_script;
     match type_ {
         OracleCellType::Height => {
-            debug!("Reading HeightCell ...");
+            debug!("Finding HeightCell in cell_deps ...");
             type_script = height_cell_type();
         }
         OracleCellType::Time => {
-            debug!("Reading TimeCell ...");
+            debug!("Finding TimeCell in cell_deps ...");
             type_script = time_cell_type();
         }
         OracleCellType::Quote => {
-            debug!("Reading QuoteCell ...");
+            debug!("Finding QuoteCell in cell_deps ...");
             type_script = quote_cell_type();
         }
     }
@@ -366,7 +375,7 @@ pub fn load_oracle_data(type_: OracleCellType) -> Result<u64, Error> {
         ret.len()
     );
 
-    debug!("Reading outputs_data of the cell of {:?} ...", type_);
+    debug!("cell_deps[{}] Parsing outputs_data of {:?}Cell ...", ret[0], type_);
 
     // Read the passed timestamp from outputs_data of TimeCell
     let data = load_cell_data(ret[0], Source::CellDep)?;
@@ -659,12 +668,7 @@ pub fn calc_duration_from_paid(paid: u64, yearly_price: u64, quote: u64, discoun
     paid * 365 / yearly_capacity * 86400
 }
 
-pub fn require_type_script(
-    parser: &WitnessesParser,
-    type_script: TypeScript,
-    source: Source,
-    err: Error,
-) -> Result<(), Error> {
+fn get_type_id(parser: &WitnessesParser, type_script: TypeScript) -> Result<das_packed::HashReader, Error> {
     let config = parser.configs.main()?;
 
     let type_id = match type_script {
@@ -680,7 +684,19 @@ pub fn require_type_script(
         TypeScript::ProposalCellType => config.type_id_table().proposal_cell(),
         TypeScript::ReverseRecordCellType => config.type_id_table().reverse_record_cell(),
         TypeScript::SubAccountCellType => config.type_id_table().sub_account_cell(),
+        TypeScript::EIP712Lib => config.type_id_table().eip712_lib(),
     };
+
+    Ok(type_id)
+}
+
+pub fn require_type_script(
+    parser: &WitnessesParser,
+    type_script: TypeScript,
+    source: Source,
+    err: Error,
+) -> Result<(), Error> {
+    let type_id = get_type_id(parser, type_script.clone())?;
 
     debug!(
         "Require on: 0x{}({:?}) in {:?}",
@@ -714,19 +730,13 @@ pub fn require_super_lock() -> Result<(), Error> {
 }
 
 /// Get the role required by each action
+///
+/// Only the actions require manager role is list here for simplified purpose.
 pub fn get_action_required_role(action: &[u8]) -> Option<LockRole> {
     match action {
         // account-cell-type
-        b"transfer_account" => Some(LockRole::Owner),
-        b"edit_manager" => Some(LockRole::Owner),
         b"edit_records" => Some(LockRole::Manager),
-        b"enable_sub_account" => Some(LockRole::Owner),
-        // account-sale-cell-type
-        b"start_account_sale" => Some(LockRole::Owner),
-        b"edit_account_sale" => Some(LockRole::Owner),
-        b"cancel_account_sale" => Some(LockRole::Owner),
-        b"buy_account" => Some(LockRole::Owner),
-        _ => None,
+        _ => Some(LockRole::Owner),
     }
 }
 
@@ -870,6 +880,20 @@ pub fn parse_account_sale_cell_witness(
     Ok(ret)
 }
 
+pub fn parse_offer_cell_witness(
+    parser: &WitnessesParser,
+    index: usize,
+    source: Source,
+) -> Result<das_packed::OfferCellData, Error> {
+    let (_, _, mol_bytes) = parser.verify_and_get(DataType::OfferCellData, index, source)?;
+    let ret = das_packed::OfferCellData::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
+        warn!("Decoding OfferCellData failed");
+        Error::WitnessEntityDecodingError
+    })?;
+
+    Ok(ret)
+}
+
 pub fn map_add<K, V>(btree_map: &mut BTreeMap<K, V>, key: K, value: V)
 where
     K: Clone + Debug + PartialEq + core::cmp::Ord,
@@ -884,4 +908,16 @@ where
             btree_map.insert(key.clone(), value);
         }
     }
+}
+
+pub fn exec_by_type_id(parser: &WitnessesParser, type_script: TypeScript, argv: &[&CStr]) -> Result<u64, Error> {
+    let type_id = get_type_id(parser, type_script.clone())?;
+
+    debug!(
+        "Execute script {:?} by type ID 0x{}",
+        type_script,
+        hex_string(type_id.raw_data())
+    );
+
+    high_level::exec_cell(type_id.raw_data(), ScriptHashType::Type, 0, 0, argv).map_err(Error::from)
 }

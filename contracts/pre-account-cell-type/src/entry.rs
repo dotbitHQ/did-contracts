@@ -37,13 +37,7 @@ pub fn main() -> Result<(), Error> {
 
             // Find out PreAccountCells in current transaction.
             let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
-
-            verifiers::common::verify_created_cell_in_correct_position(
-                "PreRegisterCell",
-                &input_cells,
-                &output_cells,
-                None,
-            )?;
+            verifiers::common::verify_cell_number("PreRegisterCell", &input_cells, 0, &output_cells, 1)?;
 
             verifiers::misc::verify_always_success_lock(output_cells[0], Source::Output)?;
 
@@ -58,11 +52,12 @@ pub fn main() -> Result<(), Error> {
                     config_main_reader.type_id_table().apply_register_cell(),
                 )?;
 
-            verifiers::common::verify_removed_cell_in_correct_position(
+            verifiers::common::verify_cell_number(
                 "ApplyRegisterCell",
                 &input_apply_register_cells,
+                1,
                 &output_apply_register_cells,
-                None,
+                0,
             )?;
 
             debug!("Read data of ApplyRegisterCell ...");

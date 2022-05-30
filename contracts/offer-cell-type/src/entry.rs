@@ -1,14 +1,9 @@
-use alloc::{boxed::Box, format, string::String};
+use alloc::{boxed::Box, string::String};
 use ckb_std::{ckb_constants::Source, high_level};
 use core::result::Result;
 use das_core::{
-    assert, assert_lock_equal,
-    constants::*,
-    data_parser, debug,
-    eip712::{to_semantic_capacity, verify_eip712_hashes},
-    error::Error,
-    parse_account_cell_witness, parse_witness, util, verifiers, warn,
-    witness_parser::WitnessesParser,
+    assert, assert_lock_equal, constants::*, data_parser, debug, error::Error, parse_account_cell_witness,
+    parse_witness, util, verifiers, witness_parser::WitnessesParser,
 };
 use das_map::{map::Map, util as map_util};
 use das_types::{
@@ -43,14 +38,21 @@ pub fn main() -> Result<(), Error> {
             let config_second_market = parser.configs.secondary_market()?;
 
             if action == b"make_offer" {
-                verifiers::common::verify_created_cell_in_correct_position(
+                verifiers::common::verify_cell_number_and_position(
                     "OfferCell",
                     &input_cells,
+                    &[],
                     &output_cells,
-                    Some(0),
+                    &[0],
                 )?;
             } else {
-                verifiers::common::verify_modified_cell_in_correct_position("OfferCell", &input_cells, &output_cells)?;
+                verifiers::common::verify_cell_number_and_position(
+                    "OfferCell",
+                    &input_cells,
+                    &[0],
+                    &output_cells,
+                    &[0],
+                )?;
             }
 
             let sender_lock = high_level::load_cell_lock(0, Source::Input)?;
@@ -112,8 +114,6 @@ pub fn main() -> Result<(), Error> {
             );
 
             if action == b"make_offer" {
-                verify_eip712_hashes(&parser, make_offer_to_semantic)?;
-
                 debug!("Verify if the fields of the OfferCell is set correctly.");
 
                 verify_price(
@@ -125,8 +125,6 @@ pub fn main() -> Result<(), Error> {
                 )?;
                 verify_message_length(config_second_market, output_offer_cell_witness_reader)?;
             } else {
-                verify_eip712_hashes(&parser, edit_offer_to_semantic)?;
-
                 let input_offer_cell_witness;
                 let input_offer_cell_witness_reader;
                 parse_witness!(
@@ -221,13 +219,13 @@ pub fn main() -> Result<(), Error> {
             let account = output_offer_cell_witness_reader.account().raw_data();
             let account_without_suffix = &account[0..account.len() - 4];
             verifiers::account_cell::verify_unavailable_accounts(&parser, account_without_suffix)?;
+
+            util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
         }
         b"cancel_offer" => {
             parser.parse_cell()?;
             let config_main = parser.configs.main()?;
             let config_second_market = parser.configs.secondary_market()?;
-
-            verify_eip712_hashes(&parser, cancel_offer_to_semantic)?;
 
             assert!(
                 input_cells.len() >= 1 && output_cells.len() == 0,
@@ -263,39 +261,30 @@ pub fn main() -> Result<(), Error> {
                 expected_lock.as_reader(),
                 total_input_capacity - common_fee,
             )?;
+
+            util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
         }
         b"accept_offer" => {
             let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
             parser.parse_cell()?;
 
-            verify_eip712_hashes(&parser, accept_offer_to_semantic)?;
-
             let config_main = parser.configs.main()?;
             let config_account = parser.configs.account()?;
             let config_secondary_market = parser.configs.secondary_market()?;
 
-            verifiers::common::verify_removed_cell_in_correct_position(
-                "OfferCell",
-                &input_cells,
-                &output_cells,
-                Some(0),
-            )?;
+            verifiers::common::verify_cell_number("AccountSaleCell", &input_cells, 1, &output_cells, 0)?;
 
             let account_cell_type_id = config_main.type_id_table().account_cell();
             let (input_account_cells, output_account_cells) =
                 util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, account_cell_type_id)?;
-
-            assert!(
-                input_account_cells.len() == 1 && output_account_cells.len() == 1,
-                Error::InvalidTransactionStructure,
-                "There should be 1 AccountCell in both inputs and outputs."
-            );
-            assert!(
-                input_account_cells[0] == 1 && output_account_cells[0] == 0,
-                Error::InvalidTransactionStructure,
-                "The AccountCell should only appear in inputs[1] and outputs[0]."
-            );
+            verifiers::common::verify_cell_number_and_position(
+                "AccountCell",
+                &input_account_cells,
+                &[1],
+                &output_account_cells,
+                &[0],
+            )?;
 
             let input_account_cell_witness: Box<dyn AccountCellDataMixer>;
             let input_account_cell_witness_reader;
@@ -326,8 +315,8 @@ pub fn main() -> Result<(), Error> {
 
             debug!("Verify if the AccountCell is transferred properly.");
 
-            verifiers::account_cell::verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
-            verifiers::account_cell::verify_account_cell_status(
+            verifiers::account_cell::verify_account_expiration(config_account, input_account_cells[0], Source::Input, timestamp)?;
+            verifiers::account_cell::verify_status(
                 &input_account_cell_witness_reader,
                 AccountStatus::Normal,
                 input_account_cells[0],
@@ -405,6 +394,8 @@ pub fn main() -> Result<(), Error> {
                 common_fee,
                 offer_cell_capacity,
             )?;
+
+            util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
         }
         _ => return Err(Error::ActionNotSupported),
     }
@@ -528,61 +519,4 @@ fn verify_profit_distribution(
     verifiers::income_cell::verify_income_cells(parser, profit_map)?;
 
     Ok(())
-}
-
-fn offer_to_semantic(parser: &WitnessesParser, source: Source) -> Result<(String, String), Error> {
-    let type_id_table_reader = parser.configs.main()?.type_id_table();
-    let offer_cells = util::find_cells_by_type_id(ScriptType::Type, type_id_table_reader.offer_cell(), source)?;
-    let witness;
-    let witness_reader;
-
-    assert!(
-        offer_cells.len() > 0,
-        Error::InvalidTransactionStructure,
-        "There should be at least 1 OfferCell in transaction."
-    );
-
-    parse_witness!(
-        witness,
-        witness_reader,
-        parser,
-        offer_cells[0],
-        source,
-        DataType::OfferCellData,
-        OfferCellData
-    );
-
-    let account = String::from_utf8(witness_reader.account().raw_data().to_vec()).map_err(|_| {
-        warn!("EIP712 decoding OfferCellData failed");
-        Error::WitnessEntityDecodingError
-    })?;
-    let amount = to_semantic_capacity(u64::from(witness_reader.price()));
-
-    Ok((account, amount))
-}
-
-fn make_offer_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
-    let (account, amount) = offer_to_semantic(parser, Source::Output)?;
-    Ok(format!("MAKE AN OFFER ON {} WITH {}", account, amount))
-}
-
-fn edit_offer_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
-    let (_, old_amount) = offer_to_semantic(parser, Source::Input)?;
-    let (account, new_amount) = offer_to_semantic(parser, Source::Output)?;
-    Ok(format!(
-        "CHANGE THE OFFER ON {} FROM {} TO {}",
-        account, old_amount, new_amount
-    ))
-}
-
-fn cancel_offer_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
-    let type_id_table_reader = parser.configs.main()?.type_id_table();
-    let offer_cells = util::find_cells_by_type_id(ScriptType::Type, type_id_table_reader.offer_cell(), Source::Input)?;
-
-    Ok(format!("CANCEL {} OFFER(S)", offer_cells.len()))
-}
-
-fn accept_offer_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
-    let (account, amount) = offer_to_semantic(parser, Source::Input)?;
-    Ok(format!("ACCEPT THE OFFER ON {} WITH {}", account, amount))
 }

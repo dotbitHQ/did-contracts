@@ -1,15 +1,13 @@
-use alloc::{format, string::String, vec::Vec};
-use ckb_std::{ckb_constants::Source, error::SysError, high_level};
+use alloc::vec::Vec;
+use ckb_std::{ckb_constants::Source, high_level};
 use das_core::{
     constants::{das_lock, DasLockType, ScriptType, TypeScript},
     data_parser, debug,
-    eip712::{to_semantic_address, to_semantic_capacity, verify_eip712_hashes},
     error::Error,
     util, warn,
     witness_parser::WitnessesParser,
 };
-use das_map::{map::Map, util::add};
-use das_types::{constants::LockRole, packed as das_packed};
+use das_types::packed as das_packed;
 
 pub fn main() -> Result<(), Error> {
     debug!("====== Running balance-cell-type ======");
@@ -20,10 +18,12 @@ pub fn main() -> Result<(), Error> {
     let (input_cells, output_cells) =
         util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Lock, das_lock_reader.code_hash().into())?;
 
+    let mut parser = WitnessesParser::new()?;
+    let mut is_unknown_action = false;
+
     if input_cells.len() > 0 {
         debug!("Check if cells with das-lock in inputs has correct typed data hash in its signature witness.");
 
-        let mut parser = WitnessesParser::new()?;
         let action_cp = match parser.parse_action_with_params()? {
             Some((action, _)) => action.to_vec(),
             None => return Err(Error::ActionNotSupported),
@@ -98,7 +98,9 @@ pub fn main() -> Result<(), Error> {
                     Error::InvalidTransactionStructure,
                 )?;
             }
-            _ => verify_eip712_hashes(&parser, transfer_to_semantic)?,
+            _ => {
+                is_unknown_action = true;
+            }
         }
     } else {
         debug!("Skip check typed data hashes, because no BalanceCell in inputs.")
@@ -166,45 +168,9 @@ pub fn main() -> Result<(), Error> {
         }
     }
 
-    Ok(())
-}
-
-fn transfer_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
-    fn sum_cells(parser: &WitnessesParser, source: Source) -> Result<String, Error> {
-        let mut i = 0;
-        let mut capacity_map = Map::new();
-        loop {
-            let ret = high_level::load_cell_capacity(i, source);
-            match ret {
-                Ok(capacity) => {
-                    let lock =
-                        das_packed::Script::from(high_level::load_cell_lock(i, source).map_err(|e| Error::from(e))?);
-                    let address = to_semantic_address(parser, lock.as_reader(), LockRole::Owner)?;
-                    add(&mut capacity_map, address, capacity);
-                }
-                Err(SysError::IndexOutOfBound) => {
-                    break;
-                }
-                Err(err) => {
-                    return Err(Error::from(err));
-                }
-            }
-
-            i += 1;
-        }
-
-        let mut comma = "";
-        let mut ret = String::new();
-        for (address, capacity) in capacity_map.items {
-            ret += format!("{}{}({})", comma, address, to_semantic_capacity(capacity)).as_str();
-            comma = ", ";
-        }
-
-        Ok(ret)
+    if input_cells.len() > 0 && is_unknown_action {
+        util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
     }
 
-    let inputs = sum_cells(parser, Source::Input)?;
-    let outputs = sum_cells(parser, Source::Output)?;
-
-    Ok(format!("TRANSFER FROM {} TO {}", inputs, outputs))
+    Ok(())
 }

@@ -6,8 +6,8 @@ use crate::util::{
 use das_types_std::constants::AccountStatus;
 use serde_json::json;
 
-fn before_each() -> (TemplateGenerator, u64) {
-    let (mut template, timestamp) = init("transfer_account", Some("0x00"));
+fn before_each() -> TemplateGenerator {
+    let mut template = init("transfer_account", Some("0x00"));
 
     // inputs
     push_input_account_cell(
@@ -20,12 +20,12 @@ fn before_each() -> (TemplateGenerator, u64) {
         }),
     );
 
-    (template, timestamp)
+    template
 }
 
 #[test]
 fn test_account_transfer() {
-    let (mut template, timestamp) = before_each();
+    let mut template = before_each();
 
     // outputs
     push_output_account_cell(
@@ -36,7 +36,7 @@ fn test_account_transfer() {
                 "manager_lock_args": RECEIVER
             },
             "witness": {
-                "last_transfer_account_at": timestamp,
+                "last_transfer_account_at": TIMESTAMP,
             }
         }),
     );
@@ -46,7 +46,7 @@ fn test_account_transfer() {
 
 #[test]
 fn challenge_account_transfer_account_multiple_cells() {
-    let (mut template, timestamp) = init("transfer_account", Some("0x00"));
+    let mut template = init("transfer_account", Some("0x00"));
 
     // Simulate transferring multiple AccountCells at one time.
     // inputs
@@ -78,7 +78,7 @@ fn challenge_account_transfer_account_multiple_cells() {
                 "manager_lock_args": RECEIVER
             },
             "witness": {
-                "last_transfer_account_at": timestamp,
+                "last_transfer_account_at": TIMESTAMP,
             }
         }),
     );
@@ -90,7 +90,7 @@ fn challenge_account_transfer_account_multiple_cells() {
                 "manager_lock_args": RECEIVER
             },
             "witness": {
-                "last_transfer_account_at": timestamp,
+                "last_transfer_account_at": TIMESTAMP,
             }
         }),
     );
@@ -100,7 +100,7 @@ fn challenge_account_transfer_account_multiple_cells() {
 
 #[test]
 fn challenge_account_transfer_account_with_other_cells() {
-    let (mut template, timestamp) = init("transfer_account", Some("0x00"));
+    let mut template = init("transfer_account", Some("0x00"));
 
     template.push_contract_cell("balance-cell-type", false);
 
@@ -126,7 +126,7 @@ fn challenge_account_transfer_account_with_other_cells() {
                 "manager_lock_args": RECEIVER
             },
             "witness": {
-                "last_transfer_account_at": timestamp,
+                "last_transfer_account_at": TIMESTAMP,
             }
         }),
     );
@@ -136,7 +136,7 @@ fn challenge_account_transfer_account_with_other_cells() {
 
 #[test]
 fn challenge_account_transfer_account_not_modified() {
-    let (mut template, timestamp) = before_each();
+    let mut template = before_each();
 
     // outputs
     push_output_account_cell(
@@ -148,7 +148,7 @@ fn challenge_account_transfer_account_not_modified() {
                 "manager_lock_args": SENDER
             },
             "witness": {
-                "last_transfer_account_at": timestamp,
+                "last_transfer_account_at": TIMESTAMP,
             }
         }),
     );
@@ -158,7 +158,7 @@ fn challenge_account_transfer_account_not_modified() {
 
 #[test]
 fn challenge_account_transfer_too_often() {
-    let (mut template, timestamp) = init("transfer_account", Some("0x00"));
+    let mut template = init("transfer_account", Some("0x00"));
 
     // inputs
     push_input_account_cell(
@@ -170,7 +170,7 @@ fn challenge_account_transfer_too_often() {
             },
             "witness": {
                 // Simulate transferring multiple times in a day.
-                "last_transfer_account_at": timestamp - 86400 + 1,
+                "last_transfer_account_at": TIMESTAMP - 86400 + 1,
             }
         }),
     );
@@ -184,7 +184,7 @@ fn challenge_account_transfer_too_often() {
                 "manager_lock_args": RECEIVER
             },
             "witness": {
-                "last_transfer_account_at": timestamp,
+                "last_transfer_account_at": TIMESTAMP,
             }
         }),
     );
@@ -194,7 +194,7 @@ fn challenge_account_transfer_too_often() {
 
 #[test]
 fn challenge_account_transfer_not_clear_records() {
-    let (mut template, timestamp) = init("transfer_account", Some("0x00"));
+    let mut template = init("transfer_account", Some("0x00"));
 
     // inputs
     push_input_account_cell(
@@ -232,7 +232,7 @@ fn challenge_account_transfer_not_clear_records() {
                 "manager_lock_args": RECEIVER
             },
             "witness": {
-                "last_transfer_account_at": timestamp,
+                "last_transfer_account_at": TIMESTAMP,
                 // Simulate not clearing all records when transferring.
                 "records": [
                     {
@@ -251,7 +251,7 @@ fn challenge_account_transfer_not_clear_records() {
 
 #[test]
 fn challenge_account_transfer_modify_data_account() {
-    let (mut template, timestamp) = before_each();
+    let mut template = before_each();
 
     // outputs
     push_output_account_cell(
@@ -266,7 +266,7 @@ fn challenge_account_transfer_modify_data_account() {
                 "account": "zzzzz.bit",
             },
             "witness": {
-                "last_transfer_account_at": timestamp,
+                "last_transfer_account_at": TIMESTAMP,
             }
         }),
     );
@@ -276,7 +276,7 @@ fn challenge_account_transfer_modify_data_account() {
 
 #[test]
 fn challenge_account_transfer_modify_data_next() {
-    let (mut template, timestamp) = before_each();
+    let mut template = before_each();
 
     // outputs
     push_output_account_cell(
@@ -291,7 +291,7 @@ fn challenge_account_transfer_modify_data_next() {
                 "next": "ooooo.bit",
             },
             "witness": {
-                "last_transfer_account_at": timestamp,
+                "last_transfer_account_at": TIMESTAMP,
             }
         }),
     );
@@ -301,7 +301,7 @@ fn challenge_account_transfer_modify_data_next() {
 
 #[test]
 fn challenge_account_transfer_modify_data_expired_at() {
-    let (mut template, timestamp) = before_each();
+    let mut template = before_each();
 
     // outputs
     push_output_account_cell(
@@ -313,10 +313,10 @@ fn challenge_account_transfer_modify_data_expired_at() {
             },
             "data": {
                 // Simulate the expired_at field has been modified accidentally.
-                "expired_at": timestamp + YEAR_SEC * 2,
+                "expired_at": TIMESTAMP + YEAR_SEC * 2,
             },
             "witness": {
-                "last_transfer_account_at": timestamp,
+                "last_transfer_account_at": TIMESTAMP,
             }
         }),
     );
@@ -326,7 +326,7 @@ fn challenge_account_transfer_modify_data_expired_at() {
 
 #[test]
 fn challenge_account_transfer_modify_witness_account() {
-    let (mut template, timestamp) = before_each();
+    let mut template = before_each();
 
     // outputs
     push_output_account_cell(
@@ -339,7 +339,7 @@ fn challenge_account_transfer_modify_witness_account() {
             "witness": {
                 // Simulate the account field has been modified accidentally.
                 "account": "zzzzz.bit",
-                "last_transfer_account_at": timestamp
+                "last_transfer_account_at": TIMESTAMP
             }
         }),
     );
@@ -349,7 +349,7 @@ fn challenge_account_transfer_modify_witness_account() {
 
 #[test]
 fn challenge_account_transfer_modify_witness_registered_at() {
-    let (mut template, timestamp) = before_each();
+    let mut template = before_each();
 
     // outputs
     push_output_account_cell(
@@ -362,7 +362,7 @@ fn challenge_account_transfer_modify_witness_registered_at() {
             "witness": {
                 // Simulate the registered_at field has been modified accidentally.
                 "registered_at": 1234,
-                "last_transfer_account_at": timestamp
+                "last_transfer_account_at": TIMESTAMP
             }
         }),
     );
@@ -372,7 +372,7 @@ fn challenge_account_transfer_modify_witness_registered_at() {
 
 #[test]
 fn challenge_account_transfer_modify_witness_last_edit_manager_at() {
-    let (mut template, timestamp) = before_each();
+    let mut template = before_each();
 
     // outputs
     push_output_account_cell(
@@ -383,7 +383,7 @@ fn challenge_account_transfer_modify_witness_last_edit_manager_at() {
                 "manager_lock_args": RECEIVER
             },
             "witness": {
-                "last_transfer_account_at": timestamp,
+                "last_transfer_account_at": TIMESTAMP,
                 // Simulate the last_edit_manager_at field has been modified accidentally.
                 "last_edit_manager_at": 1234
             }
@@ -395,7 +395,7 @@ fn challenge_account_transfer_modify_witness_last_edit_manager_at() {
 
 #[test]
 fn challenge_account_transfer_modify_witness_last_edit_records_at() {
-    let (mut template, timestamp) = before_each();
+    let mut template = before_each();
 
     // outputs
     push_output_account_cell(
@@ -406,7 +406,7 @@ fn challenge_account_transfer_modify_witness_last_edit_records_at() {
                 "manager_lock_args": RECEIVER
             },
             "witness": {
-                "last_transfer_account_at": timestamp,
+                "last_transfer_account_at": TIMESTAMP,
                 // Simulate the last_edit_records_at field has been modified accidentally.
                 "last_edit_records_at": 1234
             }
@@ -418,7 +418,7 @@ fn challenge_account_transfer_modify_witness_last_edit_records_at() {
 
 #[test]
 fn challenge_account_transfer_modify_witness_status() {
-    let (mut template, timestamp) = before_each();
+    let mut template = before_each();
 
     // outputs
     push_output_account_cell(
@@ -429,7 +429,7 @@ fn challenge_account_transfer_modify_witness_status() {
                 "manager_lock_args": RECEIVER
             },
             "witness": {
-                "last_transfer_account_at": timestamp,
+                "last_transfer_account_at": TIMESTAMP,
                 // Simulate the status field has been modified accidentally.
                 "status": (AccountStatus::Selling as u8)
             }

@@ -1,16 +1,14 @@
-use alloc::{format, string::String};
 use ckb_std::{ckb_constants::Source, high_level};
+use core::cmp::Ordering;
 use core::result::Result;
 use das_core::{
     assert, assert_lock_equal,
-    constants::{das_lock, ScriptType},
+    constants::{das_lock, TypeScript},
     debug,
-    eip712::{to_semantic_address, verify_eip712_hashes_if_has_das_lock},
     error::Error,
     util, verifiers,
     witness_parser::WitnessesParser,
 };
-use das_types::{constants::LockRole, packed::*};
 
 pub fn main() -> Result<(), Error> {
     debug!("====== Running reverse-record-cell-type ======");
@@ -32,16 +30,15 @@ pub fn main() -> Result<(), Error> {
     let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
     match action {
         b"declare_reverse_record" => {
-            verify_eip712_hashes_if_has_das_lock(&parser, declare_reverse_record_to_semantic)?;
-
             let config_main = parser.configs.main()?;
             let config_reverse_resolution = parser.configs.reverse_resolution()?;
 
-            verifiers::common::verify_created_cell_in_correct_position(
+            verifiers::common::verify_cell_number_and_position(
                 "ReverseRecordCell",
                 &input_cells,
+                &[],
                 &output_cells,
-                Some(0),
+                &[0],
             )?;
 
             let sender_lock = high_level::load_cell_lock(0, Source::Input)?;
@@ -93,22 +90,18 @@ pub fn main() -> Result<(), Error> {
                 Error::ReverseRecordCellLockError,
                 "The ReverseRecordCell.lock should be the das-lock."
             );
+
+            util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
         }
         b"redeclare_reverse_record" => {
-            verify_eip712_hashes_if_has_das_lock(&parser, redeclare_reverse_record_to_semantic)?;
-
             let config_reverse_resolution = parser.configs.reverse_resolution()?;
-
-            assert!(
-                input_cells.len() == 1 && output_cells.len() == 1,
-                Error::InvalidTransactionStructure,
-                "There should be 1 ReverseRecordCell in both inputs and outputs."
-            );
-            assert!(
-                input_cells[0] == 0 && output_cells[0] == 0,
-                Error::InvalidTransactionStructure,
-                "The ReverseRecordCells should only exist at inputs[0] and outputs[0]."
-            );
+            verifiers::common::verify_cell_number_and_position(
+                "ReverseRecordCell",
+                &input_cells,
+                &[0],
+                &output_cells,
+                &[0],
+            )?;
 
             // Stop transaction builder to spend users other cells in this transaction.
             // TODO Support extra cells to pay for transaction fees.
@@ -145,18 +138,20 @@ pub fn main() -> Result<(), Error> {
                 Error::InvalidTransactionStructure,
                 "The ReverseRecordCell.data.account should be modified."
             );
+
+            util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
         }
         b"retract_reverse_record" => {
-            verify_eip712_hashes_if_has_das_lock(&parser, retract_reverse_record_to_semantic)?;
-
             let config_main = parser.configs.main()?;
             let config_reverse_resolution = parser.configs.reverse_resolution()?;
 
-            assert!(
-                input_cells.len() >= 1 && output_cells.len() == 0,
-                Error::InvalidTransactionStructure,
-                "There should be at least 1 ReverseRecordCell in inputs."
-            );
+            verifiers::common::verify_cell_number_range(
+                "ReverseRecordCell",
+                &input_cells,
+                (Ordering::Greater, 0),
+                &output_cells,
+                (Ordering::Equal, 0),
+            )?;
 
             verifiers::misc::verify_no_more_cells(&input_cells, Source::Input)?;
 
@@ -188,52 +183,11 @@ pub fn main() -> Result<(), Error> {
                 expected_lock.as_reader(),
                 total_input_capacity - common_fee,
             )?;
+
+            util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
         }
         _ => return Err(Error::ActionNotSupported),
     }
 
     Ok(())
-}
-
-fn reverse_record_to_semantic(parser: &WitnessesParser, source: Source) -> Result<(String, String), Error> {
-    let type_id_table_reader = parser.configs.main()?.type_id_table();
-    let reverse_record_cells =
-        util::find_cells_by_type_id(ScriptType::Type, type_id_table_reader.reverse_record_cell(), source)?;
-    debug!(
-        "type_id_table_reader.reverse_record_cell() = {:?}",
-        type_id_table_reader.reverse_record_cell()
-    );
-    assert!(
-        reverse_record_cells.len() == 1,
-        Error::InvalidTransactionStructure,
-        "There should be 1 ReverseRecordCell in transaction."
-    );
-
-    let data = high_level::load_cell_data(reverse_record_cells[0], source).map_err(Error::from)?;
-    let account = String::from_utf8(data).map_err(|_| Error::EIP712SerializationError)?;
-    let lock = Script::from(high_level::load_cell_lock(reverse_record_cells[0], source).map_err(Error::from)?);
-    let address = to_semantic_address(parser, lock.as_reader(), LockRole::Owner)?;
-
-    Ok((address, account))
-}
-
-fn declare_reverse_record_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
-    let (address, account) = reverse_record_to_semantic(parser, Source::Output)?;
-    Ok(format!("DECLARE A REVERSE RECORD FROM {} TO {}", address, account))
-}
-
-fn redeclare_reverse_record_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
-    let (address, account) = reverse_record_to_semantic(parser, Source::Output)?;
-    Ok(format!("REDECLARE A REVERSE RECORD FROM {} TO {}", address, account))
-}
-
-fn retract_reverse_record_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
-    let type_id_table_reader = parser.configs.main()?.type_id_table();
-    let source = Source::Input;
-    let reverse_record_cells =
-        util::find_cells_by_type_id(ScriptType::Type, type_id_table_reader.reverse_record_cell(), source)?;
-    let lock = Script::from(high_level::load_cell_lock(reverse_record_cells[0], source).map_err(Error::from)?);
-    let address = to_semantic_address(parser, lock.as_reader(), LockRole::Owner)?;
-
-    Ok(format!("RETRACT REVERSE RECORDS ON {}", address))
 }
