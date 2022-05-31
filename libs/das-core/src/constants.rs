@@ -227,7 +227,7 @@ pub fn das_lock() -> Script {
 
 pub fn cross_chain_lock() -> Script {
     #[cfg(not(feature = "mainnet"))]
-    let das_lock: ScriptLiteral = ScriptLiteral {
+        let cross_chain_lock: ScriptLiteral = ScriptLiteral {
         code_hash: [
             92, 80, 105, 235, 8, 87, 239, 198, 94, 27, 202, 12, 7, 223, 52, 195, 22, 99, 179, 98, 47, 211, 135, 108,
             135, 99, 32, 252, 150, 52, 226, 168,
@@ -239,15 +239,18 @@ pub fn cross_chain_lock() -> Script {
     };
 
     #[cfg(feature = "mainnet")]
-    let das_lock: ScriptLiteral = ScriptLiteral {
+        let cross_chain_lock: ScriptLiteral = ScriptLiteral {
         code_hash: [
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            92, 80, 105, 235, 8, 87, 239, 198, 94, 27, 202, 12, 7, 223, 52, 195, 22, 99, 179, 98, 47, 211, 135, 108,
+            135, 99, 32, 252, 150, 52, 226, 168,
         ],
         hash_type: ScriptHashType::Type,
-        args: Vec::new(),
+        args: vec![
+            207, 189, 70, 150, 255, 128, 197, 218, 250, 175, 98, 222, 87, 86, 99, 21, 106, 111, 204, 71,
+        ],
     };
 
-    util::script_literal_to_script(das_lock)
+    util::script_literal_to_script(cross_chain_lock)
 }
 
 pub fn time_cell_type() -> Script {
