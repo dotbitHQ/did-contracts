@@ -315,7 +315,12 @@ pub fn main() -> Result<(), Error> {
 
             debug!("Verify if the AccountCell is transferred properly.");
 
-            verifiers::account_cell::verify_account_expiration(config_account, input_account_cells[0], Source::Input, timestamp)?;
+            verifiers::account_cell::verify_account_expiration(
+                config_account,
+                input_account_cells[0],
+                Source::Input,
+                timestamp,
+            )?;
             verifiers::account_cell::verify_status(
                 &input_account_cell_witness_reader,
                 AccountStatus::Normal,

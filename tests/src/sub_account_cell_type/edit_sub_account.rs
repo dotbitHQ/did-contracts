@@ -184,18 +184,16 @@ fn challenge_sub_account_edit_parent_expired() {
         }),
     );
 
-    template.restore_sub_account(vec![
-        json!({
-            "lock": {
-                "owner_lock_args": OWNER_1,
-                "manager_lock_args": MANAGER_1
-            },
-            "account": SUB_ACCOUNT_1,
-            "suffix": SUB_ACCOUNT_SUFFIX,
-            "registered_at": TIMESTAMP,
-            "expired_at": u64::MAX,
-        }),
-    ]);
+    template.restore_sub_account(vec![json!({
+        "lock": {
+            "owner_lock_args": OWNER_1,
+            "manager_lock_args": MANAGER_1
+        },
+        "account": SUB_ACCOUNT_1,
+        "suffix": SUB_ACCOUNT_SUFFIX,
+        "registered_at": TIMESTAMP,
+        "expired_at": u64::MAX,
+    })]);
 
     // inputs
     push_simple_input_sub_account_cell(&mut template, 0);
@@ -242,18 +240,16 @@ fn challenge_sub_account_edit_parent_not_enable_feature() {
         }),
     );
 
-    template.restore_sub_account(vec![
-        json!({
-            "lock": {
-                "owner_lock_args": OWNER_1,
-                "manager_lock_args": MANAGER_1
-            },
-            "account": SUB_ACCOUNT_1,
-            "suffix": SUB_ACCOUNT_SUFFIX,
-            "registered_at": TIMESTAMP,
-            "expired_at": u64::MAX,
-        }),
-    ]);
+    template.restore_sub_account(vec![json!({
+        "lock": {
+            "owner_lock_args": OWNER_1,
+            "manager_lock_args": MANAGER_1
+        },
+        "account": SUB_ACCOUNT_1,
+        "suffix": SUB_ACCOUNT_SUFFIX,
+        "registered_at": TIMESTAMP,
+        "expired_at": u64::MAX,
+    })]);
 
     // inputs
     push_simple_input_sub_account_cell(&mut template, 0);

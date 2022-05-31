@@ -86,7 +86,12 @@ pub fn main() -> Result<(), Error> {
                 input_account_cells[0],
                 Source::Input,
             )?;
-            verifiers::account_cell::verify_account_expiration(config_account, input_account_cells[0], Source::Input, timestamp)?;
+            verifiers::account_cell::verify_account_expiration(
+                config_account,
+                input_account_cells[0],
+                Source::Input,
+                timestamp,
+            )?;
 
             match action {
                 b"transfer_account" => {
@@ -513,7 +518,12 @@ pub fn main() -> Result<(), Error> {
                 input_account_cells[0],
                 Source::Input,
             )?;
-            verifiers::account_cell::verify_account_expiration(config_account, input_account_cells[0], Source::Input, timestamp)?;
+            verifiers::account_cell::verify_account_expiration(
+                config_account,
+                input_account_cells[0],
+                Source::Input,
+                timestamp,
+            )?;
 
             debug!("Verify if every aspects of the AccountCell is consistent.");
 
