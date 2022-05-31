@@ -4,10 +4,10 @@ version = "1.5.0"
 edition = "2018"
 
 [features]
-dev = ["das-core/dev"]
-local = ["das-core/local"]
-testnet = ["das-core/testnet"]
-mainnet = ["das-core/mainnet"]
+dev = ["das-core/dev", "das-dynamic-libs/dev"]
+local = ["das-core/local", "das-dynamic-libs/local"]
+testnet = ["das-core/testnet", "das-dynamic-libs/testnet"]
+mainnet = ["das-core/mainnet", "das-dynamic-libs/mainnet"]
 
 [dependencies]
 ckb-std = "0.9.0"
