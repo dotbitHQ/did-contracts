@@ -533,10 +533,14 @@ type:
   type: type,
   args: [account_id], // 账户 ID ，也就是和 AccountCell.data.id 相同的值
 
-data: SMTRoot
+data: [ smt_root ][ das_profit ][ custom_script_type_id ]
 ```
 
-> 这里的 SMTRoot 就是一个 merkle root ，该 Cell 没有关联的 witness 。
+- smt_root ，也就是对应主账户下的所有子账户的 merkle root ；
+- das_profit ，由于 SubAccountCell 也负责存放属于 DAS 官方的利润，这个值就是指明 capacity 当中有多少利润；
+- custom_script_type_id ，指明自定义脚本的 type ID ，缺少该字段或者该字段全 0 就说明用户未设置自定义脚本；
+
+> 该 Cell 没有关联的 witness 。
 
 #### 体积
 
