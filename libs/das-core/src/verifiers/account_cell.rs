@@ -170,13 +170,15 @@ pub fn verify_account_data_consistent(
         input_account_index,
         output_account_index
     );
-    das_assert!(
-        data_parser::account_cell::get_next(&input_data) == data_parser::account_cell::get_next(&output_data),
-        Error::AccountCellDataNotConsistent,
-        "The data.next field of inputs[{}] and outputs[{}] should be the same.",
-        input_account_index,
-        output_account_index
-    );
+    if !except.contains(&"next") {
+        das_assert!(
+            data_parser::account_cell::get_next(&input_data) == data_parser::account_cell::get_next(&output_data),
+            Error::AccountCellDataNotConsistent,
+            "The data.next field of inputs[{}] and outputs[{}] should be the same.",
+            input_account_index,
+            output_account_index
+        );
+    }
     das_assert!(
         data_parser::account_cell::get_account(&input_data) == data_parser::account_cell::get_account(&output_data),
         Error::AccountCellDataNotConsistent,

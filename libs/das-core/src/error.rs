@@ -95,7 +95,8 @@ pub enum Error {
     ProposalSliceMustContainMoreThanOneElement,
     ProposalSliceItemMustBeUniqueAccount,
     ProposalRecycleNeedWaitLonger,
-    ProposalRecycleRefundAmountError, // 120
+    ProposalRecycleRefundAmountError,
+    // 120
     PrevProposalItemNotFound,
     IncomeCellConsolidateConditionNotSatisfied = -126,
     IncomeCellConsolidateError,
@@ -103,6 +104,9 @@ pub enum Error {
     IncomeCellTransferError,
     IncomeCellCapacityError,
     IncomeCellProfitMismatch,
+    AccountCellNotContiguous = -113,
+    AccountCellNextUpdateError,
+    AccountCellHasNotExpired,
     AccountCellPermissionDenied = -110,
     AccountCellOwnerLockShouldNotBeModified,
     AccountCellOwnerLockShouldBeModified,
@@ -110,9 +114,11 @@ pub enum Error {
     AccountCellDataNotConsistent,
     AccountCellProtectFieldIsModified,
     AccountCellNoMoreFee,
-    AccountCellThrottle = -102, // ⚠️ DO NOT CHANGE
+    AccountCellThrottle = -102,
+    // ⚠️ DO NOT CHANGE
     AccountCellRenewDurationMustLongerThanYear,
-    AccountCellRenewDurationBiggerThanPayed, // -100
+    AccountCellRenewDurationBiggerThanPayed,
+    // -100
     AccountCellInExpirationGracePeriod,
     AccountCellHasExpired,
     AccountCellIsNotExpired,

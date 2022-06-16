@@ -326,7 +326,135 @@ pub fn main() -> Result<(), Error> {
             )?;
         }
         b"recycle_expired_account_by_keeper" => {
-            return Err(Error::InvalidTransactionStructure);
+            parser.parse_cell()?;
+
+            let config_main = parser.configs.main()?;
+            let config_account = parser.configs.account()?;
+            let timestamp = util::load_oracle_data(OracleCellType::Time)?;
+
+            let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
+            verifiers::common::verify_cell_number_and_position(
+                "AccountCell",
+                &input_cells,
+                &[0, 1],
+                &output_cells,
+                &[0],
+            )?;
+
+            let input_prev_cell_witness = util::parse_account_cell_witness(&parser, input_cells[0], Source::Input)?;
+            let input_prev_cell_witness_reader = input_prev_cell_witness.as_reader();
+            let output_prev_cell_witness = util::parse_account_cell_witness(&parser, output_cells[0], Source::Output)?;
+            let output_prev_cell_witness_reader = output_prev_cell_witness.as_reader();
+
+            verifiers::account_cell::verify_account_capacity_not_decrease(input_cells[0], output_cells[0])?;
+            verifiers::account_cell::verify_account_cell_consistent_with_exception(
+                input_cells[0],
+                output_cells[0],
+                &input_prev_cell_witness_reader,
+                &output_prev_cell_witness_reader,
+                None,
+                vec!["next"],
+                vec![],
+            )?;
+
+            debug!("Verify if the AccountCell has been expired.");
+
+            let ret = verifiers::account_cell::verify_account_expiration(
+                config_account,
+                input_cells[1],
+                Source::Input,
+                timestamp,
+            );
+
+            das_assert!(
+                ret == Err(Error::AccountCellHasExpired),
+                Error::AccountCellHasNotExpired,
+                "inputs[{}] The AccountCell has not been expired.",
+                input_cells[1]
+            );
+
+            debug!("Verify if the AccountCell is in status which could be recycled.");
+
+            // manual::verify_account_status
+            let expired_account_witness = util::parse_account_cell_witness(&parser, input_cells[1], Source::Input)?;
+            let expired_account_witness_reader = expired_account_witness.as_reader();
+            let account_cell_status = u8::from(expired_account_witness_reader.status());
+
+            das_assert!(
+                account_cell_status == AccountStatus::Normal as u8
+                    || account_cell_status == AccountStatus::LockedForCrossChain as u8,
+                Error::AccountCellStatusLocked,
+                "inputs[{}] The AccountCell.witness.status should be Normal or LockedForCrossChain .",
+                input_cells[1]
+            );
+
+            debug!("Verify if the SubAccountCell has been recycled either.");
+
+            let mut capacity_of_sub_account_cell = 0;
+            match expired_account_witness_reader.try_into_latest() {
+                Ok(reader) => {
+                    let enable_sub_account = u8::from(reader.enable_sub_account());
+                    if enable_sub_account == SubAccountEnableStatus::On as u8 {
+                        debug!("Verify if the SubAccountCell is recycled properly.");
+
+                        let sub_account_type_id = config_main.type_id_table().sub_account_cell();
+                        let sub_account_cells =
+                            util::find_cells_by_type_id(ScriptType::Type, sub_account_type_id, Source::Input)?;
+
+                        verifiers::common::verify_cell_number_and_position(
+                            "SubAccountCell",
+                            &sub_account_cells,
+                            &[2],
+                            &[],
+                            &[],
+                        )?;
+                        capacity_of_sub_account_cell =
+                            high_level::load_cell_capacity(sub_account_cells[0], Source::Input)?;
+                    }
+                }
+                _ => {}
+            }
+
+            debug!("Verify if the AccountCell is recycled properly.");
+
+            // manual::verify_account_contiguous
+            let prev_account_input_data = high_level::load_cell_data(input_cells[0], Source::Input)?;
+            let expired_account_data = high_level::load_cell_data(input_cells[1], Source::Input)?;
+            let prev_account_input_next = data_parser::account_cell::get_next(&prev_account_input_data);
+            let expired_account_id = data_parser::account_cell::get_id(&expired_account_data);
+
+            das_assert!(
+                prev_account_input_next == expired_account_id,
+                Error::AccountCellNotContiguous,
+                "inputs[{}] The AccountCell.next should be 0x{} .",
+                input_cells[0],
+                util::hex_string(expired_account_id)
+            );
+
+            // manual::verify_account_next_updated
+            let prev_account_output_data = high_level::load_cell_data(output_cells[0], Source::Output)?;
+            let prev_account_output_next = data_parser::account_cell::get_next(&prev_account_output_data);
+            let expired_account_next = data_parser::account_cell::get_next(&expired_account_data);
+
+            das_assert!(
+                prev_account_output_next == expired_account_next,
+                Error::AccountCellNextUpdateError,
+                "outputs[{}] The AccountCell.next should be updated to 0x{} .",
+                output_cells[0],
+                util::hex_string(expired_account_next)
+            );
+
+            debug!("Verify if all the refunds has been refund properly.");
+
+            let expired_account_capacity = high_level::load_cell_capacity(input_cells[1], Source::Input)?;
+            let available_fee = u64::from(config_account.common_fee());
+            let refund_lock = util::derive_owner_lock_from_cell(input_cells[1], Source::Input)?;
+
+            verifiers::misc::verify_user_get_change(
+                config_main,
+                refund_lock.as_reader(),
+                expired_account_capacity + capacity_of_sub_account_cell - available_fee,
+            )?;
         }
         b"start_account_sale" => {
             util::require_type_script(
