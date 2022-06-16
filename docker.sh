@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 
 # Docker image name
-DOCKER_IMAGE="thewawar/ckb-capsule:2021-08-16"
+DOCKER_IMAGE="thewawar/ckb-capsule:2021-12-25"
+COMPILING_TARGET="riscv64imac-unknown-none-elf"
+COMPILING_FLAGS="-Z pre-link-arg=-zseparate-code -Z pre-link-arg=-zseparate-loadable-segments"
 # Docker container name
 DOCKER_CONTAINER="capsule-dev"${PWD//\//_}
 # Name of capsule cache volume
@@ -71,21 +73,21 @@ function build() {
   fi
 
   if [[ $is_release == true ]]; then
-    command="RUSTFLAGS=\"-Z pre-link-arg=-zseparate-code -Z pre-link-arg=-zseparate-loadable-segments\" cargo build --release --features \"${feature}\" --target riscv64imac-unknown-none-elf && ckb-binary-patcher -i /code/target/riscv64imac-unknown-none-elf/release/${contract} -o /code/target/riscv64imac-unknown-none-elf/release/${contract}"
+    command="RUSTFLAGS=\"${COMPILING_FLAGS}\" cargo build --release --features \"${feature}\" --target ${COMPILING_TARGET} && ckb-binary-patcher -i /code/target/${COMPILING_TARGET}/release/${contract} -o /code/target/${COMPILING_TARGET}/release/${contract}"
     echo "Run build command: "$command
 
     # Build release version
     docker exec -it -w /code/contracts/$contract $DOCKER_CONTAINER bash -c "${command}" &&
       docker exec -it -w /code $DOCKER_CONTAINER bash -c \
-        "cp /code/target/riscv64imac-unknown-none-elf/release/${contract} /code/build/release/"
+        "cp /code/target/${COMPILING_TARGET}/release/${contract} /code/build/release/"
   else
-    command="RUSTFLAGS=\"-Z pre-link-arg=-zseparate-code -Z pre-link-arg=-zseparate-loadable-segments\" cargo build --features \"${feature}\" --target riscv64imac-unknown-none-elf && ckb-binary-patcher -i /code/target/riscv64imac-unknown-none-elf/debug/${contract} -o /code/target/riscv64imac-unknown-none-elf/debug/${contract}"
+    command="RUSTFLAGS=\"${COMPILING_FLAGS}\" cargo build --features \"${feature}\" --target ${COMPILING_TARGET} && ckb-binary-patcher -i /code/target/${COMPILING_TARGET}/debug/${contract} -o /code/target/${COMPILING_TARGET}/debug/${contract}"
     echo "Run build command: "$command
 
     # Build debug version
     docker exec -it -w /code/contracts/$contract $DOCKER_CONTAINER bash -c "${command}" &&
       docker exec -it -w /code $DOCKER_CONTAINER bash -c \
-        "cp /code/target/riscv64imac-unknown-none-elf/debug/${contract} /code/build/debug/"
+        "cp /code/target/${COMPILING_TARGET}/debug/${contract} /code/build/debug/"
   fi
   ret=$?
 
@@ -146,8 +148,6 @@ start)
       -v ${dir}/das-types:/das-types \
       -v ${dir}/das-types-std:/das-types-std \
       -v $CACHE_VOLUME:/root/.cargo \
-      -e RUSTFLAGS="-Z pre-link-arg=-zseparate-code -Z pre-link-arg=-zseparate-loadable-segments" \
-      -e CAPSULE_TEST_ENV=debug \
       $DOCKER_IMAGE bin/bash &>/dev/null
   else
     docker run -it --rm \
@@ -157,8 +157,6 @@ start)
       -v ${dir}/das-types:/das-types \
       -v ${dir}/das-types-std:/das-types-std \
       -v $CACHE_VOLUME:/root/.cargo \
-      -e RUSTFLAGS="-Z pre-link-arg=-zseparate-code -Z pre-link-arg=-zseparate-loadable-segments" \
-      -e CAPSULE_TEST_ENV=debug \
       $DOCKER_IMAGE bin/bash
   fi
   ;;
