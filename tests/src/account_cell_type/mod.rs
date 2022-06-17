@@ -8,3 +8,4 @@ mod enable_sub_account;
 mod lock_account_for_cross_chain;
 mod renew_account;
 mod unlock_account_for_cross_chain;
+mod recycle_expired_account_by_keeper;

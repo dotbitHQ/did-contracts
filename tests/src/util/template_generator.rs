@@ -653,6 +653,7 @@ impl TemplateGenerator {
             .transfer_account_fee(Uint64::from(ACCOUNT_OPERATE_FEE))
             .edit_manager_fee(Uint64::from(ACCOUNT_OPERATE_FEE))
             .edit_records_fee(Uint64::from(ACCOUNT_OPERATE_FEE))
+            .common_fee(Uint64::from(ACCOUNT_OPERATE_FEE))
             .transfer_account_throttle(Uint32::from(86400))
             .edit_manager_throttle(Uint32::from(3600))
             .edit_records_throttle(Uint32::from(600))
