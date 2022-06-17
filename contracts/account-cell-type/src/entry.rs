@@ -408,6 +408,18 @@ pub fn main() -> Result<(), Error> {
                             &[],
                             &[],
                         )?;
+
+                        let type_script = high_level::load_cell_type(sub_account_cells[0], Source::Input)?.unwrap();
+                        let account_id = type_script.as_reader().args().raw_data();
+                        let expected_account_id = expired_account_witness_reader.id().raw_data();
+
+                        das_assert!(
+                            account_id == expected_account_id,
+                            Error::AccountCellIdNotMatch,
+                            "inputs[{}] The account ID of the SubAccountCell is not match with the expired AccountCell.",
+                            sub_account_cells[0]
+                        );
+
                         capacity_of_sub_account_cell =
                             high_level::load_cell_capacity(sub_account_cells[0], Source::Input)?;
                     }
@@ -425,7 +437,7 @@ pub fn main() -> Result<(), Error> {
 
             das_assert!(
                 prev_account_input_next == expired_account_id,
-                Error::AccountCellNotContiguous,
+                Error::AccountCellMissingPrevAccount,
                 "inputs[{}] The AccountCell.next should be 0x{} .",
                 input_cells[0],
                 util::hex_string(expired_account_id)

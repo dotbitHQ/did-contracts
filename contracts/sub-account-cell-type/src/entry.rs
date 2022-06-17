@@ -46,6 +46,14 @@ pub fn main() -> Result<(), Error> {
                 Error::InvalidTransactionStructure,
             )?;
         }
+        b"recycle_expired_account_by_keeper" => {
+            util::require_type_script(
+                &parser,
+                TypeScript::AccountCellType,
+                Source::Input,
+                Error::InvalidTransactionStructure,
+            )?;
+        }
         b"create_sub_account" | b"edit_sub_account" | b"renew_sub_account" | b"recycle_sub_account" => {
             parser.parse_cell()?;
             let config_main = parser.configs.main()?;
