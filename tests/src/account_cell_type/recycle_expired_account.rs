@@ -30,6 +30,7 @@ fn push_expired_account_cell(template: &mut TemplateGenerator) {
                 "expired_at": TIMESTAMP - DAY_SEC * 90,
             },
             "witness": {
+                "account": "das00002.bit",
                 "enable_sub_account": 1,
             }
         }),
@@ -54,7 +55,7 @@ fn push_expired_sub_account_cell(template: &mut TemplateGenerator) {
 }
 
 fn before_each() -> TemplateGenerator {
-    let mut template = init("recycle_expired_account_by_keeper", None);
+    let mut template = init("recycle_expired_account", None);
 
     template.push_contract_cell("sub-account-cell-type", false);
     template.push_contract_cell("balance-cell-type", false);

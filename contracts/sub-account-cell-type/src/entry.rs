@@ -46,7 +46,7 @@ pub fn main() -> Result<(), Error> {
                 Error::InvalidTransactionStructure,
             )?;
         }
-        b"recycle_expired_account_by_keeper" => {
+        b"recycle_expired_account" => {
             util::require_type_script(
                 &parser,
                 TypeScript::AccountCellType,
