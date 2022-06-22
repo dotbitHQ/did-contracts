@@ -1,9 +1,12 @@
 use super::common::init;
 use crate::util::{
-    self, error::Error, accounts::*, constants::*, template_common_cell::*, template_generator::*, template_parser::*,
+    self, accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
 };
 use das_types_std::constants::AccountStatus;
 use serde_json::json;
+
+pub const DAS_PROFIT: u64 = 10_000_000_000;
+pub const OWNER_PROFIT: u64 = 10_000_000_000;
 
 fn push_prev_account_cell(template: &mut TemplateGenerator) {
     push_input_account_cell(
@@ -42,13 +45,15 @@ fn push_expired_sub_account_cell(template: &mut TemplateGenerator) {
     push_input_sub_account_cell(
         template,
         json!({
-            "capacity": SUB_ACCOUNT_BASIC_CAPACITY + SUB_ACCOUNT_PREPARED_FEE_CAPACITY,
+            "capacity": SUB_ACCOUNT_BASIC_CAPACITY + SUB_ACCOUNT_PREPARED_FEE_CAPACITY + DAS_PROFIT + OWNER_PROFIT,
             "type": {
                 "code_hash": "{{sub-account-cell-type}}",
                 "args": "das00002.bit"
             },
             "data": {
-                "root": "0x0000000000000000000000000000000000000000000000000000000000000000"
+                "root": "0x0000000000000000000000000000000000000000000000000000000000000000",
+                "das_profit": DAS_PROFIT,
+                "owner_profit": OWNER_PROFIT,
             }
         }),
     );
@@ -94,11 +99,7 @@ fn test_account_recycle_without_sub_account() {
             },
         }),
     );
-    push_output_balance_cell(
-        &mut template,
-        util::gen_account_cell_capacity(8),
-        OWNER,
-    );
+    push_output_balance_cell(&mut template, util::gen_account_cell_capacity(8), OWNER);
 
     test_tx(template.as_json());
 }
@@ -123,9 +124,60 @@ fn test_account_recycle_with_sub_account() {
     );
     push_output_balance_cell(
         &mut template,
-        util::gen_account_cell_capacity(8) + SUB_ACCOUNT_BASIC_CAPACITY + SUB_ACCOUNT_PREPARED_FEE_CAPACITY,
+        util::gen_account_cell_capacity(8)
+            + SUB_ACCOUNT_BASIC_CAPACITY
+            + SUB_ACCOUNT_PREPARED_FEE_CAPACITY
+            + OWNER_PROFIT,
         OWNER,
     );
+    push_output_normal_cell(&mut template, DAS_PROFIT, DAS_WALLET_LOCK_ARGS);
+
+    test_tx(template.as_json());
+}
+
+#[test]
+fn test_account_recycle_with_sub_account_and_no_refunds_to_das() {
+    let mut template = before_each();
+    let das_profit = 6_100_000_000u64 - 1;
+
+    push_prev_account_cell(&mut template);
+    push_expired_account_cell(&mut template);
+    push_input_sub_account_cell(
+        &mut template,
+        json!({
+            "capacity": SUB_ACCOUNT_BASIC_CAPACITY + SUB_ACCOUNT_PREPARED_FEE_CAPACITY + das_profit + OWNER_PROFIT,
+            "type": {
+                "code_hash": "{{sub-account-cell-type}}",
+                "args": "das00002.bit"
+            },
+            "data": {
+                "root": "0x0000000000000000000000000000000000000000000000000000000000000000",
+                // Simulate the profit of DAS is less than 61CKB.
+                "das_profit": das_profit,
+                "owner_profit": OWNER_PROFIT,
+            }
+        }),
+    );
+
+    push_output_account_cell(
+        &mut template,
+        json!({
+            "capacity": util::gen_account_cell_capacity(8),
+            "data": {
+                "account": "das00001.bit",
+                "next": "das00003.bit",
+            },
+        }),
+    );
+    push_output_balance_cell(
+        &mut template,
+        util::gen_account_cell_capacity(8)
+            + SUB_ACCOUNT_BASIC_CAPACITY
+            + SUB_ACCOUNT_PREPARED_FEE_CAPACITY
+            + OWNER_PROFIT,
+        OWNER,
+    );
+    // Because the profit of DAS is less than 61CKB, there is no need to refund to DAS any more.
 
     test_tx(template.as_json());
 }
@@ -151,9 +203,13 @@ fn challenge_account_recycle_missing_sub_account() {
     );
     push_output_balance_cell(
         &mut template,
-        util::gen_account_cell_capacity(8),
+        util::gen_account_cell_capacity(8)
+            + SUB_ACCOUNT_BASIC_CAPACITY
+            + SUB_ACCOUNT_PREPARED_FEE_CAPACITY
+            + OWNER_PROFIT,
         OWNER,
     );
+    push_output_normal_cell(&mut template, DAS_PROFIT, DAS_WALLET_LOCK_ARGS);
 
     challenge_tx(template.as_json(), Error::InvalidTransactionStructure);
 }
@@ -191,9 +247,13 @@ fn challenge_account_recycle_with_wrong_sub_account() {
     );
     push_output_balance_cell(
         &mut template,
-        util::gen_account_cell_capacity(8) + SUB_ACCOUNT_BASIC_CAPACITY + SUB_ACCOUNT_PREPARED_FEE_CAPACITY,
+        util::gen_account_cell_capacity(8)
+            + SUB_ACCOUNT_BASIC_CAPACITY
+            + SUB_ACCOUNT_PREPARED_FEE_CAPACITY
+            + OWNER_PROFIT,
         OWNER,
     );
+    push_output_normal_cell(&mut template, DAS_PROFIT, DAS_WALLET_LOCK_ARGS);
 
     challenge_tx(template.as_json(), Error::AccountCellIdNotMatch);
 }
@@ -227,11 +287,7 @@ fn challenge_account_recycle_account_not_expired() {
             },
         }),
     );
-    push_output_balance_cell(
-        &mut template,
-        util::gen_account_cell_capacity(8),
-        OWNER,
-    );
+    push_output_balance_cell(&mut template, util::gen_account_cell_capacity(8), OWNER);
 
     challenge_tx(template.as_json(), Error::AccountCellHasNotExpired);
 }
@@ -268,11 +324,7 @@ fn challenge_account_recycle_status_locked() {
             },
         }),
     );
-    push_output_balance_cell(
-        &mut template,
-        util::gen_account_cell_capacity(8),
-        OWNER,
-    );
+    push_output_balance_cell(&mut template, util::gen_account_cell_capacity(8), OWNER);
 
     challenge_tx(template.as_json(), Error::AccountCellStatusLocked);
 }
@@ -316,11 +368,7 @@ fn challenge_account_recycle_with_wrong_prev_account() {
             },
         }),
     );
-    push_output_balance_cell(
-        &mut template,
-        util::gen_account_cell_capacity(8),
-        OWNER,
-    );
+    push_output_balance_cell(&mut template, util::gen_account_cell_capacity(8), OWNER);
 
     challenge_tx(template.as_json(), Error::AccountCellMissingPrevAccount);
 }
@@ -344,11 +392,7 @@ fn challenge_account_recycle_update_next_error() {
             },
         }),
     );
-    push_output_balance_cell(
-        &mut template,
-        util::gen_account_cell_capacity(8),
-        OWNER,
-    );
+    push_output_balance_cell(&mut template, util::gen_account_cell_capacity(8), OWNER);
 
     challenge_tx(template.as_json(), Error::AccountCellNextUpdateError);
 }
@@ -373,19 +417,20 @@ fn challenge_account_recycle_refunds_owner() {
     );
     push_output_balance_cell(
         &mut template,
-        util::gen_account_cell_capacity(8) +
-            SUB_ACCOUNT_BASIC_CAPACITY +
-            SUB_ACCOUNT_PREPARED_FEE_CAPACITY -
-            ACCOUNT_OPERATE_FEE,
-        // Simulate the refund is sent to another user.
+        util::gen_account_cell_capacity(8)
+            + SUB_ACCOUNT_BASIC_CAPACITY
+            + SUB_ACCOUNT_PREPARED_FEE_CAPACITY
+            + OWNER_PROFIT
+            - ACCOUNT_OPERATE_FEE,
         OWNER_1,
     );
+    push_output_normal_cell(&mut template, DAS_PROFIT, DAS_WALLET_LOCK_ARGS);
 
     challenge_tx(template.as_json(), Error::ChangeError);
 }
 
 #[test]
-fn challenge_account_recycle_refunds_capacity() {
+fn challenge_account_recycle_owner_refunds_capacity() {
     let mut template = before_each();
 
     push_prev_account_cell(&mut template);
@@ -406,11 +451,46 @@ fn challenge_account_recycle_refunds_capacity() {
         &mut template,
         util::gen_account_cell_capacity(8) +
             SUB_ACCOUNT_BASIC_CAPACITY +
-            SUB_ACCOUNT_PREPARED_FEE_CAPACITY -
-            // Simulate the capacity of refunds is not correct.
+            SUB_ACCOUNT_PREPARED_FEE_CAPACITY +
+            OWNER_PROFIT -
+            // Simulate the capacity of refunds to owner is not correct.
             ACCOUNT_OPERATE_FEE - 1,
         OWNER,
     );
+    push_output_normal_cell(&mut template, DAS_PROFIT, DAS_WALLET_LOCK_ARGS);
+
+    challenge_tx(template.as_json(), Error::ChangeError);
+}
+
+#[test]
+fn challenge_account_recycle_das_refunds_capacity() {
+    let mut template = before_each();
+
+    push_prev_account_cell(&mut template);
+    push_expired_account_cell(&mut template);
+    push_expired_sub_account_cell(&mut template);
+
+    push_output_account_cell(
+        &mut template,
+        json!({
+            "capacity": util::gen_account_cell_capacity(8),
+            "data": {
+                "account": "das00001.bit",
+                "next": "das00003.bit",
+            },
+        }),
+    );
+    push_output_balance_cell(
+        &mut template,
+        util::gen_account_cell_capacity(8)
+            + SUB_ACCOUNT_BASIC_CAPACITY
+            + SUB_ACCOUNT_PREPARED_FEE_CAPACITY
+            + OWNER_PROFIT
+            - ACCOUNT_OPERATE_FEE,
+        OWNER,
+    );
+    // Simulate the capacity of refunds to owner is not correct.
+    push_output_normal_cell(&mut template, DAS_PROFIT - 1, DAS_WALLET_LOCK_ARGS);
 
     challenge_tx(template.as_json(), Error::ChangeError);
 }

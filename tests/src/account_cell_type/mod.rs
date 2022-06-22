@@ -6,6 +6,6 @@ mod force_recover_account_status;
 // mod init_account_chain;
 mod enable_sub_account;
 mod lock_account_for_cross_chain;
+mod recycle_expired_account;
 mod renew_account;
 mod unlock_account_for_cross_chain;
-mod recycle_expired_account;

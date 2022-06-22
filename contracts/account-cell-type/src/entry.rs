@@ -390,7 +390,8 @@ pub fn main() -> Result<(), Error> {
 
             debug!("Verify if the SubAccountCell has been recycled either.");
 
-            let mut capacity_of_sub_account_cell = 0;
+            let mut refund_from_sub_account_cell_to_das = 0;
+            let mut refund_from_sub_account_cell_to_owner = 0;
             match expired_account_witness_reader.try_into_latest() {
                 Ok(reader) => {
                     let enable_sub_account = u8::from(reader.enable_sub_account());
@@ -398,25 +399,28 @@ pub fn main() -> Result<(), Error> {
                         debug!("Verify if the SubAccountCell is recycled properly.");
 
                         let sub_account_type_id = config_main.type_id_table().sub_account_cell();
-                        let sub_account_cells =
-                            util::find_cells_by_type_id(ScriptType::Type, sub_account_type_id, Source::Input)?;
+                        let (input_sub_account_cells, output_sub_account_cells) =
+                            util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, sub_account_type_id)?;
 
                         verifiers::common::verify_cell_number_and_position(
                             "SubAccountCell",
-                            &sub_account_cells,
+                            &input_sub_account_cells,
                             &[2],
-                            &[],
+                            &output_sub_account_cells,
                             &[],
                         )?;
 
                         verifiers::sub_account_cell::verify_sub_account_parent_id(
-                            sub_account_cells[0],
+                            input_sub_account_cells[0],
                             Source::Input,
                             expired_account_witness_reader.id().raw_data(),
                         )?;
 
-                        capacity_of_sub_account_cell =
-                            high_level::load_cell_capacity(sub_account_cells[0], Source::Input)?;
+                        let total_capacity = high_level::load_cell_capacity(input_sub_account_cells[0], Source::Input)?;
+                        let sub_account_data = high_level::load_cell_data(input_sub_account_cells[0], Source::Input)?;
+                        refund_from_sub_account_cell_to_das =
+                            data_parser::sub_account_cell::get_das_profit(&sub_account_data).unwrap();
+                        refund_from_sub_account_cell_to_owner = total_capacity - refund_from_sub_account_cell_to_das;
                     }
                 }
                 _ => {}
@@ -460,8 +464,17 @@ pub fn main() -> Result<(), Error> {
             verifiers::misc::verify_user_get_change(
                 config_main,
                 refund_lock.as_reader(),
-                expired_account_capacity + capacity_of_sub_account_cell - available_fee,
+                expired_account_capacity + refund_from_sub_account_cell_to_owner - available_fee,
             )?;
+
+            if refund_from_sub_account_cell_to_das >= CELL_BASIC_CAPACITY {
+                verifiers::common::verify_das_get_change(refund_from_sub_account_cell_to_das)?;
+            } else {
+                debug!(
+                    "The profit of DAS is {} shannon, so no need to refund to DAS.",
+                    refund_from_sub_account_cell_to_das
+                );
+            }
         }
         b"start_account_sale" => {
             util::require_type_script(

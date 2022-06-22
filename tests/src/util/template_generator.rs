@@ -2238,15 +2238,26 @@ impl TemplateGenerator {
         } else {
             let data = &cell["data"];
             let mut root = parse_json_hex("cell.data.root", &data["root"]);
-            let mut profit = if data["profit"].is_null() {
+            let mut das_profit = if data["das_profit"].is_null() {
                 Vec::new()
             } else {
-                parse_json_u64("cell.data.profit", &data["profit"], None)
+                parse_json_u64("cell.data.das_profit", &data["das_profit"], None)
                     .to_le_bytes()
                     .to_vec()
             };
+            let mut owner_profit = if data["owner_profit"].is_null() {
+                Vec::new()
+            } else {
+                parse_json_u64("cell.data.owner_profit", &data["owner_profit"], None)
+                    .to_le_bytes()
+                    .to_vec()
+            };
+            let mut custom_script =
+                parse_json_hex_with_default("cell.data.custom_script", &data["custom_script"], Vec::new());
 
-            root.append(&mut profit);
+            root.append(&mut das_profit);
+            root.append(&mut owner_profit);
+            root.append(&mut custom_script);
             util::bytes_to_hex(&root)
         };
 

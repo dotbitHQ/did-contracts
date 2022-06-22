@@ -1,4 +1,10 @@
-use crate::{assert as das_assert, debug, error::Error};
+use crate::{
+    assert as das_assert,
+    constants::{das_wallet_lock, ScriptType},
+    debug,
+    error::Error,
+    util,
+};
 use alloc::format;
 use ckb_std::{ckb_constants::Source, high_level};
 use core::cmp::Ordering;
@@ -200,6 +206,35 @@ pub fn verify_tx_fee_spent_correctly(
             cell_name, input_capacity, output_capacity
         );
     }
+
+    Ok(())
+}
+
+pub fn verify_das_get_change(expected_change: u64) -> Result<(), Error> {
+    let das_wallet_lock = das_wallet_lock();
+    let das_wallet_cells = util::find_cells_by_script(ScriptType::Lock, das_wallet_lock.as_reader(), Source::Output)?;
+
+    let mut total_capacity = 0;
+    for i in das_wallet_cells {
+        let type_hash = high_level::load_cell_type_hash(i, Source::Output)?;
+        das_assert!(
+            type_hash.is_none(),
+            Error::InvalidTransactionStructure,
+            "outputs[{}] The cells to DAS should not contains any type script.",
+            i
+        );
+
+        let capacity = high_level::load_cell_capacity(i, Source::Output)?;
+        total_capacity += capacity;
+    }
+
+    das_assert!(
+        total_capacity == expected_change,
+        Error::ChangeError,
+        "The change to DAS should be {} shannon, but {} found.",
+        expected_change,
+        total_capacity
+    );
 
     Ok(())
 }
