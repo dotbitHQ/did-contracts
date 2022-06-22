@@ -1,4 +1,4 @@
-use alloc::{borrow::ToOwned, vec};
+use alloc::{borrow::ToOwned, vec, vec::Vec};
 use ckb_std::{ckb_constants::Source, dynamic_loading_c_impl::CKBDLContext, high_level};
 use core::{convert::TryInto, result::Result};
 use das_core::{
@@ -52,6 +52,120 @@ pub fn main() -> Result<(), Error> {
                 TypeScript::AccountCellType,
                 Source::Input,
                 Error::InvalidTransactionStructure,
+            )?;
+        }
+        b"config_sub_account_creating_script" => {
+            parser.parse_cell()?;
+            let config_main = parser.configs.main()?;
+            let config_account = parser.configs.account()?;
+            let config_sub_account = parser.configs.sub_account()?;
+
+            let timestamp = util::load_oracle_data(OracleCellType::Time)?;
+
+            let (input_account_cells, output_account_cells) = util::find_cells_by_type_id_in_inputs_and_outputs(
+                ScriptType::Type,
+                config_main.type_id_table().account_cell(),
+            )?;
+            verifiers::common::verify_cell_number_and_position(
+                "AccountCell",
+                &input_account_cells,
+                &[0],
+                &output_account_cells,
+                &[0],
+            )?;
+
+            let sender_lock = util::derive_owner_lock_from_cell(input_account_cells[0], Source::Input)?;
+            verifiers::misc::verify_no_more_cells_with_same_lock(
+                sender_lock.as_reader(),
+                &input_account_cells,
+                Source::Input,
+            )?;
+
+            let input_account_cell_witness =
+                util::parse_account_cell_witness(&parser, input_account_cells[0], Source::Input)?;
+            let input_account_cell_reader = input_account_cell_witness.as_reader();
+            let output_account_cell_witness =
+                util::parse_account_cell_witness(&parser, output_account_cells[0], Source::Output)?;
+            let output_account_cell_reader = output_account_cell_witness.as_reader();
+
+            verifiers::account_cell::verify_status(
+                &input_account_cell_reader,
+                AccountStatus::Normal,
+                input_account_cells[0],
+                Source::Input,
+            )?;
+
+            verifiers::account_cell::verify_account_expiration(
+                config_account,
+                input_account_cells[0],
+                Source::Input,
+                timestamp,
+            )?;
+
+            verifiers::account_cell::verify_account_capacity_not_decrease(
+                input_account_cells[0],
+                output_account_cells[0],
+            )?;
+
+            verifiers::account_cell::verify_account_cell_consistent_with_exception(
+                input_account_cells[0],
+                output_account_cells[0],
+                &input_account_cell_reader,
+                &output_account_cell_reader,
+                None,
+                vec![],
+                vec![],
+            )?;
+
+            let (input_sub_account_cells, output_sub_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
+            verifiers::common::verify_cell_number_and_position(
+                "SubAccountCell",
+                &input_sub_account_cells,
+                &[1],
+                &output_sub_account_cells,
+                &[1],
+            )?;
+
+            verifiers::sub_account_cell::verify_sub_account_parent_id(
+                input_sub_account_cells[0],
+                Source::Input,
+                input_account_cell_reader.id().raw_data(),
+            )?;
+
+            let input_sub_account_capacity = high_level::load_cell_capacity(input_sub_account_cells[0], Source::Input)?;
+            let output_sub_account_capacity =
+                high_level::load_cell_capacity(output_sub_account_cells[0], Source::Output)?;
+            let input_sub_account_data = high_level::load_cell_data(input_sub_account_cells[0], Source::Input)?;
+            let output_sub_account_data = high_level::load_cell_data(output_sub_account_cells[0], Source::Output)?;
+
+            let input_sub_account_profit = data_parser::sub_account_cell::get_profit(&input_sub_account_data).unwrap();
+            let output_sub_account_profit =
+                data_parser::sub_account_cell::get_profit(&output_sub_account_data).unwrap();
+            verify_sub_account_transaction_fee(
+                config_sub_account,
+                action,
+                input_sub_account_capacity,
+                input_sub_account_profit,
+                output_sub_account_capacity,
+                output_sub_account_profit,
+            )?;
+
+            let input_sub_account_custom_script =
+                data_parser::sub_account_cell::get_custom_script(&input_sub_account_data);
+            let output_sub_account_custom_script =
+                data_parser::sub_account_cell::get_custom_script(&output_sub_account_data);
+            // manual::verify_custom_script_changed
+            assert!(
+                input_sub_account_custom_script != output_sub_account_custom_script,
+                Error::SubAccountCustomScriptError,
+                "outputs[{}] The custom script of SubAccountCell should be different in inputs and outputs.",
+                output_sub_account_cells[0]
+            );
+
+            verify_sub_account_cell_is_consistent(
+                input_sub_account_cells[0],
+                output_sub_account_cells[0],
+                vec!["custom_script"],
             )?;
         }
         b"create_sub_account" | b"edit_sub_account" | b"renew_sub_account" | b"recycle_sub_account" => {
@@ -168,9 +282,7 @@ pub fn main() -> Result<(), Error> {
                     verify_sub_account_cell_is_consistent(
                         input_sub_account_cells[0],
                         output_sub_account_cells[0],
-                        input_sub_account_profit,
-                        output_sub_account_profit,
-                        true,
+                        vec!["profit"],
                     )?;
                 }
                 b"edit_sub_account" => {
@@ -212,9 +324,7 @@ pub fn main() -> Result<(), Error> {
                     verify_sub_account_cell_is_consistent(
                         input_sub_account_cells[0],
                         output_sub_account_cells[0],
-                        input_sub_account_profit,
-                        output_sub_account_profit,
-                        false,
+                        vec!["smt_root"],
                     )?;
 
                     if cfg!(not(feature = "dev")) {
@@ -534,19 +644,9 @@ fn verify_sub_account_transaction_fee(
 fn verify_sub_account_cell_is_consistent(
     input_sub_account_cell: usize,
     output_sub_account_cell: usize,
-    input_profit: u64,
-    output_profit: u64,
-    except_profit: bool,
+    except: Vec<&str>,
 ) -> Result<(), Error> {
     debug!("Verify if the SubAccountCell is consistent in inputs and outputs.");
-
-    if !except_profit {
-        assert!(
-            input_profit == output_profit,
-            Error::SubAccountCellConsistencyError,
-            "The SubAccountCell.data.profit should be consistent in inputs and outputs."
-        );
-    }
 
     let input_sub_account_cell_lock = high_level::load_cell_lock(input_sub_account_cell, Source::Input)?;
     let output_sub_account_cell_lock = high_level::load_cell_lock(output_sub_account_cell, Source::Output)?;
@@ -567,6 +667,39 @@ fn verify_sub_account_cell_is_consistent(
         Error::SubAccountCellConsistencyError,
         "The SubAccountCell.type should be consistent in inputs and outputs."
     );
+
+    let input_sub_account_data = high_level::load_cell_data(input_sub_account_cell, Source::Input)?;
+    let output_sub_account_data = high_level::load_cell_data(output_sub_account_cell, Source::Output)?;
+
+    if !except.contains(&"smt_root") {
+        let input_smt_root = data_parser::sub_account_cell::get_smt_root(&input_sub_account_data).unwrap();
+        let output_smt_root = data_parser::sub_account_cell::get_smt_root(&output_sub_account_data).unwrap();
+        assert!(
+            input_smt_root == output_smt_root,
+            Error::SubAccountCellConsistencyError,
+            "The SubAccountCell.data.smt_root should be consistent in inputs and outputs."
+        );
+    }
+
+    if !except.contains(&"profit") {
+        let input_profit = data_parser::sub_account_cell::get_profit(&input_sub_account_data).unwrap();
+        let output_profit = data_parser::sub_account_cell::get_profit(&output_sub_account_data).unwrap();
+        assert!(
+            input_profit == output_profit,
+            Error::SubAccountCellConsistencyError,
+            "The SubAccountCell.data.profit should be consistent in inputs and outputs."
+        );
+    }
+
+    if !except.contains(&"custom_script") {
+        let input_custom_script = data_parser::sub_account_cell::get_custom_script(&input_sub_account_data).unwrap();
+        let output_custom_script = data_parser::sub_account_cell::get_custom_script(&output_sub_account_data).unwrap();
+        assert!(
+            input_custom_script == output_custom_script,
+            Error::SubAccountCellConsistencyError,
+            "The SubAccountCell.data.custom_script should be consistent in inputs and outputs."
+        );
+    }
 
     Ok(())
 }

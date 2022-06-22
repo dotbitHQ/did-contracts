@@ -409,19 +409,11 @@ pub fn main() -> Result<(), Error> {
                             &[],
                         )?;
 
-                        let type_script = high_level::load_cell_type(sub_account_cells[0], Source::Input)?.unwrap();
-                        let account_id = type_script.as_reader().args().raw_data();
-                        let expected_account_id = expired_account_witness_reader.id().raw_data();
-
-                        debug!("account_id = {:?}", account_id);
-                        debug!("expected_account_id = {:?}", expected_account_id);
-
-                        das_assert!(
-                            account_id == expected_account_id,
-                            Error::AccountCellIdNotMatch,
-                            "inputs[{}] The account ID of the SubAccountCell is not match with the expired AccountCell.",
-                            sub_account_cells[0]
-                        );
+                        verifiers::sub_account_cell::verify_sub_account_parent_id(
+                            sub_account_cells[0],
+                            Source::Input,
+                            expired_account_witness_reader.id().raw_data(),
+                        )?;
 
                         capacity_of_sub_account_cell =
                             high_level::load_cell_capacity(sub_account_cells[0], Source::Input)?;
@@ -795,6 +787,14 @@ pub fn main() -> Result<(), Error> {
             }
         }
         b"create_sub_account" => {
+            util::require_type_script(
+                &parser,
+                TypeScript::SubAccountCellType,
+                Source::Input,
+                Error::InvalidTransactionStructure,
+            )?;
+        }
+        b"config_sub_account_creating_script" => {
             util::require_type_script(
                 &parser,
                 TypeScript::SubAccountCellType,
