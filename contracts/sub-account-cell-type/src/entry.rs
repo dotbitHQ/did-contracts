@@ -54,7 +54,7 @@ pub fn main() -> Result<(), Error> {
                 Error::InvalidTransactionStructure,
             )?;
         }
-        b"config_sub_account_creating_script" => {
+        b"config_sub_account_custom_script" => {
             parser.parse_cell()?;
             let config_main = parser.configs.main()?;
             let config_account = parser.configs.account()?;
@@ -138,16 +138,13 @@ pub fn main() -> Result<(), Error> {
             let input_sub_account_data = high_level::load_cell_data(input_sub_account_cells[0], Source::Input)?;
             let output_sub_account_data = high_level::load_cell_data(output_sub_account_cells[0], Source::Output)?;
 
-            let input_sub_account_profit = data_parser::sub_account_cell::get_profit(&input_sub_account_data).unwrap();
-            let output_sub_account_profit =
-                data_parser::sub_account_cell::get_profit(&output_sub_account_data).unwrap();
             verify_sub_account_transaction_fee(
                 config_sub_account,
                 action,
                 input_sub_account_capacity,
-                input_sub_account_profit,
+                &input_sub_account_data,
                 output_sub_account_capacity,
-                output_sub_account_profit,
+                &output_sub_account_data,
             )?;
 
             let input_sub_account_custom_script =
@@ -187,27 +184,24 @@ pub fn main() -> Result<(), Error> {
                 high_level::load_cell_capacity(output_sub_account_cells[0], Source::Output)?;
             let input_sub_account_data = high_level::load_cell_data(input_sub_account_cells[0], Source::Input)?;
             let output_sub_account_data = high_level::load_cell_data(output_sub_account_cells[0], Source::Output)?;
-            let input_sub_account_profit = data_parser::sub_account_cell::get_profit(&input_sub_account_data).unwrap();
-            let output_sub_account_profit =
-                data_parser::sub_account_cell::get_profit(&output_sub_account_data).unwrap();
 
             verify_sub_account_capacity_is_enough(
                 config_sub_account,
                 input_sub_account_cells[0],
                 input_sub_account_capacity,
-                input_sub_account_profit,
+                &input_sub_account_data,
                 output_sub_account_cells[0],
                 output_sub_account_capacity,
-                output_sub_account_profit,
+                &output_sub_account_data,
             )?;
 
             verify_sub_account_transaction_fee(
                 config_sub_account,
                 action,
                 input_sub_account_capacity,
-                input_sub_account_profit,
+                &input_sub_account_data,
                 output_sub_account_capacity,
-                output_sub_account_profit,
+                &output_sub_account_data,
             )?;
 
             let mut parent_account;
@@ -565,8 +559,8 @@ pub fn main() -> Result<(), Error> {
                     verify_profit_to_das(
                         action,
                         output_sub_account_cells[0],
-                        input_sub_account_profit,
-                        output_sub_account_profit,
+                        &input_sub_account_data,
+                        &output_sub_account_data,
                         profit_to_das,
                     )?;
                 }
@@ -583,28 +577,34 @@ fn verify_sub_account_capacity_is_enough(
     config: ConfigCellSubAccountReader,
     input_index: usize,
     input_capacity: u64,
-    input_profit: u64,
+    input_data: &[u8],
     output_index: usize,
     output_capacity: u64,
-    output_profit: u64,
+    output_data: &[u8],
 ) -> Result<(), Error> {
     let basic_capacity = u64::from(config.basic_capacity());
+    let input_das_profit = data_parser::sub_account_cell::get_das_profit(&input_data).unwrap();
+    let output_das_profit = data_parser::sub_account_cell::get_das_profit(&output_data).unwrap();
+    let input_owner_profit = data_parser::sub_account_cell::get_owner_profit(&input_data).unwrap();
+    let output_owner_profit = data_parser::sub_account_cell::get_owner_profit(&output_data).unwrap();
 
     assert!(
-        input_capacity >= input_profit + basic_capacity,
+        input_capacity >= input_das_profit + input_owner_profit + basic_capacity,
         Error::SubAccountCellCapacityError,
-        "inputs[{}] The capacity of SubAccountCell should contains profit and basic_capacity, but its not enough.(capacity: {}, profit: {})",
+        "inputs[{}] The capacity of SubAccountCell should contains profit and basic_capacity, but its not enough.(capacity: {}, das_profit: {}, owner_profit: {})",
         input_index,
         input_capacity,
-        input_profit
+        input_das_profit,
+        input_owner_profit
     );
     assert!(
-        output_capacity >= output_profit + basic_capacity,
+        output_capacity >= output_das_profit + output_owner_profit + basic_capacity,
         Error::SubAccountCellCapacityError,
-        "outputs[{}] The capacity of SubAccountCell should contains profit and basic_capacity, but its not enough.(capacity: {}, profit: {})",
+        "outputs[{}] The capacity of SubAccountCell should contains profit and basic_capacity, but its not enough.(capacity: {}, das_profit: {}, owner_profit: {})",
         output_index,
         output_capacity,
-        output_profit
+        output_das_profit,
+        output_owner_profit
     );
 
     Ok(())
@@ -614,10 +614,15 @@ fn verify_sub_account_transaction_fee(
     config: ConfigCellSubAccountReader,
     action: &[u8],
     input_capacity: u64,
-    input_profit: u64,
+    input_data: &[u8],
     output_capacity: u64,
-    output_profit: u64,
+    output_data: &[u8],
 ) -> Result<(), Error> {
+    let input_das_profit = data_parser::sub_account_cell::get_das_profit(&input_data).unwrap();
+    let output_das_profit = data_parser::sub_account_cell::get_das_profit(&output_data).unwrap();
+    let input_owner_profit = data_parser::sub_account_cell::get_owner_profit(&input_data).unwrap();
+    let output_owner_profit = data_parser::sub_account_cell::get_owner_profit(&output_data).unwrap();
+
     let fee = match action {
         b"create_sub_account" => u64::from(config.create_fee()),
         b"edit_sub_account" => u64::from(config.edit_fee()),
@@ -626,8 +631,8 @@ fn verify_sub_account_transaction_fee(
         _ => u64::from(config.common_fee()),
     };
     let basic_capacity = u64::from(config.basic_capacity());
-    let input_remain_fees = input_capacity - input_profit - basic_capacity;
-    let output_remain_fees = output_capacity - output_profit - basic_capacity;
+    let input_remain_fees = input_capacity - input_das_profit - input_owner_profit - basic_capacity;
+    let output_remain_fees = output_capacity - output_das_profit - output_owner_profit - basic_capacity;
 
     assert!(
         input_remain_fees <= fee + output_remain_fees,
@@ -671,35 +676,25 @@ fn verify_sub_account_cell_is_consistent(
     let input_sub_account_data = high_level::load_cell_data(input_sub_account_cell, Source::Input)?;
     let output_sub_account_data = high_level::load_cell_data(output_sub_account_cell, Source::Output)?;
 
-    if !except.contains(&"smt_root") {
-        let input_smt_root = data_parser::sub_account_cell::get_smt_root(&input_sub_account_data).unwrap();
-        let output_smt_root = data_parser::sub_account_cell::get_smt_root(&output_sub_account_data).unwrap();
-        assert!(
-            input_smt_root == output_smt_root,
-            Error::SubAccountCellConsistencyError,
-            "The SubAccountCell.data.smt_root should be consistent in inputs and outputs."
-        );
+    macro_rules! assert_field_consistent_if_not_except {
+        ($field_name:expr, $get_name:ident) => {
+            if !except.contains(&$field_name) {
+                let input_value = data_parser::sub_account_cell::$get_name(&input_sub_account_data).unwrap();
+                let output_value = data_parser::sub_account_cell::$get_name(&output_sub_account_data).unwrap();
+                assert!(
+                    input_value == output_value,
+                    Error::SubAccountCellConsistencyError,
+                    "The SubAccountCell.data.{} should be consistent in inputs and outputs.",
+                    $field_name
+                );
+            }
+        };
     }
 
-    if !except.contains(&"profit") {
-        let input_profit = data_parser::sub_account_cell::get_profit(&input_sub_account_data).unwrap();
-        let output_profit = data_parser::sub_account_cell::get_profit(&output_sub_account_data).unwrap();
-        assert!(
-            input_profit == output_profit,
-            Error::SubAccountCellConsistencyError,
-            "The SubAccountCell.data.profit should be consistent in inputs and outputs."
-        );
-    }
-
-    if !except.contains(&"custom_script") {
-        let input_custom_script = data_parser::sub_account_cell::get_custom_script(&input_sub_account_data).unwrap();
-        let output_custom_script = data_parser::sub_account_cell::get_custom_script(&output_sub_account_data).unwrap();
-        assert!(
-            input_custom_script == output_custom_script,
-            Error::SubAccountCellConsistencyError,
-            "The SubAccountCell.data.custom_script should be consistent in inputs and outputs."
-        );
-    }
+    assert_field_consistent_if_not_except!("smt_root", get_smt_root);
+    assert_field_consistent_if_not_except!("das_profit", get_das_profit);
+    assert_field_consistent_if_not_except!("owner_profit", get_owner_profit);
+    assert_field_consistent_if_not_except!("custom_script", get_custom_script);
 
     Ok(())
 }

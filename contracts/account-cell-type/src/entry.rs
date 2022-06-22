@@ -807,7 +807,7 @@ pub fn main() -> Result<(), Error> {
                 Error::InvalidTransactionStructure,
             )?;
         }
-        b"config_sub_account_creating_script" => {
+        b"config_sub_account_custom_script" => {
             util::require_type_script(
                 &parser,
                 TypeScript::SubAccountCellType,

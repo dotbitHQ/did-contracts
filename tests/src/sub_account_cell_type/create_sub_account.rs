@@ -24,6 +24,7 @@ fn push_simple_input_account_cell(template: &mut TemplateGenerator) {
                 "account": ACCOUNT_1,
             },
             "witness": {
+                "account": ACCOUNT_1,
                 "enable_sub_account": 1,
             }
         }),
@@ -54,6 +55,7 @@ fn push_simple_output_account_cell(template: &mut TemplateGenerator) {
                 "account": ACCOUNT_1,
             },
             "witness": {
+                "account": ACCOUNT_1,
                 "enable_sub_account": 1,
             }
         }),
