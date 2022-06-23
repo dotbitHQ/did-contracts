@@ -472,7 +472,13 @@ impl WitnessesParser {
         index: usize,
         source: Source,
     ) -> Result<(u32, DataType, &Bytes), Error> {
-        let data = util::load_cell_data(index, source)?;
+        let data = match util::load_cell_data(index, source) {
+            Ok(data) => data,
+            _ => {
+                debug!("  {:?}[{}] Can not get outputs_data.", source, index);
+                return Err(Error::InvalidCellData);
+            }
+        };
         let hash = match data.get(..32) {
             Some(bytes) => bytes,
             _ => {
