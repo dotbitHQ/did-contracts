@@ -541,9 +541,11 @@ data: [ smt_root ][ das_profit ][ owner_profit ][ custom_script_args ]
 - owner_profit ，由于 SubAccountCell 也负责存放属于父账户 AccountCell 的 owner 的利润，这个值就是指明 capacity 当中有多少 owner 的利润；
 - custom_script_args ，总共 33 字节，第 1 字节指明自定义脚本的 hash_type ，后 32 字节指明自定义脚本的 type script 的 args，缺少该字段或者该字段全 0 就说明用户未设置自定义脚本；
 
-#### 自定义脚本 type ID 的计算方法
+#### custom_script_args 的解析方法
 
-取出 `custom_script_args` 字段的 33 字节，使用常量 `0x00000000000000000000000000000000000000000000000000545950455f4944` 作为 code_hash 组成 Script 结构：
+`custom_script_args` 字段共有 33 字节，其中 `custom_script_args[0]` 代表 Script 结构体的 hash_type 字段，根据 `custom_script_args[0]` 的不同来解析后面的 32 个字节：
+
+- 目前仅支持的情况为 `custom_script_args[0] == 1`，也就是 `hash_type == "type"` ，这种情况下需要将 `custom_script_args[1..]` 作为 Script 结构体的 args 来使用：
 
 ```
 {
