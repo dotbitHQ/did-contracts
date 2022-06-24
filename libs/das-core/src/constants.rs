@@ -3,14 +3,8 @@ use super::util;
 use alloc::{vec, vec::Vec};
 use ckb_std::ckb_types::packed::*;
 
+pub use ckb_std::ckb_types::core::ScriptHashType;
 pub use das_dynamic_libs::constants::DasLockType;
-
-#[derive(Debug)]
-#[repr(u8)]
-pub enum ScriptHashType {
-    Data = 0,
-    Type = 1,
-}
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum ScriptType {
@@ -87,9 +81,13 @@ pub const CROSS_CHAIN_BLACK_ARGS: [u8; 42] = [
     0, 0, 0, 0,
 ];
 
+pub const TYPE_ID_CODE_HASH: [u8; 32] = [
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 84, 89, 80, 69, 95, 73, 68,
+];
+
 pub fn super_lock() -> Script {
     #[cfg(feature = "dev")]
-    let super_lock = ScriptLiteral {
+        let super_lock = ScriptLiteral {
         code_hash: [
             220, 52, 236, 86, 192, 214, 236, 100, 200, 246, 111, 20, 221, 83, 241, 188, 234, 8, 213, 78, 212, 233, 68,
             96, 104, 22, 180, 238, 149, 190, 150, 70,

@@ -779,12 +779,12 @@ pub fn main() -> Result<(), Error> {
             );
 
             let sub_account_outputs_data = high_level::load_cell_data(output_sub_account_cells[0], Source::Output)?;
-            let expected_default_data = vec![0u8; 40];
+            let expected_default_data = vec![0u8; 48];
 
             das_assert!(
                 expected_default_data == sub_account_outputs_data,
                 Error::SubAccountCellSMTRootError,
-                "The default outputs_data of SubAccountCell should be [0u8; 40] ."
+                "The default outputs_data of SubAccountCell should be [0u8; 48] ."
             );
 
             debug!("Verify if sender get their change properly.");

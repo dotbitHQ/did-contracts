@@ -167,6 +167,7 @@ pub enum Error {
     SubAccountJoinBetaError,
     SubAccountProfitError,
     SubAccountCustomScriptError,
+    SubAccountNormalCellLockLimit,
     // -40
     UpgradeForWitnessIsRequired,
     UpgradeDefaultValueOfNewFieldIsError,
