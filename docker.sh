@@ -4,6 +4,7 @@
 DOCKER_IMAGE="thewawar/ckb-capsule:2021-12-25"
 COMPILING_TARGET="riscv64imac-unknown-none-elf"
 COMPILING_FLAGS="-Z pre-link-arg=-zseparate-code -Z pre-link-arg=-zseparate-loadable-segments"
+COMPILING_RELEASE_FLAGS="-C link-arg=-s"
 # Docker container name
 DOCKER_CONTAINER="capsule-dev"${PWD//\//_}
 # Name of capsule cache volume
@@ -73,7 +74,7 @@ function build() {
   fi
 
   if [[ $is_release == true ]]; then
-    command="RUSTFLAGS=\"${COMPILING_FLAGS}\" cargo build --release --features \"${feature}\" --target ${COMPILING_TARGET} && ckb-binary-patcher -i /code/target/${COMPILING_TARGET}/release/${contract} -o /code/target/${COMPILING_TARGET}/release/${contract}"
+    command="RUSTFLAGS=\"${COMPILING_FLAGS} ${COMPILING_RELEASE_FLAGS}\" cargo build --release --features \"${feature}\" --target ${COMPILING_TARGET} && ckb-binary-patcher -i /code/target/${COMPILING_TARGET}/release/${contract} -o /code/target/${COMPILING_TARGET}/release/${contract}"
     echo "Run build command: "$command
 
     # Build release version
@@ -102,7 +103,7 @@ function build() {
 function build_all() {
   local dirs=$(ls -a contracts)
   for contract in $dirs; do
-    if [[ $contract != "." && $contract != ".." && $contract != "test-env" && $contract != "playground" && -d contracts/$contract ]]; then
+    if [[ $contract != "." && $contract != ".." && $contract != "test-env" && $contract != "test-custom-script" && $contract != "playground" && -d contracts/$contract ]]; then
       build $contract $1
     fi
   done
