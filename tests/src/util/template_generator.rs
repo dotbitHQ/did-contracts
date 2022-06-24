@@ -819,7 +819,13 @@ impl TemplateGenerator {
             .basic_capacity(Uint64::from(SUB_ACCOUNT_BASIC_CAPACITY))
             .prepared_fee_capacity(Uint64::from(SUB_ACCOUNT_PREPARED_FEE_CAPACITY))
             .new_sub_account_price(Uint64::from(SUB_ACCOUNT_NEW_PRICE))
+            .new_sub_account_custom_price_das_profit_rate(Uint32::from(
+                SUB_ACCOUNT_NEW_CUSTOM_PRICE_DAS_PROFIT_RATE as u32,
+            ))
             .renew_sub_account_price(Uint64::from(SUB_ACCOUNT_RENEW_PRICE))
+            .renew_sub_account_custom_price_das_profit_rate(Uint32::from(
+                SUB_ACCOUNT_RENEW_CUSTOM_PRICE_DAS_PROFIT_RATE as u32,
+            ))
             .common_fee(Uint64::from(SUB_ACCOUNT_COMMON_FEE))
             .create_fee(Uint64::from(SUB_ACCOUNT_CREATE_FEE))
             .edit_fee(Uint64::from(SUB_ACCOUNT_EDIT_FEE))

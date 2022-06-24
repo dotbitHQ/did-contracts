@@ -10,7 +10,7 @@ fn before_each() -> TemplateGenerator {
 
     // inputs
     push_simple_input_account_cell(&mut template);
-    push_simple_input_sub_account_cell(&mut template, 0);
+    push_simple_input_sub_account_cell(&mut template, 0, 0);
     push_input_normal_cell(&mut template, 10_000_000_000, OWNER);
 
     template
@@ -31,7 +31,7 @@ fn push_simple_input_account_cell(template: &mut TemplateGenerator) {
     );
 }
 
-fn push_simple_input_sub_account_cell(template: &mut TemplateGenerator, profit: u64) {
+fn push_simple_input_sub_account_cell(template: &mut TemplateGenerator, das_profit: u64, owner_profit: u64) {
     let current_root = template.smt_with_history.current_root();
     push_input_sub_account_cell(
         template,
@@ -41,7 +41,8 @@ fn push_simple_input_sub_account_cell(template: &mut TemplateGenerator, profit: 
             },
             "data": {
                 "root": String::from("0x") + &hex::encode(&current_root),
-                "profit": profit
+                "das_profit": das_profit,
+                "owner_profit": owner_profit
             }
         }),
     );
@@ -62,7 +63,7 @@ fn push_simple_output_account_cell(template: &mut TemplateGenerator) {
     );
 }
 
-fn push_simple_output_sub_account_cell(template: &mut TemplateGenerator, profit: u64) {
+fn push_simple_output_sub_account_cell(template: &mut TemplateGenerator, das_profit: u64, owner_profit: u64) {
     let current_root = template.smt_with_history.current_root();
     push_output_sub_account_cell(
         template,
@@ -72,27 +73,114 @@ fn push_simple_output_sub_account_cell(template: &mut TemplateGenerator, profit:
             },
             "data": {
                 "root": String::from("0x") + &hex::encode(&current_root),
-                "profit": profit
+                "das_profit": das_profit,
+                "owner_profit": owner_profit
             }
         }),
     );
 }
 
 fn push_common_output_cells(template: &mut TemplateGenerator) {
-    let new_sub_account_cost = calculate_sub_account_cost(template);
+    let das_profit = calculate_sub_account_cost(template);
     push_simple_output_account_cell(template);
-    push_simple_output_sub_account_cell(template, new_sub_account_cost);
-    push_output_normal_cell(template, 10_000_000_000 - new_sub_account_cost, OWNER);
+    push_simple_output_sub_account_cell(template, das_profit, 0);
+    push_output_normal_cell(template, 10_000_000_000 - das_profit, OWNER);
 }
 
 fn calculate_sub_account_cost(template: &TemplateGenerator) -> u64 {
     SUB_ACCOUNT_NEW_PRICE * template.sub_account_outer_witnesses.len() as u64
 }
 
-// push_output_normal_cell(template, 10_000_000_000 - new_sub_account_cost, OWNER);
+fn before_each_with_custom_script() -> TemplateGenerator {
+    let mut template = init_create("create_sub_account", Some("0x00"));
+
+    template.push_contract_cell("test-custom-script", false);
+    push_simple_dep_account_cell(&mut template);
+
+    // inputs
+    push_simple_input_sub_account_cell_with_custom_script(&mut template, 0, 0);
+    push_input_normal_cell(&mut template, 100_000_000_000, OWNER);
+
+    template
+}
+
+fn push_simple_dep_account_cell(template: &mut TemplateGenerator) {
+    push_dep_account_cell(
+        template,
+        json!({
+            "data": {
+                "account": ACCOUNT_1,
+            },
+            "witness": {
+                "account": ACCOUNT_1,
+                "enable_sub_account": 1,
+            }
+        }),
+    );
+}
+
+fn push_simple_input_sub_account_cell_with_custom_script(
+    template: &mut TemplateGenerator,
+    das_profit: u64,
+    owner_profit: u64,
+) {
+    let current_root = template.smt_with_history.current_root();
+    push_input_sub_account_cell(
+        template,
+        json!({
+            "type": {
+                "args": ACCOUNT_1
+            },
+            "data": {
+                "root": String::from("0x") + &hex::encode(&current_root),
+                "das_profit": das_profit,
+                "owner_profit": owner_profit,
+                // 01 means hash type is type.
+                // 746573742d637573746f6d2d736372697074 means args of type ID 578232827c6e74b39bf8894694ae4e0884a44df295d5e15770e4c06869cee1d4 of custom script.
+                "custom_script": "0x01746573742d637573746f6d2d736372697074"
+            }
+        }),
+    );
+}
+
+fn push_simple_output_sub_account_cell_with_custom_script(
+    template: &mut TemplateGenerator,
+    das_profit: u64,
+    owner_profit: u64,
+) {
+    let current_root = template.smt_with_history.current_root();
+    push_output_sub_account_cell(
+        template,
+        json!({
+            "type": {
+                "args": ACCOUNT_1
+            },
+            "data": {
+                "root": String::from("0x") + &hex::encode(&current_root),
+                "das_profit": das_profit,
+                "owner_profit": owner_profit,
+                // 01 means hash type is type.
+                // 746573742d637573746f6d2d736372697074 means args of type ID 578232827c6e74b39bf8894694ae4e0884a44df295d5e15770e4c06869cee1d4 of custom script.
+                "custom_script": "0x01746573742d637573746f6d2d736372697074"
+            }
+        }),
+    );
+}
+
+fn push_common_output_cells_with_custom_script(template: &mut TemplateGenerator) {
+    let total_profit = calculate_sub_account_custom_price(template);
+    let das_profit = total_profit * SUB_ACCOUNT_NEW_CUSTOM_PRICE_DAS_PROFIT_RATE / RATE_BASE;
+    let owner_profit = total_profit - das_profit;
+    push_simple_output_sub_account_cell_with_custom_script(template, das_profit, owner_profit);
+    push_output_normal_cell(template, 100_000_000_000 - total_profit, OWNER);
+}
+
+fn calculate_sub_account_custom_price(template: &TemplateGenerator) -> u64 {
+    SUB_ACCOUNT_NEW_CUSTOM_PRICE * template.sub_account_outer_witnesses.len() as u64
+}
 
 #[test]
-fn test_sub_account_create() {
+fn test_sub_account_create_without_custom_script() {
     let mut template = before_each();
 
     // outputs
@@ -119,7 +207,7 @@ fn test_sub_account_create() {
                     "owner_lock_args": OWNER_2,
                     "manager_lock_args": MANAGER_2
                 },
-                "account": SUB_ACCOUNT_2,
+                "account": SUB_ACCOUNT_3,
                 "suffix": SUB_ACCOUNT_SUFFIX,
                 "registered_at": TIMESTAMP,
                 "expired_at": TIMESTAMP + YEAR_SEC,
@@ -134,7 +222,7 @@ fn test_sub_account_create() {
                     "owner_lock_args": OWNER_3,
                     "manager_lock_args": MANAGER_3
                 },
-                "account": SUB_ACCOUNT_2,
+                "account": SUB_ACCOUNT_4,
                 "suffix": SUB_ACCOUNT_SUFFIX,
                 "registered_at": TIMESTAMP,
                 "expired_at": TIMESTAMP + YEAR_SEC,
@@ -164,7 +252,7 @@ fn challenge_sub_account_create_parent_not_in_normal_status() {
             }
         }),
     );
-    push_simple_input_sub_account_cell(&mut template, 0);
+    push_simple_input_sub_account_cell(&mut template, 0, 0);
     push_input_normal_cell(&mut template, 10_000_000_000, OWNER);
 
     // outputs
@@ -184,7 +272,7 @@ fn challenge_sub_account_create_parent_not_in_normal_status() {
         }),
     );
 
-    let new_sub_account_cost = calculate_sub_account_cost(&mut template);
+    let das_profit = calculate_sub_account_cost(&mut template);
 
     push_output_account_cell(
         &mut template,
@@ -198,8 +286,8 @@ fn challenge_sub_account_create_parent_not_in_normal_status() {
             }
         }),
     );
-    push_simple_output_sub_account_cell(&mut template, new_sub_account_cost);
-    push_output_normal_cell(&mut template, 10_000_000_000 - new_sub_account_cost, OWNER);
+    push_simple_output_sub_account_cell(&mut template, das_profit, 0);
+    push_output_normal_cell(&mut template, 10_000_000_000 - das_profit, OWNER);
 
     challenge_tx(template.as_json(), Error::AccountCellStatusLocked);
 }
@@ -225,7 +313,7 @@ fn challenge_sub_account_create_parent_expired() {
             }
         }),
     );
-    push_simple_input_sub_account_cell(&mut template, 0);
+    push_simple_input_sub_account_cell(&mut template, 0, 0);
     push_input_normal_cell(&mut template, 10_000_000_000, OWNER);
 
     // outputs
@@ -245,7 +333,7 @@ fn challenge_sub_account_create_parent_expired() {
         }),
     );
 
-    let new_sub_account_cost = calculate_sub_account_cost(&mut template);
+    let das_profit = calculate_sub_account_cost(&mut template);
 
     push_output_account_cell(
         &mut template,
@@ -261,8 +349,8 @@ fn challenge_sub_account_create_parent_expired() {
             }
         }),
     );
-    push_simple_output_sub_account_cell(&mut template, new_sub_account_cost);
-    push_output_normal_cell(&mut template, 10_000_000_000 - new_sub_account_cost, OWNER);
+    push_simple_output_sub_account_cell(&mut template, das_profit, 0);
+    push_output_normal_cell(&mut template, 10_000_000_000 - das_profit, OWNER);
 
     challenge_tx(template.as_json(), Error::AccountCellInExpirationGracePeriod);
 }
@@ -284,7 +372,7 @@ fn challenge_sub_account_create_parent_not_enable_feature() {
             }
         }),
     );
-    push_simple_input_sub_account_cell(&mut template, 0);
+    push_simple_input_sub_account_cell(&mut template, 0, 0);
     push_input_normal_cell(&mut template, 10_000_000_000, OWNER);
 
     // outputs
@@ -304,7 +392,7 @@ fn challenge_sub_account_create_parent_not_enable_feature() {
         }),
     );
 
-    let new_sub_account_cost = calculate_sub_account_cost(&mut template);
+    let das_profit = calculate_sub_account_cost(&mut template);
 
     push_output_account_cell(
         &mut template,
@@ -317,8 +405,8 @@ fn challenge_sub_account_create_parent_not_enable_feature() {
             }
         }),
     );
-    push_simple_output_sub_account_cell(&mut template, new_sub_account_cost);
-    push_output_normal_cell(&mut template, 10_000_000_000 - new_sub_account_cost, OWNER);
+    push_simple_output_sub_account_cell(&mut template, das_profit, 0);
+    push_output_normal_cell(&mut template, 10_000_000_000 - das_profit, OWNER);
 
     challenge_tx(template.as_json(), Error::SubAccountFeatureNotEnabled);
 }
@@ -570,7 +658,7 @@ fn challenge_sub_account_create_no_profit_record() {
     let new_sub_account_cost = calculate_sub_account_cost(&template);
     push_simple_output_account_cell(&mut template);
     // Simulate forget record correct profit in the outputs_data of the SubAccountCell
-    push_simple_output_sub_account_cell(&mut template, 0);
+    push_simple_output_sub_account_cell(&mut template, 0, 0);
     push_output_normal_cell(&mut template, 10_000_000_000 - new_sub_account_cost, OWNER);
 
     challenge_tx(template.as_json(), Error::SubAccountProfitError);
@@ -604,13 +692,13 @@ fn challenge_sub_account_create_profit_not_match_capacity() {
         &mut template,
         json!({
             // Simulate forget put profit into the capacity of the SubAccountCell
-            "capacity": SUB_ACCOUNT_BASIC_CAPACITY + SUB_ACCOUNT_PREPARED_FEE_CAPACITY,
+            "capacity": SUB_ACCOUNT_BASIC_CAPACITY + new_sub_account_cost - 1,
             "type": {
                 "args": ACCOUNT_1
             },
             "data": {
                 "root": String::from("0x") + &hex::encode(&current_root),
-                "profit": new_sub_account_cost
+                "das_profit": new_sub_account_cost
             }
         }),
     );
@@ -618,4 +706,197 @@ fn challenge_sub_account_create_profit_not_match_capacity() {
     push_output_normal_cell(&mut template, 10_000_000_000 - new_sub_account_cost, OWNER);
 
     challenge_tx(template.as_json(), Error::SubAccountCellCapacityError);
+}
+
+#[test]
+fn test_sub_account_create_with_custom_script() {
+    let mut template = before_each_with_custom_script();
+
+    // outputs
+    template.push_sub_account_witness(
+        SubAccountActionType::Insert,
+        json!({
+            "sub_account": {
+                "lock": {
+                    "owner_lock_args": OWNER_1,
+                    "manager_lock_args": MANAGER_1
+                },
+                "account": SUB_ACCOUNT_2,
+                "suffix": SUB_ACCOUNT_SUFFIX,
+                "registered_at": TIMESTAMP,
+                "expired_at": TIMESTAMP + YEAR_SEC,
+            }
+        }),
+    );
+    template.push_sub_account_witness(
+        SubAccountActionType::Insert,
+        json!({
+            "sub_account": {
+                "lock": {
+                    "owner_lock_args": OWNER_2,
+                    "manager_lock_args": MANAGER_2
+                },
+                "account": SUB_ACCOUNT_3,
+                "suffix": SUB_ACCOUNT_SUFFIX,
+                "registered_at": TIMESTAMP,
+                "expired_at": TIMESTAMP + YEAR_SEC,
+            }
+        }),
+    );
+    template.push_sub_account_witness(
+        SubAccountActionType::Insert,
+        json!({
+            "sub_account": {
+                "lock": {
+                    "owner_lock_args": OWNER_3,
+                    "manager_lock_args": MANAGER_3
+                },
+                "account": SUB_ACCOUNT_4,
+                "suffix": SUB_ACCOUNT_SUFFIX,
+                "registered_at": TIMESTAMP,
+                "expired_at": TIMESTAMP + YEAR_SEC,
+            }
+        }),
+    );
+    push_common_output_cells_with_custom_script(&mut template);
+
+    test_tx(template.as_json())
+}
+
+#[test]
+fn challenge_sub_account_create_with_custom_script_modified_script_args() {
+    let mut template = before_each_with_custom_script();
+
+    // outputs
+    template.push_sub_account_witness(
+        SubAccountActionType::Insert,
+        json!({
+            "sub_account": {
+                "lock": {
+                    "owner_lock_args": OWNER_1,
+                    "manager_lock_args": MANAGER_1
+                },
+                "account": SUB_ACCOUNT_2,
+                "suffix": SUB_ACCOUNT_SUFFIX,
+                "registered_at": TIMESTAMP,
+                "expired_at": TIMESTAMP + YEAR_SEC,
+            }
+        }),
+    );
+
+    let total_profit = calculate_sub_account_custom_price(&template);
+    let das_profit = total_profit * SUB_ACCOUNT_NEW_CUSTOM_PRICE_DAS_PROFIT_RATE / RATE_BASE;
+    let owner_profit = total_profit - das_profit;
+    let current_root = template.smt_with_history.current_root();
+    push_output_sub_account_cell(
+        &mut template,
+        json!({
+            "type": {
+                "args": ACCOUNT_1
+            },
+            "data": {
+                "root": String::from("0x") + &hex::encode(&current_root),
+                "das_profit": das_profit,
+                "owner_profit": owner_profit,
+                // Simulate modifying the custom script of the SubAccountCell.
+                "custom_script": "0x01000000742d637573746f6d2d736372000000"
+            }
+        }),
+    );
+    push_output_normal_cell(&mut template, 100_000_000_000 - total_profit, OWNER);
+
+    challenge_tx(template.as_json(), Error::SubAccountCellConsistencyError);
+}
+
+#[test]
+fn challenge_sub_account_create_with_custom_script_different_lock_for_normal_cells() {
+    let mut template = before_each_with_custom_script();
+
+    // outputs
+    template.push_sub_account_witness(
+        SubAccountActionType::Insert,
+        json!({
+            "sub_account": {
+                "lock": {
+                    "owner_lock_args": OWNER_1,
+                    "manager_lock_args": MANAGER_1
+                },
+                "account": SUB_ACCOUNT_2,
+                "suffix": SUB_ACCOUNT_SUFFIX,
+                "registered_at": TIMESTAMP,
+                "expired_at": TIMESTAMP + YEAR_SEC,
+            }
+        }),
+    );
+
+    let total_profit = calculate_sub_account_custom_price(&template);
+    let das_profit = total_profit * SUB_ACCOUNT_NEW_CUSTOM_PRICE_DAS_PROFIT_RATE / RATE_BASE;
+    let owner_profit = total_profit - das_profit;
+    push_simple_output_sub_account_cell_with_custom_script(&mut template, das_profit, owner_profit);
+    // Simulate change to a different lock which is not the same as the lock in inputs.
+    push_output_normal_cell(&mut template, 100_000_000_000 - total_profit, OWNER_1);
+
+    challenge_tx(template.as_json(), Error::SubAccountNormalCellLockLimit);
+}
+
+#[test]
+fn challenge_sub_account_create_with_custom_script_das_profit_not_enough() {
+    let mut template = before_each_with_custom_script();
+
+    // outputs
+    template.push_sub_account_witness(
+        SubAccountActionType::Insert,
+        json!({
+            "sub_account": {
+                "lock": {
+                    "owner_lock_args": OWNER_1,
+                    "manager_lock_args": MANAGER_1
+                },
+                "account": SUB_ACCOUNT_2,
+                "suffix": SUB_ACCOUNT_SUFFIX,
+                "registered_at": TIMESTAMP,
+                "expired_at": TIMESTAMP + YEAR_SEC,
+            }
+        }),
+    );
+
+    let total_profit = calculate_sub_account_custom_price(&template);
+    // Simulate the profit of DAS is less than expected value.
+    let das_profit = total_profit * SUB_ACCOUNT_NEW_CUSTOM_PRICE_DAS_PROFIT_RATE / RATE_BASE - 1;
+    let owner_profit = total_profit - das_profit;
+    push_simple_output_sub_account_cell_with_custom_script(&mut template, das_profit, owner_profit);
+    push_output_normal_cell(&mut template, 100_000_000_000 - total_profit, OWNER);
+
+    challenge_tx(template.as_json(), Error::SubAccountProfitError);
+}
+
+#[test]
+fn challenge_sub_account_create_with_custom_script_das_profit_less_than_minimal_limit() {
+    let mut template = before_each_with_custom_script();
+
+    // outputs
+    template.push_sub_account_witness(
+        SubAccountActionType::Insert,
+        json!({
+            "sub_account": {
+                "lock": {
+                    "owner_lock_args": OWNER_1,
+                    "manager_lock_args": MANAGER_1
+                },
+                "account": SUB_ACCOUNT_2,
+                "suffix": SUB_ACCOUNT_SUFFIX,
+                "registered_at": TIMESTAMP,
+                "expired_at": TIMESTAMP + YEAR_SEC,
+            }
+        }),
+    );
+
+    let total_profit = calculate_sub_account_cost(&template);
+    // Simulate the profit of DAS is less than expected value.
+    let das_profit = total_profit - 1;
+    let owner_profit = 0;
+    push_simple_output_sub_account_cell_with_custom_script(&mut template, das_profit, owner_profit);
+    push_output_normal_cell(&mut template, 100_000_000_000 - total_profit, OWNER);
+
+    challenge_tx(template.as_json(), Error::SubAccountProfitError);
 }

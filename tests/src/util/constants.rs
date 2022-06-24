@@ -49,7 +49,10 @@ pub const REVERSE_RECORD_COMMON_FEE: u64 = 10_000;
 pub const SUB_ACCOUNT_BASIC_CAPACITY: u64 = 20_000_000_000;
 pub const SUB_ACCOUNT_PREPARED_FEE_CAPACITY: u64 = 1_000_000_000;
 pub const SUB_ACCOUNT_NEW_PRICE: u64 = 100_000_000;
+pub const SUB_ACCOUNT_NEW_CUSTOM_PRICE: u64 = 10_000_000_000;
+pub const SUB_ACCOUNT_NEW_CUSTOM_PRICE_DAS_PROFIT_RATE: u64 = 2_000;
 pub const SUB_ACCOUNT_RENEW_PRICE: u64 = 100_000_000;
+pub const SUB_ACCOUNT_RENEW_CUSTOM_PRICE_DAS_PROFIT_RATE: u64 = 2_000;
 pub const SUB_ACCOUNT_COMMON_FEE: u64 = 30_000;
 pub const SUB_ACCOUNT_CREATE_FEE: u64 = 30_000;
 pub const SUB_ACCOUNT_EDIT_FEE: u64 = 30_000;
@@ -173,6 +176,10 @@ lazy_static! {
         map.insert(
             "test-env",
             "0x4939a7b6baf71149795f59844c215af0c117f381ac615fe3f563e77509063e19",
+        );
+        map.insert(
+            "test-custom-script",
+            "0x578232827c6e74b39bf8894694ae4e0884a44df295d5e15770e4c06869cee1d4",
         );
         map.insert(
             "playground",

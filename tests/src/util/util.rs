@@ -1,4 +1,5 @@
 use super::{super::ckb_types_relay::*, super::Loader, constants::*, error};
+use crate::util::util;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use ckb_testtool::{
     ckb_chain_spec::consensus::TYPE_ID_CODE_HASH,
@@ -136,7 +137,12 @@ pub fn deploy_contract(
         .build();
     let type_id = type_.calc_script_hash();
     // Uncomment the line below can print type ID of each script in unit tests.
-    // println!("script: {}, type_id: {}", binary_name, type_id);
+    // println!(
+    //     "script: {}, type_id: {}, args: {}",
+    //     binary_name,
+    //     type_id,
+    //     hex_string(binary_name.as_bytes())
+    // );
 
     let out_point = mock_out_point(index_opt.unwrap_or(rand::random::<usize>()));
     mock_cell_with_outpoint(
