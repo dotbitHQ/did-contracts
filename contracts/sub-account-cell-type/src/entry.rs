@@ -237,6 +237,7 @@ pub fn main() -> Result<(), Error> {
                                 config_main.type_id_table().account_cell(),
                                 Source::CellDep,
                             )?;
+
                             verifiers::common::verify_cell_dep_number("AccountCell", &dep_account_cells, 1)?;
 
                             account_cell_index = dep_account_cells[0];
@@ -310,8 +311,6 @@ pub fn main() -> Result<(), Error> {
                                     ScriptType::Type,
                                     config_main.type_id_table().account_cell(),
                                 )?;
-                            account_cell_index = input_account_cells[0];
-                            account_cell_source = Source::Input;
 
                             verifiers::common::verify_cell_number_and_position(
                                 "AccountCell",
@@ -321,10 +320,15 @@ pub fn main() -> Result<(), Error> {
                                 &[0],
                             )?;
 
+                            account_cell_index = input_account_cells[0];
+                            account_cell_source = Source::Input;
+
                             let sender_lock = util::derive_owner_lock_from_cell(input_account_cells[0], Source::Input)?;
+                            let input_balance_cells = util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Input)?;
+                            let all_cells = [input_account_cells.clone(), input_balance_cells].concat();
                             verifiers::misc::verify_no_more_cells_with_same_lock(
                                 sender_lock.as_reader(),
-                                &input_account_cells,
+                                &all_cells,
                                 Source::Input,
                             )?;
 
