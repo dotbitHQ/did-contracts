@@ -229,18 +229,18 @@ pub fn main() -> Result<(), Error> {
                     let account_cell_reader;
 
                     match custom_script {
-                        Some(val) if val.len() > 0 && val != &[0u8; 32] => {
-                            debug!("Found custom scripts in SubAccountCell.data, find the AccountCell from cell_deps.");
+                        Some(val) if val.len() > 0 && val != &[0u8; 33] => {
+                            debug!("Found custom scripts in SubAccountCell.data, try to find the AccountCell from cell_deps.");
 
                             let dep_account_cells = util::find_cells_by_type_id(
                                 ScriptType::Type,
                                 config_main.type_id_table().account_cell(),
                                 Source::CellDep,
                             )?;
+                            verifiers::common::verify_cell_dep_number("AccountCell", &dep_account_cells, 1)?;
+
                             account_cell_index = dep_account_cells[0];
                             account_cell_source = Source::CellDep;
-
-                            verifiers::common::verify_cell_dep_number("AccountCell", &dep_account_cells, 1)?;
 
                             account_cell_witness =
                                 util::parse_account_cell_witness(&parser, dep_account_cells[0], Source::CellDep)?;
@@ -264,6 +264,11 @@ pub fn main() -> Result<(), Error> {
 
                             let action_str = String::from_utf8(action.to_vec()).unwrap();
                             custom_script_params.push(action_str);
+
+                            debug!("Try to find the QuoteCell from cell_deps and push quote into custom_script_params.");
+
+                            let quote = util::load_oracle_data(OracleCellType::Quote)?;
+                            custom_script_params.push(util::hex_string(&quote.to_le_bytes()));
 
                             let input_das_profit =
                                 data_parser::sub_account_cell::get_das_profit(&input_sub_account_data).unwrap();

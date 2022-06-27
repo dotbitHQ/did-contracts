@@ -42,7 +42,8 @@ fn push_simple_input_sub_account_cell(template: &mut TemplateGenerator, das_prof
             "data": {
                 "root": String::from("0x") + &hex::encode(&current_root),
                 "das_profit": das_profit,
-                "owner_profit": owner_profit
+                "owner_profit": owner_profit,
+                "custom_script": "0x000000000000000000000000000000000000000000000000000000000000000000"
             }
         }),
     );
@@ -74,7 +75,8 @@ fn push_simple_output_sub_account_cell(template: &mut TemplateGenerator, das_pro
             "data": {
                 "root": String::from("0x") + &hex::encode(&current_root),
                 "das_profit": das_profit,
-                "owner_profit": owner_profit
+                "owner_profit": owner_profit,
+                "custom_script": "0x000000000000000000000000000000000000000000000000000000000000000000"
             }
         }),
     );
@@ -95,6 +97,7 @@ fn before_each_with_custom_script() -> TemplateGenerator {
     let mut template = init_create("create_sub_account", Some("0x00"));
 
     template.push_contract_cell("test-custom-script", false);
+    template.push_oracle_cell(1, OracleCellType::Quote, CKB_QUOTE);
     push_simple_dep_account_cell(&mut template);
 
     // inputs

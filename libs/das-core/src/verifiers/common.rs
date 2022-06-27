@@ -17,9 +17,9 @@ pub fn verify_cell_dep_number(cell_name: &str, current_deps: &[usize], expected_
         Error::InvalidTransactionStructure,
         "{}",
         match expected_deps_len {
-            0 => format!("There should be none {} in inputs.", cell_name),
-            1 => format!("There should be only one {} in inputs.", cell_name),
-            _ => format!("There should be {} {}s in inputs.", expected_deps_len, cell_name),
+            0 => format!("There should be none {} in cell_deps.", cell_name),
+            1 => format!("There should be only one {} in cell_deps.", cell_name),
+            _ => format!("There should be {} {}s in cell_deps.", expected_deps_len, cell_name),
         }
     );
 
