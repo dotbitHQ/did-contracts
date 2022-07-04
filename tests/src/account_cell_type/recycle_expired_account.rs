@@ -105,7 +105,7 @@ fn test_account_recycle_without_sub_account() {
 }
 
 #[test]
-fn test_account_recycle_with_sub_account() {
+fn test_account_recycle_with_sub_account_and_refund_to_das() {
     let mut template = before_each();
 
     push_prev_account_cell(&mut template);

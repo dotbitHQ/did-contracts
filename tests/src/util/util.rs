@@ -1,5 +1,4 @@
 use super::{super::ckb_types_relay::*, super::Loader, constants::*, error};
-use crate::util::util;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use ckb_testtool::{
     ckb_chain_spec::consensus::TYPE_ID_CODE_HASH,
@@ -124,16 +123,25 @@ pub fn deploy_contract(
         Loader::default().load_binary(binary_name)
     };
 
-    let args = binary_name
-        .as_bytes()
-        .to_vec()
-        .into_iter()
-        .map(Byte::new)
-        .collect::<Vec<_>>();
+    let args = {
+        // Padding args to 32 bytes, because it is convenient to use 32 bytes as the real args are also 32 bytes.
+        let mut buf = [0u8; 32];
+        let len = buf.len();
+        let bytes = binary_name.as_bytes();
+        if bytes.len() >= len {
+            buf.copy_from_slice(&bytes[..32]);
+        } else {
+            let (_, right) = buf.split_at_mut(len - bytes.len());
+            right.copy_from_slice(bytes);
+        }
+
+        buf
+    };
+    let args_bytes = args.iter().map(|v| Byte::new(*v)).collect::<Vec<_>>();
     let type_ = Script::new_builder()
         .code_hash(Byte32::new_unchecked(bytes::Bytes::from(TYPE_ID_CODE_HASH.as_bytes())))
         .hash_type(ScriptHashType::Type.into())
-        .args(Bytes::new_builder().set(args).build())
+        .args(Bytes::new_builder().set(args_bytes).build())
         .build();
     let type_id = type_.calc_script_hash();
     // Uncomment the line below can print type ID of each script in unit tests.
