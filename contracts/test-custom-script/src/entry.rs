@@ -9,7 +9,7 @@ pub fn main(argc: usize, argv: *const *const u8) -> Result<(), Error> {
     debug!("====== Running test-custom-script ======");
 
     das_assert!(
-        argc >= 5,
+        argc >= 6,
         Error::InvalidArgument,
         "The param argc must be greater than or equal to 4."
     );
@@ -19,10 +19,12 @@ pub fn main(argc: usize, argv: *const *const u8) -> Result<(), Error> {
     let quote = read_u64_param!(args[1]);
     let owner_profit = read_u64_param!(args[2]);
     let das_profit = read_u64_param!(args[3]);
+    let script_args = read_bytes_param!(args[4]);
 
     debug!("quote = {:?}", quote);
     debug!("owner_profit = {:?}", owner_profit);
     debug!("das_profit = {:?}", das_profit);
+    debug!("script_args = 0x{}", hex::encode(&script_args));
 
     das_assert!(
         action == "create_sub_account",
@@ -45,7 +47,14 @@ pub fn main(argc: usize, argv: *const *const u8) -> Result<(), Error> {
         das_profit
     );
 
-    for i in 4..argc {
+    das_assert!(
+        &script_args == &[0, 17, 34, 51, 0] || &script_args == &[],
+        Error::InvalidScriptArgs,
+        "The param script_args should be 0x0011223300 . (current: 0x{})",
+        hex::encode(&script_args)
+    );
+
+    for i in 5..argc {
         let (expiration_years, sub_account_bytes) = read_sub_account_param!(args[i]);
         debug!("expiration_years = {:?}", expiration_years);
 

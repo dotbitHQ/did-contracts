@@ -19,9 +19,8 @@ pub fn main() -> Result<(), Error> {
 
     let input_cells = util::find_cells_by_script(ScriptType::Type, balance_cell_type_reader, Source::Input)?;
     // We need to find all BalanceCells even it has no type script, so we use das-lock as the finding condition.
-    let output_cells = util::find_cells_by_type_id(ScriptType::Lock, das_lock_reader.code_hash().into(), Source::Output)?;
-    debug!("input_cells = {:?}", input_cells);
-    debug!("output_cells = {:?}", output_cells);
+    let output_cells =
+        util::find_cells_by_type_id(ScriptType::Lock, das_lock_reader.code_hash().into(), Source::Output)?;
 
     let mut parser = WitnessesParser::new()?;
     let mut is_unknown_action = false;

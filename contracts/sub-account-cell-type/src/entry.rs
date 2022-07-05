@@ -1,17 +1,6 @@
-use alloc::{
-    string::String,
-    borrow::ToOwned,
-    vec,
-    vec::Vec,
-};
+use alloc::{borrow::ToOwned, string::String, vec, vec::Vec};
 use ckb_std::{
-    ckb_constants::{
-        Source,
-    },
-    cstr_core::CStr,
-    dynamic_loading_c_impl::CKBDLContext,
-    high_level,
-    error::SysError,
+    ckb_constants::Source, cstr_core::CStr, dynamic_loading_c_impl::CKBDLContext, error::SysError, high_level,
 };
 use core::{convert::TryInto, result::Result};
 use das_core::{
@@ -266,7 +255,9 @@ pub fn main() -> Result<(), Error> {
                             let action_str = String::from_utf8(action.to_vec()).unwrap();
                             custom_script_params.push(action_str);
 
-                            debug!("Try to find the QuoteCell from cell_deps and push quote into custom_script_params.");
+                            debug!(
+                                "Try to find the QuoteCell from cell_deps and push quote into custom_script_params."
+                            );
 
                             let quote = util::load_oracle_data(OracleCellType::Quote)?;
                             custom_script_params.push(util::hex_string(&quote.to_le_bytes()));
@@ -284,6 +275,10 @@ pub fn main() -> Result<(), Error> {
 
                             custom_script_params.push(util::hex_string(&owner_profit.to_le_bytes()));
                             custom_script_params.push(util::hex_string(&das_profit.to_le_bytes()));
+
+                            let custom_script_args =
+                                data_parser::sub_account_cell::get_custom_script_args(&input_sub_account_data).unwrap();
+                            custom_script_params.push(util::hex_string(custom_script_args));
 
                             let mut type_id = [0u8; 32];
                             if val[0] == ScriptHashType::Type as u8 {
@@ -324,7 +319,8 @@ pub fn main() -> Result<(), Error> {
                             account_cell_source = Source::Input;
 
                             let sender_lock = util::derive_owner_lock_from_cell(input_account_cells[0], Source::Input)?;
-                            let input_balance_cells = util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Input)?;
+                            let input_balance_cells =
+                                util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Input)?;
                             let all_cells = [input_account_cells.clone(), input_balance_cells].concat();
                             verifiers::misc::verify_no_more_cells_with_same_lock(
                                 sender_lock.as_reader(),

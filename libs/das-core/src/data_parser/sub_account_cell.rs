@@ -17,5 +17,9 @@ pub fn get_owner_profit(data: &[u8]) -> Option<u64> {
 }
 
 pub fn get_custom_script(data: &[u8]) -> Option<&[u8]> {
-    data.get(48..).or(Some(&[]))
+    data.get(48..81).or(Some(&[]))
+}
+
+pub fn get_custom_script_args(data: &[u8]) -> Option<&[u8]> {
+    data.get(81..).or(Some(&[]))
 }

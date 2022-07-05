@@ -13,6 +13,7 @@ pub enum Error {
     InvalidAction,
     InvalidOwnerProfit,
     InvalidDasProfit,
+    InvalidScriptArgs,
     InvalidSubAccount,
 }
 

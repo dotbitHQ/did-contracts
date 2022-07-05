@@ -2214,7 +2214,10 @@ impl TemplateGenerator {
     ///     },
     ///     "data": {
     ///         "root": null | "0x..." // If this is null, it will be an invalid cell.
-    ///         "profit": 0
+    ///         "das_profit": 0,
+    ///         "owner_profit": 0,
+    ///         "custom_script": null | "0x...",
+    ///         "script_args": null | "0x...",
     ///     }
     /// })
     /// ```
@@ -2260,10 +2263,13 @@ impl TemplateGenerator {
             };
             let mut custom_script =
                 parse_json_hex_with_default("cell.data.custom_script", &data["custom_script"], Vec::new());
+            let mut script_args =
+                parse_json_hex_with_default("cell.data.script_args", &data["script_args"], Vec::new());
 
             root.append(&mut das_profit);
             root.append(&mut owner_profit);
             root.append(&mut custom_script);
+            root.append(&mut script_args);
             util::bytes_to_hex(&root)
         };
 

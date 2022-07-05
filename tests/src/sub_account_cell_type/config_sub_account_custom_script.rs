@@ -2,7 +2,6 @@ use super::common::*;
 use crate::util::{
     accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
 };
-use das_types_std::constants::AccountStatus;
 use serde_json::json;
 
 fn before_each() -> TemplateGenerator {
@@ -87,7 +86,7 @@ fn test_sub_account_config_custom_script() {
     push_simple_output_account_cell(&mut template);
     push_simple_output_sub_account_cell(
         &mut template,
-        "0x0116549cab7e92afb5f157141bc9da7781ce692a3144e47e2b8879a8d5a57b87c6",
+        "0x010000000000000000000000000000746573742d637573746f6d2d736372697074",
     );
 
     test_tx(template.as_json())
