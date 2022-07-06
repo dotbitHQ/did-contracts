@@ -163,8 +163,11 @@ pub fn main() -> Result<(), Error> {
         b"renew_account" => {
             parser.parse_cell()?;
 
+            let timestamp = util::load_oracle_data(OracleCellType::Time)?;
+
             let prices = parser.configs.price()?.prices();
             let config_main = parser.configs.main()?;
+            let config_account = parser.configs.account()?;
 
             let (input_account_cells, output_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
             verifiers::common::verify_cell_number("AccountCell", &input_account_cells, 1, &output_account_cells, 1)?;
@@ -196,6 +199,22 @@ pub fn main() -> Result<(), Error> {
                 status != (AccountStatus::LockedForCrossChain as u8),
                 Error::AccountCellStatusLocked,
                 "inputs[{}] The AccountCell has been locked for cross chain, it is required to unlock first for renew.",
+                input_account_cells[0]
+            );
+
+            debug!("Verify if the AccountCell has been expired.");
+
+            let ret = verifiers::account_cell::verify_account_expiration(
+                config_account,
+                input_account_cells[0],
+                Source::Input,
+                timestamp,
+            );
+
+            das_assert!(
+                ret.is_ok() || ret == Err(Error::AccountCellInExpirationGracePeriod),
+                Error::AccountCellHasExpired,
+                "inputs[{}] The AccountCell has been expired, it can only wait to be recycled.",
                 input_account_cells[0]
             );
 

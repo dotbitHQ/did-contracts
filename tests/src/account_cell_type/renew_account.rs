@@ -405,3 +405,34 @@ fn challenge_account_renew_locked_for_cross_chain() {
 
     challenge_tx(template.as_json(), Error::AccountCellStatusLocked)
 }
+
+#[test]
+fn challenge_account_renew_expired_account() {
+    let mut template = init_for_renew("renew_account", None);
+
+    // inputs
+    push_input_account_cell(
+        &mut template,
+        json!({
+            "data": {
+                // Simulate the owner of the AccountCell was changed.
+                "expired_at": TIMESTAMP - ACCOUNT_EXPIRATION_GRACE_PERIOD - 1
+            }
+        }),
+    );
+    push_input_balance_cell(&mut template, 1_000_000_000_000, OWNER);
+
+    // outputs
+    push_output_account_cell(
+        &mut template,
+        json!({
+            "data": {
+                "expired_at": (TIMESTAMP - ACCOUNT_EXPIRATION_GRACE_PERIOD - 1) + 31_536_000,
+            }
+        }),
+    );
+    push_simple_output_income_cell(&mut template);
+    push_output_balance_cell(&mut template, 500_000_000_000, OWNER);
+
+    challenge_tx(template.as_json(), Error::AccountCellHasExpired)
+}

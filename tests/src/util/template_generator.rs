@@ -1,5 +1,9 @@
-use super::super::ckb_types_relay::*;
-use super::{constants::*, smt::*, util};
+use super::{
+    super::ckb_types_relay::*,
+    constants::*,
+    smt::*,
+    util,
+};
 use ckb_testtool::ckb_hash::blake2b_256;
 use das_types_std::{constants::*, packed::*, prelude::*, util as das_util, util::EntityWrapper};
 use serde_json::{json, Value};
@@ -647,7 +651,7 @@ impl TemplateGenerator {
             .max_length(Uint32::from(42))
             .basic_capacity(Uint64::from(ACCOUNT_BASIC_CAPACITY))
             .prepared_fee_capacity(Uint64::from(ACCOUNT_PREPARED_FEE_CAPACITY))
-            .expiration_grace_period(Uint32::from(2_592_000))
+            .expiration_grace_period(Uint32::from(ACCOUNT_EXPIRATION_GRACE_PERIOD as u32))
             .record_min_ttl(Uint32::from(300))
             .record_size_limit(Uint32::from(5000))
             .transfer_account_fee(Uint64::from(ACCOUNT_OPERATE_FEE))
