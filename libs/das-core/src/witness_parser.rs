@@ -49,15 +49,17 @@ impl WitnessesParser {
                 Ok(_) => i += 1,
                 Err(SysError::LengthNotEnough(_)) => {
                     if let Some(raw) = buf.get(..WITNESS_HEADER_BYTES) {
-                        if raw != &WITNESS_HEADER {
-                            assert!(
-                                !das_witnesses_started,
-                                Error::WitnessStructureError,
-                                "The witnesses of DAS must at the end of witnesses field and next to each other."
-                            );
-
-                            i += 1;
-                            continue;
+                        if das_witnesses_started {
+                            // If it is parsing DAS witnesses currently, end the parsing.
+                            if raw != &WITNESS_HEADER {
+                                break;
+                            }
+                        } else {
+                            // If it is not parsing DAS witnesses currently, continue to detect the next witness.
+                            if raw != &WITNESS_HEADER {
+                                i += 1;
+                                continue;
+                            }
                         }
                     }
 
@@ -261,9 +263,9 @@ impl WitnessesParser {
                     .into(),
                 x.into(),
             ) =>
-            {
-                Some(LockScript::Secp256k1Blake160SignhashLock)
-            }
+                {
+                    Some(LockScript::Secp256k1Blake160SignhashLock)
+                }
             x if util::is_type_id_equal(
                 self.lock_type_id_table
                     .secp256k1_blake160_multisig_all
@@ -271,9 +273,9 @@ impl WitnessesParser {
                     .into(),
                 x.into(),
             ) =>
-            {
-                Some(LockScript::Secp256k1Blake160MultisigLock)
-            }
+                {
+                    Some(LockScript::Secp256k1Blake160MultisigLock)
+                }
             _ => None,
         }
     }

@@ -1,5 +1,5 @@
-use alloc::vec;
 use super::error::Error;
+use alloc::vec;
 use ckb_std::{cstr_core::CStr, debug};
 use core::convert::TryInto;
 use core::slice::from_raw_parts;

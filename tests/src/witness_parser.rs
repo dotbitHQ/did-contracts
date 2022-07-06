@@ -126,10 +126,7 @@ fn parse_witness_error_entity_config_entity_hash() {
 
     let (lock_script, type_script, _, entity) = gen_config_cell_account();
     // Simulate put the witness of the ConfigCell with wrong hash.
-    let fake_cell_data = Bytes::from(vec![
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0,
-    ]);
+    let fake_cell_data = Bytes::from(vec![0; 32]);
     template.push_cell(0, lock_script, type_script, Some(fake_cell_data), Source::CellDep);
 
     let witness = das_util::wrap_entity_witness(DataType::ConfigCellAccount, entity);
@@ -141,7 +138,7 @@ fn parse_witness_error_entity_config_entity_hash() {
 
 fn gen_account_cell(outputs_data_opt: Option<String>) -> (Value, EntityWrapper) {
     let entity = AccountCellData::new_builder()
-        .id(AccountId::try_from(vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]).unwrap())
+        .id(AccountId::try_from(vec![0; 20]).unwrap())
         .build();
 
     let lock = parse_json_script_das_lock(
@@ -176,6 +173,23 @@ fn parse_witness_cells() {
 
     let (cell, entity) = gen_account_cell(None);
     template.push_cell_json_with_entity(cell, Source::CellDep, DataType::AccountCellData, 3, Some(entity));
+
+    push_input_test_env_cell(&mut template);
+    test_tx(template.as_json());
+}
+
+#[test]
+fn parse_witness_end_with_unknown_witnesses() {
+    let mut template = init("test_parse_witness_cells");
+
+    let (cell, entity) = gen_account_cell(None);
+    template.push_cell_json_with_entity(cell, Source::CellDep, DataType::AccountCellData, 3, Some(entity));
+    template
+        .outer_witnesses
+        .push(String::from("0x11112222333344445555666677778888"));
+    template
+        .outer_witnesses
+        .push(String::from("0x11112222333344445555666677778888"));
 
     push_input_test_env_cell(&mut template);
     test_tx(template.as_json());
