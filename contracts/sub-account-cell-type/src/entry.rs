@@ -153,9 +153,14 @@ pub fn main() -> Result<(), Error> {
                 data_parser::sub_account_cell::get_custom_script(&input_sub_account_data);
             let output_sub_account_custom_script =
                 data_parser::sub_account_cell::get_custom_script(&output_sub_account_data);
+            let input_sub_account_script_args =
+                data_parser::sub_account_cell::get_custom_script_args(&input_sub_account_data);
+            let output_sub_account_script_args =
+                data_parser::sub_account_cell::get_custom_script_args(&output_sub_account_data);
             // manual::verify_custom_script_changed
             assert!(
-                input_sub_account_custom_script != output_sub_account_custom_script,
+                input_sub_account_custom_script != output_sub_account_custom_script
+                    || input_sub_account_script_args != output_sub_account_script_args,
                 Error::SubAccountCustomScriptError,
                 "outputs[{}] The custom script of SubAccountCell should be different in inputs and outputs.",
                 output_sub_account_cells[0]
