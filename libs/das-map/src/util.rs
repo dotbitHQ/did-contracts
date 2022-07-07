@@ -8,7 +8,7 @@ where
 {
     let exist_value = map.get(&key);
     if exist_value.is_some() {
-        let new_value = exist_value.map(|v| v.clone()).unwrap() + value;
+        let new_value = exist_value.cloned().unwrap() + value;
         map.insert(key.clone(), new_value);
     } else {
         map.insert(key.clone(), value);

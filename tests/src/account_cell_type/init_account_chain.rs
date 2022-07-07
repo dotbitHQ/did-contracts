@@ -5,7 +5,7 @@ use serde_json::json;
 
 #[test]
 fn test_account_init_account_chain() {
-    let (mut template, _) = init("init_account_chain", None);
+    let mut template = init("init_account_chain", None);
 
     push_input_normal_cell(
         &mut template,

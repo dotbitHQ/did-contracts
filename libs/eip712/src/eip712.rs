@@ -1,5 +1,6 @@
 use super::{debug, error::*, util::*};
 use alloc::{collections::BTreeMap, format, vec};
+use core::cmp::Ordering;
 use std::prelude::v1::*;
 
 #[cfg(debug_assertions)]
@@ -22,7 +23,7 @@ impl TypedDataV4 {
     ) -> Self {
         TypedDataV4 {
             types,
-            primary_type: Value::String(primary_type.to_string()),
+            primary_type: Value::String(primary_type),
             domain: Value::Object(domain),
             message: Value::Object(message),
         }
@@ -457,7 +458,7 @@ pub fn encode_message(
     }
 
     let values_slices = values.iter().map(|item| item.as_slice()).collect::<Vec<_>>();
-    Ok(eth_abi_encode(types, values_slices)?)
+    eth_abi_encode(types, values_slices)
 }
 
 fn eth_abi_encode(types: Vec<&str>, values: Vec<&[u8]>) -> Result<Vec<u8>, EIP712EncodingError> {
@@ -479,14 +480,14 @@ fn eth_abi_encode_single(type_: &str, value: &[u8]) -> Result<Vec<u8>, EIP712Enc
         // CAREFUL: Because EIP712 encode most type into bytes and the message structure is predefined, so only a sub-set of all solidity types are supported here.
         "uint8" | "uint160" | "uint256" | "bytes32" => {
             let mut tmp = value.to_vec();
-            if tmp.len() < 32 {
-                let pad_length = 32 - tmp.len();
-                ret = vec![0u8; pad_length];
-                ret.append(&mut tmp);
-            } else if tmp.len() == 32 {
-                ret = tmp
-            } else {
-                return Err(EIP712EncodingError::InvalidEthABIType);
+            match tmp.len().cmp(&32) {
+                Ordering::Greater => return Err(EIP712EncodingError::InvalidEthABIType),
+                Ordering::Less => {
+                    let pad_length = 32 - tmp.len();
+                    ret = vec![0u8; pad_length];
+                    ret.append(&mut tmp);
+                }
+                Ordering::Equal => ret = tmp,
             }
         }
         _ => {
@@ -542,13 +543,13 @@ mod test {
             },
             message: {
                 DAS_MESSAGE: "Edit records of account tangzhihong005.bit .",
+                inputsCapacity: "225 CKB",
+                outputsCapacity: "224.9999 CKB",
+                fee: "0.0001 CKB",
                 action: {
                     action: "edit_records",
                     params: "0x01"
                 },
-                inputsCapacity: "225 CKB",
-                outputsCapacity: "224.9999 CKB",
-                fee: "0.0001 CKB",
                 inputs: [
                     {
                         capacity: "225 CKB",
@@ -637,10 +638,10 @@ mod test {
             },
             message: {
                 DAS_MESSAGE: "Edit records of account tangzhihong005.bit .",
-                action: action,
                 inputsCapacity: "225 CKB",
                 outputsCapacity: "224.9999 CKB",
                 fee: "0.0001 CKB",
+                action: action,
                 inputs: inputs,
                 outputs: outputs,
                 digest: "01bee5c80a6bd74440f0f96c983b1107f1a419e028bef7b33e77e8f968cbfae7"

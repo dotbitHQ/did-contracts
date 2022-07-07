@@ -212,6 +212,25 @@ impl WitnessesParser {
                     Bytes::from(bytes_of_role),
                 ]
             }
+            b"lock_account_for_cross_chain" => {
+                let bytes = action_data.as_reader().params().raw_data();
+
+                assert!(
+                    bytes.len() == 8 + 8 + 1,
+                    Error::ParamsDecodingError,
+                    "The params of this action should contains 8 bytes coin_type, 8 bytes chain_id and 1 byte role."
+                );
+
+                let coin_type = &bytes[0..8];
+                let chain_id = &bytes[8..16];
+                let role = bytes[16];
+
+                vec![
+                    Bytes::from(coin_type),
+                    Bytes::from(chain_id),
+                    Bytes::from(vec![role].as_slice()),
+                ]
+            }
             _ => {
                 if action_data.params().is_empty() {
                     Vec::new()

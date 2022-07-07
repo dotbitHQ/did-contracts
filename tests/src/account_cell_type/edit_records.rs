@@ -1,10 +1,12 @@
 use super::common::init;
-use crate::util::{accounts::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*};
+use crate::util::{
+    accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
+};
 use das_types_std::constants::*;
 use serde_json::json;
 
-fn before_each() -> (TemplateGenerator, u64) {
-    let (mut template, timestamp) = init("edit_records", Some("0x01"));
+fn before_each() -> TemplateGenerator {
+    let mut template = init("edit_records", Some("0x01"));
 
     template.push_config_cell(DataType::ConfigCellRecordKeyNamespace, Source::CellDep);
 
@@ -54,18 +56,18 @@ fn before_each() -> (TemplateGenerator, u64) {
         }),
     );
 
-    (template, timestamp)
+    template
 }
 
 #[test]
 fn test_account_edit_records() {
-    let (mut template, timestamp) = before_each();
+    let mut template = before_each();
 
     push_output_account_cell(
         &mut template,
         json!({
             "witness": {
-                "last_edit_records_at": timestamp,
+                "last_edit_records_at": TIMESTAMP,
                 "records": [
                     {
                         "type": "address",
@@ -89,7 +91,7 @@ fn test_account_edit_records() {
 
 #[test]
 fn challenge_account_edit_records_multiple_cells() {
-    let (mut template, timestamp) = before_each();
+    let mut template = before_each();
 
     // inputs
     // Simulate editing multiple AccountCells in one transaction.
@@ -100,7 +102,7 @@ fn challenge_account_edit_records_multiple_cells() {
         &mut template,
         json!({
             "witness": {
-                "last_edit_records_at": timestamp
+                "last_edit_records_at": TIMESTAMP
             }
         }),
     );
@@ -108,7 +110,7 @@ fn challenge_account_edit_records_multiple_cells() {
         &mut template,
         json!({
             "witness": {
-                "last_edit_records_at": timestamp
+                "last_edit_records_at": TIMESTAMP
             }
         }),
     );
@@ -118,7 +120,7 @@ fn challenge_account_edit_records_multiple_cells() {
 
 #[test]
 fn challenge_account_edit_records_with_other_cells() {
-    let (mut template, timestamp) = init("edit_records", Some("0x01"));
+    let mut template = init("edit_records", Some("0x01"));
 
     template.push_config_cell(DataType::ConfigCellRecordKeyNamespace, Source::CellDep);
     template.push_contract_cell("balance-cell-type", false);
@@ -140,7 +142,7 @@ fn challenge_account_edit_records_with_other_cells() {
         &mut template,
         json!({
             "witness": {
-                "last_edit_records_at": timestamp
+                "last_edit_records_at": TIMESTAMP
             }
         }),
     );
@@ -150,13 +152,13 @@ fn challenge_account_edit_records_with_other_cells() {
 
 #[test]
 fn challenge_account_edit_records_invalid_char() {
-    let (mut template, timestamp) = before_each();
+    let mut template = before_each();
 
     push_output_account_cell(
         &mut template,
         json!({
             "witness": {
-                "last_edit_records_at": timestamp,
+                "last_edit_records_at": TIMESTAMP,
                 "records": [
                     {
                         "type": "custom_key",
@@ -175,13 +177,13 @@ fn challenge_account_edit_records_invalid_char() {
 
 #[test]
 fn challenge_account_edit_records_invalid_key() {
-    let (mut template, timestamp) = before_each();
+    let mut template = before_each();
 
     push_output_account_cell(
         &mut template,
         json!({
             "witness": {
-                "last_edit_records_at": timestamp,
+                "last_edit_records_at": TIMESTAMP,
                 "records": [
                     {
                         "type": "dweb",

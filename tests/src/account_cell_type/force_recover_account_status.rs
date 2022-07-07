@@ -5,7 +5,7 @@ use crate::util::{
 use das_types_std::constants::AccountStatus;
 use serde_json::json;
 
-fn push_input_account_cell(template: &mut TemplateGenerator, timestamp: u64, status: AccountStatus) {
+fn push_input_account_cell(template: &mut TemplateGenerator, status: AccountStatus) {
     template.push_input(
         json!({
             "capacity": util::gen_account_cell_capacity(8),
@@ -19,11 +19,11 @@ fn push_input_account_cell(template: &mut TemplateGenerator, timestamp: u64, sta
             "data": {
                 "account": "das00001.bit",
                 "next": "das00014.bit",
-                "expired_at": timestamp - DAY_SEC,
+                "expired_at": TIMESTAMP - DAY_SEC,
             },
             "witness": {
                 "account": "das00001.bit",
-                "registered_at": timestamp - YEAR_SEC,
+                "registered_at": TIMESTAMP - YEAR_SEC,
                 "last_transfer_account_at": 0,
                 "last_edit_manager_at": 0,
                 "last_edit_records_at": 0,
@@ -35,7 +35,7 @@ fn push_input_account_cell(template: &mut TemplateGenerator, timestamp: u64, sta
     template.push_das_lock_witness("0000000000000000000000000000000000000000000000000000000000000000");
 }
 
-fn push_input_account_sale_cell(template: &mut TemplateGenerator, timestamp: u64) {
+fn push_input_account_sale_cell(template: &mut TemplateGenerator) {
     template.push_input(
         json!({
             "capacity": "20_100_000_000",
@@ -50,7 +50,7 @@ fn push_input_account_sale_cell(template: &mut TemplateGenerator, timestamp: u64
                 "account": "das00001.bit",
                 "price": "20_000_000_000",
                 "description": "This is some account description.",
-                "started_at": timestamp - MONTH_SEC,
+                "started_at": TIMESTAMP - MONTH_SEC,
                 "buyer_inviter_profit_rate": SALE_BUYER_INVITER_PROFIT_RATE
             }
         }),
@@ -58,21 +58,21 @@ fn push_input_account_sale_cell(template: &mut TemplateGenerator, timestamp: u64
     );
 }
 
-fn before_each() -> (TemplateGenerator, u64) {
-    let (mut template, timestamp) = init("force_recover_account_status", None);
+fn before_each() -> TemplateGenerator {
+    let mut template = init("force_recover_account_status", None);
 
     template.push_contract_cell("account-sale-cell-type", false);
     template.push_contract_cell("balance-cell-type", false);
 
-    push_input_account_cell(&mut template, timestamp, AccountStatus::Selling);
-    push_input_account_sale_cell(&mut template, timestamp);
+    push_input_account_cell(&mut template, AccountStatus::Selling);
+    push_input_account_sale_cell(&mut template);
 
-    (template, timestamp)
+    template
 }
 
 #[test]
 fn test_account_force_recover_account_status() {
-    let (mut template, timestamp) = before_each();
+    let mut template = before_each();
 
     template.push_output(
         json!({
@@ -87,11 +87,11 @@ fn test_account_force_recover_account_status() {
             "data": {
                 "account": "das00001.bit",
                 "next": "das00014.bit",
-                "expired_at": timestamp - DAY_SEC,
+                "expired_at": TIMESTAMP - DAY_SEC,
             },
             "witness": {
                 "account": "das00001.bit",
-                "registered_at": timestamp - YEAR_SEC,
+                "registered_at": TIMESTAMP - YEAR_SEC,
                 "last_transfer_account_at": 0,
                 "last_edit_manager_at": 0,
                 "last_edit_records_at": 0,

@@ -1,17 +1,16 @@
-use alloc::{boxed::Box, format, string::String, vec};
-use ckb_std::{ckb_constants::Source, ckb_types::prelude::*, high_level};
+use alloc::{boxed::Box, vec};
+use ckb_std::{ckb_constants::Source, ckb_types::prelude::*, dynamic_loading_c_impl::CKBDLContext, high_level};
 use das_core::{
-    assert,
-    constants::{das_wallet_lock, DasLockType, OracleCellType, ScriptType, TypeScript},
-    data_parser, debug,
-    eip712::{to_semantic_address, verify_eip712_hashes},
-    error::Error,
-    util, verifiers, warn,
+    assert as das_assert, constants::*, data_parser, debug, error::Error, sign_util, util, verifiers, warn,
     witness_parser::WitnessesParser,
+};
+use das_dynamic_libs::{
+    constants::{DymLibSize, CKB_MULTI_LIB_CODE_HASH},
+    sign_lib::{SignLib, SignLibWith1Methods},
 };
 use das_map::{map::Map, util as map_util};
 use das_types::{
-    constants::{AccountStatus, LockRole, SubAccountEnableStatus},
+    constants::{AccountStatus, SubAccountEnableStatus},
     mixer::*,
     packed::*,
 };
@@ -38,7 +37,7 @@ pub fn main() -> Result<(), Error> {
         b"init_account_chain" => {
             unreachable!();
         }
-        b"transfer_account" | b"edit_manager" | b"edit_records" => {
+        b"transfer_account" | b"edit_manager" | b"edit_records" | b"lock_account_for_cross_chain" => {
             verifiers::account_cell::verify_unlock_role(action, &parser.params)?;
 
             let timestamp = util::load_oracle_data(OracleCellType::Time)?;
@@ -46,11 +45,7 @@ pub fn main() -> Result<(), Error> {
             parser.parse_cell()?;
 
             let (input_account_cells, output_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
-            assert!(
-                input_account_cells.len() == 1 && output_account_cells.len() == 1,
-                Error::InvalidTransactionStructure,
-                "There should be only one AccountCell in inputs and outputs."
-            );
+            verifiers::common::verify_cell_number("AccountCell", &input_account_cells, 1, &output_account_cells, 1)?;
 
             debug!("Verify if there is no redundant cells in inputs.");
 
@@ -67,36 +62,39 @@ pub fn main() -> Result<(), Error> {
                 util::parse_account_cell_witness(&parser, output_account_cells[0], Source::Output)?;
             let output_cell_witness_reader = output_cell_witness.as_reader();
 
+            let config_account = parser.configs.account()?;
+
+            verify_transaction_fee_spent_correctly(
+                action,
+                config_account,
+                input_account_cells[0],
+                output_account_cells[0],
+            )?;
+            if action != b"lock_account_for_cross_chain" {
+                verify_action_throttle(
+                    action,
+                    config_account,
+                    &input_cell_witness_reader,
+                    &output_cell_witness_reader,
+                    timestamp,
+                )?;
+            }
+
+            verifiers::account_cell::verify_status(
+                &input_cell_witness_reader,
+                AccountStatus::Normal,
+                input_account_cells[0],
+                Source::Input,
+            )?;
+            verifiers::account_cell::verify_account_expiration(
+                config_account,
+                input_account_cells[0],
+                Source::Input,
+                timestamp,
+            )?;
+
             match action {
                 b"transfer_account" => {
-                    verify_eip712_hashes(&parser, transfer_account_to_semantic)?;
-
-                    let config_account = parser.configs.account()?;
-
-                    verify_transaction_fee_spent_correctly(
-                        action,
-                        config_account,
-                        input_account_cells[0],
-                        output_account_cells[0],
-                    )?;
-                    verify_action_throttle(
-                        action,
-                        config_account,
-                        &input_cell_witness_reader,
-                        &output_cell_witness_reader,
-                        timestamp,
-                    )?;
-                    verifiers::account_cell::verify_account_cell_status(
-                        &input_cell_witness_reader,
-                        AccountStatus::Normal,
-                        input_account_cells[0],
-                        Source::Input,
-                    )?;
-                    verifiers::account_cell::verify_account_expiration(
-                        config_account,
-                        input_account_cells[0],
-                        timestamp,
-                    )?;
                     verifiers::account_cell::verify_account_cell_consistent_with_exception(
                         input_account_cells[0],
                         output_account_cells[0],
@@ -113,34 +111,6 @@ pub fn main() -> Result<(), Error> {
                     )?;
                 }
                 b"edit_manager" => {
-                    verify_eip712_hashes(&parser, edit_manager_to_semantic)?;
-
-                    let config_account = parser.configs.account()?;
-
-                    verify_transaction_fee_spent_correctly(
-                        action,
-                        config_account,
-                        input_account_cells[0],
-                        output_account_cells[0],
-                    )?;
-                    verify_action_throttle(
-                        action,
-                        config_account,
-                        &input_cell_witness_reader,
-                        &output_cell_witness_reader,
-                        timestamp,
-                    )?;
-                    verifiers::account_cell::verify_account_cell_status(
-                        &input_cell_witness_reader,
-                        AccountStatus::Normal,
-                        input_account_cells[0],
-                        Source::Input,
-                    )?;
-                    verifiers::account_cell::verify_account_expiration(
-                        config_account,
-                        input_account_cells[0],
-                        timestamp,
-                    )?;
                     verifiers::account_cell::verify_account_cell_consistent_with_exception(
                         input_account_cells[0],
                         output_account_cells[0],
@@ -152,34 +122,6 @@ pub fn main() -> Result<(), Error> {
                     )?;
                 }
                 b"edit_records" => {
-                    verify_eip712_hashes(&parser, edit_records_to_semantic)?;
-
-                    let config_account = parser.configs.account()?;
-
-                    verify_transaction_fee_spent_correctly(
-                        action,
-                        config_account,
-                        input_account_cells[0],
-                        output_account_cells[0],
-                    )?;
-                    verify_action_throttle(
-                        action,
-                        config_account,
-                        &input_cell_witness_reader,
-                        &output_cell_witness_reader,
-                        timestamp,
-                    )?;
-                    verifiers::account_cell::verify_account_cell_status(
-                        &input_cell_witness_reader,
-                        AccountStatus::Normal,
-                        input_account_cells[0],
-                        Source::Input,
-                    )?;
-                    verifiers::account_cell::verify_account_expiration(
-                        config_account,
-                        input_account_cells[0],
-                        timestamp,
-                    )?;
                     verifiers::account_cell::verify_account_cell_consistent_with_exception(
                         input_account_cells[0],
                         output_account_cells[0],
@@ -191,8 +133,32 @@ pub fn main() -> Result<(), Error> {
                     )?;
                     verifiers::account_cell::verify_records_keys(&parser, output_cell_witness_reader.records())?;
                 }
+                b"lock_account_for_cross_chain" => {
+                    verifiers::account_cell::verify_account_cell_consistent_with_exception(
+                        input_account_cells[0],
+                        output_account_cells[0],
+                        &input_cell_witness_reader,
+                        &output_cell_witness_reader,
+                        Some("owner"),
+                        vec![],
+                        vec!["status", "records"],
+                    )?;
+                    verifiers::account_cell::verify_account_witness_record_empty(
+                        &output_cell_witness_reader,
+                        output_account_cells[0],
+                        Source::Output,
+                    )?;
+
+                    verify_account_is_locked_for_cross_chain(
+                        output_account_cells[0],
+                        &output_cell_witness_reader,
+                        timestamp,
+                    )?;
+                }
                 _ => unreachable!(),
             }
+
+            util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
         }
         b"renew_account" => {
             parser.parse_cell()?;
@@ -201,11 +167,7 @@ pub fn main() -> Result<(), Error> {
             let config_main = parser.configs.main()?;
 
             let (input_account_cells, output_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
-            assert!(
-                input_account_cells.len() == 1 && output_account_cells.len() == 1,
-                Error::InvalidTransactionStructure,
-                "There should be only one AccountCell in inputs and outputs."
-            );
+            verifiers::common::verify_cell_number("AccountCell", &input_account_cells, 1, &output_account_cells, 1)?;
 
             let input_cell_witness = util::parse_account_cell_witness(&parser, input_account_cells[0], Source::Input)?;
             let input_cell_witness_reader = input_cell_witness.as_reader();
@@ -226,6 +188,16 @@ pub fn main() -> Result<(), Error> {
                 vec!["expired_at"],
                 vec![],
             )?;
+
+            debug!("Verify if the AccountCell is locked for cross chain.");
+
+            let status = u8::from(input_cell_witness_reader.status());
+            das_assert!(
+                status != (AccountStatus::LockedForCrossChain as u8),
+                Error::AccountCellStatusLocked,
+                "inputs[{}] The AccountCell has been locked for cross chain, it is required to unlock first for renew.",
+                input_account_cells[0]
+            );
 
             debug!("Verify if there is no redundant cells in inputs.");
 
@@ -268,7 +240,7 @@ pub fn main() -> Result<(), Error> {
                 }
             }
 
-            assert!(
+            das_assert!(
                 paid > exist_capacity,
                 Error::IncomeCellConsolidateConditionNotSatisfied,
                 "outputs[{}] There is some record in outputs has less capacity than itself in inputs which is not allowed. (belong_to: {})",
@@ -289,7 +261,7 @@ pub fn main() -> Result<(), Error> {
             let output_expired_at = data_parser::account_cell::get_expired_at(&output_data);
             let duration = output_expired_at - input_expired_at;
 
-            assert!(
+            das_assert!(
                 duration >= 365 * 86400,
                 Error::AccountCellRenewDurationMustLongerThanYear,
                 "The AccountCell renew should be longer than 1 year. (current: {}, expected: >= 31_536_000)",
@@ -309,7 +281,7 @@ pub fn main() -> Result<(), Error> {
             let quote = util::load_oracle_data(OracleCellType::Quote)?;
 
             let yearly_capacity = util::calc_yearly_capacity(renew_price_in_usd, quote, 0);
-            assert!(
+            das_assert!(
                 paid >= yearly_capacity,
                 Error::AccountCellRenewDurationMustLongerThanYear,
                 "The paid capacity should be at least 1 year. (current: {}, expected: >= {}",
@@ -320,7 +292,7 @@ pub fn main() -> Result<(), Error> {
             // Renew price for 1 year in CKB = x ÷ y .
             let expected_duration = util::calc_duration_from_paid(paid, renew_price_in_usd, quote, 0);
             // The duration can be floated within the range of one day.
-            assert!(
+            das_assert!(
                 duration >= expected_duration - 86400 && duration <= expected_duration + 86400,
                 Error::AccountCellRenewDurationBiggerThanPayed,
                 "The duration should be equal to {} +/- 86400s. (current: duration({}), calculation: (paid({}) / (renew_price({}) / quote({}) * 100_000_000) ) * 86400 * 365)",
@@ -387,16 +359,7 @@ pub fn main() -> Result<(), Error> {
             let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
             let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
-            assert!(
-                input_cells.len() == 1 && output_cells.len() == 1,
-                Error::InvalidTransactionStructure,
-                "There should be one AccountCell in outputs and one in inputs."
-            );
-            assert!(
-                input_cells[0] == 0 && output_cells[0] == 0,
-                Error::InvalidTransactionStructure,
-                "The AccountCells should only appear at inputs[0] and outputs[0]."
-            );
+            verifiers::common::verify_cell_number_and_position("AccountCell", &input_cells, &[0], &output_cells, &[0])?;
 
             let input_cell_witness = util::parse_account_cell_witness(&parser, input_cells[0], Source::Input)?;
             let input_cell_witness_reader = input_cell_witness.as_reader();
@@ -419,18 +382,18 @@ pub fn main() -> Result<(), Error> {
             debug!("Verify if the AccountCell status updated correctly.");
 
             let input_status = u8::from(input_cell_witness_reader.status());
-            assert!(
+            das_assert!(
                 input_status != AccountStatus::Normal as u8,
                 Error::InvalidTransactionStructure,
                 "The AccountCell in inputs should not be in NORMAL status."
             );
 
-            let output_status = u8::from(output_cell_witness_reader.status());
-            assert!(
-                output_status == AccountStatus::Normal as u8,
-                Error::InvalidTransactionStructure,
-                "The AccountCell in outputs should be in NORMAL status."
-            );
+            verifiers::account_cell::verify_status(
+                &output_cell_witness_reader,
+                AccountStatus::Normal,
+                output_cells[0],
+                Source::Output,
+            )?;
 
             debug!("Verify if the AccountCell is actually expired.");
 
@@ -439,7 +402,7 @@ pub fn main() -> Result<(), Error> {
             let account = data_parser::account_cell::get_account(&input_cell_data);
 
             // It is a convention that the deal can be canceled immediately when expiring.
-            assert!(
+            das_assert!(
                 timestamp > expired_at,
                 Error::AccountCellIsNotExpired,
                 "The AccountCell is still not expired."
@@ -451,18 +414,18 @@ pub fn main() -> Result<(), Error> {
                 let type_id = parser.configs.main()?.type_id_table().account_sale_cell();
                 let (input_sale_cells, output_sale_cells) =
                     util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, type_id)?;
-
-                verifiers::common::verify_removed_cell_in_correct_position(
+                verifiers::common::verify_cell_number_and_position(
                     "AccountSaleCell",
                     &input_sale_cells,
+                    &[1],
                     &output_sale_cells,
-                    Some(1),
+                    &[],
                 )?;
 
                 let cell_witness = util::parse_account_sale_cell_witness(&parser, input_sale_cells[0], Source::Input)?;
                 let cell_witness_reader = cell_witness.as_reader();
 
-                assert!(
+                das_assert!(
                     account == cell_witness_reader.account().raw_data(),
                     Error::AccountSaleCellAccountIdInvalid,
                     "The account in AccountCell and AccountSaleCell should be the same."
@@ -483,17 +446,17 @@ pub fn main() -> Result<(), Error> {
             let balance_cell_type_id = config_main.type_id_table().balance_cell();
             let (input_balance_cells, outputs_balance_cells) =
                 util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, balance_cell_type_id)?;
-
-            verifiers::common::verify_created_cell_in_correct_position(
+            verifiers::common::verify_cell_number_and_position(
                 "BalanceCell",
                 &input_balance_cells,
+                &[],
                 &outputs_balance_cells,
-                Some(1),
+                &[1],
             )?;
 
             let expected_lock = util::derive_owner_lock_from_cell(input_cells[0], Source::Input)?;
             let current_lock = high_level::load_cell_lock(outputs_balance_cells[0], Source::Output)?.into();
-            assert!(
+            das_assert!(
                 util::is_entity_eq(&expected_lock, &current_lock),
                 Error::AccountSaleCellRefundError,
                 "The lock receiving the refund is incorrect.(expected: {}, current: {})",
@@ -503,7 +466,7 @@ pub fn main() -> Result<(), Error> {
 
             let expected_capacity = capacity_should_recycle - 10_000;
             let current_capacity = high_level::load_cell_capacity(outputs_balance_cells[0], Source::Output)?;
-            assert!(
+            das_assert!(
                 current_capacity >= expected_capacity,
                 Error::AccountSaleCellRefundError,
                 "The capacity refunding is incorrect.(expected: {}, current: {})",
@@ -526,12 +489,12 @@ pub fn main() -> Result<(), Error> {
             let config_sub_account = parser.configs.sub_account()?;
 
             let (input_account_cells, output_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
-            assert!(
+            das_assert!(
                 input_account_cells.len() == 1 && input_account_cells[0] == 0,
                 Error::InvalidTransactionStructure,
                 "There should be one AccountCell at inputs[0]."
             );
-            assert!(
+            das_assert!(
                 output_account_cells.len() == 1 && output_account_cells[0] == 0,
                 Error::InvalidTransactionStructure,
                 "There should bze one AccountCell at outputs[0]."
@@ -549,13 +512,18 @@ pub fn main() -> Result<(), Error> {
 
             debug!("Verify if the AccountCell is locked or expired.");
 
-            verifiers::account_cell::verify_account_cell_status(
+            verifiers::account_cell::verify_status(
                 &input_account_witness_reader,
                 AccountStatus::Normal,
                 input_account_cells[0],
                 Source::Input,
             )?;
-            verifiers::account_cell::verify_account_expiration(config_account, input_account_cells[0], timestamp)?;
+            verifiers::account_cell::verify_account_expiration(
+                config_account,
+                input_account_cells[0],
+                Source::Input,
+                timestamp,
+            )?;
 
             debug!("Verify if every aspects of the AccountCell is consistent.");
 
@@ -578,7 +546,7 @@ pub fn main() -> Result<(), Error> {
             match input_account_witness_reader.try_into_latest() {
                 Ok(reader) => {
                     let enable_status = u8::from(reader.enable_sub_account());
-                    assert!(
+                    das_assert!(
                         enable_status == SubAccountEnableStatus::Off as u8,
                         Error::AccountCellPermissionDenied,
                         "{:?}[{}] Only AccountCells with enable_sub_account field is {} can enable its sub-account function.",
@@ -595,7 +563,7 @@ pub fn main() -> Result<(), Error> {
             match output_account_witness_reader.try_into_latest() {
                 Ok(reader) => {
                     let enable_status = u8::from(reader.enable_sub_account());
-                    assert!(
+                    das_assert!(
                         enable_status == SubAccountEnableStatus::On as u8,
                         Error::AccountCellPermissionDenied,
                         "{:?}[{}]The AccountCell.enable_sub_account should be {} .",
@@ -626,12 +594,13 @@ pub fn main() -> Result<(), Error> {
             let sub_account_cell_type_id = config_main.type_id_table().sub_account_cell();
             let (input_sub_account_cells, output_sub_account_cells) =
                 util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, sub_account_cell_type_id)?;
-
-            verifiers::common::verify_created_cell_in_correct_position(
+            // manual::verify_sub_account_cell_created
+            verifiers::common::verify_cell_number_and_position(
                 "SubAccountCell",
                 &input_sub_account_cells,
+                &[],
                 &output_sub_account_cells,
-                Some(1),
+                &[1],
             )?;
 
             verifiers::misc::verify_always_success_lock(output_sub_account_cells[0], Source::Output)?;
@@ -641,7 +610,7 @@ pub fn main() -> Result<(), Error> {
             let expected_capacity =
                 u64::from(config_sub_account.basic_capacity()) + u64::from(config_sub_account.prepared_fee_capacity());
 
-            assert!(
+            das_assert!(
                 sub_account_cell_capacity == expected_capacity,
                 Error::SubAccountCellCapacityError,
                 "The initial capacity of SubAccountCell should be equal to ConfigCellSubAccount.basic_capacity + ConfigCellSubAccount.prepared_fee_capacity .(expected: {}, current: {})",
@@ -653,7 +622,7 @@ pub fn main() -> Result<(), Error> {
             let account_id = type_script.as_reader().args().raw_data();
             let expected_account_id = output_account_witness_reader.id().raw_data();
 
-            assert!(
+            das_assert!(
                 account_id == expected_account_id,
                 Error::SubAccountCellAccountIdError,
                 "The type.args of SubAccountCell should be the same with the AccountCell.witness.id .(expected: {}, current: {})",
@@ -664,7 +633,7 @@ pub fn main() -> Result<(), Error> {
             let sub_account_outputs_data = high_level::load_cell_data(output_sub_account_cells[0], Source::Output)?;
             let expected_default_data = vec![0u8; 40];
 
-            assert!(
+            das_assert!(
                 expected_default_data == sub_account_outputs_data,
                 Error::SubAccountCellSMTRootError,
                 "The default outputs_data of SubAccountCell should be [0u8; 40] ."
@@ -690,58 +659,60 @@ pub fn main() -> Result<(), Error> {
                 Error::InvalidTransactionStructure,
             )?;
         }
+        b"unlock_account_for_cross_chain" => {
+            parser.parse_cell()?;
+
+            debug!("Verify if there is no redundant AccountCells.");
+
+            let (input_account_cells, output_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
+            verifiers::common::verify_cell_number_and_position(
+                "AccountCell",
+                &input_account_cells,
+                &[0],
+                &output_account_cells,
+                &[0],
+            )?;
+
+            let input_cell_witness = util::parse_account_cell_witness(&parser, input_account_cells[0], Source::Input)?;
+            let input_cell_witness_reader = input_cell_witness.as_reader();
+            let output_cell_witness =
+                util::parse_account_cell_witness(&parser, output_account_cells[0], Source::Output)?;
+            let output_cell_witness_reader = output_cell_witness.as_reader();
+
+            let config_account = parser.configs.account()?;
+
+            verify_transaction_fee_spent_correctly(
+                action,
+                config_account,
+                input_account_cells[0],
+                output_account_cells[0],
+            )?;
+
+            verifiers::account_cell::verify_status(
+                &input_cell_witness_reader,
+                AccountStatus::LockedForCrossChain,
+                input_account_cells[0],
+                Source::Input,
+            )?;
+
+            verifiers::account_cell::verify_account_cell_consistent_with_exception(
+                input_account_cells[0],
+                output_account_cells[0],
+                &input_cell_witness_reader,
+                &output_cell_witness_reader,
+                Some("owner"),
+                vec![],
+                vec!["status"],
+            )?;
+
+            verify_account_is_unlocked_for_cross_chain(output_account_cells[0], &output_cell_witness_reader)?;
+
+            verify_multi_sign(input_account_cells[0])?;
+        }
         _ => return Err(Error::ActionNotSupported),
     }
 
     Ok(())
-}
-
-fn transfer_account_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
-    let type_id_table_reader = parser.configs.main()?.type_id_table();
-    let (input_cells, output_cells) =
-        util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, type_id_table_reader.account_cell())?;
-
-    // Parse account from the data of the AccountCell in inputs.
-    let data_in_bytes = util::load_cell_data(input_cells[0], Source::Input)?;
-    let account_in_bytes = data_parser::account_cell::get_account(&data_in_bytes);
-    let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| Error::EIP712SerializationError)?;
-
-    // Parse from address from the AccountCell's lock script in inputs.
-    // let from_lock = high_level::load_cell_lock(input_cells[0], Source::Input)?;
-    // let from_address = to_semantic_address(from_lock.as_reader().into(), 1..21)?;
-    // Parse to address from the AccountCell's lock script in outputs.
-    let to_lock = high_level::load_cell_lock(output_cells[0], Source::Output)?;
-    let to_address = to_semantic_address(parser, to_lock.as_reader().into(), LockRole::Owner)?;
-
-    Ok(format!("TRANSFER THE ACCOUNT {} TO {}", account, to_address))
-}
-
-fn edit_manager_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
-    let type_id_table_reader = parser.configs.main()?.type_id_table();
-    let (input_cells, _output_cells) =
-        util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, type_id_table_reader.account_cell())?;
-
-    // Parse account from the data of the AccountCell in inputs.
-    let data_in_bytes = util::load_cell_data(input_cells[0], Source::Input)?;
-    let account_in_bytes = data_parser::account_cell::get_account(&data_in_bytes);
-    let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| Error::EIP712SerializationError)?;
-
-    // TODO Improve semantic message of this transaction.
-    Ok(format!("EDIT MANAGER OF ACCOUNT {}", account))
-}
-
-fn edit_records_to_semantic(parser: &WitnessesParser) -> Result<String, Error> {
-    let type_id_table_reader = parser.configs.main()?.type_id_table();
-    let (input_cells, _output_cells) =
-        util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, type_id_table_reader.account_cell())?;
-
-    // Parse account from the data of the AccountCell in inputs.
-    let data_in_bytes = util::load_cell_data(input_cells[0], Source::Input)?;
-    let account_in_bytes = data_parser::account_cell::get_account(&data_in_bytes);
-    let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| Error::EIP712SerializationError)?;
-
-    // TODO Improve semantic message of this transaction.
-    Ok(format!("EDIT RECORDS OF ACCOUNT {}", account))
 }
 
 fn verify_transaction_fee_spent_correctly(
@@ -768,7 +739,7 @@ fn verify_transaction_fee_spent_correctly(
         b"transfer_account" => u64::from(config.transfer_account_fee()),
         b"edit_manager" => u64::from(config.edit_manager_fee()),
         b"edit_records" => u64::from(config.edit_records_fee()),
-        _ => return Err(Error::ActionNotSupported),
+        _ => u64::from(config.common_fee()),
     };
     let storage_capacity = basic_capacity + account_length * 100_000_000;
 
@@ -797,7 +768,7 @@ fn verify_action_throttle<'a>(
             let current = u64::from($output_witness_reader.$field());
 
             if prev != 0 {
-                assert!(
+                das_assert!(
                     current >= prev + throttle,
                     Error::AccountCellThrottle,
                     "The AccountCell is used too often, need to wait {} seconds between each transaction.(current: {}, prev: {})",
@@ -807,7 +778,7 @@ fn verify_action_throttle<'a>(
                 );
             }
 
-            assert!(
+            das_assert!(
                 current_timestamp == current,
                 Error::AccountCellThrottle,
                 "The AccountCell.{} in outputs should be the same as the timestamp in the TimeCell.(expected: {}, current: {})",
@@ -846,6 +817,117 @@ fn verify_action_throttle<'a>(
             ),
             _ => return Err(Error::ActionNotSupported),
         }
+    }
+
+    Ok(())
+}
+
+fn verify_account_is_locked_for_cross_chain<'a>(
+    output_account_index: usize,
+    output_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
+    current_timestamp: u64,
+) -> Result<(), Error> {
+    debug!("Check if the AccountCell is corrently locked for cross chain.");
+
+    let source = Source::Output;
+
+    let data = util::load_cell_data(output_account_index, source)?;
+    let expired_at = data_parser::account_cell::get_expired_at(data.as_slice());
+    das_assert!(
+        current_timestamp + 30 * DAY_SEC <= expired_at,
+        Error::CrossChainLockError,
+        "outputs[{}] Current time should be 30 days(in seconds) before the AccountCell.expired_at.(current_timestamp: {}, expired_at: {})",
+        output_account_index,
+        current_timestamp,
+        expired_at
+    );
+
+    let lock = high_level::load_cell_lock(output_account_index, source)?;
+    let args = lock.as_reader().args().raw_data();
+    das_assert!(
+        args == &CROSS_CHAIN_BLACK_ARGS,
+        Error::CrossChainLockError,
+        "outputs[{}] The AccountCell should be send to address 0x030000000000000000000000000000000000000000030000000000000000000000000000000000000000.",
+        output_account_index
+    );
+
+    if output_witness_reader.version() <= 1 {
+        // CAREFUL! The early versions will no longer be supported.
+        return Err(Error::InvalidTransactionStructure);
+    } else {
+        let account_cell_status = u8::from(output_witness_reader.status());
+
+        das_assert!(
+            account_cell_status == AccountStatus::LockedForCrossChain as u8,
+            Error::CrossChainLockError,
+            "outputs[{}]The AccountCell.witness.status should be LockedForCrossChain .",
+            output_account_index
+        );
+    }
+
+    Ok(())
+}
+
+fn verify_account_is_unlocked_for_cross_chain<'a>(
+    output_account_index: usize,
+    output_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
+) -> Result<(), Error> {
+    if output_witness_reader.version() <= 1 {
+        // CAREFUL! The early versions will no longer be supported.
+        return Err(Error::InvalidTransactionStructure);
+    } else {
+        let account_cell_status = u8::from(output_witness_reader.status());
+
+        das_assert!(
+            account_cell_status == AccountStatus::Normal as u8,
+            Error::CrossChainUnlockError,
+            "outputs[{}]The AccountCell.witness.status should be Normal .",
+            output_account_index
+        );
+    }
+
+    Ok(())
+}
+
+fn verify_multi_sign(input_account_index: usize) -> Result<(), Error> {
+    debug!("Verify the signatures of secp256k1-blake160-multisig-all ...");
+
+    let (digest, _, witness_args_lock) =
+        sign_util::calc_digest_by_input_group(SignType::Secp256k1Blake160MultiSigAll, vec![input_account_index])?;
+    let lock_script = cross_chain_lock();
+    let mut args = lock_script.as_reader().args().raw_data().to_vec();
+    let since = high_level::load_input_since(input_account_index, Source::Input)?;
+
+    // It is the signature validation requirement.
+    args.extend_from_slice(&since.to_le_bytes());
+
+    debug!(
+        "Loading dynamic library by code_hash: 0x{}",
+        util::hex_string(&CKB_MULTI_LIB_CODE_HASH)
+    );
+
+    if cfg!(not(feature = "dev")) {
+        let mut context = unsafe { CKBDLContext::<DymLibSize>::new() };
+        let lib = context
+            .load(&CKB_MULTI_LIB_CODE_HASH)
+            .expect("The shared lib should be loaded successfully.");
+        let methods = SignLibWith1Methods {
+            c_validate: unsafe {
+                lib.get(b"validate")
+                    .expect("Load function 'validate' from library failed.")
+            },
+        };
+        let sign_lib = SignLib::new(None, None, Some(methods));
+
+        sign_lib
+            .validate(DasLockType::CKBMulti, 0i32, digest.to_vec(), witness_args_lock, args)
+            .map_err(|err_code| {
+                warn!(
+                    "inputs[{}] Verify signature failed, error code: {}",
+                    input_account_index, err_code
+                );
+                return Error::EIP712SignatureError;
+            })?;
     }
 
     Ok(())

@@ -28,13 +28,7 @@ pub fn main() -> Result<(), Error> {
             debug!("Find out IncomeCells ...");
 
             let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
-
-            verifiers::common::verify_created_cell_in_correct_position(
-                "IncomeCell",
-                &input_cells,
-                &output_cells,
-                None,
-            )?;
+            verifiers::common::verify_cell_number("IncomeCell", &input_cells, 0, &output_cells, 1)?;
 
             verifiers::misc::verify_always_success_lock(output_cells[0], Source::Output)?;
 

@@ -7,6 +7,7 @@ pub fn init(action: &str) -> TemplateGenerator {
 
     template.push_contract_cell("always_success", true);
     template.push_contract_cell("fake-das-lock", true);
+    template.push_contract_cell("eip712-lib", false);
     template.push_contract_cell("balance-cell-type", false);
     template.push_contract_cell("reverse-record-cell-type", false);
 

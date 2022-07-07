@@ -5,4 +5,6 @@ mod edit_records;
 mod force_recover_account_status;
 // mod init_account_chain;
 mod enable_sub_account;
+mod lock_account_for_cross_chain;
 mod renew_account;
+mod unlock_account_for_cross_chain;

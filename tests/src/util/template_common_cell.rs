@@ -175,7 +175,7 @@ pub fn push_dep_account_cell(template: &mut TemplateGenerator, cell_partial: Val
     });
     util::merge_json(&mut cell, cell_partial);
 
-    template.push_dep(cell, Some(2));
+    template.push_dep(cell, Some(3));
 }
 
 pub fn push_input_account_cell(template: &mut TemplateGenerator, cell_partial: Value) {
@@ -199,12 +199,14 @@ pub fn push_input_account_cell(template: &mut TemplateGenerator, cell_partial: V
             "last_transfer_account_at": 0,
             "last_edit_manager_at": 0,
             "last_edit_records_at": 0,
-            "status": (AccountStatus::Normal as u8)
+            "status": (AccountStatus::Normal as u8),
+            "enable_sub_account": 0,
+            "renew_sub_account_price": 0,
         }
     });
     util::merge_json(&mut cell, cell_partial);
 
-    template.push_input(cell, Some(2));
+    template.push_input(cell, Some(3));
     template.push_das_lock_witness("0000000000000000000000000000000000000000000000000000000000000000");
 }
 
@@ -473,7 +475,7 @@ pub fn push_input_playground_cell(template: &mut TemplateGenerator) {
         json!({
             "capacity": 0,
             "lock": {
-                "code_hash": "{{always_success}}"
+                "code_hash": "{{always-success}}"
             },
             "type": {
                 "code_hash": "{{playground}}"

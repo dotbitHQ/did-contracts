@@ -4,23 +4,21 @@ use std::prelude::v1::*;
 pub fn cmp_by_byte(a: &[u8], b: &[u8]) -> Ordering {
     for (i, a_byte) in a[..].iter().enumerate() {
         let b_byte = &b[i];
-        if a_byte < b_byte {
-            return Ordering::Less;
-        } else if a_byte > b_byte {
-            return Ordering::Greater;
+        match a_byte.cmp(b_byte) {
+            Ordering::Greater => return Ordering::Greater,
+            Ordering::Less => return Ordering::Less,
+            Ordering::Equal => continue,
         };
     }
 
-    return Ordering::Equal;
+    Ordering::Equal
 }
 
-pub fn cmp(a: &Vec<u8>, b: &Vec<u8>) -> Ordering {
-    if a.len() < b.len() {
-        Ordering::Less
-    } else if a.len() > b.len() {
-        Ordering::Greater
-    } else {
-        cmp_by_byte(a, b)
+pub fn cmp(a: &[u8], b: &[u8]) -> Ordering {
+    match a.len().cmp(&b.len()) {
+        Ordering::Less => Ordering::Less,
+        Ordering::Greater => Ordering::Greater,
+        Ordering::Equal => cmp_by_byte(a, b),
     }
 }
 

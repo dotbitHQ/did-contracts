@@ -85,8 +85,8 @@ fn gen_params(inviter_args: &str, channel_args: &str) -> String {
 
     format!(
         "0x{}{}00",
-        util::bytes_to_hex(inviter_lock.as_slice()),
-        util::bytes_to_hex(channel_lock.as_slice())
+        hex::encode(inviter_lock.as_slice()),
+        hex::encode(channel_lock.as_slice())
     )
 }
 
