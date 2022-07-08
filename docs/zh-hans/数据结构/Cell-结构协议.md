@@ -533,14 +533,36 @@ type:
   type: type,
   args: [account_id], // 账户 ID ，也就是和 AccountCell.data.id 相同的值
 
-data: SMTRoot
+data: [ smt_root ][ das_profit ][ owner_profit ][ custom_script ][ script_args ]
 ```
 
-> 这里的 SMTRoot 就是一个 merkle root ，该 Cell 没有关联的 witness 。
+- smt_root ，也就是对应主账户下的所有子账户的 merkle root ；
+- das_profit ，由于 SubAccountCell 也负责存放属于 DAS 官方的利润，这个值就是指明 capacity 当中有多少 DAS 官方的利润利润；
+- owner_profit ，由于 SubAccountCell 也负责存放属于父账户 AccountCell 的 owner 的利润，这个值就是指明 capacity 当中有多少 owner 的利润；
+- custom_script ，总共 33 字节，第 1 字节指明自定义脚本的 hash_type ，后 32 字节指明自定义脚本的 type script 的 args，缺少该字段或者该字段全 0 就说明用户未设置自定义脚本；
+- script_args ，传递给自定义脚本的自定义参数，具体解析方式由自定义脚本自己决定；
+
+#### custom_script 的解析方法
+
+`custom_script` 字段共有 33 字节，其中 `custom_script[0]` 代表 Script 结构体的 hash_type 字段，根据 `custom_script[0]` 的不同来解析后面的 32 个字节：
+
+- 目前仅支持的情况为 `custom_script[0] == 1`，也就是 `hash_type == "type"` ，这种情况下需要将 `custom_script[1..33]` 作为 Script 结构体的 args 来使用：
+
+```
+{
+  code_hash: "0x00000000000000000000000000000000000000000000000000545950455f4944",
+  hash_type: custom_script[0],
+  args: custom_script[1..33]
+}
+```
+
+对上述结构体进行 molecule 编码后，进行 blake2b hash 运算即可获得自定义脚本的 type ID 。
+
+> 该 Cell 没有关联的 witness 。
 
 #### 体积
 
-`106` Bytes
+`175 + n` Bytes，`n` 取决于 `script_args` 的长度，也就是自定义脚本的自定义参数长度。
 
 ### ExpiredAccountAuctionCell
 
