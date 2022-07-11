@@ -139,7 +139,7 @@ pub fn main() -> Result<(), Error> {
                         output_account_cells[0],
                         &input_cell_witness_reader,
                         &output_cell_witness_reader,
-                        Some("owner"),
+                        None,
                         vec![],
                         vec!["status", "records"],
                     )?;
@@ -870,13 +870,14 @@ pub fn main() -> Result<(), Error> {
                 Source::Input,
             )?;
 
-            verifiers::account_cell::verify_account_cell_consistent_with_exception(
+            // CAREFUL! The owner lock may be changed or not changed, only the keepers know it, so we skip verification here.
+            // verifiers::account_cell::verify_account_lock_consistent(input_account_cell, output_account_cell, changed_lock)?;
+            verifiers::account_cell::verify_account_data_consistent(input_account_cells[0], output_account_cells[0], vec![])?;
+            verifiers::account_cell::verify_account_witness_consistent(
                 input_account_cells[0],
                 output_account_cells[0],
                 &input_cell_witness_reader,
                 &output_cell_witness_reader,
-                Some("owner"),
-                vec![],
                 vec!["status"],
             )?;
 
@@ -1011,19 +1012,10 @@ fn verify_account_is_locked_for_cross_chain<'a>(
     das_assert!(
         current_timestamp + 30 * DAY_SEC <= expired_at,
         Error::CrossChainLockError,
-        "outputs[{}] Current time should be 30 days(in seconds) before the AccountCell.expired_at.(current_timestamp: {}, expired_at: {})",
+        "outputs[{}] Current time should be 30 days(in seconds) earlier than the AccountCell.expired_at.(current_timestamp: {}, expired_at: {})",
         output_account_index,
         current_timestamp,
         expired_at
-    );
-
-    let lock = high_level::load_cell_lock(output_account_index, source)?;
-    let args = lock.as_reader().args().raw_data();
-    das_assert!(
-        args == &CROSS_CHAIN_BLACK_ARGS,
-        Error::CrossChainLockError,
-        "outputs[{}] The AccountCell should be send to address 0x030000000000000000000000000000000000000000030000000000000000000000000000000000000000.",
-        output_account_index
     );
 
     if output_witness_reader.version() <= 1 {
