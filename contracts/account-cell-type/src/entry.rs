@@ -497,11 +497,46 @@ pub fn main() -> Result<(), Error> {
 
                 debug!("The lock is the black hole lock, so all the refunds should be sent to DAS first.");
 
-                let total = refund_from_sub_account_cell_to_das
-                    + expired_account_capacity
-                    + refund_from_sub_account_cell_to_owner
-                    - available_fee;
-                verifiers::common::verify_das_get_change(total)?;
+                let das_wallet_lock = das_wallet_lock();
+                let das_wallet_cells = util::find_cells_by_script(ScriptType::Lock, das_wallet_lock.as_reader(), Source::Output)?;
+
+                verifiers::common::verify_cell_number(
+                    "DASWallet",
+                    &[],
+                    0,
+                    &das_wallet_cells,
+                    2,
+                )?;
+
+                for i in das_wallet_cells.iter() {
+                    let type_hash = high_level::load_cell_type_hash(*i, Source::Output)?;
+                    das_assert!(
+                        type_hash.is_none(),
+                        Error::InvalidTransactionStructure,
+                        "outputs[{}] The cells to DAS should not contains any type script.",
+                        i
+                    );
+                }
+
+                let capacity = high_level::load_cell_capacity(das_wallet_cells[0], Source::Output)?;
+                das_assert!(
+                    capacity == expired_account_capacity + refund_from_sub_account_cell_to_owner - available_fee,
+                    Error::ChangeError,
+                    "outputs[{}] The ChangeCell to DAS should be {} shannon, but {} found.",
+                    das_wallet_cells[0],
+                    expired_account_capacity + refund_from_sub_account_cell_to_owner - available_fee,
+                    capacity
+                );
+
+                let capacity = high_level::load_cell_capacity(das_wallet_cells[1], Source::Output)?;
+                das_assert!(
+                    capacity == refund_from_sub_account_cell_to_das,
+                    Error::ChangeError,
+                    "outputs[{}] The ChangeCell to DAS should be {} shannon, but {} found.",
+                    das_wallet_cells[1],
+                    refund_from_sub_account_cell_to_das,
+                    capacity
+                );
             }
         }
         b"start_account_sale" => {
@@ -886,7 +921,7 @@ pub fn main() -> Result<(), Error> {
                 vec![],
             )?;
             // CAREFUL! The owner lock may be changed or not changed, only the keepers know it, so we skip verification here.
-            match verifiers::account_cell::verify_account_lock_consistent(input_account_cell, output_account_cell, None) {
+            match verifiers::account_cell::verify_account_lock_consistent(input_account_cells[0], output_account_cells[0], None) {
                 Ok(_) => {
                     // The lock is not changed, so the records must be kept.
                     verifiers::account_cell::verify_account_witness_consistent(
