@@ -141,12 +141,7 @@ pub fn main() -> Result<(), Error> {
                         &output_cell_witness_reader,
                         None,
                         vec![],
-                        vec!["status", "records"],
-                    )?;
-                    verifiers::account_cell::verify_account_witness_record_empty(
-                        &output_cell_witness_reader,
-                        output_account_cells[0],
-                        Source::Output,
+                        vec!["status"],
                     )?;
 
                     verify_account_is_locked_for_cross_chain(
@@ -885,20 +880,40 @@ pub fn main() -> Result<(), Error> {
                 Source::Input,
             )?;
 
-            // CAREFUL! The owner lock may be changed or not changed, only the keepers know it, so we skip verification here.
-            // verifiers::account_cell::verify_account_lock_consistent(input_account_cell, output_account_cell, changed_lock)?;
             verifiers::account_cell::verify_account_data_consistent(
                 input_account_cells[0],
                 output_account_cells[0],
                 vec![],
             )?;
-            verifiers::account_cell::verify_account_witness_consistent(
-                input_account_cells[0],
-                output_account_cells[0],
-                &input_cell_witness_reader,
-                &output_cell_witness_reader,
-                vec!["status"],
-            )?;
+            // CAREFUL! The owner lock may be changed or not changed, only the keepers know it, so we skip verification here.
+            match verifiers::account_cell::verify_account_lock_consistent(input_account_cell, output_account_cell, None) {
+                Ok(_) => {
+                    // The lock is not changed, so the records must be kept.
+                    verifiers::account_cell::verify_account_witness_consistent(
+                        input_account_cells[0],
+                        output_account_cells[0],
+                        &input_cell_witness_reader,
+                        &output_cell_witness_reader,
+                        vec!["status"],
+                    )?;
+                }
+                Err(Error::CellLockCanNotBeModified) => {
+                    // The lock is changed, so the records must be cleared.
+                    verifiers::account_cell::verify_account_witness_consistent(
+                        input_account_cells[0],
+                        output_account_cells[0],
+                        &input_cell_witness_reader,
+                        &output_cell_witness_reader,
+                        vec!["status", "records"],
+                    )?;
+                    verifiers::account_cell::verify_account_witness_record_empty(
+                        &output_cell_witness_reader,
+                        output_account_cells[0],
+                        Source::Output,
+                    )?;
+                },
+                Err(e) => return Err(e)
+            }
 
             verify_account_is_unlocked_for_cross_chain(output_account_cells[0], &output_cell_witness_reader)?;
 

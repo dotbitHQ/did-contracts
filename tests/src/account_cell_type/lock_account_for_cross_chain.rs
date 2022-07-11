@@ -166,66 +166,6 @@ fn challenge_account_lock_account_for_cross_chain_account_modified() {
 }
 
 #[test]
-fn challenge_account_lock_account_for_cross_chain_not_clear_records() {
-    let mut template = init(
-        "lock_account_for_cross_chain",
-        Some("0x0000000000000011000000000000002200"),
-    );
-
-    // inputs
-    push_input_account_cell(
-        &mut template,
-        json!({
-            "lock": {
-                "owner_lock_args": SENDER,
-                "manager_lock_args": SENDER
-            },
-            "witness": {
-                "records": [
-                    {
-                        "type": "address",
-                        "key": "eth",
-                        "label": "Personal",
-                        "value": "0x0000000000000000000000000000000000000000",
-                    },
-                    {
-                        "type": "address",
-                        "key": "eth",
-                        "label": "Company",
-                        "value": "0x0000000000000000000000000000000000001111",
-                    }
-                ]
-            }
-        }),
-    );
-
-    // outputs
-    push_output_account_cell(
-        &mut template,
-        json!({
-            "lock": {
-                "owner_lock_args": SENDER,
-                "manager_lock_args": SENDER
-            },
-            "witness": {
-                "status": (AccountStatus::LockedForCrossChain as u8),
-                // Simulate not clearing all records when transferring.
-                "records": [
-                    {
-                        "type": "address",
-                        "key": "eth",
-                        "label": "Company",
-                        "value": "0x0000000000000000000000000000000000001111",
-                    }
-                ]
-            }
-        }),
-    );
-
-    challenge_tx(template.as_json(), Error::AccountCellRecordNotEmpty)
-}
-
-#[test]
 fn challenge_account_lock_account_for_cross_chain_modify_data_account() {
     let mut template = before_each();
 
