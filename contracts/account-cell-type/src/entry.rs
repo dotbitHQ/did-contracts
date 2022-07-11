@@ -479,20 +479,34 @@ pub fn main() -> Result<(), Error> {
             let expired_account_capacity = high_level::load_cell_capacity(input_cells[1], Source::Input)?;
             let available_fee = u64::from(config_account.common_fee());
             let refund_lock = util::derive_owner_lock_from_cell(input_cells[1], Source::Input)?;
+            let refund_args = refund_lock.as_reader().args().raw_data();
 
-            verifiers::misc::verify_user_get_change(
-                config_main,
-                refund_lock.as_reader(),
-                expired_account_capacity + refund_from_sub_account_cell_to_owner - available_fee,
-            )?;
+            if refund_args != &CROSS_CHAIN_BLACK_ARGS {
+                // If the lock is not the black hole lock, then the refund should be refunded to current owner.
+                verifiers::misc::verify_user_get_change(
+                    config_main,
+                    refund_lock.as_reader(),
+                    expired_account_capacity + refund_from_sub_account_cell_to_owner - available_fee,
+                )?;
 
-            if refund_from_sub_account_cell_to_das >= CELL_BASIC_CAPACITY {
-                verifiers::common::verify_das_get_change(refund_from_sub_account_cell_to_das)?;
+                if refund_from_sub_account_cell_to_das >= CELL_BASIC_CAPACITY {
+                    verifiers::common::verify_das_get_change(refund_from_sub_account_cell_to_das)?;
+                } else {
+                    debug!(
+                        "The profit of DAS is {} shannon, so no need to refund to DAS.",
+                        refund_from_sub_account_cell_to_das
+                    );
+                }
             } else {
-                debug!(
-                    "The profit of DAS is {} shannon, so no need to refund to DAS.",
-                    refund_from_sub_account_cell_to_das
-                );
+                // If the lock is the black hole lock, then all the refunds should be sent to DAS first.
+
+                debug!("The lock is the black hole lock, so all the refunds should be sent to DAS first.");
+
+                let total = refund_from_sub_account_cell_to_das
+                    + expired_account_capacity
+                    + refund_from_sub_account_cell_to_owner
+                    - available_fee;
+                verifiers::common::verify_das_get_change(total)?;
             }
         }
         b"start_account_sale" => {
@@ -856,6 +870,7 @@ pub fn main() -> Result<(), Error> {
 
             let config_account = parser.configs.account()?;
 
+            // include: common::verify_tx_fee_spent_correctly
             verify_transaction_fee_spent_correctly(
                 action,
                 config_account,
@@ -872,7 +887,11 @@ pub fn main() -> Result<(), Error> {
 
             // CAREFUL! The owner lock may be changed or not changed, only the keepers know it, so we skip verification here.
             // verifiers::account_cell::verify_account_lock_consistent(input_account_cell, output_account_cell, changed_lock)?;
-            verifiers::account_cell::verify_account_data_consistent(input_account_cells[0], output_account_cells[0], vec![])?;
+            verifiers::account_cell::verify_account_data_consistent(
+                input_account_cells[0],
+                output_account_cells[0],
+                vec![],
+            )?;
             verifiers::account_cell::verify_account_witness_consistent(
                 input_account_cells[0],
                 output_account_cells[0],
