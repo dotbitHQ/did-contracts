@@ -77,7 +77,7 @@ fn test_account_edit_records() {
                     },
                     {
                         "type": "address",
-                        "key": "eth",
+                        "key": "60",
                         "label": "Company",
                         "value": "0x0000000000000000000000000000000000001111",
                     }
@@ -190,6 +190,31 @@ fn challenge_account_edit_records_invalid_key() {
                         // Simulate using a key out of namespace.
                         "key": "xxxx",
                         "label": "xxxxx",
+                        "value": "0x0000000000000000000000000000000000001111",
+                    }
+                ]
+            }
+        }),
+    );
+
+    challenge_tx(template.as_json(), Error::AccountCellRecordKeyInvalid)
+}
+
+#[test]
+fn challenge_account_edit_records_invalid_coin_type() {
+    let mut template = before_each();
+
+    push_output_account_cell(
+        &mut template,
+        json!({
+            "witness": {
+                "last_edit_records_at": TIMESTAMP,
+                "records": [
+                    {
+                        "type": "address",
+                        // Simulate using a non-digit char in key field.
+                        "key": "60a",
+                        "label": "Company",
                         "value": "0x0000000000000000000000000000000000001111",
                     }
                 ]

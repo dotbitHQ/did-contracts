@@ -14,6 +14,12 @@ profile.website
 profile.youtube
 profile.bilibili
 profile.tiktok
+profile.jike
+profile.nextid
+profile.dribbble
+profile.behance
+profile.mirror
+profile.medium
 address.btc
 address.eth
 address.ckb
@@ -46,6 +52,13 @@ address.sol
 address.vet
 address.xlm
 address.ada
+address.polygon
+address.terra
+address.avalanche
+address.dfinity
+address.stacks
+address.celo
 dweb.ipfs
 dweb.ipns
 dweb.resilio
+dweb.skynet

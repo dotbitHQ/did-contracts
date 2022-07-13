@@ -65,6 +65,7 @@ pub const ACCOUNT_SUFFIX: &str = ".bit";
 pub const ACCOUNT_MAX_PRICED_LENGTH: u8 = 8;
 
 pub const CUSTOM_KEYS_NAMESPACE: &[u8] = b"0123456789abcdefghijklmnopqrstuvwxyz_";
+pub const COIN_TYPE_DIGITS: &[u8] = b"0123456789";
 
 pub const SECP_SIGNATURE_SIZE: usize = 65;
 // This is smaller than the real data type in solidity, but it is enough for now.
