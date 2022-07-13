@@ -8,6 +8,7 @@ use crate::{
     witness_parser::WitnessesParser,
 };
 use alloc::string::String;
+use ckb_std::{ckb_constants::Source, high_level};
 use das_dynamic_libs::{error::Error as DasDynamicLibError, sign_lib::SignLib};
 use das_types::{constants::*, packed::*, prelude::Entity, prettier::Prettier};
 use sparse_merkle_tree::{ckb_smt::SMTBuilder, H256};
@@ -325,6 +326,24 @@ pub fn verify_sub_account_sig(witness: &SubAccountWitness, sign_lib: &SignLib) -
             Ok(())
         }
     }
+}
+
+pub fn verify_sub_account_parent_id(
+    sub_account_index: usize,
+    source: Source,
+    expected_account_id: &[u8],
+) -> Result<(), Error> {
+    let type_script = high_level::load_cell_type(sub_account_index, source)?.unwrap();
+    let account_id = type_script.as_reader().args().raw_data();
+
+    assert!(
+        account_id == expected_account_id,
+        Error::AccountCellIdNotMatch,
+        "inputs[{}] The account ID of the SubAccountCell is not match with the expired AccountCell.",
+        sub_account_index
+    );
+
+    Ok(())
 }
 
 const SUB_ACCOUNT_BETA_LIST_WILDCARD: [u8; 20] = [

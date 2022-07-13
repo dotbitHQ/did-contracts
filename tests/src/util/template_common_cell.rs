@@ -269,36 +269,17 @@ pub fn push_input_account_cell_v2(template: &mut TemplateGenerator, cell_partial
 }
 
 pub fn push_input_sub_account_cell(template: &mut TemplateGenerator, cell_partial: Value) {
-    let mut cell = json!({
-        "capacity": SUB_ACCOUNT_BASIC_CAPACITY + SUB_ACCOUNT_PREPARED_FEE_CAPACITY,
-        "lock": {
-            "code_hash": "{{always_success}}"
-        },
-        "type": {
-            "code_hash": "{{sub-account-cell-type}}",
-            "args": ACCOUNT
-        },
-        "data": {
-            "root": "0x0000000000000000000000000000000000000000000000000000000000000000"
-        }
-    });
-    util::merge_json(&mut cell, cell_partial);
-
-    template.push_input(cell, None);
-}
-
-pub fn push_output_sub_account_cell(template: &mut TemplateGenerator, cell_partial: Value) {
-    let profit = if cell_partial["data"]["profit"].is_null() {
-        0
-    } else {
-        match cell_partial["data"]["profit"].as_u64() {
-            Some(val) => val,
-            _ => 0,
-        }
+    let das_profit = match cell_partial["data"]["das_profit"].as_u64() {
+        Some(val) => val,
+        _ => 0,
+    };
+    let owner_profit = match cell_partial["data"]["owner_profit"].as_u64() {
+        Some(val) => val,
+        _ => 0,
     };
 
     let mut cell = json!({
-        "capacity": SUB_ACCOUNT_BASIC_CAPACITY + SUB_ACCOUNT_PREPARED_FEE_CAPACITY + profit,
+        "capacity": SUB_ACCOUNT_BASIC_CAPACITY + SUB_ACCOUNT_PREPARED_FEE_CAPACITY + das_profit + owner_profit,
         "lock": {
             "code_hash": "{{always_success}}"
         },
@@ -308,7 +289,38 @@ pub fn push_output_sub_account_cell(template: &mut TemplateGenerator, cell_parti
         },
         "data": {
             "root": "0x0000000000000000000000000000000000000000000000000000000000000000",
-            "profit": 0
+            "das_profit": 0,
+            "owner_profit": 0,
+        }
+    });
+    util::merge_json(&mut cell, cell_partial);
+
+    template.push_input(cell, None);
+}
+
+pub fn push_output_sub_account_cell(template: &mut TemplateGenerator, cell_partial: Value) {
+    let das_profit = match cell_partial["data"]["das_profit"].as_u64() {
+        Some(val) => val,
+        _ => 0,
+    };
+    let owner_profit = match cell_partial["data"]["owner_profit"].as_u64() {
+        Some(val) => val,
+        _ => 0,
+    };
+
+    let mut cell = json!({
+        "capacity": SUB_ACCOUNT_BASIC_CAPACITY + SUB_ACCOUNT_PREPARED_FEE_CAPACITY + das_profit + owner_profit,
+        "lock": {
+            "code_hash": "{{always_success}}"
+        },
+        "type": {
+            "code_hash": "{{sub-account-cell-type}}",
+            "args": ACCOUNT
+        },
+        "data": {
+            "root": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "das_profit": 0,
+            "owner_profit": 0,
         }
     });
     util::merge_json(&mut cell, cell_partial);

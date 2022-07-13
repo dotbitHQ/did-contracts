@@ -1,4 +1,3 @@
-#![feature(asm)]
 #![feature(once_cell)]
 #![no_std]
 

@@ -12,11 +12,15 @@ use das_types::packed as das_packed;
 pub fn main() -> Result<(), Error> {
     debug!("====== Running balance-cell-type ======");
 
+    let balance_cell_type = high_level::load_script().map_err(|e| Error::from(e))?;
+    let balance_cell_type_reader = balance_cell_type.as_reader();
     let das_lock = das_lock();
     let das_lock_reader = das_lock.as_reader();
 
-    let (input_cells, output_cells) =
-        util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Lock, das_lock_reader.code_hash().into())?;
+    let input_cells = util::find_cells_by_script(ScriptType::Type, balance_cell_type_reader, Source::Input)?;
+    // We need to find all BalanceCells even it has no type script, so we use das-lock as the finding condition.
+    let output_cells =
+        util::find_cells_by_type_id(ScriptType::Lock, das_lock_reader.code_hash().into(), Source::Output)?;
 
     let mut parser = WitnessesParser::new()?;
     let mut is_unknown_action = false;
@@ -109,23 +113,20 @@ pub fn main() -> Result<(), Error> {
     if output_cells.len() > 0 {
         debug!("Check if any cells with das-lock in outputs lack of one of balance-cell-type, account-cell-type, account-sale-cell-type, account-auction-cell-type.");
 
-        let this_script = high_level::load_script().map_err(|e| Error::from(e))?;
-        let this_script_reader = this_script.as_reader();
-
         let mut available_type_scripts: Vec<das_packed::Script> = Vec::new();
         for index in output_cells {
-            let lock = high_level::load_cell_lock(index, Source::Output).map_err(Error::from)?;
+            let lock = high_level::load_cell_lock(index, Source::Output)?;
             let lock_args = lock.as_reader().args().raw_data();
             let owner_type = data_parser::das_lock_args::get_owner_type(lock_args);
             let manager_type = data_parser::das_lock_args::get_owner_type(lock_args);
 
             // Check if cells with das-lock in outputs also has the type script named balance-cell-type, account-cell-type, account-sale-cell-type, account-auction-cell-type..
             if owner_type == DasLockType::ETHTypedData as u8 || manager_type == DasLockType::ETHTypedData as u8 {
-                let type_opt = high_level::load_cell_type(index, Source::Output).map_err(Error::from)?;
+                let type_opt = high_level::load_cell_type(index, Source::Output)?;
                 match type_opt {
                     Some(type_) => {
                         let mut pass = false;
-                        if util::is_reader_eq(this_script_reader, type_.as_reader()) {
+                        if util::is_reader_eq(balance_cell_type_reader, type_.as_reader()) {
                             pass = true;
                         } else {
                             if available_type_scripts.is_empty() {

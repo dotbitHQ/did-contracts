@@ -28,7 +28,6 @@ macro_rules! get_or_try_init {
     }};
 }
 
-#[derive(Debug)]
 pub struct ScriptLiteral {
     pub code_hash: [u8; 32],
     pub hash_type: ScriptHashType,

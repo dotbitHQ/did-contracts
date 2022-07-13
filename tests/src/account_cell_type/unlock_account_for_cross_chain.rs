@@ -10,8 +10,8 @@ pub fn push_input_account_cell_with_multi_sign(template: &mut TemplateGenerator,
     let mut cell = json!({
         "capacity": util::gen_account_cell_capacity(5),
         "lock": {
-            "owner_lock_args": CROSS_CHAIN_BLACK_ACCOUNT,
-            "manager_lock_args": CROSS_CHAIN_BLACK_ACCOUNT
+            "owner_lock_args": SENDER,
+            "manager_lock_args": SENDER
         },
         "type": {
             "code_hash": "{{account-cell-type}}"
@@ -46,7 +46,28 @@ fn before_each() -> TemplateGenerator {
 }
 
 #[test]
-fn test_account_unlock_account_for_cross_chain() {
+fn test_account_unlock_account_for_cross_chain_keep_owner() {
+    let mut template = before_each();
+
+    // outputs
+    push_output_account_cell(
+        &mut template,
+        json!({
+            "lock": {
+                "owner_lock_args": SENDER,
+                "manager_lock_args": SENDER
+            },
+            "witness": {
+                "status": (AccountStatus::Normal as u8)
+            }
+        }),
+    );
+
+    test_tx(template.as_json())
+}
+
+#[test]
+fn test_account_unlock_account_for_cross_chain_change_owner() {
     let mut template = before_each();
 
     // outputs
@@ -76,8 +97,8 @@ fn challenge_account_unlock_account_for_cross_chain_account_multiple_cells() {
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": CROSS_CHAIN_BLACK_ACCOUNT,
-                "manager_lock_args": CROSS_CHAIN_BLACK_ACCOUNT
+                "owner_lock_args": SENDER,
+                "manager_lock_args": SENDER
             },
             "witness": {
                 "status": (AccountStatus::LockedForCrossChain as u8)
@@ -88,8 +109,8 @@ fn challenge_account_unlock_account_for_cross_chain_account_multiple_cells() {
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": CROSS_CHAIN_BLACK_ACCOUNT,
-                "manager_lock_args": CROSS_CHAIN_BLACK_ACCOUNT
+                "owner_lock_args": SENDER,
+                "manager_lock_args": SENDER
             },
             "witness": {
                 "status": (AccountStatus::LockedForCrossChain as u8)

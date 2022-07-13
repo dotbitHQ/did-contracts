@@ -39,7 +39,8 @@ pub enum Error {
     DataTypeUpgradeRequired,
     NarrowMixerTypeFailed,
     ChangeError,
-    AccountStillCanNotBeRegister = 35, // ⚠️ DO NOT CHANGE
+    AccountStillCanNotBeRegister = 35,
+    // ⚠️ DO NOT CHANGE
     AccountIsPreserved,
     AccountIsUnAvailable,
     AccountIdIsInvalid,
@@ -73,7 +74,8 @@ pub enum Error {
     PreRegisterAccountIsTooLong,
     PreRegisterAccountCharSetConflict,
     PreRegisterAccountCharIsInvalid,
-    PreRegisterQuoteIsInvalid, // 80
+    PreRegisterQuoteIsInvalid,
+    // 80
     PreRegisterDiscountIsInvalid,
     PreRegisterOwnerLockArgsIsInvalid,
     PreRegisterIsNotTimeout,
@@ -96,11 +98,13 @@ pub enum Error {
     ProposalConfirmRefundError,
     ProposalSlicesCanNotBeEmpty,
     ProposalSliceNotEndCorrectly,
-    ProposalSliceMustStartWithAccountCell, // 115
+    ProposalSliceMustStartWithAccountCell,
+    // 115
     ProposalSliceMustContainMoreThanOneElement,
     ProposalSliceItemMustBeUniqueAccount,
     ProposalRecycleNeedWaitLonger,
-    ProposalRecycleRefundAmountError, // 120
+    ProposalRecycleRefundAmountError,
+    // 120
     PrevProposalItemNotFound,
     IncomeCellConsolidateConditionNotSatisfied = -126,
     IncomeCellConsolidateError,
@@ -108,6 +112,10 @@ pub enum Error {
     IncomeCellTransferError,
     IncomeCellCapacityError,
     IncomeCellProfitMismatch,
+    AccountCellMissingPrevAccount = -114,
+    AccountCellNextUpdateError,
+    AccountCellHasNotExpired,
+    AccountCellIdNotMatch,
     AccountCellPermissionDenied = -110,
     AccountCellOwnerLockShouldNotBeModified,
     AccountCellOwnerLockShouldBeModified,
@@ -115,14 +123,17 @@ pub enum Error {
     AccountCellDataNotConsistent,
     AccountCellProtectFieldIsModified,
     AccountCellNoMoreFee,
-    AccountCellThrottle = -102, // ⚠️ DO NOT CHANGE
+    AccountCellThrottle = -102,
+    // ⚠️ DO NOT CHANGE
     AccountCellRenewDurationMustLongerThanYear,
-    AccountCellRenewDurationBiggerThanPayed, // -100
+    AccountCellRenewDurationBiggerThanPayed,
+    // -100
     AccountCellInExpirationGracePeriod,
     AccountCellHasExpired,
     AccountCellIsNotExpired,
     AccountCellRecycleCapacityError,
-    AccountCellChangeCapacityError, // -95
+    AccountCellChangeCapacityError,
+    // -95
     AccountCellRecordKeyInvalid,
     AccountCellRecordSizeTooLarge,
     AccountCellRecordNotEmpty,
@@ -164,6 +175,8 @@ pub enum Error {
     SubAccountEditLockError,
     SubAccountJoinBetaError,
     SubAccountProfitError,
+    SubAccountCustomScriptError,
+    SubAccountNormalCellLockLimit,
     // -40
     UpgradeForWitnessIsRequired,
     UpgradeDefaultValueOfNewFieldIsError,

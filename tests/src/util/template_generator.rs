@@ -1,5 +1,4 @@
-use super::super::ckb_types_relay::*;
-use super::{constants::*, smt::*, util};
+use super::{super::ckb_types_relay::*, constants::*, smt::*, util};
 use ckb_testtool::ckb_hash::blake2b_256;
 use das_types_std::{constants::*, packed::*, prelude::*, util as das_util, util::EntityWrapper};
 use serde_json::{json, Value};
@@ -647,12 +646,13 @@ impl TemplateGenerator {
             .max_length(Uint32::from(42))
             .basic_capacity(Uint64::from(ACCOUNT_BASIC_CAPACITY))
             .prepared_fee_capacity(Uint64::from(ACCOUNT_PREPARED_FEE_CAPACITY))
-            .expiration_grace_period(Uint32::from(2_592_000))
+            .expiration_grace_period(Uint32::from(ACCOUNT_EXPIRATION_GRACE_PERIOD as u32))
             .record_min_ttl(Uint32::from(300))
             .record_size_limit(Uint32::from(5000))
             .transfer_account_fee(Uint64::from(ACCOUNT_OPERATE_FEE))
             .edit_manager_fee(Uint64::from(ACCOUNT_OPERATE_FEE))
             .edit_records_fee(Uint64::from(ACCOUNT_OPERATE_FEE))
+            .common_fee(Uint64::from(ACCOUNT_OPERATE_FEE))
             .transfer_account_throttle(Uint32::from(86400))
             .edit_manager_throttle(Uint32::from(3600))
             .edit_records_throttle(Uint32::from(600))
@@ -818,7 +818,13 @@ impl TemplateGenerator {
             .basic_capacity(Uint64::from(SUB_ACCOUNT_BASIC_CAPACITY))
             .prepared_fee_capacity(Uint64::from(SUB_ACCOUNT_PREPARED_FEE_CAPACITY))
             .new_sub_account_price(Uint64::from(SUB_ACCOUNT_NEW_PRICE))
+            .new_sub_account_custom_price_das_profit_rate(Uint32::from(
+                SUB_ACCOUNT_NEW_CUSTOM_PRICE_DAS_PROFIT_RATE as u32,
+            ))
             .renew_sub_account_price(Uint64::from(SUB_ACCOUNT_RENEW_PRICE))
+            .renew_sub_account_custom_price_das_profit_rate(Uint32::from(
+                SUB_ACCOUNT_RENEW_CUSTOM_PRICE_DAS_PROFIT_RATE as u32,
+            ))
             .common_fee(Uint64::from(SUB_ACCOUNT_COMMON_FEE))
             .create_fee(Uint64::from(SUB_ACCOUNT_CREATE_FEE))
             .edit_fee(Uint64::from(SUB_ACCOUNT_EDIT_FEE))
@@ -2207,7 +2213,10 @@ impl TemplateGenerator {
     ///     },
     ///     "data": {
     ///         "root": null | "0x..." // If this is null, it will be an invalid cell.
-    ///         "profit": 0
+    ///         "das_profit": 0,
+    ///         "owner_profit": 0,
+    ///         "custom_script": null | "0x...",
+    ///         "script_args": null | "0x...",
     ///     }
     /// })
     /// ```
@@ -2237,15 +2246,29 @@ impl TemplateGenerator {
         } else {
             let data = &cell["data"];
             let mut root = parse_json_hex("cell.data.root", &data["root"]);
-            let mut profit = if data["profit"].is_null() {
+            let mut das_profit = if data["das_profit"].is_null() {
                 Vec::new()
             } else {
-                parse_json_u64("cell.data.profit", &data["profit"], None)
+                parse_json_u64("cell.data.das_profit", &data["das_profit"], None)
                     .to_le_bytes()
                     .to_vec()
             };
+            let mut owner_profit = if data["owner_profit"].is_null() {
+                Vec::new()
+            } else {
+                parse_json_u64("cell.data.owner_profit", &data["owner_profit"], None)
+                    .to_le_bytes()
+                    .to_vec()
+            };
+            let mut custom_script =
+                parse_json_hex_with_default("cell.data.custom_script", &data["custom_script"], Vec::new());
+            let mut script_args =
+                parse_json_hex_with_default("cell.data.script_args", &data["script_args"], Vec::new());
 
-            root.append(&mut profit);
+            root.append(&mut das_profit);
+            root.append(&mut owner_profit);
+            root.append(&mut custom_script);
+            root.append(&mut script_args);
             util::bytes_to_hex(&root)
         };
 

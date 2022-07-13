@@ -48,12 +48,17 @@ Now you can start compiling scripts by yourself! 🚀
 
 First you need to start container with `./docker.sh start`, then you can try commands below:
 
-- `./docker.sh build xxx-cell-type --dev` compiling a specific script for development environment, it can be also `--local, --testnet2, --testnet3, --mainnet`;
+- `./docker.sh build xxx-cell-type --dev` compiling a specific script for development environment, it can be
+  also `--local, --testnet2, --testnet3, --mainnet`;
 - `./docker.sh build-all --dev` compiling all scripts for development environment;
 - `./docker.sh build xxx-cell-type --release --dev` compiling a specific script with release profile, but still for development environment;
 - `./docker.sh build-all --release --dev` compiling all scripts with release profile, but still for development environment;
 
-> ⚠️ `./docker.sh` is a very simple script which can not handle arguments in different order, so remember keep all arguments as the same order as above otherwise it may not work properly.
+> ⚠️ `./docker.sh` is a very simple script which can not handle arguments in different order, so remember keep all arguments as the same
+> order as above otherwise it may not work properly.
+
+> When executing `build-all` sub-command, `test-env, test-custom-script` and `playground` scripts will not be compiled. You need to compile
+> them one by one with `build` sub-command.
 
 ### Unit tests
 
@@ -63,7 +68,7 @@ All tests are divided into three categories:
 - tests start with `test_`, these are basic tests for simply debugging contracts, there is no error in any of these tests.
 - tests start with `challenge_`, these are boundary condition tests that a specific error code must be returned.
 
-The prefix is design for running different categories of tests separately: 
+The prefix is design for running different categories of tests separately:
 
 ``` sh
 cargo test -p tests gen_

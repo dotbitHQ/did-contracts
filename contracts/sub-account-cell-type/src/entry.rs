@@ -1,5 +1,7 @@
-use alloc::{borrow::ToOwned, vec};
-use ckb_std::{ckb_constants::Source, dynamic_loading_c_impl::CKBDLContext, high_level};
+use alloc::{borrow::ToOwned, string::String, vec, vec::Vec};
+use ckb_std::{
+    ckb_constants::Source, cstr_core::CStr, dynamic_loading_c_impl::CKBDLContext, error::SysError, high_level,
+};
 use core::{convert::TryInto, result::Result};
 use das_core::{
     assert,
@@ -46,6 +48,130 @@ pub fn main() -> Result<(), Error> {
                 Error::InvalidTransactionStructure,
             )?;
         }
+        b"recycle_expired_account" => {
+            util::require_type_script(
+                &parser,
+                TypeScript::AccountCellType,
+                Source::Input,
+                Error::InvalidTransactionStructure,
+            )?;
+        }
+        b"config_sub_account_custom_script" => {
+            parser.parse_cell()?;
+            let config_main = parser.configs.main()?;
+            let config_account = parser.configs.account()?;
+            let config_sub_account = parser.configs.sub_account()?;
+
+            let timestamp = util::load_oracle_data(OracleCellType::Time)?;
+
+            let (input_account_cells, output_account_cells) = util::find_cells_by_type_id_in_inputs_and_outputs(
+                ScriptType::Type,
+                config_main.type_id_table().account_cell(),
+            )?;
+            verifiers::common::verify_cell_number_and_position(
+                "AccountCell",
+                &input_account_cells,
+                &[0],
+                &output_account_cells,
+                &[0],
+            )?;
+
+            let sender_lock = util::derive_owner_lock_from_cell(input_account_cells[0], Source::Input)?;
+            verifiers::misc::verify_no_more_cells_with_same_lock(
+                sender_lock.as_reader(),
+                &input_account_cells,
+                Source::Input,
+            )?;
+
+            let input_account_cell_witness =
+                util::parse_account_cell_witness(&parser, input_account_cells[0], Source::Input)?;
+            let input_account_cell_reader = input_account_cell_witness.as_reader();
+            let output_account_cell_witness =
+                util::parse_account_cell_witness(&parser, output_account_cells[0], Source::Output)?;
+            let output_account_cell_reader = output_account_cell_witness.as_reader();
+
+            verifiers::account_cell::verify_status(
+                &input_account_cell_reader,
+                AccountStatus::Normal,
+                input_account_cells[0],
+                Source::Input,
+            )?;
+
+            verifiers::account_cell::verify_account_expiration(
+                config_account,
+                input_account_cells[0],
+                Source::Input,
+                timestamp,
+            )?;
+
+            verifiers::account_cell::verify_account_capacity_not_decrease(
+                input_account_cells[0],
+                output_account_cells[0],
+            )?;
+
+            verifiers::account_cell::verify_account_cell_consistent_with_exception(
+                input_account_cells[0],
+                output_account_cells[0],
+                &input_account_cell_reader,
+                &output_account_cell_reader,
+                None,
+                vec![],
+                vec![],
+            )?;
+
+            let (input_sub_account_cells, output_sub_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
+            verifiers::common::verify_cell_number_and_position(
+                "SubAccountCell",
+                &input_sub_account_cells,
+                &[1],
+                &output_sub_account_cells,
+                &[1],
+            )?;
+
+            verifiers::sub_account_cell::verify_sub_account_parent_id(
+                input_sub_account_cells[0],
+                Source::Input,
+                input_account_cell_reader.id().raw_data(),
+            )?;
+
+            let input_sub_account_capacity = high_level::load_cell_capacity(input_sub_account_cells[0], Source::Input)?;
+            let output_sub_account_capacity =
+                high_level::load_cell_capacity(output_sub_account_cells[0], Source::Output)?;
+            let input_sub_account_data = high_level::load_cell_data(input_sub_account_cells[0], Source::Input)?;
+            let output_sub_account_data = high_level::load_cell_data(output_sub_account_cells[0], Source::Output)?;
+
+            verify_sub_account_transaction_fee(
+                config_sub_account,
+                action,
+                input_sub_account_capacity,
+                &input_sub_account_data,
+                output_sub_account_capacity,
+                &output_sub_account_data,
+            )?;
+
+            let input_sub_account_custom_script =
+                data_parser::sub_account_cell::get_custom_script(&input_sub_account_data);
+            let output_sub_account_custom_script =
+                data_parser::sub_account_cell::get_custom_script(&output_sub_account_data);
+            let input_sub_account_script_args =
+                data_parser::sub_account_cell::get_custom_script_args(&input_sub_account_data);
+            let output_sub_account_script_args =
+                data_parser::sub_account_cell::get_custom_script_args(&output_sub_account_data);
+            // manual::verify_custom_script_changed
+            assert!(
+                input_sub_account_custom_script != output_sub_account_custom_script
+                    || input_sub_account_script_args != output_sub_account_script_args,
+                Error::SubAccountCustomScriptError,
+                "outputs[{}] The custom script of SubAccountCell should be different in inputs and outputs.",
+                output_sub_account_cells[0]
+            );
+
+            verify_sub_account_cell_is_consistent(
+                input_sub_account_cells[0],
+                output_sub_account_cells[0],
+                vec!["custom_script"],
+            )?;
+        }
         b"create_sub_account" | b"edit_sub_account" | b"renew_sub_account" | b"recycle_sub_account" => {
             parser.parse_cell()?;
             let config_main = parser.configs.main()?;
@@ -65,105 +191,214 @@ pub fn main() -> Result<(), Error> {
                 high_level::load_cell_capacity(output_sub_account_cells[0], Source::Output)?;
             let input_sub_account_data = high_level::load_cell_data(input_sub_account_cells[0], Source::Input)?;
             let output_sub_account_data = high_level::load_cell_data(output_sub_account_cells[0], Source::Output)?;
-            let input_sub_account_profit = data_parser::sub_account_cell::get_profit(&input_sub_account_data).unwrap();
-            let output_sub_account_profit =
-                data_parser::sub_account_cell::get_profit(&output_sub_account_data).unwrap();
 
             verify_sub_account_capacity_is_enough(
                 config_sub_account,
                 input_sub_account_cells[0],
                 input_sub_account_capacity,
-                input_sub_account_profit,
+                &input_sub_account_data,
                 output_sub_account_cells[0],
                 output_sub_account_capacity,
-                output_sub_account_profit,
+                &output_sub_account_data,
             )?;
 
             verify_sub_account_transaction_fee(
                 config_sub_account,
                 action,
                 input_sub_account_capacity,
-                input_sub_account_profit,
+                &input_sub_account_data,
                 output_sub_account_capacity,
-                output_sub_account_profit,
+                &output_sub_account_data,
             )?;
 
             let mut parent_account;
+            let mut custom_script_params = Vec::new();
+            let mut custom_script_type_id = None;
             match action {
                 b"create_sub_account" => {
-                    let (input_account_cells, output_account_cells) =
-                        util::find_cells_by_type_id_in_inputs_and_outputs(
-                            ScriptType::Type,
-                            config_main.type_id_table().account_cell(),
-                        )?;
-                    verifiers::common::verify_cell_number_and_position(
-                        "AccountCell",
-                        &input_account_cells,
-                        &[0],
-                        &output_account_cells,
-                        &[0],
-                    )?;
+                    let custom_script = data_parser::sub_account_cell::get_custom_script(&input_sub_account_data);
+                    let account_cell_index;
+                    let account_cell_source;
+                    let account_cell_witness;
+                    let account_cell_reader;
 
-                    let input_account_cell_witness =
-                        util::parse_account_cell_witness(&parser, input_account_cells[0], Source::Input)?;
-                    let input_account_cell_reader = input_account_cell_witness.as_reader();
-                    let output_account_cell_witness =
-                        util::parse_account_cell_witness(&parser, output_account_cells[0], Source::Output)?;
-                    let output_account_cell_reader = output_account_cell_witness.as_reader();
+                    match custom_script {
+                        Some(val) if val.len() > 0 && val != &[0u8; 33] => {
+                            debug!("Found custom scripts in SubAccountCell.data, try to find the AccountCell from cell_deps.");
+
+                            let dep_account_cells = util::find_cells_by_type_id(
+                                ScriptType::Type,
+                                config_main.type_id_table().account_cell(),
+                                Source::CellDep,
+                            )?;
+
+                            verifiers::common::verify_cell_dep_number("AccountCell", &dep_account_cells, 1)?;
+
+                            account_cell_index = dep_account_cells[0];
+                            account_cell_source = Source::CellDep;
+
+                            account_cell_witness =
+                                util::parse_account_cell_witness(&parser, dep_account_cells[0], Source::CellDep)?;
+                            account_cell_reader = account_cell_witness.as_reader();
+
+                            verifiers::common::verify_cell_number_and_position(
+                                "SubAccountCell",
+                                &input_sub_account_cells,
+                                &[0],
+                                &output_sub_account_cells,
+                                &[0],
+                            )?;
+
+                            verify_sub_account_cell_is_consistent(
+                                input_sub_account_cells[0],
+                                output_sub_account_cells[0],
+                                vec!["smt_root", "das_profit", "owner_profit"],
+                            )?;
+
+                            debug!("Push action into custom_script_params.");
+
+                            let action_str = String::from_utf8(action.to_vec()).unwrap();
+                            custom_script_params.push(action_str);
+
+                            debug!(
+                                "Try to find the QuoteCell from cell_deps and push quote into custom_script_params."
+                            );
+
+                            let quote = util::load_oracle_data(OracleCellType::Quote)?;
+                            custom_script_params.push(util::hex_string(&quote.to_le_bytes()));
+
+                            let input_das_profit =
+                                data_parser::sub_account_cell::get_das_profit(&input_sub_account_data).unwrap();
+                            let output_das_profit =
+                                data_parser::sub_account_cell::get_das_profit(&output_sub_account_data).unwrap();
+                            let input_owner_profit =
+                                data_parser::sub_account_cell::get_owner_profit(&input_sub_account_data).unwrap();
+                            let output_owner_profit =
+                                data_parser::sub_account_cell::get_owner_profit(&output_sub_account_data).unwrap();
+                            let owner_profit = output_owner_profit - input_owner_profit;
+                            let das_profit = output_das_profit - input_das_profit;
+
+                            custom_script_params.push(util::hex_string(&owner_profit.to_le_bytes()));
+                            custom_script_params.push(util::hex_string(&das_profit.to_le_bytes()));
+
+                            let custom_script_args =
+                                data_parser::sub_account_cell::get_custom_script_args(&input_sub_account_data).unwrap();
+                            custom_script_params.push(util::hex_string(custom_script_args));
+
+                            let mut type_id = [0u8; 32];
+                            if val[0] == ScriptHashType::Type as u8 {
+                                // Treat the bytes as args of type ID.
+                                let type_of_custom_script = Script::new_builder()
+                                    .code_hash(Hash::from(TYPE_ID_CODE_HASH))
+                                    .hash_type(Byte::from(val[0]))
+                                    .args(Bytes::from(&val[1..]))
+                                    .build();
+                                type_id = util::blake2b_256(type_of_custom_script.as_slice());
+                            } else {
+                                // Treat the bytes as code_hash directly.
+                                type_id.copy_from_slice(&val[1..]);
+                            }
+
+                            debug!("The type ID of custom script is: 0x{}", util::hex_string(&type_id));
+
+                            custom_script_type_id = Some(type_id);
+                        }
+                        Some(_) | None => {
+                            debug!("Do not find custom scripts in SubAccountCell.data, find the AccountCell from inputs and outputs.");
+
+                            let (input_account_cells, output_account_cells) =
+                                util::find_cells_by_type_id_in_inputs_and_outputs(
+                                    ScriptType::Type,
+                                    config_main.type_id_table().account_cell(),
+                                )?;
+
+                            verifiers::common::verify_cell_number_and_position(
+                                "AccountCell",
+                                &input_account_cells,
+                                &[0],
+                                &output_account_cells,
+                                &[0],
+                            )?;
+
+                            account_cell_index = input_account_cells[0];
+                            account_cell_source = Source::Input;
+
+                            let sender_lock = util::derive_owner_lock_from_cell(input_account_cells[0], Source::Input)?;
+                            let input_balance_cells =
+                                util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Input)?;
+                            let all_cells = [input_account_cells.clone(), input_balance_cells].concat();
+                            verifiers::misc::verify_no_more_cells_with_same_lock(
+                                sender_lock.as_reader(),
+                                &all_cells,
+                                Source::Input,
+                            )?;
+
+                            account_cell_witness =
+                                util::parse_account_cell_witness(&parser, input_account_cells[0], Source::Input)?;
+                            account_cell_reader = account_cell_witness.as_reader();
+                            let output_account_cell_witness =
+                                util::parse_account_cell_witness(&parser, output_account_cells[0], Source::Output)?;
+                            let output_account_cell_reader = output_account_cell_witness.as_reader();
+
+                            verifiers::account_cell::verify_sub_account_enabled(
+                                &account_cell_reader,
+                                input_account_cells[0],
+                                Source::Input,
+                            )?;
+
+                            verifiers::account_cell::verify_account_capacity_not_decrease(
+                                input_account_cells[0],
+                                output_account_cells[0],
+                            )?;
+
+                            verifiers::account_cell::verify_account_cell_consistent_with_exception(
+                                input_account_cells[0],
+                                output_account_cells[0],
+                                &account_cell_reader,
+                                &output_account_cell_reader,
+                                None,
+                                vec![],
+                                vec![],
+                            )?;
+
+                            verifiers::common::verify_cell_number_and_position(
+                                "SubAccountCell",
+                                &input_sub_account_cells,
+                                &[1],
+                                &output_sub_account_cells,
+                                &[1],
+                            )?;
+
+                            verify_sub_account_cell_is_consistent(
+                                input_sub_account_cells[0],
+                                output_sub_account_cells[0],
+                                vec!["smt_root", "das_profit"],
+                            )?;
+                        }
+                    }
 
                     verifiers::account_cell::verify_status(
-                        &input_account_cell_reader,
+                        &account_cell_reader,
                         AccountStatus::Normal,
-                        input_account_cells[0],
-                        Source::Input,
+                        account_cell_index,
+                        account_cell_source,
                     )?;
 
                     verifiers::account_cell::verify_account_expiration(
                         config_account,
-                        input_account_cells[0],
-                        Source::Input,
+                        account_cell_index,
+                        account_cell_source,
                         timestamp,
                     )?;
 
-                    verifiers::account_cell::verify_sub_account_enabled(
-                        &input_account_cell_reader,
-                        input_account_cells[0],
-                        Source::Input,
-                    )?;
-
-                    verifiers::account_cell::verify_account_capacity_not_decrease(
-                        input_account_cells[0],
-                        output_account_cells[0],
-                    )?;
-
-                    verifiers::account_cell::verify_account_cell_consistent_with_exception(
-                        input_account_cells[0],
-                        output_account_cells[0],
-                        &input_account_cell_reader,
-                        &output_account_cell_reader,
-                        None,
-                        vec![],
-                        vec![],
-                    )?;
-
-                    parent_account = output_account_cell_reader.account().as_readable();
-                    parent_account.extend(ACCOUNT_SUFFIX.as_bytes());
-
-                    verifiers::common::verify_cell_number_and_position(
-                        "SubAccountCell",
-                        &input_sub_account_cells,
-                        &[1],
-                        &output_sub_account_cells,
-                        &[1],
-                    )?;
-
-                    verify_sub_account_cell_is_consistent(
+                    verifiers::sub_account_cell::verify_sub_account_parent_id(
                         input_sub_account_cells[0],
-                        output_sub_account_cells[0],
-                        input_sub_account_profit,
-                        output_sub_account_profit,
-                        true,
+                        Source::Input,
+                        account_cell_reader.id().raw_data(),
                     )?;
+
+                    parent_account = account_cell_reader.account().as_readable();
+                    parent_account.extend(ACCOUNT_SUFFIX.as_bytes());
                 }
                 b"edit_sub_account" => {
                     let dep_account_cells = util::find_cells_by_type_id(
@@ -204,9 +439,7 @@ pub fn main() -> Result<(), Error> {
                     verify_sub_account_cell_is_consistent(
                         input_sub_account_cells[0],
                         output_sub_account_cells[0],
-                        input_sub_account_profit,
-                        output_sub_account_profit,
-                        false,
+                        vec!["smt_root"],
                     )?;
 
                     if cfg!(not(feature = "dev")) {
@@ -314,11 +547,19 @@ pub fn main() -> Result<(), Error> {
                                     timestamp,
                                 )?;
 
-                                debug!("Sum profit base on registered years in all sub-accounts.");
-
                                 let expired_at = u64::from(sub_account_reader.expired_at());
                                 let registered_at = u64::from(sub_account_reader.registered_at());
                                 let expiration_years = (expired_at - registered_at) / YEAR_SEC;
+
+                                if custom_script_type_id.is_some() {
+                                    debug!("Record registered years in all sub-accounts and pass them to custom scripts later.");
+                                    let mut custom_script_param = expiration_years.to_le_bytes().to_vec();
+                                    custom_script_param.append(&mut sub_account_reader.as_slice().to_vec());
+                                    custom_script_params.push(util::hex_string(&custom_script_param));
+                                }
+
+                                debug!("Sum basic profit base on registered years in all sub-accounts.");
+                                // This variable will be treat as the minimal profit to DAS no matter the custom script exist or not.
                                 profit_to_das +=
                                     u64::from(config_sub_account.new_sub_account_price()) * expiration_years;
                             }
@@ -444,13 +685,42 @@ pub fn main() -> Result<(), Error> {
 
             match action {
                 b"create_sub_account" => {
-                    verify_profit_to_das(
-                        action,
-                        output_sub_account_cells[0],
-                        input_sub_account_profit,
-                        output_sub_account_profit,
-                        profit_to_das,
-                    )?;
+                    if let Some(type_id) = custom_script_type_id {
+                        verify_there_is_only_one_lock_for_normal_cells(
+                            input_sub_account_cells[0],
+                            output_sub_account_cells[0],
+                        )?;
+
+                        verify_profit_to_das_with_custom_script(
+                            config_sub_account,
+                            profit_to_das,
+                            &input_sub_account_data,
+                            &output_sub_account_data,
+                        )?;
+
+                        debug!("Execute custom script by type ID: 0x{}", util::hex_string(&type_id));
+                        let params_with_nul = custom_script_params
+                            .iter()
+                            .map(|val| {
+                                let mut ret = val.as_bytes().to_vec();
+                                ret.push(0);
+                                ret
+                            })
+                            .collect::<Vec<_>>();
+                        let params = params_with_nul
+                            .iter()
+                            .map(|val| unsafe { CStr::from_bytes_with_nul_unchecked(val.as_slice()) })
+                            .collect::<Vec<_>>();
+                        high_level::exec_cell(&type_id, ScriptHashType::Type, 0, 0, &params).map_err(Error::from)?;
+                    } else {
+                        verify_profit_to_das(
+                            action,
+                            output_sub_account_cells[0],
+                            &input_sub_account_data,
+                            &output_sub_account_data,
+                            profit_to_das,
+                        )?;
+                    }
                 }
                 _ => {}
             }
@@ -465,28 +735,36 @@ fn verify_sub_account_capacity_is_enough(
     config: ConfigCellSubAccountReader,
     input_index: usize,
     input_capacity: u64,
-    input_profit: u64,
+    input_data: &[u8],
     output_index: usize,
     output_capacity: u64,
-    output_profit: u64,
+    output_data: &[u8],
 ) -> Result<(), Error> {
     let basic_capacity = u64::from(config.basic_capacity());
+    let input_das_profit = data_parser::sub_account_cell::get_das_profit(&input_data).unwrap();
+    let output_das_profit = data_parser::sub_account_cell::get_das_profit(&output_data).unwrap();
+    let input_owner_profit = data_parser::sub_account_cell::get_owner_profit(&input_data).unwrap();
+    let output_owner_profit = data_parser::sub_account_cell::get_owner_profit(&output_data).unwrap();
 
     assert!(
-        input_capacity >= input_profit + basic_capacity,
+        input_capacity >= input_das_profit + input_owner_profit + basic_capacity,
         Error::SubAccountCellCapacityError,
-        "inputs[{}] The capacity of SubAccountCell should contains profit and basic_capacity, but its not enough.(capacity: {}, profit: {})",
+        "inputs[{}] The capacity of SubAccountCell should contains profit and basic_capacity, but its not enough.(expected_capacity: {}, current_capacity: {}, das_profit: {}, owner_profit: {})",
         input_index,
+        input_das_profit + input_owner_profit + basic_capacity,
         input_capacity,
-        input_profit
+        input_das_profit,
+        input_owner_profit
     );
     assert!(
-        output_capacity >= output_profit + basic_capacity,
+        output_capacity >= output_das_profit + output_owner_profit + basic_capacity,
         Error::SubAccountCellCapacityError,
-        "outputs[{}] The capacity of SubAccountCell should contains profit and basic_capacity, but its not enough.(capacity: {}, profit: {})",
+        "outputs[{}] The capacity of SubAccountCell should contains profit and basic_capacity, but its not enough.(expected_capacity: {}, current_capacity: {}, das_profit: {}, owner_profit: {})",
         output_index,
+        output_das_profit + output_owner_profit + basic_capacity,
         output_capacity,
-        output_profit
+        output_das_profit,
+        output_owner_profit
     );
 
     Ok(())
@@ -496,10 +774,15 @@ fn verify_sub_account_transaction_fee(
     config: ConfigCellSubAccountReader,
     action: &[u8],
     input_capacity: u64,
-    input_profit: u64,
+    input_data: &[u8],
     output_capacity: u64,
-    output_profit: u64,
+    output_data: &[u8],
 ) -> Result<(), Error> {
+    let input_das_profit = data_parser::sub_account_cell::get_das_profit(&input_data).unwrap();
+    let output_das_profit = data_parser::sub_account_cell::get_das_profit(&output_data).unwrap();
+    let input_owner_profit = data_parser::sub_account_cell::get_owner_profit(&input_data).unwrap();
+    let output_owner_profit = data_parser::sub_account_cell::get_owner_profit(&output_data).unwrap();
+
     let fee = match action {
         b"create_sub_account" => u64::from(config.create_fee()),
         b"edit_sub_account" => u64::from(config.edit_fee()),
@@ -508,12 +791,12 @@ fn verify_sub_account_transaction_fee(
         _ => u64::from(config.common_fee()),
     };
     let basic_capacity = u64::from(config.basic_capacity());
-    let input_remain_fees = input_capacity - input_profit - basic_capacity;
-    let output_remain_fees = output_capacity - output_profit - basic_capacity;
+    let input_remain_fees = input_capacity - input_das_profit - input_owner_profit - basic_capacity;
+    let output_remain_fees = output_capacity - output_das_profit - output_owner_profit - basic_capacity;
 
     assert!(
         input_remain_fees <= fee + output_remain_fees,
-        Error::SubAccountCellCapacityError,
+        Error::TxFeeSpentError,
         "The transaction fee should be equal to or less than {} .(output_remain_fees: {} = output_capacity - output_profit - basic_capacity, input_remain_fees: {} = ...)",
         fee,
         output_remain_fees,
@@ -526,19 +809,9 @@ fn verify_sub_account_transaction_fee(
 fn verify_sub_account_cell_is_consistent(
     input_sub_account_cell: usize,
     output_sub_account_cell: usize,
-    input_profit: u64,
-    output_profit: u64,
-    except_profit: bool,
+    except: Vec<&str>,
 ) -> Result<(), Error> {
     debug!("Verify if the SubAccountCell is consistent in inputs and outputs.");
-
-    if !except_profit {
-        assert!(
-            input_profit == output_profit,
-            Error::SubAccountCellConsistencyError,
-            "The SubAccountCell.data.profit should be consistent in inputs and outputs."
-        );
-    }
 
     let input_sub_account_cell_lock = high_level::load_cell_lock(input_sub_account_cell, Source::Input)?;
     let output_sub_account_cell_lock = high_level::load_cell_lock(output_sub_account_cell, Source::Output)?;
@@ -559,6 +832,29 @@ fn verify_sub_account_cell_is_consistent(
         Error::SubAccountCellConsistencyError,
         "The SubAccountCell.type should be consistent in inputs and outputs."
     );
+
+    let input_sub_account_data = high_level::load_cell_data(input_sub_account_cell, Source::Input)?;
+    let output_sub_account_data = high_level::load_cell_data(output_sub_account_cell, Source::Output)?;
+
+    macro_rules! assert_field_consistent_if_not_except {
+        ($field_name:expr, $get_name:ident) => {
+            if !except.contains(&$field_name) {
+                let input_value = data_parser::sub_account_cell::$get_name(&input_sub_account_data);
+                let output_value = data_parser::sub_account_cell::$get_name(&output_sub_account_data);
+                assert!(
+                    input_value == output_value,
+                    Error::SubAccountCellConsistencyError,
+                    "The SubAccountCell.data.{} should be consistent in inputs and outputs.",
+                    $field_name
+                );
+            }
+        };
+    }
+
+    assert_field_consistent_if_not_except!("smt_root", get_smt_root);
+    assert_field_consistent_if_not_except!("das_profit", get_das_profit);
+    assert_field_consistent_if_not_except!("owner_profit", get_owner_profit);
+    assert_field_consistent_if_not_except!("custom_script", get_custom_script);
 
     Ok(())
 }
@@ -599,23 +895,118 @@ fn verify_sub_account_cell_smt_root(
 fn verify_profit_to_das(
     action: &[u8],
     cell_index: usize,
-    input_profit: u64,
-    output_profit: u64,
+    input_data: &[u8],
+    output_data: &[u8],
     profit_to_das: u64,
 ) -> Result<(), Error> {
+    debug!("Verify the profit to DAS is recorded properly.");
+
     if action == b"create_sub_account" {
+        let input_das_profit = data_parser::sub_account_cell::get_das_profit(&input_data).unwrap();
+        let output_das_profit = data_parser::sub_account_cell::get_das_profit(&output_data).unwrap();
+
         assert!(
-            output_profit == input_profit + profit_to_das,
+            output_das_profit == input_das_profit + profit_to_das,
             Error::SubAccountProfitError,
-            "outputs[{}] The profit of SubAccountCell should contains the new register fees. (output_profit: {}, input_profit: {}, expected_register_fee: {})",
+            "outputs[{}] The profit of SubAccountCell should contains the new register fees. (input_das_profit: {}, output_das_profit: {}, expected_register_fee: {})",
             cell_index,
-            output_profit,
-            input_profit,
+            input_das_profit,
+            output_das_profit,
             profit_to_das
         );
     } else {
         // TODO Implement withdraw action
         todo!();
+    }
+
+    Ok(())
+}
+
+fn verify_profit_to_das_with_custom_script(
+    config_sub_account: ConfigCellSubAccountReader,
+    minimal_profit_to_das: u64,
+    input_data: &[u8],
+    output_data: &[u8],
+) -> Result<(), Error> {
+    debug!("Verify the profit to DAS is calculated from rate of config properly.");
+
+    let input_das_profit = data_parser::sub_account_cell::get_das_profit(&input_data).unwrap();
+    let output_das_profit = data_parser::sub_account_cell::get_das_profit(&output_data).unwrap();
+    let input_owner_profit = data_parser::sub_account_cell::get_owner_profit(&input_data).unwrap();
+    let output_owner_profit = data_parser::sub_account_cell::get_owner_profit(&output_data).unwrap();
+    let owner_profit = output_owner_profit - input_owner_profit;
+    let das_profit = output_das_profit - input_das_profit;
+    let total_profit = owner_profit + das_profit;
+    let profit_rate = u32::from(config_sub_account.new_sub_account_custom_price_das_profit_rate());
+
+    assert!(
+        das_profit >= minimal_profit_to_das,
+        Error::SubAccountProfitError,
+        "The profit to DAS should be greater than or equal to the minimal profit which is 1 CKB per account. (das_profit: {}, minimal_profit_to_das: {})",
+        das_profit,
+        minimal_profit_to_das
+    );
+
+    // CAREFUL: Overflow risk
+    let mut expected_das_profit = total_profit * profit_rate as u64 / RATE_BASE;
+    if expected_das_profit < minimal_profit_to_das {
+        expected_das_profit = minimal_profit_to_das;
+    }
+
+    assert!(
+        expected_das_profit == das_profit,
+        Error::SubAccountProfitError,
+        "The profit to DAS should be calculated from rate of config properly. (expected_das_profit: {}, das_profit: {})",
+        expected_das_profit,
+        das_profit
+    );
+
+    Ok(())
+}
+
+fn verify_there_is_only_one_lock_for_normal_cells(
+    input_sub_account_cell: usize,
+    output_sub_account_cell: usize,
+) -> Result<(), Error> {
+    debug!("Verify there is only one lock for cells which is not SubAccountCell.");
+
+    let mut lock_hash = None;
+    for (field_name, source) in [("inputs", Source::Input), ("outputs", Source::Output)] {
+        let mut i = 0;
+        loop {
+            if source == Source::Input && i == input_sub_account_cell {
+                i += 1;
+                continue;
+            } else if source == Source::Output && i == output_sub_account_cell {
+                i += 1;
+                continue;
+            }
+
+            let ret = high_level::load_cell_lock_hash(i, source);
+            match ret {
+                Ok(val) => {
+                    if lock_hash.is_none() {
+                        lock_hash = Some(val);
+                    } else {
+                        assert!(
+                            lock_hash == Some(val),
+                            Error::SubAccountNormalCellLockLimit,
+                            "{}[{}] There should be only one lock for cells which is not SubAccountCell.",
+                            field_name,
+                            i
+                        );
+                    }
+                }
+                Err(SysError::IndexOutOfBound) => {
+                    break;
+                }
+                Err(err) => {
+                    return Err(Error::from(err));
+                }
+            }
+
+            i += 1;
+        }
     }
 
     Ok(())

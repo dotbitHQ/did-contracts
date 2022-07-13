@@ -139,14 +139,9 @@ pub fn main() -> Result<(), Error> {
                         output_account_cells[0],
                         &input_cell_witness_reader,
                         &output_cell_witness_reader,
-                        Some("owner"),
+                        None,
                         vec![],
-                        vec!["status", "records"],
-                    )?;
-                    verifiers::account_cell::verify_account_witness_record_empty(
-                        &output_cell_witness_reader,
-                        output_account_cells[0],
-                        Source::Output,
+                        vec!["status"],
                     )?;
 
                     verify_account_is_locked_for_cross_chain(
@@ -163,8 +158,11 @@ pub fn main() -> Result<(), Error> {
         b"renew_account" => {
             parser.parse_cell()?;
 
+            let timestamp = util::load_oracle_data(OracleCellType::Time)?;
+
             let prices = parser.configs.price()?.prices();
             let config_main = parser.configs.main()?;
+            let config_account = parser.configs.account()?;
 
             let (input_account_cells, output_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
             verifiers::common::verify_cell_number("AccountCell", &input_account_cells, 1, &output_account_cells, 1)?;
@@ -196,6 +194,22 @@ pub fn main() -> Result<(), Error> {
                 status != (AccountStatus::LockedForCrossChain as u8),
                 Error::AccountCellStatusLocked,
                 "inputs[{}] The AccountCell has been locked for cross chain, it is required to unlock first for renew.",
+                input_account_cells[0]
+            );
+
+            debug!("Verify if the AccountCell has been expired.");
+
+            let ret = verifiers::account_cell::verify_account_expiration(
+                config_account,
+                input_account_cells[0],
+                Source::Input,
+                timestamp,
+            );
+
+            das_assert!(
+                ret.is_ok() || ret == Err(Error::AccountCellInExpirationGracePeriod),
+                Error::AccountCellHasExpired,
+                "inputs[{}] The AccountCell has been expired, it can only wait to be recycled.",
                 input_account_cells[0]
             );
 
@@ -325,8 +339,200 @@ pub fn main() -> Result<(), Error> {
                 Error::InvalidTransactionStructure,
             )?;
         }
-        b"recycle_expired_account_by_keeper" => {
-            return Err(Error::InvalidTransactionStructure);
+        b"recycle_expired_account" => {
+            parser.parse_cell()?;
+
+            let config_main = parser.configs.main()?;
+            let config_account = parser.configs.account()?;
+            let timestamp = util::load_oracle_data(OracleCellType::Time)?;
+
+            let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
+            verifiers::common::verify_cell_number_and_position(
+                "AccountCell",
+                &input_cells,
+                &[0, 1],
+                &output_cells,
+                &[0],
+            )?;
+
+            let input_prev_cell_witness = util::parse_account_cell_witness(&parser, input_cells[0], Source::Input)?;
+            let input_prev_cell_witness_reader = input_prev_cell_witness.as_reader();
+            let output_prev_cell_witness = util::parse_account_cell_witness(&parser, output_cells[0], Source::Output)?;
+            let output_prev_cell_witness_reader = output_prev_cell_witness.as_reader();
+
+            verifiers::account_cell::verify_account_capacity_not_decrease(input_cells[0], output_cells[0])?;
+            verifiers::account_cell::verify_account_cell_consistent_with_exception(
+                input_cells[0],
+                output_cells[0],
+                &input_prev_cell_witness_reader,
+                &output_prev_cell_witness_reader,
+                None,
+                vec!["next"],
+                vec![],
+            )?;
+
+            debug!("Verify if the AccountCell has been expired.");
+
+            let ret = verifiers::account_cell::verify_account_expiration(
+                config_account,
+                input_cells[1],
+                Source::Input,
+                timestamp,
+            );
+
+            das_assert!(
+                ret == Err(Error::AccountCellHasExpired),
+                Error::AccountCellHasNotExpired,
+                "inputs[{}] The AccountCell has not been expired.",
+                input_cells[1]
+            );
+
+            debug!("Verify if the AccountCell is in status which could be recycled.");
+
+            // manual::verify_account_status
+            let expired_account_witness = util::parse_account_cell_witness(&parser, input_cells[1], Source::Input)?;
+            let expired_account_witness_reader = expired_account_witness.as_reader();
+            let account_cell_status = u8::from(expired_account_witness_reader.status());
+
+            das_assert!(
+                account_cell_status == AccountStatus::Normal as u8
+                    || account_cell_status == AccountStatus::LockedForCrossChain as u8,
+                Error::AccountCellStatusLocked,
+                "inputs[{}] The AccountCell.witness.status should be Normal or LockedForCrossChain .",
+                input_cells[1]
+            );
+
+            debug!("Verify if the SubAccountCell has been recycled either.");
+
+            let mut refund_from_sub_account_cell_to_das = 0;
+            let mut refund_from_sub_account_cell_to_owner = 0;
+            match expired_account_witness_reader.try_into_latest() {
+                Ok(reader) => {
+                    let enable_sub_account = u8::from(reader.enable_sub_account());
+                    if enable_sub_account == SubAccountEnableStatus::On as u8 {
+                        debug!("Verify if the SubAccountCell is recycled properly.");
+
+                        let sub_account_type_id = config_main.type_id_table().sub_account_cell();
+                        let (input_sub_account_cells, output_sub_account_cells) =
+                            util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, sub_account_type_id)?;
+
+                        verifiers::common::verify_cell_number_and_position(
+                            "SubAccountCell",
+                            &input_sub_account_cells,
+                            &[2],
+                            &output_sub_account_cells,
+                            &[],
+                        )?;
+
+                        verifiers::sub_account_cell::verify_sub_account_parent_id(
+                            input_sub_account_cells[0],
+                            Source::Input,
+                            expired_account_witness_reader.id().raw_data(),
+                        )?;
+
+                        let total_capacity = high_level::load_cell_capacity(input_sub_account_cells[0], Source::Input)?;
+                        let sub_account_data = high_level::load_cell_data(input_sub_account_cells[0], Source::Input)?;
+                        refund_from_sub_account_cell_to_das =
+                            data_parser::sub_account_cell::get_das_profit(&sub_account_data).unwrap();
+                        refund_from_sub_account_cell_to_owner = total_capacity - refund_from_sub_account_cell_to_das;
+                    }
+                }
+                _ => {}
+            }
+
+            debug!("Verify if the AccountCell is recycled properly.");
+
+            // manual::verify_account_contiguous
+            let prev_account_input_data = high_level::load_cell_data(input_cells[0], Source::Input)?;
+            let expired_account_data = high_level::load_cell_data(input_cells[1], Source::Input)?;
+            let prev_account_input_next = data_parser::account_cell::get_next(&prev_account_input_data);
+            let expired_account_id = data_parser::account_cell::get_id(&expired_account_data);
+
+            das_assert!(
+                prev_account_input_next == expired_account_id,
+                Error::AccountCellMissingPrevAccount,
+                "inputs[{}] The AccountCell.next should be 0x{} .",
+                input_cells[0],
+                util::hex_string(expired_account_id)
+            );
+
+            // manual::verify_account_next_updated
+            let prev_account_output_data = high_level::load_cell_data(output_cells[0], Source::Output)?;
+            let prev_account_output_next = data_parser::account_cell::get_next(&prev_account_output_data);
+            let expired_account_next = data_parser::account_cell::get_next(&expired_account_data);
+
+            das_assert!(
+                prev_account_output_next == expired_account_next,
+                Error::AccountCellNextUpdateError,
+                "outputs[{}] The AccountCell.next should be updated to 0x{} .",
+                output_cells[0],
+                util::hex_string(expired_account_next)
+            );
+
+            debug!("Verify if all the refunds has been refund properly.");
+
+            let expired_account_capacity = high_level::load_cell_capacity(input_cells[1], Source::Input)?;
+            let available_fee = u64::from(config_account.common_fee());
+            let refund_lock = util::derive_owner_lock_from_cell(input_cells[1], Source::Input)?;
+            let refund_args = refund_lock.as_reader().args().raw_data();
+
+            if refund_args != &CROSS_CHAIN_BLACK_ARGS {
+                // If the lock is not the black hole lock, then the refund should be refunded to current owner.
+                verifiers::misc::verify_user_get_change(
+                    config_main,
+                    refund_lock.as_reader(),
+                    expired_account_capacity + refund_from_sub_account_cell_to_owner - available_fee,
+                )?;
+
+                if refund_from_sub_account_cell_to_das >= CELL_BASIC_CAPACITY {
+                    verifiers::common::verify_das_get_change(refund_from_sub_account_cell_to_das)?;
+                } else {
+                    debug!(
+                        "The profit of DAS is {} shannon, so no need to refund to DAS.",
+                        refund_from_sub_account_cell_to_das
+                    );
+                }
+            } else {
+                // If the lock is the black hole lock, then all the refunds should be sent to DAS first.
+
+                debug!("The lock is the black hole lock, so all the refunds should be sent to DAS first.");
+
+                let das_wallet_lock = das_wallet_lock();
+                let das_wallet_cells =
+                    util::find_cells_by_script(ScriptType::Lock, das_wallet_lock.as_reader(), Source::Output)?;
+
+                verifiers::common::verify_cell_number("DASWallet", &[], 0, &das_wallet_cells, 2)?;
+
+                for i in das_wallet_cells.iter() {
+                    let type_hash = high_level::load_cell_type_hash(*i, Source::Output)?;
+                    das_assert!(
+                        type_hash.is_none(),
+                        Error::InvalidTransactionStructure,
+                        "outputs[{}] The cells to DAS should not contains any type script.",
+                        i
+                    );
+                }
+
+                let capacity = high_level::load_cell_capacity(das_wallet_cells[0], Source::Output)?;
+                das_assert!(
+                    capacity == expired_account_capacity + refund_from_sub_account_cell_to_owner - available_fee,
+                    Error::ChangeError,
+                    "outputs[{}] The ChangeCell to DAS should be {} shannon, but {} found.",
+                    das_wallet_cells[0],
+                    expired_account_capacity + refund_from_sub_account_cell_to_owner - available_fee,
+                    capacity
+                );
+
+                let capacity = high_level::load_cell_capacity(das_wallet_cells[1], Source::Output)?;
+                das_assert!(
+                    capacity == refund_from_sub_account_cell_to_das,
+                    Error::ChangeError,
+                    "outputs[{}] The ChangeCell to DAS should be {} shannon, but {} found.",
+                    das_wallet_cells[1],
+                    refund_from_sub_account_cell_to_das,
+                    capacity
+                );
+            }
         }
         b"start_account_sale" => {
             util::require_type_script(
@@ -631,12 +837,12 @@ pub fn main() -> Result<(), Error> {
             );
 
             let sub_account_outputs_data = high_level::load_cell_data(output_sub_account_cells[0], Source::Output)?;
-            let expected_default_data = vec![0u8; 40];
+            let expected_default_data = vec![0u8; 48];
 
             das_assert!(
                 expected_default_data == sub_account_outputs_data,
                 Error::SubAccountCellSMTRootError,
-                "The default outputs_data of SubAccountCell should be [0u8; 40] ."
+                "The default outputs_data of SubAccountCell should be [0u8; 48] ."
             );
 
             debug!("Verify if sender get their change properly.");
@@ -652,6 +858,14 @@ pub fn main() -> Result<(), Error> {
             }
         }
         b"create_sub_account" => {
+            util::require_type_script(
+                &parser,
+                TypeScript::SubAccountCellType,
+                Source::Input,
+                Error::InvalidTransactionStructure,
+            )?;
+        }
+        b"config_sub_account_custom_script" => {
             util::require_type_script(
                 &parser,
                 TypeScript::SubAccountCellType,
@@ -681,6 +895,7 @@ pub fn main() -> Result<(), Error> {
 
             let config_account = parser.configs.account()?;
 
+            // include: common::verify_tx_fee_spent_correctly
             verify_transaction_fee_spent_correctly(
                 action,
                 config_account,
@@ -695,15 +910,44 @@ pub fn main() -> Result<(), Error> {
                 Source::Input,
             )?;
 
-            verifiers::account_cell::verify_account_cell_consistent_with_exception(
+            verifiers::account_cell::verify_account_data_consistent(
                 input_account_cells[0],
                 output_account_cells[0],
-                &input_cell_witness_reader,
-                &output_cell_witness_reader,
-                Some("owner"),
                 vec![],
-                vec!["status"],
             )?;
+            // CAREFUL! The owner lock may be changed or not changed, only the keepers know it, so we skip verification here.
+            match verifiers::account_cell::verify_account_lock_consistent(
+                input_account_cells[0],
+                output_account_cells[0],
+                None,
+            ) {
+                Ok(_) => {
+                    // The lock is not changed, so the records must be kept.
+                    verifiers::account_cell::verify_account_witness_consistent(
+                        input_account_cells[0],
+                        output_account_cells[0],
+                        &input_cell_witness_reader,
+                        &output_cell_witness_reader,
+                        vec!["status"],
+                    )?;
+                }
+                Err(Error::CellLockCanNotBeModified) => {
+                    // The lock is changed, so the records must be cleared.
+                    verifiers::account_cell::verify_account_witness_consistent(
+                        input_account_cells[0],
+                        output_account_cells[0],
+                        &input_cell_witness_reader,
+                        &output_cell_witness_reader,
+                        vec!["status", "records"],
+                    )?;
+                    verifiers::account_cell::verify_account_witness_record_empty(
+                        &output_cell_witness_reader,
+                        output_account_cells[0],
+                        Source::Output,
+                    )?;
+                }
+                Err(e) => return Err(e),
+            }
 
             verify_account_is_unlocked_for_cross_chain(output_account_cells[0], &output_cell_witness_reader)?;
 
@@ -836,19 +1080,10 @@ fn verify_account_is_locked_for_cross_chain<'a>(
     das_assert!(
         current_timestamp + 30 * DAY_SEC <= expired_at,
         Error::CrossChainLockError,
-        "outputs[{}] Current time should be 30 days(in seconds) before the AccountCell.expired_at.(current_timestamp: {}, expired_at: {})",
+        "outputs[{}] Current time should be 30 days(in seconds) earlier than the AccountCell.expired_at.(current_timestamp: {}, expired_at: {})",
         output_account_index,
         current_timestamp,
         expired_at
-    );
-
-    let lock = high_level::load_cell_lock(output_account_index, source)?;
-    let args = lock.as_reader().args().raw_data();
-    das_assert!(
-        args == &CROSS_CHAIN_BLACK_ARGS,
-        Error::CrossChainLockError,
-        "outputs[{}] The AccountCell should be send to address 0x030000000000000000000000000000000000000000030000000000000000000000000000000000000000.",
-        output_account_index
     );
 
     if output_witness_reader.version() <= 1 {
