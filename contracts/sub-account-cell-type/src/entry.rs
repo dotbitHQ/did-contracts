@@ -169,7 +169,7 @@ pub fn main() -> Result<(), Error> {
             verify_sub_account_cell_is_consistent(
                 input_sub_account_cells[0],
                 output_sub_account_cells[0],
-                vec!["custom_script"],
+                vec!["custom_script", "custom_script_args"],
             )?;
         }
         b"create_sub_account" | b"edit_sub_account" | b"renew_sub_account" | b"recycle_sub_account" => {
@@ -841,6 +841,7 @@ fn verify_sub_account_cell_is_consistent(
             if !except.contains(&$field_name) {
                 let input_value = data_parser::sub_account_cell::$get_name(&input_sub_account_data);
                 let output_value = data_parser::sub_account_cell::$get_name(&output_sub_account_data);
+
                 assert!(
                     input_value == output_value,
                     Error::SubAccountCellConsistencyError,
@@ -855,6 +856,7 @@ fn verify_sub_account_cell_is_consistent(
     assert_field_consistent_if_not_except!("das_profit", get_das_profit);
     assert_field_consistent_if_not_except!("owner_profit", get_owner_profit);
     assert_field_consistent_if_not_except!("custom_script", get_custom_script);
+    assert_field_consistent_if_not_except!("custom_script_args", get_custom_script_args);
 
     Ok(())
 }
