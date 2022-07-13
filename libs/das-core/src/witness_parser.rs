@@ -263,9 +263,9 @@ impl WitnessesParser {
                     .into(),
                 x.into(),
             ) =>
-                {
-                    Some(LockScript::Secp256k1Blake160SignhashLock)
-                }
+            {
+                Some(LockScript::Secp256k1Blake160SignhashLock)
+            }
             x if util::is_type_id_equal(
                 self.lock_type_id_table
                     .secp256k1_blake160_multisig_all
@@ -273,9 +273,9 @@ impl WitnessesParser {
                     .into(),
                 x.into(),
             ) =>
-                {
-                    Some(LockScript::Secp256k1Blake160MultisigLock)
-                }
+            {
+                Some(LockScript::Secp256k1Blake160MultisigLock)
+            }
             _ => None,
         }
     }

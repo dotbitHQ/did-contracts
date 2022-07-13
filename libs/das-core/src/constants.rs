@@ -87,7 +87,7 @@ pub const TYPE_ID_CODE_HASH: [u8; 32] = [
 
 pub fn super_lock() -> Script {
     #[cfg(feature = "dev")]
-        let super_lock = ScriptLiteral {
+    let super_lock = ScriptLiteral {
         code_hash: [
             143, 45, 124, 176, 101, 18, 242, 119, 114, 7, 70, 29, 16, 11, 5, 98, 176, 33, 50, 50, 161, 189, 112, 38,
             30, 87, 243, 127, 220, 97, 72, 61,
@@ -224,7 +224,7 @@ pub fn das_lock() -> Script {
 
 pub fn cross_chain_lock() -> Script {
     #[cfg(not(feature = "mainnet"))]
-        let cross_chain_lock: ScriptLiteral = ScriptLiteral {
+    let cross_chain_lock: ScriptLiteral = ScriptLiteral {
         code_hash: [
             92, 80, 105, 235, 8, 87, 239, 198, 94, 27, 202, 12, 7, 223, 52, 195, 22, 99, 179, 98, 47, 211, 135, 108,
             135, 99, 32, 252, 150, 52, 226, 168,
@@ -236,14 +236,14 @@ pub fn cross_chain_lock() -> Script {
     };
 
     #[cfg(feature = "mainnet")]
-        let cross_chain_lock: ScriptLiteral = ScriptLiteral {
+    let cross_chain_lock: ScriptLiteral = ScriptLiteral {
         code_hash: [
             92, 80, 105, 235, 8, 87, 239, 198, 94, 27, 202, 12, 7, 223, 52, 195, 22, 99, 179, 98, 47, 211, 135, 108,
             135, 99, 32, 252, 150, 52, 226, 168,
         ],
         hash_type: ScriptHashType::Type,
         args: vec![
-            87, 186, 192, 2, 84, 91, 150, 151, 80, 178, 60, 83, 160, 49, 48, 251, 220, 236, 208, 158,
+            127, 242, 240, 247, 135, 3, 140, 22, 193, 245, 198, 43, 4, 190, 100, 115, 251, 115, 179, 142,
         ],
     };
 
