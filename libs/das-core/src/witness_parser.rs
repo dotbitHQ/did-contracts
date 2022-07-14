@@ -86,7 +86,7 @@ impl WitnessesParser {
                             // If there is any ConfigCells in cell_deps, store its index and expected witness hash.
                             if Self::is_config_data_type(&data_type) {
                                 debug!(
-                                    "witnesses[{}] The witness of {:?} is think of ConfigCell.",
+                                    "witnesses[{:>2}] The witness of {:?} is think of ConfigCell.",
                                     i, data_type
                                 );
 
@@ -103,7 +103,7 @@ impl WitnessesParser {
                                     assert!(
                                         config_cells.len() == 1,
                                         Error::ConfigCellIsRequired,
-                                        "witnesses[{}] There should be only one {:?} in cell_deps. (find_condition: {})",
+                                        "witnesses[{:>2}] There should be only one {:?} in cell_deps. (find_condition: {})",
                                         i,
                                         data_type,
                                         type_script
@@ -113,7 +113,7 @@ impl WitnessesParser {
                                     assert!(
                                         data.len() >= 32,
                                         Error::WitnessStructureError,
-                                        "witnesses[{}] The witness of {:?} should have at least 32 bytes.",
+                                        "witnesses[{:>2}] The witness of {:?} should have at least 32 bytes.",
                                         i,
                                         data_type
                                     );
@@ -173,7 +173,7 @@ impl WitnessesParser {
 
         let action_data = ActionData::from_slice(raw.get(7..).unwrap()).map_err(|e| {
             warn!(
-                "Decoding witnesses[{}](expected to be ActionData) failed: {}",
+                "witnesses[{:>2}] Decoding failed (expected to be ActionData): {}",
                 index,
                 e.to_string()
             );
@@ -330,14 +330,21 @@ impl WitnessesParser {
             let raw = util::load_das_witnesses(index)?;
 
             let data = Self::parse_data(raw.as_slice())?;
+            let mut cell_index = 0;
             if let Some(entity) = data.dep().to_opt() {
-                self.dep.push(Self::parse_entity(entity, data_type)?)
+                let entity_info = Self::parse_entity(entity, data_type)?;
+                cell_index = entity_info.0;
+                self.dep.push(entity_info)
             }
             if let Some(entity) = data.old().to_opt() {
-                self.old.push(Self::parse_entity(entity, data_type)?)
+                let entity_info = Self::parse_entity(entity, data_type)?;
+                cell_index = entity_info.0;
+                self.old.push(entity_info)
             }
             if let Some(entity) = data.new().to_opt() {
-                self.new.push(Self::parse_entity(entity, data_type)?)
+                let entity_info = Self::parse_entity(entity, data_type)?;
+                cell_index = entity_info.0;
+                self.new.push(entity_info)
             }
 
             #[cfg(all(debug_assertions))]
@@ -353,8 +360,8 @@ impl WitnessesParser {
                     source = Some(Source::Output);
                 }
                 debug!(
-                    "  Parse witnesses[{}]: {{ data_type: {:?}, source: {:?}, index: {} }}",
-                    _i, data_type, source, index
+                    "  witnesses[{:>2}] {{ data_type: {:?}, source: {:?}, index: {} }}",
+                    index, data_type, source, cell_index
                 );
             }
         }
