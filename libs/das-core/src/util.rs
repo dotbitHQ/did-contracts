@@ -817,12 +817,26 @@ pub fn parse_pre_account_cell_witness(
     parser: &WitnessesParser,
     index: usize,
     source: Source,
-) -> Result<das_packed::PreAccountCellData, Error> {
-    let (_, _, mol_bytes) = parser.verify_and_get(DataType::PreAccountCellData, index, source)?;
-    let ret = das_packed::PreAccountCellData::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
-        warn!("Decoding PreAccountCellData failed");
-        Error::WitnessEntityDecodingError
-    })?;
+) -> Result<Box<dyn PreAccountCellDataMixer>, Error> {
+    let (version, _, mol_bytes) = parser.verify_and_get(DataType::PreAccountCellData, index, source)?;
+    let ret: Box<dyn PreAccountCellDataMixer> = match version {
+        1 => {
+            Box::new(
+                das_packed::PreAccountCellDataV1::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
+                    warn!("{:?}[{}] Decoding PreAccountCellData failed", source, index);
+                    Error::WitnessEntityDecodingError
+                })?
+            )
+        }
+        _ => {
+            Box::new(
+                das_packed::PreAccountCellData::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
+                    warn!("{:?}[{}] Decoding PreAccountCellData failed", source, index);
+                    Error::WitnessEntityDecodingError
+                })?
+            )
+        },
+    };
 
     Ok(ret)
 }
@@ -839,14 +853,14 @@ pub fn parse_account_cell_witness(
     } else if version == 2 {
         Box::new(
             das_packed::AccountCellDataV2::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
-                warn!("Decoding AccountCellDataV2 failed");
+                warn!("{:?}[{}] Decoding AccountCellDataV2 failed", source, index);
                 Error::WitnessEntityDecodingError
             })?,
         )
     } else {
         Box::new(
             das_packed::AccountCellData::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
-                warn!("Decoding AccountCellData failed");
+                warn!("{:?}[{}] Decoding AccountCellData failed", source, index);
                 Error::WitnessEntityDecodingError
             })?,
         )
@@ -864,14 +878,14 @@ pub fn parse_account_sale_cell_witness(
     let ret: Box<dyn AccountSaleCellDataMixer> = if version <= 1 {
         Box::new(
             das_packed::AccountSaleCellDataV1::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
-                warn!("Decoding AccountSaleCellDataV1 failed");
+                warn!("{:?}[{}] Decoding AccountSaleCellDataV1 failed", source, index);
                 Error::WitnessEntityDecodingError
             })?,
         )
     } else {
         Box::new(
             das_packed::AccountSaleCellData::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
-                warn!("Decoding AccountSaleCellData failed");
+                warn!("{:?}[{}] Decoding AccountSaleCellData failed", source, index);
                 Error::WitnessEntityDecodingError
             })?,
         )
@@ -887,7 +901,7 @@ pub fn parse_offer_cell_witness(
 ) -> Result<das_packed::OfferCellData, Error> {
     let (_, _, mol_bytes) = parser.verify_and_get(DataType::OfferCellData, index, source)?;
     let ret = das_packed::OfferCellData::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
-        warn!("Decoding OfferCellData failed");
+        warn!("{:?}[{}] Decoding OfferCellData failed", source, index);
         Error::WitnessEntityDecodingError
     })?;
 

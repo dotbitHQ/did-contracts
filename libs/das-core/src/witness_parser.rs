@@ -86,7 +86,7 @@ impl WitnessesParser {
                             // If there is any ConfigCells in cell_deps, store its index and expected witness hash.
                             if Self::is_config_data_type(&data_type) {
                                 debug!(
-                                    "witnesses[{:>2}] The witness of {:?} is think of ConfigCell.",
+                                    "witnesses[{:>2}] Presume that the type of the witness is {:?} .",
                                     i, data_type
                                 );
 

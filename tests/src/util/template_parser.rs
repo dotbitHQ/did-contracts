@@ -1,5 +1,4 @@
-use super::{constants::*, error::Error, util};
-use crate::util::template_generator::TemplateGenerator;
+use super::{constants::*, error::Error, util, template_generator::TemplateGenerator};
 use ckb_testtool::{
     ckb_error, ckb_jsonrpc_types as rpc_types,
     ckb_types::{
@@ -465,7 +464,7 @@ impl TemplateParser {
     }
 
     fn parse_outputs(&mut self, outputs: Vec<Value>) -> Result<(), Box<dyn StdError>> {
-        for item in outputs {
+        for (i, item) in outputs.into_iter().enumerate() {
             match item["tmp_type"].as_str() {
                 Some("full") => {
                     // parse inputs[].previous_output as a mock cell
@@ -478,9 +477,12 @@ impl TemplateParser {
                         .lock(lock_script)
                         .type_(ScriptOpt::new_builder().set(type_script).build())
                         .build();
+                    let data = data.unwrap_or_default();
 
                     self.outputs.push(cell);
-                    self.outputs_data.push(data.unwrap_or_default().pack());
+                    self.outputs_data.push(data.clone().pack());
+
+                    println!("outputs[{}] outputs_data: 0x{}", i, hex::encode(&data));
                 }
                 _ => {
                     return Err("Unsupported outputs type.".into());
@@ -599,13 +601,13 @@ impl TemplateParser {
     }
 
     fn parse_witnesses(&mut self, witnesses: Vec<Value>) -> Result<(), Box<dyn StdError>> {
-        for (_i, witness) in witnesses.into_iter().enumerate() {
-            let data = witness
-                .as_str()
-                .map(|hex| bytes::Bytes::from(util::hex_to_bytes(hex)))
-                .unwrap();
+        for (i, witness) in witnesses.into_iter().enumerate() {
+            let data = witness.as_str().unwrap();
+            let data_bytes = bytes::Bytes::from(util::hex_to_bytes(data));
 
-            self.witnesses.push(data.pack());
+            self.witnesses.push(data_bytes.pack());
+
+            println!("witnesses[{}] witness: {}", i, data);
         }
 
         // eprintln!("Parse self.witnesses = {:#?}", self.witnesses);
