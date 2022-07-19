@@ -2,7 +2,7 @@ use crate::{
     assert as das_assert, constants::DasLockType, constants::*, data_parser, error::Error, util, warn,
     witness_parser::WitnessesParser,
 };
-use alloc::{borrow::ToOwned, boxed::Box, string::String, vec, vec::Vec};
+use alloc::{boxed::Box, string::String, vec, vec::Vec};
 use ckb_std::{ckb_constants::Source, high_level};
 use core::convert::TryFrom;
 use das_types::{constants::*, mixer::AccountCellDataReaderMixer, packed::*, util as das_types_util};
@@ -533,10 +533,9 @@ pub fn verify_account_chars(parser: &WitnessesParser, chars_reader: AccountChars
         let data_type =
             das_types_util::char_set_to_data_type(CharSetType::try_from(account_char.char_set_name()).unwrap());
         let char_set_index = das_types_util::data_type_to_char_set(data_type) as usize;
-        let char_sets = parser.configs.char_set();
 
         // Check if account contains only one non-global character set.
-        match char_sets.get(char_set_index) {
+        match parser.configs.char_set(char_set_index) {
             Some(Ok(char_set)) => {
                 if !char_set.global {
                     if prev_char_set_name.is_none() {
@@ -554,22 +553,32 @@ pub fn verify_account_chars(parser: &WitnessesParser, chars_reader: AccountChars
                 }
             }
             Some(Err(err)) => {
-                return Err(err.to_owned());
+                return Err(err);
             }
             None => {
-                warn!("CharSet[{}] is undefined.", char_set_index);
-                return Err(Error::PreRegisterFoundUndefinedCharSet);
+                warn!("Chan not found CharSet[{}].", char_set_index);
+                return Err(Error::CharSetIsUndefined);
             }
         }
     }
 
     let tmp = vec![0u8];
-    let char_sets = parser.configs.char_set();
     let mut required_char_sets = vec![tmp.as_slice(); CHAR_SET_LENGTH];
     for account_char in chars_reader.iter() {
         let char_set_index = u32::from(account_char.char_set_name()) as usize;
         if required_char_sets[char_set_index].len() <= 1 {
-            let char_set = char_sets[char_set_index].unwrap();
+            let char_set = match parser.configs.char_set(char_set_index) {
+                Some(Ok(char_set)) => {
+                    char_set
+                },
+                Some(Err(err)) => {
+                    return Err(err);
+                }
+                None => {
+                    warn!("Chan not found CharSet[{}].", char_set_index);
+                    return Err(Error::CharSetIsUndefined);
+                }
+            };
             required_char_sets[char_set_index] = char_set.data.as_slice();
         }
 

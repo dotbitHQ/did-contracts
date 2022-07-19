@@ -63,7 +63,7 @@ pub enum Error {
     PreRegisterApplyHashIsInvalid,
     PreRegisterCreateAtIsInvalid,
     PreRegisterPriceInvalid,
-    PreRegisterFoundUndefinedCharSet, // 75
+    CharSetIsUndefined, // 75
     PreRegisterCKBInsufficient,
     PreRegisterAccountIsTooLong,
     PreRegisterAccountCharSetConflict,
