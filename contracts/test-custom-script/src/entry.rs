@@ -3,7 +3,7 @@ use alloc::vec;
 use ckb_std::{cstr_core::CStr, debug};
 use core::convert::TryInto;
 use core::slice::from_raw_parts;
-use das_types::{packed::SubAccount, prelude::Entity};
+use das_types::{packed::AccountChars, prelude::Entity, prettier::Prettier};
 
 pub fn main(argc: usize, argv: *const *const u8) -> Result<(), Error> {
     debug!("====== Running test-custom-script ======");
@@ -64,9 +64,10 @@ pub fn main(argc: usize, argv: *const *const u8) -> Result<(), Error> {
             "The param expiration_years should be 1 ."
         );
 
-        match SubAccount::from_slice(&sub_account_bytes) {
-            Ok(_sub_account) => {
-                let account_len = _sub_account.account().len();
+        match AccountChars::from_slice(&sub_account_bytes) {
+            Ok(account) => {
+                debug!("account = {}", account.as_prettier());
+                let account_len = account.len();
                 das_assert!(
                     account_len > 0,
                     Error::InvalidSubAccount,
