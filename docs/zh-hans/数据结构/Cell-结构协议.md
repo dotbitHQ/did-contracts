@@ -20,13 +20,13 @@ witness: ...
 
 在描述 cell 结构时可能看到以下符号：
 
-| 符号                | 说明                                                         |
-| ------------------- | ------------------------------------------------------------ |
-| lock: <...>         | 代表一个特定的 script ，其 code_hash, args, hash_type 都有简单的约定，所以就不列举明细了 |
-| type: <...>         | 同上                                                         |
-| hash(...)           | 指代这里存放的数据是通过什么计算得出的 hash 值               |
+| 符号                 | 说明                                                                                                                                            |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| lock: <...>         | 代表一个特定的 script ，其 code_hash, args, hash_type 都有简单的约定，所以就不列举明细了                                                        |
+| type: <...>         | 同上                                                                                                                                            |
+| hash(...)           | 指代这里存放的数据是通过什么计算得出的 hash 值                                                                                                  |
 | ======              | 在描述 cell 结构的代码段类，此分隔符意味着下面的内容是对特定 molecule 结构的详细介绍，但最新的 schema 请以 das-types 仓库中的 schemas/ 目录为准 |
-| ConfigCellXXXX.yyyy | 指代数据需要去某个 ConfigCell 的 witness 中的特定字段获取，详见 [ConfigCell](#ConfigCell) |
+| ConfigCellXXXX.yyyy | 指代数据需要去某个 ConfigCell 的 witness 中的特定字段获取，详见 [ConfigCell](#ConfigCell)                                                       |
 
 ## 数据结构
 
@@ -101,7 +101,10 @@ table PreAccountCellData {
     quote: Uint64,
     // The discount rate for invited user
     invited_discount: Uint32,
-    created_at: Timestamp,
+    // The created timestamp of the PreAccountCell.
+    created_at: Uint64,
+    // The initial records should be write into the AccountCell when it is created successfully.
+    initial_records: Records,
 }
 
 vector AccountChars <AccountChar>;
@@ -121,8 +124,9 @@ table AccountChar {
 - inviter_lock，邀请者的 lock script，利润分配会被转入 IncomeCell 中并以此 lock script 记账；
 - channel_lock，渠道商的 lock script，利润分配会被转入 IncomeCell 中并以此 lock script 记账；
 - price，账户注册时的售价；
-- quote, 账户注册时的 CKB 的美元单价；
+- quote，账户注册时的 CKB 的美元单价；
 - created_at，PreAccountCell 创建时 TimeCell 的时间；
+- initial_records，AccountCell 创建成功时的初始解析记录；
 
 #### 利润以及注册所获时长的计算逻辑
 
@@ -528,7 +532,7 @@ table OfferCellData {
 
 ```
 lock: <always_success>
-type: 
+type:
   code_hash: <sub-account-cell-type>,
   type: type,
   args: [account_id], // 账户 ID ，也就是和 AccountCell.data.id 相同的值
@@ -804,7 +808,7 @@ table ConfigCellProfitRate {
     sale_channel: Uint32,
     // The profit rate for DAS in account sale.
     sale_das: Uint32,
-    
+
 }
 ```
 
@@ -1093,6 +1097,12 @@ enum DataType {
     ConfigCellCharSetEn = 100002,     // args: 0xa2860100
     ConfigCellCharSetZhHans = 100003, // args: 0xa3860100, not available yet
     ConfigCellCharSetZhHant = 100004, // args: 0xa4860100, not available yet
+    ConfigCellCharSetJp,              // args: 0xa5860100
+    ConfigCellCharSetKo,              // args: 0xa6860100
+    ConfigCellCharSetRu,              // args: 0xa7860100
+    ConfigCellCharSetTur,             // args: 0xa8860100
+    ConfigCellCharSetTh,              // args: 0xa9860100
+    ConfigCellCharSetVi,              // args: 0xaa860100
 }
 ```
 
