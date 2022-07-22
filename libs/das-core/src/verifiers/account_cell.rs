@@ -2,7 +2,7 @@ use crate::{
     assert as das_assert, constants::DasLockType, constants::*, data_parser, error::Error, util, warn,
     witness_parser::WitnessesParser,
 };
-use alloc::{borrow::ToOwned, boxed::Box, string::String, vec, vec::Vec};
+use alloc::{boxed::Box, string::String, vec, vec::Vec};
 use ckb_std::{ckb_constants::Source, high_level};
 use core::convert::TryFrom;
 use das_types::{constants::*, mixer::AccountCellDataReaderMixer, packed::*, util as das_types_util};
@@ -533,10 +533,9 @@ pub fn verify_account_chars(parser: &WitnessesParser, chars_reader: AccountChars
         let data_type =
             das_types_util::char_set_to_data_type(CharSetType::try_from(account_char.char_set_name()).unwrap());
         let char_set_index = das_types_util::data_type_to_char_set(data_type) as usize;
-        let char_sets = parser.configs.char_set();
 
         // Check if account contains only one non-global character set.
-        match char_sets.get(char_set_index) {
+        match parser.configs.char_set(char_set_index) {
             Some(Ok(char_set)) => {
                 if !char_set.global {
                     if prev_char_set_name.is_none() {
@@ -554,22 +553,32 @@ pub fn verify_account_chars(parser: &WitnessesParser, chars_reader: AccountChars
                 }
             }
             Some(Err(err)) => {
-                return Err(err.to_owned());
+                return Err(err);
             }
             None => {
-                warn!("CharSet[{}] is undefined.", char_set_index);
-                return Err(Error::PreRegisterFoundUndefinedCharSet);
+                warn!("Chan not found CharSet[{}].", char_set_index);
+                return Err(Error::CharSetIsUndefined);
             }
         }
     }
 
     let tmp = vec![0u8];
-    let char_sets = parser.configs.char_set();
     let mut required_char_sets = vec![tmp.as_slice(); CHAR_SET_LENGTH];
     for account_char in chars_reader.iter() {
         let char_set_index = u32::from(account_char.char_set_name()) as usize;
         if required_char_sets[char_set_index].len() <= 1 {
-            let char_set = char_sets[char_set_index].unwrap();
+            let char_set = match parser.configs.char_set(char_set_index) {
+                Some(Ok(char_set)) => {
+                    char_set
+                },
+                Some(Err(err)) => {
+                    return Err(err);
+                }
+                None => {
+                    warn!("Chan not found CharSet[{}].", char_set_index);
+                    return Err(Error::CharSetIsUndefined);
+                }
+            };
             required_char_sets[char_set_index] = char_set.data.as_slice();
         }
 
@@ -621,6 +630,8 @@ pub fn verify_account_chars_max_length(
 }
 
 pub fn verify_records_keys(parser: &WitnessesParser, records: RecordsReader) -> Result<(), Error> {
+    debug!("Check if records keys are available.");
+
     let config_account = parser.configs.account()?;
     let record_key_namespace = parser.configs.record_key_namespace()?;
     let records_max_size = u32::from(config_account.record_size_limit()) as usize;
@@ -651,41 +662,60 @@ pub fn verify_records_keys(parser: &WitnessesParser, records: RecordsReader) -> 
 
     // check if all the record.{type+key} are valid
     for record in records.iter() {
-        let mut is_valid = false;
+        let record_type = Vec::from(record.record_type().raw_data());
+        let record_key = Vec::from(record.record_key().raw_data());
+        match record_type.as_slice() {
+            b"custom_key" => {
+                // CAREFUL Triple check
+                for char in record_key.iter() {
+                    das_assert!(
+                        CUSTOM_KEYS_NAMESPACE.contains(char),
+                        Error::AccountCellRecordKeyInvalid,
+                        "The keys in custom_key should only contain digits, lowercase alphabet and underline."
+                    );
+                }
+            },
+            _ => {
+                let mut record_type_and_key = record_type.clone();
+                record_type_and_key.push(46);
+                record_type_and_key.extend_from_slice(&record_key);
 
-        let mut record_type = Vec::from(record.record_type().raw_data());
-        let mut record_key = Vec::from(record.record_key().raw_data());
-        if record_type == b"custom_key" {
-            // CAREFUL Triple check
-            for char in record_key.iter() {
+                let mut is_valid = false;
+                for key in &key_list {
+                    if vec_compare(record_type_and_key.as_slice(), *key) {
+                        is_valid = true;
+                        break;
+                    }
+                }
+
+                // For compatibility, the address records is allowed to use digit chars.
+                if record_type == b"address" && !is_valid {
+                    for (i, char) in record_key.iter().enumerate() {
+                        if i == 0 && record_key.len() > 1 {
+                            das_assert!(
+                                char != &48, // 48 is the ascii code of '0'
+                                Error::AccountCellRecordKeyInvalid,
+                                "The first char of the key in address should not be '0'."
+                            );
+                        }
+
+                        das_assert!(
+                            COIN_TYPE_DIGITS.contains(char),
+                            Error::AccountCellRecordKeyInvalid,
+                            "The keys in address should only contain digits."
+                        );
+                    }
+
+                    is_valid = true;
+                }
+
                 das_assert!(
-                    CUSTOM_KEYS_NAMESPACE.contains(char),
+                    is_valid,
                     Error::AccountCellRecordKeyInvalid,
-                    "The keys in custom_key should only contain digits, lowercase alphabet and underline."
+                    "Account cell record key is invalid: {:?}",
+                    String::from_utf8(record_type)
                 );
             }
-            continue;
-        }
-
-        record_type.push(46);
-        record_type.append(&mut record_key);
-
-        for key in &key_list {
-            if vec_compare(record_type.as_slice(), *key) {
-                is_valid = true;
-                break;
-            }
-        }
-
-        if !is_valid {
-            das_assert!(
-                false,
-                Error::AccountCellRecordKeyInvalid,
-                "Account cell record key is invalid: {:?}",
-                String::from_utf8(record_type)
-            );
-
-            break;
         }
     }
 

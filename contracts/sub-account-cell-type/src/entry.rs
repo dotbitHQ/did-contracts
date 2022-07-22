@@ -554,7 +554,7 @@ pub fn main() -> Result<(), Error> {
                                 if custom_script_type_id.is_some() {
                                     debug!("Record registered years in all sub-accounts and pass them to custom scripts later.");
                                     let mut custom_script_param = expiration_years.to_le_bytes().to_vec();
-                                    custom_script_param.append(&mut sub_account_reader.as_slice().to_vec());
+                                    custom_script_param.append(&mut sub_account_reader.account().as_slice().to_vec());
                                     custom_script_params.push(util::hex_string(&custom_script_param));
                                 }
 
@@ -707,10 +707,15 @@ pub fn main() -> Result<(), Error> {
                                 ret
                             })
                             .collect::<Vec<_>>();
+                        let mut total_size = 0;
                         let params = params_with_nul
                             .iter()
-                            .map(|val| unsafe { CStr::from_bytes_with_nul_unchecked(val.as_slice()) })
+                            .map(|val| unsafe {
+                                total_size += val.len();
+                                CStr::from_bytes_with_nul_unchecked(val.as_slice())
+                            })
                             .collect::<Vec<_>>();
+                        debug!("The total size of custom script params: {} bytes", total_size);
                         high_level::exec_cell(&type_id, ScriptHashType::Type, 0, 0, &params).map_err(Error::from)?;
                     } else {
                         verify_profit_to_das(

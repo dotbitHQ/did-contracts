@@ -241,14 +241,13 @@ impl Configs {
         })
     }
 
-    pub fn char_set(&self) -> Vec<Result<&CharSet, Error>> {
-        let mut ret = Vec::new();
-        for (i, char_set) in self.char_set.iter().enumerate() {
-            let item = char_set.get_or_try_init(|| {
-                let char_set_type = match CharSetType::try_from(i as u32) {
+    pub fn char_set(&self, char_set_index: usize) -> Option<Result<&CharSet, Error>> {
+        self.char_set.get(char_set_index).map(|char_set| {
+            char_set.get_or_try_init(|| {
+                let char_set_type = match CharSetType::try_from(char_set_index as u32) {
                     Ok(char_set_type) => char_set_type,
                     Err(_) => {
-                        warn!("Invalid CharSetType[{}]", i);
+                        warn!("Invalid CharSetType[{}]", char_set_index);
                         return Err(Error::ConfigCellWitnessDecodingError);
                     }
                 };
@@ -284,11 +283,7 @@ impl Configs {
                 };
 
                 Ok(char_set)
-            });
-
-            ret.push(item);
-        }
-
-        ret
+            })
+        })
     }
 }
