@@ -76,8 +76,7 @@ impl Configs {
             config_witnesses,
             account: OnceCell::new(),
             apply: OnceCell::new(),
-            // Chinese charsets is still not enabled.
-            char_set: vec![OnceCell::new(); CHAR_SET_LENGTH - 2],
+            char_set: vec![OnceCell::new(); CHAR_SET_LENGTH],
             income: OnceCell::new(),
             main: OnceCell::new(),
             price: OnceCell::new(),
