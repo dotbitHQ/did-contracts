@@ -15,7 +15,7 @@ dependencies = [
 
 [[package]]
 name = "account-cell-type"
-version = "1.6.0"
+version = "1.7.0"
 dependencies = [
  "ckb-std",
  "das-core",
@@ -666,7 +666,7 @@ checksum = "158a0d1040eb06fc9803f5fa3fd71eff349624dd14a73266972a599ac008900e"
 
 [[package]]
 name = "config-cell-type"
-version = "1.0.2"
+version = "1.1.2"
 dependencies = [
  "ckb-std",
  "das-core",
@@ -808,7 +808,7 @@ dependencies = [
 
 [[package]]
 name = "das-types"
-version = "1.9.1"
+version = "1.9.2"
 dependencies = [
  "ckb-std",
  "molecule",
@@ -816,7 +816,7 @@ dependencies = [
 
 [[package]]
 name = "das-types-std"
-version = "1.9.1"
+version = "1.9.2"
 dependencies = [
  "ckb-types",
  "molecule",
@@ -1508,7 +1508,7 @@ checksum = "ac74c624d6b2d21f425f752262f42188365d7b8ff1aff74c82e45136510a4857"
 
 [[package]]
 name = "pre-account-cell-type"
-version = "1.2.0"
+version = "1.3.0"
 dependencies = [
  "chrono",
  "ckb-std",
@@ -1528,7 +1528,7 @@ dependencies = [
 
 [[package]]
 name = "proposal-cell-type"
-version = "1.2.0"
+version = "1.3.0"
 dependencies = [
  "chrono",
  "ckb-std",
@@ -1831,7 +1831,7 @@ checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
 
 [[package]]
 name = "sub-account-cell-type"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "blake2b-ref 0.3.0",
  "ckb-std",
