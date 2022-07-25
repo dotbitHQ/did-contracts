@@ -2,7 +2,7 @@ use super::common::*;
 use crate::util::{
     accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
 };
-use das_types_std::constants::AccountStatus;
+use das_types_std::constants::*;
 use serde_json::json;
 
 const SCRIPT_ARGS: &str = "0x0011223300";
@@ -475,7 +475,16 @@ fn challenge_sub_account_create_invalid_char() {
                     "manager_lock_args": MANAGER_1
                 },
                 // Simulate the sub-account contains invalid character.
-                "account": "✨das🎱001.xxxxx.bit",
+                "account": [
+                    { "char": "✨", "type": CharSetType::Emoji as u32 },
+                    { "char": "d", "type": CharSetType::En as u32 },
+                    { "char": "a", "type": CharSetType::En as u32 },
+                    { "char": "s", "type": CharSetType::En as u32 },
+                    { "char": "🇫🇮", "type": CharSetType::Emoji as u32 },
+                    { "char": "0", "type": CharSetType::Digit as u32 },
+                    { "char": "0", "type": CharSetType::Digit as u32 },
+                    { "char": "1", "type": CharSetType::Digit as u32 },
+                ],
                 "suffix": SUB_ACCOUNT_SUFFIX,
                 "registered_at": TIMESTAMP,
                 "expired_at": TIMESTAMP + YEAR_SEC,
@@ -501,7 +510,16 @@ fn challenge_sub_account_create_undefined_char() {
                     "manager_lock_args": MANAGER_1
                 },
                 // Simulate the sub-account contains undefined character.
-                "account": "✨das大001.xxxxx.bit",
+                "account": [
+                    { "char": "✨", "type": CharSetType::Emoji as u32 },
+                    { "char": "d", "type": CharSetType::En as u32 },
+                    { "char": "a", "type": CharSetType::En as u32 },
+                    { "char": "s", "type": CharSetType::En as u32 },
+                    { "char": "大", "type": CharSetType::ZhHans as u32 },
+                    { "char": "0", "type": CharSetType::Digit as u32 },
+                    { "char": "0", "type": CharSetType::Digit as u32 },
+                    { "char": "1", "type": CharSetType::Digit as u32 },
+                ],
                 "suffix": SUB_ACCOUNT_SUFFIX,
                 "registered_at": TIMESTAMP,
                 "expired_at": TIMESTAMP + YEAR_SEC,
@@ -510,7 +528,7 @@ fn challenge_sub_account_create_undefined_char() {
     );
     push_common_output_cells(&mut template);
 
-    challenge_tx(template.as_json(), Error::PreRegisterFoundUndefinedCharSet);
+    challenge_tx(template.as_json(), Error::ConfigIsPartialMissing);
 }
 
 #[test]

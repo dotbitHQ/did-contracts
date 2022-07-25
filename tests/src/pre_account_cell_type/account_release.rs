@@ -16,7 +16,7 @@ fn test_pre_register_shortest_registrable_account() {
     push_output_pre_account_cell(
         &mut template,
         json!({
-            "capacity": util::gen_register_fee(4, false),
+            "capacity": util::gen_register_fee_v2(account, 4, false),
             "witness": {
                 "account": account,
                 "created_at": TIMESTAMP,
@@ -45,7 +45,7 @@ fn test_pre_register_3_chars_account_with_super_lock() {
     push_output_pre_account_cell(
         &mut template,
         json!({
-            "capacity": util::gen_register_fee(3, false),
+            "capacity": util::gen_register_fee_v2(account, 3, false),
             "witness": {
                 "account": account,
                 "created_at": TIMESTAMP,
@@ -73,7 +73,7 @@ fn challenge_pre_register_3_chars_account() {
     push_output_pre_account_cell(
         &mut template,
         json!({
-            "capacity": util::gen_register_fee(3, false),
+            "capacity": util::gen_register_fee_v2(account, 3, false),
             "witness": {
                 "account": account,
                 "created_at": TIMESTAMP,
@@ -103,7 +103,7 @@ fn test_pre_register_10_chars_account() {
     push_output_pre_account_cell(
         &mut template,
         json!({
-            "capacity": util::gen_register_fee(10, false),
+            "capacity": util::gen_register_fee_v2(account, 10, false),
             "witness": {
                 "account": account,
                 "created_at": TIMESTAMP,
@@ -133,7 +133,7 @@ fn test_pre_register_unreleased_account_with_super_lock() {
     push_output_pre_account_cell(
         &mut template,
         json!({
-            "capacity": util::gen_register_fee(10, false),
+            "capacity": util::gen_register_fee_v2(account, 10, false),
             "witness": {
                 "account": account,
                 "created_at": TIMESTAMP,
@@ -161,7 +161,7 @@ fn challenge_pre_register_unreleased_account() {
     push_output_pre_account_cell(
         &mut template,
         json!({
-            "capacity": util::gen_register_fee(10, false),
+            "capacity": util::gen_register_fee_v2(account, 10, false),
             "witness": {
                 "account": account,
                 "created_at": TIMESTAMP,

@@ -391,27 +391,68 @@ fn parse_json_to_records_mol(field_name: &str, field: &Value) -> Records {
     records_builder.build()
 }
 
+fn parse_json_to_account_chars(field_name: &str, field: &Value, suffix_opt: Option<&str>) -> (String, AccountChars) {
+    let suffix = if let Some(suffix) = suffix_opt {
+        suffix
+    } else {
+        ".bit"
+    };
+
+    let mut account;
+    let account_chars;
+    if field.is_string() {
+        // Parse the field as a string
+        account = parse_json_str(field_name, field).to_string();
+        let account_without_suffix = match account.strip_suffix(suffix) {
+            Some(val) => val,
+            _ => &account,
+        };
+        let account_chars_raw = account_without_suffix
+            .chars()
+            .map(|c| c.to_string())
+            .collect::<Vec<String>>();
+
+        account_chars = gen_account_chars(account_chars_raw);
+    } else {
+        // Parse the field as an AccountChars array.
+        // Example:
+        // ```json
+        // [
+        //     { char: "", type: u32 },
+        //     { char: "", type: u32 },
+        //     ...
+        // ]
+        // ```
+        //
+        // gen_account_char(char: &str, char_set_type: CharSetType)
+        let json_chars = parse_json_array(field_name, field);
+        let mut builder = AccountChars::new_builder();
+        for json_char in json_chars.iter() {
+            let char = parse_json_str(&format!("{}[].char", field_name), &json_char["char"]);
+            let char_set_type = parse_json_u32(&format!("{}[].type", field_name), &json_char["type"], None);
+            builder = builder.push(gen_account_char(char, CharSetType::try_from(char_set_type).expect(&format!("{} should only contain valid CharSetType.", field_name))));
+        }
+        account_chars = builder.build();
+        account = String::from_utf8(account_chars.as_readable()).expect(&format!("{} should only contain UTF-8 characters.", field_name));
+        account += suffix;
+    }
+
+    (account, account_chars)
+}
+
 pub fn parse_json_to_sub_account(field_name: &str, field: &Value) -> SubAccount {
     // let lock = parse_json_script_das_lock(&format!("{}.lock", field_name), &field["lock"]);
     let lock = parse_json_script_to_mol(
         "",
         &parse_json_script_das_lock(&format!("{}.lock", field_name), &field["lock"]),
     );
-    let account = parse_json_str(&format!("{}.account", field_name), &field["account"]);
+    let suffix = parse_json_str(&format!("{}.suffix", field_name), &field["suffix"]);
+    let (account, account_chars) = parse_json_to_account_chars(&format!("{}.account", field_name), &field["account"], Some(suffix));
     let account_id = if !field["id"].is_null() {
         parse_json_str_to_account_id_mol(&format!("{}.id", field_name), &field["id"])
     } else {
-        AccountId::try_from(util::account_to_id(account)).expect("Calculate account ID from account failed")
+        AccountId::try_from(util::account_to_id(&account)).expect("Calculate account ID from account failed")
     };
-    let account_chars_raw = match account.find('.') {
-        Some(index) => account[0..index]
-            .chars()
-            .map(|c| c.to_string())
-            .collect::<Vec<String>>(),
-        None => panic!("There should be at least a dot in sub-account."),
-    };
-    let account_chars = gen_account_chars(account_chars_raw);
-    let suffix = parse_json_str(&format!("{}.suffix", field_name), &field["suffix"]);
     let registered_at = Uint64::from(parse_json_u64(
         &format!("{}.registered_at", field_name),
         &field["registered_at"],
@@ -1085,8 +1126,14 @@ impl TemplateGenerator {
             DataType::ConfigCellRecordKeyNamespace => push_cell!(@raw gen_config_cell_record_key_namespace),
             DataType::ConfigCellUnAvailableAccount => push_cell!(@raw gen_config_cell_unavailable_account),
             DataType::ConfigCellCharSetEmoji => push_cell!(@char_set gen_config_cell_char_set, "char_set_emoji.txt", 1),
-            DataType::ConfigCellCharSetDigit => push_cell!(@char_set gen_config_cell_char_set, "char_set_digit.txt", 1),
+            DataType::ConfigCellCharSetDigit => push_cell!(@char_set gen_config_cell_char_set, "char_set_digit_and_symbol.txt", 1),
             DataType::ConfigCellCharSetEn => push_cell!(@char_set gen_config_cell_char_set, "char_set_en.txt", 0),
+            DataType::ConfigCellCharSetJa => push_cell!(@char_set gen_config_cell_char_set, "char_set_ja.txt", 0),
+            DataType::ConfigCellCharSetKo => push_cell!(@char_set gen_config_cell_char_set, "char_set_ko.txt", 0),
+            DataType::ConfigCellCharSetRu => push_cell!(@char_set gen_config_cell_char_set, "char_set_ru.txt", 0),
+            DataType::ConfigCellCharSetTh => push_cell!(@char_set gen_config_cell_char_set, "char_set_th.txt", 0),
+            DataType::ConfigCellCharSetTr => push_cell!(@char_set gen_config_cell_char_set, "char_set_tr.txt", 0),
+            DataType::ConfigCellCharSetVi => push_cell!(@char_set gen_config_cell_char_set, "char_set_vi.txt", 0),
             DataType::ConfigCellSubAccountBetaList => push_cell!(@raw gen_config_cell_sub_account_beta_list),
             DataType::ConfigCellCharSetZhHans => {
                 push_cell!(@char_set gen_config_cell_char_set, "char_set_zh_hans.txt", 0)
@@ -1443,16 +1490,7 @@ impl TemplateGenerator {
 
         if !cell["witness"].is_null() {
             let witness = &cell["witness"];
-            let account = parse_json_str("cell.witness.account", &witness["account"]);
-            let account_without_suffix = match account.strip_suffix(".bit") {
-                Some(val) => val,
-                _ => account,
-            };
-            let account_chars_raw = account_without_suffix
-                .chars()
-                .map(|c| c.to_string())
-                .collect::<Vec<String>>();
-            let account_chars = gen_account_chars(account_chars_raw);
+            let (account, account_chars) = parse_json_to_account_chars("cell.witness.account", &witness["account"], None);
             let refund_lock = parse_json_script_to_mol("cell.witness.refund_lock", &witness["refund_lock"]);
             let owner_lock_args = parse_json_hex("cell.witness.owner_lock_args", &witness["owner_lock_args"]);
             let inviter_id = if !witness["inviter_id"].is_null() {
@@ -1507,7 +1545,7 @@ impl TemplateGenerator {
                         blake2b_256(entity.as_slice()).to_vec(),
                     );
                     let account_id =
-                        parse_json_hex_with_default("cell.data.id", &data["id"], util::account_to_id(account));
+                        parse_json_hex_with_default("cell.data.id", &data["id"], util::account_to_id(&account));
                     let outputs_data = [hash, account_id].concat();
 
                     (
@@ -1725,18 +1763,12 @@ impl TemplateGenerator {
 
         if !cell["witness"].is_null() {
             let witness = &cell["witness"];
-            let account = parse_json_str("cell.witness.account", &witness["account"]);
+            let (account, account_chars) = parse_json_to_account_chars("cell.witness.account", &witness["account"], None);
             let account_id = if !witness["id"].is_null() {
                 parse_json_str_to_account_id_mol("cell.witness.id", &witness["id"])
             } else {
-                AccountId::try_from(util::account_to_id(account)).expect("Calculate account ID from account failed")
+                AccountId::try_from(util::account_to_id(&account)).expect("Calculate account ID from account failed")
             };
-            let account_chars_raw = account
-                .chars()
-                .take(account.len() - 4)
-                .map(|c| c.to_string())
-                .collect::<Vec<String>>();
-            let account_chars = gen_account_chars(account_chars_raw);
             let registered_at = Uint64::from(parse_json_u64(
                 "cell.witness.registered_at",
                 &witness["registered_at"],
@@ -2494,7 +2526,8 @@ impl TemplateGenerator {
             panic!("witness.sub_account is missing");
         }
         let sub_account_value = &witness["sub_account"];
-        let account = parse_json_str("witness.sub_account.account", &sub_account_value["account"]);
+        let suffix = parse_json_str("witness.sub_account.suffix", &sub_account_value["suffix"]);
+        let (account, _) = parse_json_to_account_chars("witness.sub_account.account", &sub_account_value["account"], Some(suffix));
         let key = util::blake2b_smt(account.as_bytes());
 
         let sub_account_entity = parse_json_to_sub_account("witness.sub_account", &witness["sub_account"]);
