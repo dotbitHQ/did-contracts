@@ -17,12 +17,12 @@ pub fn push_input_account_cell_with_multi_sign(template: &mut TemplateGenerator,
             "code_hash": "{{account-cell-type}}"
         },
         "data": {
-            "account": ACCOUNT,
+            "account": ACCOUNT_1,
             "next": "yyyyy.bit",
             "expired_at": u64::MAX,
         },
         "witness": {
-            "account": ACCOUNT,
+            "account": ACCOUNT_1,
             "registered_at": 0,
             "last_transfer_account_at": 0,
             "last_edit_manager_at": 0,

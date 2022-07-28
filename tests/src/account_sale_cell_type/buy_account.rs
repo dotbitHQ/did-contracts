@@ -54,7 +54,7 @@ fn push_common_outputs(template: &mut TemplateGenerator) {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
                 "status": (AccountStatus::Normal as u8)
@@ -103,7 +103,7 @@ fn before_each(paid: u64) -> TemplateGenerator {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
                 "status": (AccountStatus::Selling as u8)
@@ -118,7 +118,7 @@ fn before_each(paid: u64) -> TemplateGenerator {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE.to_string(),
             }
         }),
@@ -154,7 +154,7 @@ fn test_account_sale_buy_not_create_income_cell() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
                 "status": (AccountStatus::Selling as u8)
@@ -169,7 +169,7 @@ fn test_account_sale_buy_not_create_income_cell() {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": price.to_string(),
             }
         }),
@@ -185,7 +185,7 @@ fn test_account_sale_buy_not_create_income_cell() {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
                 "status": (AccountStatus::Normal as u8)
@@ -251,7 +251,7 @@ fn test_account_sale_buy_no_inviter_and_channel() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
                 "status": (AccountStatus::Selling as u8)
@@ -266,7 +266,7 @@ fn test_account_sale_buy_no_inviter_and_channel() {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": price.to_string(),
             }
         }),
@@ -282,7 +282,7 @@ fn test_account_sale_buy_no_inviter_and_channel() {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
                 "status": (AccountStatus::Normal as u8)
@@ -333,7 +333,7 @@ fn test_account_sale_buy_create_with_custom_buyer_inviter_profit_rate() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
                 "status": (AccountStatus::Selling as u8)
@@ -348,7 +348,7 @@ fn test_account_sale_buy_create_with_custom_buyer_inviter_profit_rate() {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE.to_string(),
                 // Simulate custom the profit rate of the buyer's inviter to 20% .
                 "buyer_inviter_profit_rate": SALE_BUYER_INVITER_PROFIT_RATE * 20
@@ -366,7 +366,7 @@ fn test_account_sale_buy_create_with_custom_buyer_inviter_profit_rate() {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
                 "status": (AccountStatus::Normal as u8)
@@ -436,7 +436,7 @@ fn test_account_sale_buy_old_version() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
                 "status": (AccountStatus::Selling as u8)
@@ -451,7 +451,7 @@ fn test_account_sale_buy_old_version() {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE.to_string(),
             }
         }),
@@ -478,7 +478,7 @@ fn challenge_account_sale_buy_account_expired() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 // Simulate the situation AccountCell has expired.
                 "expired_at": (TIMESTAMP - 1),
             },
@@ -495,7 +495,7 @@ fn challenge_account_sale_buy_account_expired() {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE.to_string(),
             }
         }),
@@ -523,10 +523,10 @@ fn challenge_account_sale_buy_account_capacity() {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "status": (AccountStatus::Normal as u8)
             }
         }),
@@ -557,7 +557,7 @@ fn challenge_account_sale_buy_input_account_status() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
                 // Simulate the AccountCell.status is wrong in inputs.
@@ -573,7 +573,7 @@ fn challenge_account_sale_buy_input_account_status() {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE.to_string(),
             }
         }),
@@ -599,10 +599,10 @@ fn challenge_account_sale_buy_output_account_status() {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 // Simulate the AccountCell.status is wrong in outputs.
                 "status": (AccountStatus::Selling as u8)
             }
@@ -633,10 +633,10 @@ fn challenge_account_sale_buy_sale_account() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "status": (AccountStatus::Selling as u8)
             }
         }),
@@ -677,10 +677,10 @@ fn challenge_account_sale_buy_wrong_owner() {
                 "manager_lock_args": "0x050000000000000000000000000000000000003333"
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "status": (AccountStatus::Normal as u8)
             }
         }),
@@ -710,10 +710,10 @@ fn challenge_account_sale_buy_change_owner() {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "status": (AccountStatus::Normal as u8)
             }
         }),
@@ -749,10 +749,10 @@ fn challenge_account_sale_buy_change_capacity() {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "status": (AccountStatus::Normal as u8)
             }
         }),
@@ -783,10 +783,10 @@ fn challenge_account_sale_buy_seller_profit_owner() {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "status": (AccountStatus::Normal as u8)
             }
         }),
@@ -816,10 +816,10 @@ fn challenge_account_sale_buy_seller_profit_capacity() {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "status": (AccountStatus::Normal as u8)
             }
         }),
@@ -851,7 +851,7 @@ fn challenge_account_sale_buy_not_clear_records() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
                 "status": (AccountStatus::Selling as u8),
@@ -880,7 +880,7 @@ fn challenge_account_sale_buy_not_clear_records() {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE.to_string(),
             }
         }),
@@ -896,7 +896,7 @@ fn challenge_account_sale_buy_not_clear_records() {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
                 "status": (AccountStatus::Normal as u8),

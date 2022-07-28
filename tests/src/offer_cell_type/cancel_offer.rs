@@ -11,7 +11,7 @@ fn before_each() -> TemplateGenerator {
         json!({
             "capacity": "200_100_000_000",
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "200_000_000_000",
                 "message": "Take my money.🍀"
             }

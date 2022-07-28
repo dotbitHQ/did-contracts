@@ -13,7 +13,7 @@ fn before_each() -> TemplateGenerator {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE
             }
         }),
@@ -36,7 +36,7 @@ fn test_account_sale_edit() {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE + 10_000_000_000
             }
         }),
@@ -58,7 +58,7 @@ fn test_account_sale_edit_old_version() {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE
             }
         }),
@@ -74,7 +74,7 @@ fn test_account_sale_edit_old_version() {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE + 10_000_000_000
             }
         }),
@@ -97,7 +97,7 @@ fn challenge_account_sale_edit_with_manager() {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE
             }
         }),
@@ -113,7 +113,7 @@ fn challenge_account_sale_edit_with_manager() {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE
             }
         }),
@@ -137,7 +137,7 @@ fn challenge_account_sale_edit_lock_consistent() {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE
             }
         }),
@@ -186,7 +186,7 @@ fn challenge_account_sale_edit_account_id_consistent() {
             "witness": {
                 // Simulate the account ID is mismatched with the account.
                 "account_id": "0x1111000000000000000000000000000000001111",
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE
             }
         }),
@@ -209,7 +209,7 @@ fn challenge_account_sale_edit_started_at_consistent() {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE,
                 // Simulate the started_at field has been modified accidentally.
                 "started_at": TIMESTAMP - 1
@@ -235,7 +235,7 @@ fn challenge_account_sale_edit_fee_spent() {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE,
             }
         }),
@@ -257,7 +257,7 @@ fn challenge_account_sale_edit_fee_empty() {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE
             }
         }),
@@ -274,7 +274,7 @@ fn challenge_account_sale_edit_fee_empty() {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE,
             }
         }),
@@ -297,7 +297,7 @@ fn challenge_account_sale_edit_price() {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 // Simulate modify the price to lower than the minimum requirement.
                 "price": ACCOUNT_SALE_MIN_PRICE - 1,
             }
@@ -322,7 +322,7 @@ fn challenge_account_sale_edit_no_change() {
             },
             "witness": {
                 // Simulate neither price nor description is changed.
-                "account": ACCOUNT
+                "account": ACCOUNT_1
             }
         }),
     );
@@ -343,7 +343,7 @@ fn challenge_account_sale_edit_keep_old_version() {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE
             }
         }),
@@ -360,7 +360,7 @@ fn challenge_account_sale_edit_keep_old_version() {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE + 10_000_000_000
             }
         }),

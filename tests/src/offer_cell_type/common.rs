@@ -46,7 +46,7 @@ pub fn push_input_offer_cell(template: &mut TemplateGenerator, cell_partial: Val
             "code_hash": "{{offer-cell-type}}"
         },
         "witness": {
-            "account": ACCOUNT,
+            "account": ACCOUNT_1,
             "price": "200_000_000_000",
             "message": "Take my money.🍀",
             "inviter_lock": {
@@ -76,7 +76,7 @@ pub fn push_output_offer_cell(template: &mut TemplateGenerator, cell_partial: Va
             "code_hash": "{{offer-cell-type}}"
         },
         "witness": {
-            "account": ACCOUNT,
+            "account": ACCOUNT_1,
             "price": "200_000_000_000",
             "message": "Take my money.🍀",
             "inviter_lock": {

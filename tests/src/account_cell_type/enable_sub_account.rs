@@ -43,7 +43,7 @@ fn test_enable_sub_account() {
         &mut template,
         json!({
             "type": {
-                "args": ACCOUNT
+                "args": ACCOUNT_1
             },
         }),
     );

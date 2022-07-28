@@ -120,7 +120,7 @@ fn challenge_pre_register_apply_hash_is_invalid() {
         json!({
             "data": {
                 // Simulate the ApplyRegisterCell has different account with the PreAccountCell.
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "height": HEIGHT - 1,
                 "timestamp": TIMESTAMP - 60,
             }
