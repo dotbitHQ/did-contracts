@@ -827,7 +827,7 @@ pub fn main() -> Result<(), Error> {
 
             // manual::verify_remain_capacity
             das_assert!(
-                expected_remain_capacity - transaction_fee >= output_sub_account_capacity,
+                output_sub_account_capacity >= expected_remain_capacity - transaction_fee,
                 Error::SubAccountCollectProfitError,
                 "The capacity of SubAccountCell in outputs should be at least {}, but only {} found.",
                 expected_remain_capacity - transaction_fee,
