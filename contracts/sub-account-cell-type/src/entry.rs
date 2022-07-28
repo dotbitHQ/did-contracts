@@ -798,26 +798,34 @@ pub fn main() -> Result<(), Error> {
                 "Either the profit of DAS or the profit of owner should not be 0 ."
             );
 
-            debug!("Verify if the profit of DAS has been collected.");
-
             let mut collected = false;
             let mut expected_remain_capacity = input_sub_account_capacity;
             let transaction_fee = u64::from(config_sub_account.common_fee());
 
             if input_das_profit > 0 && output_das_profit == 0 {
+                debug!("The profit of DAS has been collected.");
+
                 collected = true;
                 expected_remain_capacity -= input_das_profit;
 
                 verifiers::common::verify_das_get_change(input_das_profit)?;
+            } else {
+                debug!("The profit of DAS is not collected completely, so skip counting it.")
             }
 
             if input_owner_profit > 0 && output_owner_profit == 0 {
+                debug!("The profit of owner has been collected.");
+
                 collected = true;
                 expected_remain_capacity -= input_owner_profit;
 
                 let owner_lock = util::derive_owner_lock_from_cell(dep_account_cells[0], Source::CellDep)?;
                 verifiers::misc::verify_user_get_change(config_main, owner_lock.as_reader(), input_owner_profit)?;
+            } else {
+                debug!("The profit of owner is not collected completely, so skip counting it.")
             }
+
+            debug!("Verify if the collection is completed properly.");
 
             das_assert!(
                 collected,
