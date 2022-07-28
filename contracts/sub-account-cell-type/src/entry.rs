@@ -1,10 +1,8 @@
 use alloc::{borrow::ToOwned, string::String, vec, vec::Vec};
-use ckb_std::{
-    ckb_constants::Source, cstr_core::CStr, dynamic_loading_c_impl::CKBDLContext, error::SysError, high_level,
-};
+use ckb_std::{ckb_constants::Source, cstr_core::CStr, dynamic_loading_c_impl::CKBDLContext, error::SysError, high_level};
 use core::{convert::TryInto, result::Result};
 use das_core::{
-    assert,
+    assert as das_assert,
     constants::*,
     data_parser, debug,
     error::Error,
@@ -158,7 +156,7 @@ pub fn main() -> Result<(), Error> {
             let output_sub_account_script_args =
                 data_parser::sub_account_cell::get_custom_script_args(&output_sub_account_data);
             // manual::verify_custom_script_changed
-            assert!(
+            das_assert!(
                 input_sub_account_custom_script != output_sub_account_custom_script
                     || input_sub_account_script_args != output_sub_account_script_args,
                 Error::SubAccountCustomScriptError,
@@ -507,7 +505,7 @@ pub fn main() -> Result<(), Error> {
                                 let current_root = &witness.current_root;
                                 let prev_root_of_next = &next_witness.prev_root;
 
-                                assert!(
+                                das_assert!(
                                     current_root == prev_root_of_next,
                                     Error::SubAccountCellSMTRootError,
                                     "witnesses[{}] The roots in sub-account witnesses should be sequential, but witnesses[{}] and witnesses[{}] is not.",
@@ -617,7 +615,7 @@ pub fn main() -> Result<(), Error> {
                                                 witness.index
                                             );
 
-                                            assert!(
+                                            das_assert!(
                                                 current_owner_type != new_owner_type
                                                     || current_owner_args != new_owner_args,
                                                 Error::SubAccountEditLockError,
@@ -632,7 +630,7 @@ pub fn main() -> Result<(), Error> {
                                                 witness.index
                                             );
 
-                                            assert!(
+                                            das_assert!(
                                                 current_owner_type == new_owner_type
                                                     && current_owner_args == new_owner_args,
                                                 Error::SubAccountEditLockError,
@@ -640,7 +638,7 @@ pub fn main() -> Result<(), Error> {
                                                 witness.index
                                             );
 
-                                            assert!(
+                                            das_assert!(
                                                 current_manager_type != new_manager_type
                                                     || current_manager_args != new_manager_args,
                                                 Error::SubAccountEditLockError,
@@ -730,6 +728,112 @@ pub fn main() -> Result<(), Error> {
                 _ => {}
             }
         }
+        b"collect_sub_account_profit" => {
+            parser.parse_cell()?;
+            let config_main = parser.configs.main()?;
+            let config_sub_account = parser.configs.sub_account()?;
+
+            debug!("Try to find the SubAccountCells from cell_deps ...");
+
+            let (input_sub_account_cells, output_sub_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
+
+            verifiers::common::verify_cell_number_and_position(
+                "SubAccountCell",
+                &input_sub_account_cells,
+                &[0],
+                &output_sub_account_cells,
+                &[0],
+            )?;
+
+            let input_sub_account_capacity = high_level::load_cell_capacity(input_sub_account_cells[0], Source::Input)?;
+            let output_sub_account_capacity =
+                high_level::load_cell_capacity(output_sub_account_cells[0], Source::Output)?;
+            let input_sub_account_data = high_level::load_cell_data(input_sub_account_cells[0], Source::Input)?;
+            let output_sub_account_data = high_level::load_cell_data(output_sub_account_cells[0], Source::Output)?;
+
+            verify_sub_account_capacity_is_enough(
+                config_sub_account,
+                input_sub_account_cells[0],
+                input_sub_account_capacity,
+                &input_sub_account_data,
+                output_sub_account_cells[0],
+                output_sub_account_capacity,
+                &output_sub_account_data,
+            )?;
+
+            verify_sub_account_cell_is_consistent(
+                input_sub_account_cells[0],
+                output_sub_account_cells[0],
+                vec!["das_profit", "owner_profit"],
+            )?;
+
+            debug!("Try to find the AccountCell from cell_deps ...");
+
+            let dep_account_cells = util::find_cells_by_type_id(
+                ScriptType::Type,
+                config_main.type_id_table().account_cell(),
+                Source::CellDep,
+            )?;
+
+            verifiers::common::verify_cell_dep_number("AccountCell", &dep_account_cells, 1)?;
+
+            let account_cell_witness =
+                util::parse_account_cell_witness(&parser, dep_account_cells[0], Source::CellDep)?;
+            let account_cell_reader = account_cell_witness.as_reader();
+
+            verifiers::sub_account_cell::verify_sub_account_parent_id(
+                input_sub_account_cells[0],
+                Source::Input,
+                account_cell_reader.id().raw_data(),
+            )?;
+
+            let input_das_profit = data_parser::sub_account_cell::get_das_profit(&input_sub_account_data).unwrap();
+            let output_das_profit = data_parser::sub_account_cell::get_das_profit(&output_sub_account_data).unwrap();
+            let input_owner_profit = data_parser::sub_account_cell::get_owner_profit(&input_sub_account_data).unwrap();
+            let output_owner_profit = data_parser::sub_account_cell::get_owner_profit(&output_sub_account_data).unwrap();
+
+            das_assert!(
+                input_das_profit != 0 || input_owner_profit != 0,
+                Error::InvalidTransactionStructure,
+                "Either the profit of DAS or the profit of owner should not be 0 ."
+            );
+
+            debug!("Verify if the profit of DAS has been collected.");
+
+            let mut collected = false;
+            let mut expected_remain_capacity = input_sub_account_capacity;
+            let transaction_fee = u64::from(config_sub_account.common_fee());
+
+            if input_das_profit > 0 && output_das_profit == 0 {
+                collected = true;
+                expected_remain_capacity -= input_das_profit;
+
+                verifiers::common::verify_das_get_change(input_das_profit)?;
+            }
+
+            if input_owner_profit > 0 && output_owner_profit == 0 {
+                collected = true;
+                expected_remain_capacity -= input_owner_profit;
+
+                let owner_lock = util::derive_owner_lock_from_cell(dep_account_cells[0], Source::CellDep)?;
+                verifiers::misc::verify_user_get_change(config_main, owner_lock.as_reader(), input_owner_profit)?;
+            }
+
+            das_assert!(
+                collected,
+                Error::InvalidTransactionStructure,
+                "All profit should be collected at one time, either from DAS or the owner."
+            );
+
+            // manual::verify_remain_capacity
+            das_assert!(
+                expected_remain_capacity - transaction_fee >= output_sub_account_capacity,
+                Error::SubAccountCollectProfitError,
+                "The capacity of SubAccountCell in outputs should be at least {}, but only {} found.",
+                expected_remain_capacity - transaction_fee,
+                output_sub_account_capacity
+            );
+        }
         _ => return Err(Error::ActionNotSupported),
     }
 
@@ -751,7 +855,7 @@ fn verify_sub_account_capacity_is_enough(
     let input_owner_profit = data_parser::sub_account_cell::get_owner_profit(&input_data).unwrap();
     let output_owner_profit = data_parser::sub_account_cell::get_owner_profit(&output_data).unwrap();
 
-    assert!(
+    das_assert!(
         input_capacity >= input_das_profit + input_owner_profit + basic_capacity,
         Error::SubAccountCellCapacityError,
         "inputs[{}] The capacity of SubAccountCell should contains profit and basic_capacity, but its not enough.(expected_capacity: {}, current_capacity: {}, das_profit: {}, owner_profit: {})",
@@ -761,7 +865,7 @@ fn verify_sub_account_capacity_is_enough(
         input_das_profit,
         input_owner_profit
     );
-    assert!(
+    das_assert!(
         output_capacity >= output_das_profit + output_owner_profit + basic_capacity,
         Error::SubAccountCellCapacityError,
         "outputs[{}] The capacity of SubAccountCell should contains profit and basic_capacity, but its not enough.(expected_capacity: {}, current_capacity: {}, das_profit: {}, owner_profit: {})",
@@ -799,7 +903,7 @@ fn verify_sub_account_transaction_fee(
     let input_remain_fees = input_capacity - input_das_profit - input_owner_profit - basic_capacity;
     let output_remain_fees = output_capacity - output_das_profit - output_owner_profit - basic_capacity;
 
-    assert!(
+    das_assert!(
         input_remain_fees <= fee + output_remain_fees,
         Error::TxFeeSpentError,
         "The transaction fee should be equal to or less than {} .(output_remain_fees: {} = output_capacity - output_profit - basic_capacity, input_remain_fees: {} = ...)",
@@ -821,7 +925,7 @@ fn verify_sub_account_cell_is_consistent(
     let input_sub_account_cell_lock = high_level::load_cell_lock(input_sub_account_cell, Source::Input)?;
     let output_sub_account_cell_lock = high_level::load_cell_lock(output_sub_account_cell, Source::Output)?;
 
-    assert!(
+    das_assert!(
         util::is_entity_eq(&input_sub_account_cell_lock, &output_sub_account_cell_lock),
         Error::SubAccountCellConsistencyError,
         "The SubAccountCell.lock should be consistent in inputs and outputs."
@@ -832,7 +936,7 @@ fn verify_sub_account_cell_is_consistent(
     let output_sub_account_cell_type =
         high_level::load_cell_type(output_sub_account_cell, Source::Output)?.expect("The type script should exist.");
 
-    assert!(
+    das_assert!(
         util::is_entity_eq(&input_sub_account_cell_type, &output_sub_account_cell_type),
         Error::SubAccountCellConsistencyError,
         "The SubAccountCell.type should be consistent in inputs and outputs."
@@ -847,7 +951,7 @@ fn verify_sub_account_cell_is_consistent(
                 let input_value = data_parser::sub_account_cell::$get_name(&input_sub_account_data);
                 let output_value = data_parser::sub_account_cell::$get_name(&output_sub_account_data);
 
-                assert!(
+                das_assert!(
                     input_value == output_value,
                     Error::SubAccountCellConsistencyError,
                     "The SubAccountCell.data.{} should be consistent in inputs and outputs.",
@@ -877,7 +981,7 @@ fn verify_sub_account_cell_smt_root(
     let data = high_level::load_cell_data(input_sub_account_cell, Source::Input)?;
     let first_root = data_parser::sub_account_cell::get_smt_root(&data);
 
-    assert!(
+    das_assert!(
         first_root == Some(first_root_in_witnesses),
         Error::SubAccountWitnessSMTRootError,
         "The first SMT root in sub-account witnesses should be equal to the SubAccountCell.data in inputs.(root_in_cell: 0x{}, root_in_witness: 0x{})",
@@ -888,7 +992,7 @@ fn verify_sub_account_cell_smt_root(
     let data = high_level::load_cell_data(output_sub_account_cell, Source::Output)?;
     let last_root = data_parser::sub_account_cell::get_smt_root(&data);
 
-    assert!(
+    das_assert!(
         last_root == Some(last_root_in_witnesses),
         Error::SubAccountWitnessSMTRootError,
         "The last SMT root in sub-account witnesses should be equal to the SubAccountCell.data in outputs.(root_in_cell: 0x{}, root_in_witness: 0x{})",
@@ -912,7 +1016,7 @@ fn verify_profit_to_das(
         let input_das_profit = data_parser::sub_account_cell::get_das_profit(&input_data).unwrap();
         let output_das_profit = data_parser::sub_account_cell::get_das_profit(&output_data).unwrap();
 
-        assert!(
+        das_assert!(
             output_das_profit == input_das_profit + profit_to_das,
             Error::SubAccountProfitError,
             "outputs[{}] The profit of SubAccountCell should contains the new register fees. (input_das_profit: {}, output_das_profit: {}, expected_register_fee: {})",
@@ -946,7 +1050,7 @@ fn verify_profit_to_das_with_custom_script(
     let total_profit = owner_profit + das_profit;
     let profit_rate = u32::from(config_sub_account.new_sub_account_custom_price_das_profit_rate());
 
-    assert!(
+    das_assert!(
         das_profit >= minimal_profit_to_das,
         Error::SubAccountProfitError,
         "The profit to DAS should be greater than or equal to the minimal profit which is 1 CKB per account. (das_profit: {}, minimal_profit_to_das: {})",
@@ -960,7 +1064,7 @@ fn verify_profit_to_das_with_custom_script(
         expected_das_profit = minimal_profit_to_das;
     }
 
-    assert!(
+    das_assert!(
         expected_das_profit == das_profit,
         Error::SubAccountProfitError,
         "The profit to DAS should be calculated from rate of config properly. (expected_das_profit: {}, das_profit: {})",
@@ -995,7 +1099,7 @@ fn verify_there_is_only_one_lock_for_normal_cells(
                     if lock_hash.is_none() {
                         lock_hash = Some(val);
                     } else {
-                        assert!(
+                        das_assert!(
                             lock_hash == Some(val),
                             Error::SubAccountNormalCellLockLimit,
                             "{}[{}] There should be only one lock for cells which is not SubAccountCell.",

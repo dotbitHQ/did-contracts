@@ -333,6 +333,8 @@ pub fn verify_sub_account_parent_id(
     source: Source,
     expected_account_id: &[u8],
 ) -> Result<(), Error> {
+    debug!("Verify if the SubAccountCell is a child of the AccountCell.");
+
     let type_script = high_level::load_cell_type(sub_account_index, source)?.unwrap();
     let account_id = type_script.as_reader().args().raw_data();
 
