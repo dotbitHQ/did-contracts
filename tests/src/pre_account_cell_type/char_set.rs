@@ -113,7 +113,7 @@ fn test_pre_register_ja() {
 
 #[test]
 fn test_pre_register_ko() {
-    let account = "✨ᆂᆆ00.bit";
+    let account = "✨꾼얕00.bit";
     let mut template = init();
     template.push_config_cell(DataType::ConfigCellCharSetKo, Source::CellDep);
     template.push_config_cell_derived_by_account(account, Source::CellDep);
@@ -127,8 +127,8 @@ fn test_pre_register_ko() {
             "witness": {
                 "account": [
                     { "char": "✨", "type": CharSetType::Emoji as u32 },
-                    { "char": "ᆂ", "type": CharSetType::Ko as u32 },
-                    { "char": "ᆆ", "type": CharSetType::Ko as u32 },
+                    { "char": "꾼", "type": CharSetType::Ko as u32 },
+                    { "char": "얕", "type": CharSetType::Ko as u32 },
                     { "char": "0", "type": CharSetType::Digit as u32 },
                     { "char": "0", "type": CharSetType::Digit as u32 },
                 ],
@@ -181,7 +181,7 @@ fn test_pre_register_ru() {
 
 #[test]
 fn test_pre_register_th() {
-    let account = "✨ขฎ00.bit";
+    let account = "✨ฆี่จั00.bit";
     let mut template = init();
     template.push_config_cell(DataType::ConfigCellCharSetTh, Source::CellDep);
     template.push_config_cell_derived_by_account(account, Source::CellDep);
@@ -195,8 +195,8 @@ fn test_pre_register_th() {
             "witness": {
                 "account": [
                     { "char": "✨", "type": CharSetType::Emoji as u32 },
-                    { "char": "ข", "type": CharSetType::Th as u32 },
-                    { "char": "ฎ", "type": CharSetType::Th as u32 },
+                    { "char": "ฆี่", "type": CharSetType::Th as u32 },
+                    { "char": "จั", "type": CharSetType::Th as u32 },
                     { "char": "0", "type": CharSetType::Digit as u32 },
                     { "char": "0", "type": CharSetType::Digit as u32 },
                 ],
