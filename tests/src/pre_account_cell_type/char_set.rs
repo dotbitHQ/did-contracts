@@ -113,7 +113,7 @@ fn test_pre_register_ja() {
 
 #[test]
 fn test_pre_register_ko() {
-    let account = "✨꾼얕00.bit";
+    let account = "✨지얕00.bit";
     let mut template = init();
     template.push_config_cell(DataType::ConfigCellCharSetKo, Source::CellDep);
     template.push_config_cell_derived_by_account(account, Source::CellDep);
@@ -127,7 +127,7 @@ fn test_pre_register_ko() {
             "witness": {
                 "account": [
                     { "char": "✨", "type": CharSetType::Emoji as u32 },
-                    { "char": "꾼", "type": CharSetType::Ko as u32 },
+                    { "char": "지", "type": CharSetType::Ko as u32 },
                     { "char": "얕", "type": CharSetType::Ko as u32 },
                     { "char": "0", "type": CharSetType::Digit as u32 },
                     { "char": "0", "type": CharSetType::Digit as u32 },
