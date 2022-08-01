@@ -16,7 +16,7 @@ fn before_each() -> (TemplateGenerator, u64) {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT
+                "account": ACCOUNT_1
             },
             "witness": {
                 "status": (AccountStatus::Normal as u8)
@@ -41,7 +41,7 @@ fn push_common_outputs(template: &mut TemplateGenerator, total_input: u64) {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT
+                "account": ACCOUNT_1
             },
             "witness": {
                 "status": (AccountStatus::Selling as u8)
@@ -56,7 +56,7 @@ fn push_common_outputs(template: &mut TemplateGenerator, total_input: u64) {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE
             }
         }),
@@ -90,7 +90,7 @@ fn test_account_sale_start_with_lock_upgrade() {
                 "manager_lock_args": "0x030000000000000000000000000000000000001111"
             },
             "data": {
-                "account": ACCOUNT
+                "account": ACCOUNT_1
             },
             "witness": {
                 "status": (AccountStatus::Normal as u8)
@@ -108,7 +108,7 @@ fn test_account_sale_start_with_lock_upgrade() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT
+                "account": ACCOUNT_1
             },
             "witness": {
                 "status": (AccountStatus::Selling as u8)
@@ -123,7 +123,7 @@ fn test_account_sale_start_with_lock_upgrade() {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE
             }
         }),
@@ -151,7 +151,7 @@ fn challenge_account_sale_start_with_manager() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT
+                "account": ACCOUNT_1
             },
             "witness": {
                 "status": (AccountStatus::Normal as u8)
@@ -180,7 +180,7 @@ fn challenge_account_sale_start_account_consistent() {
                 "manager_lock_args": "0x051111000000000000000000000000000000001111"
             },
             "data": {
-                "account": ACCOUNT
+                "account": ACCOUNT_1
             },
             "witness": {
                 "status": (AccountStatus::Selling as u8)
@@ -195,7 +195,7 @@ fn challenge_account_sale_start_account_consistent() {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE
             }
         }),
@@ -222,7 +222,7 @@ fn challenge_account_sale_start_account_expired() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 // Simulate the AccountCell has been expired when user trying to sell it.
                 "expired_at": (TIMESTAMP - 1),
             },
@@ -252,7 +252,7 @@ fn challenge_account_sale_start_account_input_status() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
                 // Simulate the AccountCell in inputs has been in selling status.
@@ -281,7 +281,7 @@ fn challenge_account_sale_start_account_output_status() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT
+                "account": ACCOUNT_1
             },
             "witness": {
                 // Simulate the AccountCell has been modified to wrong status accidentally.
@@ -297,7 +297,7 @@ fn challenge_account_sale_start_account_output_status() {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE
             }
         }),
@@ -324,7 +324,7 @@ fn challenge_account_sale_start_sale_capacity() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT
+                "account": ACCOUNT_1
             },
             "witness": {
                 "status": (AccountStatus::Selling as u8)
@@ -341,7 +341,7 @@ fn challenge_account_sale_start_sale_capacity() {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE
             }
         }),
@@ -369,7 +369,7 @@ fn challenge_account_sale_start_sale_account() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT
+                "account": ACCOUNT_1
             },
             "witness": {
                 "status": (AccountStatus::Selling as u8)
@@ -412,7 +412,7 @@ fn challenge_account_sale_start_sale_account_id() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT
+                "account": ACCOUNT_1
             },
             "witness": {
                 "status": (AccountStatus::Selling as u8)
@@ -429,7 +429,7 @@ fn challenge_account_sale_start_sale_account_id() {
             "witness": {
                 // Simulate the AccountSaleCell do not have the same account ID as the AccountCell.
                 "account_id": "0x1111000000000000000000000000000000001111",
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE
             }
         }),
@@ -456,7 +456,7 @@ fn challenge_account_sale_start_sale_price() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT
+                "account": ACCOUNT_1
             },
             "witness": {
                 "status": (AccountStatus::Selling as u8)
@@ -471,7 +471,7 @@ fn challenge_account_sale_start_sale_price() {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 // Simulate the AccountSaleCell's price is less than the minimum requirement.
                 "price": "19_000_000_000"
             }
@@ -499,7 +499,7 @@ fn challenge_account_sale_start_sale_started_at() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT
+                "account": ACCOUNT_1
             },
             "witness": {
                 "status": (AccountStatus::Selling as u8)
@@ -514,7 +514,7 @@ fn challenge_account_sale_start_sale_started_at() {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 // Simulate the AccountSaleCell do not have the same timestamp as which in the TimeCell.
                 "started_at": TIMESTAMP - 1
             }
@@ -542,7 +542,7 @@ fn challenge_account_sale_start_change_owner() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT
+                "account": ACCOUNT_1
             },
             "witness": {
                 "status": (AccountStatus::Selling as u8)
@@ -557,7 +557,7 @@ fn challenge_account_sale_start_change_owner() {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             }
         }),
     );
@@ -584,7 +584,7 @@ fn challenge_account_sale_start_change_capacity() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT
+                "account": ACCOUNT_1
             },
             "witness": {
                 "status": (AccountStatus::Selling as u8)
@@ -599,7 +599,7 @@ fn challenge_account_sale_start_change_capacity() {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             }
         }),
     );
@@ -630,7 +630,7 @@ fn challenge_account_sale_start_with_old_version() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT
+                "account": ACCOUNT_1
             },
             "witness": {
                 "status": (AccountStatus::Selling as u8)
@@ -646,7 +646,7 @@ fn challenge_account_sale_start_with_old_version() {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE
             }
         }),

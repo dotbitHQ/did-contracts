@@ -39,8 +39,7 @@ pub enum Error {
     DataTypeUpgradeRequired,
     NarrowMixerTypeFailed,
     ChangeError,
-    AccountStillCanNotBeRegister = 35,
-    // ⚠️ DO NOT CHANGE
+    AccountStillCanNotBeRegister = 35, // ⚠️ DO NOT CHANGE
     AccountIsPreserved,
     AccountIsUnAvailable,
     AccountIdIsInvalid,
@@ -49,14 +48,12 @@ pub enum Error {
     WitnessReadingError,
     WitnessActionDecodingError,
     WitnessDataParseLengthHeaderFailed,
-    WitnessDataReadDataBodyFailed,
-    // 45
+    WitnessDataReadDataBodyFailed, // 45
     WitnessDataDecodingError,
     WitnessDataHashOrTypeMissMatch,
     WitnessDataIndexMissMatch,
     WitnessEntityDecodingError,
-    WitnessEmpty,
-    // 50
+    WitnessEmpty, // 50
     WitnessArgsInvalid,
     WitnessArgsDecodingError,
     ApplyRegisterNeedWaitLonger = 60,
@@ -68,14 +65,12 @@ pub enum Error {
     PreRegisterApplyHashIsInvalid,
     PreRegisterCreateAtIsInvalid,
     PreRegisterPriceInvalid,
-    PreRegisterFoundUndefinedCharSet,
-    // 75
+    CharSetIsUndefined, // 75
     PreRegisterCKBInsufficient,
     PreRegisterAccountIsTooLong,
     PreRegisterAccountCharSetConflict,
     PreRegisterAccountCharIsInvalid,
-    PreRegisterQuoteIsInvalid,
-    // 80
+    PreRegisterQuoteIsInvalid, // 80
     PreRegisterDiscountIsInvalid,
     PreRegisterOwnerLockArgsIsInvalid,
     PreRegisterIsNotTimeout,
@@ -98,8 +93,7 @@ pub enum Error {
     ProposalConfirmRefundError,
     ProposalSlicesCanNotBeEmpty,
     ProposalSliceNotEndCorrectly,
-    ProposalSliceMustStartWithAccountCell,
-    // 115
+    ProposalSliceMustStartWithAccountCell, // 115
     ProposalSliceMustContainMoreThanOneElement,
     ProposalSliceItemMustBeUniqueAccount,
     ProposalRecycleNeedWaitLonger,
@@ -132,8 +126,7 @@ pub enum Error {
     AccountCellHasExpired,
     AccountCellIsNotExpired,
     AccountCellRecycleCapacityError,
-    AccountCellChangeCapacityError,
-    // -95
+    AccountCellChangeCapacityError, // -95
     AccountCellRecordKeyInvalid,
     AccountCellRecordSizeTooLarge,
     AccountCellRecordNotEmpty,
@@ -173,10 +166,11 @@ pub enum Error {
     SubAccountSigVerifyError,
     SubAccountFieldNotEditable,
     SubAccountEditLockError,
-    SubAccountJoinBetaError,
+    SubAccountJoinBetaError = -40,
     SubAccountProfitError,
     SubAccountCustomScriptError,
     SubAccountNormalCellLockLimit,
+    SubAccountCollectProfitError,
     // -40
     UpgradeForWitnessIsRequired,
     UpgradeDefaultValueOfNewFieldIsError,

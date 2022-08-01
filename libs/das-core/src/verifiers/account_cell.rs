@@ -600,9 +600,9 @@ pub fn verify_account_chars(parser: &WitnessesParser, chars_reader: AccountChars
         das_assert!(
             found,
             Error::PreRegisterAccountCharIsInvalid,
-            "The character {:?}(utf-8) can not be used in account, because it is not contained by CharSet[{}].",
-            // util::hex_string(account_char.bytes().raw_data()),
-            account_char.bytes().raw_data(),
+            "The character {}(utf-8: 0x{}) can not be used in account, because it is not contained by CharSet[{}].",
+            String::from_utf8(account_char_bytes.to_vec()).unwrap(),
+            util::hex_string(account_char.bytes().raw_data()),
             char_set_index
         );
     }

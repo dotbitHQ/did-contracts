@@ -6,7 +6,7 @@ use serde_json::json;
 fn before_each() -> TemplateGenerator {
     let mut template = init("edit_offer");
 
-    let account_without_suffix = &ACCOUNT[0..ACCOUNT.len() - 4];
+    let account_without_suffix = &ACCOUNT_1[0..ACCOUNT_1.len() - 4];
     println!("account_without_suffix = {:?}", account_without_suffix);
     template.push_config_cell_derived_by_account(account_without_suffix, Source::CellDep);
 
@@ -23,7 +23,7 @@ fn test_offer_edit_offer_higher() {
         json!({
             "capacity": "200_100_000_000",
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "200_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -38,7 +38,7 @@ fn test_offer_edit_offer_higher() {
         json!({
             "capacity": "300_099_990_000",
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "300_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -60,7 +60,7 @@ fn test_offer_edit_offer_lower() {
         json!({
             "capacity": "200_100_000_000",
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "200_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -73,7 +73,7 @@ fn test_offer_edit_offer_lower() {
         json!({
             "capacity": "100_099_990_000",
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "100_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -94,7 +94,7 @@ fn challenge_offer_edit_offer_create_cell() {
         json!({
             "capacity": "200_100_000_000",
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "200_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -107,7 +107,7 @@ fn challenge_offer_edit_offer_create_cell() {
         json!({
             "capacity": "100_099_990_000",
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "100_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -139,7 +139,7 @@ fn challenge_offer_edit_offer_delete_cell() {
         json!({
             "capacity": "200_100_000_000",
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "200_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -163,7 +163,7 @@ fn challenge_offer_edit_offer_lower_capacity() {
         json!({
             "capacity": "200_100_000_000",
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "200_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -177,7 +177,7 @@ fn challenge_offer_edit_offer_lower_capacity() {
             // Simulate the capacity and the price is mismatched.
             "capacity": 100_099_990_000u64 - 1,
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "100_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -198,7 +198,7 @@ fn challenge_offer_edit_offer_higher_capacity() {
         json!({
             "capacity": "200_100_000_000",
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "200_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -213,7 +213,7 @@ fn challenge_offer_edit_offer_higher_capacity() {
             // Simulate the capacity and the price is mismatched.
             "capacity": 300_099_990_000u64 - 1,
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "300_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -234,7 +234,7 @@ fn challenge_offer_edit_offer_too_long_message() {
         json!({
             "capacity": "200_100_000_000",
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "200_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -247,7 +247,7 @@ fn challenge_offer_edit_offer_too_long_message() {
         json!({
             "capacity": "200_100_000_000",
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "200_000_000_000",
                 // Simulate the length of the message in bytes has reached the limit.
                 "message": "Take my money.🍀".repeat(400)
@@ -268,7 +268,7 @@ fn challenge_offer_edit_offer_change_account() {
         json!({
             "capacity": "200_100_000_000",
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "200_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -374,7 +374,7 @@ fn challenge_offer_edit_offer_no_change() {
         json!({
             "capacity": "200_100_000_000",
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "200_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -388,7 +388,7 @@ fn challenge_offer_edit_offer_no_change() {
         json!({
             "capacity": "200_100_000_000",
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "200_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -408,7 +408,7 @@ fn challenge_offer_edit_offer_change_capacity() {
         json!({
             "capacity": "200_100_000_000",
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "200_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -423,7 +423,7 @@ fn challenge_offer_edit_offer_change_capacity() {
         json!({
             "capacity": "300_099_990_000",
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "300_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -445,7 +445,7 @@ fn challenge_offer_edit_offer_change_owner() {
         json!({
             "capacity": "200_100_000_000",
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "200_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -460,7 +460,7 @@ fn challenge_offer_edit_offer_change_owner() {
         json!({
             "capacity": "300_099_990_000",
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "300_000_000_000",
                 "message": "Take my money.🍀"
             }

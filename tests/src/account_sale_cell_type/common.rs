@@ -43,7 +43,7 @@ pub fn push_input_account_sale_cell(template: &mut TemplateGenerator, cell_parti
             "code_hash": "{{account-sale-cell-type}}"
         },
         "witness": {
-            "account": ACCOUNT,
+            "account": ACCOUNT_1,
             "price": PRICE,
             "description": "This is some account description.",
             "started_at": TIMESTAMP,
@@ -67,7 +67,7 @@ pub fn push_output_account_sale_cell(template: &mut TemplateGenerator, cell_part
             "code_hash": "{{account-sale-cell-type}}"
         },
         "witness": {
-            "account": ACCOUNT,
+            "account": ACCOUNT_1,
             "price": PRICE,
             "description": "This is some account description.",
             "started_at": TIMESTAMP,
@@ -90,7 +90,7 @@ pub fn push_input_account_sale_cell_v1(template: &mut TemplateGenerator, cell_pa
             "code_hash": "{{account-sale-cell-type}}"
         },
         "witness": {
-            "account": ACCOUNT,
+            "account": ACCOUNT_1,
             "price": PRICE,
             "description": "This is some account description.",
             "started_at": TIMESTAMP,
@@ -113,7 +113,7 @@ pub fn push_output_account_sale_cell_v1(template: &mut TemplateGenerator, cell_p
             "code_hash": "{{account-sale-cell-type}}"
         },
         "witness": {
-            "account": ACCOUNT,
+            "account": ACCOUNT_1,
             "price": PRICE,
             "description": "This is some account description.",
             "started_at": TIMESTAMP,

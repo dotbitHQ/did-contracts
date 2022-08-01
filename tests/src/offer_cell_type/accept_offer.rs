@@ -55,10 +55,10 @@ fn push_common_outputs(template: &mut TemplateGenerator) {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "status": (AccountStatus::Normal as u8)
             }
         }),
@@ -77,7 +77,7 @@ fn before_each() -> TemplateGenerator {
         json!({
             "capacity": "200_100_000_000",
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "200_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -91,10 +91,10 @@ fn before_each() -> TemplateGenerator {
                 "manager_lock_args": "0x050000000000000000000000000000000000005555"
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "status": (AccountStatus::Normal as u8)
             }
         }),
@@ -130,7 +130,7 @@ fn challenge_offer_accept_offer_account_expired() {
         json!({
             "capacity": "200_100_000_000",
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "200_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -144,12 +144,12 @@ fn challenge_offer_accept_offer_account_expired() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 // Simulate the AccountCell has been expired.
                 "expired_at": TIMESTAMP - 1,
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "status": (AccountStatus::Normal as u8)
             }
         }),
@@ -171,7 +171,7 @@ fn challenge_offer_accept_offer_account_not_normal_status() {
         json!({
             "capacity": "200_100_000_000",
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "200_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -185,10 +185,10 @@ fn challenge_offer_accept_offer_account_not_normal_status() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT
+                "account": ACCOUNT_1
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 // Simulate the AccountCell is not in normal status.
                 "status": (AccountStatus::Selling as u8)
             }
@@ -211,7 +211,7 @@ fn challenge_offer_accept_offer_account_not_exists_in_inputs() {
         json!({
             "capacity": "200_100_000_000",
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "200_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -235,7 +235,7 @@ fn challenge_offer_accept_offer_accept_multiple_offer_cells() {
         json!({
             "capacity": "200_100_000_000",
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "200_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -247,7 +247,7 @@ fn challenge_offer_accept_offer_accept_multiple_offer_cells() {
         json!({
             "capacity": "200_100_000_000",
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "200_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -261,10 +261,10 @@ fn challenge_offer_accept_offer_accept_multiple_offer_cells() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT
+                "account": ACCOUNT_1
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 // Simulate the AccountCell is not in normal status.
                 "status": (AccountStatus::Selling as u8)
             }
@@ -292,10 +292,10 @@ fn challenge_offer_accept_offer_account_capacity_mismatch() {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "status": (AccountStatus::Normal as u8)
             }
         }),
@@ -321,11 +321,11 @@ fn challenge_offer_accept_offer_account_data_mismatch() {
             },
             // Simulate the AccountCell.data is changed.
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "expired_at": TIMESTAMP + 1000,
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "status": (AccountStatus::Normal as u8)
             }
         }),
@@ -350,7 +350,7 @@ fn challenge_offer_accept_offer_account_witness_mismatch() {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             // Simulate the AccountCell.witness is changed.
             "witness": {
@@ -391,7 +391,7 @@ fn challenge_offer_accept_offer_account_create() {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
                 "status": (AccountStatus::Normal as u8)
@@ -447,10 +447,10 @@ fn challenge_offer_accept_offer_account_mismatch() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT
+                "account": ACCOUNT_1
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "status": (AccountStatus::Normal as u8)
             }
         }),
@@ -475,7 +475,7 @@ fn challenge_offer_accept_offer_no_income_cell() {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
                 "status": (AccountStatus::Normal as u8)
@@ -501,7 +501,7 @@ fn challenge_offer_accept_offer_income_cell_lock_error() {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
                 "status": (AccountStatus::Normal as u8)
@@ -571,7 +571,7 @@ fn challenge_offer_accept_offer_sellers_profit_wrong() {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
                 "status": (AccountStatus::Normal as u8)
@@ -598,7 +598,7 @@ fn challenge_offer_accept_offer_others_profit_wrong() {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
                 "status": (AccountStatus::Normal as u8)

@@ -32,7 +32,7 @@ fn push_output_simple_pre_account_cell(template: &mut TemplateGenerator) {
     push_output_pre_account_cell(
         template,
         json!({
-            "capacity": util::gen_register_fee(8, true),
+            "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, true),
             "witness": {
                 "account": ACCOUNT_SP_1,
                 "created_at": TIMESTAMP,
@@ -120,7 +120,7 @@ fn challenge_pre_register_apply_hash_is_invalid() {
         json!({
             "data": {
                 // Simulate the ApplyRegisterCell has different account with the PreAccountCell.
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "height": HEIGHT - 1,
                 "timestamp": TIMESTAMP - 60,
             }
@@ -139,7 +139,7 @@ fn challenge_pre_register_invalid_account_id() {
     push_output_pre_account_cell(
         &mut template,
         json!({
-            "capacity": util::gen_register_fee(8, false),
+            "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, false),
             "data": {
                 // Simulate providing an invalid account ID with is not match the account in witness.
                 "id": "0x0000000000000000000000000000000000000000"
@@ -166,7 +166,7 @@ fn challenge_pre_register_created_at_mismatch() {
     push_output_pre_account_cell(
         &mut template,
         json!({
-            "capacity": util::gen_register_fee(8, false),
+            "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, false),
             "witness": {
                 "account": ACCOUNT_SP_1,
                 // Simulate the created_at field is not match with the TimeCell.
@@ -190,7 +190,7 @@ fn challenge_pre_register_invalid_owner_lock_args() {
     push_output_pre_account_cell(
         &mut template,
         json!({
-            "capacity": util::gen_register_fee(8, false),
+            "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, false),
             "witness": {
                 "account": ACCOUNT_SP_1,
                 "created_at": TIMESTAMP,
@@ -215,7 +215,7 @@ fn challenge_pre_register_quote_mismatch() {
     push_output_pre_account_cell(
         &mut template,
         json!({
-            "capacity": util::gen_register_fee(8, false),
+            "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, false),
             "witness": {
                 "account": ACCOUNT_SP_1,
                 "created_at": TIMESTAMP,
@@ -257,7 +257,7 @@ fn challenge_pre_register_exceed_account_max_length() {
     push_output_pre_account_cell(
         &mut template,
         json!({
-            "capacity": util::gen_register_fee(43, false),
+            "capacity": util::gen_register_fee_v2(account, 43, false),
             "witness": {
                 "account": account,
                 "created_at": TIMESTAMP,
@@ -280,7 +280,7 @@ fn challenge_pre_register_discount_not_zero_when_no_inviter() {
     push_output_pre_account_cell(
         &mut template,
         json!({
-            "capacity": util::gen_register_fee(8, false),
+            "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, false),
             "witness": {
                 "account": ACCOUNT_SP_1,
                 "created_at": TIMESTAMP,
@@ -305,7 +305,7 @@ fn challenge_pre_register_discount_incorrect() {
     push_output_pre_account_cell(
         &mut template,
         json!({
-            "capacity": util::gen_register_fee(8, false),
+            "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, false),
             "witness": {
                 "account": ACCOUNT_SP_1,
                 "created_at": TIMESTAMP,
@@ -339,7 +339,7 @@ fn challenge_pre_register_incorrect_price() {
     push_output_pre_account_cell(
         &mut template,
         json!({
-            "capacity": util::gen_register_fee(8, false),
+            "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, false),
             "witness": {
                 "account": ACCOUNT_SP_1,
                 "created_at": TIMESTAMP,
@@ -364,7 +364,7 @@ fn challenge_pre_register_incorrect_capacity() {
         &mut template,
         json!({
             // Simulate providing capacity less than one year.
-            "capacity": util::gen_register_fee(8, false) - 1,
+            "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, false) - 1,
             "witness": {
                 "account": ACCOUNT_SP_1,
                 "created_at": TIMESTAMP,

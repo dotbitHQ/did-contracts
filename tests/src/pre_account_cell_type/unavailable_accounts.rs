@@ -24,7 +24,7 @@ fn challenge_pre_register_unavailable_accounts() {
     push_output_pre_account_cell(
         &mut template,
         json!({
-            "capacity": util::gen_register_fee(9, false),
+            "capacity": util::gen_register_fee_v2(account, 9, false),
             "witness": {
                 "account": account,
                 "created_at": TIMESTAMP,
@@ -61,7 +61,7 @@ fn test_pre_register_unavailable_accounts_below_all() {
     push_output_pre_account_cell(
         &mut template,
         json!({
-            "capacity": util::gen_register_fee(12, false),
+            "capacity": util::gen_register_fee_v2(account, 12, false),
             "witness": {
                 "account": account,
                 "created_at": TIMESTAMP,

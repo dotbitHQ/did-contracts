@@ -164,10 +164,11 @@ pub enum Error {
     SubAccountSigVerifyError,
     SubAccountFieldNotEditable,
     SubAccountEditLockError,
-    SubAccountJoinBetaError,
+    SubAccountJoinBetaError = -40,
     SubAccountProfitError,
     SubAccountCustomScriptError,
     SubAccountNormalCellLockLimit,
+    SubAccountCollectProfitError,
     // -40
     UpgradeForWitnessIsRequired,
     UpgradeDefaultValueOfNewFieldIsError,

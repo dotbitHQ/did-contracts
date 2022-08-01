@@ -17,7 +17,7 @@ pub fn push_input_apply_register_cell(template: &mut TemplateGenerator, cell_par
             "code_hash": "{{apply-register-cell-type}}"
         },
         "data": {
-            "account": ACCOUNT,
+            "account": ACCOUNT_1,
             "height": Value::Null,
             "timestamp": Value::Null,
         }
@@ -37,7 +37,7 @@ pub fn push_output_apply_register_cell(template: &mut TemplateGenerator, cell_pa
             "code_hash": "{{apply-register-cell-type}}"
         },
         "data": {
-            "account": ACCOUNT,
+            "account": ACCOUNT_1,
             "height": Value::Null,
             "timestamp": Value::Null,
         }
@@ -57,7 +57,7 @@ pub fn push_dep_pre_account_cell(template: &mut TemplateGenerator, cell_partial:
             "code_hash": "{{pre-account-cell-type}}"
         },
         "witness": {
-            "account": ACCOUNT,
+            "account": ACCOUNT_1,
             "refund_lock": {
                 "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
                 "args": "0x0000000000000000000000000000000000001111"
@@ -91,7 +91,7 @@ pub fn push_input_pre_account_cell(template: &mut TemplateGenerator, cell_partia
             "code_hash": "{{pre-account-cell-type}}"
         },
         "witness": {
-            "account": ACCOUNT,
+            "account": ACCOUNT_1,
             "refund_lock": {
                 "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
                 "args": OWNER_WITHOUT_TYPE
@@ -125,7 +125,7 @@ pub fn push_output_pre_account_cell(template: &mut TemplateGenerator, cell_parti
             "code_hash": "{{pre-account-cell-type}}"
         },
         "witness": {
-            "account": ACCOUNT,
+            "account": ACCOUNT_1,
             "refund_lock": {
                 "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
                 "args": OWNER_WITHOUT_TYPE
@@ -160,12 +160,12 @@ pub fn push_dep_account_cell(template: &mut TemplateGenerator, cell_partial: Val
             "code_hash": "{{account-cell-type}}"
         },
         "data": {
-            "account": ACCOUNT,
+            "account": ACCOUNT_1,
             "next": "yyyyy.bit",
             "expired_at": u64::MAX,
         },
         "witness": {
-            "account": ACCOUNT,
+            "account": ACCOUNT_1,
             "registered_at": 0,
             "last_transfer_account_at": 0,
             "last_edit_manager_at": 0,
@@ -189,12 +189,12 @@ pub fn push_input_account_cell(template: &mut TemplateGenerator, cell_partial: V
             "code_hash": "{{account-cell-type}}"
         },
         "data": {
-            "account": ACCOUNT,
+            "account": ACCOUNT_1,
             "next": "yyyyy.bit",
             "expired_at": u64::MAX,
         },
         "witness": {
-            "account": ACCOUNT,
+            "account": ACCOUNT_1,
             "registered_at": 0,
             "last_transfer_account_at": 0,
             "last_edit_manager_at": 0,
@@ -221,12 +221,12 @@ pub fn push_output_account_cell(template: &mut TemplateGenerator, cell_partial: 
             "code_hash": "{{account-cell-type}}"
         },
         "data": {
-            "account": ACCOUNT,
+            "account": ACCOUNT_1,
             "next": "yyyyy.bit",
             "expired_at": u64::MAX,
         },
         "witness": {
-            "account": ACCOUNT,
+            "account": ACCOUNT_1,
             "registered_at": 0,
             "last_transfer_account_at": 0,
             "last_edit_manager_at": 0,
@@ -252,12 +252,12 @@ pub fn push_input_account_cell_v2(template: &mut TemplateGenerator, cell_partial
             "code_hash": "{{account-cell-type}}"
         },
         "data": {
-            "account": ACCOUNT,
+            "account": ACCOUNT_1,
             "next": "yyyyy.bit",
             "expired_at": u64::MAX,
         },
         "witness": {
-            "account": ACCOUNT,
+            "account": ACCOUNT_1,
             "registered_at": 0,
             "status": (AccountStatus::Normal as u8)
         }
@@ -285,7 +285,7 @@ pub fn push_input_sub_account_cell(template: &mut TemplateGenerator, cell_partia
         },
         "type": {
             "code_hash": "{{sub-account-cell-type}}",
-            "args": ACCOUNT
+            "args": ACCOUNT_1
         },
         "data": {
             "root": "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -315,7 +315,7 @@ pub fn push_output_sub_account_cell(template: &mut TemplateGenerator, cell_parti
         },
         "type": {
             "code_hash": "{{sub-account-cell-type}}",
-            "args": ACCOUNT
+            "args": ACCOUNT_1
         },
         "data": {
             "root": "0x0000000000000000000000000000000000000000000000000000000000000000",

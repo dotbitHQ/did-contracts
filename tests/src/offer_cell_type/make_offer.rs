@@ -10,7 +10,7 @@ pub const MAKE_OFFER_COST: u64 = PRICE + OFFER_PREPARED_FEE_CAPACITY + SECONDARY
 fn before_each() -> (TemplateGenerator, u64) {
     let mut template = init("make_offer");
 
-    let account_without_suffix = &ACCOUNT[0..ACCOUNT.len() - 4];
+    let account_without_suffix = &ACCOUNT_1[0..ACCOUNT_1.len() - 4];
     // println!("account_without_suffix = {:?}", account_without_suffix);
     template.push_config_cell_derived_by_account(account_without_suffix, Source::CellDep);
 
@@ -32,7 +32,7 @@ fn test_offer_make_offer() {
         json!({
             "capacity": PRICE + OFFER_PREPARED_FEE_CAPACITY,
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE,
                 "message": "Take my money.🍀"
             }
@@ -53,7 +53,7 @@ fn challenge_offer_make_offer_change_capacity() {
         json!({
             "capacity": 200_100_000_000u64,
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "200_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -74,7 +74,7 @@ fn challenge_offer_make_offer_change_owner() {
         json!({
             "capacity": 200_100_000_000u64,
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "200_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -99,7 +99,7 @@ fn challenge_offer_make_offer_create_multiple() {
         json!({
             "capacity": PRICE + OFFER_PREPARED_FEE_CAPACITY,
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE,
                 "message": "Take my money.🍀"
             }
@@ -133,7 +133,7 @@ fn challenge_offer_make_offer_lower_capacity() {
             // Simulate the capacity and the price is mismatched.
             "capacity": 200_100_000_000u64 - 1,
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "200_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -154,7 +154,7 @@ fn challenge_offer_make_offer_higher_capacity() {
             // Simulate the capacity and the price is mismatched.
             "capacity": 200_100_000_000u64 + 1,
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "200_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -174,7 +174,7 @@ fn challenge_offer_make_offer_too_long_message() {
         json!({
             "capacity": 200_100_000_000u64,
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "200_000_000_000",
                 // Simulate the length of the message in bytes has reached the limit.
                 "message": "Take my money.🍀".repeat(400)
