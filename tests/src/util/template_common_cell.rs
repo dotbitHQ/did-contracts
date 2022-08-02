@@ -1,7 +1,7 @@
 use super::{
     accounts::*,
     constants::*,
-    template_generator::{gen_das_lock_args, TemplateGenerator},
+    template_generator::*,
     util,
 };
 use das_types_std::constants::AccountStatus;
@@ -57,7 +57,7 @@ pub fn push_output_pre_account_cell_v1(template: &mut TemplateGenerator, cell_pa
             "code_hash": "{{pre-account-cell-type}}"
         },
         "witness": {
-            "account": ACCOUNT,
+            "account": ACCOUNT_1,
             "refund_lock": {
                 "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
                 "args": OWNER_WITHOUT_TYPE
@@ -141,7 +141,8 @@ pub fn push_input_pre_account_cell(template: &mut TemplateGenerator, cell_partia
             },
             "quote": CKB_QUOTE,
             "invited_discount": INVITED_DISCOUNT,
-            "created_at": Value::Null
+            "created_at": Value::Null,
+            "initial_records": []
         }
     });
     util::merge_json(&mut cell, cell_partial);

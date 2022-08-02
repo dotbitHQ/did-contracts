@@ -64,7 +64,7 @@ fn test_pre_register_simple_v1() {
     push_output_pre_account_cell_v1(
         &mut template,
         json!({
-            "capacity": util::gen_register_fee(8, true),
+            "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, true),
             "witness": {
                 "account": ACCOUNT_SP_1,
                 "created_at": TIMESTAMP,

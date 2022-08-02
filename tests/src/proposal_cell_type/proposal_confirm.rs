@@ -1,6 +1,6 @@
 use super::common::*;
 use crate::util::{
-    self, accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::TemplateGenerator,
+    self, accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*,
     template_parser::*,
 };
 use das_types_std::constants::*;
@@ -80,10 +80,18 @@ fn push_input_slice_0(template: &mut TemplateGenerator) {
             "capacity": util::gen_register_fee(8, true),
             "witness": {
                 "account": "das00005.bit",
-                "owner_lock_args": "0x05ffff00000000000000000000000000000000000505ffff000000000000000000000000000000000005",
+                "owner_lock_args": gen_das_lock_args("0x05ffff000000000000000000000000000000000005", None),
                 "inviter_lock": lock_scripts.inviter_1,
                 "channel_lock": lock_scripts.channel_1,
-                "created_at": TIMESTAMP - HOUR_SEC
+                "created_at": TIMESTAMP - HOUR_SEC,
+                "initial_records": [
+                    {
+                        "type": "address",
+                        "key": "60",
+                        "label": "Personal",
+                        "value": "0xffff000000000000000000000000000000000005",
+                    }
+                ]
             }
         }),
     );
@@ -116,10 +124,18 @@ fn push_input_slice_1(template: &mut TemplateGenerator) {
             "capacity": util::gen_register_fee(8, true),
             "witness": {
                 "account": "das00018.bit",
-                "owner_lock_args": "0x05ffff00000000000000000000000000000000001805ffff000000000000000000000000000000000018",
+                "owner_lock_args": gen_das_lock_args("0x05ffff000000000000000000000000000000000018", None),
                 "inviter_lock": lock_scripts.inviter_2,
                 "channel_lock": lock_scripts.channel_2,
-                "created_at": TIMESTAMP - HOUR_SEC
+                "created_at": TIMESTAMP - HOUR_SEC,
+                "initial_records": [
+                    {
+                        "type": "address",
+                        "key": "60",
+                        "label": "Personal",
+                        "value": "0xffff000000000000000000000000000000000018",
+                    }
+                ]
             }
         }),
     );
@@ -129,10 +145,18 @@ fn push_input_slice_1(template: &mut TemplateGenerator) {
             "capacity": util::gen_register_fee(8, true),
             "witness": {
                 "account": "das00008.bit",
-                "owner_lock_args": "0x05ffff00000000000000000000000000000000000805ffff000000000000000000000000000000000008",
+                "owner_lock_args": gen_das_lock_args("0x05ffff000000000000000000000000000000000008", None),
                 "inviter_lock": lock_scripts.inviter_2,
                 "channel_lock": lock_scripts.channel_2,
-                "created_at": TIMESTAMP - HOUR_SEC
+                "created_at": TIMESTAMP - HOUR_SEC,
+                "initial_records": [
+                    {
+                        "type": "address",
+                        "key": "60",
+                        "label": "Personal",
+                        "value": "0xffff000000000000000000000000000000000008",
+                    }
+                ]
             }
         }),
     );
@@ -173,7 +197,15 @@ fn push_output_slice_0(template: &mut TemplateGenerator) {
             "witness": {
                 "account": "das00005.bit",
                 "status": (AccountStatus::Normal as u8),
-                "registered_at": TIMESTAMP
+                "registered_at": TIMESTAMP,
+                "records": [
+                    {
+                        "type": "address",
+                        "key": "60",
+                        "label": "Personal",
+                        "value": "0xffff000000000000000000000000000000000005",
+                    }
+                ]
             }
         }),
     );
@@ -214,7 +246,15 @@ fn push_output_slice_1(template: &mut TemplateGenerator) {
             "witness": {
                 "account": "das00018.bit",
                 "status": (AccountStatus::Normal as u8),
-                "registered_at": TIMESTAMP
+                "registered_at": TIMESTAMP,
+                "records": [
+                    {
+                        "type": "address",
+                        "key": "60",
+                        "label": "Personal",
+                        "value": "0xffff000000000000000000000000000000000018",
+                    }
+                ]
             }
         }),
     );
@@ -234,7 +274,15 @@ fn push_output_slice_1(template: &mut TemplateGenerator) {
             "witness": {
                 "account": "das00008.bit",
                 "status": (AccountStatus::Normal as u8),
-                "registered_at": TIMESTAMP
+                "registered_at": TIMESTAMP,
+                "records": [
+                    {
+                        "type": "address",
+                        "key": "60",
+                        "label": "Personal",
+                        "value": "0xffff000000000000000000000000000000000008",
+                    }
+                ]
             }
         }),
     );
@@ -467,7 +515,15 @@ fn challenge_proposal_confirm_account_cell_modified_1() {
             "witness": {
                 "account": "das00005.bit",
                 "status": (AccountStatus::Normal as u8),
-                "registered_at": TIMESTAMP
+                "registered_at": TIMESTAMP,
+                "records": [
+                    {
+                        "type": "address",
+                        "key": "60",
+                        "label": "Personal",
+                        "value": "0xffff000000000000000000000000000000000005",
+                    }
+                ]
             }
         }),
     );
@@ -519,7 +575,15 @@ fn challenge_proposal_confirm_account_cell_modified_2() {
             "witness": {
                 "account": "das00005.bit",
                 "status": (AccountStatus::Normal as u8),
-                "registered_at": TIMESTAMP
+                "registered_at": TIMESTAMP,
+                "records": [
+                    {
+                        "type": "address",
+                        "key": "60",
+                        "label": "Personal",
+                        "value": "0xffff000000000000000000000000000000000005",
+                    }
+                ]
             }
         }),
     );
@@ -742,7 +806,15 @@ fn challenge_proposal_confirm_new_account_cell_capacity() {
             "witness": {
                 "account": "das00005.bit",
                 "status": (AccountStatus::Normal as u8),
-                "registered_at": TIMESTAMP
+                "registered_at": TIMESTAMP,
+                "records": [
+                    {
+                        "type": "address",
+                        "key": "60",
+                        "label": "Personal",
+                        "value": "0xffff000000000000000000000000000000000005",
+                    }
+                ]
             }
         }),
     );

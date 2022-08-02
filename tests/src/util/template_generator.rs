@@ -1545,7 +1545,7 @@ impl TemplateGenerator {
                         blake2b_256(entity.as_slice()).to_vec(),
                     );
                     let account_id =
-                        parse_json_hex_with_default("cell.data.id", &data["id"], util::account_to_id(account));
+                        parse_json_hex_with_default("cell.data.id", &data["id"], util::account_to_id(&account));
                     let outputs_data = [hash, account_id].concat();
 
                     (

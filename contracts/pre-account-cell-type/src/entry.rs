@@ -96,7 +96,6 @@ pub fn main() -> Result<(), Error> {
             let pre_account_cell_witness =
                 util::parse_pre_account_cell_witness(&parser, output_cells[0], Source::Output)?;
             let pre_account_cell_witness_reader = pre_account_cell_witness.as_reader();
-            use das_types::prettier::Prettier;
 
             verify_apply_hash(
                 &pre_account_cell_witness_reader,
