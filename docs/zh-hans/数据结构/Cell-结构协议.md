@@ -1100,7 +1100,7 @@ enum DataType {
     ConfigCellCharSetJp,              // args: 0xa5860100
     ConfigCellCharSetKo,              // args: 0xa6860100
     ConfigCellCharSetRu,              // args: 0xa7860100
-    ConfigCellCharSetTur,             // args: 0xa8860100
+    ConfigCellCharSetTr,               // args: 0xa8860100
     ConfigCellCharSetTh,              // args: 0xa9860100
     ConfigCellCharSetVi,              // args: 0xaa860100
 }
