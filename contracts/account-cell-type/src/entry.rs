@@ -500,8 +500,15 @@ pub fn main() -> Result<(), Error> {
                 let das_wallet_lock = das_wallet_lock();
                 let das_wallet_cells =
                     util::find_cells_by_script(ScriptType::Lock, das_wallet_lock.as_reader(), Source::Output)?;
+                let expected_das_wallet_cells_count = if refund_from_sub_account_cell_to_das >= CELL_BASIC_CAPACITY {
+                    // If the profit of DAS is more than a cell's basic capacity, there should be a single cell carrying the profit.
+                    2
+                } else {
+                    // Else, the keeper could deal with the refund casually.
+                    1
+                };
 
-                verifiers::common::verify_cell_number("DASWallet", &[], 0, &das_wallet_cells, 2)?;
+                verifiers::common::verify_cell_number("DASWallet", &[], 0, &das_wallet_cells, expected_das_wallet_cells_count)?;
 
                 for i in das_wallet_cells.iter() {
                     let type_hash = high_level::load_cell_type_hash(*i, Source::Output)?;
@@ -513,6 +520,7 @@ pub fn main() -> Result<(), Error> {
                     );
                 }
 
+                // The refund to owner should be always more than a cell's basic capacity because it contains the capacity of the SubAccountCell.
                 let capacity = high_level::load_cell_capacity(das_wallet_cells[0], Source::Output)?;
                 das_assert!(
                     capacity == expired_account_capacity + refund_from_sub_account_cell_to_owner - available_fee,
@@ -523,15 +531,17 @@ pub fn main() -> Result<(), Error> {
                     capacity
                 );
 
-                let capacity = high_level::load_cell_capacity(das_wallet_cells[1], Source::Output)?;
-                das_assert!(
-                    capacity == refund_from_sub_account_cell_to_das,
-                    Error::ChangeError,
-                    "outputs[{}] The ChangeCell to DAS should be {} shannon, but {} found.",
-                    das_wallet_cells[1],
-                    refund_from_sub_account_cell_to_das,
-                    capacity
-                );
+                if expected_das_wallet_cells_count == 2 {
+                    let capacity = high_level::load_cell_capacity(das_wallet_cells[1], Source::Output)?;
+                    das_assert!(
+                        capacity == refund_from_sub_account_cell_to_das,
+                        Error::ChangeError,
+                        "outputs[{}] The ChangeCell to DAS should be {} shannon, but {} found.",
+                        das_wallet_cells[1],
+                        refund_from_sub_account_cell_to_das,
+                        capacity
+                    );
+                }
             }
         }
         b"start_account_sale" => {
