@@ -26,6 +26,7 @@ pub fn init() -> TemplateGenerator {
     template.push_config_cell(DataType::ConfigCellPrice, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellRelease, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellUnAvailableAccount, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellRecordKeyNamespace, Source::CellDep);
 
     template
 }
