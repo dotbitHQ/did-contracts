@@ -84,15 +84,16 @@ pub enum Error {
     ProposalWitnessCanNotBeModified,
     ProposalConfirmNewAccountCellDataError = 100,
     ProposalConfirmNewAccountCellCapacityError,
-    ProposalConfirmNewAccountWitnessError, // 105
+    ProposalConfirmNewAccountWitnessError,
     ProposalConfirmPreAccountCellExpired,
     ProposalConfirmNeedWaitLonger,
+    ProposalConfirmInitialRecordsMismatch,
     ProposalConfirmAccountLockArgsIsInvalid = 110,
     ProposalConfirmRefundError,
     ProposalSlicesCanNotBeEmpty,
     ProposalSliceNotEndCorrectly,
-    ProposalSliceMustStartWithAccountCell, // 115
-    ProposalSliceMustContainMoreThanOneElement,
+    ProposalSliceMustStartWithAccountCell,
+    ProposalSliceMustContainMoreThanOneElement, // 115
     ProposalSliceItemMustBeUniqueAccount,
     ProposalRecycleNeedWaitLonger,
     ProposalRecycleRefundAmountError,

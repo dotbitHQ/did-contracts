@@ -808,7 +808,7 @@ dependencies = [
 
 [[package]]
 name = "das-types"
-version = "1.9.2"
+version = "1.10.0"
 dependencies = [
  "ckb-std",
  "molecule",
@@ -816,7 +816,7 @@ dependencies = [
 
 [[package]]
 name = "das-types-std"
-version = "1.9.2"
+version = "1.10.0"
 dependencies = [
  "ckb-types",
  "molecule",

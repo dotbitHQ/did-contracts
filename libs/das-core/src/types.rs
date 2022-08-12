@@ -18,7 +18,7 @@ macro_rules! get_or_try_init {
             .get_or_try_init(|| {
                 let (i, raw) = Configs::parse_witness(&$self.config_witnesses, $data_type)?;
                 let entity = <$entity_type>::from_slice(&raw).map_err(|e| {
-                    warn!("witnesses[{}] Decoding {:?} failed: {}", i, $data_type, e);
+                    warn!("witnesses[{:>2}] Decoding {:?} failed: {}", i, $data_type, e);
                     Error::ConfigCellWitnessDecodingError
                 })?;
 
@@ -102,7 +102,7 @@ impl Configs {
             Error::ConfigIsPartialMissing
         })?;
 
-        debug!("Parsing witnesses[{}] as {:?} ...", i, data_type);
+        debug!("witnesses[{:>2}] Parsing it as {:?} ...", i, data_type);
 
         let raw = util::load_das_witnesses(i)?;
         let entity = raw
@@ -113,7 +113,7 @@ impl Configs {
         assert!(
             hash == expected_hash,
             Error::ConfigCellWitnessIsCorrupted,
-            "witnesses[{}] The witness is corrupted!(expected_hash: 0x{} current_hash: 0x{})",
+            "witnesses[{:>2}] The witness is corrupted!(expected_hash: 0x{} current_hash: 0x{})",
             i,
             util::hex_string(&expected_hash),
             util::hex_string(&hash)
@@ -183,7 +183,7 @@ impl Configs {
             let data = match raw.get(WITNESS_LENGTH_BYTES..) {
                 Some(data) => data.to_vec(),
                 None => {
-                    warn!("witnesses[{}] The data of {:?} is empty.", i, data_type);
+                    warn!("witnesses[{:>2}] The data of {:?} is empty.", i, data_type);
                     return Err(Error::ConfigIsPartialMissing);
                 }
             };
@@ -198,7 +198,7 @@ impl Configs {
             let data = match raw.get(WITNESS_LENGTH_BYTES..) {
                 Some(data) => data.to_vec(),
                 None => {
-                    warn!("witnesses[{}] The data of {:?} is empty.", i, data_type);
+                    warn!("witnesses[{:>2}] The data of {:?} is empty.", i, data_type);
 
                     return Err(Error::ConfigIsPartialMissing);
                 }
@@ -215,7 +215,7 @@ impl Configs {
             let data = match raw.get(WITNESS_LENGTH_BYTES..) {
                 Some(data) => data.to_vec(),
                 None => {
-                    warn!("witnesses[{}] The data of {:?} is empty.", i, data_type);
+                    warn!("witnesses[{:>2}] The data of {:?} is empty.", i, data_type);
                     return Err(Error::ConfigIsPartialMissing);
                 }
             };
@@ -231,7 +231,7 @@ impl Configs {
             let data = match raw.get(WITNESS_LENGTH_BYTES..) {
                 Some(data) => data.to_vec(),
                 None => {
-                    warn!("witnesses[{}] The data of {:?} is empty.", i, data_type);
+                    warn!("witnesses[{:>2}] The data of {:?} is empty.", i, data_type);
                     return Err(Error::ConfigIsPartialMissing);
                 }
             };
@@ -259,7 +259,7 @@ impl Configs {
                         u32::from_le_bytes(tmp) as usize
                     }
                     None => {
-                        warn!("witnesses[{}] The data of {:?} is empty.", i, data_type);
+                        warn!("witnesses[{:>2}] The data of {:?} is empty.", i, data_type);
                         return Err(Error::ConfigIsPartialMissing);
                     }
                 };
@@ -267,7 +267,7 @@ impl Configs {
                 assert!(
                     raw.len() == length,
                     Error::ConfigCellWitnessDecodingError,
-                    "witnesses[{}] The {:?} should have length of {} bytes, but {} bytes found.",
+                    "witnesses[{:>2}] The {:?} should have length of {} bytes, but {} bytes found.",
                     i,
                     data_type,
                     length,

@@ -78,6 +78,45 @@ fn challenge_pre_register_zh() {
 }
 
 #[test]
+fn challenge_pre_register_multiple_language() {
+    // Simulate registering an account with invalid character.
+    let account = "✨лд지얕001.bit";
+    let mut template = init();
+    template.push_config_cell(DataType::ConfigCellCharSetRu, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellCharSetKo, Source::CellDep);
+    template.push_config_cell_derived_by_account(account, Source::CellDep);
+
+    push_input_simple_apply_register_cell(&mut template, account);
+
+    push_output_pre_account_cell(
+        &mut template,
+        json!({
+            "capacity": util::gen_register_fee_v2(account, 8, false),
+            "witness": {
+                "account": [
+                    { "char": "✨", "type": CharSetType::Emoji as u32 },
+                    { "char": "л", "type": CharSetType::Ru as u32 },
+                    { "char": "д", "type": CharSetType::Ru as u32 },
+                    { "char": "지", "type": CharSetType::Ko as u32 },
+                    { "char": "얕", "type": CharSetType::Ko as u32 },
+                    { "char": "0", "type": CharSetType::Digit as u32 },
+                    { "char": "0", "type": CharSetType::Digit as u32 },
+                    { "char": "1", "type": CharSetType::Digit as u32 },
+                ],
+                "created_at": TIMESTAMP,
+                "price": {
+                    "length": 8,
+                    "new": ACCOUNT_PRICE_5_CHAR,
+                    "renew": ACCOUNT_PRICE_5_CHAR
+                }
+            }
+        }),
+    );
+
+    challenge_tx(template.as_json(), Error::PreRegisterAccountCharSetConflict)
+}
+
+#[test]
 fn test_pre_register_ja() {
     let account = "✨のロ00.bit";
     let mut template = init();

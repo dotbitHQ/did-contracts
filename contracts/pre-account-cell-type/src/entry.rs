@@ -1,10 +1,18 @@
-use alloc::{collections::BTreeMap, string::String};
+use alloc::{
+    collections::BTreeMap,
+    string::String,
+    boxed::Box
+};
 use ckb_std::{ckb_constants::Source, high_level};
 use core::{convert::TryInto, result::Result};
 use das_core::{
     assert, constants::*, data_parser, debug, error::Error, util, verifiers, witness_parser::WitnessesParser,
 };
-use das_types::{packed::*, prelude::*};
+use das_types::{
+    packed::*,
+    prelude::*,
+    mixer::PreAccountCellDataReaderMixer
+};
 
 pub fn main() -> Result<(), Error> {
     debug!("====== Running pre-account-cell-type ======");
@@ -89,39 +97,30 @@ pub fn main() -> Result<(), Error> {
                 util::parse_pre_account_cell_witness(&parser, output_cells[0], Source::Output)?;
             let pre_account_cell_witness_reader = pre_account_cell_witness.as_reader();
 
-            #[cfg(debug_assertions)]
-            das_core::inspect::pre_account_cell(
-                Source::Output,
-                output_cells[0],
-                &data,
-                None,
-                Some(pre_account_cell_witness_reader),
-            );
-
             verify_apply_hash(
-                pre_account_cell_witness_reader,
+                &pre_account_cell_witness_reader,
                 apply_register_lock.as_reader().args().raw_data().to_vec(),
                 apply_register_hash,
             )?;
 
             debug!("Verify various fields of PreAccountCell ...");
 
-            verify_owner_lock_args(pre_account_cell_witness_reader)?;
-            verify_quote(pre_account_cell_witness_reader)?;
+            verify_owner_lock_args(&pre_account_cell_witness_reader)?;
+            verify_quote(&pre_account_cell_witness_reader)?;
             let config_price = parser.configs.price()?;
             let config_account = parser.configs.account()?;
-            verify_invited_discount(config_price, pre_account_cell_witness_reader)?;
-            verify_price_and_capacity(config_account, config_price, pre_account_cell_witness_reader, capacity)?;
-            verify_account_id(pre_account_cell_witness_reader, account_id)?;
+            verify_invited_discount(config_price, &pre_account_cell_witness_reader)?;
+            verify_price_and_capacity(config_account, config_price, &pre_account_cell_witness_reader, capacity)?;
+            verify_account_id(&pre_account_cell_witness_reader, account_id)?;
             let timestamp = util::load_oracle_data(OracleCellType::Time)?;
-            verify_created_at(timestamp, pre_account_cell_witness_reader)?;
+            verify_created_at(timestamp, &pre_account_cell_witness_reader)?;
 
             debug!("Verify if account is available for registration for now ...");
 
             let cells_with_super_lock =
                 util::find_cells_by_script(ScriptType::Lock, super_lock().as_reader(), Source::Input)?;
 
-            match verify_account_length_and_years(pre_account_cell_witness_reader, timestamp) {
+            match verify_account_length_and_years(&pre_account_cell_witness_reader, timestamp) {
                 Ok(_) => {}
                 Err(code) => {
                     if !(code == Error::AccountStillCanNotBeRegister && cells_with_super_lock.len() > 0) {
@@ -132,7 +131,7 @@ pub fn main() -> Result<(), Error> {
             }
 
             let config_release = parser.configs.release()?;
-            match verify_account_release_status(config_release, pre_account_cell_witness_reader) {
+            match verify_account_release_status(config_release, &pre_account_cell_witness_reader) {
                 Ok(_) => {}
                 Err(code) => {
                     if !(code == Error::AccountStillCanNotBeRegister && cells_with_super_lock.len() > 0) {
@@ -177,8 +176,9 @@ pub fn main() -> Result<(), Error> {
             let mut refund_map = BTreeMap::new();
             for index in input_cells {
                 let pre_account_cell_witness = util::parse_pre_account_cell_witness(&parser, index, Source::Input)?;
+                let pre_account_cell_witness_reader = pre_account_cell_witness.as_reader();
                 let capacity = high_level::load_cell_capacity(index, Source::Input)?;
-                let created_at = u64::from(pre_account_cell_witness.created_at());
+                let created_at = u64::from(pre_account_cell_witness_reader.created_at());
 
                 assert!(
                     timestamp >= created_at + PRE_ACCOUNT_CELL_TIMEOUT,
@@ -191,7 +191,7 @@ pub fn main() -> Result<(), Error> {
 
                 util::map_add(
                     &mut refund_map,
-                    pre_account_cell_witness.refund_lock().as_slice().to_vec(),
+                    pre_account_cell_witness_reader.refund_lock().as_slice().to_vec(),
                     capacity,
                 );
             }
@@ -266,7 +266,7 @@ fn verify_apply_height(current_height: u64, config_reader: ConfigCellApplyReader
     Ok(())
 }
 
-fn verify_account_id(reader: PreAccountCellDataReader, account_id: &[u8]) -> Result<(), Error> {
+fn verify_account_id<'a>(reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>, account_id: &[u8]) -> Result<(), Error> {
     let account: Vec<u8> = [reader.account().as_readable(), ACCOUNT_SUFFIX.as_bytes().to_vec()].concat();
     let expected_account_id = util::get_account_id_from_account(&account);
 
@@ -281,8 +281,8 @@ fn verify_account_id(reader: PreAccountCellDataReader, account_id: &[u8]) -> Res
     Ok(())
 }
 
-fn verify_apply_hash(
-    reader: PreAccountCellDataReader,
+fn verify_apply_hash<'a>(
+    reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>,
     apply_register_cell_lock_args: Vec<u8>,
     current_hash: &[u8],
 ) -> Result<(), Error> {
@@ -305,7 +305,7 @@ fn verify_apply_hash(
     Ok(())
 }
 
-fn verify_created_at(expected_timestamp: u64, reader: PreAccountCellDataReader) -> Result<(), Error> {
+fn verify_created_at<'a>(expected_timestamp: u64, reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>) -> Result<(), Error> {
     let create_at = u64::from(reader.created_at());
 
     assert!(
@@ -319,7 +319,7 @@ fn verify_created_at(expected_timestamp: u64, reader: PreAccountCellDataReader) 
     Ok(())
 }
 
-fn verify_owner_lock_args(reader: PreAccountCellDataReader) -> Result<(), Error> {
+fn verify_owner_lock_args<'a>(reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>) -> Result<(), Error> {
     debug!("Check if PreAccountCell.witness.owner_lock_args is more than 1 byte and the first byte is 0x00.");
 
     let owner_lock_args = reader.owner_lock_args().raw_data();
@@ -334,7 +334,7 @@ fn verify_owner_lock_args(reader: PreAccountCellDataReader) -> Result<(), Error>
     Ok(())
 }
 
-fn verify_quote(reader: PreAccountCellDataReader) -> Result<(), Error> {
+fn verify_quote<'a>(reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>) -> Result<(), Error> {
     debug!("Check if PreAccountCell.witness.quote is the same as QuoteCell.");
 
     let expected_quote = util::load_oracle_data(OracleCellType::Quote)?;
@@ -351,7 +351,7 @@ fn verify_quote(reader: PreAccountCellDataReader) -> Result<(), Error> {
     Ok(())
 }
 
-fn verify_invited_discount(config: ConfigCellPriceReader, reader: PreAccountCellDataReader) -> Result<(), Error> {
+fn verify_invited_discount<'a>(config: ConfigCellPriceReader, reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>) -> Result<(), Error> {
     debug!("Check if PreAccountCell.witness.invited_discount is 0 or the same as configuration.");
 
     let default_lock = Script::default();
@@ -410,10 +410,10 @@ fn verify_invited_discount(config: ConfigCellPriceReader, reader: PreAccountCell
     Ok(())
 }
 
-fn verify_price_and_capacity(
+fn verify_price_and_capacity<'a>(
     config_account: ConfigCellAccountReader,
     config_price: ConfigCellPriceReader,
-    reader: PreAccountCellDataReader,
+    reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>,
     capacity: u64,
 ) -> Result<(), Error> {
     let length_in_price = util::get_length_in_price(reader.account().len() as u64);
@@ -466,7 +466,7 @@ fn verify_price_and_capacity(
     Ok(())
 }
 
-fn verify_account_length_and_years(reader: PreAccountCellDataReader, current_timestamp: u64) -> Result<(), Error> {
+fn verify_account_length_and_years<'a>(reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>, current_timestamp: u64) -> Result<(), Error> {
     use chrono::{DateTime, NaiveDateTime, Utc};
 
     let account_length = reader.account().len();
@@ -488,9 +488,9 @@ fn verify_account_length_and_years(reader: PreAccountCellDataReader, current_tim
     Ok(())
 }
 
-fn verify_account_release_status(
+fn verify_account_release_status<'a>(
     config_release: ConfigCellReleaseReader,
-    reader: PreAccountCellDataReader,
+    reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>,
 ) -> Result<(), Error> {
     debug!("Check if account is released for registration.");
 

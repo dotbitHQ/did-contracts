@@ -1,4 +1,4 @@
-use alloc::{borrow::ToOwned, boxed::Box};
+use alloc::{borrow::ToOwned, boxed::Box, string::String};
 use ckb_std::{
     ckb_constants::Source,
     high_level::{self, load_cell_capacity, load_cell_lock, load_cell_type, load_script},
@@ -7,6 +7,7 @@ use core::{convert::TryFrom, result::Result};
 use das_core::{
     assert,
     constants::*,
+    data_parser,
     data_parser::{account_cell, pre_account_cell},
     debug,
     error::Error,
@@ -15,7 +16,16 @@ use das_core::{
 };
 use das_map::{map::Map, util as map_util};
 use das_sorted_list::DasSortedList;
-use das_types::{constants::*, mixer::AccountCellDataMixer, packed::*, prelude::*};
+use das_types::{
+    constants::*,
+    mixer::{
+        AccountCellDataMixer,
+        PreAccountCellDataReaderMixer
+    },
+    packed::*,
+    prelude::*,
+    prettier::Prettier
+};
 
 pub fn main() -> Result<(), Error> {
     debug!("====== Running proposal-cell-type ======");
@@ -213,26 +223,21 @@ fn inspect_related_cells(
     for i in related_cells {
         let script = load_cell_type(i, related_cells_source)?.unwrap();
         let code_hash = Hash::from(script.code_hash());
+        let data = util::load_cell_data(i, related_cells_source)?;
 
         if util::is_reader_eq(config_main.type_id_table().account_cell(), code_hash.as_reader()) {
-            let account_cell_witness: Box<dyn AccountCellDataMixer> =
-                util::parse_account_cell_witness(&parser, i, related_cells_source)?;
-            let account_cell_witness_reader = account_cell_witness.as_reader();
-
             let (version, _, _) = parser.verify_and_get(DataType::AccountCellData, i, related_cells_source)?;
-            let data = util::load_cell_data(i, related_cells_source)?;
-            das_core::inspect::account_cell(
+            debug!("  {:?}[{}] AccountCell(v{}): {{ id: 0x{}, next: 0x{}, account: {} }}",
                 related_cells_source,
                 i,
-                &data,
                 version,
-                None,
-                Some(account_cell_witness_reader),
+                util::hex_string(data_parser::account_cell::get_id(&data)),
+                util::hex_string(data_parser::account_cell::get_next(&data)),
+                String::from_utf8(data_parser::account_cell::get_account(&data).to_vec()).unwrap()
             );
         } else if util::is_reader_eq(config_main.type_id_table().pre_account_cell(), code_hash.as_reader()) {
-            let (_, _, entity) = parser.verify_and_get(DataType::PreAccountCellData, i, related_cells_source)?;
-            let data = util::load_cell_data(i, related_cells_source)?;
-            das_core::inspect::pre_account_cell(related_cells_source, i, &data, Some(entity.as_reader()), None);
+            let (version, _, _) = parser.verify_and_get(DataType::PreAccountCellData, i, related_cells_source)?;
+            debug!("  {:?}[{}] PreAccountCell(v{}): {{ id: 0x{} }}", related_cells_source, i, version, util::hex_string(pre_account_cell::get_id(&data)));
         }
     }
 
@@ -779,7 +784,7 @@ fn verify_proposal_execution_result(
                 is_new_account_cell_lock_correct(
                     item_index,
                     input_related_cells[i],
-                    input_cell_witness_reader,
+                    &input_cell_witness_reader,
                     output_account_cells[i],
                 )?;
 
@@ -792,7 +797,7 @@ fn verify_proposal_execution_result(
                     profit,
                     timestamp,
                     &output_cell_data,
-                    input_cell_witness_reader,
+                    &input_cell_witness_reader,
                 )?;
 
                 // Check all fields in the witness of new AccountCell.
@@ -802,6 +807,7 @@ fn verify_proposal_execution_result(
                 verify_witness_throttle_fields(item_index, output_cell_witness_reader)?;
                 verify_witness_status(item_index, output_cell_witness_reader)?;
                 verify_witness_sub_account_fields(item_index, output_cell_witness_reader)?;
+                verify_witness_initial_records(item_index, &input_cell_witness_reader, output_cell_witness_reader)?;
 
                 let mut inviter_profit = 0;
                 if input_cell_witness_reader.inviter_lock().is_some() {
@@ -965,10 +971,10 @@ fn verify_pre_account_cell_account_id(
     Ok(())
 }
 
-fn is_new_account_cell_lock_correct(
+fn is_new_account_cell_lock_correct<'a>(
     item_index: usize,
     input_cell_index: usize,
-    input_cell_witness_reader: PreAccountCellDataReader,
+    input_cell_witness_reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>,
     output_cell_index: usize,
 ) -> Result<(), Error> {
     debug!(
@@ -1068,12 +1074,12 @@ fn is_next_correct(item_index: usize, output_cell_data: &Vec<u8>, proposed_next:
     )
 }
 
-fn is_expired_at_correct(
+fn is_expired_at_correct<'a>(
     item_index: usize,
     profit: u64,
     current_timestamp: u64,
     output_cell_data: &Vec<u8>,
-    pre_account_cell_witness: PreAccountCellDataReader,
+    pre_account_cell_witness: &Box<dyn PreAccountCellDataReaderMixer + 'a>,
 ) -> Result<(), Error> {
     let price = u64::from(pre_account_cell_witness.price().new());
     let quote = u64::from(pre_account_cell_witness.quote());
@@ -1242,6 +1248,32 @@ fn verify_witness_sub_account_fields(
         item_index,
         renew_sub_account_price
     );
+
+    Ok(())
+}
+
+fn verify_witness_initial_records<'a>(
+    item_index: usize,
+    pre_account_cell_reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>,
+    account_cell_reader: AccountCellDataReader,
+) -> Result<(), Error> {
+    if let Ok(reader) = pre_account_cell_reader.try_into_latest() {
+        debug!("  Item[{}] The PreAccountCell is latest version, start checking initial records.", item_index);
+
+        let expected_records = reader.initial_records();
+        let current_records = account_cell_reader.records();
+
+        assert!(
+            util::is_reader_eq(expected_records, current_records),
+            Error::ProposalConfirmInitialRecordsMismatch,
+            "  Item[{}] The AccountCell.records should be the same as the PreAccountCell.initial_records . (expected: {}, current: {})",
+            item_index,
+            expected_records.as_prettier(),
+            current_records.as_prettier()
+        );
+    } else {
+        debug!("  Item[{}] The PreAccountCell is old version, skip checking initial records.", item_index);
+    }
 
     Ok(())
 }
