@@ -101,6 +101,48 @@ fn test_pre_register_simple_v2() {
 }
 
 #[test]
+fn challenge_pre_register_initial_record_key_invalid() {
+    let mut template = before_each();
+
+    // outputs
+    push_output_pre_account_cell(
+        &mut template,
+        json!({
+            "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, true),
+            "witness": {
+                "account": ACCOUNT_SP_1,
+                "created_at": TIMESTAMP,
+                "price": {
+                    "length": 8,
+                    "new": ACCOUNT_PRICE_5_CHAR,
+                    "renew": ACCOUNT_PRICE_5_CHAR
+                },
+                "inviter_id": "0x0000000000000000000000000000000000000000",
+                "inviter_lock": {
+                    "code_hash": "{{fake-das-lock}}",
+                    "args": gen_das_lock_args(INVITER, None)
+                },
+                "channel_lock": {
+                    "code_hash": "{{fake-das-lock}}",
+                    "args": gen_das_lock_args(CHANNEL, None)
+                },
+                "invited_discount": INVITED_DISCOUNT,
+                "initial_records": [
+                    {
+                        "type": "address",
+                        "key": "xxxx",
+                        "label": "Personal",
+                        "value": OWNER_WITHOUT_TYPE,
+                    }
+                ]
+            }
+        }),
+    );
+
+    challenge_tx(template.as_json(), Error::AccountCellRecordKeyInvalid);
+}
+
+#[test]
 fn challenge_pre_register_apply_still_need_wait() {
     let mut template = init();
     template.push_config_cell_derived_by_account(ACCOUNT_SP_1, Source::CellDep);

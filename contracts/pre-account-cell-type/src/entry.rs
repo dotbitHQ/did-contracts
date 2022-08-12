@@ -156,6 +156,13 @@ pub fn main() -> Result<(), Error> {
             let chars_reader = pre_account_cell_witness_reader.account();
             verifiers::account_cell::verify_account_chars(&parser, chars_reader)?;
             verifiers::account_cell::verify_account_chars_max_length(&parser, chars_reader)?;
+
+            match pre_account_cell_witness_reader.try_into_latest() {
+                Ok(reader) => {
+                    verifiers::account_cell::verify_records_keys(&parser, reader.initial_records())?;
+                }
+                Err(_) => {}
+            }
         }
         b"refund_pre_register" => {
             parser.parse_cell()?;
