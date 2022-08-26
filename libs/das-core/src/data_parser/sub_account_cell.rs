@@ -18,15 +18,8 @@ pub fn get_owner_profit(data: &[u8]) -> Option<u64> {
 
 pub fn get_custom_script(data: &[u8]) -> Option<&[u8]> {
     // Compare with `data.get(48..81)`, This will allow getting custom_script which length is less than 33 bytes.
-    data
-        .get(48..)
-        .map(|v| {
-            if v.len() > 33 {
-                &v[..33]
-            } else {
-                v
-            }
-        })
+    data.get(48..)
+        .map(|v| if v.len() > 33 { &v[..33] } else { v })
         .or(Some(&[]))
 }
 

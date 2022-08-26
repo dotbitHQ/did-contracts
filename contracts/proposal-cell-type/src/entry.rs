@@ -18,13 +18,10 @@ use das_map::{map::Map, util as map_util};
 use das_sorted_list::DasSortedList;
 use das_types::{
     constants::*,
-    mixer::{
-        AccountCellDataMixer,
-        PreAccountCellDataReaderMixer
-    },
+    mixer::{AccountCellDataMixer, PreAccountCellDataReaderMixer},
     packed::*,
     prelude::*,
-    prettier::Prettier
+    prettier::Prettier,
 };
 
 pub fn main() -> Result<(), Error> {
@@ -227,7 +224,8 @@ fn inspect_related_cells(
 
         if util::is_reader_eq(config_main.type_id_table().account_cell(), code_hash.as_reader()) {
             let (version, _, _) = parser.verify_and_get(DataType::AccountCellData, i, related_cells_source)?;
-            debug!("  {:?}[{}] AccountCell(v{}): {{ id: 0x{}, next: 0x{}, account: {} }}",
+            debug!(
+                "  {:?}[{}] AccountCell(v{}): {{ id: 0x{}, next: 0x{}, account: {} }}",
                 related_cells_source,
                 i,
                 version,
@@ -237,7 +235,13 @@ fn inspect_related_cells(
             );
         } else if util::is_reader_eq(config_main.type_id_table().pre_account_cell(), code_hash.as_reader()) {
             let (version, _, _) = parser.verify_and_get(DataType::PreAccountCellData, i, related_cells_source)?;
-            debug!("  {:?}[{}] PreAccountCell(v{}): {{ id: 0x{} }}", related_cells_source, i, version, util::hex_string(pre_account_cell::get_id(&data)));
+            debug!(
+                "  {:?}[{}] PreAccountCell(v{}): {{ id: 0x{} }}",
+                related_cells_source,
+                i,
+                version,
+                util::hex_string(pre_account_cell::get_id(&data))
+            );
         }
     }
 
@@ -1258,7 +1262,10 @@ fn verify_witness_initial_records<'a>(
     account_cell_reader: AccountCellDataReader,
 ) -> Result<(), Error> {
     if let Ok(reader) = pre_account_cell_reader.try_into_latest() {
-        debug!("  Item[{}] The PreAccountCell is latest version, start checking initial records.", item_index);
+        debug!(
+            "  Item[{}] The PreAccountCell is latest version, start checking initial records.",
+            item_index
+        );
 
         let expected_records = reader.initial_records();
         let current_records = account_cell_reader.records();
@@ -1272,7 +1279,10 @@ fn verify_witness_initial_records<'a>(
             current_records.as_prettier()
         );
     } else {
-        debug!("  Item[{}] The PreAccountCell is old version, skip checking initial records.", item_index);
+        debug!(
+            "  Item[{}] The PreAccountCell is old version, skip checking initial records.",
+            item_index
+        );
     }
 
     Ok(())

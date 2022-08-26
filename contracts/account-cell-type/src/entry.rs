@@ -508,7 +508,13 @@ pub fn main() -> Result<(), Error> {
                     1
                 };
 
-                verifiers::common::verify_cell_number("DASWallet", &[], 0, &das_wallet_cells, expected_das_wallet_cells_count)?;
+                verifiers::common::verify_cell_number(
+                    "DASWallet",
+                    &[],
+                    0,
+                    &das_wallet_cells,
+                    expected_das_wallet_cells_count,
+                )?;
 
                 for i in das_wallet_cells.iter() {
                     let type_hash = high_level::load_cell_type_hash(*i, Source::Output)?;

@@ -568,9 +568,7 @@ pub fn verify_account_chars(parser: &WitnessesParser, chars_reader: AccountChars
         let char_set_index = u32::from(account_char.char_set_name()) as usize;
         if required_char_sets[char_set_index].len() <= 1 {
             let char_set = match parser.configs.char_set(char_set_index) {
-                Some(Ok(char_set)) => {
-                    char_set
-                },
+                Some(Ok(char_set)) => char_set,
                 Some(Err(err)) => {
                     return Err(err);
                 }
@@ -674,7 +672,7 @@ pub fn verify_records_keys(parser: &WitnessesParser, records: RecordsReader) -> 
                         "The keys in custom_key should only contain digits, lowercase alphabet and underline."
                     );
                 }
-            },
+            }
             _ => {
                 let mut record_type_and_key = record_type.clone();
                 record_type_and_key.push(46);

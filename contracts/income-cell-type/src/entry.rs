@@ -2,9 +2,7 @@ use alloc::{borrow::ToOwned, vec::Vec};
 use ckb_std::{ckb_constants::Source, debug, high_level};
 use core::result::Result;
 use core::slice::Iter;
-use das_core::{
-    assert, constants::*, error::Error, parse_witness, util, verifiers, warn, witness_parser::WitnessesParser,
-};
+use das_core::{assert, constants::*, error::Error, util, verifiers, warn, witness_parser::WitnessesParser};
 use das_types::{constants::DataType, packed::*, prelude::*};
 
 pub fn main() -> Result<(), Error> {
@@ -38,17 +36,8 @@ pub fn main() -> Result<(), Error> {
 
             debug!("Read data of the IncomeCell ...");
 
-            let income_cell_witness;
-            let income_cell_witness_reader;
-            parse_witness!(
-                income_cell_witness,
-                income_cell_witness_reader,
-                parser,
-                output_cells[0],
-                Source::Output,
-                DataType::IncomeCellData,
-                IncomeCellData
-            );
+            let income_cell_witness = util::parse_income_cell_witness(&parser, output_cells[0], Source::Output)?;
+            let income_cell_witness_reader = income_cell_witness.as_reader();
 
             assert!(
                 income_cell_witness_reader.records().len() == 1,
