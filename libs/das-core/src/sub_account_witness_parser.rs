@@ -161,16 +161,24 @@ impl SubAccountWitnessesParser {
         assert!(
             version_bytes.len() == 4,
             Error::WitnessStructureError,
-            "  Sub-account witness structure error, the version field should be 4 bytes"
+            "  witnesses[{}] Sub-account witness structure error, the version field should be 4 bytes",
+            i
         );
         let version = u32::from_le_bytes(version_bytes.try_into().unwrap());
+
+        assert!(
+            version == 1,
+            Error::WitnessVersionOrTypeInvalid,
+            "  witnesses[{}] The version of sub-account witness is invalid.",
+            i
+        );
 
         let sub_account = match SubAccount::from_slice(sub_account_bytes) {
             Ok(val) => val,
             Err(e) => {
                 warn!(
-                    "  Sub-account witness structure error, the sub_account field parse failed: {}",
-                    e
+                    "  witnesses[{}] Sub-account witness structure error, the sub_account field parse failed: {}",
+                    i, e
                 );
                 return Err(Error::WitnessStructureError);
             }
@@ -183,8 +191,8 @@ impl SubAccountWitnessesParser {
                     Ok(val) => val,
                     Err(e) => {
                         warn!(
-                            "  Sub-account witness structure error, decoding expired_at failed: {}",
-                            e
+                            "  witnesses[{}] Sub-account witness structure error, decoding expired_at failed: {}",
+                            i, e
                         );
                         return Err(Error::WitnessStructureError);
                     }
@@ -198,7 +206,10 @@ impl SubAccountWitnessesParser {
                 let records = match Records::from_slice(edit_value_bytes) {
                     Ok(val) => val,
                     Err(e) => {
-                        warn!("  Sub-account witness structure error, decoding records failed: {}", e);
+                        warn!(
+                            "  witnesses[{}] Sub-account witness structure error, decoding records failed: {}",
+                            i, e
+                        );
                         return Err(Error::WitnessStructureError);
                     }
                 };
