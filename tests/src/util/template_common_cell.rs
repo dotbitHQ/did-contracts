@@ -1,9 +1,4 @@
-use super::{
-    accounts::*,
-    constants::*,
-    template_generator::*,
-    util,
-};
+use super::{accounts::*, constants::*, template_generator::*, util};
 use das_types_std::constants::AccountStatus;
 use serde_json::{json, Value};
 

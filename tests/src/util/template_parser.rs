@@ -1,4 +1,4 @@
-use super::{constants::*, error::Error, util, template_generator::TemplateGenerator};
+use super::{constants::*, error::Error, template_generator::TemplateGenerator, util};
 use ckb_testtool::{
     ckb_error, ckb_jsonrpc_types as rpc_types,
     ckb_types::{
