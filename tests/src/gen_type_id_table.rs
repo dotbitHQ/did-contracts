@@ -1,9 +1,7 @@
 use super::ckb_types_relay::*;
-use ckb_testtool::{
-    ckb_chain_spec::consensus::TYPE_ID_CODE_HASH,
-    ckb_types::core::ScriptHashType,
-    ckb_types::{bytes, prelude::Pack},
-};
+use ckb_chain_spec::consensus::TYPE_ID_CODE_HASH;
+use ckb_types::core::ScriptHashType;
+use ckb_types::{bytes, prelude::Pack};
 use das_types_std::prelude::*;
 use std::env;
 use walkdir::WalkDir;

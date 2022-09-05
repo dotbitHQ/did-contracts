@@ -1,11 +1,7 @@
 #![allow(dead_code)]
 
-use std::env;
-use std::fs;
-use std::path::PathBuf;
-use std::str::FromStr;
-
-use ckb_testtool::ckb_types::bytes;
+use ckb_types::bytes;
+use std::{env, fs, path::PathBuf, str::FromStr};
 
 #[macro_use]
 mod util;

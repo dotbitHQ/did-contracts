@@ -1,5 +1,5 @@
 use super::{super::ckb_types_relay::*, constants::*, smt::*, util};
-use ckb_testtool::ckb_hash::blake2b_256;
+use ckb_hash::blake2b_256;
 use das_types_std::{constants::*, packed::*, prelude::*, util as das_util, util::EntityWrapper};
 use serde_json::{json, Value};
 use std::{collections::HashMap, convert::TryFrom, env, fs::OpenOptions, io::Write, str};

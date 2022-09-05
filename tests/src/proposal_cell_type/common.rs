@@ -1,5 +1,5 @@
 use crate::util::{self, accounts::*, constants::*, template_generator::*};
-use ckb_testtool::ckb_types::prelude::Pack;
+use ckb_types::prelude::Pack;
 use das_sorted_list::DasSortedList;
 use das_types_std::constants::*;
 use serde_json::{json, Value};
