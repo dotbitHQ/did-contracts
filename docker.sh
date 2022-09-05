@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Docker image name
-DOCKER_IMAGE="thewawar/ckb-capsule:2021-12-25"
+DOCKER_IMAGE="thewawar/ckb-capsule:2022-08-01"
 COMPILING_TARGET="riscv64imac-unknown-none-elf"
 COMPILING_FLAGS="-Z pre-link-arg=-zseparate-code -Z pre-link-arg=-zseparate-loadable-segments"
 COMPILING_RELEASE_FLAGS="-C link-arg=-s"

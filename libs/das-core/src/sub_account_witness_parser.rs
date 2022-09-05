@@ -2,8 +2,8 @@ use super::{assert, data_parser, debug, error::Error, util, warn};
 use alloc::vec::Vec;
 use ckb_std::{ckb_constants::Source, error::SysError, syscalls};
 use core::{
+    cell::OnceCell,
     convert::{TryFrom, TryInto},
-    lazy::OnceCell,
 };
 use das_dynamic_libs::constants::DasLockType;
 use das_types::{constants::*, packed::*, prelude::*};
