@@ -112,24 +112,20 @@ function build_all() {
 function switch_target_dir() {
   local expected=$1
 
-  # If none cache directory found, rename the target directory as the first cache directory.
-  if [[ ! -d target_test && ! -d target_build ]]; then
-    if [[ $expected == "target_test" ]]; then
-      mv target target_build
-    else
-      mv target target_test
+  if [[ $expected == "docker" ]]; then
+    if [[ -d target ]]; then
+      mv target target_host
     fi
-  fi
-
-  # If the expected cache directory exist, recover it as target directory.
-  if [[ -d $expected ]]; then
-    echo "Switching ${expected} to ./target ..."
-    if [[ $expected == "target_test" ]]; then
-      mv target target_build
-    else
-      mv target target_test
+    if [[ -d target_docker ]]; then
+      mv target_docker target
     fi
-    mv $expected target
+  else
+    if [[ -d target ]]; then
+      mv target target_docker
+    fi
+    if [[ -d target_host ]]; then
+      mv target_host target
+    fi
   fi
 }
 
@@ -171,32 +167,37 @@ build)
   parse_args $3 $4
   echo "Arguments: \$contract="$2 "\$is_release="$is_release "\$feature="$feature
 
-  switch_target_dir target_build
+  switch_target_dir docker
   create_output_dir
   build $2
+  switch_target_dir host
   ;;
 build-all)
   parse_args $2 $3
   echo "Arguments: \$is_release="$is_release "\$feature="$feature
 
-  switch_target_dir target_build
+  switch_target_dir docker
   create_output_dir
   build_all
+  switch_target_dir host
   ;;
 test-debug)
-  switch_target_dir target_test
+  switch_target_dir docker
   echo "Run test with name: $2"
   docker exec -it -w /code $DOCKER_CONTAINER bash -c "cargo test -p tests $2 -- --nocapture"
+  switch_target_dir host
   ;;
 test)
-  switch_target_dir target_test
+  switch_target_dir docker
   echo "Run test with name: $2"
   docker exec -it -w /code $DOCKER_CONTAINER bash -c "cargo test -p tests $2"
+  switch_target_dir host
   ;;
 test-release)
-  switch_target_dir target_test
+  switch_target_dir docker
   echo "Run test with name: $2"
   docker exec -it -w /code -e BINARY_VERSION=release $DOCKER_CONTAINER bash -c "cargo test -p tests $2"
+  switch_target_dir host
   ;;
 *)
   echo "Unsupported docker.sh command."
