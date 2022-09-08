@@ -157,6 +157,11 @@ fn parse_json_u8(field_name: &str, field: &Value, default: Option<u8>) -> u8 {
     }
 }
 
+/// Parse boolean in JSON
+fn parse_json_bool(field_name: &str, field: &Value) -> bool {
+    field.as_bool().expect(&format!("{} is missing", field_name))
+}
+
 /// Parse string in JSON
 ///
 /// All string will be treated as utf8 encoding.
@@ -217,7 +222,7 @@ fn parse_json_array<'a>(field_name: &str, field: &'a Value) -> &'a [Value] {
 /// // input
 /// {
 ///     code_hash: "{{xxx-cell-type}}"
-///     hash_type: "type", // could be omit if it is "type"    
+///     hash_type: "type", // could be omit if it is "type"
 ///     args: "" // could be omit if it it empty
 /// }
 /// // output
@@ -442,6 +447,30 @@ fn parse_json_to_account_chars(field_name: &str, field: &Value, suffix_opt: Opti
     }
 
     (account, account_chars)
+}
+
+fn parse_json_to_chain_id_mol(field_name: &str, field: &Value) -> ChainId {
+    let coin_type = Uint64::from(parse_json_u64(
+        &format!("{}.coin_type", field_name),
+        &field["coin_type"],
+        None,
+    ));
+    let chain_id = Uint64::from(parse_json_u64(
+        &format!("{}.chain_id", field_name),
+        &field["chain_id"],
+        None,
+    ));
+    let checked = if parse_json_bool(&format!("{}.checked", field_name), &field["checked"]) {
+        Byte::from(1u8)
+    } else {
+        Byte::from(0u8)
+    };
+
+    ChainId::new_builder()
+        .coin_type(coin_type)
+        .chain_id(chain_id)
+        .checked(checked)
+        .build()
 }
 
 pub fn parse_json_to_sub_account(field_name: &str, field: &Value) -> SubAccount {
@@ -1567,9 +1596,49 @@ impl TemplateGenerator {
                         Some(EntityWrapper::PreAccountCellDataV1(entity)),
                     )
                 }
+                2 => {
+                    let initial_records =
+                        parse_json_to_records_mol("cell.witness.initial_records", &witness["initial_records"]);
+                    let entity = PreAccountCellDataV2::new_builder()
+                        .account(account_chars)
+                        .refund_lock(refund_lock)
+                        .owner_lock_args(Bytes::from(owner_lock_args))
+                        .inviter_id(inviter_id)
+                        .inviter_lock(inviter_lock)
+                        .channel_lock(channel_lock)
+                        .price(price)
+                        .quote(Uint64::from(quote))
+                        .invited_discount(Uint32::from(invited_discount))
+                        .created_at(Uint64::from(created_at))
+                        .initial_records(initial_records)
+                        .build();
+
+                    let data = &cell["data"];
+                    let hash = parse_json_hex_with_default(
+                        "cell.data.hash",
+                        &data["hash"],
+                        blake2b_256(entity.as_slice()).to_vec(),
+                    );
+                    let account_id =
+                        parse_json_hex_with_default("cell.data.id", &data["id"], util::account_to_id(&account));
+                    let outputs_data = [hash, account_id].concat();
+
+                    (
+                        json!({
+                          "tmp_type": "full",
+                          "capacity": capacity,
+                          "lock": lock_script,
+                          "type": type_script,
+                          "tmp_data": util::bytes_to_hex(&outputs_data)
+                        }),
+                        Some(EntityWrapper::PreAccountCellDataV2(entity)),
+                    )
+                }
                 _ => {
                     let initial_records =
                         parse_json_to_records_mol("cell.witness.initial_records", &witness["initial_records"]);
+                    let initial_cross_chain =
+                        parse_json_to_chain_id_mol("cell.witness.initial_cross_chain", &witness["initial_cross_chain"]);
                     let entity = PreAccountCellData::new_builder()
                         .account(account_chars)
                         .refund_lock(refund_lock)
@@ -1582,6 +1651,7 @@ impl TemplateGenerator {
                         .invited_discount(Uint32::from(invited_discount))
                         .created_at(Uint64::from(created_at))
                         .initial_records(initial_records)
+                        .initial_cross_chain(initial_cross_chain)
                         .build();
 
                     let data = &cell["data"];

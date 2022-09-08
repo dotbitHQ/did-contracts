@@ -849,11 +849,17 @@ pub fn parse_pre_account_cell_witness(
     let ret: Box<dyn PreAccountCellDataMixer> = match version {
         1 => Box::new(
             das_packed::PreAccountCellDataV1::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
-                warn!("{:?}[{}] Decoding PreAccountCellData failed", source, index);
+                warn!("{:?}[{}] Decoding PreAccountCellDataV1 failed", source, index);
                 Error::WitnessEntityDecodingError
             })?,
         ),
         2 => Box::new(
+            das_packed::PreAccountCellDataV2::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
+                warn!("{:?}[{}] Decoding PreAccountCellDataV2 failed", source, index);
+                Error::WitnessEntityDecodingError
+            })?,
+        ),
+        3 => Box::new(
             das_packed::PreAccountCellData::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
                 warn!("{:?}[{}] Decoding PreAccountCellData failed", source, index);
                 Error::WitnessEntityDecodingError
