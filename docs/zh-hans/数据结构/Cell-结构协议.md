@@ -105,6 +105,15 @@ table PreAccountCellData {
     created_at: Uint64,
     // The initial records should be write into the AccountCell when it is created successfully.
     initial_records: Records,
+    // Lock for cross chain when the AccountCell minted successfully.
+    initial_cross_chain: ChainId,
+}
+
+table ChainId {
+    // Indicate if this field should work. (0x00 means false, 0x01 mean true)
+    checked: byte,
+    coin_type: Uint64,
+    chain_id: Uint64,
 }
 
 vector AccountChars <AccountChar>;
@@ -127,6 +136,7 @@ table AccountChar {
 - quote，账户注册时的 CKB 的美元单价；
 - created_at，PreAccountCell 创建时 TimeCell 的时间；
 - initial_records，AccountCell 创建成功时的初始解析记录；
+- initial_cross_chain，AccountCell 创建成功时是否直接锁定为跨链状态；
 
 #### 利润以及注册所获时长的计算逻辑
 
@@ -628,12 +638,15 @@ table ConfigCellAccount {
     edit_manager_throttle: Uint32,
     edit_records_throttle: Uint32,
     common_throttle: Uint32,
+    // The period for expired account auction in seconds
+    expired_auction_period: Uint32,
 }
 ```
 
 - max_length ，账户的最大**字符**长度；
 - basic_capacity ，账户的存储空间，可能比 cell 占用的存储更大；
 - expiration_grace_period ，账户到期后的宽限期，单位 秒；
+- expired_auction_period ，账户到期后的拍卖期限，在此期限内原用户已对账户丧失所有权，但 Keeper 无法回收已到期的账户，单位 秒；
 - record_min_ttl ，解析记录的最小 TTL 值，单位 秒；
 
 #### ConfigCellApply
@@ -1100,7 +1113,7 @@ enum DataType {
     ConfigCellCharSetJp,              // args: 0xa5860100
     ConfigCellCharSetKo,              // args: 0xa6860100
     ConfigCellCharSetRu,              // args: 0xa7860100
-    ConfigCellCharSetTr,               // args: 0xa8860100
+    ConfigCellCharSetTr,              // args: 0xa8860100
     ConfigCellCharSetTh,              // args: 0xa9860100
     ConfigCellCharSetVi,              // args: 0xaa860100
 }
