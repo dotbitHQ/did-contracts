@@ -15,6 +15,8 @@ function is_feature_available() {
   dev | local | testnet2 | testnet3 | mainnet) ;;
 
   *)
+    switch_target_dir host
+
     echo "Feature $1 is invalid, please choose one of dev|local|testnet2|testnet3|mainnet ."
     exit 1
     ;;
@@ -69,6 +71,8 @@ function build() {
   #    exit 0
 
   if [[ ! -d contracts/$contract ]]; then
+    switch_target_dir host
+
     echo "Contract ${contract} is not exists, please check for spelling errors."
     exit 1
   fi
@@ -93,6 +97,8 @@ function build() {
   ret=$?
 
   if [[ $ret -ne 0 ]]; then
+    switch_target_dir host
+
     echo "Build contract failed, exit code ($ret)."
     exit $ret
   else
