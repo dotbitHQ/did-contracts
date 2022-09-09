@@ -157,11 +157,6 @@ fn parse_json_u8(field_name: &str, field: &Value, default: Option<u8>) -> u8 {
     }
 }
 
-/// Parse boolean in JSON
-fn parse_json_bool(field_name: &str, field: &Value) -> bool {
-    field.as_bool().expect(&format!("{} is missing", field_name))
-}
-
 /// Parse string in JSON
 ///
 /// All string will be treated as utf8 encoding.
@@ -460,11 +455,11 @@ fn parse_json_to_chain_id_mol(field_name: &str, field: &Value) -> ChainId {
         &field["chain_id"],
         None,
     ));
-    let checked = if parse_json_bool(&format!("{}.checked", field_name), &field["checked"]) {
-        Byte::from(1u8)
-    } else {
-        Byte::from(0u8)
-    };
+    let checked = Uint8::from(parse_json_u8(
+        &format!("{}.checked", field_name),
+        &field["checked"],
+        None,
+    ));
 
     ChainId::new_builder()
         .coin_type(coin_type)

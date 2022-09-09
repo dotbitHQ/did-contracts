@@ -107,7 +107,7 @@ pub fn push_input_pre_account_cell(template: &mut TemplateGenerator, cell_partia
             "initial_cross_chain": {
                 "coin_type": 0,
                 "chain_id": 0,
-                "checked": false
+                "checked": 0
             }
         }
     });
@@ -230,7 +230,7 @@ pub fn push_output_pre_account_cell(template: &mut TemplateGenerator, cell_parti
             "initial_cross_chain": {
                 "coin_type": 0,
                 "chain_id": 0,
-                "checked": false
+                "checked": 0
             }
         }
     });

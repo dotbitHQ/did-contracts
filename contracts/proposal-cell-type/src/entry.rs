@@ -1,4 +1,4 @@
-use alloc::{borrow::ToOwned, boxed::Box, string::String};
+use alloc::{borrow::ToOwned, boxed::Box};
 use ckb_std::{
     ckb_constants::Source,
     high_level::{self, load_cell_capacity, load_cell_lock, load_cell_type, load_script},
@@ -8,7 +8,6 @@ use das_core::{
     assert,
     constants::*,
     data_parser,
-    data_parser::{account_cell, pre_account_cell},
     debug,
     error::Error,
     util, verifiers, warn,
@@ -541,7 +540,7 @@ fn verify_slices_relevant_cells(
 
                     // The correct "next" of first proposal is come from the cell's outputs_data.
                     next_of_first_cell =
-                        AccountId::try_from(account_cell::get_next(&cell_data)).map_err(|_| Error::InvalidCellData)?;
+                        AccountId::try_from(data_parser::account_cell::get_next(&cell_data)).map_err(|_| Error::InvalidCellData)?;
 
                 // If this is the extended proposal in proposal chain, slice may starting with an
                 // AccountCell/PreAccountCell included in previous proposal, or it may starting with
@@ -558,7 +557,7 @@ fn verify_slices_relevant_cells(
                         // If the item is included in previous proposal, then we need to get its latest "next" from the proposal.
                         Ok(prev_item) => prev_item.next(),
                         // If the item is not included in previous proposal, then we get its latest "next" from the cell's outputs_data.
-                        Err(_) => AccountId::try_from(account_cell::get_next(&cell_data))
+                        Err(_) => AccountId::try_from(data_parser::account_cell::get_next(&cell_data))
                             .map_err(|_| Error::InvalidCellData)?,
                     };
                 }
@@ -767,7 +766,7 @@ fn verify_proposal_execution_result(
                     return Err(Error::InvalidTransactionStructure);
                 };
 
-                let account_name_storage = account_cell::get_account(&output_cell_data).len() as u64;
+                let account_name_storage = data_parser::account_cell::get_account(&output_cell_data).len() as u64;
                 let total_capacity = load_cell_capacity(input_related_cells[i], Source::Input)?;
 
                 let lock = high_level::load_cell_lock(output_account_cells[i], Source::Output)?;
@@ -809,9 +808,9 @@ fn verify_proposal_execution_result(
                 verify_witness_account(item_index, &output_cell_data, output_cell_witness_reader)?;
                 verify_witness_registered_at(item_index, timestamp, output_cell_witness_reader)?;
                 verify_witness_throttle_fields(item_index, output_cell_witness_reader)?;
-                verify_witness_status(item_index, output_cell_witness_reader)?;
                 verify_witness_sub_account_fields(item_index, output_cell_witness_reader)?;
                 verify_witness_initial_records(item_index, &input_cell_witness_reader, output_cell_witness_reader)?;
+                verify_witness_initial_cross_chain_and_status(item_index, &input_cell_witness_reader, output_cell_witness_reader)?;
 
                 let mut inviter_profit = 0;
                 if input_cell_witness_reader.inviter_lock().is_some() {
@@ -916,7 +915,7 @@ fn verify_next_is_consistent_in_account_cell_and_item(
     cell_data: &[u8],
     original_next_of_account_cell: &[u8],
 ) -> Result<(), Error> {
-    let next = account_cell::get_next(cell_data);
+    let next = data_parser::account_cell::get_next(cell_data);
 
     assert!(
         next == original_next_of_account_cell,
@@ -938,7 +937,7 @@ fn verify_account_cell_account_id(
     source: Source,
     expected_account_id: &[u8],
 ) -> Result<(), Error> {
-    let account_id = account_cell::get_id(cell_data);
+    let account_id = data_parser::account_cell::get_id(cell_data);
 
     assert!(
         account_id == expected_account_id,
@@ -960,7 +959,7 @@ fn verify_pre_account_cell_account_id(
     source: Source,
     expected_account_id: &[u8],
 ) -> Result<(), Error> {
-    let account_id = pre_account_cell::get_id(cell_data);
+    let account_id = data_parser::pre_account_cell::get_id(cell_data);
 
     assert!(
         account_id == expected_account_id,
@@ -1034,22 +1033,22 @@ fn is_old_account_cell_data_consistent(
     is_bytes_eq(
         item_index,
         "id",
-        account_cell::get_id(output_cell_data),
-        account_cell::get_id(input_cell_data),
+        data_parser::account_cell::get_id(output_cell_data),
+        data_parser::account_cell::get_id(input_cell_data),
         Error::ProposalFieldCanNotBeModified,
     )?;
     is_bytes_eq(
         item_index,
         "account",
-        account_cell::get_account(output_cell_data),
-        account_cell::get_account(input_cell_data),
+        data_parser::account_cell::get_account(output_cell_data),
+        data_parser::account_cell::get_account(input_cell_data),
         Error::ProposalFieldCanNotBeModified,
     )?;
     is_bytes_eq(
         item_index,
         "expired_at",
-        &account_cell::get_expired_at(output_cell_data).to_le_bytes(),
-        &account_cell::get_expired_at(input_cell_data).to_le_bytes(),
+        &data_parser::account_cell::get_expired_at(output_cell_data).to_le_bytes(),
+        &data_parser::account_cell::get_expired_at(input_cell_data).to_le_bytes(),
         Error::ProposalFieldCanNotBeModified,
     )?;
 
@@ -1060,8 +1059,8 @@ fn is_id_correct(item_index: usize, output_cell_data: &Vec<u8>, input_cell_data:
     is_bytes_eq(
         item_index,
         "id",
-        account_cell::get_id(output_cell_data),
-        account_cell::get_id(input_cell_data),
+        data_parser::account_cell::get_id(output_cell_data),
+        data_parser::account_cell::get_id(input_cell_data),
         Error::ProposalConfirmNewAccountCellDataError,
     )
 }
@@ -1072,7 +1071,7 @@ fn is_next_correct(item_index: usize, output_cell_data: &Vec<u8>, proposed_next:
     is_bytes_eq(
         item_index,
         "next",
-        account_cell::get_next(output_cell_data),
+        data_parser::account_cell::get_next(output_cell_data),
         expected_next,
         Error::ProposalConfirmNewAccountCellDataError,
     )
@@ -1089,7 +1088,7 @@ fn is_expired_at_correct<'a>(
     let quote = u64::from(pre_account_cell_witness.quote());
     let discount = u32::from(pre_account_cell_witness.invited_discount());
     let duration = util::calc_duration_from_paid(profit, price, quote, discount);
-    let expired_at = account_cell::get_expired_at(output_cell_data);
+    let expired_at = data_parser::account_cell::get_expired_at(output_cell_data);
     let calculated_expired_at = current_timestamp + duration;
 
     debug!(
@@ -1114,8 +1113,8 @@ fn is_expired_at_correct<'a>(
 }
 
 fn is_account_correct(item_index: usize, output_cell_data: &Vec<u8>) -> Result<(), Error> {
-    let expected_account_id = account_cell::get_id(output_cell_data);
-    let account = account_cell::get_account(output_cell_data);
+    let expected_account_id = data_parser::account_cell::get_id(output_cell_data);
+    let account = data_parser::account_cell::get_account(output_cell_data);
 
     let hash = util::blake2b_256(account);
     let account_id = hash.get(..ACCOUNT_ID_LENGTH).unwrap();
@@ -1150,7 +1149,7 @@ fn verify_witness_id(
     output_cell_witness_reader: AccountCellDataReader,
 ) -> Result<(), Error> {
     let account_id = output_cell_witness_reader.id().raw_data();
-    let expected_account_id = account_cell::get_id(output_cell_data);
+    let expected_account_id = data_parser::account_cell::get_id(output_cell_data);
 
     is_bytes_eq(
         item_index,
@@ -1168,7 +1167,7 @@ fn verify_witness_account(
 ) -> Result<(), Error> {
     let mut account = output_cell_witness_reader.account().as_readable();
     account.append(&mut ACCOUNT_SUFFIX.as_bytes().to_vec());
-    let expected_account = account_cell::get_account(output_cell_data);
+    let expected_account = data_parser::account_cell::get_account(output_cell_data);
 
     is_bytes_eq(
         item_index,
@@ -1216,20 +1215,6 @@ fn verify_witness_throttle_fields(
     Ok(())
 }
 
-fn verify_witness_status(item_index: usize, output_cell_witness_reader: AccountCellDataReader) -> Result<(), Error> {
-    let status = u8::from(output_cell_witness_reader.status());
-
-    assert!(
-        status == AccountStatus::Normal as u8,
-        Error::ProposalConfirmNewAccountWitnessError,
-        "  Item[{}] The AccountCell.status should be normal. (expected: 0, current: {})",
-        item_index,
-        status
-    );
-
-    Ok(())
-}
-
 fn verify_witness_sub_account_fields(
     item_index: usize,
     output_cell_witness_reader: AccountCellDataReader,
@@ -1261,14 +1246,22 @@ fn verify_witness_initial_records<'a>(
     pre_account_cell_reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>,
     account_cell_reader: AccountCellDataReader,
 ) -> Result<(), Error> {
-    if let Ok(reader) = pre_account_cell_reader.try_into_latest() {
+    let current_records = account_cell_reader.records();
+    if pre_account_cell_reader.version() >= 2 {
         debug!(
-            "  Item[{}] The PreAccountCell is latest version, start checking initial records.",
+            "  Item[{}] The PreAccountCell's version is >= 2, start verifying the field initial_records.",
             item_index
         );
 
-        let expected_records = reader.initial_records();
-        let current_records = account_cell_reader.records();
+        let expected_records ;
+        if let Ok(reader) = pre_account_cell_reader.try_into_latest() {
+            expected_records = reader.initial_records();
+        } else if let Ok(reader) = pre_account_cell_reader.try_into_v2() {
+            expected_records = reader.initial_records();
+        } else {
+            warn!("  Item[{}] Some version of PreAccountCell is unhandled. It is required to verify the field initial_records.", item_index);
+            return Err(Error::HardCodedError);
+        }
 
         assert!(
             util::is_reader_eq(expected_records, current_records),
@@ -1280,8 +1273,73 @@ fn verify_witness_initial_records<'a>(
         );
     } else {
         debug!(
-            "  Item[{}] The PreAccountCell is old version, skip checking initial records.",
+            "  Item[{}] The PreAccountCell's version is < 2, start verifying if the new AccountCell.records is empty.",
             item_index
+        );
+
+        assert!(
+            current_records.is_empty(),
+            Error::ProposalConfirmInitialRecordsMismatch,
+            "  Item[{}] The AccountCell.records should be empty.",
+            item_index
+        );
+    }
+
+    Ok(())
+}
+
+fn verify_witness_initial_cross_chain_and_status<'a>(
+    item_index: usize,
+    pre_account_cell_reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>,
+    account_cell_reader: AccountCellDataReader,
+) -> Result<(), Error> {
+    let status = u8::from(account_cell_reader.status());
+    if pre_account_cell_reader.version() >= 3 {
+        debug!(
+            "  Item[{}] The PreAccountCell's version is >= 3, start verifying the field initial_cross_chain.",
+            item_index
+        );
+
+        let checked ;
+        if let Ok(reader) = pre_account_cell_reader.try_into_latest() {
+            checked = u8::from(reader.initial_cross_chain().checked());
+        } else {
+            warn!("  Item[{}] Some version of PreAccountCell is unhandled. It is required to verify the field initial_cross_chain.", item_index);
+            return Err(Error::HardCodedError);
+        }
+
+        if checked == 1 {
+            assert!(
+                status == AccountStatus::LockedForCrossChain as u8,
+                Error::ProposalConfirmNewAccountWitnessError,
+                "  Item[{}] The AccountCell.status should be LockedForCrossChain in outputs. (expected: {:?}, current: {})",
+                item_index,
+                AccountStatus::LockedForCrossChain as u8,
+                status
+            );
+        } else {
+            assert!(
+                status == AccountStatus::Normal as u8,
+                Error::ProposalConfirmNewAccountWitnessError,
+                "  Item[{}] The AccountCell.status should be Normal in outputs. (expected: {:?}, current: {})",
+                item_index,
+                AccountStatus::Normal as u8,
+                status
+            );
+        }
+    } else {
+        debug!(
+            "  Item[{}] The PreAccountCell's version is <= 2, start verifying if the new AccountCell.status is Normal.",
+            item_index
+        );
+
+        assert!(
+            status == AccountStatus::Normal as u8,
+            Error::ProposalConfirmNewAccountWitnessError,
+            "  Item[{}] The AccountCell.status should be Normal in outputs. (expected: {:?}, current: {})",
+            item_index,
+            AccountStatus::Normal as u8,
+            status
         );
     }
 

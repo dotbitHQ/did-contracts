@@ -792,7 +792,7 @@ fn challenge_proposal_confirm_new_account_cell_capacity() {
         &mut template,
         json!({
             // Simulate the capacity of new AccountCell is invalid.
-            "capacity": util::gen_register_fee(8, true) - 1,
+            "capacity": util::gen_account_cell_capacity(8) - 1,
             "lock": {
                 "owner_lock_args": "0x05ffff000000000000000000000000000000000005",
                 "manager_lock_args": "0x05ffff000000000000000000000000000000000005"
@@ -823,4 +823,226 @@ fn challenge_proposal_confirm_new_account_cell_capacity() {
     push_output_normal_cell_with_refund(&mut template);
 
     challenge_tx(template.as_json(), Error::ProposalConfirmNewAccountCellCapacityError);
+}
+
+#[test]
+fn test_proposal_confirm_new_account_with_cross_chain() {
+    let mut template = init_with_confirm();
+
+    // inputs
+    push_input_proposal_cell_with_slices(&mut template);
+
+    let lock_scripts = gen_lock_scripts();
+    push_input_account_cell_v2(
+        &mut template,
+        json!({
+            "capacity": util::gen_account_cell_capacity(8),
+            "lock": {
+                "owner_lock_args": "0x000000000000000000000000000000000000001111",
+                "manager_lock_args": "0x000000000000000000000000000000000000001111"
+            },
+            "data": {
+                "account": "das00012.bit",
+                "next": "das00002.bit"
+            },
+            "witness": {
+                "account": "das00012.bit",
+                "status": (AccountStatus::Normal as u8)
+            }
+        }),
+    );
+    push_input_pre_account_cell(
+        &mut template,
+        json!({
+            "capacity": util::gen_register_fee(8, true),
+            "witness": {
+                "account": "das00005.bit",
+                "owner_lock_args": gen_das_lock_args("0x05ffff000000000000000000000000000000000005", None),
+                "inviter_lock": lock_scripts.inviter_1,
+                "channel_lock": lock_scripts.channel_1,
+                "created_at": TIMESTAMP - HOUR_SEC,
+                "initial_records": [
+                    {
+                        "type": "address",
+                        "key": "60",
+                        "label": "Personal",
+                        "value": "0xffff000000000000000000000000000000000005",
+                    }
+                ],
+                "initial_cross_chain": {
+                    "checked": 1,
+                    "coin_type": 1,
+                    "chain_id": 1,
+                }
+            }
+        }),
+    );
+
+    push_input_slice_1(&mut template);
+
+    // outputs
+    push_output_account_cell(
+        &mut template,
+        json!({
+            "capacity": util::gen_account_cell_capacity(8),
+            "lock": {
+                "owner_lock_args": "0x000000000000000000000000000000000000001111",
+                "manager_lock_args": "0x000000000000000000000000000000000000001111"
+            },
+            "data": {
+                "account": "das00012.bit",
+                "next": "das00005.bit"
+            },
+            "witness": {
+                "account": "das00012.bit",
+                "status": (AccountStatus::Normal as u8)
+            }
+        }),
+    );
+    push_output_account_cell(
+        &mut template,
+        json!({
+            "capacity": util::gen_account_cell_capacity(8),
+            "lock": {
+                "owner_lock_args": "0x05ffff000000000000000000000000000000000005",
+                "manager_lock_args": "0x05ffff000000000000000000000000000000000005"
+            },
+            "data": {
+                "account": "das00005.bit",
+                "next": "das00002.bit",
+                "expired_at": TIMESTAMP + YEAR_SEC
+            },
+            "witness": {
+                "account": "das00005.bit",
+                // Simulate the status of new AccountCell is still Normal.
+                "status": (AccountStatus::LockedForCrossChain as u8),
+                "registered_at": TIMESTAMP,
+                "records": [
+                    {
+                        "type": "address",
+                        "key": "60",
+                        "label": "Personal",
+                        "value": "0xffff000000000000000000000000000000000005",
+                    }
+                ]
+            }
+        }),
+    );
+
+    push_output_slice_1(&mut template);
+    push_output_income_cell_with_profit(&mut template);
+    push_output_normal_cell_with_refund(&mut template);
+
+    test_tx(template.as_json());
+}
+
+#[test]
+fn challenge_proposal_confirm_new_account_with_cross_chain() {
+    let mut template = init_with_confirm();
+
+    // inputs
+    push_input_proposal_cell_with_slices(&mut template);
+
+    let lock_scripts = gen_lock_scripts();
+    push_input_account_cell_v2(
+        &mut template,
+        json!({
+            "capacity": util::gen_account_cell_capacity(8),
+            "lock": {
+                "owner_lock_args": "0x000000000000000000000000000000000000001111",
+                "manager_lock_args": "0x000000000000000000000000000000000000001111"
+            },
+            "data": {
+                "account": "das00012.bit",
+                "next": "das00002.bit"
+            },
+            "witness": {
+                "account": "das00012.bit",
+                "status": (AccountStatus::Normal as u8)
+            }
+        }),
+    );
+    push_input_pre_account_cell(
+        &mut template,
+        json!({
+            "capacity": util::gen_register_fee(8, true),
+            "witness": {
+                "account": "das00005.bit",
+                "owner_lock_args": gen_das_lock_args("0x05ffff000000000000000000000000000000000005", None),
+                "inviter_lock": lock_scripts.inviter_1,
+                "channel_lock": lock_scripts.channel_1,
+                "created_at": TIMESTAMP - HOUR_SEC,
+                "initial_records": [
+                    {
+                        "type": "address",
+                        "key": "60",
+                        "label": "Personal",
+                        "value": "0xffff000000000000000000000000000000000005",
+                    }
+                ],
+                "initial_cross_chain": {
+                    "checked": 1,
+                    "coin_type": 1,
+                    "chain_id": 1,
+                }
+            }
+        }),
+    );
+
+    push_input_slice_1(&mut template);
+
+    // outputs
+    push_output_account_cell(
+        &mut template,
+        json!({
+            "capacity": util::gen_account_cell_capacity(8),
+            "lock": {
+                "owner_lock_args": "0x000000000000000000000000000000000000001111",
+                "manager_lock_args": "0x000000000000000000000000000000000000001111"
+            },
+            "data": {
+                "account": "das00012.bit",
+                "next": "das00005.bit"
+            },
+            "witness": {
+                "account": "das00012.bit",
+                "status": (AccountStatus::Normal as u8)
+            }
+        }),
+    );
+    push_output_account_cell(
+        &mut template,
+        json!({
+            "capacity": util::gen_account_cell_capacity(8),
+            "lock": {
+                "owner_lock_args": "0x05ffff000000000000000000000000000000000005",
+                "manager_lock_args": "0x05ffff000000000000000000000000000000000005"
+            },
+            "data": {
+                "account": "das00005.bit",
+                "next": "das00002.bit",
+                "expired_at": TIMESTAMP + YEAR_SEC
+            },
+            "witness": {
+                "account": "das00005.bit",
+                // Simulate the status of new AccountCell is still Normal.
+                "status": (AccountStatus::Normal as u8),
+                "registered_at": TIMESTAMP,
+                "records": [
+                    {
+                        "type": "address",
+                        "key": "60",
+                        "label": "Personal",
+                        "value": "0xffff000000000000000000000000000000000005",
+                    }
+                ]
+            }
+        }),
+    );
+
+    push_output_slice_1(&mut template);
+    push_output_income_cell_with_profit(&mut template);
+    push_output_normal_cell_with_refund(&mut template);
+
+    challenge_tx(template.as_json(), Error::ProposalConfirmNewAccountWitnessError);
 }
