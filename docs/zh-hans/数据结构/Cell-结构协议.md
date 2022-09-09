@@ -111,7 +111,7 @@ table PreAccountCellData {
 
 table ChainId {
     // Indicate if this field should work. (0x00 means false, 0x01 mean true)
-    checked: byte,
+    checked: Uint8,
     coin_type: Uint64,
     chain_id: Uint64,
 }
