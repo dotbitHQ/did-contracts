@@ -108,7 +108,7 @@ pub enum Error {
     IncomeCellProfitMismatch,
     AccountCellMissingPrevAccount = -114,
     AccountCellNextUpdateError,
-    AccountCellHasNotExpired,
+    AccountCellStillCanNotRecycle,
     AccountCellIdNotMatch,
     AccountCellPermissionDenied = -110,
     AccountCellOwnerLockShouldNotBeModified,
@@ -117,6 +117,7 @@ pub enum Error {
     AccountCellDataNotConsistent,
     AccountCellProtectFieldIsModified,
     AccountCellNoMoreFee,
+    AccountCellInExpirationAuctionPeriod,
     AccountCellThrottle = -102,
     // ⚠️ DO NOT CHANGE
     AccountCellRenewDurationMustLongerThanYear,

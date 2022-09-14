@@ -205,13 +205,19 @@ pub fn main() -> Result<(), Error> {
                 Source::Input,
                 timestamp,
             );
+            if let Err(e) = ret {
+                if e == Error::AccountCellInExpirationAuctionPeriod {
+                    warn!("inputs[{}] The AccountCell has been expired and it is in expiration auction status.",
+                    input_account_cells[0]);
+                    return Err(Error::AccountCellInExpirationAuctionPeriod);
+                }
 
-            das_assert!(
-                ret.is_ok() || ret == Err(Error::AccountCellInExpirationGracePeriod),
-                Error::AccountCellHasExpired,
-                "inputs[{}] The AccountCell has been expired, it can only wait to be recycled.",
-                input_account_cells[0]
-            );
+                if e == Error::AccountCellHasExpired {
+                    warn!("inputs[{}] The AccountCell has been expired, it can only wait to be recycled.",
+                    input_account_cells[0]);
+                    return Err(Error::AccountCellHasExpired);
+                }
+            }
 
             debug!("Verify if there is no redundant cells in inputs.");
 
@@ -379,10 +385,9 @@ pub fn main() -> Result<(), Error> {
                 Source::Input,
                 timestamp,
             );
-
             das_assert!(
                 ret == Err(Error::AccountCellHasExpired),
-                Error::AccountCellHasNotExpired,
+                Error::AccountCellStillCanNotRecycle,
                 "inputs[{}] The AccountCell has not been expired.",
                 input_cells[1]
             );
@@ -578,6 +583,7 @@ pub fn main() -> Result<(), Error> {
             parser.parse_cell()?;
 
             let config_main = parser.configs.main()?;
+            let config_account = parser.configs.account()?;
             let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
             let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
@@ -619,13 +625,14 @@ pub fn main() -> Result<(), Error> {
 
             debug!("Verify if the AccountCell is actually expired.");
 
-            let input_cell_data = high_level::load_cell_data(input_cells[0], Source::Input)?;
-            let expired_at = data_parser::account_cell::get_expired_at(&input_cell_data);
-            let account = data_parser::account_cell::get_account(&input_cell_data);
-
-            // It is a convention that the deal can be canceled immediately when expiring.
+            let ret = verifiers::account_cell::verify_account_expiration(
+                config_account,
+                input_cells[0],
+                Source::Input,
+                timestamp,
+            );
             das_assert!(
-                timestamp > expired_at,
+                ret == Err(Error::AccountCellInExpirationAuctionPeriod) || ret == Err(Error::AccountCellHasExpired),
                 Error::AccountCellIsNotExpired,
                 "The AccountCell is still not expired."
             );
@@ -633,6 +640,9 @@ pub fn main() -> Result<(), Error> {
             let capacity_should_recycle;
             let cell;
             if input_status == AccountStatus::Selling as u8 {
+                let input_cell_data = high_level::load_cell_data(input_cells[0], Source::Input)?;
+                let account = data_parser::account_cell::get_account(&input_cell_data);
+
                 let type_id = parser.configs.main()?.type_id_table().account_sale_cell();
                 let (input_sale_cells, output_sale_cells) =
                     util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, type_id)?;
