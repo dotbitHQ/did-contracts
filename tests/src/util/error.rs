@@ -1,7 +1,7 @@
 /// Error codes of DAS contracts
 ///
 /// This is copied from libs/das-core/src/error.rs. Because das-core depends on ckb-std and it can not be used in std environment any more,
-/// so we need to copy the `Error` from there manually.                 
+/// so we need to copy the `Error` from there manually.
 /// Error
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[repr(i8)]
@@ -56,6 +56,7 @@ pub enum Error {
     WitnessEmpty, // 50
     WitnessArgsInvalid,
     WitnessArgsDecodingError,
+    WitnessVersionOrTypeInvalid,
     ApplyRegisterNeedWaitLonger = 60,
     ApplyRegisterHasTimeout,
     ApplyRegisterRefundNeedWaitLonger,
@@ -86,15 +87,16 @@ pub enum Error {
     ProposalWitnessCanNotBeModified,
     ProposalConfirmNewAccountCellDataError = 100,
     ProposalConfirmNewAccountCellCapacityError,
-    ProposalConfirmNewAccountWitnessError, // 105
+    ProposalConfirmNewAccountWitnessError,
     ProposalConfirmPreAccountCellExpired,
     ProposalConfirmNeedWaitLonger,
+    ProposalConfirmInitialRecordsMismatch,
     ProposalConfirmAccountLockArgsIsInvalid = 110,
     ProposalConfirmRefundError,
     ProposalSlicesCanNotBeEmpty,
     ProposalSliceNotEndCorrectly,
-    ProposalSliceMustStartWithAccountCell, // 115
-    ProposalSliceMustContainMoreThanOneElement,
+    ProposalSliceMustStartWithAccountCell,
+    ProposalSliceMustContainMoreThanOneElement, // 115
     ProposalSliceItemMustBeUniqueAccount,
     ProposalRecycleNeedWaitLonger,
     ProposalRecycleRefundAmountError,
@@ -108,7 +110,7 @@ pub enum Error {
     IncomeCellProfitMismatch,
     AccountCellMissingPrevAccount = -114,
     AccountCellNextUpdateError,
-    AccountCellHasNotExpired,
+    AccountCellStillCanNotRecycle,
     AccountCellIdNotMatch,
     AccountCellPermissionDenied = -110,
     AccountCellOwnerLockShouldNotBeModified,
@@ -117,6 +119,7 @@ pub enum Error {
     AccountCellDataNotConsistent,
     AccountCellProtectFieldIsModified,
     AccountCellNoMoreFee,
+    AccountCellInExpirationAuctionPeriod,
     AccountCellThrottle = -102,
     // ⚠️ DO NOT CHANGE
     AccountCellRenewDurationMustLongerThanYear,

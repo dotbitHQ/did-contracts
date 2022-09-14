@@ -30,7 +30,7 @@ fn push_expired_account_cell(template: &mut TemplateGenerator) {
             "data": {
                 "account": "das00002.bit",
                 "next": "das00003.bit",
-                "expired_at": TIMESTAMP - DAY_SEC * 90,
+                "expired_at": TIMESTAMP - ACCOUNT_EXPIRATION_GRACE_PERIOD - ACCOUNT_EXPIRATION_AUCTION_PERIOD - 1,
             },
             "witness": {
                 "account": "das00002.bit",
@@ -80,7 +80,7 @@ fn test_account_recycle_without_sub_account() {
             "data": {
                 "account": "das00002.bit",
                 "next": "das00003.bit",
-                "expired_at": TIMESTAMP - DAY_SEC * 90,
+                "expired_at": TIMESTAMP - ACCOUNT_EXPIRATION_GRACE_PERIOD - ACCOUNT_EXPIRATION_AUCTION_PERIOD - 1,
             },
             "witness": {
                 "enable_sub_account": 0,
@@ -259,7 +259,7 @@ fn challenge_account_recycle_with_wrong_sub_account() {
 }
 
 #[test]
-fn challenge_account_recycle_account_not_expired() {
+fn challenge_account_recycle_account_in_expiration_grace_period() {
     let mut template = before_each();
 
     push_prev_account_cell(&mut template);
@@ -271,7 +271,7 @@ fn challenge_account_recycle_account_not_expired() {
                 "account": "das00002.bit",
                 "next": "das00003.bit",
                 // Simulate the AccountCell has not been expired.
-                "expired_at": TIMESTAMP,
+                "expired_at": TIMESTAMP - ACCOUNT_EXPIRATION_GRACE_PERIOD,
             },
         }),
     );
@@ -289,7 +289,43 @@ fn challenge_account_recycle_account_not_expired() {
     );
     push_output_balance_cell(&mut template, util::gen_account_cell_capacity(8), OWNER);
 
-    challenge_tx(template.as_json(), Error::AccountCellHasNotExpired);
+
+    challenge_tx(template.as_json(), Error::AccountCellStillCanNotRecycle);
+}
+
+#[test]
+fn challenge_account_recycle_account_in_expiration_auction_period() {
+    let mut template = before_each();
+
+    push_prev_account_cell(&mut template);
+    push_input_account_cell(
+        &mut template,
+        json!({
+            "capacity": util::gen_account_cell_capacity(8),
+            "data": {
+                "account": "das00002.bit",
+                "next": "das00003.bit",
+                // Simulate the AccountCell has been expired, but still in expired account auction status.
+                "expired_at": TIMESTAMP - ACCOUNT_EXPIRATION_GRACE_PERIOD - ACCOUNT_EXPIRATION_AUCTION_PERIOD,
+            },
+        }),
+    );
+    template.push_das_lock_witness("0000000000000000000000000000000000000000000000000000000000000000");
+
+    push_output_account_cell(
+        &mut template,
+        json!({
+            "capacity": util::gen_account_cell_capacity(8),
+            "data": {
+                "account": "das00001.bit",
+                "next": "das00003.bit",
+            },
+        }),
+    );
+    push_output_balance_cell(&mut template, util::gen_account_cell_capacity(8), OWNER);
+
+
+    challenge_tx(template.as_json(), Error::AccountCellStillCanNotRecycle);
 }
 
 #[test]

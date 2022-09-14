@@ -717,6 +717,7 @@ impl TemplateGenerator {
             .basic_capacity(Uint64::from(ACCOUNT_BASIC_CAPACITY))
             .prepared_fee_capacity(Uint64::from(ACCOUNT_PREPARED_FEE_CAPACITY))
             .expiration_grace_period(Uint32::from(ACCOUNT_EXPIRATION_GRACE_PERIOD as u32))
+            .expiration_auction_period(Uint32::from(ACCOUNT_EXPIRATION_AUCTION_PERIOD as u32))
             .record_min_ttl(Uint32::from(300))
             .record_size_limit(Uint32::from(5000))
             .transfer_account_fee(Uint64::from(ACCOUNT_OPERATE_FEE))
