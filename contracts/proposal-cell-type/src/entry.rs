@@ -1,4 +1,4 @@
-use alloc::{borrow::ToOwned, boxed::Box};
+use alloc::{borrow::ToOwned, boxed::Box, string::String};
 use ckb_std::{
     ckb_constants::Source,
     high_level::{self, load_cell_capacity, load_cell_lock, load_cell_type, load_script},
@@ -239,7 +239,7 @@ fn inspect_related_cells(
                 related_cells_source,
                 i,
                 version,
-                util::hex_string(pre_account_cell::get_id(&data))
+                util::hex_string(data_parser::pre_account_cell::get_id(&data))
             );
         }
     }
