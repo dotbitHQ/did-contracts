@@ -48,12 +48,16 @@ pub fn verify_account_expiration(
     let expired_at = data_parser::account_cell::get_expired_at(data.as_slice());
     let expiration_grace_period = u32::from(config.expiration_grace_period()) as u64;
     let expiration_auction_period = u32::from(config.expiration_auction_period()) as u64;
+    let expiration_auction_confirmation_period = u32::from(config.expiration_auction_confirmation_period()) as u64;
 
     if current_timestamp > expired_at {
         let duration = current_timestamp - expired_at;
-        if duration > expiration_grace_period + expiration_auction_period {
+        if duration > expiration_grace_period + expiration_auction_period + expiration_auction_confirmation_period {
             warn!("The AccountCell has been expired. Will be recycled soon.");
             return Err(Error::AccountCellHasExpired);
+        } else if duration > expiration_grace_period + expiration_auction_period {
+            warn!("The AccountCell has been in expiration auction confirmation period.");
+            return Err(Error::AccountCellInExpirationAuctionConfirmationPeriod);
         } else if duration > expiration_grace_period {
             warn!("The AccountCell has been in expiration auction period.");
             return Err(Error::AccountCellInExpirationAuctionPeriod);

@@ -845,6 +845,14 @@ pub fn main() -> Result<(), Error> {
                 output_sub_account_capacity
             );
         }
+        b"confirm_expired_account_auction" => {
+            util::require_type_script(
+                &parser,
+                TypeScript::AccountCellType,
+                Source::Input,
+                Error::InvalidTransactionStructure,
+            )?;
+        }
         _ => return Err(Error::ActionNotSupported),
     }
 

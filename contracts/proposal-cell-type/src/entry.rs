@@ -5,13 +5,7 @@ use ckb_std::{
 };
 use core::{convert::TryFrom, result::Result};
 use das_core::{
-    assert,
-    constants::*,
-    data_parser,
-    debug,
-    error::Error,
-    util, verifiers, warn,
-    witness_parser::WitnessesParser,
+    assert, constants::*, data_parser, debug, error::Error, util, verifiers, warn, witness_parser::WitnessesParser,
 };
 use das_map::{map::Map, util as map_util};
 use das_sorted_list::DasSortedList;
@@ -539,8 +533,8 @@ fn verify_slices_relevant_cells(
                     );
 
                     // The correct "next" of first proposal is come from the cell's outputs_data.
-                    next_of_first_cell =
-                        AccountId::try_from(data_parser::account_cell::get_next(&cell_data)).map_err(|_| Error::InvalidCellData)?;
+                    next_of_first_cell = AccountId::try_from(data_parser::account_cell::get_next(&cell_data))
+                        .map_err(|_| Error::InvalidCellData)?;
 
                 // If this is the extended proposal in proposal chain, slice may starting with an
                 // AccountCell/PreAccountCell included in previous proposal, or it may starting with
@@ -810,7 +804,11 @@ fn verify_proposal_execution_result(
                 verify_witness_throttle_fields(item_index, output_cell_witness_reader)?;
                 verify_witness_sub_account_fields(item_index, output_cell_witness_reader)?;
                 verify_witness_initial_records(item_index, &input_cell_witness_reader, output_cell_witness_reader)?;
-                verify_witness_initial_cross_chain_and_status(item_index, &input_cell_witness_reader, output_cell_witness_reader)?;
+                verify_witness_initial_cross_chain_and_status(
+                    item_index,
+                    &input_cell_witness_reader,
+                    output_cell_witness_reader,
+                )?;
 
                 let mut inviter_profit = 0;
                 if input_cell_witness_reader.inviter_lock().is_some() {
@@ -1253,7 +1251,7 @@ fn verify_witness_initial_records<'a>(
             item_index
         );
 
-        let expected_records ;
+        let expected_records;
         if let Ok(reader) = pre_account_cell_reader.try_into_latest() {
             expected_records = reader.initial_records();
         } else if let Ok(reader) = pre_account_cell_reader.try_into_v2() {
@@ -1300,7 +1298,7 @@ fn verify_witness_initial_cross_chain_and_status<'a>(
             item_index
         );
 
-        let checked ;
+        let checked;
         if let Ok(reader) = pre_account_cell_reader.try_into_latest() {
             checked = u8::from(reader.initial_cross_chain().checked());
         } else {

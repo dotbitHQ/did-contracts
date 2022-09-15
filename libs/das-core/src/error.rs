@@ -106,6 +106,7 @@ pub enum Error {
     IncomeCellTransferError,
     IncomeCellCapacityError,
     IncomeCellProfitMismatch,
+    AccountCellInExpirationAuctionConfirmationPeriod = -115,
     AccountCellMissingPrevAccount = -114,
     AccountCellNextUpdateError,
     AccountCellStillCanNotRecycle,

@@ -205,19 +205,11 @@ pub fn main() -> Result<(), Error> {
                 Source::Input,
                 timestamp,
             );
-            if let Err(e) = ret {
-                if e == Error::AccountCellInExpirationAuctionPeriod {
-                    warn!("inputs[{}] The AccountCell has been expired and it is in expiration auction status.",
-                    input_account_cells[0]);
-                    return Err(Error::AccountCellInExpirationAuctionPeriod);
-                }
-
-                if e == Error::AccountCellHasExpired {
-                    warn!("inputs[{}] The AccountCell has been expired, it can only wait to be recycled.",
-                    input_account_cells[0]);
-                    return Err(Error::AccountCellHasExpired);
-                }
-            }
+            das_assert!(
+                ret.is_ok() || ret == Err(Error::AccountCellInExpirationGracePeriod),
+                Error::AccountCellHasExpired,
+                "The AccountCell has been expired."
+            );
 
             debug!("Verify if there is no redundant cells in inputs.");
 
@@ -388,8 +380,7 @@ pub fn main() -> Result<(), Error> {
             das_assert!(
                 ret == Err(Error::AccountCellHasExpired),
                 Error::AccountCellStillCanNotRecycle,
-                "inputs[{}] The AccountCell has not been expired.",
-                input_cells[1]
+                "The AccountCell is still disable for recycling."
             );
 
             debug!("Verify if the AccountCell is in status which could be recycled.");
@@ -632,7 +623,9 @@ pub fn main() -> Result<(), Error> {
                 timestamp,
             );
             das_assert!(
-                ret == Err(Error::AccountCellInExpirationAuctionPeriod) || ret == Err(Error::AccountCellHasExpired),
+                ret == Err(Error::AccountCellInExpirationAuctionPeriod)
+                    || ret == Err(Error::AccountCellInExpirationAuctionConfirmationPeriod)
+                    || ret == Err(Error::AccountCellHasExpired),
                 Error::AccountCellIsNotExpired,
                 "The AccountCell is still not expired."
             );
@@ -978,6 +971,172 @@ pub fn main() -> Result<(), Error> {
             verify_account_is_unlocked_for_cross_chain(output_account_cells[0], &output_cell_witness_reader)?;
 
             verify_multi_sign(input_account_cells[0])?;
+        }
+        b"confirm_expired_account_auction" => {
+            parser.parse_cell()?;
+
+            let config_main = parser.configs.main()?;
+            let config_account = parser.configs.account()?;
+            let timestamp = util::load_oracle_data(OracleCellType::Time)?;
+
+            debug!("Verify if there is no redundant AccountCells.");
+
+            let (input_account_cells, output_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
+            verifiers::common::verify_cell_number_and_position(
+                "AccountCell",
+                &input_account_cells,
+                &[0],
+                &output_account_cells,
+                &[0],
+            )?;
+
+            let input_cell_witness = util::parse_account_cell_witness(&parser, input_account_cells[0], Source::Input)?;
+            let input_cell_witness_reader = input_cell_witness.as_reader();
+            let output_cell_witness =
+                util::parse_account_cell_witness(&parser, output_account_cells[0], Source::Output)?;
+            let output_cell_witness_reader = output_cell_witness.as_reader();
+
+            // include: common::verify_tx_fee_spent_correctly
+            verify_transaction_fee_spent_correctly(
+                action,
+                config_account,
+                input_account_cells[0],
+                output_account_cells[0],
+            )?;
+
+            // Verify if the expired account auction is ended.
+            match verifiers::account_cell::verify_account_expiration(
+                config_account,
+                input_account_cells[0],
+                Source::Input,
+                timestamp,
+            ) {
+                Ok(_) | Err(Error::AccountCellInExpirationGracePeriod) => {
+                    warn!("The AccountCell is not expired.");
+                    return Err(Error::AccountCellIsNotExpired);
+                }
+                Err(Error::AccountCellInExpirationAuctionPeriod) => {
+                    warn!("The AccountCell is still in auction period.");
+                    return Err(Error::AccountCellInExpirationAuctionPeriod);
+                }
+                _ => {}
+            }
+
+            verifiers::account_cell::verify_status(
+                &input_cell_witness_reader,
+                AccountStatus::Normal,
+                input_account_cells[0],
+                Source::Input,
+            )?;
+            verifiers::account_cell::verify_account_data_consistent(
+                input_account_cells[0],
+                output_account_cells[0],
+                vec![],
+            )?;
+            // Even the lock has not been changed, the records still need to be cleared.
+            verifiers::account_cell::verify_account_witness_consistent(
+                input_account_cells[0],
+                output_account_cells[0],
+                &input_cell_witness_reader,
+                &output_cell_witness_reader,
+                vec!["records"],
+            )?;
+            verifiers::account_cell::verify_account_witness_record_empty(
+                &output_cell_witness_reader,
+                output_account_cells[0],
+                Source::Output,
+            )?;
+
+            verify_multi_sign(input_account_cells[0])?;
+
+            debug!("Verify if the SubAccountCell has been refund properly.");
+
+            let mut refund_from_sub_account_cell_to_das = 0;
+            let mut refund_from_sub_account_cell_to_owner = 0;
+            match input_cell_witness_reader.try_into_latest() {
+                Ok(reader) => {
+                    let enable_sub_account = u8::from(reader.enable_sub_account());
+                    if enable_sub_account == SubAccountEnableStatus::On as u8 {
+                        debug!("Verify if the SubAccountCell is refunded properly.");
+
+                        let config_sub_account = parser.configs.sub_account()?;
+                        let basic_capacity = u64::from(config_sub_account.basic_capacity());
+
+                        let sub_account_type_id = config_main.type_id_table().sub_account_cell();
+                        let (input_sub_account_cells, output_sub_account_cells) =
+                            util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, sub_account_type_id)?;
+
+                        verifiers::common::verify_cell_number_and_position(
+                            "SubAccountCell",
+                            &input_sub_account_cells,
+                            &[1],
+                            &output_sub_account_cells,
+                            &[1],
+                        )?;
+
+                        verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
+                            input_sub_account_cells[0],
+                            output_sub_account_cells[0],
+                            vec!["das_profit", "owner_profit"],
+                        )?;
+
+                        // For simplicity, the capacity of the SubAccountCell in inputs is ignored.
+                        let output_sub_account_capacity =
+                            high_level::load_cell_capacity(output_sub_account_cells[0], Source::Output)?;
+
+                        das_assert!(
+                            output_sub_account_capacity == basic_capacity,
+                            Error::InvalidTransactionStructure,
+                            "outputs[{}] The capacity of the SubAccountCell should be {} shannon.",
+                            output_sub_account_cells[0],
+                            basic_capacity
+                        );
+
+                        let input_sub_account_data =
+                            high_level::load_cell_data(input_sub_account_cells[0], Source::Input)?;
+                        let output_sub_account_data =
+                            high_level::load_cell_data(output_sub_account_cells[0], Source::Output)?;
+                        let input_das_profit =
+                            data_parser::sub_account_cell::get_das_profit(&input_sub_account_data).unwrap();
+                        let output_das_profit =
+                            data_parser::sub_account_cell::get_das_profit(&output_sub_account_data).unwrap();
+                        let input_owner_profit =
+                            data_parser::sub_account_cell::get_owner_profit(&input_sub_account_data).unwrap();
+                        let output_owner_profit =
+                            data_parser::sub_account_cell::get_owner_profit(&output_sub_account_data).unwrap();
+
+                        das_assert!(
+                            output_das_profit == 0 && output_owner_profit == 0,
+                            Error::SubAccountCollectProfitError,
+                            "All profit in the SubAccountCell should be collected."
+                        );
+
+                        refund_from_sub_account_cell_to_owner = input_owner_profit;
+                        refund_from_sub_account_cell_to_das = input_das_profit;
+                    }
+                }
+                _ => {}
+            }
+
+            debug!("Verify if all the refunds has been refund properly.");
+
+            let expired_account_capacity = high_level::load_cell_capacity(input_account_cells[0], Source::Input)?;
+            let refund_lock = util::derive_owner_lock_from_cell(input_account_cells[0], Source::Input)?;
+
+            verifiers::misc::verify_user_get_change(
+                config_main,
+                refund_lock.as_reader(),
+                expired_account_capacity + refund_from_sub_account_cell_to_owner,
+            )?;
+
+            if refund_from_sub_account_cell_to_das >= CELL_BASIC_CAPACITY {
+                verifiers::common::verify_das_get_change(refund_from_sub_account_cell_to_das)?;
+            } else {
+                debug!(
+                    "The profit of DAS is {} shannon, so no need to refund to DAS.",
+                    refund_from_sub_account_cell_to_das
+                );
+            }
         }
         _ => return Err(Error::ActionNotSupported),
     }

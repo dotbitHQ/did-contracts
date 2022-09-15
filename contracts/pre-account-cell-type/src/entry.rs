@@ -2,7 +2,7 @@ use alloc::{boxed::Box, collections::BTreeMap, string::String};
 use ckb_std::{ckb_constants::Source, high_level};
 use core::{convert::TryInto, result::Result};
 use das_core::{
-    assert, constants::*, data_parser, debug, error::Error, util, verifiers, witness_parser::WitnessesParser, warn,
+    assert, constants::*, data_parser, debug, error::Error, util, verifiers, warn, witness_parser::WitnessesParser,
 };
 use das_types::{mixer::PreAccountCellDataReaderMixer, packed::*, prelude::*};
 
