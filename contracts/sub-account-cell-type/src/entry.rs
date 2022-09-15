@@ -166,7 +166,7 @@ pub fn main() -> Result<(), Error> {
                 output_sub_account_cells[0]
             );
 
-            verify_sub_account_cell_is_consistent(
+            verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
                 input_sub_account_cells[0],
                 output_sub_account_cells[0],
                 vec!["custom_script", "custom_script_args"],
@@ -249,7 +249,7 @@ pub fn main() -> Result<(), Error> {
                                 &[0],
                             )?;
 
-                            verify_sub_account_cell_is_consistent(
+                            verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
                                 input_sub_account_cells[0],
                                 output_sub_account_cells[0],
                                 vec!["smt_root", "das_profit", "owner_profit"],
@@ -369,7 +369,7 @@ pub fn main() -> Result<(), Error> {
                                 &[1],
                             )?;
 
-                            verify_sub_account_cell_is_consistent(
+                            verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
                                 input_sub_account_cells[0],
                                 output_sub_account_cells[0],
                                 vec!["smt_root", "das_profit"],
@@ -436,7 +436,7 @@ pub fn main() -> Result<(), Error> {
                     parent_account = dep_account_cell_reader.account().as_readable();
                     parent_account.extend(ACCOUNT_SUFFIX.as_bytes());
 
-                    verify_sub_account_cell_is_consistent(
+                    verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
                         input_sub_account_cells[0],
                         output_sub_account_cells[0],
                         vec!["smt_root"],
@@ -763,7 +763,7 @@ pub fn main() -> Result<(), Error> {
                 &output_sub_account_data,
             )?;
 
-            verify_sub_account_cell_is_consistent(
+            verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
                 input_sub_account_cells[0],
                 output_sub_account_cells[0],
                 vec!["das_profit", "owner_profit"],
@@ -922,61 +922,6 @@ fn verify_sub_account_transaction_fee(
         output_remain_fees,
         input_remain_fees
     );
-
-    Ok(())
-}
-
-fn verify_sub_account_cell_is_consistent(
-    input_sub_account_cell: usize,
-    output_sub_account_cell: usize,
-    except: Vec<&str>,
-) -> Result<(), Error> {
-    debug!("Verify if the SubAccountCell is consistent in inputs and outputs.");
-
-    let input_sub_account_cell_lock = high_level::load_cell_lock(input_sub_account_cell, Source::Input)?;
-    let output_sub_account_cell_lock = high_level::load_cell_lock(output_sub_account_cell, Source::Output)?;
-
-    das_assert!(
-        util::is_entity_eq(&input_sub_account_cell_lock, &output_sub_account_cell_lock),
-        Error::SubAccountCellConsistencyError,
-        "The SubAccountCell.lock should be consistent in inputs and outputs."
-    );
-
-    let input_sub_account_cell_type =
-        high_level::load_cell_type(input_sub_account_cell, Source::Input)?.expect("The type script should exist.");
-    let output_sub_account_cell_type =
-        high_level::load_cell_type(output_sub_account_cell, Source::Output)?.expect("The type script should exist.");
-
-    das_assert!(
-        util::is_entity_eq(&input_sub_account_cell_type, &output_sub_account_cell_type),
-        Error::SubAccountCellConsistencyError,
-        "The SubAccountCell.type should be consistent in inputs and outputs."
-    );
-
-    let input_sub_account_data = high_level::load_cell_data(input_sub_account_cell, Source::Input)?;
-    let output_sub_account_data = high_level::load_cell_data(output_sub_account_cell, Source::Output)?;
-
-    macro_rules! assert_field_consistent_if_not_except {
-        ($field_name:expr, $get_name:ident) => {
-            if !except.contains(&$field_name) {
-                let input_value = data_parser::sub_account_cell::$get_name(&input_sub_account_data);
-                let output_value = data_parser::sub_account_cell::$get_name(&output_sub_account_data);
-
-                das_assert!(
-                    input_value == output_value,
-                    Error::SubAccountCellConsistencyError,
-                    "The SubAccountCell.data.{} should be consistent in inputs and outputs.",
-                    $field_name
-                );
-            }
-        };
-    }
-
-    assert_field_consistent_if_not_except!("smt_root", get_smt_root);
-    assert_field_consistent_if_not_except!("das_profit", get_das_profit);
-    assert_field_consistent_if_not_except!("owner_profit", get_owner_profit);
-    assert_field_consistent_if_not_except!("custom_script", get_custom_script);
-    assert_field_consistent_if_not_except!("custom_script_args", get_custom_script_args);
 
     Ok(())
 }

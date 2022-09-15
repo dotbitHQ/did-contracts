@@ -1,5 +1,5 @@
 use crate::{
-    assert,
+    assert as das_assert,
     constants::*,
     data_parser, debug,
     error::Error,
@@ -7,7 +7,7 @@ use crate::{
     util, warn,
     witness_parser::WitnessesParser,
 };
-use alloc::string::String;
+use alloc::{string::String, vec::Vec};
 use ckb_std::{ckb_constants::Source, high_level};
 use das_dynamic_libs::{error::Error as DasDynamicLibError, sign_lib::SignLib};
 use das_types::{constants::*, packed::*, prelude::Entity, prettier::Prettier};
@@ -24,7 +24,7 @@ pub fn verify_unlock_role(witness: &SubAccountWitness) -> Result<(), Error> {
         _ => LockRole::Owner,
     };
 
-    assert!(
+    das_assert!(
         witness.sign_role == Some(required_role),
         Error::AccountCellPermissionDenied,
         "witnesses[{}] This witness should be unlocked by the {:?}'s signature.",
@@ -54,7 +54,7 @@ pub fn verify_status(
         expected_status
     );
 
-    assert!(
+    das_assert!(
         sub_account_status == expected_status as u8,
         Error::AccountCellStatusLocked,
         "witnesses[{}] The witness.sub_account.status of {} should be {:?}.",
@@ -112,7 +112,7 @@ pub fn verify_suffix_with_parent_account(
 
     let suffix = sub_account_reader.suffix().raw_data();
 
-    assert!(
+    das_assert!(
         expected_suffix == suffix,
         Error::SubAccountInitialValueError,
         "witnesses[{}] The witness.sub_account.suffix of {} should come from the parent account.(expected: {:?}, current: {:?})",
@@ -129,7 +129,7 @@ fn verify_initial_lock(sub_account_index: usize, sub_account_reader: SubAccountR
     let expected_lock = das_lock();
     let current_lock = sub_account_reader.lock();
 
-    assert!(
+    das_assert!(
         util::is_type_id_equal(expected_lock.as_reader(), current_lock.into()),
         Error::SubAccountInitialValueError,
         "witnesses[{}] The witness.sub_account.lock of {} must be a das-lock.",
@@ -147,7 +147,7 @@ fn verify_initial_id(sub_account_index: usize, sub_account_reader: SubAccountRea
     let expected_account_id = util::get_account_id_from_account(account.as_bytes());
     let account_id = sub_account_reader.id().raw_data();
 
-    assert!(
+    das_assert!(
         &expected_account_id == account_id,
         Error::SubAccountInitialValueError,
         "witnesses[{}] The witness.sub_account.id of {} do not match.(expected: 0x{}, current: 0x{})",
@@ -167,7 +167,7 @@ fn verify_initial_registered_at(
 ) -> Result<(), Error> {
     let registered_at = u64::from(sub_account_reader.registered_at());
 
-    assert!(
+    das_assert!(
         registered_at == timestamp,
         Error::SubAccountInitialValueError,
         "witnesses[{}] The witness.sub_account.registered_at of {} should be the same as the timestamp in TimeCell.(expected: {}, current: {})",
@@ -195,7 +195,7 @@ pub fn verify_initial_properties(
     verify_initial_registered_at(sub_account_index, sub_account_reader, current_timestamp)?;
     verify_status(sub_account_index, sub_account_reader, AccountStatus::Normal)?;
 
-    assert!(
+    das_assert!(
         sub_account_reader.records().len() == 0,
         Error::AccountCellRecordNotEmpty,
         "witnesses[{}] The witness.sub_account.records of {} should be empty.",
@@ -204,7 +204,7 @@ pub fn verify_initial_properties(
     );
 
     let enable_sub_account = u8::from(sub_account_reader.enable_sub_account());
-    assert!(
+    das_assert!(
         enable_sub_account == 0,
         Error::SubAccountInitialValueError,
         "witnesses[{}] The witness.sub_account.enable_sub_account of {} should be 0 .",
@@ -213,7 +213,7 @@ pub fn verify_initial_properties(
     );
 
     let renew_sub_account_price = u64::from(sub_account_reader.renew_sub_account_price());
-    assert!(
+    das_assert!(
         renew_sub_account_price == 0,
         Error::SubAccountInitialValueError,
         "witnesses[{}] The witness.sub_account.renew_sub_account_price of {} should be 0 .",
@@ -222,7 +222,7 @@ pub fn verify_initial_properties(
     );
 
     let nonce = u64::from(sub_account_reader.nonce());
-    assert!(
+    das_assert!(
         nonce == 0,
         Error::SubAccountInitialValueError,
         "witnesses[{}] The witness.sub_account.nonce of {} should be 0 .",
@@ -231,7 +231,7 @@ pub fn verify_initial_properties(
     );
 
     let expired_at = u64::from(sub_account_reader.expired_at());
-    assert!(
+    das_assert!(
         expired_at >= current_timestamp + YEAR_SEC,
         Error::SubAccountInitialValueError,
         "witnesses[{}] The witness.sub_account.expired_at should be at least one year.(expected: >= {}, current: {})",
@@ -338,7 +338,7 @@ pub fn verify_sub_account_parent_id(
     let type_script = high_level::load_cell_type(sub_account_index, source)?.unwrap();
     let account_id = type_script.as_reader().args().raw_data();
 
-    assert!(
+    das_assert!(
         account_id == expected_account_id,
         Error::AccountCellIdNotMatch,
         "inputs[{}] The account ID of the SubAccountCell is not match with the expired AccountCell.",
@@ -376,6 +376,61 @@ pub fn verify_beta_list(parser: &WitnessesParser, account: &[u8]) -> Result<(), 
         "Found account {:?} in the beta list.",
         String::from_utf8(account.to_vec())
     );
+
+    Ok(())
+}
+
+pub fn verify_sub_account_cell_is_consistent(
+    input_sub_account_cell: usize,
+    output_sub_account_cell: usize,
+    except: Vec<&str>,
+) -> Result<(), Error> {
+    debug!("Verify if the SubAccountCell is consistent in inputs and outputs.");
+
+    let input_sub_account_cell_lock = high_level::load_cell_lock(input_sub_account_cell, Source::Input)?;
+    let output_sub_account_cell_lock = high_level::load_cell_lock(output_sub_account_cell, Source::Output)?;
+
+    das_assert!(
+        util::is_entity_eq(&input_sub_account_cell_lock, &output_sub_account_cell_lock),
+        Error::SubAccountCellConsistencyError,
+        "The SubAccountCell.lock should be consistent in inputs and outputs."
+    );
+
+    let input_sub_account_cell_type =
+        high_level::load_cell_type(input_sub_account_cell, Source::Input)?.expect("The type script should exist.");
+    let output_sub_account_cell_type =
+        high_level::load_cell_type(output_sub_account_cell, Source::Output)?.expect("The type script should exist.");
+
+    das_assert!(
+        util::is_entity_eq(&input_sub_account_cell_type, &output_sub_account_cell_type),
+        Error::SubAccountCellConsistencyError,
+        "The SubAccountCell.type should be consistent in inputs and outputs."
+    );
+
+    let input_sub_account_data = high_level::load_cell_data(input_sub_account_cell, Source::Input)?;
+    let output_sub_account_data = high_level::load_cell_data(output_sub_account_cell, Source::Output)?;
+
+    macro_rules! das_assert_field_consistent_if_not_except {
+        ($field_name:expr, $get_name:ident) => {
+            if !except.contains(&$field_name) {
+                let input_value = data_parser::sub_account_cell::$get_name(&input_sub_account_data);
+                let output_value = data_parser::sub_account_cell::$get_name(&output_sub_account_data);
+
+                das_assert!(
+                    input_value == output_value,
+                    Error::SubAccountCellConsistencyError,
+                    "The SubAccountCell.data.{} should be consistent in inputs and outputs.",
+                    $field_name
+                );
+            }
+        };
+    }
+
+    das_assert_field_consistent_if_not_except!("smt_root", get_smt_root);
+    das_assert_field_consistent_if_not_except!("das_profit", get_das_profit);
+    das_assert_field_consistent_if_not_except!("owner_profit", get_owner_profit);
+    das_assert_field_consistent_if_not_except!("custom_script", get_custom_script);
+    das_assert_field_consistent_if_not_except!("custom_script_args", get_custom_script_args);
 
     Ok(())
 }
