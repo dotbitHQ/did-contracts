@@ -639,7 +639,9 @@ table ConfigCellAccount {
     edit_records_throttle: Uint32,
     common_throttle: Uint32,
     // The period for expired account auction in seconds
-    expired_auction_period: Uint32,
+    expiration_auction_period: Uint32,
+    // The period for the confirmation of expired account auction in seconds
+    expiration_auction_confirmation_period: Uint32,
 }
 ```
 
@@ -647,6 +649,7 @@ table ConfigCellAccount {
 - basic_capacity ，账户的存储空间，可能比 cell 占用的存储更大；
 - expiration_grace_period ，账户到期后的宽限期，单位 秒；
 - expired_auction_period ，账户到期后的拍卖期限，在此期限内原用户已对账户丧失所有权，但 Keeper 无法回收已到期的账户，单位 秒；
+- expiration_auction_confirmation_period ，账户到期后的拍卖结束后的确认等待期，在此期限内原用户已对账户丧失所有权，但 Keeper 无法回收已到期的账户，单位 秒；
 - record_min_ttl ，解析记录的最小 TTL 值，单位 秒；
 
 #### ConfigCellApply
