@@ -289,7 +289,6 @@ fn challenge_account_recycle_account_in_expiration_grace_period() {
     );
     push_output_balance_cell(&mut template, util::gen_account_cell_capacity(8), OWNER);
 
-
     challenge_tx(template.as_json(), Error::AccountCellStillCanNotRecycle);
 }
 
@@ -323,7 +322,6 @@ fn challenge_account_recycle_account_in_expiration_auction_period() {
         }),
     );
     push_output_balance_cell(&mut template, util::gen_account_cell_capacity(8), OWNER);
-
 
     challenge_tx(template.as_json(), Error::AccountCellStillCanNotRecycle);
 }

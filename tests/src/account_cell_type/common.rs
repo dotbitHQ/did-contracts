@@ -9,6 +9,7 @@ pub fn init(action: &str, params_opt: Option<&str>) -> TemplateGenerator {
     template.push_contract_cell("fake-secp256k1-blake160-signhash-all", true);
     template.push_contract_cell("eip712-lib", false);
     template.push_contract_cell("account-cell-type", false);
+    template.push_contract_cell("balance-cell-type", false);
 
     template.push_oracle_cell(1, OracleCellType::Time, TIMESTAMP);
 

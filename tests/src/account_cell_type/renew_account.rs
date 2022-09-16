@@ -434,5 +434,5 @@ fn challenge_account_renew_expired_account() {
     push_simple_output_income_cell(&mut template);
     push_output_balance_cell(&mut template, 500_000_000_000, OWNER);
 
-    challenge_tx(template.as_json(), Error::AccountCellInExpirationAuctionPeriod)
+    challenge_tx(template.as_json(), Error::AccountCellHasExpired)
 }
