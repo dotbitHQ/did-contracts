@@ -1,8 +1,8 @@
-use das_types_std::constants::{DataType, Source};
 use super::common::*;
 use crate::util::{
     accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
 };
+use das_types_std::constants::{DataType, Source};
 use serde_json::json;
 
 fn before_each() -> TemplateGenerator {
@@ -10,14 +10,17 @@ fn before_each() -> TemplateGenerator {
     template.push_contract_cell("balance-cell-type", false);
     template.push_config_cell(DataType::ConfigCellSubAccount, Source::CellDep);
 
-    push_dep_account_cell(&mut template, json!({
-        "data": {
-            "account": ACCOUNT_1,
-        },
-        "witness": {
-            "account": ACCOUNT_1,
-        }
-    }));
+    push_dep_account_cell(
+        &mut template,
+        json!({
+            "data": {
+                "account": ACCOUNT_1,
+            },
+            "witness": {
+                "account": ACCOUNT_1,
+            }
+        }),
+    );
 
     template
 }
@@ -209,7 +212,11 @@ fn challenge_sub_account_collect_das_profit_error_2() {
     // outputs
     push_simple_output_sub_account_cell(&mut template, 0, 0);
     // Simulate not transferring all profit to other lock.
-    push_output_normal_cell(&mut template, 1000_00_000_000 - 1, "0x030000000000000000000000000000000000FFFF");
+    push_output_normal_cell(
+        &mut template,
+        1000_00_000_000 - 1,
+        "0x030000000000000000000000000000000000FFFF",
+    );
     push_output_balance_cell(&mut template, 1000_00_000_000, OWNER);
 
     challenge_tx(template.as_json(), Error::ChangeError)

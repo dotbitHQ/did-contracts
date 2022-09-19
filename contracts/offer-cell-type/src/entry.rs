@@ -1,17 +1,12 @@
-use alloc::{boxed::Box, string::String};
+use alloc::string::String;
 use ckb_std::{ckb_constants::Source, high_level};
 use core::result::Result;
 use das_core::{
-    assert, assert_lock_equal, constants::*, data_parser, debug, error::Error, parse_account_cell_witness,
-    parse_witness, util, verifiers, witness_parser::WitnessesParser,
+    assert, assert_lock_equal, constants::*, data_parser, debug, error::Error, util, verifiers,
+    witness_parser::WitnessesParser,
 };
 use das_map::{map::Map, util as map_util};
-use das_types::{
-    constants::{AccountStatus, DataType},
-    mixer::AccountCellDataMixer,
-    packed::*,
-    prelude::*,
-};
+use das_types::{constants::AccountStatus, packed::*, prelude::*};
 
 pub fn main() -> Result<(), Error> {
     debug!("====== Running offer-cell-type ======");
@@ -101,17 +96,8 @@ pub fn main() -> Result<(), Error> {
                 "The OfferCell.lock should be the same as the lock of inputs[0]."
             );
 
-            let output_offer_cell_witness;
-            let output_offer_cell_witness_reader;
-            parse_witness!(
-                output_offer_cell_witness,
-                output_offer_cell_witness_reader,
-                parser,
-                output_cells[0],
-                Source::Output,
-                DataType::OfferCellData,
-                OfferCellData
-            );
+            let output_offer_cell_witness = util::parse_offer_cell_witness(&parser, output_cells[0], Source::Output)?;
+            let output_offer_cell_witness_reader = output_offer_cell_witness.as_reader();
 
             if action == b"make_offer" {
                 debug!("Verify if the fields of the OfferCell is set correctly.");
@@ -125,17 +111,8 @@ pub fn main() -> Result<(), Error> {
                 )?;
                 verify_message_length(config_second_market, output_offer_cell_witness_reader)?;
             } else {
-                let input_offer_cell_witness;
-                let input_offer_cell_witness_reader;
-                parse_witness!(
-                    input_offer_cell_witness,
-                    input_offer_cell_witness_reader,
-                    parser,
-                    input_cells[0],
-                    Source::Input,
-                    DataType::OfferCellData,
-                    OfferCellData
-                );
+                let input_offer_cell_witness = util::parse_offer_cell_witness(&parser, input_cells[0], Source::Input)?;
+                let input_offer_cell_witness_reader = input_offer_cell_witness.as_reader();
 
                 debug!("Verify if the fields of the OfferCell is modified propoerly.");
 
@@ -286,25 +263,12 @@ pub fn main() -> Result<(), Error> {
                 &[0],
             )?;
 
-            let input_account_cell_witness: Box<dyn AccountCellDataMixer>;
-            let input_account_cell_witness_reader;
-            parse_account_cell_witness!(
-                input_account_cell_witness,
-                input_account_cell_witness_reader,
-                parser,
-                input_account_cells[0],
-                Source::Input
-            );
-
-            let output_account_cell_witness: Box<dyn AccountCellDataMixer>;
-            let output_account_cell_witness_reader;
-            parse_account_cell_witness!(
-                output_account_cell_witness,
-                output_account_cell_witness_reader,
-                parser,
-                output_account_cells[0],
-                Source::Output
-            );
+            let input_account_cell_witness =
+                util::parse_account_cell_witness(&parser, input_account_cells[0], Source::Input)?;
+            let input_account_cell_witness_reader = input_account_cell_witness.as_reader();
+            let output_account_cell_witness =
+                util::parse_account_cell_witness(&parser, output_account_cells[0], Source::Output)?;
+            let output_account_cell_witness_reader = output_account_cell_witness.as_reader();
 
             let buyer_lock = high_level::load_cell_lock(input_cells[0], Source::Input)?;
             let seller_lock = util::derive_owner_lock_from_cell(input_account_cells[0], Source::Input)?;
@@ -359,17 +323,8 @@ pub fn main() -> Result<(), Error> {
             let account_cell_data = high_level::load_cell_data(input_account_cells[0], Source::Input)?;
             let current_account = data_parser::account_cell::get_account(&account_cell_data);
 
-            let input_offer_cell_witness;
-            let input_offer_cell_witness_reader;
-            parse_witness!(
-                input_offer_cell_witness,
-                input_offer_cell_witness_reader,
-                parser,
-                input_cells[0],
-                Source::Input,
-                DataType::OfferCellData,
-                OfferCellData
-            );
+            let input_offer_cell_witness = util::parse_offer_cell_witness(&parser, input_cells[0], Source::Input)?;
+            let input_offer_cell_witness_reader = input_offer_cell_witness.as_reader();
 
             let expected_account = input_offer_cell_witness_reader.account().raw_data();
 

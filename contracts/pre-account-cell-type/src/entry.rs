@@ -1,18 +1,10 @@
-use alloc::{
-    collections::BTreeMap,
-    string::String,
-    boxed::Box
-};
+use alloc::{boxed::Box, collections::BTreeMap, string::String};
 use ckb_std::{ckb_constants::Source, high_level};
 use core::{convert::TryInto, result::Result};
 use das_core::{
-    assert, constants::*, data_parser, debug, error::Error, util, verifiers, witness_parser::WitnessesParser,
+    assert, constants::*, data_parser, debug, error::Error, util, verifiers, witness_parser::WitnessesParser, warn,
 };
-use das_types::{
-    packed::*,
-    prelude::*,
-    mixer::PreAccountCellDataReaderMixer
-};
+use das_types::{mixer::PreAccountCellDataReaderMixer, packed::*, prelude::*};
 
 pub fn main() -> Result<(), Error> {
     debug!("====== Running pre-account-cell-type ======");
@@ -157,11 +149,24 @@ pub fn main() -> Result<(), Error> {
             verifiers::account_cell::verify_account_chars(&parser, chars_reader)?;
             verifiers::account_cell::verify_account_chars_max_length(&parser, chars_reader)?;
 
-            match pre_account_cell_witness_reader.try_into_latest() {
-                Ok(reader) => {
-                    verifiers::account_cell::verify_records_keys(&parser, reader.initial_records())?;
+            match pre_account_cell_witness_reader.version() {
+                2 => {
+                    if let Ok(reader) = pre_account_cell_witness_reader.try_into_v2() {
+                        verifiers::account_cell::verify_records_keys(&parser, reader.initial_records())?;
+                    } else {
+                        warn!("The PreAccountCellDataReaderMixer.version returned a mismatched version number.");
+                        return Err(Error::HardCodedError);
+                    }
                 }
-                Err(_) => {}
+                3 => {
+                    if let Ok(reader) = pre_account_cell_witness_reader.try_into_latest() {
+                        verifiers::account_cell::verify_records_keys(&parser, reader.initial_records())?;
+                    } else {
+                        warn!("The PreAccountCellDataReaderMixer.version returned a mismatched version number.");
+                        return Err(Error::HardCodedError);
+                    }
+                }
+                _ => {}
             }
         }
         b"refund_pre_register" => {
@@ -312,7 +317,10 @@ fn verify_apply_hash<'a>(
     Ok(())
 }
 
-fn verify_created_at<'a>(expected_timestamp: u64, reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>) -> Result<(), Error> {
+fn verify_created_at<'a>(
+    expected_timestamp: u64,
+    reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>,
+) -> Result<(), Error> {
     let create_at = u64::from(reader.created_at());
 
     assert!(
@@ -358,7 +366,10 @@ fn verify_quote<'a>(reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>) -> Res
     Ok(())
 }
 
-fn verify_invited_discount<'a>(config: ConfigCellPriceReader, reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>) -> Result<(), Error> {
+fn verify_invited_discount<'a>(
+    config: ConfigCellPriceReader,
+    reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>,
+) -> Result<(), Error> {
     debug!("Check if PreAccountCell.witness.invited_discount is 0 or the same as configuration.");
 
     let default_lock = Script::default();
@@ -473,7 +484,10 @@ fn verify_price_and_capacity<'a>(
     Ok(())
 }
 
-fn verify_account_length_and_years<'a>(reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>, current_timestamp: u64) -> Result<(), Error> {
+fn verify_account_length_and_years<'a>(
+    reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>,
+    current_timestamp: u64,
+) -> Result<(), Error> {
     use chrono::{DateTime, NaiveDateTime, Utc};
 
     let account_length = reader.account().len();

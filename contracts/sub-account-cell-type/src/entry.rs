@@ -1,5 +1,7 @@
 use alloc::{borrow::ToOwned, string::String, vec, vec::Vec};
-use ckb_std::{ckb_constants::Source, cstr_core::CStr, dynamic_loading_c_impl::CKBDLContext, error::SysError, high_level};
+use ckb_std::{
+    ckb_constants::Source, cstr_core::CStr, dynamic_loading_c_impl::CKBDLContext, error::SysError, high_level,
+};
 use core::{convert::TryInto, result::Result};
 use das_core::{
     assert as das_assert,
@@ -790,7 +792,8 @@ pub fn main() -> Result<(), Error> {
             let input_das_profit = data_parser::sub_account_cell::get_das_profit(&input_sub_account_data).unwrap();
             let output_das_profit = data_parser::sub_account_cell::get_das_profit(&output_sub_account_data).unwrap();
             let input_owner_profit = data_parser::sub_account_cell::get_owner_profit(&input_sub_account_data).unwrap();
-            let output_owner_profit = data_parser::sub_account_cell::get_owner_profit(&output_sub_account_data).unwrap();
+            let output_owner_profit =
+                data_parser::sub_account_cell::get_owner_profit(&output_sub_account_data).unwrap();
 
             das_assert!(
                 input_das_profit != 0 || input_owner_profit != 0,

@@ -1,4 +1,4 @@
-use ckb_testtool::ckb_types::{h256, H256};
+use ckb_types::{h256, H256};
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::collections::HashMap;
@@ -16,7 +16,7 @@ pub const ACCOUNT_OPERATE_FEE: u64 = 10_000;
 pub const ACCOUNT_RELEASED_LENGTH: usize = 5;
 pub const ACCOUNT_EXPIRATION_GRACE_PERIOD: u64 = 2_592_000;
 
-pub const ACCOUNT_PRICE_1_CHAR: u64 = 2000_000_000;
+pub const ACCOUNT_PRICE_1_CHAR: u64 = 0;
 pub const ACCOUNT_PRICE_2_CHAR: u64 = 1000_000_000;
 pub const ACCOUNT_PRICE_3_CHAR: u64 = 700_000_000;
 pub const ACCOUNT_PRICE_4_CHAR: u64 = 170_000_000;

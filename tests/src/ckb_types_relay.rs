@@ -1,4 +1,4 @@
-use ckb_testtool::ckb_types::{bytes, packed::*, prelude::*};
+use ckb_types::{bytes, packed::*, prelude::*};
 
 pub fn witness_args_new_builder() -> WitnessArgsBuilder {
     WitnessArgs::new_builder()

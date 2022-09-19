@@ -1,9 +1,4 @@
-use super::{
-    accounts::*,
-    constants::*,
-    template_generator::*,
-    util,
-};
+use super::{accounts::*, constants::*, template_generator::*, util};
 use das_types_std::constants::AccountStatus;
 use serde_json::{json, Value};
 
@@ -45,40 +40,6 @@ pub fn push_output_apply_register_cell(template: &mut TemplateGenerator, cell_pa
     util::merge_json(&mut cell, cell_partial);
 
     template.push_output(cell, None);
-}
-
-pub fn push_output_pre_account_cell_v1(template: &mut TemplateGenerator, cell_partial: Value) {
-    let mut cell = json!({
-        "capacity": util::gen_register_fee(5, false),
-        "lock": {
-            "code_hash": "{{always_success}}"
-        },
-        "type": {
-            "code_hash": "{{pre-account-cell-type}}"
-        },
-        "witness": {
-            "account": ACCOUNT_1,
-            "refund_lock": {
-                "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
-                "args": OWNER_WITHOUT_TYPE
-            },
-            "owner_lock_args": gen_das_lock_args(OWNER, None),
-            "inviter_id": Value::Null,
-            "inviter_lock": Value::Null,
-            "channel_lock": Value::Null,
-            "price": {
-                "length": 5,
-                "new": ACCOUNT_PRICE_5_CHAR,
-                "renew": ACCOUNT_PRICE_5_CHAR
-            },
-            "quote": CKB_QUOTE,
-            "invited_discount": 0,
-            "created_at": Value::Null
-        }
-    });
-    util::merge_json(&mut cell, cell_partial);
-
-    template.push_output(cell, Some(1));
 }
 
 pub fn push_dep_pre_account_cell(template: &mut TemplateGenerator, cell_partial: Value) {
@@ -142,12 +103,93 @@ pub fn push_input_pre_account_cell(template: &mut TemplateGenerator, cell_partia
             "quote": CKB_QUOTE,
             "invited_discount": INVITED_DISCOUNT,
             "created_at": Value::Null,
-            "initial_records": []
+            "initial_records": [],
+            "initial_cross_chain": {
+                "coin_type": 0,
+                "chain_id": 0,
+                "checked": 0
+            }
         }
     });
     util::merge_json(&mut cell, cell_partial);
 
-    template.push_input(cell, Some(2));
+    template.push_input(cell, Some(3));
+}
+
+pub fn push_output_pre_account_cell_v1(template: &mut TemplateGenerator, cell_partial: Value) {
+    let mut cell = json!({
+        "capacity": util::gen_register_fee(5, false),
+        "lock": {
+            "code_hash": "{{always_success}}"
+        },
+        "type": {
+            "code_hash": "{{pre-account-cell-type}}"
+        },
+        "witness": {
+            "account": ACCOUNT_1,
+            "refund_lock": {
+                "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                "args": OWNER_WITHOUT_TYPE
+            },
+            "owner_lock_args": gen_das_lock_args(OWNER, None),
+            "inviter_id": Value::Null,
+            "inviter_lock": Value::Null,
+            "channel_lock": Value::Null,
+            "price": {
+                "length": 5,
+                "new": ACCOUNT_PRICE_5_CHAR,
+                "renew": ACCOUNT_PRICE_5_CHAR
+            },
+            "quote": CKB_QUOTE,
+            "invited_discount": 0,
+            "created_at": Value::Null
+        }
+    });
+    util::merge_json(&mut cell, cell_partial);
+
+    template.push_output(cell, Some(1));
+}
+
+pub fn push_output_pre_account_cell_v2(template: &mut TemplateGenerator, cell_partial: Value) {
+    let mut cell = json!({
+        "capacity": util::gen_register_fee(5, false),
+        "lock": {
+            "code_hash": "{{always_success}}"
+        },
+        "type": {
+            "code_hash": "{{pre-account-cell-type}}"
+        },
+        "witness": {
+            "account": ACCOUNT_1,
+            "refund_lock": {
+                "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                "args": OWNER_WITHOUT_TYPE
+            },
+            "owner_lock_args": gen_das_lock_args(OWNER, None),
+            "inviter_id": Value::Null,
+            "inviter_lock": Value::Null,
+            "channel_lock": Value::Null,
+            "price": {
+                "length": 5,
+                "new": ACCOUNT_PRICE_5_CHAR,
+                "renew": ACCOUNT_PRICE_5_CHAR
+            },
+            "quote": CKB_QUOTE,
+            "invited_discount": 0,
+            "created_at": Value::Null,
+            "initial_records": [
+                {
+                    "type": "address",
+                    "key": "60",
+                    "label": "Personal",
+                    "value": OWNER_WITHOUT_TYPE,
+                }
+            ],
+        }
+    });
+    util::merge_json(&mut cell, cell_partial);
+
+    template.push_output(cell, Some(2));
 }
 
 pub fn push_output_pre_account_cell(template: &mut TemplateGenerator, cell_partial: Value) {
@@ -184,12 +226,17 @@ pub fn push_output_pre_account_cell(template: &mut TemplateGenerator, cell_parti
                     "label": "Personal",
                     "value": OWNER_WITHOUT_TYPE,
                 }
-            ]
+            ],
+            "initial_cross_chain": {
+                "coin_type": 0,
+                "chain_id": 0,
+                "checked": 0
+            }
         }
     });
     util::merge_json(&mut cell, cell_partial);
 
-    template.push_output(cell, Some(2));
+    template.push_output(cell, Some(3));
 }
 
 pub fn push_dep_account_cell(template: &mut TemplateGenerator, cell_partial: Value) {

@@ -54,6 +54,7 @@ pub enum Error {
     WitnessEmpty, // 50
     WitnessArgsInvalid,
     WitnessArgsDecodingError,
+    WitnessVersionOrTypeInvalid,
     ApplyRegisterNeedWaitLonger = 60,
     ApplyRegisterHasTimeout,
     ApplyRegisterRefundNeedWaitLonger,

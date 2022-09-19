@@ -1,7 +1,6 @@
 use super::{assert, constants::ScriptHashType, debug, error::Error, util, warn};
 use alloc::{collections::BTreeMap, vec, vec::Vec};
-use core::convert::TryFrom;
-use core::lazy::OnceCell;
+use core::{cell::OnceCell, convert::TryFrom};
 use das_types::{
     constants::{
         CharSetType, DataType, CHAR_SET_LENGTH, WITNESS_HEADER_BYTES, WITNESS_LENGTH_BYTES, WITNESS_TYPE_BYTES,
