@@ -1,17 +1,17 @@
-use alloc::{borrow::ToOwned, vec::Vec};
+use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
 use ckb_std::{ckb_constants::Source, debug, high_level};
 use core::result::Result;
 use core::slice::Iter;
-use das_core::{assert, constants::*, error::Error, util, verifiers, warn, witness_parser::WitnessesParser};
+use das_core::{assert, code_to_error, constants::*, error::*, util, verifiers, warn, witness_parser::WitnessesParser};
 use das_types::{constants::DataType, packed::*, prelude::*};
 
-pub fn main() -> Result<(), Error> {
+pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running income-cell-type ======");
 
     let mut parser = WitnessesParser::new()?;
     let action_cp = match parser.parse_action_with_params()? {
         Some((action, _)) => action.to_vec(),
-        None => return Err(Error::ActionNotSupported),
+        None => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
     };
     let action = action_cp.as_slice();
 
@@ -19,7 +19,7 @@ pub fn main() -> Result<(), Error> {
 
     debug!(
         "Route to {:?} action ...",
-        alloc::string::String::from_utf8(action.to_vec()).map_err(|_| Error::ActionNotSupported)?
+        alloc::string::String::from_utf8(action.to_vec()).map_err(|_| ErrorCode::ActionNotSupported)?
     );
     match action {
         b"create_income" => {
@@ -41,7 +41,7 @@ pub fn main() -> Result<(), Error> {
 
             assert!(
                 income_cell_witness_reader.records().len() == 1,
-                Error::InvalidTransactionStructure,
+                ErrorCode::InvalidTransactionStructure,
                 "Only one record should exist in the IncomeCell."
             );
 
@@ -49,12 +49,12 @@ pub fn main() -> Result<(), Error> {
 
             assert!(
                 util::is_reader_eq(income_cell_witness_reader.creator(), record.belong_to()),
-                Error::InvalidTransactionStructure,
+                ErrorCode::InvalidTransactionStructure,
                 "The only one record should belong to the creator of the IncomeCell ."
             );
             assert!(
                 util::is_reader_eq(record.capacity(), config_income.basic_capacity()),
-                Error::InvalidTransactionStructure,
+                ErrorCode::InvalidTransactionStructure,
                 "The only one record should has the same capacity with ConfigCellIncome.basic_capacity ."
             );
 
@@ -62,7 +62,7 @@ pub fn main() -> Result<(), Error> {
             let basic_capacity = u64::from(config_income.basic_capacity());
             assert!(
                 cell_capacity == basic_capacity,
-                Error::IncomeCellCapacityError,
+                ErrorCode::IncomeCellCapacityError,
                 "The IncomeCell.capacity should equal to the basic capacity of IncomeCell. (expected: {}, current: {})",
                 basic_capacity,
                 cell_capacity
@@ -75,12 +75,12 @@ pub fn main() -> Result<(), Error> {
 
             assert!(
                 input_cells.len() >= 2,
-                Error::IncomeCellConsolidateConditionNotSatisfied,
+                ErrorCode::IncomeCellConsolidateConditionNotSatisfied,
                 "There should be at least 2 IncomeCell in this transaction."
             );
             assert!(
                 input_cells.len() >= output_cells.len(),
-                Error::IncomeCellConsolidateConditionNotSatisfied,
+                ErrorCode::IncomeCellConsolidateConditionNotSatisfied,
                 "The number of IncomeCells in the outputs should be lesser than or equal to in the inputs."
             );
 
@@ -100,7 +100,7 @@ pub fn main() -> Result<(), Error> {
                 let (_, _, entity) =
                     parser.verify_and_get(DataType::IncomeCellData, index.to_owned(), Source::Input)?;
                 let income_cell_witness = IncomeCellData::from_slice(entity.as_reader().raw_data())
-                    .map_err(|_| Error::WitnessEntityDecodingError)?;
+                    .map_err(|_| ErrorCode::WitnessEntityDecodingError)?;
 
                 #[cfg(debug_assertions)]
                 das_core::inspect::income_cell(Source::Input, index, None, Some(income_cell_witness.as_reader()));
@@ -112,7 +112,7 @@ pub fn main() -> Result<(), Error> {
                     let first_record = records.get(0).unwrap();
                     assert!(
                         !util::is_entity_eq(&first_record.belong_to(), &creator),
-                        Error::IncomeCellConsolidateConditionNotSatisfied,
+                        ErrorCode::IncomeCellConsolidateConditionNotSatisfied,
                         "Can not consolidate the IncomeCell which has only one record belong to the creator."
                     );
                 }
@@ -152,7 +152,7 @@ pub fn main() -> Result<(), Error> {
                 let (_, _, entity) =
                     parser.verify_and_get(DataType::IncomeCellData, cell_index.to_owned(), Source::Output)?;
                 let income_cell_witness = IncomeCellData::from_slice(entity.as_reader().raw_data())
-                    .map_err(|_| Error::WitnessEntityDecodingError)?;
+                    .map_err(|_| ErrorCode::WitnessEntityDecodingError)?;
 
                 #[cfg(debug_assertions)]
                 das_core::inspect::income_cell(
@@ -164,7 +164,7 @@ pub fn main() -> Result<(), Error> {
 
                 assert!(
                     income_cell_witness.records().len() <= income_cell_max_records,
-                    Error::IncomeCellConsolidateError,
+                    ErrorCode::IncomeCellConsolidateError,
                     "Output[{}] Each IncomeCell can not store more than {} records.",
                     i,
                     income_cell_max_records
@@ -175,7 +175,7 @@ pub fn main() -> Result<(), Error> {
                     for exist_record in output_records.iter() {
                         assert!(
                             !util::is_entity_eq(&exist_record.0, &record.belong_to()),
-                            Error::IncomeCellConsolidateError,
+                            ErrorCode::IncomeCellConsolidateError,
                             "Output[{}] There should be not duplicate income records in outputs.",
                             i
                         )
@@ -189,7 +189,7 @@ pub fn main() -> Result<(), Error> {
                 let cell_capacity = high_level::load_cell_capacity(cell_index.to_owned(), Source::Output)?;
                 assert!(
                     records_total_capacity == cell_capacity,
-                    Error::IncomeCellConsolidateError,
+                    ErrorCode::IncomeCellConsolidateError,
                     "Output[{}] The IncomeCell.capacity should be always equal to the total capacity of its records. (expected: {}, current: {})",
                     i,
                     records_total_capacity,
@@ -197,7 +197,7 @@ pub fn main() -> Result<(), Error> {
                 );
                 assert!(
                     cell_capacity >= income_cell_basic_capacity,
-                    Error::IncomeCellConsolidateError,
+                    ErrorCode::IncomeCellConsolidateError,
                     "Output[{}] The IncomeCell.capacity should be always greater than or equal to {} shannon.",
                     i,
                     income_cell_basic_capacity
@@ -207,7 +207,7 @@ pub fn main() -> Result<(), Error> {
             if records_should_keep.len() > 0 {
                 assert!(
                     output_records.len() > 0,
-                    Error::InvalidTransactionStructure,
+                    ErrorCode::InvalidTransactionStructure,
                     "There should be some IncomeCell in the outputs, because the count of records_should_keep is {}",
                     records_should_keep.len()
                 );
@@ -236,7 +236,7 @@ pub fn main() -> Result<(), Error> {
                         i,
                         cells.len()
                     );
-                        return Err(Error::IncomeCellTransferError);
+                        return Err(code_to_error!(ErrorCode::IncomeCellTransferError));
                     }
                 }
 
@@ -283,7 +283,7 @@ pub fn main() -> Result<(), Error> {
                         warn!("Outputs[{}] The transferred capacity is less than expected. (capacity_in_record: {}, capacity_should_be_transferred: {}, capacity_transferred: {})",
                         cells[0], item.1, capacity_should_be_transferred, capacity_transferred
                     );
-                        return Err(Error::IncomeCellTransferError);
+                        return Err(code_to_error!(ErrorCode::IncomeCellTransferError));
                     }
                     // The capacity of transfer must be less than which in the records.
                 } else if capacity_transferred > capacity_should_be_transferred {
@@ -291,7 +291,7 @@ pub fn main() -> Result<(), Error> {
                     "Outputs[{}] The transferred capacity is more than expected. (capacity_in_record: {}, expected: {}, current: {})",
                     cells[0], item.1, capacity_should_be_transferred, capacity_transferred
                 );
-                    return Err(Error::IncomeCellTransferError);
+                    return Err(code_to_error!(ErrorCode::IncomeCellTransferError));
                 }
 
                 verify_das_lock_and_balance_type(
@@ -317,7 +317,7 @@ pub fn main() -> Result<(), Error> {
                     if util::is_entity_eq(&record.0, &expected_record.0) {
                         assert!(
                             record.1 == expected_record.1,
-                            Error::IncomeCellConsolidateError,
+                            ErrorCode::IncomeCellConsolidateError,
                             "The capacity of some records in the outputs is incorrect. (belong_to: {}, expected: {}, current: {})",
                             record.0,
                             expected_record.1,
@@ -334,7 +334,7 @@ pub fn main() -> Result<(), Error> {
                         if util::is_entity_eq(&record.0, &expected_record.0) {
                             assert!(
                                 record.1 == expected_record.1,
-                                Error::IncomeCellConsolidateError,
+                                ErrorCode::IncomeCellConsolidateError,
                                 "The record should be transferred is not transferred completely, so we think parts of its capacity should be used for padding capacity, BUT the capacity used for padding is incorrect. (belong_to: {}, expected: {}, current: {})",
                                 record.0,
                                 expected_record.1,
@@ -349,7 +349,7 @@ pub fn main() -> Result<(), Error> {
 
                 assert!(
                     is_exist,
-                    Error::IncomeCellConsolidateError,
+                    ErrorCode::IncomeCellConsolidateError,
                     "Missing expected record in outputs. (expected: {:?})", record
                 );
             }
@@ -357,7 +357,7 @@ pub fn main() -> Result<(), Error> {
             for record in records_should_keep.iter() {
                 assert!(
                     record.2,
-                    Error::IncomeCellConsolidateError,
+                    ErrorCode::IncomeCellConsolidateError,
                     "The record should be kept is missing in outputs. (belong_to: {}, wasted: {})", record.0, record.1
                 );
             }
@@ -365,7 +365,7 @@ pub fn main() -> Result<(), Error> {
             for record in records_used_for_pad.iter() {
                 assert!(
                     record.2,
-                    Error::IncomeCellConsolidateWaste,
+                    ErrorCode::IncomeCellConsolidateWaste,
                     "The record should be transferred is not transferred completely, so we think parts of its capacity should be used for padding capacity, BUT the capacity is not used for padding. (belong_to: {}, wasted: {})",
                     record.0,
                     record.1
@@ -377,7 +377,7 @@ pub fn main() -> Result<(), Error> {
                 &parser,
                 TypeScript::ProposalCellType,
                 Source::Input,
-                Error::InvalidTransactionStructure,
+                ErrorCode::InvalidTransactionStructure,
             )?;
         }
         b"buy_account" => {
@@ -385,7 +385,7 @@ pub fn main() -> Result<(), Error> {
                 &parser,
                 TypeScript::AccountSaleCellType,
                 Source::Input,
-                Error::InvalidTransactionStructure,
+                ErrorCode::InvalidTransactionStructure,
             )?;
         }
         b"accept_offer" => {
@@ -393,7 +393,7 @@ pub fn main() -> Result<(), Error> {
                 &parser,
                 TypeScript::OfferCellType,
                 Source::Input,
-                Error::InvalidTransactionStructure,
+                ErrorCode::InvalidTransactionStructure,
             )?;
         }
         b"bid_account_auction" => {
@@ -401,7 +401,7 @@ pub fn main() -> Result<(), Error> {
                 &parser,
                 TypeScript::AccountAuctionCellType,
                 Source::Input,
-                Error::InvalidTransactionStructure,
+                ErrorCode::InvalidTransactionStructure,
             )?;
         }
         b"renew_account" => {
@@ -409,12 +409,12 @@ pub fn main() -> Result<(), Error> {
                 &parser,
                 TypeScript::AccountCellType,
                 Source::Input,
-                Error::InvalidTransactionStructure,
+                ErrorCode::InvalidTransactionStructure,
             )?;
         }
         _ => {
             warn!("The ActionData in witness has an undefined action.");
-            return Err(Error::ActionNotSupported);
+            return Err(code_to_error!(ErrorCode::ActionNotSupported));
         }
     }
 
@@ -500,7 +500,7 @@ fn verify_das_lock_and_balance_type(
     balance_cell_type_id: HashReader,
     index: usize,
     source: Source,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     let lock = high_level::load_cell_lock(index, source)?;
     let lock_reader = lock.as_reader();
 
@@ -510,7 +510,7 @@ fn verify_das_lock_and_balance_type(
             let type_opt = high_level::load_cell_type(index, source)?;
             assert!(
                 type_opt.is_some(),
-                Error::InvalidTransactionStructure,
+                ErrorCode::InvalidTransactionStructure,
                 "Outputs[{}] The NormalCells in outputs with das-lock type 5 should have balance-cell-type in their type field.",
                 index
             );
@@ -521,7 +521,7 @@ fn verify_das_lock_and_balance_type(
             assert!(
                 util::is_reader_eq(type_reader.code_hash().into(), balance_cell_type_id)
                     && hash_type == ScriptHashType::Type as u8,
-                Error::InvalidTransactionStructure,
+                ErrorCode::InvalidTransactionStructure,
                 "Outputs[{}] The NormalCells in outputs with das-lock type 5 should have balance-cell-type in their type field.",
                 index
             )
@@ -529,7 +529,7 @@ fn verify_das_lock_and_balance_type(
             let type_opt = high_level::load_cell_type(index, source)?;
             assert!(
                 type_opt.is_none(),
-                Error::InvalidTransactionStructure,
+                ErrorCode::InvalidTransactionStructure,
                 "Outputs[{}] The NormalCells in outputs with das-lock which type other than 5 should not have balance-cell-type in their type field.",
                 index
             );

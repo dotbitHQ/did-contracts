@@ -14,17 +14,30 @@ macro_rules! warn {
 }
 
 #[macro_export]
+macro_rules! code_to_error {
+    ($error_code:expr, $error_msg:expr) => {
+        alloc::boxed::Box::new($crate::error::Error::new(
+            $error_code,
+            alloc::string::String::from($error_msg),
+        ))
+    };
+    ($error_code:expr) => {{
+        alloc::boxed::Box::new($crate::error::Error::new($error_code, alloc::string::String::new()))
+    }};
+}
+
+#[macro_export]
 macro_rules! assert {
     ($condition:expr, $error_code:expr, $fmt:literal) => {
         if !$condition {
             ckb_std::syscalls::debug(alloc::format!($fmt));
-            return Err($error_code);
+            return core::result::Result::Err(code_to_error!($error_code).into());
         }
     };
     ($condition:expr, $error_code:expr, $fmt:literal, $($args:expr),+) => {
         if !$condition {
             ckb_std::syscalls::debug(alloc::format!($fmt, $($args), +));
-            return Err($error_code);
+            return core::result::Result::Err(code_to_error!($error_code).into());
         }
     };
 }
@@ -37,7 +50,7 @@ macro_rules! assert_lock_equal {
 
         if cell_a_lock_hash != cell_b_lock_hash {
             ckb_std::syscalls::debug(alloc::format!($fmt));
-            return Err($error_code);
+            return Err(code_to_error!($error_code));
         }
     }};
     ($condition:expr, $error_code:expr, $fmt:literal, $($args:expr),+) => {
@@ -46,7 +59,7 @@ macro_rules! assert_lock_equal {
 
         if cell_a_lock_hash != cell_b_lock_hash {
             ckb_std::syscalls::debug(alloc::format!($fmt, $($args), +));
-            return Err($error_code);
+            return Err(code_to_error!($error_code));
         }
     };
 }

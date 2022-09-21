@@ -25,6 +25,6 @@ fn program_entry(argc: usize, argv: *const *const u8) -> i8 {
     // Call main function and return error code
     match entry::main(argc, argv) {
         Ok(_) => 0,
-        Err(err) => err as i8,
+        Err(err) => err.as_i8(),
     }
 }

@@ -2,23 +2,23 @@ use alloc::boxed::Box;
 use ckb_std::{ckb_constants::Source, debug};
 use core::result::Result;
 use das_core::{
-    assert,
+    assert, code_to_error,
     constants::ScriptType,
     data_parser,
-    error::Error,
+    error::*,
     sub_account_witness_parser::{SubAccountEditValue, SubAccountWitnessesParser},
     util, warn,
     witness_parser::WitnessesParser,
 };
 use das_types::{constants::*, packed::*, prelude::*};
 
-pub fn main() -> Result<(), Error> {
+pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running test-env ======");
 
     let mut parser = WitnessesParser::new()?;
     let action = match parser.parse_action_with_params()? {
         Some((action, _)) => action,
-        None => return Err(Error::ActionNotSupported),
+        None => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
     };
 
     match action {
@@ -40,14 +40,14 @@ pub fn main() -> Result<(), Error> {
             let entity = Box::new(
                 AccountCellData::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
                     warn!("Decoding AccountCellData failed");
-                    Error::WitnessEntityDecodingError
+                    ErrorCode::WitnessEntityDecodingError
                 })?,
             );
             let _entity_reader = entity.as_reader();
 
             assert!(
                 version == 3,
-                Error::UnittestError,
+                ErrorCode::UnittestError,
                 "The version in witness should be 3 ."
             );
         }
@@ -65,26 +65,26 @@ pub fn main() -> Result<(), Error> {
                 witness_0.prev_root != witness_0.current_root
                     && witness_1.prev_root != witness_1.current_root
                     && witness_2.prev_root != witness_2.current_root,
-                Error::UnittestError,
+                ErrorCode::UnittestError,
                 "The prev_root and current_root in witnesses should not be the same."
             );
 
             assert!(
                 witness_0.current_root == witness_1.prev_root && witness_1.current_root == witness_2.prev_root,
-                Error::UnittestError,
+                ErrorCode::UnittestError,
                 "The roots should be sequential."
             );
 
             assert!(
                 witness_0.edit_key.is_empty(),
-                Error::UnittestError,
+                ErrorCode::UnittestError,
                 "The edit_key field should be empty."
             );
             match witness_0.edit_value {
                 SubAccountEditValue::None => {}
                 _ => {
                     warn!("The edit_key field should be empty");
-                    return Err(Error::UnittestError);
+                    return Err(code_to_error!(ErrorCode::UnittestError));
                 }
             }
         }
@@ -99,19 +99,19 @@ pub fn main() -> Result<(), Error> {
                 witness_0.prev_root != witness_0.current_root
                     && witness_1.prev_root != witness_1.current_root
                     && witness_2.prev_root != witness_2.current_root,
-                Error::UnittestError,
+                ErrorCode::UnittestError,
                 "The prev_root and current_root in witnesses should not be the same."
             );
 
             assert!(
                 witness_0.current_root == witness_1.prev_root && witness_1.current_root == witness_2.prev_root,
-                Error::UnittestError,
+                ErrorCode::UnittestError,
                 "The roots should be sequential."
             );
 
             assert!(
                 &witness_0.edit_key == b"expired_at",
-                Error::UnittestError,
+                ErrorCode::UnittestError,
                 "The edit_key field should be expired_at ."
             );
             match &witness_0.edit_value {
@@ -119,19 +119,19 @@ pub fn main() -> Result<(), Error> {
                     let expired_at = u64::from(val.as_reader());
                     assert!(
                         expired_at == u64::MAX,
-                        Error::UnittestError,
+                        ErrorCode::UnittestError,
                         "The edit_value should be u64::MAX"
                     );
                 }
                 _ => {
                     warn!("The edit_value field should be type of SubAccountEditValue::ExpiredAt .");
-                    return Err(Error::UnittestError);
+                    return Err(code_to_error!(ErrorCode::UnittestError));
                 }
             }
 
             assert!(
                 &witness_1.edit_key == b"owner",
-                Error::UnittestError,
+                ErrorCode::UnittestError,
                 "The edit_key field should be owner ."
             );
             match &witness_1.edit_value {
@@ -143,30 +143,30 @@ pub fn main() -> Result<(), Error> {
                 }
                 _ => {
                     warn!("The edit_value field should be type of SubAccountEditValue::Owner .");
-                    return Err(Error::UnittestError);
+                    return Err(code_to_error!(ErrorCode::UnittestError));
                 }
             }
 
             assert!(
                 &witness_2.edit_key == b"records",
-                Error::UnittestError,
+                ErrorCode::UnittestError,
                 "The edit_key field should be records ."
             );
             match &witness_2.edit_value {
                 SubAccountEditValue::Records(val) => {
                     assert!(
                         val.len() == 1,
-                        Error::UnittestError,
+                        ErrorCode::UnittestError,
                         "The edit_value should contains one record."
                     );
                 }
                 _ => {
                     warn!("The edit_value field should be type of SubAccountEditValue::Records .");
-                    return Err(Error::UnittestError);
+                    return Err(code_to_error!(ErrorCode::UnittestError));
                 }
             }
         }
-        _ => return Err(Error::ActionNotSupported),
+        _ => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
     }
 
     Ok(())

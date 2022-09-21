@@ -1,3 +1,4 @@
+use alloc::boxed::Box;
 use ckb_std::{
     ckb_constants::Source,
     debug,
@@ -5,16 +6,16 @@ use ckb_std::{
 };
 use core::convert::{TryFrom, TryInto};
 use core::result::Result;
-use das_core::{assert, constants::*, error::Error, util, warn, witness_parser::WitnessesParser};
+use das_core::{assert, code_to_error, constants::*, error::*, util, warn, witness_parser::WitnessesParser};
 use das_types::{constants::DataType, prelude::Entity};
 
-pub fn main() -> Result<(), Error> {
+pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running config-cell-type ======");
 
     let mut parser = WitnessesParser::new()?;
     let action = match parser.parse_action_with_params()? {
         Some((action, _)) => action,
-        None => return Err(Error::ActionNotSupported),
+        None => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
     };
 
     // ⚠️ NEVER use util::is_system_off here! That will make it impossible to turn the system back on by updating the ConfigCellMain. ⚠️
@@ -27,7 +28,7 @@ pub fn main() -> Result<(), Error> {
 
         assert!(
             output_cells.len() >= 1,
-            Error::InvalidTransactionStructure,
+            ErrorCode::InvalidTransactionStructure,
             "There should be at least one ConfigCell in the outputs."
         );
 
@@ -36,7 +37,7 @@ pub fn main() -> Result<(), Error> {
         if input_cells.len() > 0 {
             assert!(
                 input_cells.len() == output_cells.len(),
-                Error::InvalidTransactionStructure,
+                ErrorCode::InvalidTransactionStructure,
                 "The number of ConfigCell in outputs should be the same as inputs."
             );
         } else {
@@ -55,7 +56,7 @@ pub fn main() -> Result<(), Error> {
 
             assert!(
                 cell_lock_hash == super_lock_hash,
-                Error::SuperLockIsRequired,
+                ErrorCode::SuperLockIsRequired,
                 "The ConfigCells in outputs must use super lock."
             );
 
@@ -67,28 +68,28 @@ pub fn main() -> Result<(), Error> {
 
                 assert!(
                     output_config_id == input_config_id,
-                    Error::InvalidTransactionStructure,
+                    ErrorCode::InvalidTransactionStructure,
                     "The Config ID in ConfigCells should be the same order in both inputs and outputs."
                 );
             }
         }
     } else {
         warn!("The ActionData in witness has an undefined action.");
-        return Err(Error::ActionNotSupported);
+        return Err(code_to_error!(ErrorCode::ActionNotSupported));
     }
 
     Ok(())
 }
 
-fn get_config_id(cell_index: usize, source: Source) -> Result<DataType, Error> {
+fn get_config_id(cell_index: usize, source: Source) -> Result<DataType, Box<dyn ScriptError>> {
     let cell_type = load_cell_type(cell_index, source).map_err(|e| Error::from(e))?.unwrap();
     let args: [u8; 4] = cell_type
         .as_reader()
         .args()
         .raw_data()
         .try_into()
-        .map_err(|_| Error::Encoding)?;
-    let config_type = DataType::try_from(u32::from_le_bytes(args)).map_err(|_| Error::ConfigTypeIsUndefined)?;
+        .map_err(|_| ErrorCode::Encoding)?;
+    let config_type = DataType::try_from(u32::from_le_bytes(args)).map_err(|_| ErrorCode::ConfigTypeIsUndefined)?;
 
     Ok(config_type)
 }

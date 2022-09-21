@@ -26,6 +26,6 @@ fn program_entry() -> i8 {
     // Call main function and return error code
     match entry::main() {
         Ok(_) => 0,
-        Err(err) => err as i8,
+        Err(err) => err.as_i8(),
     }
 }

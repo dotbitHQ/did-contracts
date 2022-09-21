@@ -1,12 +1,13 @@
+use alloc::boxed::Box;
 use ckb_std::ckb_constants::Source;
-use das_core::{constants::*, debug, error::Error, util, witness_parser::WitnessesParser};
+use das_core::{code_to_error, constants::*, debug, error::*, util, witness_parser::WitnessesParser};
 
-pub fn main() -> Result<(), Error> {
+pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running account-auction-cell-type ======");
     let mut parser = WitnessesParser::new()?;
     let action_cp = match parser.parse_action_with_params()? {
         Some((action, _)) => action.to_vec(),
-        None => return Err(Error::ActionNotSupported),
+        None => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
     };
     let action = action_cp.as_slice();
 
@@ -38,10 +39,10 @@ pub fn main() -> Result<(), Error> {
             &parser,
             TypeScript::AccountCellType,
             Source::Input,
-            Error::InvalidTransactionStructure,
+            ErrorCode::InvalidTransactionStructure,
         )?;
     } else {
-        return Err(Error::ActionNotSupported);
+        return Err(code_to_error!(ErrorCode::ActionNotSupported));
     }
     Ok(())
 }

@@ -1,10 +1,11 @@
 use super::{
+    code_to_error,
     constants::{SignType, SECP_SIGNATURE_SIZE},
-    error::Error,
+    error::*,
     util,
 };
 use crate::constants::ScriptType;
-use alloc::{vec, vec::Vec};
+use alloc::{boxed::Box, vec, vec::Vec};
 use ckb_std::{
     ckb_constants::Source,
     ckb_types::{packed::*, prelude::*},
@@ -12,7 +13,7 @@ use ckb_std::{
     high_level, syscalls,
 };
 
-fn find_input_size() -> Result<usize, Error> {
+fn find_input_size() -> Result<usize, Box<dyn ScriptError>> {
     let mut i = 1;
     loop {
         let mut buf = [0u8; 1];
@@ -27,7 +28,7 @@ fn find_input_size() -> Result<usize, Error> {
                 break;
             }
             Err(err) => {
-                return Err(Error::from(err));
+                return Err(err.into());
             }
         }
 
@@ -37,7 +38,10 @@ fn find_input_size() -> Result<usize, Error> {
     Ok(i)
 }
 
-pub fn calc_digest_by_lock(sign_type: SignType, script: ScriptReader) -> Result<([u8; 32], Vec<u8>, Vec<u8>), Error> {
+pub fn calc_digest_by_lock(
+    sign_type: SignType,
+    script: ScriptReader,
+) -> Result<([u8; 32], Vec<u8>, Vec<u8>), Box<dyn ScriptError>> {
     let input_group_idxs = util::find_cells_by_script(ScriptType::Lock, script, Source::Input)?;
     let ret = calc_digest_by_input_group(sign_type, input_group_idxs)?;
 
@@ -47,7 +51,7 @@ pub fn calc_digest_by_lock(sign_type: SignType, script: ScriptReader) -> Result<
 pub fn calc_digest_by_input_group(
     sign_type: SignType,
     input_group_idxs: Vec<usize>,
-) -> Result<([u8; 32], Vec<u8>, Vec<u8>), Error> {
+) -> Result<([u8; 32], Vec<u8>, Vec<u8>), Box<dyn ScriptError>> {
     debug!(
         "Calculate digest by input group ... (sign_type: {:?}, input_group: {:?})",
         sign_type, input_group_idxs
@@ -61,12 +65,12 @@ pub fn calc_digest_by_input_group(
             init_witness_idx,
             util::hex_string(&witness_bytes)
         );
-        Error::WitnessArgsDecodingError
+        ErrorCode::WitnessArgsDecodingError
     })?;
 
     // Extract signatures and reset witness_args to empty status for calculation of digest.
     match init_witness.as_reader().lock().to_opt() {
-        None => Err(Error::WitnessArgsInvalid),
+        None => Err(code_to_error!(ErrorCode::WitnessArgsInvalid)),
         Some(witness_args_lock) => {
             debug!(
                 "  inputs[{}] Generating digest ... (sign_type: {:?}, witness_args.lock: 0x{}",
@@ -114,7 +118,7 @@ pub fn calc_digest_by_input_group(
             witness_args_builder = witness_args_builder.lock(lock);
 
             let witness_args_without_sig = witness_args_builder.build();
-            let tx_hash = high_level::load_tx_hash().map_err(|_| Error::ItemMissing)?;
+            let tx_hash = high_level::load_tx_hash().map_err(|_| ErrorCode::ItemMissing)?;
 
             let mut blake2b = util::new_blake2b();
             debug!(
@@ -161,11 +165,12 @@ pub fn calc_digest_by_input_group(
                             util::hex_string(&outter_witness_bytes)
                         );
                     }
-                    Err(Error::IndexOutOfBound) => {
-                        break;
-                    }
                     Err(err) => {
-                        return Err(err);
+                        if err.as_i8() == ErrorCode::IndexOutOfBound as i8 {
+                            break;
+                        } else {
+                            return Err(err);
+                        }
                     }
                 }
 

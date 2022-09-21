@@ -1,9 +1,12 @@
+use alloc::{boxed::Box, string::String};
 use ckb_std::error::SysError;
+use core::convert::Into;
+use core::fmt;
 
 /// Error
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[repr(i8)]
-pub enum Error {
+pub enum ErrorCode {
     IndexOutOfBound = 1,
     ItemMissing,
     LengthNotEnough,
@@ -182,7 +185,7 @@ pub enum Error {
     SystemOff = -1,
 }
 
-impl From<SysError> for Error {
+impl From<SysError> for ErrorCode {
     fn from(err: SysError) -> Self {
         use SysError::*;
         match err {
@@ -192,5 +195,81 @@ impl From<SysError> for Error {
             Encoding => Self::Encoding,
             Unknown(err_code) => panic!("unexpected sys error {}", err_code),
         }
+    }
+}
+
+impl From<ErrorCode> for Box<dyn ScriptError> {
+    fn from(err: ErrorCode) -> Box<dyn ScriptError> {
+        Box::new(Error::new(err, String::new()))
+    }
+}
+
+impl Into<i8> for ErrorCode {
+    fn into(self) -> i8 {
+        self as i8
+    }
+}
+
+pub trait ScriptError {
+    fn as_i8(&self) -> i8;
+}
+
+#[derive(Debug, Clone)]
+pub struct Error<T: Into<i8> + Copy> {
+    pub code: T,
+    pub message: String,
+}
+
+impl<T: Into<i8> + Copy> Error<T> {
+    pub fn new(code: T, message: String) -> Self {
+        Self { code, message }
+    }
+
+    pub fn boxed(code: T, message: String) -> Box<Self> {
+        Box::new(Self { code, message })
+    }
+}
+
+impl<T: Into<i8> + Copy> ScriptError for Error<T> {
+    fn as_i8(&self) -> i8 {
+        self.code.into()
+    }
+}
+
+impl<T: Into<i8> + Copy> PartialEq for Error<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.code.into() == other.code.into()
+    }
+}
+
+impl From<Error<ErrorCode>> for Box<dyn ScriptError> {
+    fn from(err: Error<ErrorCode>) -> Box<dyn ScriptError> {
+        Box::new(err)
+    }
+}
+
+impl From<Box<Error<ErrorCode>>> for Box<dyn ScriptError> {
+    fn from(err: Box<Error<ErrorCode>>) -> Box<dyn ScriptError> {
+        err
+    }
+}
+
+impl From<SysError> for Error<ErrorCode> {
+    fn from(err: SysError) -> Self {
+        Self::new(ErrorCode::from(err), String::new())
+    }
+}
+
+impl From<SysError> for Box<dyn ScriptError> {
+    fn from(err: SysError) -> Box<dyn ScriptError> {
+        Box::new(Error::from(err))
+    }
+}
+
+impl fmt::Debug for Box<dyn ScriptError> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Box<dyn ScriptError>")
+            .field("code", &self.as_i8())
+            .finish()
     }
 }

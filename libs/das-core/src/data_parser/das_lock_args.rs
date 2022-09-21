@@ -1,5 +1,5 @@
-use super::super::error::Error;
-use alloc::borrow::ToOwned;
+use super::super::error::*;
+use alloc::{borrow::ToOwned, boxed::Box};
 
 pub fn get_owner_type_opt(data: &[u8]) -> Option<u8> {
     data.get(0).map(|v| v.to_owned())
@@ -51,11 +51,11 @@ pub fn get_manager_lock_args(data: &[u8]) -> &[u8] {
     get_manager_lock_args_opt(data).expect("Das-lock should have some bytes for manager lock hash.")
 }
 
-pub fn get_owner_and_manager(data: &[u8]) -> Result<(u8, &[u8], u8, &[u8]), Error> {
-    let owner_type = get_owner_type_opt(data).ok_or(Error::DasLockArgsInvalid)?;
-    let owner_args = get_owner_lock_args_opt(data).ok_or(Error::DasLockArgsInvalid)?;
-    let manager_type = get_manager_type_opt(data).ok_or(Error::DasLockArgsInvalid)?;
-    let manager_args = get_manager_lock_args_opt(data).ok_or(Error::DasLockArgsInvalid)?;
+pub fn get_owner_and_manager(data: &[u8]) -> Result<(u8, &[u8], u8, &[u8]), Box<dyn ScriptError>> {
+    let owner_type = get_owner_type_opt(data).ok_or(ErrorCode::DasLockArgsInvalid)?;
+    let owner_args = get_owner_lock_args_opt(data).ok_or(ErrorCode::DasLockArgsInvalid)?;
+    let manager_type = get_manager_type_opt(data).ok_or(ErrorCode::DasLockArgsInvalid)?;
+    let manager_args = get_manager_lock_args_opt(data).ok_or(ErrorCode::DasLockArgsInvalid)?;
 
     Ok((owner_type, owner_args, manager_type, manager_args))
 }

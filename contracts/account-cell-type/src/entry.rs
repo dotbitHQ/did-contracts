@@ -1,7 +1,7 @@
 use alloc::{boxed::Box, vec};
 use ckb_std::{ckb_constants::Source, ckb_types::prelude::*, dynamic_loading_c_impl::CKBDLContext, high_level};
 use das_core::{
-    assert as das_assert, constants::*, data_parser, debug, error::Error, sign_util, util, verifiers, warn,
+    assert as das_assert, code_to_error, constants::*, data_parser, debug, error::*, sign_util, util, verifiers, warn,
     witness_parser::WitnessesParser,
 };
 use das_dynamic_libs::{
@@ -15,13 +15,13 @@ use das_types::{
     packed::*,
 };
 
-pub fn main() -> Result<(), Error> {
+pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running account-cell-type ======");
 
     let mut parser = WitnessesParser::new()?;
     let action_cp = match parser.parse_action_with_params()? {
         Some((action, _)) => action.to_vec(),
-        None => return Err(Error::ActionNotSupported),
+        None => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
     };
     let action = action_cp.as_slice();
 
@@ -31,7 +31,7 @@ pub fn main() -> Result<(), Error> {
 
     debug!(
         "Route to {:?} action ...",
-        alloc::string::String::from_utf8(action.to_vec()).map_err(|_| Error::ActionNotSupported)?
+        alloc::string::String::from_utf8(action.to_vec()).map_err(|_| ErrorCode::ActionNotSupported)?
     );
     match action {
         b"init_account_chain" => {
@@ -192,7 +192,7 @@ pub fn main() -> Result<(), Error> {
             let status = u8::from(input_cell_witness_reader.status());
             das_assert!(
                 status != (AccountStatus::LockedForCrossChain as u8),
-                Error::AccountCellStatusLocked,
+                ErrorCode::AccountCellStatusLocked,
                 "inputs[{}] The AccountCell has been locked for cross chain, it is required to unlock first for renew.",
                 input_account_cells[0]
             );
@@ -205,11 +205,15 @@ pub fn main() -> Result<(), Error> {
                 Source::Input,
                 timestamp,
             );
-            das_assert!(
-                ret.is_ok() || ret == Err(Error::AccountCellInExpirationGracePeriod),
-                Error::AccountCellHasExpired,
-                "The AccountCell has been expired."
-            );
+            if let Err(err) = ret {
+                das_assert!(
+                    err.as_i8() == ErrorCode::AccountCellInExpirationGracePeriod as i8,
+                    ErrorCode::AccountCellHasExpired,
+                    "The AccountCell has been expired."
+                );
+            } else {
+                // Ok
+            }
 
             debug!("Verify if there is no redundant cells in inputs.");
 
@@ -254,7 +258,7 @@ pub fn main() -> Result<(), Error> {
 
             das_assert!(
                 paid > exist_capacity,
-                Error::IncomeCellConsolidateConditionNotSatisfied,
+                ErrorCode::IncomeCellConsolidateConditionNotSatisfied,
                 "outputs[{}] There is some record in outputs has less capacity than itself in inputs which is not allowed. (belong_to: {})",
                 output_income_cells[0],
                 das_wallet_lock
@@ -275,7 +279,7 @@ pub fn main() -> Result<(), Error> {
 
             das_assert!(
                 duration >= 365 * 86400,
-                Error::AccountCellRenewDurationMustLongerThanYear,
+                ErrorCode::AccountCellRenewDurationMustLongerThanYear,
                 "The AccountCell renew should be longer than 1 year. (current: {}, expected: >= 31_536_000)",
                 duration
             );
@@ -287,7 +291,7 @@ pub fn main() -> Result<(), Error> {
             let price = prices
                 .iter()
                 .find(|item| u8::from(item.length()) == length_in_price)
-                .ok_or(Error::ItemMissing)?;
+                .ok_or(ErrorCode::ItemMissing)?;
 
             let renew_price_in_usd = u64::from(price.renew()); // x USD
             let quote = util::load_oracle_data(OracleCellType::Quote)?;
@@ -295,7 +299,7 @@ pub fn main() -> Result<(), Error> {
             let yearly_capacity = util::calc_yearly_capacity(renew_price_in_usd, quote, 0);
             das_assert!(
                 paid >= yearly_capacity,
-                Error::AccountCellRenewDurationMustLongerThanYear,
+                ErrorCode::AccountCellRenewDurationMustLongerThanYear,
                 "The paid capacity should be at least 1 year. (current: {}, expected: >= {}",
                 paid,
                 yearly_capacity
@@ -306,7 +310,7 @@ pub fn main() -> Result<(), Error> {
             // The duration can be floated within the range of one day.
             das_assert!(
                 duration >= expected_duration - 86400 && duration <= expected_duration + 86400,
-                Error::AccountCellRenewDurationBiggerThanPayed,
+                ErrorCode::AccountCellRenewDurationBiggerThanPayed,
                 "The duration should be equal to {} +/- 86400s. (current: duration({}), calculation: (paid({}) / (renew_price({}) / quote({}) * 100_000_000) ) * 86400 * 365)",
                 expected_duration,
                 duration,
@@ -334,7 +338,7 @@ pub fn main() -> Result<(), Error> {
                 &parser,
                 TypeScript::ProposalCellType,
                 Source::Input,
-                Error::InvalidTransactionStructure,
+                ErrorCode::InvalidTransactionStructure,
             )?;
         }
         b"recycle_expired_account" => {
@@ -377,11 +381,19 @@ pub fn main() -> Result<(), Error> {
                 Source::Input,
                 timestamp,
             );
-            das_assert!(
-                ret == Err(Error::AccountCellHasExpired),
-                Error::AccountCellStillCanNotRecycle,
-                "The AccountCell is still disable for recycling."
-            );
+            if let Err(err) = ret {
+                das_assert!(
+                    err.as_i8() == ErrorCode::AccountCellHasExpired as i8,
+                    ErrorCode::AccountCellStillCanNotRecycle,
+                    "The AccountCell is still disable for recycling."
+                );
+            } else {
+                das_assert!(
+                    false,
+                    ErrorCode::AccountCellStillCanNotRecycle,
+                    "The AccountCell is still disable for recycling."
+                );
+            }
 
             debug!("Verify if the AccountCell is in status which could be recycled.");
 
@@ -393,7 +405,7 @@ pub fn main() -> Result<(), Error> {
             das_assert!(
                 account_cell_status == AccountStatus::Normal as u8
                     || account_cell_status == AccountStatus::LockedForCrossChain as u8,
-                Error::AccountCellStatusLocked,
+                ErrorCode::AccountCellStatusLocked,
                 "inputs[{}] The AccountCell.witness.status should be Normal or LockedForCrossChain .",
                 input_cells[1]
             );
@@ -446,7 +458,7 @@ pub fn main() -> Result<(), Error> {
 
             das_assert!(
                 prev_account_input_next == expired_account_id,
-                Error::AccountCellMissingPrevAccount,
+                ErrorCode::AccountCellMissingPrevAccount,
                 "inputs[{}] The AccountCell.next should be 0x{} .",
                 input_cells[0],
                 util::hex_string(expired_account_id)
@@ -459,7 +471,7 @@ pub fn main() -> Result<(), Error> {
 
             das_assert!(
                 prev_account_output_next == expired_account_next,
-                Error::AccountCellNextUpdateError,
+                ErrorCode::AccountCellNextUpdateError,
                 "outputs[{}] The AccountCell.next should be updated to 0x{} .",
                 output_cells[0],
                 util::hex_string(expired_account_next)
@@ -516,7 +528,7 @@ pub fn main() -> Result<(), Error> {
                     let type_hash = high_level::load_cell_type_hash(*i, Source::Output)?;
                     das_assert!(
                         type_hash.is_none(),
-                        Error::InvalidTransactionStructure,
+                        ErrorCode::InvalidTransactionStructure,
                         "outputs[{}] The cells to DAS should not contains any type script.",
                         i
                     );
@@ -526,7 +538,7 @@ pub fn main() -> Result<(), Error> {
                 let capacity = high_level::load_cell_capacity(das_wallet_cells[0], Source::Output)?;
                 das_assert!(
                     capacity == expired_account_capacity + refund_from_sub_account_cell_to_owner - available_fee,
-                    Error::ChangeError,
+                    ErrorCode::ChangeError,
                     "outputs[{}] The ChangeCell to DAS should be {} shannon, but {} found.",
                     das_wallet_cells[0],
                     expired_account_capacity + refund_from_sub_account_cell_to_owner - available_fee,
@@ -537,7 +549,7 @@ pub fn main() -> Result<(), Error> {
                     let capacity = high_level::load_cell_capacity(das_wallet_cells[1], Source::Output)?;
                     das_assert!(
                         capacity == refund_from_sub_account_cell_to_das,
-                        Error::ChangeError,
+                        ErrorCode::ChangeError,
                         "outputs[{}] The ChangeCell to DAS should be {} shannon, but {} found.",
                         das_wallet_cells[1],
                         refund_from_sub_account_cell_to_das,
@@ -551,7 +563,7 @@ pub fn main() -> Result<(), Error> {
                 &parser,
                 TypeScript::AccountSaleCellType,
                 Source::Output,
-                Error::InvalidTransactionStructure,
+                ErrorCode::InvalidTransactionStructure,
             )?;
         }
         b"cancel_account_sale" | b"buy_account" => {
@@ -559,7 +571,7 @@ pub fn main() -> Result<(), Error> {
                 &parser,
                 TypeScript::AccountSaleCellType,
                 Source::Input,
-                Error::InvalidTransactionStructure,
+                ErrorCode::InvalidTransactionStructure,
             )?;
         }
         b"accept_offer" => {
@@ -567,7 +579,7 @@ pub fn main() -> Result<(), Error> {
                 &parser,
                 TypeScript::OfferCellType,
                 Source::Input,
-                Error::InvalidTransactionStructure,
+                ErrorCode::InvalidTransactionStructure,
             )?;
         }
         b"force_recover_account_status" => {
@@ -603,7 +615,7 @@ pub fn main() -> Result<(), Error> {
             let input_status = u8::from(input_cell_witness_reader.status());
             das_assert!(
                 input_status != AccountStatus::Normal as u8,
-                Error::InvalidTransactionStructure,
+                ErrorCode::InvalidTransactionStructure,
                 "The AccountCell in inputs should not be in NORMAL status."
             );
 
@@ -622,13 +634,21 @@ pub fn main() -> Result<(), Error> {
                 Source::Input,
                 timestamp,
             );
-            das_assert!(
-                ret == Err(Error::AccountCellInExpirationAuctionPeriod)
-                    || ret == Err(Error::AccountCellInExpirationAuctionConfirmationPeriod)
-                    || ret == Err(Error::AccountCellHasExpired),
-                Error::AccountCellIsNotExpired,
-                "The AccountCell is still not expired."
-            );
+            if let Err(err) = ret {
+                das_assert!(
+                    err.as_i8() == ErrorCode::AccountCellInExpirationAuctionPeriod as i8
+                        || err.as_i8() == ErrorCode::AccountCellInExpirationAuctionConfirmationPeriod as i8
+                        || err.as_i8() == ErrorCode::AccountCellHasExpired as i8,
+                    ErrorCode::AccountCellIsNotExpired,
+                    "The AccountCell is still not expired."
+                );
+            } else {
+                das_assert!(
+                    false,
+                    ErrorCode::AccountCellIsNotExpired,
+                    "The AccountCell is still not expired."
+                );
+            }
 
             let capacity_should_recycle;
             let cell;
@@ -652,7 +672,7 @@ pub fn main() -> Result<(), Error> {
 
                 das_assert!(
                     account == cell_witness_reader.account().raw_data(),
-                    Error::AccountSaleCellAccountIdInvalid,
+                    ErrorCode::AccountSaleCellAccountIdInvalid,
                     "The account in AccountCell and AccountSaleCell should be the same."
                 );
 
@@ -683,7 +703,7 @@ pub fn main() -> Result<(), Error> {
             let current_lock = high_level::load_cell_lock(outputs_balance_cells[0], Source::Output)?.into();
             das_assert!(
                 util::is_entity_eq(&expected_lock, &current_lock),
-                Error::AccountSaleCellRefundError,
+                ErrorCode::AccountSaleCellRefundError,
                 "The lock receiving the refund is incorrect.(expected: {}, current: {})",
                 expected_lock,
                 current_lock
@@ -693,7 +713,7 @@ pub fn main() -> Result<(), Error> {
             let current_capacity = high_level::load_cell_capacity(outputs_balance_cells[0], Source::Output)?;
             das_assert!(
                 current_capacity >= expected_capacity,
-                Error::AccountSaleCellRefundError,
+                ErrorCode::AccountSaleCellRefundError,
                 "The capacity refunding is incorrect.(expected: {}, current: {})",
                 expected_capacity,
                 current_capacity
@@ -716,12 +736,12 @@ pub fn main() -> Result<(), Error> {
             let (input_account_cells, output_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
             das_assert!(
                 input_account_cells.len() == 1 && input_account_cells[0] == 0,
-                Error::InvalidTransactionStructure,
+                ErrorCode::InvalidTransactionStructure,
                 "There should be one AccountCell at inputs[0]."
             );
             das_assert!(
                 output_account_cells.len() == 1 && output_account_cells[0] == 0,
-                Error::InvalidTransactionStructure,
+                ErrorCode::InvalidTransactionStructure,
                 "There should bze one AccountCell at outputs[0]."
             );
 
@@ -773,7 +793,7 @@ pub fn main() -> Result<(), Error> {
                     let enable_status = u8::from(reader.enable_sub_account());
                     das_assert!(
                         enable_status == SubAccountEnableStatus::Off as u8,
-                        Error::AccountCellPermissionDenied,
+                        ErrorCode::AccountCellPermissionDenied,
                         "{:?}[{}] Only AccountCells with enable_sub_account field is {} can enable its sub-account function.",
                         Source::Input,
                         input_account_cells[0],
@@ -790,7 +810,7 @@ pub fn main() -> Result<(), Error> {
                     let enable_status = u8::from(reader.enable_sub_account());
                     das_assert!(
                         enable_status == SubAccountEnableStatus::On as u8,
-                        Error::AccountCellPermissionDenied,
+                        ErrorCode::AccountCellPermissionDenied,
                         "{:?}[{}]The AccountCell.enable_sub_account should be {} .",
                         Source::Output,
                         output_account_cells[0],
@@ -803,7 +823,7 @@ pub fn main() -> Result<(), Error> {
                         Source::Output,
                         output_account_cells[0]
                     );
-                    return Err(Error::InvalidTransactionStructure);
+                    return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
                 }
             }
 
@@ -837,7 +857,7 @@ pub fn main() -> Result<(), Error> {
 
             das_assert!(
                 sub_account_cell_capacity == expected_capacity,
-                Error::SubAccountCellCapacityError,
+                ErrorCode::SubAccountCellCapacityError,
                 "The initial capacity of SubAccountCell should be equal to ConfigCellSubAccount.basic_capacity + ConfigCellSubAccount.prepared_fee_capacity .(expected: {}, current: {})",
                 expected_capacity,
                 sub_account_cell_capacity
@@ -849,7 +869,7 @@ pub fn main() -> Result<(), Error> {
 
             das_assert!(
                 account_id == expected_account_id,
-                Error::SubAccountCellAccountIdError,
+                ErrorCode::SubAccountCellAccountIdError,
                 "The type.args of SubAccountCell should be the same with the AccountCell.witness.id .(expected: {}, current: {})",
                 util::hex_string(expected_account_id),
                 util::hex_string(account_id)
@@ -860,7 +880,7 @@ pub fn main() -> Result<(), Error> {
 
             das_assert!(
                 expected_default_data == sub_account_outputs_data,
-                Error::SubAccountCellSMTRootError,
+                ErrorCode::SubAccountCellSMTRootError,
                 "The default outputs_data of SubAccountCell should be [0u8; 48] ."
             );
 
@@ -881,7 +901,7 @@ pub fn main() -> Result<(), Error> {
                 &parser,
                 TypeScript::SubAccountCellType,
                 Source::Input,
-                Error::InvalidTransactionStructure,
+                ErrorCode::InvalidTransactionStructure,
             )?;
         }
         b"config_sub_account_custom_script" => {
@@ -889,7 +909,7 @@ pub fn main() -> Result<(), Error> {
                 &parser,
                 TypeScript::SubAccountCellType,
                 Source::Input,
-                Error::InvalidTransactionStructure,
+                ErrorCode::InvalidTransactionStructure,
             )?;
         }
         b"unlock_account_for_cross_chain" => {
@@ -950,22 +970,25 @@ pub fn main() -> Result<(), Error> {
                         vec!["status"],
                     )?;
                 }
-                Err(Error::CellLockCanNotBeModified) => {
-                    // The lock is changed, so the records must be cleared.
-                    verifiers::account_cell::verify_account_witness_consistent(
-                        input_account_cells[0],
-                        output_account_cells[0],
-                        &input_cell_witness_reader,
-                        &output_cell_witness_reader,
-                        vec!["status", "records"],
-                    )?;
-                    verifiers::account_cell::verify_account_witness_record_empty(
-                        &output_cell_witness_reader,
-                        output_account_cells[0],
-                        Source::Output,
-                    )?;
+                Err(err) => {
+                    if err.as_i8() == ErrorCode::CellLockCanNotBeModified as i8 {
+                        // The lock is changed, so the records must be cleared.
+                        verifiers::account_cell::verify_account_witness_consistent(
+                            input_account_cells[0],
+                            output_account_cells[0],
+                            &input_cell_witness_reader,
+                            &output_cell_witness_reader,
+                            vec!["status", "records"],
+                        )?;
+                        verifiers::account_cell::verify_account_witness_record_empty(
+                            &output_cell_witness_reader,
+                            output_account_cells[0],
+                            Source::Output,
+                        )?;
+                    } else {
+                        return Err(err);
+                    }
                 }
-                Err(e) => return Err(e),
             }
 
             verify_account_is_unlocked_for_cross_chain(output_account_cells[0], &output_cell_witness_reader)?;
@@ -1011,15 +1034,21 @@ pub fn main() -> Result<(), Error> {
                 Source::Input,
                 timestamp,
             ) {
-                Ok(_) | Err(Error::AccountCellInExpirationGracePeriod) => {
+                Ok(_) => {
                     warn!("The AccountCell is not expired.");
-                    return Err(Error::AccountCellIsNotExpired);
+                    return Err(code_to_error!(ErrorCode::AccountCellIsNotExpired));
                 }
-                Err(Error::AccountCellInExpirationAuctionPeriod) => {
-                    warn!("The AccountCell is still in auction period.");
-                    return Err(Error::AccountCellInExpirationAuctionPeriod);
+                Err(err) => {
+                    if err.as_i8() == ErrorCode::AccountCellInExpirationGracePeriod as i8 {
+                        warn!("The AccountCell is not expired.");
+                        return Err(code_to_error!(ErrorCode::AccountCellIsNotExpired));
+                    } else if err.as_i8() == ErrorCode::AccountCellInExpirationAuctionPeriod as i8 {
+                        warn!("The AccountCell is still in auction period.");
+                        return Err(code_to_error!(ErrorCode::AccountCellInExpirationAuctionPeriod));
+                    } else {
+                        // Ok
+                    }
                 }
-                _ => {}
             }
 
             verifiers::account_cell::verify_status(
@@ -1086,7 +1115,7 @@ pub fn main() -> Result<(), Error> {
 
                         das_assert!(
                             output_sub_account_capacity == basic_capacity,
-                            Error::InvalidTransactionStructure,
+                            ErrorCode::InvalidTransactionStructure,
                             "outputs[{}] The capacity of the SubAccountCell should be {} shannon.",
                             output_sub_account_cells[0],
                             basic_capacity
@@ -1107,7 +1136,7 @@ pub fn main() -> Result<(), Error> {
 
                         das_assert!(
                             output_das_profit == 0 && output_owner_profit == 0,
-                            Error::SubAccountCollectProfitError,
+                            ErrorCode::SubAccountCollectProfitError,
                             "All profit in the SubAccountCell should be collected."
                         );
 
@@ -1138,7 +1167,7 @@ pub fn main() -> Result<(), Error> {
                 );
             }
         }
-        _ => return Err(Error::ActionNotSupported),
+        _ => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
     }
 
     Ok(())
@@ -1149,7 +1178,7 @@ fn verify_transaction_fee_spent_correctly(
     config: ConfigCellAccountReader,
     input_account_index: usize,
     output_account_index: usize,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     debug!("Check if the fee in the AccountCell is spent correctly.");
 
     // TODO MIXIN Fix this with new data structure.
@@ -1189,7 +1218,7 @@ fn verify_action_throttle<'a>(
     input_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
     output_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
     current_timestamp: u64,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     macro_rules! assert_action_throttle {
         ($input_witness_reader:expr, $output_witness_reader:expr, $config_field:ident, $field:ident, $field_name:expr) => {{
             let throttle = u32::from(config.$config_field()) as u64;
@@ -1199,7 +1228,7 @@ fn verify_action_throttle<'a>(
             if prev != 0 {
                 das_assert!(
                     current >= prev + throttle,
-                    Error::AccountCellThrottle,
+                    ErrorCode::AccountCellThrottle,
                     "The AccountCell is used too often, need to wait {} seconds between each transaction.(current: {}, prev: {})",
                     throttle,
                     current,
@@ -1209,7 +1238,7 @@ fn verify_action_throttle<'a>(
 
             das_assert!(
                 current_timestamp == current,
-                Error::AccountCellThrottle,
+                ErrorCode::AccountCellThrottle,
                 "The AccountCell.{} in outputs should be the same as the timestamp in the TimeCell.(expected: {}, current: {})",
                 $field_name,
                 current_timestamp,
@@ -1220,7 +1249,7 @@ fn verify_action_throttle<'a>(
 
     if input_witness_reader.version() <= 1 {
         // CAREFUL! The early versions will no longer be supported.
-        return Err(Error::InvalidTransactionStructure);
+        return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
     } else {
         match action {
             b"transfer_account" => assert_action_throttle!(
@@ -1244,7 +1273,7 @@ fn verify_action_throttle<'a>(
                 last_edit_records_at,
                 "last_edit_records_at"
             ),
-            _ => return Err(Error::ActionNotSupported),
+            _ => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
         }
     }
 
@@ -1255,7 +1284,7 @@ fn verify_account_is_locked_for_cross_chain<'a>(
     output_account_index: usize,
     output_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
     current_timestamp: u64,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     debug!("Check if the AccountCell is corrently locked for cross chain.");
 
     let source = Source::Output;
@@ -1264,7 +1293,7 @@ fn verify_account_is_locked_for_cross_chain<'a>(
     let expired_at = data_parser::account_cell::get_expired_at(data.as_slice());
     das_assert!(
         current_timestamp + 30 * DAY_SEC <= expired_at,
-        Error::CrossChainLockError,
+        ErrorCode::CrossChainLockError,
         "outputs[{}] Current time should be 30 days(in seconds) earlier than the AccountCell.expired_at.(current_timestamp: {}, expired_at: {})",
         output_account_index,
         current_timestamp,
@@ -1273,13 +1302,13 @@ fn verify_account_is_locked_for_cross_chain<'a>(
 
     if output_witness_reader.version() <= 1 {
         // CAREFUL! The early versions will no longer be supported.
-        return Err(Error::InvalidTransactionStructure);
+        return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
     } else {
         let account_cell_status = u8::from(output_witness_reader.status());
 
         das_assert!(
             account_cell_status == AccountStatus::LockedForCrossChain as u8,
-            Error::CrossChainLockError,
+            ErrorCode::CrossChainLockError,
             "outputs[{}]The AccountCell.witness.status should be LockedForCrossChain .",
             output_account_index
         );
@@ -1291,16 +1320,16 @@ fn verify_account_is_locked_for_cross_chain<'a>(
 fn verify_account_is_unlocked_for_cross_chain<'a>(
     output_account_index: usize,
     output_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     if output_witness_reader.version() <= 1 {
         // CAREFUL! The early versions will no longer be supported.
-        return Err(Error::InvalidTransactionStructure);
+        return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
     } else {
         let account_cell_status = u8::from(output_witness_reader.status());
 
         das_assert!(
             account_cell_status == AccountStatus::Normal as u8,
-            Error::CrossChainUnlockError,
+            ErrorCode::CrossChainUnlockError,
             "outputs[{}]The AccountCell.witness.status should be Normal .",
             output_account_index
         );
@@ -1309,7 +1338,7 @@ fn verify_account_is_unlocked_for_cross_chain<'a>(
     Ok(())
 }
 
-fn verify_multi_sign(input_account_index: usize) -> Result<(), Error> {
+fn verify_multi_sign(input_account_index: usize) -> Result<(), Box<dyn ScriptError>> {
     debug!("Verify the signatures of secp256k1-blake160-multisig-all ...");
 
     let (digest, _, witness_args_lock) =
@@ -1346,7 +1375,7 @@ fn verify_multi_sign(input_account_index: usize) -> Result<(), Error> {
                     "inputs[{}] Verify signature failed, error code: {}",
                     input_account_index, err_code
                 );
-                return Error::EIP712SignatureError;
+                return ErrorCode::EIP712SignatureError;
             })?;
     }
 
