@@ -84,7 +84,7 @@ pub fn verify_eip712_hashes(
                 break;
             }
             Err(err) => {
-                return Err(Error::from(err).into());
+                return Err(Error::<ErrorCode>::from(err).into());
             }
         }
 
@@ -557,7 +557,7 @@ fn to_typed_cells(
                 break;
             }
             Err(err) => {
-                return Err(Error::from(err).into());
+                return Err(Error::<ErrorCode>::from(err).into());
             }
         }
 

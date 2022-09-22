@@ -45,8 +45,8 @@ macro_rules! assert {
 #[macro_export]
 macro_rules! assert_lock_equal {
     (($cell_a_index:expr, $cell_a_source:expr), ($cell_b_index:expr, $cell_b_source:expr), $error_code:expr, $fmt:literal) => {{
-        let cell_a_lock_hash = high_level::load_cell_lock_hash($cell_a_index, $cell_a_source).map_err(Error::from)?;
-        let cell_b_lock_hash = high_level::load_cell_lock_hash($cell_b_index, $cell_b_source).map_err(Error::from)?;
+        let cell_a_lock_hash = high_level::load_cell_lock_hash($cell_a_index, $cell_a_source).map_err(Error::<ErrorCode>::from)?;
+        let cell_b_lock_hash = high_level::load_cell_lock_hash($cell_b_index, $cell_b_source).map_err(Error::<ErrorCode>::from)?;
 
         if cell_a_lock_hash != cell_b_lock_hash {
             ckb_std::syscalls::debug(alloc::format!($fmt));
@@ -54,8 +54,8 @@ macro_rules! assert_lock_equal {
         }
     }};
     ($condition:expr, $error_code:expr, $fmt:literal, $($args:expr),+) => {
-        let cell_a_lock_hash = high_level::load_cell_lock_hash($cell_a_index, $cell_a_source).map_err(Error::from)?;
-        let cell_b_lock_hash = high_level::load_cell_lock_hash($cell_b_index, $cell_b_source).map_err(Error::from)?;
+        let cell_a_lock_hash = high_level::load_cell_lock_hash($cell_a_index, $cell_a_source).map_err(Error::<ErrorCode>::from)?;
+        let cell_b_lock_hash = high_level::load_cell_lock_hash($cell_b_index, $cell_b_source).map_err(Error::<ErrorCode>::from)?;
 
         if cell_a_lock_hash != cell_b_lock_hash {
             ckb_std::syscalls::debug(alloc::format!($fmt, $($args), +));

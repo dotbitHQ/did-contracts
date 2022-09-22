@@ -18,7 +18,7 @@ pub fn verify_unlock_role(action: &[u8], params: &[Bytes]) -> Result<(), Box<dyn
 
     das_assert!(
         params.len() > 0,
-        ErrorCode::AccountCellPermissionDenied,
+        AccountCellErrorCode::AccountCellPermissionDenied,
         "This transaction should have a role param."
     );
 
@@ -28,7 +28,7 @@ pub fn verify_unlock_role(action: &[u8], params: &[Bytes]) -> Result<(), Box<dyn
 
     das_assert!(
         current_role == required_role as u8,
-        ErrorCode::AccountCellPermissionDenied,
+        AccountCellErrorCode::AccountCellPermissionDenied,
         "This transaction should be unlocked by the {:?}'s signature.",
         required_role
     );
@@ -47,25 +47,29 @@ pub fn verify_account_expiration(
     let data = util::load_cell_data(index, source)?;
     let expired_at = data_parser::account_cell::get_expired_at(data.as_slice());
     let expiration_grace_period = u32::from(config.expiration_grace_period()) as u64;
-    let expiration_auction_period = u32::from(config.expiration_auction_period()) as u64;
-    let expiration_auction_confirmation_period = u32::from(config.expiration_auction_confirmation_period()) as u64;
+    // let expiration_auction_period = u32::from(config.expiration_auction_period()) as u64;
+    let expiration_auction_period = 0;
+    // let expiration_auction_confirmation_period = u32::from(config.expiration_auction_confirmation_period()) as u64;
+    let expiration_auction_confirmation_period = 0;
 
     if current_timestamp > expired_at {
         let duration = current_timestamp - expired_at;
         if duration > expiration_grace_period + expiration_auction_period + expiration_auction_confirmation_period {
             warn!("The AccountCell has been expired. Will be recycled soon.");
-            return Err(code_to_error!(ErrorCode::AccountCellHasExpired));
+            return Err(code_to_error!(AccountCellErrorCode::AccountCellHasExpired));
         } else if duration > expiration_grace_period + expiration_auction_period {
             warn!("The AccountCell has been in expiration auction confirmation period.");
             return Err(code_to_error!(
-                ErrorCode::AccountCellInExpirationAuctionConfirmationPeriod
+                AccountCellErrorCode::AccountCellInExpirationAuctionConfirmationPeriod
             ));
         } else if duration > expiration_grace_period {
             warn!("The AccountCell has been in expiration auction period.");
-            return Err(code_to_error!(ErrorCode::AccountCellInExpirationAuctionPeriod));
+            return Err(code_to_error!(
+                AccountCellErrorCode::AccountCellInExpirationAuctionPeriod
+            ));
         } else {
             warn!("The AccountCell has been in expiration grace period. Need to be renew as soon as possible.");
-            return Err(code_to_error!(ErrorCode::AccountCellInExpirationGracePeriod));
+            return Err(code_to_error!(AccountCellErrorCode::AccountCellInExpirationGracePeriod));
         }
     }
 
@@ -83,9 +87,11 @@ pub fn verify_account_lock_consistent(
     );
 
     if let Some(lock) = changed_lock {
-        let input_lock = high_level::load_cell_lock(input_account_index, Source::Input).map_err(Error::from)?;
+        let input_lock =
+            high_level::load_cell_lock(input_account_index, Source::Input).map_err(Error::<ErrorCode>::from)?;
         let input_args = input_lock.as_reader().args().raw_data();
-        let output_lock = high_level::load_cell_lock(output_account_index, Source::Output).map_err(Error::from)?;
+        let output_lock =
+            high_level::load_cell_lock(output_account_index, Source::Output).map_err(Error::<ErrorCode>::from)?;
         let output_args = output_lock.as_reader().args().raw_data();
 
         if lock == "owner" {
@@ -94,7 +100,7 @@ pub fn verify_account_lock_consistent(
                     != data_parser::das_lock_args::get_owner_type(output_args)
                     || data_parser::das_lock_args::get_owner_lock_args(input_args)
                         != data_parser::das_lock_args::get_owner_lock_args(output_args),
-                ErrorCode::AccountCellOwnerLockShouldBeModified,
+                AccountCellErrorCode::AccountCellOwnerLockShouldBeModified,
                 "The owner lock args in AccountCell.lock should be different in inputs and outputs."
             );
 
@@ -112,7 +118,7 @@ pub fn verify_account_lock_consistent(
             };
             das_assert!(
                 lock_type_consistent && input_pubkey_hash == output_pubkey_hash,
-                ErrorCode::AccountCellOwnerLockShouldNotBeModified,
+                AccountCellErrorCode::AccountCellOwnerLockShouldNotBeModified,
                 "The owner lock args in AccountCell.lock should be consistent in inputs and outputs."
             );
 
@@ -121,14 +127,16 @@ pub fn verify_account_lock_consistent(
                     != data_parser::das_lock_args::get_manager_type(output_args)
                     || data_parser::das_lock_args::get_manager_lock_args(input_args)
                         != data_parser::das_lock_args::get_manager_lock_args(output_args),
-                ErrorCode::AccountCellManagerLockShouldBeModified,
+                AccountCellErrorCode::AccountCellManagerLockShouldBeModified,
                 "The manager lock args in AccountCell.lock should be different in inputs and outputs."
             );
         }
     } else {
-        let input_lock = high_level::load_cell_lock(input_account_index, Source::Input).map_err(Error::from)?;
+        let input_lock =
+            high_level::load_cell_lock(input_account_index, Source::Input).map_err(Error::<ErrorCode>::from)?;
         let input_args = input_lock.as_reader().args().raw_data();
-        let output_lock = high_level::load_cell_lock(output_account_index, Source::Output).map_err(Error::from)?;
+        let output_lock =
+            high_level::load_cell_lock(output_account_index, Source::Output).map_err(Error::<ErrorCode>::from)?;
         let output_args = output_lock.as_reader().args().raw_data();
 
         das_assert!(
@@ -176,7 +184,7 @@ pub fn verify_account_data_consistent(
 
     das_assert!(
         data_parser::account_cell::get_id(&input_data) == data_parser::account_cell::get_id(&output_data),
-        ErrorCode::AccountCellDataNotConsistent,
+        AccountCellErrorCode::AccountCellDataNotConsistent,
         "The data.id field of inputs[{}] and outputs[{}] should be the same.",
         input_account_index,
         output_account_index
@@ -184,7 +192,7 @@ pub fn verify_account_data_consistent(
     if !except.contains(&"next") {
         das_assert!(
             data_parser::account_cell::get_next(&input_data) == data_parser::account_cell::get_next(&output_data),
-            ErrorCode::AccountCellDataNotConsistent,
+            AccountCellErrorCode::AccountCellDataNotConsistent,
             "The data.next field of inputs[{}] and outputs[{}] should be the same.",
             input_account_index,
             output_account_index
@@ -192,7 +200,7 @@ pub fn verify_account_data_consistent(
     }
     das_assert!(
         data_parser::account_cell::get_account(&input_data) == data_parser::account_cell::get_account(&output_data),
-        ErrorCode::AccountCellDataNotConsistent,
+        AccountCellErrorCode::AccountCellDataNotConsistent,
         "The data.account field of inputs[{}] and outputs[{}] should be the same.",
         input_account_index,
         output_account_index
@@ -203,7 +211,7 @@ pub fn verify_account_data_consistent(
 
         das_assert!(
             input_expired_at == output_expired_at,
-            ErrorCode::AccountCellDataNotConsistent,
+            AccountCellErrorCode::AccountCellDataNotConsistent,
             "The data.expired_at field of inputs[{}] and outputs[{}] should be the same. (inputs: {}, outputs: {})",
             input_account_index,
             output_account_index,
@@ -221,13 +229,14 @@ pub fn verify_account_capacity_not_decrease(
 ) -> Result<(), Box<dyn ScriptError>> {
     debug!("Check if capacity consistent in the AccountCell.");
 
-    let input = high_level::load_cell_capacity(input_account_index, Source::Input).map_err(Error::from)?;
-    let output = high_level::load_cell_capacity(output_account_index, Source::Output).map_err(Error::from)?;
+    let input = high_level::load_cell_capacity(input_account_index, Source::Input).map_err(Error::<ErrorCode>::from)?;
+    let output =
+        high_level::load_cell_capacity(output_account_index, Source::Output).map_err(Error::<ErrorCode>::from)?;
 
     // ⚠️ Equal is not allowed here because we want to avoid abuse cell.
     das_assert!(
         input <= output,
-        ErrorCode::AccountCellChangeCapacityError,
+        AccountCellErrorCode::AccountCellChangeCapacityError,
         "The capacity of the AccountCell should be consistent or increased.(input: {}, output: {})",
         input,
         output
@@ -253,7 +262,7 @@ pub fn verify_account_witness_consistent<'a>(
                         $input_witness_reader.$field(),
                         $output_witness_reader.$field()
                     ),
-                    ErrorCode::AccountCellProtectFieldIsModified,
+                    AccountCellErrorCode::AccountCellProtectFieldIsModified,
                     "The witness.{} field of inputs[{}] and outputs[{}] should be the same.",
                     $field_name,
                     input_index,
@@ -356,7 +365,7 @@ pub fn verify_account_witness_record_empty<'a>(
 
         das_assert!(
             records.len() == 0,
-            ErrorCode::AccountCellRecordNotEmpty,
+            AccountCellErrorCode::AccountCellRecordNotEmpty,
             "{:?}[{}]The AccountCell.witness.records should be empty.",
             source,
             cell_index
@@ -381,14 +390,14 @@ pub fn verify_status_conversion<'a>(
 
         das_assert!(
             input_status == expected_input_status as u8,
-            ErrorCode::AccountCellStatusLocked,
+            AccountCellErrorCode::AccountCellStatusLocked,
             "The AccountCell.witness.status should be {:?} in inputs, received {}",
             expected_input_status,
             input_status
         );
         das_assert!(
             output_status == expected_output_status as u8,
-            ErrorCode::AccountCellStatusLocked,
+            AccountCellErrorCode::AccountCellStatusLocked,
             "The AccountCell.witness.status should be {:?} in outputs, received {}",
             expected_output_status,
             output_status
@@ -417,7 +426,7 @@ pub fn verify_status<'a>(
 
         das_assert!(
             account_cell_status == expected_status as u8,
-            ErrorCode::AccountCellStatusLocked,
+            AccountCellErrorCode::AccountCellStatusLocked,
             "{:?}[{}] The AccountCell.witness.status should be {:?}.",
             source,
             index,
@@ -650,7 +659,7 @@ pub fn verify_records_keys(parser: &WitnessesParser, records: RecordsReader) -> 
 
     das_assert!(
         records.total_size() <= records_max_size,
-        ErrorCode::AccountCellRecordSizeTooLarge,
+        AccountCellErrorCode::AccountCellRecordSizeTooLarge,
         "The total size of all records can not be more than {} bytes.",
         records_max_size
     );
@@ -682,7 +691,7 @@ pub fn verify_records_keys(parser: &WitnessesParser, records: RecordsReader) -> 
                 for char in record_key.iter() {
                     das_assert!(
                         CUSTOM_KEYS_NAMESPACE.contains(char),
-                        ErrorCode::AccountCellRecordKeyInvalid,
+                        AccountCellErrorCode::AccountCellRecordKeyInvalid,
                         "The keys in custom_key should only contain digits, lowercase alphabet and underline."
                     );
                 }
@@ -706,14 +715,14 @@ pub fn verify_records_keys(parser: &WitnessesParser, records: RecordsReader) -> 
                         if i == 0 && record_key.len() > 1 {
                             das_assert!(
                                 char != &48, // 48 is the ascii code of '0'
-                                ErrorCode::AccountCellRecordKeyInvalid,
+                                AccountCellErrorCode::AccountCellRecordKeyInvalid,
                                 "The first char of the key in address should not be '0'."
                             );
                         }
 
                         das_assert!(
                             COIN_TYPE_DIGITS.contains(char),
-                            ErrorCode::AccountCellRecordKeyInvalid,
+                            AccountCellErrorCode::AccountCellRecordKeyInvalid,
                             "The keys in address should only contain digits."
                         );
                     }
@@ -723,7 +732,7 @@ pub fn verify_records_keys(parser: &WitnessesParser, records: RecordsReader) -> 
 
                 das_assert!(
                     is_valid,
-                    ErrorCode::AccountCellRecordKeyInvalid,
+                    AccountCellErrorCode::AccountCellRecordKeyInvalid,
                     "Account cell record key is invalid: {:?}",
                     String::from_utf8(record_type)
                 );

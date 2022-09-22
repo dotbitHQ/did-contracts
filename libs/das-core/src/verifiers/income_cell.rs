@@ -49,7 +49,7 @@ fn verify_cell_capacity_with_records_capacity(
     debug!("  Verify if the IncomeCell's capacity is equal to the sum of its records.");
 
     let basic_capacity = u64::from(config_reader.basic_capacity());
-    let current_capacity = high_level::load_cell_capacity(index, source).map_err(Error::from)?;
+    let current_capacity = high_level::load_cell_capacity(index, source).map_err(Error::<ErrorCode>::from)?;
 
     let mut expected_capacity = 0;
     for record in income_cell_witness_reader.records().iter() {

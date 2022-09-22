@@ -4,6 +4,11 @@ use core::convert::Into;
 use core::fmt;
 
 /// Error
+///
+/// Error code range rules:
+/// 1 ~ 50: reserved for common error
+/// 50 ~ 126: shared by all type script
+/// the rest: temporarily reserved
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[repr(i8)]
 pub enum ErrorCode {
@@ -109,33 +114,6 @@ pub enum ErrorCode {
     IncomeCellTransferError,
     IncomeCellCapacityError,
     IncomeCellProfitMismatch,
-    AccountCellInExpirationAuctionConfirmationPeriod = -115,
-    AccountCellMissingPrevAccount = -114,
-    AccountCellNextUpdateError,
-    AccountCellStillCanNotRecycle,
-    AccountCellIdNotMatch,
-    AccountCellPermissionDenied = -110,
-    AccountCellOwnerLockShouldNotBeModified,
-    AccountCellOwnerLockShouldBeModified,
-    AccountCellManagerLockShouldBeModified,
-    AccountCellDataNotConsistent,
-    AccountCellProtectFieldIsModified,
-    AccountCellNoMoreFee,
-    AccountCellInExpirationAuctionPeriod,
-    AccountCellThrottle = -102,
-    // ⚠️ DO NOT CHANGE
-    AccountCellRenewDurationMustLongerThanYear,
-    AccountCellRenewDurationBiggerThanPayed,
-    // -100
-    AccountCellInExpirationGracePeriod,
-    AccountCellHasExpired,
-    AccountCellIsNotExpired,
-    AccountCellRecycleCapacityError,
-    AccountCellChangeCapacityError, // -95
-    AccountCellRecordKeyInvalid,
-    AccountCellRecordSizeTooLarge,
-    AccountCellRecordNotEmpty,
-    AccountCellStatusLocked,
     EIP712SerializationError = -90,
     EIP712SematicError,
     EIP712DecodingWitnessArgsError,
@@ -174,7 +152,7 @@ pub enum ErrorCode {
     SubAccountJoinBetaError = -40,
     SubAccountProfitError,
     SubAccountCustomScriptError,
-    SubAccountNormalCellLockLimit,
+    SubAccountNormalCellLockLimit = -37,
     SubAccountCollectProfitError,
     // -40
     UpgradeForWitnessIsRequired,
@@ -210,17 +188,77 @@ impl Into<i8> for ErrorCode {
     }
 }
 
+#[derive(Debug, PartialEq, Clone, Copy)]
+#[repr(i8)]
+pub enum AccountCellErrorCode {
+    // WARNING Reserved errors:
+    IndexOutOfBound = 1,
+    ItemMissing = 2,
+    LengthNotEnough = 3,
+    Encoding = 4,
+    IncomeCellConsolidateConditionNotSatisfied = -126,
+    AccountCellMissingPrevAccount = -114,
+    AccountCellThrottle = -102,
+    AccountCellInExpirationGracePeriod = -99,
+    SubAccountNormalCellLockLimit = -37,
+    SystemOff = -1,
+    // Customized errors:
+    AccountCellNextUpdateError = 50,
+    AccountCellIdNotMatch,
+    AccountCellPermissionDenied,
+    AccountCellOwnerLockShouldNotBeModified,
+    AccountCellOwnerLockShouldBeModified,
+    AccountCellManagerLockShouldBeModified,
+    AccountCellDataNotConsistent,
+    AccountCellProtectFieldIsModified,
+    AccountCellNoMoreFee,
+    AccountCellRenewDurationMustLongerThanYear,
+    // 60
+    AccountCellRenewDurationBiggerThanPayed,
+    AccountCellRecycleCapacityError,
+    AccountCellChangeCapacityError,
+    AccountCellRecordKeyInvalid,
+    AccountCellRecordSizeTooLarge,
+    AccountCellRecordNotEmpty,
+    AccountCellStatusLocked,
+    AccountCellIsNotExpired,
+    AccountCellInExpirationAuctionConfirmationPeriod,
+    AccountCellInExpirationAuctionPeriod,
+    // 70
+    AccountCellHasExpired,
+    AccountCellStillCanNotRecycle,
+}
+
+impl From<SysError> for AccountCellErrorCode {
+    fn from(err: SysError) -> Self {
+        use SysError::*;
+        match err {
+            IndexOutOfBound => Self::IndexOutOfBound,
+            ItemMissing => Self::ItemMissing,
+            LengthNotEnough(_) => Self::LengthNotEnough,
+            Encoding => Self::Encoding,
+            Unknown(err_code) => panic!("unexpected sys error {}", err_code),
+        }
+    }
+}
+
+impl Into<i8> for AccountCellErrorCode {
+    fn into(self) -> i8 {
+        self as i8
+    }
+}
+
 pub trait ScriptError {
     fn as_i8(&self) -> i8;
 }
 
 #[derive(Debug, Clone)]
-pub struct Error<T: Into<i8> + Copy> {
+pub struct Error<T: Into<i8> + From<SysError> + Copy> {
     pub code: T,
     pub message: String,
 }
 
-impl<T: Into<i8> + Copy> Error<T> {
+impl<T: Into<i8> + From<SysError> + Copy> Error<T> {
     pub fn new(code: T, message: String) -> Self {
         Self { code, message }
     }
@@ -230,39 +268,39 @@ impl<T: Into<i8> + Copy> Error<T> {
     }
 }
 
-impl<T: Into<i8> + Copy> ScriptError for Error<T> {
+impl<T: Into<i8> + From<SysError> + Copy> ScriptError for Error<T> {
     fn as_i8(&self) -> i8 {
         self.code.into()
     }
 }
 
-impl<T: Into<i8> + Copy> PartialEq for Error<T> {
+impl<T: Into<i8> + From<SysError> + Copy> PartialEq for Error<T> {
     fn eq(&self, other: &Self) -> bool {
         self.code.into() == other.code.into()
     }
 }
 
-impl From<Error<ErrorCode>> for Box<dyn ScriptError> {
-    fn from(err: Error<ErrorCode>) -> Box<dyn ScriptError> {
+impl<'a, T: Into<i8> + From<SysError> + Copy + 'a> From<Error<T>> for Box<dyn ScriptError + 'a> {
+    fn from(err: Error<T>) -> Box<dyn ScriptError + 'a> {
         Box::new(err)
     }
 }
 
-impl From<Box<Error<ErrorCode>>> for Box<dyn ScriptError> {
-    fn from(err: Box<Error<ErrorCode>>) -> Box<dyn ScriptError> {
+impl<'a, T: Into<i8> + From<SysError> + Copy + 'a> From<Box<Error<T>>> for Box<dyn ScriptError + 'a> {
+    fn from(err: Box<Error<T>>) -> Box<dyn ScriptError + 'a> {
         err
     }
 }
 
-impl From<SysError> for Error<ErrorCode> {
+impl<T: Into<i8> + From<SysError> + Copy> From<SysError> for Error<T> {
     fn from(err: SysError) -> Self {
-        Self::new(ErrorCode::from(err), String::new())
+        Self::new(T::from(err), String::new())
     }
 }
 
 impl From<SysError> for Box<dyn ScriptError> {
     fn from(err: SysError) -> Box<dyn ScriptError> {
-        Box::new(Error::from(err))
+        Box::new(Error::<ErrorCode>::from(err))
     }
 }
 

@@ -716,7 +716,8 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                             })
                             .collect::<Vec<_>>();
                         debug!("The total size of custom script params: {} bytes", total_size);
-                        high_level::exec_cell(&type_id, ScriptHashType::Type, 0, 0, &params).map_err(Error::from)?;
+                        high_level::exec_cell(&type_id, ScriptHashType::Type, 0, 0, &params)
+                            .map_err(Error::<ErrorCode>::from)?;
                     } else {
                         verify_profit_to_das(
                             action,
@@ -1076,7 +1077,7 @@ fn verify_there_is_only_one_lock_for_normal_cells(
                     break;
                 }
                 Err(err) => {
-                    return Err(Error::from(err).into());
+                    return Err(Error::<ErrorCode>::from(err).into());
                 }
             }
 

@@ -192,7 +192,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let status = u8::from(input_cell_witness_reader.status());
             das_assert!(
                 status != (AccountStatus::LockedForCrossChain as u8),
-                ErrorCode::AccountCellStatusLocked,
+                AccountCellErrorCode::AccountCellStatusLocked,
                 "inputs[{}] The AccountCell has been locked for cross chain, it is required to unlock first for renew.",
                 input_account_cells[0]
             );
@@ -207,8 +207,8 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             );
             if let Err(err) = ret {
                 das_assert!(
-                    err.as_i8() == ErrorCode::AccountCellInExpirationGracePeriod as i8,
-                    ErrorCode::AccountCellHasExpired,
+                    err.as_i8() == AccountCellErrorCode::AccountCellInExpirationGracePeriod as i8,
+                    AccountCellErrorCode::AccountCellHasExpired,
                     "The AccountCell has been expired."
                 );
             } else {
@@ -279,7 +279,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             das_assert!(
                 duration >= 365 * 86400,
-                ErrorCode::AccountCellRenewDurationMustLongerThanYear,
+                AccountCellErrorCode::AccountCellRenewDurationMustLongerThanYear,
                 "The AccountCell renew should be longer than 1 year. (current: {}, expected: >= 31_536_000)",
                 duration
             );
@@ -299,7 +299,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let yearly_capacity = util::calc_yearly_capacity(renew_price_in_usd, quote, 0);
             das_assert!(
                 paid >= yearly_capacity,
-                ErrorCode::AccountCellRenewDurationMustLongerThanYear,
+                AccountCellErrorCode::AccountCellRenewDurationMustLongerThanYear,
                 "The paid capacity should be at least 1 year. (current: {}, expected: >= {}",
                 paid,
                 yearly_capacity
@@ -310,7 +310,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             // The duration can be floated within the range of one day.
             das_assert!(
                 duration >= expected_duration - 86400 && duration <= expected_duration + 86400,
-                ErrorCode::AccountCellRenewDurationBiggerThanPayed,
+                AccountCellErrorCode::AccountCellRenewDurationBiggerThanPayed,
                 "The duration should be equal to {} +/- 86400s. (current: duration({}), calculation: (paid({}) / (renew_price({}) / quote({}) * 100_000_000) ) * 86400 * 365)",
                 expected_duration,
                 duration,
@@ -383,14 +383,14 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             );
             if let Err(err) = ret {
                 das_assert!(
-                    err.as_i8() == ErrorCode::AccountCellHasExpired as i8,
-                    ErrorCode::AccountCellStillCanNotRecycle,
+                    err.as_i8() == AccountCellErrorCode::AccountCellHasExpired as i8,
+                    AccountCellErrorCode::AccountCellStillCanNotRecycle,
                     "The AccountCell is still disable for recycling."
                 );
             } else {
                 das_assert!(
                     false,
-                    ErrorCode::AccountCellStillCanNotRecycle,
+                    AccountCellErrorCode::AccountCellStillCanNotRecycle,
                     "The AccountCell is still disable for recycling."
                 );
             }
@@ -405,7 +405,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             das_assert!(
                 account_cell_status == AccountStatus::Normal as u8
                     || account_cell_status == AccountStatus::LockedForCrossChain as u8,
-                ErrorCode::AccountCellStatusLocked,
+                AccountCellErrorCode::AccountCellStatusLocked,
                 "inputs[{}] The AccountCell.witness.status should be Normal or LockedForCrossChain .",
                 input_cells[1]
             );
@@ -458,7 +458,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             das_assert!(
                 prev_account_input_next == expired_account_id,
-                ErrorCode::AccountCellMissingPrevAccount,
+                AccountCellErrorCode::AccountCellMissingPrevAccount,
                 "inputs[{}] The AccountCell.next should be 0x{} .",
                 input_cells[0],
                 util::hex_string(expired_account_id)
@@ -471,7 +471,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             das_assert!(
                 prev_account_output_next == expired_account_next,
-                ErrorCode::AccountCellNextUpdateError,
+                AccountCellErrorCode::AccountCellNextUpdateError,
                 "outputs[{}] The AccountCell.next should be updated to 0x{} .",
                 output_cells[0],
                 util::hex_string(expired_account_next)
@@ -636,16 +636,16 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             );
             if let Err(err) = ret {
                 das_assert!(
-                    err.as_i8() == ErrorCode::AccountCellInExpirationAuctionPeriod as i8
-                        || err.as_i8() == ErrorCode::AccountCellInExpirationAuctionConfirmationPeriod as i8
-                        || err.as_i8() == ErrorCode::AccountCellHasExpired as i8,
-                    ErrorCode::AccountCellIsNotExpired,
+                    err.as_i8() == AccountCellErrorCode::AccountCellInExpirationAuctionPeriod as i8
+                        || err.as_i8() == AccountCellErrorCode::AccountCellInExpirationAuctionConfirmationPeriod as i8
+                        || err.as_i8() == AccountCellErrorCode::AccountCellHasExpired as i8,
+                    AccountCellErrorCode::AccountCellIsNotExpired,
                     "The AccountCell is still not expired."
                 );
             } else {
                 das_assert!(
                     false,
-                    ErrorCode::AccountCellIsNotExpired,
+                    AccountCellErrorCode::AccountCellIsNotExpired,
                     "The AccountCell is still not expired."
                 );
             }
@@ -793,7 +793,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                     let enable_status = u8::from(reader.enable_sub_account());
                     das_assert!(
                         enable_status == SubAccountEnableStatus::Off as u8,
-                        ErrorCode::AccountCellPermissionDenied,
+                        AccountCellErrorCode::AccountCellPermissionDenied,
                         "{:?}[{}] Only AccountCells with enable_sub_account field is {} can enable its sub-account function.",
                         Source::Input,
                         input_account_cells[0],
@@ -810,7 +810,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                     let enable_status = u8::from(reader.enable_sub_account());
                     das_assert!(
                         enable_status == SubAccountEnableStatus::On as u8,
-                        ErrorCode::AccountCellPermissionDenied,
+                        AccountCellErrorCode::AccountCellPermissionDenied,
                         "{:?}[{}]The AccountCell.enable_sub_account should be {} .",
                         Source::Output,
                         output_account_cells[0],
@@ -1036,15 +1036,17 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             ) {
                 Ok(_) => {
                     warn!("The AccountCell is not expired.");
-                    return Err(code_to_error!(ErrorCode::AccountCellIsNotExpired));
+                    return Err(code_to_error!(AccountCellErrorCode::AccountCellIsNotExpired));
                 }
                 Err(err) => {
-                    if err.as_i8() == ErrorCode::AccountCellInExpirationGracePeriod as i8 {
+                    if err.as_i8() == AccountCellErrorCode::AccountCellInExpirationGracePeriod as i8 {
                         warn!("The AccountCell is not expired.");
-                        return Err(code_to_error!(ErrorCode::AccountCellIsNotExpired));
-                    } else if err.as_i8() == ErrorCode::AccountCellInExpirationAuctionPeriod as i8 {
+                        return Err(code_to_error!(AccountCellErrorCode::AccountCellIsNotExpired));
+                    } else if err.as_i8() == AccountCellErrorCode::AccountCellInExpirationAuctionPeriod as i8 {
                         warn!("The AccountCell is still in auction period.");
-                        return Err(code_to_error!(ErrorCode::AccountCellInExpirationAuctionPeriod));
+                        return Err(code_to_error!(
+                            AccountCellErrorCode::AccountCellInExpirationAuctionPeriod
+                        ));
                     } else {
                         // Ok
                     }
@@ -1228,7 +1230,7 @@ fn verify_action_throttle<'a>(
             if prev != 0 {
                 das_assert!(
                     current >= prev + throttle,
-                    ErrorCode::AccountCellThrottle,
+                    AccountCellErrorCode::AccountCellThrottle,
                     "The AccountCell is used too often, need to wait {} seconds between each transaction.(current: {}, prev: {})",
                     throttle,
                     current,
@@ -1238,7 +1240,7 @@ fn verify_action_throttle<'a>(
 
             das_assert!(
                 current_timestamp == current,
-                ErrorCode::AccountCellThrottle,
+                AccountCellErrorCode::AccountCellThrottle,
                 "The AccountCell.{} in outputs should be the same as the timestamp in the TimeCell.(expected: {}, current: {})",
                 $field_name,
                 current_timestamp,

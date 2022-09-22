@@ -122,7 +122,7 @@ pub fn verify_user_get_change_when_inputs_removed(
 }
 
 pub fn verify_always_success_lock(index: usize, source: Source) -> Result<(), Box<dyn ScriptError>> {
-    let lock = high_level::load_cell_lock(index, source).map_err(Error::from)?;
+    let lock = high_level::load_cell_lock(index, source).map_err(Error::<ErrorCode>::from)?;
     let lock_reader = lock.as_reader();
     let always_success_lock = always_success_lock();
     let always_success_lock_reader = always_success_lock.as_reader();

@@ -26,7 +26,7 @@ pub fn verify_unlock_role(witness: &SubAccountWitness) -> Result<(), Box<dyn Scr
 
     das_assert!(
         witness.sign_role == Some(required_role),
-        ErrorCode::AccountCellPermissionDenied,
+        AccountCellErrorCode::AccountCellPermissionDenied,
         "witnesses[{}] This witness should be unlocked by the {:?}'s signature.",
         witness.index,
         required_role
@@ -56,7 +56,7 @@ pub fn verify_status(
 
     das_assert!(
         sub_account_status == expected_status as u8,
-        ErrorCode::AccountCellStatusLocked,
+        AccountCellErrorCode::AccountCellStatusLocked,
         "witnesses[{}] The witness.sub_account.status of {} should be {:?}.",
         sub_account_index,
         sub_account_reader.account().as_prettier(),
@@ -87,10 +87,10 @@ pub fn verify_expiration(
                 sub_account_index,
                 sub_account_reader.account().as_prettier()
             );
-            return Err(code_to_error!(ErrorCode::AccountCellHasExpired));
+            return Err(code_to_error!(AccountCellErrorCode::AccountCellHasExpired));
         } else {
             warn!("witnesses[{}] The sub-account {} has been in expiration grace period. Need to be renew as soon as possible.", sub_account_index, sub_account_reader.account().as_prettier());
-            return Err(code_to_error!(ErrorCode::AccountCellInExpirationGracePeriod));
+            return Err(code_to_error!(AccountCellErrorCode::AccountCellInExpirationGracePeriod));
         }
     }
 
@@ -203,7 +203,7 @@ pub fn verify_initial_properties(
 
     das_assert!(
         sub_account_reader.records().len() == 0,
-        ErrorCode::AccountCellRecordNotEmpty,
+        AccountCellErrorCode::AccountCellRecordNotEmpty,
         "witnesses[{}] The witness.sub_account.records of {} should be empty.",
         sub_account_index,
         util::get_sub_account_name_from_reader(sub_account_reader)
@@ -351,7 +351,7 @@ pub fn verify_sub_account_parent_id(
 
     das_assert!(
         account_id == expected_account_id,
-        ErrorCode::AccountCellIdNotMatch,
+        AccountCellErrorCode::AccountCellIdNotMatch,
         "inputs[{}] The account ID of the SubAccountCell is not match with the expired AccountCell.",
         sub_account_index
     );

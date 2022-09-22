@@ -271,9 +271,10 @@ fn reverse_record_to_semantic(
         "There should be 1 ReverseRecordCell in transaction."
     );
 
-    let data = high_level::load_cell_data(reverse_record_cells[0], source).map_err(Error::from)?;
+    let data = high_level::load_cell_data(reverse_record_cells[0], source).map_err(Error::<ErrorCode>::from)?;
     let account = String::from_utf8(data).map_err(|_| ErrorCode::EIP712SerializationError)?;
-    let lock = Script::from(high_level::load_cell_lock(reverse_record_cells[0], source).map_err(Error::from)?);
+    let lock =
+        Script::from(high_level::load_cell_lock(reverse_record_cells[0], source).map_err(Error::<ErrorCode>::from)?);
     let address = to_semantic_address(parser, lock.as_reader(), LockRole::Owner)?;
 
     Ok((address, account))
@@ -294,7 +295,8 @@ fn retract_reverse_record_to_semantic(parser: &WitnessesParser) -> Result<String
     let source = Source::Input;
     let reverse_record_cells =
         util::find_cells_by_type_id(ScriptType::Type, type_id_table_reader.reverse_record_cell(), source)?;
-    let lock = Script::from(high_level::load_cell_lock(reverse_record_cells[0], source).map_err(Error::from)?);
+    let lock =
+        Script::from(high_level::load_cell_lock(reverse_record_cells[0], source).map_err(Error::<ErrorCode>::from)?);
     let address = to_semantic_address(parser, lock.as_reader(), LockRole::Owner)?;
 
     Ok(format!("RETRACT REVERSE RECORDS ON {}", address))
@@ -321,7 +323,8 @@ fn transfer_to_semantic(parser: &WitnessesParser) -> Result<String, Box<dyn Scri
             let ret = high_level::load_cell_capacity(i, source);
             match ret {
                 Ok(capacity) => {
-                    let lock = Script::from(high_level::load_cell_lock(i, source).map_err(|e| Error::from(e))?);
+                    let lock =
+                        Script::from(high_level::load_cell_lock(i, source).map_err(|e| Error::<ErrorCode>::from(e))?);
                     let address = to_semantic_address(parser, lock.as_reader(), LockRole::Owner)?;
                     map_util::add(&mut capacity_map, address, capacity);
                 }
@@ -329,7 +332,7 @@ fn transfer_to_semantic(parser: &WitnessesParser) -> Result<String, Box<dyn Scri
                     break;
                 }
                 Err(err) => {
-                    return Err(Error::from(err).into());
+                    return Err(Error::<ErrorCode>::from(err).into());
                 }
             }
 

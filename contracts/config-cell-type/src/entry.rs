@@ -52,7 +52,8 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             // The ConfigCell in outputs must has the same lock script as super lock.
             // Why we do not limit the input ConfigCell's lock script is because when super lock need to be updated,
             // we need to update this type script at first, then update the ConfigCell after type script deployed.
-            let cell_lock_hash = load_cell_lock_hash(output_cell_index, Source::Output).map_err(|e| Error::from(e))?;
+            let cell_lock_hash =
+                load_cell_lock_hash(output_cell_index, Source::Output).map_err(|e| Error::<ErrorCode>::from(e))?;
 
             assert!(
                 cell_lock_hash == super_lock_hash,
@@ -82,7 +83,9 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 }
 
 fn get_config_id(cell_index: usize, source: Source) -> Result<DataType, Box<dyn ScriptError>> {
-    let cell_type = load_cell_type(cell_index, source).map_err(|e| Error::from(e))?.unwrap();
+    let cell_type = load_cell_type(cell_index, source)
+        .map_err(|e| Error::<ErrorCode>::from(e))?
+        .unwrap();
     let args: [u8; 4] = cell_type
         .as_reader()
         .args()

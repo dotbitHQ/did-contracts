@@ -13,7 +13,7 @@ use das_types::packed as das_packed;
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running balance-cell-type ======");
 
-    let balance_cell_type = high_level::load_script().map_err(|e| Error::from(e))?;
+    let balance_cell_type = high_level::load_script().map_err(|e| Error::<ErrorCode>::from(e))?;
     let balance_cell_type_reader = balance_cell_type.as_reader();
     let das_lock = das_lock();
     let das_lock_reader = das_lock.as_reader();

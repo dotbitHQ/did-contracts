@@ -139,7 +139,7 @@ impl WitnessesParser {
                     i += 1;
                 }
                 Err(SysError::IndexOutOfBound) => break,
-                Err(e) => return Err(Box::new(Error::from(e))),
+                Err(e) => return Err(Box::new(Error::<ErrorCode>::from(e))),
             }
         }
 

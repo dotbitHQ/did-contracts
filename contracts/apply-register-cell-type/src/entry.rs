@@ -94,7 +94,8 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             debug!("Check if the capacity of refund is correct ...");
 
-            let lock_script = high_level::load_cell_lock(input_cells[0], Source::Input).map_err(|e| Error::from(e))?;
+            let lock_script =
+                high_level::load_cell_lock(input_cells[0], Source::Input).map_err(|e| Error::<ErrorCode>::from(e))?;
             let transfer_cells = util::find_cells_by_script(ScriptType::Lock, lock_script.as_reader(), Source::Output)?;
             assert!(
                 transfer_cells.len() == 1,
@@ -102,10 +103,10 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 "There should be one cell in outputs which refund the capacity of the ApplyRegisterCell."
             );
 
-            let expected_capacity =
-                high_level::load_cell_capacity(input_cells[0], Source::Input).map_err(|e| Error::from(e))?;
-            let transferred_capacity =
-                high_level::load_cell_capacity(transfer_cells[0], Source::Output).map_err(|e| Error::from(e))?;
+            let expected_capacity = high_level::load_cell_capacity(input_cells[0], Source::Input)
+                .map_err(|e| Error::<ErrorCode>::from(e))?;
+            let transferred_capacity = high_level::load_cell_capacity(transfer_cells[0], Source::Output)
+                .map_err(|e| Error::<ErrorCode>::from(e))?;
             assert!(
                 transferred_capacity >= expected_capacity - 100_000_000,
                 ErrorCode::ApplyRegisterRefundCapacityError,
