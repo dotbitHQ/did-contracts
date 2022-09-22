@@ -1,5 +1,5 @@
 use super::common::*;
-use crate::util::{accounts::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*};
+use crate::util::{accounts::*, error::*, template_common_cell::*, template_generator::*, template_parser::*};
 use serde_json::json;
 
 fn before_each() -> TemplateGenerator {
@@ -74,7 +74,7 @@ fn challenge_offer_cancel_new_in_outputs() {
     );
     push_output_balance_cell(&mut template, 400199990000, BUYER);
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure);
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure);
 }
 
 #[test]
@@ -84,7 +84,7 @@ fn challenge_offer_cancel_offer_change_capacity() {
     // outputs
     push_output_balance_cell(&mut template, 200_099_990_000 - 1, BUYER);
 
-    challenge_tx(template.as_json(), Error::ChangeError);
+    challenge_tx(template.as_json(), ErrorCode::ChangeError);
 }
 
 #[test]
@@ -98,5 +98,5 @@ fn challenge_offer_cancel_offer_change_owner() {
         "0x058888000000000000000000000000000000008888",
     );
 
-    challenge_tx(template.as_json(), Error::ChangeError);
+    challenge_tx(template.as_json(), ErrorCode::ChangeError);
 }

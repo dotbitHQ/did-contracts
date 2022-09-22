@@ -1,6 +1,6 @@
 use super::common::init;
 use crate::util::{
-    accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
+    accounts::*, constants::*, error::*, template_common_cell::*, template_generator::*, template_parser::*,
 };
 use das_types_std::constants::*;
 use serde_json::json;
@@ -115,7 +115,7 @@ fn challenge_account_edit_records_multiple_cells() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure)
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure)
 }
 
 #[test]
@@ -147,7 +147,7 @@ fn challenge_account_edit_records_with_other_cells() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure)
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure)
 }
 
 #[test]
@@ -172,7 +172,7 @@ fn challenge_account_edit_records_invalid_char() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellRecordKeyInvalid)
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellRecordKeyInvalid)
 }
 
 #[test]
@@ -197,7 +197,7 @@ fn challenge_account_edit_records_invalid_key() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellRecordKeyInvalid)
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellRecordKeyInvalid)
 }
 
 #[test]
@@ -222,5 +222,5 @@ fn challenge_account_edit_records_invalid_coin_type() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellRecordKeyInvalid)
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellRecordKeyInvalid)
 }

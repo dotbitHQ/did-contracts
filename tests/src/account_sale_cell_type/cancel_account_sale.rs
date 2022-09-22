@@ -1,6 +1,6 @@
 use super::common::*;
 use crate::util::{
-    accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
+    accounts::*, constants::*, error::*, template_common_cell::*, template_generator::*, template_parser::*,
 };
 use das_types_std::constants::*;
 use serde_json::json;
@@ -182,7 +182,7 @@ fn challenge_account_sale_cancel_with_manager() {
         SELLER,
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellPermissionDenied)
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellPermissionDenied)
 }
 
 #[test]
@@ -211,7 +211,7 @@ fn challenge_account_sale_cancel_account_consistent() {
         SELLER,
     );
 
-    challenge_tx(template.as_json(), Error::CellLockCanNotBeModified)
+    challenge_tx(template.as_json(), ErrorCode::CellLockCanNotBeModified)
 }
 
 #[test]
@@ -273,7 +273,10 @@ fn challenge_account_sale_cancel_account_expired() {
         SELLER,
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellInExpirationGracePeriod)
+    challenge_tx(
+        template.as_json(),
+        AccountCellErrorCode::AccountCellInExpirationGracePeriod,
+    )
 }
 
 #[test]
@@ -333,7 +336,7 @@ fn challenge_account_sale_cancel_account_input_status() {
         SELLER,
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellStatusLocked)
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellStatusLocked)
 }
 
 #[test]
@@ -362,7 +365,7 @@ fn challenge_account_sale_cancel_account_output_status() {
         SELLER,
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellStatusLocked)
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellStatusLocked)
 }
 
 #[test]
@@ -422,7 +425,7 @@ fn challenge_account_sale_cancel_sale_account_mismatch() {
         SELLER,
     );
 
-    challenge_tx(template.as_json(), Error::AccountSaleCellAccountIdInvalid)
+    challenge_tx(template.as_json(), ErrorCode::AccountSaleCellAccountIdInvalid)
 }
 
 #[test]
@@ -451,7 +454,7 @@ fn challenge_account_sale_cancel_change_owner() {
         "0x051111000000000000000000000000000000001111",
     );
 
-    challenge_tx(template.as_json(), Error::ChangeError)
+    challenge_tx(template.as_json(), ErrorCode::ChangeError)
 }
 
 #[test]
@@ -480,5 +483,5 @@ fn challenge_account_sale_cancel_change_capacity() {
         SELLER,
     );
 
-    challenge_tx(template.as_json(), Error::ChangeError)
+    challenge_tx(template.as_json(), ErrorCode::ChangeError)
 }

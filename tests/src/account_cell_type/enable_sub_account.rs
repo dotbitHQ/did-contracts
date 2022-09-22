@@ -1,6 +1,6 @@
 use super::common::*;
 use crate::util::{
-    accounts::*, error::Error, template_common_cell::*, template_generator::TemplateGenerator, template_parser::*,
+    accounts::*, error::*, template_common_cell::*, template_generator::TemplateGenerator, template_parser::*,
 };
 use serde_json::json;
 
@@ -101,5 +101,5 @@ fn challenge_enable_sub_account_beta_limit() {
     );
     push_output_balance_cell(&mut template, 479_000_000_000, SENDER);
 
-    challenge_tx(template.as_json(), Error::SubAccountJoinBetaError);
+    challenge_tx(template.as_json(), ErrorCode::SubAccountJoinBetaError);
 }

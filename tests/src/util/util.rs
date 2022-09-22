@@ -17,7 +17,7 @@ lazy_static! {
     pub static ref SECP256K1: secp256k1::Secp256k1<secp256k1::All> = secp256k1::Secp256k1::new();
 }
 
-pub fn contains_error(message: &str, err_code: error::Error) -> bool {
+pub fn contains_error(message: &str, err_code: error::ErrorCode) -> bool {
     let err_str = format!("ValidationFailure({})", (err_code as i8).to_string());
     message.contains(&err_str)
 }

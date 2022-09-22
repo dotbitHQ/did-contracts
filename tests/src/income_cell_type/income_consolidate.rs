@@ -1,5 +1,5 @@
 use crate::util::{
-    accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
+    accounts::*, constants::*, error::*, template_common_cell::*, template_generator::*, template_parser::*,
 };
 use das_types_std::constants::{DataType, Source};
 use serde_json::json;
@@ -533,7 +533,10 @@ fn challenge_income_consolidate_newly_created() {
     );
     push_output_normal_cell(&mut template, 20_000_000_000, COMMON_INCOME_CREATOR);
 
-    challenge_tx(template.as_json(), Error::IncomeCellConsolidateConditionNotSatisfied);
+    challenge_tx(
+        template.as_json(),
+        ErrorCode::IncomeCellConsolidateConditionNotSatisfied,
+    );
 }
 
 #[test]
@@ -576,7 +579,7 @@ fn challenge_income_consolidate_redundant_records() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::IncomeCellConsolidateError);
+    challenge_tx(template.as_json(), ErrorCode::IncomeCellConsolidateError);
 }
 
 #[test]
@@ -658,7 +661,10 @@ fn challenge_income_consolidate_redundant_cells() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::IncomeCellConsolidateConditionNotSatisfied);
+    challenge_tx(
+        template.as_json(),
+        ErrorCode::IncomeCellConsolidateConditionNotSatisfied,
+    );
 }
 
 #[test]
@@ -694,7 +700,7 @@ fn challenge_income_consolidate_missing_some_records() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::IncomeCellConsolidateError);
+    challenge_tx(template.as_json(), ErrorCode::IncomeCellConsolidateError);
 }
 
 #[test]
@@ -731,7 +737,7 @@ fn challenge_income_consolidate_wasted_capacity_1() {
     // Simulate missing some capacity which should be transferred to COMMON_INCOME_CREATOR.
     push_output_normal_cell(&mut template, 20_000_000_000u64, COMMON_INCOME_CREATOR);
 
-    challenge_tx(template.as_json(), Error::IncomeCellConsolidateError);
+    challenge_tx(template.as_json(), ErrorCode::IncomeCellConsolidateError);
 }
 
 #[test]
@@ -820,7 +826,7 @@ fn challenge_income_consolidate_wasted_capacity_2() {
     // Simulate missing some capacity which should be transferred to COMMON_INCOME_CREATOR.
     push_output_normal_cell(&mut template, 22_000_000_000u64, COMMON_INCOME_CREATOR);
 
-    challenge_tx(template.as_json(), Error::IncomeCellConsolidateWaste);
+    challenge_tx(template.as_json(), ErrorCode::IncomeCellConsolidateWaste);
 }
 
 #[test]
@@ -884,7 +890,7 @@ fn challenge_income_consolidate_wasted_capacity_3() {
         "0x0000000000000000000000000000000000000010",
     );
 
-    challenge_tx(template.as_json(), Error::IncomeCellTransferError);
+    challenge_tx(template.as_json(), ErrorCode::IncomeCellTransferError);
 }
 
 #[test]
@@ -978,7 +984,7 @@ fn challenge_income_consolidate_eip712_cells_without_type_script() {
         "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
     );
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure);
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure);
 
     // challenge_tx(
     //     template.as_json(),

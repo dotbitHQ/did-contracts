@@ -5,7 +5,7 @@
 /// Error
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[repr(i8)]
-pub enum Error {
+pub enum ErrorCode {
     IndexOutOfBound = 1,
     ItemMissing,
     LengthNotEnough,
@@ -108,33 +108,6 @@ pub enum Error {
     IncomeCellTransferError,
     IncomeCellCapacityError,
     IncomeCellProfitMismatch,
-    AccountCellInExpirationAuctionConfirmationPeriod = -115,
-    AccountCellMissingPrevAccount = -114,
-    AccountCellNextUpdateError,
-    AccountCellStillCanNotRecycle,
-    AccountCellIdNotMatch,
-    AccountCellPermissionDenied = -110,
-    AccountCellOwnerLockShouldNotBeModified,
-    AccountCellOwnerLockShouldBeModified,
-    AccountCellManagerLockShouldBeModified,
-    AccountCellDataNotConsistent,
-    AccountCellProtectFieldIsModified,
-    AccountCellNoMoreFee,
-    AccountCellInExpirationAuctionPeriod,
-    AccountCellThrottle = -102,
-    // ⚠️ DO NOT CHANGE
-    AccountCellRenewDurationMustLongerThanYear,
-    AccountCellRenewDurationBiggerThanPayed,
-    // -100
-    AccountCellInExpirationGracePeriod,
-    AccountCellHasExpired,
-    AccountCellIsNotExpired,
-    AccountCellRecycleCapacityError,
-    AccountCellChangeCapacityError, // -95
-    AccountCellRecordKeyInvalid,
-    AccountCellRecordSizeTooLarge,
-    AccountCellRecordNotEmpty,
-    AccountCellStatusLocked,
     EIP712SerializationError = -90,
     EIP712SematicError,
     EIP712DecodingWitnessArgsError,
@@ -173,7 +146,7 @@ pub enum Error {
     SubAccountJoinBetaError = -40,
     SubAccountProfitError,
     SubAccountCustomScriptError,
-    SubAccountNormalCellLockLimit,
+    SubAccountNormalCellLockLimit = -37,
     SubAccountCollectProfitError,
     // -40
     UpgradeForWitnessIsRequired,
@@ -182,4 +155,57 @@ pub enum Error {
     CrossChainUnlockError,
     UnittestError = -2,
     SystemOff = -1,
+}
+
+impl Into<i8> for ErrorCode {
+    fn into(self) -> i8 {
+        self as i8
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+#[repr(i8)]
+pub enum AccountCellErrorCode {
+    // WARNING Reserved errors:
+    IndexOutOfBound = 1,
+    ItemMissing = 2,
+    LengthNotEnough = 3,
+    Encoding = 4,
+    IncomeCellConsolidateConditionNotSatisfied = -126,
+    AccountCellMissingPrevAccount = -114,
+    AccountCellThrottle = -102,
+    AccountCellInExpirationGracePeriod = -99,
+    SubAccountNormalCellLockLimit = -37,
+    SystemOff = -1,
+    // Customized errors:
+    AccountCellNextUpdateError = 50,
+    AccountCellIdNotMatch,
+    AccountCellPermissionDenied,
+    AccountCellOwnerLockShouldNotBeModified,
+    AccountCellOwnerLockShouldBeModified,
+    AccountCellManagerLockShouldBeModified,
+    AccountCellDataNotConsistent,
+    AccountCellProtectFieldIsModified,
+    AccountCellNoMoreFee,
+    AccountCellRenewDurationMustLongerThanYear,
+    // 60
+    AccountCellRenewDurationBiggerThanPayed,
+    AccountCellRecycleCapacityError,
+    AccountCellChangeCapacityError,
+    AccountCellRecordKeyInvalid,
+    AccountCellRecordSizeTooLarge,
+    AccountCellRecordNotEmpty,
+    AccountCellStatusLocked,
+    AccountCellIsNotExpired,
+    AccountCellInExpirationAuctionConfirmationPeriod,
+    AccountCellInExpirationAuctionPeriod,
+    // 70
+    AccountCellHasExpired,
+    AccountCellStillCanNotRecycle,
+}
+
+impl Into<i8> for AccountCellErrorCode {
+    fn into(self) -> i8 {
+        self as i8
+    }
 }

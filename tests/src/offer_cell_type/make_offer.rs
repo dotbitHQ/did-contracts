@@ -1,6 +1,6 @@
 use super::common::*;
 use crate::util::{
-    accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
+    accounts::*, constants::*, error::*, template_common_cell::*, template_generator::*, template_parser::*,
 };
 use das_types_std::constants::Source;
 use serde_json::json;
@@ -62,7 +62,7 @@ fn challenge_offer_make_offer_change_capacity() {
     // Simulate transfer changes less than the user should get.
     push_output_balance_cell(&mut template, total_input - MAKE_OFFER_COST - 1, BUYER);
 
-    challenge_tx(template.as_json(), Error::ChangeError);
+    challenge_tx(template.as_json(), ErrorCode::ChangeError);
 }
 
 #[test]
@@ -87,7 +87,7 @@ fn challenge_offer_make_offer_change_owner() {
         "0x050000000000000000000000000000000000003333",
     );
 
-    challenge_tx(template.as_json(), Error::ChangeError);
+    challenge_tx(template.as_json(), ErrorCode::ChangeError);
 }
 
 #[test]
@@ -120,7 +120,7 @@ fn challenge_offer_make_offer_create_multiple() {
 
     push_output_balance_cell(&mut template, total_input - MAKE_OFFER_COST * 2, BUYER);
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure);
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure);
 }
 
 #[test]
@@ -141,7 +141,7 @@ fn challenge_offer_make_offer_lower_capacity() {
     );
     push_output_balance_cell(&mut template, total_input - MAKE_OFFER_COST + 1, BUYER);
 
-    challenge_tx(template.as_json(), Error::OfferCellCapacityError);
+    challenge_tx(template.as_json(), ErrorCode::OfferCellCapacityError);
 }
 
 #[test]
@@ -162,7 +162,7 @@ fn challenge_offer_make_offer_higher_capacity() {
     );
     push_output_balance_cell(&mut template, total_input - MAKE_OFFER_COST - 1, BUYER);
 
-    challenge_tx(template.as_json(), Error::OfferCellCapacityError);
+    challenge_tx(template.as_json(), ErrorCode::OfferCellCapacityError);
 }
 
 #[test]
@@ -183,5 +183,5 @@ fn challenge_offer_make_offer_too_long_message() {
     );
     push_output_balance_cell(&mut template, total_input - MAKE_OFFER_COST, BUYER);
 
-    challenge_tx(template.as_json(), Error::OfferCellMessageTooLong);
+    challenge_tx(template.as_json(), ErrorCode::OfferCellMessageTooLong);
 }

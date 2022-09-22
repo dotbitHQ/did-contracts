@@ -1,6 +1,6 @@
 use super::common::init;
 use crate::util::{
-    self, accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
+    self, accounts::*, constants::*, error::*, template_common_cell::*, template_generator::*, template_parser::*,
 };
 use das_types_std::constants::AccountStatus;
 use serde_json::json;
@@ -30,7 +30,7 @@ fn push_expired_account_cell(template: &mut TemplateGenerator) {
             "data": {
                 "account": "das00002.bit",
                 "next": "das00003.bit",
-                "expired_at": TIMESTAMP - ACCOUNT_EXPIRATION_GRACE_PERIOD - ACCOUNT_EXPIRATION_AUCTION_PERIOD - 1,
+                "expired_at": TIMESTAMP - ACCOUNT_EXPIRATION_GRACE_PERIOD - ACCOUNT_EXPIRATION_AUCTION_PERIOD - ACCOUNT_EXPIRATION_AUCTION_CONFIRMATION_PERIOD - 1,
             },
             "witness": {
                 "account": "das00002.bit",
@@ -80,7 +80,7 @@ fn test_account_recycle_without_sub_account() {
             "data": {
                 "account": "das00002.bit",
                 "next": "das00003.bit",
-                "expired_at": TIMESTAMP - ACCOUNT_EXPIRATION_GRACE_PERIOD - ACCOUNT_EXPIRATION_AUCTION_PERIOD - 1,
+                "expired_at": TIMESTAMP - ACCOUNT_EXPIRATION_GRACE_PERIOD - ACCOUNT_EXPIRATION_AUCTION_PERIOD - ACCOUNT_EXPIRATION_AUCTION_CONFIRMATION_PERIOD - 1,
             },
             "witness": {
                 "enable_sub_account": 0,
@@ -211,7 +211,7 @@ fn challenge_account_recycle_missing_sub_account() {
     );
     push_output_normal_cell(&mut template, DAS_PROFIT, DAS_WALLET_LOCK_ARGS);
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure);
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure);
 }
 
 #[test]
@@ -255,7 +255,7 @@ fn challenge_account_recycle_with_wrong_sub_account() {
     );
     push_output_normal_cell(&mut template, DAS_PROFIT, DAS_WALLET_LOCK_ARGS);
 
-    challenge_tx(template.as_json(), Error::AccountCellIdNotMatch);
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellIdNotMatch);
 }
 
 #[test]
@@ -289,7 +289,7 @@ fn challenge_account_recycle_account_in_expiration_grace_period() {
     );
     push_output_balance_cell(&mut template, util::gen_account_cell_capacity(8), OWNER);
 
-    challenge_tx(template.as_json(), Error::AccountCellStillCanNotRecycle);
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellStillCanNotRecycle);
 }
 
 #[test]
@@ -323,7 +323,7 @@ fn challenge_account_recycle_account_in_expiration_auction_period() {
     );
     push_output_balance_cell(&mut template, util::gen_account_cell_capacity(8), OWNER);
 
-    challenge_tx(template.as_json(), Error::AccountCellStillCanNotRecycle);
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellStillCanNotRecycle);
 }
 
 #[test]
@@ -360,7 +360,7 @@ fn challenge_account_recycle_status_locked() {
     );
     push_output_balance_cell(&mut template, util::gen_account_cell_capacity(8), OWNER);
 
-    challenge_tx(template.as_json(), Error::AccountCellStatusLocked);
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellStatusLocked);
 }
 
 #[test]
@@ -404,7 +404,7 @@ fn challenge_account_recycle_with_wrong_prev_account() {
     );
     push_output_balance_cell(&mut template, util::gen_account_cell_capacity(8), OWNER);
 
-    challenge_tx(template.as_json(), Error::AccountCellMissingPrevAccount);
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellMissingPrevAccount);
 }
 
 #[test]
@@ -428,7 +428,7 @@ fn challenge_account_recycle_update_next_error() {
     );
     push_output_balance_cell(&mut template, util::gen_account_cell_capacity(8), OWNER);
 
-    challenge_tx(template.as_json(), Error::AccountCellNextUpdateError);
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellNextUpdateError);
 }
 
 #[test]
@@ -460,7 +460,7 @@ fn challenge_account_recycle_refunds_owner() {
     );
     push_output_normal_cell(&mut template, DAS_PROFIT, DAS_WALLET_LOCK_ARGS);
 
-    challenge_tx(template.as_json(), Error::ChangeError);
+    challenge_tx(template.as_json(), ErrorCode::ChangeError);
 }
 
 #[test]
@@ -493,7 +493,7 @@ fn challenge_account_recycle_owner_refunds_capacity() {
     );
     push_output_normal_cell(&mut template, DAS_PROFIT, DAS_WALLET_LOCK_ARGS);
 
-    challenge_tx(template.as_json(), Error::ChangeError);
+    challenge_tx(template.as_json(), ErrorCode::ChangeError);
 }
 
 #[test]
@@ -526,5 +526,5 @@ fn challenge_account_recycle_das_refunds_capacity() {
     // Simulate the capacity of refunds to owner is not correct.
     push_output_normal_cell(&mut template, DAS_PROFIT - 1, DAS_WALLET_LOCK_ARGS);
 
-    challenge_tx(template.as_json(), Error::ChangeError);
+    challenge_tx(template.as_json(), ErrorCode::ChangeError);
 }

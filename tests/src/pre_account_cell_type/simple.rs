@@ -1,6 +1,6 @@
 use super::common::*;
 use crate::util::{
-    self, accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
+    self, accounts::*, constants::*, error::*, template_common_cell::*, template_generator::*, template_parser::*,
 };
 use das_types_std::constants::*;
 use serde_json::json;
@@ -174,7 +174,7 @@ fn challenge_pre_register_initial_record_key_invalid() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellRecordKeyInvalid);
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellRecordKeyInvalid);
 }
 
 #[test]
@@ -196,7 +196,7 @@ fn challenge_pre_register_apply_still_need_wait() {
 
     push_output_simple_pre_account_cell(&mut template);
 
-    challenge_tx(template.as_json(), Error::ApplyRegisterNeedWaitLonger)
+    challenge_tx(template.as_json(), ErrorCode::ApplyRegisterNeedWaitLonger)
 }
 
 #[test]
@@ -218,7 +218,7 @@ fn challenge_pre_register_apply_timeout() {
 
     push_output_simple_pre_account_cell(&mut template);
 
-    challenge_tx(template.as_json(), Error::ApplyRegisterHasTimeout)
+    challenge_tx(template.as_json(), ErrorCode::ApplyRegisterHasTimeout)
 }
 
 #[test]
@@ -240,7 +240,7 @@ fn challenge_pre_register_apply_hash_is_invalid() {
 
     push_output_simple_pre_account_cell(&mut template);
 
-    challenge_tx(template.as_json(), Error::PreRegisterApplyHashIsInvalid)
+    challenge_tx(template.as_json(), ErrorCode::PreRegisterApplyHashIsInvalid)
 }
 
 #[test]
@@ -267,7 +267,7 @@ fn challenge_pre_register_invalid_account_id() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::PreRegisterAccountIdIsInvalid)
+    challenge_tx(template.as_json(), ErrorCode::PreRegisterAccountIdIsInvalid)
 }
 
 #[test]
@@ -291,7 +291,7 @@ fn challenge_pre_register_created_at_mismatch() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::PreRegisterCreateAtIsInvalid)
+    challenge_tx(template.as_json(), ErrorCode::PreRegisterCreateAtIsInvalid)
 }
 
 #[test]
@@ -316,7 +316,7 @@ fn challenge_pre_register_invalid_owner_lock_args() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::PreRegisterOwnerLockArgsIsInvalid)
+    challenge_tx(template.as_json(), ErrorCode::PreRegisterOwnerLockArgsIsInvalid)
 }
 
 #[test]
@@ -341,7 +341,7 @@ fn challenge_pre_register_quote_mismatch() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::PreRegisterQuoteIsInvalid)
+    challenge_tx(template.as_json(), ErrorCode::PreRegisterQuoteIsInvalid)
 }
 
 #[test]
@@ -381,7 +381,7 @@ fn challenge_pre_register_exceed_account_max_length() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::PreRegisterAccountIsTooLong)
+    challenge_tx(template.as_json(), ErrorCode::PreRegisterAccountIsTooLong)
 }
 
 #[test]
@@ -406,7 +406,7 @@ fn challenge_pre_register_discount_not_zero_when_no_inviter() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::PreRegisterDiscountIsInvalid)
+    challenge_tx(template.as_json(), ErrorCode::PreRegisterDiscountIsInvalid)
 }
 
 #[test]
@@ -440,7 +440,7 @@ fn challenge_pre_register_discount_incorrect() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::PreRegisterDiscountIsInvalid)
+    challenge_tx(template.as_json(), ErrorCode::PreRegisterDiscountIsInvalid)
 }
 
 #[test]
@@ -464,7 +464,7 @@ fn challenge_pre_register_incorrect_price() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::PreRegisterPriceInvalid)
+    challenge_tx(template.as_json(), ErrorCode::PreRegisterPriceInvalid)
 }
 
 #[test]
@@ -488,5 +488,5 @@ fn challenge_pre_register_incorrect_capacity() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::PreRegisterCKBInsufficient)
+    challenge_tx(template.as_json(), ErrorCode::PreRegisterCKBInsufficient)
 }

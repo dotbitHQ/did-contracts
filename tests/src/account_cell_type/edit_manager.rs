@@ -1,6 +1,6 @@
 use super::common::init;
 use crate::util::{
-    accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
+    accounts::*, constants::*, error::*, template_common_cell::*, template_generator::*, template_parser::*,
 };
 use serde_json::json;
 
@@ -107,7 +107,7 @@ fn challenge_account_edit_manager_multiple_cells() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure)
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure)
 }
 
 #[test]
@@ -143,7 +143,7 @@ fn challenge_account_edit_manager_with_other_cells() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure)
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure)
 }
 
 #[test]
@@ -164,5 +164,8 @@ fn challenge_account_edit_manager_not_modified() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellManagerLockShouldBeModified)
+    challenge_tx(
+        template.as_json(),
+        AccountCellErrorCode::AccountCellManagerLockShouldBeModified,
+    )
 }

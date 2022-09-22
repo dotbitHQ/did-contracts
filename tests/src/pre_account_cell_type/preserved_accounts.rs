@@ -1,5 +1,5 @@
 use super::common::*;
-use crate::util::{self, accounts::*, constants::*, error::Error, template_common_cell::*, template_parser::*};
+use crate::util::{self, accounts::*, constants::*, error::*, template_common_cell::*, template_parser::*};
 use das_types_std::constants::*;
 use serde_json::json;
 
@@ -28,7 +28,7 @@ fn challenge_pre_register_preserved_account() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountIsPreserved)
+    challenge_tx(template.as_json(), ErrorCode::AccountIsPreserved)
 }
 
 #[test]

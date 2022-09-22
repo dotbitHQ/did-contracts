@@ -1,5 +1,5 @@
 use crate::util::{
-    accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
+    accounts::*, constants::*, error::*, template_common_cell::*, template_generator::*, template_parser::*,
 };
 use serde_json::json;
 
@@ -63,7 +63,7 @@ fn challenge_income_create_stored_capacity_error() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::IncomeCellCapacityError)
+    challenge_tx(template.as_json(), ErrorCode::IncomeCellCapacityError)
 }
 
 #[test]
@@ -90,7 +90,7 @@ fn challenge_income_create_recorded_capacity_error() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure)
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure)
 }
 
 #[test]
@@ -117,7 +117,7 @@ fn challenge_income_create_capacity_error() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure)
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure)
 }
 
 #[test]
@@ -151,7 +151,7 @@ fn challenge_income_create_more_than_one_record() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure)
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure)
 }
 
 #[test]
@@ -178,5 +178,5 @@ fn challenge_income_create_belong_to_error() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure)
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure)
 }

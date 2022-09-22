@@ -1,6 +1,6 @@
 use super::common::*;
 use crate::util::{
-    self, accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
+    self, accounts::*, constants::*, error::*, template_common_cell::*, template_generator::*, template_parser::*,
 };
 use das_types_std::{constants::*, packed::*, prelude::*};
 use serde_json::json;
@@ -505,7 +505,10 @@ fn challenge_account_sale_buy_account_expired() {
     // outputs
     push_common_outputs(&mut template);
 
-    challenge_tx(template.as_json(), Error::AccountCellInExpirationGracePeriod)
+    challenge_tx(
+        template.as_json(),
+        AccountCellErrorCode::AccountCellInExpirationGracePeriod,
+    )
 }
 
 #[test]
@@ -540,7 +543,7 @@ fn challenge_account_sale_buy_account_capacity() {
         SELLER,
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellChangeCapacityError)
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellChangeCapacityError)
 }
 
 #[test]
@@ -583,7 +586,7 @@ fn challenge_account_sale_buy_input_account_status() {
     // outputs
     push_common_outputs(&mut template);
 
-    challenge_tx(template.as_json(), Error::AccountCellStatusLocked)
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellStatusLocked)
 }
 
 #[test]
@@ -616,7 +619,7 @@ fn challenge_account_sale_buy_output_account_status() {
         SELLER,
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellStatusLocked)
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellStatusLocked)
 }
 
 #[test]
@@ -660,7 +663,7 @@ fn challenge_account_sale_buy_sale_account() {
     // outputs
     push_common_outputs(&mut template);
 
-    challenge_tx(template.as_json(), Error::AccountSaleCellAccountIdInvalid)
+    challenge_tx(template.as_json(), ErrorCode::AccountSaleCellAccountIdInvalid)
 }
 
 #[test]
@@ -693,7 +696,7 @@ fn challenge_account_sale_buy_wrong_owner() {
         SELLER,
     );
 
-    challenge_tx(template.as_json(), Error::AccountSaleCellNewOwnerError)
+    challenge_tx(template.as_json(), ErrorCode::AccountSaleCellNewOwnerError)
 }
 
 #[test]
@@ -732,7 +735,7 @@ fn challenge_account_sale_buy_change_owner() {
         "0x052222000000000000000000000000000000002222",
     );
 
-    challenge_tx(template.as_json(), Error::ChangeError)
+    challenge_tx(template.as_json(), ErrorCode::ChangeError)
 }
 
 #[test]
@@ -767,7 +770,7 @@ fn challenge_account_sale_buy_change_capacity() {
     // Simulate transfer changes less than the user should get.
     push_output_balance_cell(&mut template, paid - PRICE - 1, BUYER);
 
-    challenge_tx(template.as_json(), Error::ChangeError)
+    challenge_tx(template.as_json(), ErrorCode::ChangeError)
 }
 
 #[test]
@@ -800,7 +803,7 @@ fn challenge_account_sale_buy_seller_profit_owner() {
         "0x051111000000000000000000000000000000001111",
     );
 
-    challenge_tx(template.as_json(), Error::ChangeError)
+    challenge_tx(template.as_json(), ErrorCode::ChangeError)
 }
 
 #[test]
@@ -834,7 +837,7 @@ fn challenge_account_sale_buy_seller_profit_capacity() {
         SELLER,
     );
 
-    challenge_tx(template.as_json(), Error::ChangeError)
+    challenge_tx(template.as_json(), ErrorCode::ChangeError)
 }
 
 #[test]
@@ -920,5 +923,5 @@ fn challenge_account_sale_buy_not_clear_records() {
         SELLER,
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellRecordNotEmpty)
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellRecordNotEmpty)
 }

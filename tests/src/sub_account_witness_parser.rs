@@ -1,5 +1,5 @@
 use crate::util::{
-    accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
+    accounts::*, constants::*, error::*, template_common_cell::*, template_generator::*, template_parser::*,
 };
 use das_types_std::{constants::*, prelude::*};
 use serde_json::json;
@@ -24,7 +24,7 @@ fn parse_sub_account_witness_empty() {
 
     push_input_test_env_cell(&mut template);
 
-    challenge_tx(template.as_json(), Error::WitnessEmpty);
+    challenge_tx(template.as_json(), ErrorCode::WitnessEmpty);
 }
 
 #[test]

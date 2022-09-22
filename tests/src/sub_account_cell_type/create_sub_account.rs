@@ -1,6 +1,6 @@
 use super::common::*;
 use crate::util::{
-    accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
+    accounts::*, constants::*, error::*, template_common_cell::*, template_generator::*, template_parser::*,
 };
 use das_types_std::constants::*;
 use serde_json::json;
@@ -298,7 +298,7 @@ fn challenge_sub_account_create_parent_not_in_normal_status() {
     push_simple_output_sub_account_cell(&mut template, das_profit, 0);
     push_output_normal_cell(&mut template, 10_000_000_000 - das_profit, OWNER);
 
-    challenge_tx(template.as_json(), Error::AccountCellStatusLocked);
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellStatusLocked);
 }
 
 #[test]
@@ -361,7 +361,10 @@ fn challenge_sub_account_create_parent_expired() {
     push_simple_output_sub_account_cell(&mut template, das_profit, 0);
     push_output_normal_cell(&mut template, 10_000_000_000 - das_profit, OWNER);
 
-    challenge_tx(template.as_json(), Error::AccountCellInExpirationGracePeriod);
+    challenge_tx(
+        template.as_json(),
+        AccountCellErrorCode::AccountCellInExpirationGracePeriod,
+    );
 }
 
 #[test]
@@ -417,7 +420,7 @@ fn challenge_sub_account_create_parent_not_enable_feature() {
     push_simple_output_sub_account_cell(&mut template, das_profit, 0);
     push_output_normal_cell(&mut template, 10_000_000_000 - das_profit, OWNER);
 
-    challenge_tx(template.as_json(), Error::SubAccountFeatureNotEnabled);
+    challenge_tx(template.as_json(), ErrorCode::SubAccountFeatureNotEnabled);
 }
 
 // TODO Becasue of the issues in sparse-merkle-tree crate, SMT proof can not be generate properly in development environment, need fix.
@@ -493,7 +496,7 @@ fn challenge_sub_account_create_invalid_char() {
     );
     push_common_output_cells(&mut template);
 
-    challenge_tx(template.as_json(), Error::PreRegisterAccountCharIsInvalid);
+    challenge_tx(template.as_json(), ErrorCode::PreRegisterAccountCharIsInvalid);
 }
 
 #[test]
@@ -528,7 +531,7 @@ fn challenge_sub_account_create_undefined_char() {
     );
     push_common_output_cells(&mut template);
 
-    challenge_tx(template.as_json(), Error::ConfigIsPartialMissing);
+    challenge_tx(template.as_json(), ErrorCode::ConfigIsPartialMissing);
 }
 
 #[test]
@@ -554,7 +557,7 @@ fn challenge_sub_account_create_too_long() {
     );
     push_common_output_cells(&mut template);
 
-    challenge_tx(template.as_json(), Error::PreRegisterAccountIsTooLong);
+    challenge_tx(template.as_json(), ErrorCode::PreRegisterAccountIsTooLong);
 }
 
 #[test]
@@ -580,7 +583,7 @@ fn challenge_sub_account_create_suffix_not_match() {
     );
     push_common_output_cells(&mut template);
 
-    challenge_tx(template.as_json(), Error::SubAccountInitialValueError);
+    challenge_tx(template.as_json(), ErrorCode::SubAccountInitialValueError);
 }
 
 #[test]
@@ -607,7 +610,7 @@ fn challenge_sub_account_create_id_not_match() {
     );
     push_common_output_cells(&mut template);
 
-    challenge_tx(template.as_json(), Error::SubAccountInitialValueError);
+    challenge_tx(template.as_json(), ErrorCode::SubAccountInitialValueError);
 }
 
 #[test]
@@ -633,7 +636,7 @@ fn challenge_sub_account_create_registered_at_is_invalid() {
     );
     push_common_output_cells(&mut template);
 
-    challenge_tx(template.as_json(), Error::SubAccountInitialValueError);
+    challenge_tx(template.as_json(), ErrorCode::SubAccountInitialValueError);
 }
 
 #[test]
@@ -659,7 +662,7 @@ fn challenge_sub_account_create_expired_at_less_than_one_year() {
     );
     push_common_output_cells(&mut template);
 
-    challenge_tx(template.as_json(), Error::SubAccountInitialValueError);
+    challenge_tx(template.as_json(), ErrorCode::SubAccountInitialValueError);
 }
 
 #[test]
@@ -688,7 +691,7 @@ fn challenge_sub_account_create_no_profit_record() {
     push_simple_output_sub_account_cell(&mut template, 0, 0);
     push_output_normal_cell(&mut template, 10_000_000_000 - new_sub_account_cost, OWNER);
 
-    challenge_tx(template.as_json(), Error::SubAccountProfitError);
+    challenge_tx(template.as_json(), ErrorCode::SubAccountProfitError);
 }
 
 #[test]
@@ -732,7 +735,7 @@ fn challenge_sub_account_create_profit_not_match_capacity() {
 
     push_output_normal_cell(&mut template, 10_000_000_000 - new_sub_account_cost, OWNER);
 
-    challenge_tx(template.as_json(), Error::SubAccountCellCapacityError);
+    challenge_tx(template.as_json(), ErrorCode::SubAccountCellCapacityError);
 }
 
 #[test]
@@ -899,7 +902,7 @@ fn challenge_sub_account_create_with_custom_script_modified_script_args() {
     );
     push_output_normal_cell(&mut template, 100_000_000_000 - total_profit, OWNER);
 
-    challenge_tx(template.as_json(), Error::SubAccountCellConsistencyError);
+    challenge_tx(template.as_json(), ErrorCode::SubAccountCellConsistencyError);
 }
 
 #[test]
@@ -930,7 +933,7 @@ fn challenge_sub_account_create_with_custom_script_different_lock_for_normal_cel
     // Simulate change to a different lock which is not the same as the lock in inputs.
     push_output_normal_cell(&mut template, 100_000_000_000 - total_profit, OWNER_1);
 
-    challenge_tx(template.as_json(), Error::SubAccountNormalCellLockLimit);
+    challenge_tx(template.as_json(), ErrorCode::SubAccountNormalCellLockLimit);
 }
 
 #[test]
@@ -961,7 +964,7 @@ fn challenge_sub_account_create_with_custom_script_das_profit_not_enough() {
     push_simple_output_sub_account_cell_with_custom_script(&mut template, das_profit, owner_profit, SCRIPT_ARGS);
     push_output_normal_cell(&mut template, 100_000_000_000 - total_profit, OWNER);
 
-    challenge_tx(template.as_json(), Error::SubAccountProfitError);
+    challenge_tx(template.as_json(), ErrorCode::SubAccountProfitError);
 }
 
 #[test]
@@ -992,5 +995,5 @@ fn challenge_sub_account_create_with_custom_script_das_profit_less_than_minimal_
     push_simple_output_sub_account_cell_with_custom_script(&mut template, das_profit, owner_profit, SCRIPT_ARGS);
     push_output_normal_cell(&mut template, 100_000_000_000 - total_profit, OWNER);
 
-    challenge_tx(template.as_json(), Error::SubAccountProfitError);
+    challenge_tx(template.as_json(), ErrorCode::SubAccountProfitError);
 }

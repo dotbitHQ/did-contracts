@@ -1,6 +1,6 @@
 use super::common::*;
 use crate::util::{
-    accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::TemplateGenerator,
+    accounts::*, constants::*, error::*, template_common_cell::*, template_generator::TemplateGenerator,
     template_parser::*,
 };
 use das_types_std::constants::AccountStatus;
@@ -150,7 +150,7 @@ fn challenge_account_renew_modify_owner() {
     push_simple_output_income_cell(&mut template);
     push_output_balance_cell(&mut template, 500_000_000_000, OWNER);
 
-    challenge_tx(template.as_json(), Error::CellLockCanNotBeModified)
+    challenge_tx(template.as_json(), ErrorCode::CellLockCanNotBeModified)
 }
 
 #[test]
@@ -173,7 +173,10 @@ fn challenge_account_renew_less_than_one_year() {
     push_simple_output_income_cell(&mut template);
     push_output_balance_cell(&mut template, 500_000_000_000, OWNER);
 
-    challenge_tx(template.as_json(), Error::AccountCellRenewDurationMustLongerThanYear)
+    challenge_tx(
+        template.as_json(),
+        AccountCellErrorCode::AccountCellRenewDurationMustLongerThanYear,
+    )
 }
 
 #[test]
@@ -211,7 +214,10 @@ fn challenge_account_renew_payment_less_than_one_year() {
     );
     push_output_balance_cell(&mut template, 500_000_000_000, OWNER);
 
-    challenge_tx(template.as_json(), Error::AccountCellRenewDurationMustLongerThanYear)
+    challenge_tx(
+        template.as_json(),
+        AccountCellErrorCode::AccountCellRenewDurationMustLongerThanYear,
+    )
 }
 
 #[test]
@@ -249,7 +255,10 @@ fn challenge_account_renew_payment_less_than_increment() {
     );
     push_output_balance_cell(&mut template, 500_000_000_000, OWNER);
 
-    challenge_tx(template.as_json(), Error::AccountCellRenewDurationBiggerThanPayed)
+    challenge_tx(
+        template.as_json(),
+        AccountCellErrorCode::AccountCellRenewDurationBiggerThanPayed,
+    )
 }
 
 #[test]
@@ -271,7 +280,7 @@ fn challenge_account_renew_change_amount() {
     push_simple_output_income_cell(&mut template);
     push_output_balance_cell(&mut template, 500_000_000_000 - 1, OWNER);
 
-    challenge_tx(template.as_json(), Error::ChangeError)
+    challenge_tx(template.as_json(), ErrorCode::ChangeError)
 }
 
 #[test]
@@ -297,7 +306,7 @@ fn challenge_account_renew_change_owner() {
         "0x000000000000000000000000000000000000003333",
     );
 
-    challenge_tx(template.as_json(), Error::ChangeError)
+    challenge_tx(template.as_json(), ErrorCode::ChangeError)
 }
 
 #[test]
@@ -361,7 +370,7 @@ fn challenge_account_renew_income_cell_capacity() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::IncomeCellCapacityError)
+    challenge_tx(template.as_json(), ErrorCode::IncomeCellCapacityError)
 }
 
 #[test]
@@ -403,7 +412,7 @@ fn challenge_account_renew_locked_for_cross_chain() {
     push_simple_output_income_cell(&mut template);
     push_output_balance_cell(&mut template, 500_000_000_000, OWNER);
 
-    challenge_tx(template.as_json(), Error::AccountCellStatusLocked)
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellStatusLocked)
 }
 
 #[test]
@@ -434,5 +443,5 @@ fn challenge_account_renew_expired_account() {
     push_simple_output_income_cell(&mut template);
     push_output_balance_cell(&mut template, 500_000_000_000, OWNER);
 
-    challenge_tx(template.as_json(), Error::AccountCellHasExpired)
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellHasExpired)
 }

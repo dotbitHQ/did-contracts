@@ -1,5 +1,5 @@
 use super::common::*;
-use crate::util::{self, constants::*, error::Error, template_common_cell::*, template_parser::*};
+use crate::util::{self, constants::*, error::*, template_common_cell::*, template_parser::*};
 use das_types_std::constants::*;
 use serde_json::json;
 
@@ -37,7 +37,7 @@ fn challenge_pre_register_invalid_char() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::PreRegisterAccountCharIsInvalid)
+    challenge_tx(template.as_json(), ErrorCode::PreRegisterAccountCharIsInvalid)
 }
 
 #[test]
@@ -74,7 +74,7 @@ fn challenge_pre_register_zh() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::ConfigIsPartialMissing)
+    challenge_tx(template.as_json(), ErrorCode::ConfigIsPartialMissing)
 }
 
 #[test]
@@ -113,7 +113,7 @@ fn challenge_pre_register_multiple_language() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::PreRegisterAccountCharSetConflict)
+    challenge_tx(template.as_json(), ErrorCode::PreRegisterAccountCharSetConflict)
 }
 
 #[test]

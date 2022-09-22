@@ -1,6 +1,6 @@
 use super::common::*;
 use crate::util::{
-    self, accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::TemplateGenerator,
+    self, accounts::*, constants::*, error::*, template_common_cell::*, template_generator::TemplateGenerator,
     template_parser::*,
 };
 use das_types_std::constants::AccountStatus;
@@ -144,7 +144,7 @@ fn challenge_account_unlock_account_for_cross_chain_account_multiple_cells() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure)
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure)
 }
 
 #[test]
@@ -169,7 +169,7 @@ fn challenge_account_unlock_account_for_cross_chain_modify_data_account() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellDataNotConsistent)
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellDataNotConsistent)
 }
 
 #[test]
@@ -194,7 +194,7 @@ fn challenge_account_unlock_account_for_cross_chain_modify_data_next() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellDataNotConsistent)
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellDataNotConsistent)
 }
 
 #[test]
@@ -219,7 +219,7 @@ fn challenge_account_unlock_account_for_cross_chain_modify_data_expired_at() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellDataNotConsistent)
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellDataNotConsistent)
 }
 
 #[test]
@@ -242,7 +242,10 @@ fn challenge_account_unlock_account_for_cross_chain_modify_witness_account() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellProtectFieldIsModified)
+    challenge_tx(
+        template.as_json(),
+        AccountCellErrorCode::AccountCellProtectFieldIsModified,
+    )
 }
 
 #[test]
@@ -265,7 +268,10 @@ fn challenge_account_unlock_account_for_cross_chain_modify_witness_registered_at
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellProtectFieldIsModified)
+    challenge_tx(
+        template.as_json(),
+        AccountCellErrorCode::AccountCellProtectFieldIsModified,
+    )
 }
 
 #[test]
@@ -288,7 +294,10 @@ fn challenge_account_unlock_account_for_cross_chain_modify_witness_last_transfer
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellProtectFieldIsModified)
+    challenge_tx(
+        template.as_json(),
+        AccountCellErrorCode::AccountCellProtectFieldIsModified,
+    )
 }
 
 #[test]
@@ -311,7 +320,10 @@ fn challenge_account_unlock_account_for_cross_chain_modify_witness_last_edit_man
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellProtectFieldIsModified)
+    challenge_tx(
+        template.as_json(),
+        AccountCellErrorCode::AccountCellProtectFieldIsModified,
+    )
 }
 
 #[test]
@@ -334,7 +346,10 @@ fn challenge_account_unlock_account_for_cross_chain_modify_witness_last_edit_rec
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellProtectFieldIsModified)
+    challenge_tx(
+        template.as_json(),
+        AccountCellErrorCode::AccountCellProtectFieldIsModified,
+    )
 }
 
 #[test]
@@ -356,5 +371,5 @@ fn challenge_account_unlock_account_for_cross_chain_modify_witness_status_error(
         }),
     );
 
-    challenge_tx(template.as_json(), Error::CrossChainUnlockError)
+    challenge_tx(template.as_json(), ErrorCode::CrossChainUnlockError)
 }

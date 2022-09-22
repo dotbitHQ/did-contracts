@@ -1,5 +1,5 @@
 use crate::util::{
-    self, accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
+    self, accounts::*, constants::*, error::*, template_common_cell::*, template_generator::*, template_parser::*,
 };
 use ckb_hash::blake2b_256;
 use das_types_std::{constants::*, packed::*, prelude::*, util as das_util, util::EntityWrapper};
@@ -117,7 +117,7 @@ fn parse_witness_error_entity_config_data_type() {
     template.outer_witnesses.push(util::bytes_to_hex(&witness.raw_data()));
 
     push_input_test_env_cell(&mut template);
-    challenge_tx(template.as_json(), Error::ConfigIsPartialMissing);
+    challenge_tx(template.as_json(), ErrorCode::ConfigIsPartialMissing);
 }
 
 #[test]
@@ -133,7 +133,7 @@ fn parse_witness_error_entity_config_entity_hash() {
     template.outer_witnesses.push(util::bytes_to_hex(&witness.raw_data()));
 
     push_input_test_env_cell(&mut template);
-    challenge_tx(template.as_json(), Error::ConfigCellWitnessIsCorrupted);
+    challenge_tx(template.as_json(), ErrorCode::ConfigCellWitnessIsCorrupted);
 }
 
 fn gen_account_cell(outputs_data_opt: Option<String>) -> (Value, EntityWrapper) {
@@ -203,7 +203,7 @@ fn parse_witness_error_cells_data_type() {
     template.push_cell_json_with_entity(cell, Source::CellDep, DataType::IncomeCellData, 3, Some(entity));
 
     push_input_test_env_cell(&mut template);
-    challenge_tx(template.as_json(), Error::WitnessDataHashOrTypeMissMatch);
+    challenge_tx(template.as_json(), ErrorCode::WitnessDataHashOrTypeMissMatch);
 }
 
 #[test]
@@ -216,5 +216,5 @@ fn parse_witness_error_cells_hash() {
     template.push_cell_json_with_entity(cell, Source::CellDep, DataType::IncomeCellData, 3, Some(entity));
 
     push_input_test_env_cell(&mut template);
-    challenge_tx(template.as_json(), Error::WitnessDataHashOrTypeMissMatch);
+    challenge_tx(template.as_json(), ErrorCode::WitnessDataHashOrTypeMissMatch);
 }

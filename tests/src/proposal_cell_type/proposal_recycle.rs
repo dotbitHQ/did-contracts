@@ -1,6 +1,6 @@
 use super::common::*;
 use crate::util::{
-    accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::TemplateGenerator,
+    accounts::*, constants::*, error::*, template_common_cell::*, template_generator::TemplateGenerator,
     template_parser::*,
 };
 use das_types_std::constants::*;
@@ -69,7 +69,7 @@ fn challenge_proposal_recycle_too_early() {
     // outputs
     push_output_normal_cell(&mut template, 20_000_000_000, COMMON_PROPOSER);
 
-    challenge_tx(template.as_json(), Error::ProposalRecycleNeedWaitLonger);
+    challenge_tx(template.as_json(), ErrorCode::ProposalRecycleNeedWaitLonger);
 }
 
 #[test]
@@ -79,7 +79,7 @@ fn challenge_proposal_recycle_refund_capacity() {
     // outputs
     push_output_normal_cell(&mut template, 20_000_000_000 - 10000 - 1, COMMON_PROPOSER);
 
-    challenge_tx(template.as_json(), Error::ProposalConfirmRefundError);
+    challenge_tx(template.as_json(), ErrorCode::ProposalConfirmRefundError);
 }
 
 #[test]
@@ -93,5 +93,5 @@ fn challenge_proposal_recycle_refund_owner() {
         "0x0000000000000000000000000000000000002233",
     );
 
-    challenge_tx(template.as_json(), Error::ProposalConfirmRefundError);
+    challenge_tx(template.as_json(), ErrorCode::ProposalConfirmRefundError);
 }

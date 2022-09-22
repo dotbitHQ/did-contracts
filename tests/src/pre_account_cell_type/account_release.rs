@@ -1,5 +1,5 @@
 use super::common::*;
-use crate::util::{self, accounts::*, constants::*, error::Error, template_common_cell::*, template_parser::*};
+use crate::util::{self, accounts::*, constants::*, error::*, template_common_cell::*, template_parser::*};
 use das_types_std::constants::*;
 use serde_json::json;
 
@@ -86,7 +86,7 @@ fn challenge_pre_register_3_chars_account() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountStillCanNotBeRegister)
+    challenge_tx(template.as_json(), ErrorCode::AccountStillCanNotBeRegister)
 }
 
 #[test]
@@ -174,5 +174,5 @@ fn challenge_pre_register_unreleased_account() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountStillCanNotBeRegister)
+    challenge_tx(template.as_json(), ErrorCode::AccountStillCanNotBeRegister)
 }

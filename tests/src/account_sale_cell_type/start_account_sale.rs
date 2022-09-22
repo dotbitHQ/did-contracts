@@ -1,6 +1,6 @@
 use super::common::*;
 use crate::util::{
-    accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
+    accounts::*, constants::*, error::*, template_common_cell::*, template_generator::*, template_parser::*,
 };
 use das_types_std::constants::*;
 use serde_json::json;
@@ -163,7 +163,7 @@ fn challenge_account_sale_start_with_manager() {
     // outputs
     push_common_outputs(&mut template, 600_000_000_000);
 
-    challenge_tx(template.as_json(), Error::AccountCellPermissionDenied)
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellPermissionDenied)
 }
 
 #[test]
@@ -206,7 +206,7 @@ fn challenge_account_sale_start_account_consistent() {
         SELLER,
     );
 
-    challenge_tx(template.as_json(), Error::CellLockCanNotBeModified)
+    challenge_tx(template.as_json(), ErrorCode::CellLockCanNotBeModified)
 }
 
 #[test]
@@ -236,7 +236,10 @@ fn challenge_account_sale_start_account_expired() {
     // outputs
     push_common_outputs(&mut template, 600_000_000_000);
 
-    challenge_tx(template.as_json(), Error::AccountCellInExpirationGracePeriod)
+    challenge_tx(
+        template.as_json(),
+        AccountCellErrorCode::AccountCellInExpirationGracePeriod,
+    )
 }
 
 #[test]
@@ -265,7 +268,7 @@ fn challenge_account_sale_start_account_input_status() {
     // outputs
     push_common_outputs(&mut template, 600_000_000_000);
 
-    challenge_tx(template.as_json(), Error::AccountCellStatusLocked)
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellStatusLocked)
 }
 
 #[test]
@@ -308,7 +311,7 @@ fn challenge_account_sale_start_account_output_status() {
         SELLER,
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellStatusLocked)
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellStatusLocked)
 }
 
 #[test]
@@ -353,7 +356,7 @@ fn challenge_account_sale_start_sale_capacity() {
         SELLER,
     );
 
-    challenge_tx(template.as_json(), Error::AccountSaleCellCapacityError)
+    challenge_tx(template.as_json(), ErrorCode::AccountSaleCellCapacityError)
 }
 
 #[test]
@@ -396,7 +399,7 @@ fn challenge_account_sale_start_sale_account() {
         SELLER,
     );
 
-    challenge_tx(template.as_json(), Error::AccountSaleCellAccountIdInvalid)
+    challenge_tx(template.as_json(), ErrorCode::AccountSaleCellAccountIdInvalid)
 }
 
 #[test]
@@ -440,7 +443,7 @@ fn challenge_account_sale_start_sale_account_id() {
         SELLER,
     );
 
-    challenge_tx(template.as_json(), Error::AccountSaleCellAccountIdInvalid)
+    challenge_tx(template.as_json(), ErrorCode::AccountSaleCellAccountIdInvalid)
 }
 
 #[test]
@@ -483,7 +486,7 @@ fn challenge_account_sale_start_sale_price() {
         SELLER,
     );
 
-    challenge_tx(template.as_json(), Error::AccountSaleCellPriceTooSmall)
+    challenge_tx(template.as_json(), ErrorCode::AccountSaleCellPriceTooSmall)
 }
 
 #[test]
@@ -526,7 +529,7 @@ fn challenge_account_sale_start_sale_started_at() {
         SELLER,
     );
 
-    challenge_tx(template.as_json(), Error::AccountSaleCellStartedAtInvalid)
+    challenge_tx(template.as_json(), ErrorCode::AccountSaleCellStartedAtInvalid)
 }
 
 #[test]
@@ -568,7 +571,7 @@ fn challenge_account_sale_start_change_owner() {
         "0x052222000000000000000000000000000000002222",
     );
 
-    challenge_tx(template.as_json(), Error::ChangeError)
+    challenge_tx(template.as_json(), ErrorCode::ChangeError)
 }
 
 #[test]
@@ -614,7 +617,7 @@ fn challenge_account_sale_start_change_capacity() {
         SELLER,
     );
 
-    challenge_tx(template.as_json(), Error::ChangeError)
+    challenge_tx(template.as_json(), ErrorCode::ChangeError)
 }
 
 #[test]
@@ -657,5 +660,5 @@ fn challenge_account_sale_start_with_old_version() {
         SELLER,
     );
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure)
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure)
 }

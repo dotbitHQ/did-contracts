@@ -1,5 +1,5 @@
 use super::common::*;
-use crate::util::{accounts::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*};
+use crate::util::{accounts::*, error::*, template_common_cell::*, template_generator::*, template_parser::*};
 use serde_json::json;
 
 fn before_each() -> TemplateGenerator {
@@ -113,7 +113,7 @@ fn challenge_sub_account_config_custom_script_not_change() {
         "",
     );
 
-    challenge_tx(template.as_json(), Error::SubAccountCustomScriptError)
+    challenge_tx(template.as_json(), ErrorCode::SubAccountCustomScriptError)
 }
 
 #[test]
@@ -159,5 +159,5 @@ fn challenge_sub_account_config_custom_script_args_not_change() {
         "0x0011223300",
     );
 
-    challenge_tx(template.as_json(), Error::SubAccountCustomScriptError)
+    challenge_tx(template.as_json(), ErrorCode::SubAccountCustomScriptError)
 }

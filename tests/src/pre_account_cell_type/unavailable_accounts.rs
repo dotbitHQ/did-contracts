@@ -1,5 +1,5 @@
 use super::common::*;
-use crate::util::{self, constants::*, error::Error, template_common_cell::*, template_parser::*};
+use crate::util::{self, constants::*, error::*, template_common_cell::*, template_parser::*};
 use das_types_std::constants::*;
 use serde_json::json;
 
@@ -37,7 +37,7 @@ fn challenge_pre_register_unavailable_accounts() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountIsUnAvailable)
+    challenge_tx(template.as_json(), ErrorCode::AccountIsUnAvailable)
 }
 
 #[test]

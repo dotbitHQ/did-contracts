@@ -1,6 +1,6 @@
 use super::common::*;
 use crate::util::{
-    accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
+    accounts::*, constants::*, error::*, template_common_cell::*, template_generator::*, template_parser::*,
 };
 use serde_json::json;
 
@@ -54,7 +54,7 @@ fn challenge_apply_register_refund_too_early() {
 
     push_output_normal_cell(&mut template, 19_900_000_000, OWNER_WITHOUT_TYPE);
 
-    challenge_tx(template.as_json(), Error::ApplyRegisterRefundNeedWaitLonger)
+    challenge_tx(template.as_json(), ErrorCode::ApplyRegisterRefundNeedWaitLonger)
 }
 
 #[test]
@@ -79,5 +79,5 @@ fn challenge_apply_register_refund_capacity_error() {
     // Simulate refunding the ApplyRegisterCell with wrong capacity ...
     push_output_normal_cell(&mut template, 19_900_000_000 - 1, OWNER_WITHOUT_TYPE);
 
-    challenge_tx(template.as_json(), Error::ApplyRegisterRefundCapacityError)
+    challenge_tx(template.as_json(), ErrorCode::ApplyRegisterRefundCapacityError)
 }

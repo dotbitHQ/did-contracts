@@ -1,5 +1,5 @@
 use super::common::*;
-use crate::util::{accounts::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*};
+use crate::util::{accounts::*, error::*, template_common_cell::*, template_generator::*, template_parser::*};
 use das_types_std::constants::Source;
 use serde_json::json;
 
@@ -126,7 +126,7 @@ fn challenge_offer_edit_offer_create_cell() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure);
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure);
 }
 
 #[test]
@@ -150,7 +150,7 @@ fn challenge_offer_edit_offer_delete_cell() {
     // Simulate deleting OfferCell when editing.
     push_output_balance_cell(&mut template, 200_099_990_000, BUYER);
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure);
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure);
 }
 
 #[test]
@@ -185,7 +185,7 @@ fn challenge_offer_edit_offer_lower_capacity() {
     );
     push_output_balance_cell(&mut template, 100_000_000_000 + 1, BUYER);
 
-    challenge_tx(template.as_json(), Error::OfferCellCapacityError);
+    challenge_tx(template.as_json(), ErrorCode::OfferCellCapacityError);
 }
 
 #[test]
@@ -221,7 +221,7 @@ fn challenge_offer_edit_offer_higher_capacity() {
     );
     push_output_balance_cell(&mut template, 100_000_000_000 + 1, BUYER);
 
-    challenge_tx(template.as_json(), Error::OfferCellCapacityError);
+    challenge_tx(template.as_json(), ErrorCode::OfferCellCapacityError);
 }
 
 #[test]
@@ -255,7 +255,7 @@ fn challenge_offer_edit_offer_too_long_message() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::OfferCellMessageTooLong);
+    challenge_tx(template.as_json(), ErrorCode::OfferCellMessageTooLong);
 }
 
 #[test]
@@ -289,7 +289,7 @@ fn challenge_offer_edit_offer_change_account() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::OfferCellFieldCanNotModified);
+    challenge_tx(template.as_json(), ErrorCode::OfferCellFieldCanNotModified);
 }
 
 #[test]
@@ -325,7 +325,7 @@ fn challenge_offer_edit_offer_change_inviter_lock() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::OfferCellFieldCanNotModified);
+    challenge_tx(template.as_json(), ErrorCode::OfferCellFieldCanNotModified);
 }
 
 #[test]
@@ -361,7 +361,7 @@ fn challenge_offer_edit_offer_change_channel_lock() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::OfferCellFieldCanNotModified);
+    challenge_tx(template.as_json(), ErrorCode::OfferCellFieldCanNotModified);
 }
 
 #[test]
@@ -395,7 +395,7 @@ fn challenge_offer_edit_offer_no_change() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure);
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure);
 }
 
 #[test]
@@ -432,7 +432,7 @@ fn challenge_offer_edit_offer_change_capacity() {
 
     push_output_balance_cell(&mut template, 100_000_000_000 - 1, BUYER);
 
-    challenge_tx(template.as_json(), Error::ChangeError);
+    challenge_tx(template.as_json(), ErrorCode::ChangeError);
 }
 
 #[test]
@@ -473,5 +473,5 @@ fn challenge_offer_edit_offer_change_owner() {
         "0x058888000000000000000000000000000000008888",
     );
 
-    challenge_tx(template.as_json(), Error::ChangeError);
+    challenge_tx(template.as_json(), ErrorCode::ChangeError);
 }

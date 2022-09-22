@@ -110,7 +110,7 @@ fn challenge_account_force_recover_account_still_ok() {
     );
     push_output_balance_cell(&mut template, 20_099_990_000, OWNER);
 
-    challenge_tx(template.as_json(), Error::AccountCellIsNotExpired);
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellIsNotExpired);
 }
 
 #[test]
@@ -151,5 +151,5 @@ fn challenge_account_force_recover_account_in_expiration_grace_period() {
     );
     push_output_balance_cell(&mut template, 20_099_990_000, OWNER);
 
-    challenge_tx(template.as_json(), Error::AccountCellIsNotExpired);
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellIsNotExpired);
 }

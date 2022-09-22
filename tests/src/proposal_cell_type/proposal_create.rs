@@ -1,6 +1,6 @@
 use super::common::*;
 use crate::util::{
-    accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::TemplateGenerator,
+    accounts::*, constants::*, error::*, template_common_cell::*, template_generator::TemplateGenerator,
     template_parser::*,
 };
 use das_types_std::constants::*;
@@ -252,7 +252,7 @@ fn challenge_proposal_create_slices_miss_match_1() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::ProposalSliceRelatedCellMissing)
+    challenge_tx(template.as_json(), ErrorCode::ProposalSliceRelatedCellMissing)
 }
 
 #[test]
@@ -288,7 +288,7 @@ fn challenge_proposal_create_slices_miss_match_2() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::ProposalSliceRelatedCellMissing)
+    challenge_tx(template.as_json(), ErrorCode::ProposalSliceRelatedCellMissing)
 }
 
 #[test]
@@ -336,7 +336,7 @@ fn challenge_proposal_create_slices_miss_match_3() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::ProposalCellAccountIdError)
+    challenge_tx(template.as_json(), ErrorCode::ProposalCellAccountIdError)
 }
 
 #[test]
@@ -384,7 +384,7 @@ fn challenge_proposal_create_slices_miss_match_4() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::ProposalCellAccountIdError)
+    challenge_tx(template.as_json(), ErrorCode::ProposalCellAccountIdError)
 }
 
 #[test]
@@ -432,7 +432,7 @@ fn challenge_proposal_create_slices_miss_match_5() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::ProposalSliceNotEndCorrectly)
+    challenge_tx(template.as_json(), ErrorCode::ProposalSliceNotEndCorrectly)
 }
 
 #[test]
@@ -480,7 +480,7 @@ fn challenge_proposal_create_slices_miss_match_6() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::ProposalCellTypeError)
+    challenge_tx(template.as_json(), ErrorCode::ProposalCellTypeError)
 }
 
 #[test]
@@ -501,7 +501,7 @@ fn challenge_proposal_create_empty_slices() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::ProposalSlicesCanNotBeEmpty)
+    challenge_tx(template.as_json(), ErrorCode::ProposalSlicesCanNotBeEmpty)
 }
 
 #[test]
@@ -522,7 +522,10 @@ fn challenge_proposal_create_empty_slice() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::ProposalSliceMustContainMoreThanOneElement)
+    challenge_tx(
+        template.as_json(),
+        ErrorCode::ProposalSliceMustContainMoreThanOneElement,
+    )
 }
 
 #[test]
@@ -565,7 +568,10 @@ fn challenge_proposal_create_only_one_item() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::ProposalSliceMustContainMoreThanOneElement)
+    challenge_tx(
+        template.as_json(),
+        ErrorCode::ProposalSliceMustContainMoreThanOneElement,
+    )
 }
 
 #[test]
@@ -621,7 +627,7 @@ fn challenge_proposal_create_start_with_pre_account_cell() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::ProposalCellTypeError)
+    challenge_tx(template.as_json(), ErrorCode::ProposalCellTypeError)
 }
 
 #[test]
@@ -696,7 +702,7 @@ fn challenge_proposal_create_multiple_account_cell_in_one_slice() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::ProposalCellTypeError)
+    challenge_tx(template.as_json(), ErrorCode::ProposalCellTypeError)
 }
 
 #[test]
@@ -769,7 +775,7 @@ fn challenge_proposal_create_discontinued_accounts() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::ProposalSliceIsDiscontinuity)
+    challenge_tx(template.as_json(), ErrorCode::ProposalSliceIsDiscontinuity)
 }
 
 #[test]
@@ -842,7 +848,7 @@ fn challenge_proposal_create_invalid_order() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::ProposalSliceIsNotSorted)
+    challenge_tx(template.as_json(), ErrorCode::ProposalSliceIsNotSorted)
 }
 
 #[test]
@@ -915,7 +921,7 @@ fn challenge_proposal_create_exist_account_1() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::ProposalSliceItemMustBeUniqueAccount)
+    challenge_tx(template.as_json(), ErrorCode::ProposalSliceItemMustBeUniqueAccount)
 }
 
 #[test]
@@ -1008,7 +1014,7 @@ fn challenge_proposal_create_exist_account_2() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::ProposalSliceItemMustBeUniqueAccount)
+    challenge_tx(template.as_json(), ErrorCode::ProposalSliceItemMustBeUniqueAccount)
 }
 
 #[test]
@@ -1066,7 +1072,7 @@ fn challenge_proposal_create_exist_account_3() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::ProposalSliceIsNotSorted)
+    challenge_tx(template.as_json(), ErrorCode::ProposalSliceIsNotSorted)
 }
 
 #[test]
@@ -1159,5 +1165,5 @@ fn challenge_proposal_create_exist_account_4() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::ProposalSliceItemMustBeUniqueAccount)
+    challenge_tx(template.as_json(), ErrorCode::ProposalSliceItemMustBeUniqueAccount)
 }

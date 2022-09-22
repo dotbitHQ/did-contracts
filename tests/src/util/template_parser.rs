@@ -1,4 +1,4 @@
-use super::{constants::*, error::Error, util};
+use super::{constants::*, error::*, util};
 use crate::{util::template_generator::TemplateGenerator, Loader};
 use ckb_chain_spec::consensus::TYPE_ID_CODE_HASH;
 use ckb_hash::blake2b_256;
@@ -24,6 +24,7 @@ use std::{
     cell::Cell,
     collections::{hash_map::RandomState, HashMap, HashSet},
     error::Error as StdError,
+    fmt::Debug,
     fs::File,
     io::Read,
 };
@@ -61,27 +62,28 @@ Transaction size: {} bytes,
     }
 }
 
-pub fn challenge_tx(tx: Value, expected_error: Error) {
+pub fn challenge_tx(tx: Value, expected_error: impl Into<i8> + Clone + Debug) {
     // println!("Transaction template: {}", serde_json::to_string_pretty(&tx).unwrap());
     let mut parser = TemplateParser::from_data(tx, 350_000_000);
+    let error_code: i8 = expected_error.clone().into();
     match parser.try_parse() {
         Ok(_) => match parser.execute_tx() {
             Ok(_) => {
                 panic!(
                     "\n======\nThe test should failed with error code: {:?}({}), but it returns Ok.\n======\n",
-                    expected_error, expected_error as i8
-                )
+                    expected_error, error_code
+                );
             }
             Err(err) => {
                 let msg = err.to_string();
                 println!("Error message(single code): {}", msg);
 
-                let search = format!("error code {}", expected_error as i8);
+                let search = format!("error code {}", error_code);
                 assert!(
                     msg.contains(search.as_str()),
                     "\n======\nThe test should failed with error code: {:?}({})\n======\n",
                     expected_error,
-                    expected_error as i8
+                    error_code
                 );
             }
         },
@@ -99,7 +101,7 @@ pub fn test_tx2(tx: fn() -> TemplateGenerator) {
     test_tx(tx().as_json())
 }
 
-pub fn challenge_tx2(expected_error: Error, tx: fn() -> TemplateGenerator) {
+pub fn challenge_tx2(expected_error: ErrorCode, tx: fn() -> TemplateGenerator) {
     challenge_tx(tx().as_json(), expected_error)
 }
 

@@ -1,6 +1,6 @@
 use super::common::*;
 use crate::util::{
-    accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
+    accounts::*, constants::*, error::*, template_common_cell::*, template_generator::*, template_parser::*,
 };
 use das_types_std::constants::{DataType, Source};
 use serde_json::json;
@@ -100,7 +100,7 @@ fn challenge_sub_account_collect_profit_modify_root() {
     push_output_normal_cell(&mut template, 1000_00_000_000, DAS_WALLET_LOCK_ARGS);
     push_output_balance_cell(&mut template, 1000_00_000_000, OWNER);
 
-    challenge_tx(template.as_json(), Error::SubAccountCellConsistencyError)
+    challenge_tx(template.as_json(), ErrorCode::SubAccountCellConsistencyError)
 }
 
 #[test]
@@ -141,7 +141,7 @@ fn challenge_sub_account_collect_profit_parent_mismatch() {
     push_output_normal_cell(&mut template, 1000_00_000_000, DAS_WALLET_LOCK_ARGS);
     push_output_balance_cell(&mut template, 1000_00_000_000, OWNER);
 
-    challenge_tx(template.as_json(), Error::AccountCellIdNotMatch)
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellIdNotMatch)
 }
 
 #[test]
@@ -154,7 +154,7 @@ fn challenge_sub_account_not_collect_profit() {
     // outputs
     push_simple_output_sub_account_cell(&mut template, 1000_00_000_000, 1000_00_000_000);
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure)
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure)
 }
 
 #[test]
@@ -167,7 +167,7 @@ fn challenge_sub_account_no_profit_to_collect() {
     // outputs
     push_simple_output_sub_account_cell(&mut template, 0, 0);
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure)
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure)
 }
 
 #[test]
@@ -183,7 +183,7 @@ fn challenge_sub_account_collect_das_profit_incomplete() {
     push_output_normal_cell(&mut template, 1000_00_000_000 - 1, DAS_WALLET_LOCK_ARGS);
     push_output_balance_cell(&mut template, 1000_00_000_000, OWNER);
 
-    challenge_tx(template.as_json(), Error::SubAccountCollectProfitError)
+    challenge_tx(template.as_json(), ErrorCode::SubAccountCollectProfitError)
 }
 
 #[test]
@@ -199,7 +199,7 @@ fn challenge_sub_account_collect_das_profit_error() {
     push_output_normal_cell(&mut template, 1000_00_000_000 - 1, DAS_WALLET_LOCK_ARGS);
     push_output_balance_cell(&mut template, 1000_00_000_000, OWNER);
 
-    challenge_tx(template.as_json(), Error::ChangeError)
+    challenge_tx(template.as_json(), ErrorCode::ChangeError)
 }
 
 #[test]
@@ -219,7 +219,7 @@ fn challenge_sub_account_collect_das_profit_error_2() {
     );
     push_output_balance_cell(&mut template, 1000_00_000_000, OWNER);
 
-    challenge_tx(template.as_json(), Error::ChangeError)
+    challenge_tx(template.as_json(), ErrorCode::ChangeError)
 }
 
 #[test]
@@ -235,7 +235,7 @@ fn challenge_sub_account_collect_owner_profit_incomplete() {
     push_output_normal_cell(&mut template, 1000_00_000_000, DAS_WALLET_LOCK_ARGS);
     push_output_balance_cell(&mut template, 1000_00_000_000 - 1, OWNER);
 
-    challenge_tx(template.as_json(), Error::SubAccountCollectProfitError)
+    challenge_tx(template.as_json(), ErrorCode::SubAccountCollectProfitError)
 }
 
 #[test]
@@ -251,7 +251,7 @@ fn challenge_sub_account_collect_owner_profit_error() {
     // Simulate not transferring all profit to owner.
     push_output_balance_cell(&mut template, 1000_00_000_000 - 1, OWNER);
 
-    challenge_tx(template.as_json(), Error::ChangeError)
+    challenge_tx(template.as_json(), ErrorCode::ChangeError)
 }
 
 #[test]
@@ -267,5 +267,5 @@ fn challenge_sub_account_collect_owner_profit_error_2() {
     // Simulate not transferring all profit to other lock.
     push_output_balance_cell(&mut template, 1000_00_000_000, OWNER_1);
 
-    challenge_tx(template.as_json(), Error::ChangeError)
+    challenge_tx(template.as_json(), ErrorCode::ChangeError)
 }

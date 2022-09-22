@@ -1,6 +1,6 @@
 use super::common::*;
 use crate::util::{
-    self, accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::TemplateGenerator,
+    self, accounts::*, constants::*, error::*, template_common_cell::*, template_generator::TemplateGenerator,
     template_parser::*,
 };
 use das_types_std::constants::AccountStatus;
