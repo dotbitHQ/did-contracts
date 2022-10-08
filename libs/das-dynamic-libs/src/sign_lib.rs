@@ -1,6 +1,10 @@
-use super::{constants::*, error::Error, util};
 use alloc::vec::Vec;
+
 use ckb_std::dynamic_loading_c_impl::Symbol;
+
+use super::constants::*;
+use super::error::Error;
+use super::util;
 
 // int validate(int type, uint8_t* message, uint8_t* lock_bytes, uint8_t* eth_address)
 type ValidateFunction =

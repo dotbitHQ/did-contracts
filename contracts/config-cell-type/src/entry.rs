@@ -1,13 +1,16 @@
 use alloc::boxed::Box;
-use ckb_std::{
-    ckb_constants::Source,
-    debug,
-    high_level::{load_cell_lock_hash, load_cell_type},
-};
 use core::convert::{TryFrom, TryInto};
 use core::result::Result;
-use das_core::{assert, code_to_error, constants::*, error::*, util, warn, witness_parser::WitnessesParser};
-use das_types::{constants::DataType, prelude::Entity};
+
+use ckb_std::ckb_constants::Source;
+use ckb_std::debug;
+use ckb_std::high_level::{load_cell_lock_hash, load_cell_type};
+use das_core::constants::*;
+use das_core::error::*;
+use das_core::witness_parser::WitnessesParser;
+use das_core::{assert, code_to_error, util, warn};
+use das_types::constants::DataType;
+use das_types::prelude::Entity;
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running config-cell-type ======");

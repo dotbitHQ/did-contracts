@@ -1,5 +1,9 @@
 use super::common::{push_dep_account_cell, *};
-use crate::util::{constants::*, error::*, template_common_cell::*, template_generator::*, template_parser::*};
+use crate::util::constants::*;
+use crate::util::error::*;
+use crate::util::template_common_cell::*;
+use crate::util::template_generator::*;
+use crate::util::template_parser::*;
 
 fn before_each() -> (TemplateGenerator, &'static str, &'static str, u64) {
     let mut template = init("declare_reverse_record");

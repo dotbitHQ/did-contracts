@@ -1,8 +1,21 @@
-use super::{super::ckb_types_relay::*, constants::*, smt::*, util};
+use std::collections::HashMap;
+use std::convert::TryFrom;
+use std::fs::OpenOptions;
+use std::io::Write;
+use std::{env, str};
+
 use ckb_hash::blake2b_256;
-use das_types_std::{constants::*, packed::*, prelude::*, util as das_util, util::EntityWrapper};
+use das_types_std::constants::*;
+use das_types_std::packed::*;
+use das_types_std::prelude::*;
+use das_types_std::util as das_util;
+use das_types_std::util::EntityWrapper;
 use serde_json::{json, Value};
-use std::{collections::HashMap, convert::TryFrom, env, fs::OpenOptions, io::Write, str};
+
+use super::super::ckb_types_relay::*;
+use super::constants::*;
+use super::smt::*;
+use super::util;
 
 pub enum ContractType {
     DeployedContract,
@@ -1270,25 +1283,25 @@ impl TemplateGenerator {
                     "tmp_type": "contract",
                     "tmp_file_name": contract_filename
                 })
-            },
+            }
             ContractType::DeployedContract => {
                 json!({
                     "tmp_type": "deployed_contract",
                     "tmp_file_name": contract_filename
                 })
-            },
+            }
             ContractType::SharedLib => {
                 json!({
                     "tmp_type": "shared_lib",
                     "tmp_file_name": contract_filename
                 })
-            },
+            }
             ContractType::DeployedSharedLib => {
                 json!({
                     "tmp_type": "deployed_shared_lib",
                     "tmp_file_name": contract_filename
                 })
-            },
+            }
         };
 
         self.cell_deps.push(value)

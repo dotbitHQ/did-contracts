@@ -1,5 +1,7 @@
+use alloc::borrow::ToOwned;
+use alloc::boxed::Box;
+
 use super::super::error::*;
-use alloc::{borrow::ToOwned, boxed::Box};
 
 pub fn get_owner_type_opt(data: &[u8]) -> Option<u8> {
     data.get(0).map(|v| v.to_owned())

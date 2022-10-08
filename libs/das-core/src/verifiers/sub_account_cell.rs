@@ -1,17 +1,23 @@
-use crate::{
-    assert as das_assert, code_to_error,
-    constants::*,
-    data_parser, debug,
-    error::*,
-    sub_account_witness_parser::{SubAccountEditValue, SubAccountWitness},
-    util, warn,
-    witness_parser::WitnessesParser,
-};
-use alloc::{boxed::Box, string::String, vec::Vec};
-use ckb_std::{ckb_constants::Source, high_level};
-use das_dynamic_libs::{error::Error as DasDynamicLibError, sign_lib::SignLib};
-use das_types::{constants::*, packed::*, prelude::Entity, prettier::Prettier};
-use sparse_merkle_tree::{ckb_smt::SMTBuilder, H256};
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec::Vec;
+
+use ckb_std::ckb_constants::Source;
+use ckb_std::high_level;
+use das_dynamic_libs::error::Error as DasDynamicLibError;
+use das_dynamic_libs::sign_lib::SignLib;
+use das_types::constants::*;
+use das_types::packed::*;
+use das_types::prelude::Entity;
+use das_types::prettier::Prettier;
+use sparse_merkle_tree::ckb_smt::SMTBuilder;
+use sparse_merkle_tree::H256;
+
+use crate::constants::*;
+use crate::error::*;
+use crate::sub_account_witness_parser::{SubAccountEditValue, SubAccountWitness};
+use crate::witness_parser::WitnessesParser;
+use crate::{assert as das_assert, code_to_error, data_parser, debug, util, warn};
 
 pub fn verify_unlock_role(witness: &SubAccountWitness) -> Result<(), Box<dyn ScriptError>> {
     debug!(

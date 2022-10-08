@@ -1,10 +1,20 @@
-use crate::util::{
-    self, accounts::*, constants::*, error::*, template_common_cell::*, template_generator::*, template_parser::*,
-};
-use ckb_hash::blake2b_256;
-use das_types_std::{constants::*, packed::*, prelude::*, util as das_util, util::EntityWrapper};
-use serde_json::{json, Value};
 use std::convert::TryFrom;
+
+use ckb_hash::blake2b_256;
+use das_types_std::constants::*;
+use das_types_std::packed::*;
+use das_types_std::prelude::*;
+use das_types_std::util as das_util;
+use das_types_std::util::EntityWrapper;
+use serde_json::{json, Value};
+
+use crate::util::accounts::*;
+use crate::util::constants::*;
+use crate::util::error::*;
+use crate::util::template_common_cell::*;
+use crate::util::template_generator::*;
+use crate::util::template_parser::*;
+use crate::util::{self};
 
 fn init(action: &str) -> TemplateGenerator {
     let mut template = TemplateGenerator::new(action, None);

@@ -15,8 +15,9 @@
 mod entry;
 mod error;
 
-use ckb_std::default_alloc;
 use core::arch::asm;
+
+use ckb_std::default_alloc;
 
 ckb_std::entry!(program_entry);
 default_alloc!();

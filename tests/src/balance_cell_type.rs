@@ -1,6 +1,11 @@
-use crate::util::{error::*, template_common_cell::*, template_generator::*, template_parser::*};
-use das_types_std::{constants::*, packed::*};
+use das_types_std::constants::*;
+use das_types_std::packed::*;
 use serde_json::json;
+
+use crate::util::error::*;
+use crate::util::template_common_cell::*;
+use crate::util::template_generator::*;
+use crate::util::template_parser::*;
 
 fn init(action: &str) -> TemplateGenerator {
     let mut template = TemplateGenerator::new(action, Some(Bytes::from(vec![0])));

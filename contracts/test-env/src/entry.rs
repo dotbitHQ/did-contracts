@@ -1,16 +1,16 @@
 use alloc::boxed::Box;
-use ckb_std::{ckb_constants::Source, debug};
 use core::result::Result;
-use das_core::{
-    assert, code_to_error,
-    constants::ScriptType,
-    data_parser,
-    error::*,
-    sub_account_witness_parser::{SubAccountEditValue, SubAccountWitnessesParser},
-    util, warn,
-    witness_parser::WitnessesParser,
-};
-use das_types::{constants::*, packed::*, prelude::*};
+
+use ckb_std::ckb_constants::Source;
+use ckb_std::debug;
+use das_core::constants::ScriptType;
+use das_core::error::*;
+use das_core::sub_account_witness_parser::{SubAccountEditValue, SubAccountWitnessesParser};
+use das_core::witness_parser::WitnessesParser;
+use das_core::{assert, code_to_error, data_parser, util, warn};
+use das_types::constants::*;
+use das_types::packed::*;
+use das_types::prelude::*;
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running test-env ======");

@@ -1,7 +1,8 @@
+use std::collections::HashMap;
+
 use ckb_types::{h256, H256};
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::collections::HashMap;
 
 // ⚠️ The maximum cycles on-chain is 70_000_000.
 pub const MAX_CYCLES: u64 = u64::MAX;

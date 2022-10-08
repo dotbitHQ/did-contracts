@@ -1,11 +1,20 @@
-use crate::{
-    assert as das_assert, code_to_error, constants::DasLockType, constants::*, data_parser, error::*, util, warn,
-    witness_parser::WitnessesParser,
-};
-use alloc::{boxed::Box, string::String, vec, vec::Vec};
-use ckb_std::{ckb_constants::Source, high_level};
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec;
+use alloc::vec::Vec;
 use core::convert::TryFrom;
-use das_types::{constants::*, mixer::AccountCellDataReaderMixer, packed::*, util as das_types_util};
+
+use ckb_std::ckb_constants::Source;
+use ckb_std::high_level;
+use das_types::constants::*;
+use das_types::mixer::AccountCellDataReaderMixer;
+use das_types::packed::*;
+use das_types::util as das_types_util;
+
+use crate::constants::{DasLockType, *};
+use crate::error::*;
+use crate::witness_parser::WitnessesParser;
+use crate::{assert as das_assert, code_to_error, data_parser, util, warn};
 
 pub fn verify_unlock_role(action: &[u8], params: &[Bytes]) -> Result<(), Box<dyn ScriptError>> {
     let required_role_opt = util::get_action_required_role(action);

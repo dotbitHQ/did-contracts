@@ -1,6 +1,9 @@
-use crate::util::{self, template_generator::*};
-use das_types_std::{constants::*, packed::*};
+use das_types_std::constants::*;
+use das_types_std::packed::*;
 use serde_json::json;
+
+use crate::util::template_generator::*;
+use crate::util::{self};
 
 pub fn init(action: &str) -> TemplateGenerator {
     let mut template = TemplateGenerator::new(action, Some(Bytes::from(vec![0])));

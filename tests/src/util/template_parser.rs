@@ -1,28 +1,34 @@
-use super::{constants::*, error::*, util};
-use crate::{util::template_generator::TemplateGenerator};
+use std::cell::Cell;
+use std::collections::hash_map::RandomState;
+use std::collections::{HashMap, HashSet};
+use std::error::Error as StdError;
+use std::fmt::Debug;
+use std::fs::File;
+use std::io::Read;
+use std::path::PathBuf;
+use std::str::FromStr;
+use std::{env, fs};
+
 use ckb_chain_spec::consensus::TYPE_ID_CODE_HASH;
 use ckb_hash::blake2b_256;
 use ckb_mock_tx_types::*;
 use ckb_script::TransactionScriptsVerifier;
-use ckb_types::{
-    bytes,
-    core::{
-        cell::{resolve_transaction, ResolvedTransaction},
-        Cycle, HeaderView, ScriptHashType, TransactionBuilder, TransactionView,
-    },
-    packed::*,
-    prelude::*,
-    H256,
-};
+use ckb_types::core::cell::{resolve_transaction, ResolvedTransaction};
+use ckb_types::core::{Cycle, HeaderView, ScriptHashType, TransactionBuilder, TransactionView};
+use ckb_types::packed::*;
+use ckb_types::prelude::*;
+use ckb_types::{bytes, H256};
 use das_types_std::{
     constants::Source,
     // packed::{Script, ScriptOpt},
     prelude::{Builder, Entity},
 };
 use serde_json::Value;
-use std::{cell::Cell, collections::{hash_map::RandomState, HashMap, HashSet}, error::Error as StdError, fmt::Debug, fs::File, io::Read, env, fs};
-use std::path::PathBuf;
-use std::str::FromStr;
+
+use super::constants::*;
+use super::error::*;
+use super::util;
+use crate::util::template_generator::TemplateGenerator;
 
 const BINARY_VERSION: &str = "BINARY_VERSION";
 
@@ -637,7 +643,11 @@ impl TemplateParser {
         file_path.push(name);
 
         fs::read(file_path.as_path())
-            .expect(&format!("Can not load binary of {} from path {}.", name, file_path.display()))
+            .expect(&format!(
+                "Can not load binary of {} from path {}.",
+                name,
+                file_path.display()
+            ))
             .into()
     }
 }

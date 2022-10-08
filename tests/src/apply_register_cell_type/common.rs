@@ -1,5 +1,7 @@
-use crate::util::{constants::*, template_generator::*};
 use das_types_std::constants::*;
+
+use crate::util::constants::*;
+use crate::util::template_generator::*;
 
 pub fn init(action: &str) -> TemplateGenerator {
     let mut template = TemplateGenerator::new(action, None);

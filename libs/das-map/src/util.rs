@@ -1,5 +1,6 @@
-use super::map::Map;
 use core::fmt::Debug;
+
+use super::map::Map;
 
 pub fn add<K, V>(map: &mut Map<K, V>, key: K, value: V)
 where
@@ -17,8 +18,9 @@ where
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use alloc::vec;
+
+    use super::*;
 
     #[test]
     fn test_add() {

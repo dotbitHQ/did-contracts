@@ -1,5 +1,8 @@
 use super::common::*;
-use crate::util::{error::*, template_common_cell::*, template_generator::*, template_parser::*};
+use crate::util::error::*;
+use crate::util::template_common_cell::*;
+use crate::util::template_generator::*;
+use crate::util::template_parser::*;
 
 fn before_each() -> (TemplateGenerator, &'static str) {
     let mut template = init("retract_reverse_record");

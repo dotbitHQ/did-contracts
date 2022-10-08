@@ -1,9 +1,18 @@
-use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
-use ckb_std::{ckb_constants::Source, debug, high_level};
+use alloc::borrow::ToOwned;
+use alloc::boxed::Box;
+use alloc::vec::Vec;
 use core::result::Result;
 use core::slice::Iter;
-use das_core::{assert, code_to_error, constants::*, error::*, util, verifiers, warn, witness_parser::WitnessesParser};
-use das_types::{constants::DataType, packed::*, prelude::*};
+
+use ckb_std::ckb_constants::Source;
+use ckb_std::{debug, high_level};
+use das_core::constants::*;
+use das_core::error::*;
+use das_core::witness_parser::WitnessesParser;
+use das_core::{assert, code_to_error, util, verifiers, warn};
+use das_types::constants::DataType;
+use das_types::packed::*;
+use das_types::prelude::*;
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running income-cell-type ======");

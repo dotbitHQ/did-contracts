@@ -1,4 +1,6 @@
-use crate::util::{template_common_cell::*, template_generator::*, template_parser::*};
+use crate::util::template_common_cell::*;
+use crate::util::template_generator::*;
+use crate::util::template_parser::*;
 
 fn init(action: &str) -> TemplateGenerator {
     let mut template = TemplateGenerator::new(action, None);

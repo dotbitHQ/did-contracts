@@ -1,14 +1,12 @@
 use alloc::boxed::Box;
-use ckb_std::{ckb_constants::Source, high_level};
 use core::result::Result;
-use das_core::{
-    assert, code_to_error,
-    constants::{OracleCellType, ScriptType, TypeScript},
-    data_parser, debug,
-    error::*,
-    util, verifiers,
-    witness_parser::WitnessesParser,
-};
+
+use ckb_std::ckb_constants::Source;
+use ckb_std::high_level;
+use das_core::constants::{OracleCellType, ScriptType, TypeScript};
+use das_core::error::*;
+use das_core::witness_parser::WitnessesParser;
+use das_core::{assert, code_to_error, data_parser, debug, util, verifiers};
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running apply-register-cell-type ======");

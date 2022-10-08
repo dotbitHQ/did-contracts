@@ -1,15 +1,21 @@
+use alloc::boxed::Box;
+use alloc::format;
+use alloc::string::String;
+
+use ckb_std::ckb_constants::Source;
+use ckb_std::error::SysError;
+use ckb_std::high_level;
+use das_core::constants::*;
+use das_core::error::*;
+use das_core::witness_parser::WitnessesParser;
+use das_core::{assert, code_to_error, data_parser, debug, util, warn};
+use das_map::map::Map;
+use das_map::util as map_util;
+use das_types::constants::{DataType, LockRole};
+use das_types::packed::*;
+use das_types::prelude::*;
+
 use super::eip712::{to_semantic_address, to_semantic_capacity, verify_eip712_hashes_if_has_das_lock};
-use alloc::{boxed::Box, format, string::String};
-use ckb_std::{ckb_constants::Source, error::SysError, high_level};
-use das_core::{
-    assert, code_to_error, constants::*, data_parser, debug, error::*, util, warn, witness_parser::WitnessesParser,
-};
-use das_map::{map::Map, util as map_util};
-use das_types::{
-    constants::{DataType, LockRole},
-    packed::*,
-    prelude::*,
-};
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== EIP712 Lib ======");

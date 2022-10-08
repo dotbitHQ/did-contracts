@@ -1,22 +1,23 @@
-use alloc::{borrow::ToOwned, boxed::Box, string::String};
-use ckb_std::{
-    ckb_constants::Source,
-    high_level::{self, load_cell_capacity, load_cell_lock, load_cell_type, load_script},
-};
-use core::{convert::TryFrom, result::Result};
-use das_core::{
-    assert, code_to_error, constants::*, data_parser, debug, error::*, util, verifiers, warn,
-    witness_parser::WitnessesParser,
-};
-use das_map::{map::Map, util as map_util};
+use alloc::borrow::ToOwned;
+use alloc::boxed::Box;
+use alloc::string::String;
+use core::convert::TryFrom;
+use core::result::Result;
+
+use ckb_std::ckb_constants::Source;
+use ckb_std::high_level::{self, load_cell_capacity, load_cell_lock, load_cell_type, load_script};
+use das_core::constants::*;
+use das_core::error::*;
+use das_core::witness_parser::WitnessesParser;
+use das_core::{assert, code_to_error, data_parser, debug, util, verifiers, warn};
+use das_map::map::Map;
+use das_map::util as map_util;
 use das_sorted_list::DasSortedList;
-use das_types::{
-    constants::*,
-    mixer::{AccountCellDataMixer, PreAccountCellDataReaderMixer},
-    packed::*,
-    prelude::*,
-    prettier::Prettier,
-};
+use das_types::constants::*;
+use das_types::mixer::{AccountCellDataMixer, PreAccountCellDataReaderMixer};
+use das_types::packed::*;
+use das_types::prelude::*;
+use das_types::prettier::Prettier;
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running proposal-cell-type ======");

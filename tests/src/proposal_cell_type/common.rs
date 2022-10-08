@@ -1,9 +1,14 @@
-use crate::util::{self, accounts::*, constants::*, template_generator::*};
+use std::collections::HashMap;
+
 use ckb_types::prelude::Pack;
 use das_sorted_list::DasSortedList;
 use das_types_std::constants::*;
 use serde_json::{json, Value};
-use std::collections::HashMap;
+
+use crate::util::accounts::*;
+use crate::util::constants::*;
+use crate::util::template_generator::*;
+use crate::util::{self};
 
 pub struct LockScripts {
     pub inviter_1: Value,

@@ -1,15 +1,19 @@
-use alloc::{boxed::Box, vec};
-use ckb_std::{
-    ckb_constants::Source,
-    ckb_types::{packed as ckb_packed, prelude::*},
-    high_level,
-};
-use das_core::{
-    assert, assert_lock_equal, code_to_error, constants::*, data_parser, debug, error::*, util, verifiers, warn,
-    witness_parser::WitnessesParser,
-};
-use das_map::{map::Map, util as map_util};
-use das_types::{constants::AccountStatus, mixer::*, packed::*};
+use alloc::boxed::Box;
+use alloc::vec;
+
+use ckb_std::ckb_constants::Source;
+use ckb_std::ckb_types::packed as ckb_packed;
+use ckb_std::ckb_types::prelude::*;
+use ckb_std::high_level;
+use das_core::constants::*;
+use das_core::error::*;
+use das_core::witness_parser::WitnessesParser;
+use das_core::{assert, assert_lock_equal, code_to_error, data_parser, debug, util, verifiers, warn};
+use das_map::map::Map;
+use das_map::util as map_util;
+use das_types::constants::AccountStatus;
+use das_types::mixer::*;
+use das_types::packed::*;
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running account-sale-cell-type ======");

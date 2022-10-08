@@ -1,11 +1,18 @@
-use alloc::{boxed::Box, collections::BTreeMap, string::String};
-use ckb_std::{ckb_constants::Source, high_level};
-use core::{convert::TryInto, result::Result};
-use das_core::{
-    assert, code_to_error, constants::*, data_parser, debug, error::*, util, verifiers, warn,
-    witness_parser::WitnessesParser,
-};
-use das_types::{mixer::PreAccountCellDataReaderMixer, packed::*, prelude::*};
+use alloc::boxed::Box;
+use alloc::collections::BTreeMap;
+use alloc::string::String;
+use core::convert::TryInto;
+use core::result::Result;
+
+use ckb_std::ckb_constants::Source;
+use ckb_std::high_level;
+use das_core::constants::*;
+use das_core::error::*;
+use das_core::witness_parser::WitnessesParser;
+use das_core::{assert, code_to_error, data_parser, debug, util, verifiers, warn};
+use das_types::mixer::PreAccountCellDataReaderMixer;
+use das_types::packed::*;
+use das_types::prelude::*;
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running pre-account-cell-type ======");

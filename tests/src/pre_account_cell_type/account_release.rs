@@ -1,7 +1,13 @@
-use super::common::*;
-use crate::util::{self, accounts::*, constants::*, error::*, template_common_cell::*, template_parser::*};
 use das_types_std::constants::*;
 use serde_json::json;
+
+use super::common::*;
+use crate::util::accounts::*;
+use crate::util::constants::*;
+use crate::util::error::*;
+use crate::util::template_common_cell::*;
+use crate::util::template_parser::*;
+use crate::util::{self};
 
 #[test]
 fn test_pre_register_shortest_registrable_account() {

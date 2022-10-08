@@ -1,10 +1,16 @@
-use crate::{
-    assert, code_to_error, constants::ScriptType, debug, error::*, util, warn, witness_parser::WitnessesParser,
-};
 use alloc::boxed::Box;
-use ckb_std::{ckb_constants::Source, high_level};
-use das_map::{map::Map, util as map_util};
-use das_types::{packed::*, prelude::*};
+
+use ckb_std::ckb_constants::Source;
+use ckb_std::high_level;
+use das_map::map::Map;
+use das_map::util as map_util;
+use das_types::packed::*;
+use das_types::prelude::*;
+
+use crate::constants::ScriptType;
+use crate::error::*;
+use crate::witness_parser::WitnessesParser;
+use crate::{assert, code_to_error, debug, util, warn};
 
 pub fn verify_newly_created(
     income_cell_witness_reader: IncomeCellDataReader,

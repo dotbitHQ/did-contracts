@@ -1,9 +1,14 @@
-use super::common::init;
-use crate::util::{
-    self, accounts::*, constants::*, error::*, template_common_cell::*, template_generator::*, template_parser::*,
-};
 use das_types_std::constants::AccountStatus;
 use serde_json::json;
+
+use super::common::init;
+use crate::util::accounts::*;
+use crate::util::constants::*;
+use crate::util::error::*;
+use crate::util::template_common_cell::*;
+use crate::util::template_generator::*;
+use crate::util::template_parser::*;
+use crate::util::{self};
 
 fn push_input_account_sale_cell(template: &mut TemplateGenerator) {
     template.push_input(

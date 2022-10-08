@@ -1,15 +1,19 @@
 #![allow(unused_imports)]
 #![allow(unused_variables)]
 
-use super::{
-    data_parser::{account_cell, apply_register_cell, pre_account_cell},
-    debug,
-};
-use alloc::{boxed::Box, string::String};
-use ckb_std::ckb_constants::Source;
+use alloc::boxed::Box;
+use alloc::string::String;
 use core::convert::TryInto;
+
+use ckb_std::ckb_constants::Source;
 use das_types::mixer::{AccountCellDataReaderMixer, PreAccountCellDataReaderMixer};
-use das_types::{packed::*, prelude::*, prettier::Prettier, util::hex_string};
+use das_types::packed::*;
+use das_types::prelude::*;
+use das_types::prettier::Prettier;
+use das_types::util::hex_string;
+
+use super::data_parser::{account_cell, apply_register_cell, pre_account_cell};
+use super::debug;
 
 #[cfg(debug_assertions)]
 pub fn apply_register_cell(source: Source, index: usize, data: &Vec<u8>) {

@@ -1,13 +1,12 @@
-use alloc::{boxed::Box, vec::Vec};
-use ckb_std::{ckb_constants::Source, high_level};
-use das_core::{
-    code_to_error,
-    constants::{das_lock, DasLockType, ScriptType, TypeScript},
-    data_parser, debug,
-    error::*,
-    util, warn,
-    witness_parser::WitnessesParser,
-};
+use alloc::boxed::Box;
+use alloc::vec::Vec;
+
+use ckb_std::ckb_constants::Source;
+use ckb_std::high_level;
+use das_core::constants::{das_lock, DasLockType, ScriptType, TypeScript};
+use das_core::error::*;
+use das_core::witness_parser::WitnessesParser;
+use das_core::{code_to_error, data_parser, debug, util, warn};
 use das_types::packed as das_packed;
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {

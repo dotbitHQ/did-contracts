@@ -1,5 +1,9 @@
-use crate::util::{self, constants::*, template_generator::*};
-use das_types_std::{constants::*, packed::*};
+use das_types_std::constants::*;
+use das_types_std::packed::*;
+
+use crate::util::constants::*;
+use crate::util::template_generator::*;
+use crate::util::{self};
 
 pub fn init(action: &str, params_opt: Option<&str>) -> TemplateGenerator {
     let mut template = TemplateGenerator::new(action, params_opt.map(|raw| Bytes::from(util::hex_to_bytes(raw))));

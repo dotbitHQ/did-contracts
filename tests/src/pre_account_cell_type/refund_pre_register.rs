@@ -1,6 +1,11 @@
-use super::common::*;
-use crate::util::{accounts::*, constants::*, error::*, template_common_cell::*, template_parser::*};
 use serde_json::json;
+
+use super::common::*;
+use crate::util::accounts::*;
+use crate::util::constants::*;
+use crate::util::error::*;
+use crate::util::template_common_cell::*;
+use crate::util::template_parser::*;
 
 #[test]
 fn test_pre_register_refund() {

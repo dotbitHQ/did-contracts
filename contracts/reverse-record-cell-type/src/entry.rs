@@ -1,15 +1,13 @@
 use alloc::boxed::Box;
-use ckb_std::{ckb_constants::Source, high_level};
 use core::cmp::Ordering;
 use core::result::Result;
-use das_core::{
-    assert, assert_lock_equal, code_to_error,
-    constants::{das_lock, TypeScript},
-    debug,
-    error::*,
-    util, verifiers,
-    witness_parser::WitnessesParser,
-};
+
+use ckb_std::ckb_constants::Source;
+use ckb_std::high_level;
+use das_core::constants::{das_lock, TypeScript};
+use das_core::error::*;
+use das_core::witness_parser::WitnessesParser;
+use das_core::{assert, assert_lock_equal, code_to_error, debug, util, verifiers};
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running reverse-record-cell-type ======");

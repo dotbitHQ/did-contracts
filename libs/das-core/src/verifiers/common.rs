@@ -1,13 +1,13 @@
-use crate::{
-    assert as das_assert, code_to_error,
-    constants::{das_wallet_lock, ScriptType},
-    debug,
-    error::*,
-    util,
-};
-use alloc::{boxed::Box, format};
-use ckb_std::{ckb_constants::Source, high_level};
+use alloc::boxed::Box;
+use alloc::format;
 use core::cmp::Ordering;
+
+use ckb_std::ckb_constants::Source;
+use ckb_std::high_level;
+
+use crate::constants::{das_wallet_lock, ScriptType};
+use crate::error::*;
+use crate::{assert as das_assert, code_to_error, debug, util};
 
 pub fn verify_cell_dep_number(
     cell_name: &str,

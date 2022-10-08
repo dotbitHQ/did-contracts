@@ -1,6 +1,11 @@
-use super::common::*;
-use crate::util::{accounts::*, error::*, template_common_cell::*, template_generator::*, template_parser::*};
 use serde_json::json;
+
+use super::common::*;
+use crate::util::accounts::*;
+use crate::util::error::*;
+use crate::util::template_common_cell::*;
+use crate::util::template_generator::*;
+use crate::util::template_parser::*;
 
 fn before_each() -> TemplateGenerator {
     let mut template = init_create("config_sub_account_custom_script", Some("0x00"));

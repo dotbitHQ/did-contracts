@@ -1,17 +1,20 @@
-use super::{super::ckb_types_relay::*, constants::*, error};
+use std::error::Error;
+use std::fs::File;
+use std::io::{BufRead, BufReader, Lines};
+use std::path::PathBuf;
+use std::{env, io};
+
 use chrono::{DateTime, NaiveDateTime, Utc};
 use ckb_hash::{blake2b_256, Blake2bBuilder};
-use ckb_types::{bytes, packed::*, prelude::*};
+use ckb_types::bytes;
+use ckb_types::packed::*;
+use ckb_types::prelude::*;
 use lazy_static::lazy_static;
 use serde_json::Value;
-use std::{
-    env,
-    error::Error,
-    fs::File,
-    io,
-    io::{BufRead, BufReader, Lines},
-    path::PathBuf,
-};
+
+use super::super::ckb_types_relay::*;
+use super::constants::*;
+use super::error;
 
 lazy_static! {
     pub static ref SECP256K1: secp256k1::Secp256k1<secp256k1::All> = secp256k1::Secp256k1::new();
