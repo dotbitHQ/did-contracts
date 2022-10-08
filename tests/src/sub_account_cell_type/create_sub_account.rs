@@ -98,7 +98,7 @@ fn calculate_sub_account_cost(template: &TemplateGenerator) -> u64 {
 fn before_each_with_custom_script() -> TemplateGenerator {
     let mut template = init_create("create_sub_account", Some("0x00"));
 
-    template.push_contract_cell("test-custom-script", false);
+    template.push_contract_cell("test-custom-script", ContractType::Contract);
     template.push_oracle_cell(1, OracleCellType::Quote, CKB_QUOTE);
     push_simple_dep_account_cell(&mut template);
 
@@ -797,7 +797,7 @@ fn test_sub_account_create_with_custom_script_and_script_args() {
 fn test_sub_account_create_with_custom_script_and_empty_args() {
     let mut template = init_create("create_sub_account", Some("0x00"));
 
-    template.push_contract_cell("test-custom-script", false);
+    template.push_contract_cell("test-custom-script", ContractType::Contract);
     template.push_oracle_cell(1, OracleCellType::Quote, CKB_QUOTE);
     push_simple_dep_account_cell(&mut template);
 

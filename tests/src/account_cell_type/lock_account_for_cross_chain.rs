@@ -1,10 +1,11 @@
 use super::common::*;
 use crate::util::{
-    accounts::*, constants::*, error::*, template_common_cell::*, template_generator::TemplateGenerator,
+    accounts::*, constants::*, error::*, template_common_cell::*, template_generator::*,
     template_parser::*,
 };
 use das_types_std::constants::AccountStatus;
 use serde_json::json;
+use crate::util::template_generator::ContractType;
 
 fn before_each() -> TemplateGenerator {
     let mut template = init(
@@ -111,7 +112,7 @@ fn challenge_account_lock_account_for_cross_chain_account_with_other_cells() {
         Some("0x0000000000000011000000000000002200"),
     );
 
-    template.push_contract_cell("balance-cell-type", false);
+    template.push_contract_cell("balance-cell-type", ContractType::Contract);
 
     // inputs
     push_input_account_cell(

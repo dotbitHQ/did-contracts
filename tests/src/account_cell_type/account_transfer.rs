@@ -5,6 +5,7 @@ use crate::util::{
 };
 use das_types_std::constants::AccountStatus;
 use serde_json::json;
+use crate::util::template_generator::ContractType;
 
 fn before_each() -> TemplateGenerator {
     let mut template = init("transfer_account", Some("0x00"));
@@ -102,7 +103,7 @@ fn challenge_account_transfer_account_multiple_cells() {
 fn challenge_account_transfer_account_with_other_cells() {
     let mut template = init("transfer_account", Some("0x00"));
 
-    template.push_contract_cell("balance-cell-type", false);
+    template.push_contract_cell("balance-cell-type", ContractType::Contract);
 
     // inputs
     push_input_account_cell(

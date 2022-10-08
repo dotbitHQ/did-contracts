@@ -123,7 +123,7 @@ fn challenge_account_edit_records_with_other_cells() {
     let mut template = init("edit_records", Some("0x01"));
 
     template.push_config_cell(DataType::ConfigCellRecordKeyNamespace, Source::CellDep);
-    template.push_contract_cell("balance-cell-type", false);
+    template.push_contract_cell("balance-cell-type", ContractType::Contract);
 
     // inputs
     push_input_account_cell(

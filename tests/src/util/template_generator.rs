@@ -4,6 +4,13 @@ use das_types_std::{constants::*, packed::*, prelude::*, util as das_util, util:
 use serde_json::{json, Value};
 use std::{collections::HashMap, convert::TryFrom, env, fs::OpenOptions, io::Write, str};
 
+pub enum ContractType {
+    DeployedContract,
+    Contract,
+    DeployedSharedLib,
+    SharedLib,
+}
+
 pub enum SubAccountActionType {
     Insert,
     Edit,
@@ -1256,36 +1263,33 @@ impl TemplateGenerator {
 
     // ======
 
-    pub fn push_contract_cell(&mut self, contract_filename: &str, deployed: bool) {
-        let value;
-        if deployed {
-            value = json!({
-                "tmp_type": "deployed_contract",
-                "tmp_file_name": contract_filename
-            });
-        } else {
-            value = json!({
-                "tmp_type": "contract",
-                "tmp_file_name": contract_filename
-            });
-        }
-
-        self.cell_deps.push(value)
-    }
-
-    pub fn push_shared_lib_cell(&mut self, contract_filename: &str, deployed: bool) {
-        let value;
-        if deployed {
-            value = json!({
-                "tmp_type": "deployed_shared_lib",
-                "tmp_file_name": contract_filename
-            });
-        } else {
-            value = json!({
-                "tmp_type": "shared_lib",
-                "tmp_file_name": contract_filename
-            });
-        }
+    pub fn push_contract_cell(&mut self, contract_filename: &str, type_: ContractType) {
+        let value = match type_ {
+            ContractType::Contract => {
+                json!({
+                    "tmp_type": "contract",
+                    "tmp_file_name": contract_filename
+                })
+            },
+            ContractType::DeployedContract => {
+                json!({
+                    "tmp_type": "deployed_contract",
+                    "tmp_file_name": contract_filename
+                })
+            },
+            ContractType::SharedLib => {
+                json!({
+                    "tmp_type": "shared_lib",
+                    "tmp_file_name": contract_filename
+                })
+            },
+            ContractType::DeployedSharedLib => {
+                json!({
+                    "tmp_type": "deployed_shared_lib",
+                    "tmp_file_name": contract_filename
+                })
+            },
+        };
 
         self.cell_deps.push(value)
     }

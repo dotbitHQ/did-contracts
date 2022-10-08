@@ -232,39 +232,15 @@ impl TemplateParser {
 
         for (i, item) in cell_deps.into_iter().enumerate() {
             match item["tmp_type"].as_str() {
-                Some("contract") | Some("deployed_contract") => {
-                    let deployed = if item["tmp_type"].as_str() == Some("deployed_contract") {
-                        true
-                    } else {
-                        false
-                    };
+                Some("contract") | Some("deployed_contract") | Some("shared_lib") | Some("deployed_shared_lib") => {
+                    let tmp_type = item["tmp_type"].as_str().expect("The tmp_type field is required.");
+                    let is_deployed = if tmp_type.contains("deployed") { true } else { false };
+                    let is_shared_lib = if tmp_type.contains("shared_lib") { true } else { false };
 
                     let name = item["tmp_file_name"].as_str().unwrap();
                     let (_type_id, _out_point, cell_dep, cell_output, cell_data) =
-                        self.mock_contract(name, deployed, Some(i));
+                        self.mock_contract(name, is_deployed, is_shared_lib, Some(i));
                     // println!("{:>30}: {}", name, type_id);
-
-                    let mock_cell_dep = MockCellDep {
-                        cell_dep: cell_dep.clone(),
-                        output: cell_output,
-                        data: cell_data,
-                        header: None,
-                    };
-                    self.mock_cell_deps.push(mock_cell_dep);
-
-                    mocked_cell_deps.push(cell_dep);
-                }
-                Some("shared_lib") | Some("deployed_shared_lib") => {
-                    let deployed = if item["tmp_type"].as_str() == Some("deployed_shared_lib") {
-                        true
-                    } else {
-                        false
-                    };
-
-                    let name = item["tmp_file_name"].as_str().unwrap();
-                    let (_type_id, _out_point, cell_dep, cell_output, cell_data) =
-                        self.mock_shared_lib(name, deployed, Some(i));
-                    // println!("{:>30}: {}", name, code_hash);
 
                     let mock_cell_dep = MockCellDep {
                         cell_dep: cell_dep.clone(),
@@ -571,73 +547,65 @@ impl TemplateParser {
     fn mock_contract(
         &self,
         binary_name: &str,
-        deployed: bool,
+        is_deployed: bool,
+        is_shared_lib: bool,
         index_opt: Option<usize>,
     ) -> (Byte32, OutPoint, CellDep, CellOutput, bytes::Bytes) {
-        let file = self.load_binary(binary_name, deployed);
+        let file = self.load_binary(binary_name, is_deployed);
 
-        let args = {
-            // Padding args to 32 bytes, because it is convenient to use 32 bytes as the real args are also 32 bytes.
-            let mut buf = [0u8; 32];
-            let len = buf.len();
-            let bytes = binary_name.as_bytes();
-            if bytes.len() >= len {
-                buf.copy_from_slice(&bytes[..32]);
-            } else {
-                let (_, right) = buf.split_at_mut(len - bytes.len());
-                right.copy_from_slice(bytes);
+        let code_hash;
+        let cell_output;
+        if is_shared_lib {
+            let hash = blake2b_256(file.clone());
+            let mut inner = [Byte::new(0); 32];
+            for (i, item) in hash.iter().enumerate() {
+                inner[i] = Byte::new(*item);
             }
+            code_hash = Byte32::new_builder().set(inner).build();
+            cell_output = CellOutput::new_builder()
+                .capacity(0u64.pack())
+                .lock(Script::default())
+                .type_(ScriptOpt::new_builder().set(None).build())
+                .build();
+        } else {
+            let args = {
+                // Padding args to 32 bytes, because it is convenient to use 32 bytes as the real args are also 32 bytes.
+                let mut buf = [0u8; 32];
+                let len = buf.len();
+                let bytes = binary_name.as_bytes();
+                if bytes.len() >= len {
+                    buf.copy_from_slice(&bytes[..32]);
+                } else {
+                    let (_, right) = buf.split_at_mut(len - bytes.len());
+                    right.copy_from_slice(bytes);
+                }
 
-            buf
-        };
-        let args_bytes = args.iter().map(|v| Byte::new(*v)).collect::<Vec<_>>();
-        let type_ = Script::new_builder()
-            .code_hash(Byte32::new_unchecked(bytes::Bytes::from(TYPE_ID_CODE_HASH.as_bytes())))
-            .hash_type(ScriptHashType::Type.into())
-            .args(Bytes::new_builder().set(args_bytes).build())
-            .build();
-        let type_id = type_.calc_script_hash();
-        // Uncomment the line below can print type ID of each script in unit tests.
-        // println!(
-        //     "script: {}, type_id: {}, args: {}",
-        //     binary_name,
-        //     type_id,
-        //     hex_string(binary_name.as_bytes())
-        // );
+                buf
+            };
+            let args_bytes = args.iter().map(|v| Byte::new(*v)).collect::<Vec<_>>();
+            let type_ = Script::new_builder()
+                .code_hash(Byte32::new_unchecked(bytes::Bytes::from(TYPE_ID_CODE_HASH.as_bytes())))
+                .hash_type(ScriptHashType::Type.into())
+                .args(Bytes::new_builder().set(args_bytes).build())
+                .build();
 
-        let out_point = self.mock_out_point(index_opt.unwrap_or(rand::random::<usize>()));
-        let cell_dep = CellDep::new_builder().out_point(out_point.clone()).build();
-        let cell_output = CellOutput::new_builder()
-            .capacity(0u64.pack())
-            .lock(Script::default())
-            .type_(ScriptOpt::new_builder().set(Some(type_)).build())
-            .build();
-
-        (type_id, out_point, cell_dep, cell_output, file)
-    }
-
-    fn mock_shared_lib(
-        &self,
-        binary_name: &str,
-        deployed: bool,
-        index_opt: Option<usize>,
-    ) -> (Byte32, OutPoint, CellDep, CellOutput, bytes::Bytes) {
-        let file = self.load_binary(binary_name, deployed);
-
-        let hash = blake2b_256(file.clone());
-        let mut inner = [Byte::new(0); 32];
-        for (i, item) in hash.iter().enumerate() {
-            inner[i] = Byte::new(*item);
+            code_hash = type_.calc_script_hash();
+            cell_output = CellOutput::new_builder()
+                .capacity(0u64.pack())
+                .lock(Script::default())
+                .type_(ScriptOpt::new_builder().set(Some(type_)).build())
+                .build();
+            // Uncomment the line below can print type ID of each script in unit tests.
+            // println!(
+            //     "script: {}, type_id: {}, args: {}",
+            //     binary_name,
+            //     type_id,
+            //     hex_string(binary_name.as_bytes())
+            // );
         }
-        let code_hash = Byte32::new_builder().set(inner).build();
 
         let out_point = self.mock_out_point(index_opt.unwrap_or(rand::random::<usize>()));
         let cell_dep = CellDep::new_builder().out_point(out_point.clone()).build();
-        let cell_output = CellOutput::new_builder()
-            .capacity(0u64.pack())
-            .lock(Script::default())
-            .type_(ScriptOpt::new_builder().set(None).build())
-            .build();
 
         (code_hash, out_point, cell_dep, cell_output, file)
     }

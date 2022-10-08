@@ -135,10 +135,10 @@ pub fn account_to_id_bytes(account: &str) -> Vec<u8> {
 pub fn init(action: &str) -> TemplateGenerator {
     let mut template = TemplateGenerator::new(action, None);
 
-    template.push_contract_cell("always_success", true);
-    template.push_contract_cell("fake-das-lock", true);
-    template.push_contract_cell("fake-secp256k1-blake160-signhash-all", true);
-    template.push_contract_cell("proposal-cell-type", false);
+    template.push_contract_cell("always_success", ContractType::DeployedContract);
+    template.push_contract_cell("fake-das-lock", ContractType::DeployedContract);
+    template.push_contract_cell("fake-secp256k1-blake160-signhash-all", ContractType::DeployedContract);
+    template.push_contract_cell("proposal-cell-type", ContractType::Contract);
 
     template.push_oracle_cell(1, OracleCellType::Time, TIMESTAMP);
     template.push_oracle_cell(1, OracleCellType::Height, HEIGHT);
@@ -152,9 +152,9 @@ pub fn init(action: &str) -> TemplateGenerator {
 pub fn init_with_confirm() -> TemplateGenerator {
     let mut template = init("confirm_proposal");
 
-    template.push_contract_cell("account-cell-type", false);
-    template.push_contract_cell("pre-account-cell-type", false);
-    template.push_contract_cell("income-cell-type", false);
+    template.push_contract_cell("account-cell-type", ContractType::Contract);
+    template.push_contract_cell("pre-account-cell-type", ContractType::Contract);
+    template.push_contract_cell("income-cell-type", ContractType::Contract);
 
     template.push_config_cell(DataType::ConfigCellAccount, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellProfitRate, Source::CellDep);

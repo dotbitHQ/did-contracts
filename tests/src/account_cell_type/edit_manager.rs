@@ -114,7 +114,7 @@ fn challenge_account_edit_manager_multiple_cells() {
 fn challenge_account_edit_manager_with_other_cells() {
     let mut template = init("edit_manager", Some("0x00"));
 
-    template.push_contract_cell("balance-cell-type", false);
+    template.push_contract_cell("balance-cell-type", ContractType::Contract);
 
     // inputs
     push_input_account_cell(

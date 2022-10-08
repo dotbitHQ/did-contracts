@@ -1,10 +1,11 @@
 use super::common::*;
 use crate::util::{
-    self, accounts::*, constants::*, error::*, template_common_cell::*, template_generator::TemplateGenerator,
+    self, accounts::*, constants::*, error::*, template_common_cell::*, template_generator::*,
     template_parser::*,
 };
 use das_types_std::constants::AccountStatus;
 use serde_json::{json, Value};
+use crate::util::template_generator::ContractType;
 
 const OWNER_PROFIT: u64 = 20_000_000_000;
 const DAS_PROFIT: u64 = 10_000_000_000;
@@ -82,7 +83,7 @@ fn before_without_sub_account() -> TemplateGenerator {
 fn before_with_sub_account() -> TemplateGenerator {
     let mut template = init("confirm_expired_account_auction", None);
 
-    template.push_contract_cell("sub-account-cell-type", false);
+    template.push_contract_cell("sub-account-cell-type", ContractType::Contract);
 
     // inputs
     push_input_account_cell_with_sub_account_and_multi_sign(&mut template, json!({}));

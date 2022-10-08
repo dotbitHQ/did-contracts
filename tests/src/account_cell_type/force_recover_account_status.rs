@@ -31,8 +31,8 @@ fn push_input_account_sale_cell(template: &mut TemplateGenerator) {
 fn before_each() -> TemplateGenerator {
     let mut template = init("force_recover_account_status", None);
 
-    template.push_contract_cell("account-sale-cell-type", false);
-    template.push_contract_cell("balance-cell-type", false);
+    template.push_contract_cell("account-sale-cell-type", ContractType::Contract);
+    template.push_contract_cell("balance-cell-type", ContractType::Contract);
 
     push_input_account_cell(
         &mut template,
@@ -76,8 +76,8 @@ fn test_account_force_recover_account_status() {
 fn challenge_account_force_recover_account_still_ok() {
     let mut template = init("force_recover_account_status", None);
 
-    template.push_contract_cell("account-sale-cell-type", false);
-    template.push_contract_cell("balance-cell-type", false);
+    template.push_contract_cell("account-sale-cell-type", ContractType::Contract);
+    template.push_contract_cell("balance-cell-type", ContractType::Contract);
 
     // inputs
     push_input_account_cell(
@@ -117,8 +117,8 @@ fn challenge_account_force_recover_account_still_ok() {
 fn challenge_account_force_recover_account_in_expiration_grace_period() {
     let mut template = init("force_recover_account_status", None);
 
-    template.push_contract_cell("account-sale-cell-type", false);
-    template.push_contract_cell("balance-cell-type", false);
+    template.push_contract_cell("account-sale-cell-type", ContractType::Contract);
+    template.push_contract_cell("balance-cell-type", ContractType::Contract);
 
     // inputs
     push_input_account_cell(

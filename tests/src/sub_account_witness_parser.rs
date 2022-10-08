@@ -9,9 +9,9 @@ pub const TIMESTAMP: u64 = 1611200090u64;
 fn init(action: &str) -> TemplateGenerator {
     let mut template = TemplateGenerator::new(action, None);
 
-    template.push_contract_cell("always_success", true);
-    template.push_contract_cell("fake-secp256k1-blake160-signhash-all", true);
-    template.push_contract_cell("test-env", false);
+    template.push_contract_cell("always_success", ContractType::DeployedContract);
+    template.push_contract_cell("fake-secp256k1-blake160-signhash-all", ContractType::DeployedContract);
+    template.push_contract_cell("test-env", ContractType::Contract);
 
     template.push_config_cell(DataType::ConfigCellMain, Source::CellDep);
 

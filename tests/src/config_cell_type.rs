@@ -4,9 +4,9 @@ use das_types_std::constants::*;
 fn init() -> TemplateGenerator {
     let mut template = TemplateGenerator::new("config", None);
 
-    template.push_contract_cell("always_success", true);
-    template.push_contract_cell("fake-secp256k1-blake160-signhash-all", true);
-    template.push_contract_cell("config-cell-type", false);
+    template.push_contract_cell("always_success", ContractType::DeployedContract);
+    template.push_contract_cell("fake-secp256k1-blake160-signhash-all", ContractType::DeployedContract);
+    template.push_contract_cell("config-cell-type", ContractType::Contract);
 
     template
 }

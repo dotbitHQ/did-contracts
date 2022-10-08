@@ -7,7 +7,7 @@ use serde_json::json;
 
 fn before_each() -> TemplateGenerator {
     let mut template = init("collect_sub_account_profit", None);
-    template.push_contract_cell("balance-cell-type", false);
+    template.push_contract_cell("balance-cell-type", ContractType::Contract);
     template.push_config_cell(DataType::ConfigCellSubAccount, Source::CellDep);
 
     push_dep_account_cell(

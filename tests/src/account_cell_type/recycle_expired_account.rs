@@ -62,8 +62,8 @@ fn push_expired_sub_account_cell(template: &mut TemplateGenerator) {
 fn before_each() -> TemplateGenerator {
     let mut template = init("recycle_expired_account", None);
 
-    template.push_contract_cell("sub-account-cell-type", false);
-    template.push_contract_cell("balance-cell-type", false);
+    template.push_contract_cell("sub-account-cell-type", ContractType::Contract);
+    template.push_contract_cell("balance-cell-type", ContractType::Contract);
 
     template
 }

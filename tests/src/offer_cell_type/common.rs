@@ -7,11 +7,11 @@ pub const PRICE: u64 = 200_000_000_000;
 pub fn init(action: &str) -> TemplateGenerator {
     let mut template = TemplateGenerator::new(action, Some(Bytes::from(vec![0])));
 
-    template.push_contract_cell("always_success", true);
-    template.push_contract_cell("fake-das-lock", true);
-    template.push_contract_cell("eip712-lib", false);
-    template.push_contract_cell("balance-cell-type", false);
-    template.push_contract_cell("offer-cell-type", false);
+    template.push_contract_cell("always_success", ContractType::DeployedContract);
+    template.push_contract_cell("fake-das-lock", ContractType::DeployedContract);
+    template.push_contract_cell("eip712-lib", ContractType::Contract);
+    template.push_contract_cell("balance-cell-type", ContractType::Contract);
+    template.push_contract_cell("offer-cell-type", ContractType::Contract);
 
     template.push_config_cell(DataType::ConfigCellMain, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellSecondaryMarket, Source::CellDep);
@@ -23,8 +23,8 @@ pub fn init(action: &str) -> TemplateGenerator {
 pub fn init_with_timestamp(action: &str) -> TemplateGenerator {
     let mut template = init(action);
 
-    template.push_contract_cell("account-cell-type", false);
-    template.push_contract_cell("income-cell-type", false);
+    template.push_contract_cell("account-cell-type", ContractType::Contract);
+    template.push_contract_cell("income-cell-type", ContractType::Contract);
 
     template.push_oracle_cell(1, OracleCellType::Time, TIMESTAMP);
 

@@ -897,8 +897,8 @@ fn challenge_income_consolidate_wasted_capacity_3() {
 fn challenge_income_consolidate_eip712_cells_without_type_script() {
     let mut template = before();
 
-    template.push_contract_cell("fake-das-lock", true);
-    template.push_contract_cell("balance-cell-type", false);
+    template.push_contract_cell("fake-das-lock", ContractType::DeployedContract);
+    template.push_contract_cell("balance-cell-type", ContractType::Contract);
 
     // inputs
     push_input_income_cell_no_creator(

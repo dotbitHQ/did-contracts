@@ -5,10 +5,10 @@ use serde_json::json;
 fn init(action: &str) -> TemplateGenerator {
     let mut template = TemplateGenerator::new(action, Some(Bytes::from(vec![0])));
 
-    template.push_contract_cell("fake-das-lock", true);
-    template.push_contract_cell("fake-secp256k1-blake160-signhash-all", true);
-    template.push_contract_cell("eip712-lib", false);
-    template.push_contract_cell("balance-cell-type", false);
+    template.push_contract_cell("fake-das-lock", ContractType::DeployedContract);
+    template.push_contract_cell("fake-secp256k1-blake160-signhash-all", ContractType::DeployedContract);
+    template.push_contract_cell("eip712-lib", ContractType::Contract);
+    template.push_contract_cell("balance-cell-type", ContractType::Contract);
 
     template.push_config_cell(DataType::ConfigCellMain, Source::CellDep);
 
