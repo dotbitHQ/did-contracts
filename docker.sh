@@ -190,13 +190,13 @@ build-all)
 test-debug)
   switch_target_dir docker
   echo "Run test with name: $2"
-  docker exec -it -w /code $DOCKER_CONTAINER bash -c "cargo test -p tests $2 -- --nocapture"
+  docker exec -it -w /code -e BINARY_VERSION=debug $DOCKER_CONTAINER bash -c "cargo test -p tests $2 -- --nocapture"
   switch_target_dir host
   ;;
 test)
   switch_target_dir docker
   echo "Run test with name: $2"
-  docker exec -it -w /code $DOCKER_CONTAINER bash -c "cargo test -p tests $2"
+  docker exec -it -w /code -e BINARY_VERSION=debug $DOCKER_CONTAINER bash -c "cargo test -p tests $2"
   switch_target_dir host
   ;;
 test-release)

@@ -1,5 +1,5 @@
 use super::{constants::*, error::*, util};
-use crate::{util::template_generator::TemplateGenerator, Loader};
+use crate::{util::template_generator::TemplateGenerator};
 use ckb_chain_spec::consensus::TYPE_ID_CODE_HASH;
 use ckb_hash::blake2b_256;
 use ckb_mock_tx_types::*;
@@ -20,14 +20,28 @@ use das_types_std::{
     prelude::{Builder, Entity},
 };
 use serde_json::Value;
-use std::{
-    cell::Cell,
-    collections::{hash_map::RandomState, HashMap, HashSet},
-    error::Error as StdError,
-    fmt::Debug,
-    fs::File,
-    io::Read,
-};
+use std::{cell::Cell, collections::{hash_map::RandomState, HashMap, HashSet}, error::Error as StdError, fmt::Debug, fs::File, io::Read, env, fs};
+use std::path::PathBuf;
+use std::str::FromStr;
+
+const BINARY_VERSION: &str = "BINARY_VERSION";
+
+pub enum BinaryVersion {
+    Debug,
+    Release,
+}
+
+impl FromStr for BinaryVersion {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "debug" => Ok(BinaryVersion::Debug),
+            "release" => Ok(BinaryVersion::Release),
+            _ => Err("Environment variable BINARY_VERSION only support \"debug\" and \"release\"."),
+        }
+    }
+}
 
 pub fn test_tx(tx: Value) {
     // println!("Transaction template: {}", serde_json::to_string_pretty(&tx).unwrap());
@@ -560,11 +574,7 @@ impl TemplateParser {
         deployed: bool,
         index_opt: Option<usize>,
     ) -> (Byte32, OutPoint, CellDep, CellOutput, bytes::Bytes) {
-        let file: bytes::Bytes = if deployed {
-            Loader::with_deployed_scripts().load_binary(binary_name)
-        } else {
-            Loader::default().load_binary(binary_name)
-        };
+        let file = self.load_binary(binary_name, deployed);
 
         let args = {
             // Padding args to 32 bytes, because it is convenient to use 32 bytes as the real args are also 32 bytes.
@@ -612,11 +622,7 @@ impl TemplateParser {
         deployed: bool,
         index_opt: Option<usize>,
     ) -> (Byte32, OutPoint, CellDep, CellOutput, bytes::Bytes) {
-        let file: bytes::Bytes = if deployed {
-            Loader::with_deployed_scripts().load_binary(binary_name)
-        } else {
-            Loader::default().load_binary(binary_name)
-        };
+        let file = self.load_binary(binary_name, deployed);
 
         let hash = blake2b_256(file.clone());
         let mut inner = [Byte::new(0); 32];
@@ -634,6 +640,37 @@ impl TemplateParser {
             .build();
 
         (code_hash, out_point, cell_dep, cell_output, file)
+    }
+
+    fn load_binary(&self, name: &str, is_deployed: bool) -> bytes::Bytes {
+        let current_dir = env::current_dir().unwrap();
+        let mut file_path = PathBuf::new();
+
+        if is_deployed {
+            file_path.push(current_dir);
+            file_path.push("..");
+            file_path.push("deployed-scripts");
+        } else {
+            let binary_version = match env::var(BINARY_VERSION) {
+                Ok(val) => val.parse().expect("Binary version should be one of debug and release."),
+                Err(_) => BinaryVersion::Debug,
+            };
+            let binary_dir = match binary_version {
+                BinaryVersion::Debug => "debug",
+                BinaryVersion::Release => "release",
+            };
+
+            file_path.push(current_dir);
+            file_path.push("..");
+            file_path.push("build");
+            file_path.push(binary_dir);
+        }
+
+        file_path.push(name);
+
+        fs::read(file_path.as_path())
+            .expect(&format!("Can not load binary of {} from path {}.", name, file_path.display()))
+            .into()
     }
 }
 
