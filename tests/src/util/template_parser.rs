@@ -129,6 +129,7 @@ pub struct TemplateParser {
     template: Value,
     type_id_map: HashMap<String, Byte32>,
     tx_builder: Cell<TransactionBuilder>,
+    mock_header_deps: Vec<HeaderView>,
     mock_cell_deps: Vec<MockCellDep>,
     mock_inputs: Vec<MockInput>,
     max_cycles: u64,
@@ -142,6 +143,7 @@ impl TemplateParser {
             template,
             type_id_map: TemplateParser::init_type_id_map(),
             tx_builder: Cell::new(TransactionBuilder::default()),
+            mock_header_deps: vec![],
             mock_cell_deps: vec![],
             mock_inputs: vec![],
             max_cycles,
@@ -157,6 +159,7 @@ impl TemplateParser {
             template,
             type_id_map: TemplateParser::init_type_id_map(),
             tx_builder: Cell::new(TransactionBuilder::default()),
+            mock_header_deps: vec![],
             mock_cell_deps: vec![],
             mock_inputs: vec![],
             max_cycles,
@@ -168,6 +171,7 @@ impl TemplateParser {
             template,
             type_id_map: TemplateParser::init_type_id_map(),
             tx_builder: Cell::new(TransactionBuilder::default()),
+            mock_header_deps: vec![],
             mock_cell_deps: vec![],
             mock_inputs: vec![],
             max_cycles,
@@ -187,6 +191,9 @@ impl TemplateParser {
     pub fn try_parse(&mut self) -> Result<(), Box<dyn StdError>> {
         let to_owned = |v: &Vec<Value>| -> Vec<Value> { v.to_owned() };
 
+        if let Some(header_deps) = self.template["header_deps"].as_array().map(to_owned) {
+            self.parse_header_deps(header_deps)?
+        }
         if let Some(cell_deps) = self.template["cell_deps"].as_array().map(to_owned) {
             self.parse_cell_deps(cell_deps)?
         }
@@ -207,7 +214,7 @@ impl TemplateParser {
         let builder = self.tx_builder.take();
         let tx = builder.build();
         let mock_info = MockInfo {
-            header_deps: Vec::new(),
+            header_deps: self.mock_header_deps.drain(0..).collect(),
             cell_deps: self.mock_cell_deps.drain(0..).collect(),
             inputs: self.mock_inputs.drain(0..).collect(),
         };
@@ -231,6 +238,76 @@ impl TemplateParser {
             Ok(cycles) => Ok((cycles, tx)),
             Err(err) => Err(format!("Verify script error: {:?}", err.to_string())),
         }
+    }
+
+    /// The header_deps should be an array of objects like below:
+    ///
+    /// ```json
+    /// [
+    ///     {
+    ///         "version": "0x0"
+    ///         "number": "0x1c526b",
+    ///         "timestamp": "0x179f5e91cb9",
+    ///         "epoch": "0x50903410008fb",
+    ///         "transactions_root": "0xd5439ebffae718cab0fc837fb7b03a06253c250bcae8a2933ac820580a675560",
+    ///         "hash": "0x24e33cfffb2658d32ed61b55ee156ad7288e0980b72416bf3a9ce11ecc2c737a",
+    ///         "extra_hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    ///         "nonce": "0xb13000f771a12a98d82d62d2d6dfe382",
+    ///         "parent_hash": "0x9fed43a51ae94c039e29602b46d25483c7b6a46cbce48559a3040440e6c12d5d",
+    ///         "proposals_hash": "0x1bc5abcadf5b34bcc85b00c4c4afd0d6b01d0c0ca11f8ca34241838d12b9df04",
+    ///         "compact_target": "0x1d17319c",
+    ///         "dao": "0xece20aa8185bb5368aedb6e329ee24001603723bfefdae0100290badf10d4507",
+    ///     },
+    ///     ...
+    /// ]
+    /// ```
+    ///
+    /// These fields are all optional, and it will be compiled to a RawHeader object in molecule finally.
+    fn parse_header_deps(&mut self, header_deps: Vec<Value>) -> Result<(), Box<dyn StdError>> {
+        let mut mocked_header_deps = vec![];
+
+        for (i, item) in header_deps.into_iter().enumerate() {
+            let version = util::parse_json_u32(&format!("header_deps[{}].version", i), &item["version"], Some(0));
+            let number = if item["number"].is_null() {
+                util::parse_json_u64(&format!("header_deps[{}].height", i), &item["height"], Some(0))
+            } else {
+                util::parse_json_u64(&format!("header_deps[{}].number", i), &item["number"], Some(0))
+            };
+            let timestamp = util::parse_json_u64(&format!("header_deps[{}].timestamp", i), &item["timestamp"], Some(0));
+            let epoch = util::parse_json_u64(&format!("header_deps[{}].epoch", i), &item["epoch"], Some(0));
+
+            let transactions_root_raw = util::parse_json_hex_with_default(
+                &format!("header_deps[{}].transactions_root", i),
+                &item["transactions_root"],
+                vec![0u8; 32]
+            );
+            let transactions_root = match Byte32::from_slice(&transactions_root_raw) {
+                Ok(transactions_root) => transactions_root,
+                Err(err) => return Err(format!("Parse transactions_root error: {:?}", err).into()),
+            };
+
+            let raw_header = RawHeaderBuilder::default()
+                .version(version.pack())
+                .number(number.pack())
+                .timestamp(timestamp.pack())
+                .epoch(epoch.pack())
+                .transactions_root(transactions_root)
+                .build();
+            let header = Header::new_builder()
+                .raw(raw_header)
+                .nonce(Uint128::default())
+                .build();
+            let header_view = header.into_view();
+            let hash = header_view.hash();
+            self.mock_header_deps.push(header_view);
+
+            mocked_header_deps.push(hash);
+        }
+
+        let builder = self.tx_builder.take();
+        self.tx_builder.set(builder.set_header_deps(mocked_header_deps));
+
+        Ok(())
     }
 
     fn parse_cell_deps(&mut self, cell_deps: Vec<Value>) -> Result<(), Box<dyn StdError>> {
@@ -294,7 +371,6 @@ impl TemplateParser {
         let builder = self.tx_builder.take();
         self.tx_builder.set(builder.set_cell_deps(mocked_cell_deps));
 
-        // eprintln!("Parse self.contracts = {:#?}", self.contracts);
         Ok(())
     }
 
@@ -314,44 +390,15 @@ impl TemplateParser {
                                 err.to_string()
                             )
                         })?;
-
-                    // parse inputs[].since as a mock cell
-                    let mut since_opt = None;
-                    if !item["since"].is_null() {
-                        if item["since"].is_number() {
-                            since_opt = item["since"].as_u64();
-                        } else {
-                            since_opt = match item["since"].as_str() {
-                                Some(hex) => match util::hex_to_u64(hex) {
-                                    Ok(since) => Some(since),
-                                    Err(e) => {
-                                        return Err(format!(
-                                            "Parse `inputs[{}].since` to u64 failed: {}",
-                                            i,
-                                            e.to_string()
-                                        )
-                                        .into());
-                                    }
-                                },
-                                None => {
-                                    return Err(
-                                        format!("Field `inputs[{}].since` is not a valid hex string.", i).into()
-                                    );
-                                }
-                            };
-                        }
-                    }
+                    // parse inputs[].since
+                    let since = util::parse_json_u64("cell.inputs.since", &item["since"], Some(0));
 
                     // Generate static out point for debugging purposes, and it use the space of 1_000_000 to u64::Max.
                     let out_point = self.mock_out_point(i + 1_000_000);
-                    let cell_input = if let Some(since) = since_opt {
-                        CellInput::new_builder()
-                            .previous_output(out_point.clone())
-                            .since(since.pack())
-                            .build()
-                    } else {
-                        CellInput::new_builder().previous_output(out_point.clone()).build()
-                    };
+                    let cell_input = CellInput::new_builder()
+                        .previous_output(out_point.clone())
+                        .since(since.pack())
+                        .build();
                     let cell_output = CellOutput::new_builder()
                         .capacity(capacity.pack())
                         .lock(lock_script)
@@ -439,13 +486,7 @@ impl TemplateParser {
         source: Source,
     ) -> Result<(u64, Script, Option<Script>, bytes::Bytes), Box<dyn StdError>> {
         // parse capacity of cell
-        let capacity: u64;
-        if cell["capacity"].is_number() {
-            capacity = cell["capacity"].as_u64().ok_or("Field `cell.capacity` is required.")?;
-        } else {
-            let hex = cell["capacity"].as_str().ok_or("Field `cell.capacity` is required.")?;
-            capacity = util::hex_to_u64(hex).expect("Field `cell.capacity` is not valid u64 in hex.");
-        }
+        let capacity = util::parse_json_u64("cell.capacity", &cell["capacity"], None);
 
         // parse lock script and type script of cell
         let lock_script = self
@@ -539,14 +580,7 @@ impl TemplateParser {
     }
 
     fn mock_out_point(&self, index: usize) -> OutPoint {
-        let index_bytes = (index as u64).to_be_bytes().to_vec();
-        let tx_hash_bytes = [
-            vec![0u8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            index_bytes,
-        ]
-        .concat();
-        let tx_hash = Byte32::from_slice(&tx_hash_bytes).expect("The input of Byte32::from_slice is invalid.");
-
+        let tx_hash = index_to_byte32(index);
         OutPoint::new_builder().index(0u32.pack()).tx_hash(tx_hash).build()
     }
 
@@ -650,6 +684,17 @@ impl TemplateParser {
             ))
             .into()
     }
+}
+
+fn index_to_byte32(index: usize) -> Byte32 {
+    let index_bytes = (index as u64).to_be_bytes().to_vec();
+    let padding_bytes = [
+        vec![0u8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        index_bytes,
+    ]
+    .concat();
+
+    Byte32::from_slice(&padding_bytes).expect("The Byte32::from_slice(&tx_hash_bytes) should always succeed.")
 }
 
 pub struct DummyResourceLoader {}
