@@ -1,7 +1,7 @@
 use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
 use alloc::string::String;
-use core::convert::TryInto;
+use core::convert::{TryFrom, TryInto};
 use core::result::Result;
 
 use ckb_std::ckb_constants::Source;
@@ -10,6 +10,7 @@ use das_core::constants::*;
 use das_core::error::*;
 use das_core::witness_parser::WitnessesParser;
 use das_core::{assert, code_to_error, data_parser, debug, util, verifiers, warn};
+use das_types::constants::*;
 use das_types::mixer::PreAccountCellDataReaderMixer;
 use das_types::packed::*;
 use das_types::prelude::*;
@@ -133,7 +134,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             }
 
             let config_release = parser.configs.release()?;
-            match verify_account_release_status(config_release, &pre_account_cell_witness_reader) {
+            match verify_account_release_status(timestamp, config_release, &pre_account_cell_witness_reader) {
                 Ok(_) => {}
                 Err(err) => {
                     if err.as_i8() == ErrorCode::AccountStillCanNotBeRegister as i8 && cells_with_super_lock.len() > 0 {
@@ -533,6 +534,7 @@ fn verify_account_length_and_years<'a>(
 }
 
 fn verify_account_release_status<'a>(
+    timestamp: u64,
     config_release: ConfigCellReleaseReader,
     reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>,
 ) -> Result<(), Box<dyn ScriptError>> {
@@ -541,6 +543,47 @@ fn verify_account_release_status<'a>(
     if reader.account().len() >= 10 {
         debug!("Ths account contains more than 9 characters, skip verification.");
         return Ok(());
+    }
+
+    // 1666094400 is 2022-10-18 12:00:00 UTC.
+    if timestamp >= 1666094400 {
+        debug!("It is after 2022-10-18 12:00:00 UTC now, start fully released char-sets verification.");
+
+        let account_chars = reader.account();
+        // Only if all characters are the same char-set, the account_char_set will have value.
+        let mut account_char_set = None;
+        for char in account_chars.iter() {
+            let char_set = CharSetType::try_from(char.char_set_name()).map_err(|_| ErrorCode::CharSetIsUndefined)?;
+            if account_char_set.is_none() {
+                account_char_set = Some(char_set);
+            } else if account_char_set != Some(char_set) {
+                account_char_set = None;
+                break;
+            }
+        }
+
+        debug!("The account_char_set is: {:?}", account_char_set);
+
+        let completely_released_char_set = vec![
+            CharSetType::Emoji,
+            CharSetType::Digit,
+            CharSetType::Ko,
+            CharSetType::Tr,
+            CharSetType::Th,
+            CharSetType::Vi,
+        ];
+        if let Some(char_set) = account_char_set {
+            // If the account_char_set is in while list and the account's length is greater than or equel to 4, then the account is released.
+            if account_chars.len() >= 4 && completely_released_char_set.contains(&char_set) {
+                debug!(
+                    "The account contains only one fully released char-set: {:?}, skip verification.",
+                    char_set
+                );
+                return Ok(());
+            } else {
+                debug!("The account is not fullfilled the fully released rule, continue the next verification.");
+            }
+        }
     }
 
     let account: Vec<u8> = [reader.account().as_readable(), ACCOUNT_SUFFIX.as_bytes().to_vec()].concat();

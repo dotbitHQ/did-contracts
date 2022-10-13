@@ -279,7 +279,7 @@ impl TemplateParser {
             let transactions_root_raw = util::parse_json_hex_with_default(
                 &format!("header_deps[{}].transactions_root", i),
                 &item["transactions_root"],
-                vec![0u8; 32]
+                vec![0u8; 32],
             );
             let transactions_root = match Byte32::from_slice(&transactions_root_raw) {
                 Ok(transactions_root) => transactions_root,
@@ -293,10 +293,7 @@ impl TemplateParser {
                 .epoch(epoch.pack())
                 .transactions_root(transactions_root)
                 .build();
-            let header = Header::new_builder()
-                .raw(raw_header)
-                .nonce(Uint128::default())
-                .build();
+            let header = Header::new_builder().raw(raw_header).nonce(Uint128::default()).build();
             let header_view = header.into_view();
             let hash = header_view.hash();
             self.mock_header_deps.push(header_view);
