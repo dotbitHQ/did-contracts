@@ -1,19 +1,19 @@
-use super::{
-    assert,
-    constants::*,
-    debug,
-    error::Error,
-    types::{Configs, LockScriptTypeIdTable},
-    util, warn,
-};
-use alloc::{collections::btree_map::BTreeMap, string::ToString};
-use ckb_std::{ckb_constants::Source, error::SysError, syscalls};
+use alloc::boxed::Box;
+use alloc::collections::btree_map::BTreeMap;
+use alloc::string::ToString;
 use core::convert::{TryFrom, TryInto};
-use das_types::{
-    constants::{DataType, WITNESS_HEADER, WITNESS_HEADER_BYTES, WITNESS_LENGTH_BYTES, WITNESS_TYPE_BYTES},
-    packed::*,
-    prelude::*,
-};
+
+use ckb_std::ckb_constants::Source;
+use ckb_std::error::SysError;
+use ckb_std::syscalls;
+use das_types::constants::{DataType, WITNESS_HEADER, WITNESS_HEADER_BYTES, WITNESS_LENGTH_BYTES, WITNESS_TYPE_BYTES};
+use das_types::packed::*;
+use das_types::prelude::*;
+
+use super::constants::*;
+use super::error::*;
+use super::types::{Configs, LockScriptTypeIdTable};
+use super::{assert, code_to_error, debug, util, warn};
 
 #[derive(Debug)]
 pub struct WitnessesParser {
@@ -35,7 +35,7 @@ impl WitnessesParser {
         data_type_in_int >= 100 && data_type_in_int <= 199999
     }
 
-    pub fn new() -> Result<Self, Error> {
+    pub fn new() -> Result<Self, Box<dyn ScriptError>> {
         let mut witnesses = Vec::new();
         let mut config_witnesses = BTreeMap::new();
         let mut i = 0;
@@ -49,15 +49,17 @@ impl WitnessesParser {
                 Ok(_) => i += 1,
                 Err(SysError::LengthNotEnough(_)) => {
                     if let Some(raw) = buf.get(..WITNESS_HEADER_BYTES) {
-                        if raw != &WITNESS_HEADER {
-                            assert!(
-                                !das_witnesses_started,
-                                Error::WitnessStructureError,
-                                "The witnesses of DAS must at the end of witnesses field and next to each other."
-                            );
-
-                            i += 1;
-                            continue;
+                        if das_witnesses_started {
+                            // If it is parsing DAS witnesses currently, end the parsing.
+                            if raw != &WITNESS_HEADER {
+                                break;
+                            }
+                        } else {
+                            // If it is not parsing DAS witnesses currently, continue to detect the next witness.
+                            if raw != &WITNESS_HEADER {
+                                i += 1;
+                                continue;
+                            }
                         }
                     }
 
@@ -75,7 +77,7 @@ impl WitnessesParser {
                             if !das_witnesses_started {
                                 assert!(
                                     data_type == DataType::ActionData,
-                                    Error::WitnessStructureError,
+                                    ErrorCode::WitnessStructureError,
                                     "The first DAS witness must be the type of DataType::ActionData ."
                                 );
                                 das_witnesses_started = true
@@ -84,7 +86,7 @@ impl WitnessesParser {
                             // If there is any ConfigCells in cell_deps, store its index and expected witness hash.
                             if Self::is_config_data_type(&data_type) {
                                 debug!(
-                                    "witnesses[{}] The witness of {:?} is think of ConfigCell.",
+                                    "witnesses[{:>2}] Presume that the type of the witness is {:?} .",
                                     i, data_type
                                 );
 
@@ -100,8 +102,8 @@ impl WitnessesParser {
                                     // For any type of ConfigCell, there should be one Cell in the cell_deps, no more and no less.
                                     assert!(
                                         config_cells.len() == 1,
-                                        Error::ConfigCellIsRequired,
-                                        "witnesses[{}] There should be only one {:?} in cell_deps. (find_condition: {})",
+                                        ErrorCode::ConfigCellIsRequired,
+                                        "witnesses[{:>2}] There should be only one {:?} in cell_deps. (find_condition: {})",
                                         i,
                                         data_type,
                                         type_script
@@ -110,8 +112,8 @@ impl WitnessesParser {
                                     let data = util::load_cell_data(config_cells[0], Source::CellDep)?;
                                     assert!(
                                         data.len() >= 32,
-                                        Error::WitnessStructureError,
-                                        "witnesses[{}] The witness of {:?} should have at least 32 bytes.",
+                                        ErrorCode::WitnessStructureError,
+                                        "witnesses[{:>2}] The witness of {:?} should have at least 32 bytes.",
                                         i,
                                         data_type
                                     );
@@ -137,7 +139,7 @@ impl WitnessesParser {
                     i += 1;
                 }
                 Err(SysError::IndexOutOfBound) => break,
-                Err(e) => return Err(Error::from(e)),
+                Err(e) => return Err(Box::new(Error::<ErrorCode>::from(e))),
             }
         }
 
@@ -161,7 +163,7 @@ impl WitnessesParser {
         })
     }
 
-    pub fn parse_action_with_params(&mut self) -> Result<Option<(&[u8], &[Bytes])>, Error> {
+    pub fn parse_action_with_params(&mut self) -> Result<Option<(&[u8], &[Bytes])>, Box<dyn ScriptError>> {
         if self.witnesses.is_empty() {
             return Ok(None);
         }
@@ -171,35 +173,37 @@ impl WitnessesParser {
 
         let action_data = ActionData::from_slice(raw.get(7..).unwrap()).map_err(|e| {
             warn!(
-                "Decoding witnesses[{}](expected to be ActionData) failed: {}",
+                "witnesses[{:>2}] Decoding failed (expected to be ActionData): {}",
                 index,
                 e.to_string()
             );
-            Error::WitnessActionDecodingError
+            ErrorCode::WitnessActionDecodingError
         })?;
         let action = action_data.as_reader().action().raw_data().to_vec();
 
         let params = match action.as_slice() {
             b"buy_account" => {
                 let bytes = action_data.as_reader().params().raw_data();
-                let first_header = bytes.get(..4).ok_or(Error::ParamsDecodingError)?;
+                let first_header = bytes.get(..4).ok_or(ErrorCode::ParamsDecodingError)?;
                 let length_of_inviter_lock = u32::from_le_bytes(first_header.try_into().unwrap()) as usize;
-                let bytes_of_inviter_lock = bytes.get(..length_of_inviter_lock).ok_or(Error::ParamsDecodingError)?;
+                let bytes_of_inviter_lock = bytes
+                    .get(..length_of_inviter_lock)
+                    .ok_or(ErrorCode::ParamsDecodingError)?;
 
                 let second_header = bytes
                     .get(length_of_inviter_lock..(length_of_inviter_lock + 4))
-                    .ok_or(Error::ParamsDecodingError)?;
+                    .ok_or(ErrorCode::ParamsDecodingError)?;
                 let length_of_channel_lock = u32::from_le_bytes(second_header.try_into().unwrap()) as usize;
                 let bytes_of_channel_lock = bytes
                     .get(length_of_inviter_lock..(length_of_inviter_lock + length_of_channel_lock))
-                    .ok_or(Error::ParamsDecodingError)?;
+                    .ok_or(ErrorCode::ParamsDecodingError)?;
                 let bytes_of_role = bytes
                     .get((length_of_inviter_lock + length_of_channel_lock)..)
-                    .ok_or(Error::ParamsDecodingError)?;
+                    .ok_or(ErrorCode::ParamsDecodingError)?;
 
                 assert!(
                     bytes_of_role.len() == 1,
-                    Error::ParamsDecodingError,
+                    ErrorCode::ParamsDecodingError,
                     "The params of this action should contains a param of role at the end."
                 );
 
@@ -217,7 +221,7 @@ impl WitnessesParser {
 
                 assert!(
                     bytes.len() == 8 + 8 + 1,
-                    Error::ParamsDecodingError,
+                    ErrorCode::ParamsDecodingError,
                     "The params of this action should contains 8 bytes coin_type, 8 bytes chain_id and 1 byte role."
                 );
 
@@ -314,7 +318,7 @@ impl WitnessesParser {
         }
     }
 
-    pub fn parse_cell(&mut self) -> Result<(), Error> {
+    pub fn parse_cell(&mut self) -> Result<(), Box<dyn ScriptError>> {
         debug!("Parsing witnesses of all other cells ...");
         // witness format 1: 'das'(3) + DATA_TYPE(4) + molecule
 
@@ -328,14 +332,21 @@ impl WitnessesParser {
             let raw = util::load_das_witnesses(index)?;
 
             let data = Self::parse_data(raw.as_slice())?;
+            let mut cell_index = 0;
             if let Some(entity) = data.dep().to_opt() {
-                self.dep.push(Self::parse_entity(entity, data_type)?)
+                let entity_info = Self::parse_entity(entity, data_type)?;
+                cell_index = entity_info.0;
+                self.dep.push(entity_info)
             }
             if let Some(entity) = data.old().to_opt() {
-                self.old.push(Self::parse_entity(entity, data_type)?)
+                let entity_info = Self::parse_entity(entity, data_type)?;
+                cell_index = entity_info.0;
+                self.old.push(entity_info)
             }
             if let Some(entity) = data.new().to_opt() {
-                self.new.push(Self::parse_entity(entity, data_type)?)
+                let entity_info = Self::parse_entity(entity, data_type)?;
+                cell_index = entity_info.0;
+                self.new.push(entity_info)
             }
 
             #[cfg(all(debug_assertions))]
@@ -351,8 +362,8 @@ impl WitnessesParser {
                     source = Some(Source::Output);
                 }
                 debug!(
-                    "  Parse witnesses[{}]: {{ data_type: {:?}, source: {:?}, index: {} }}",
-                    _i, data_type, source, index
+                    "  witnesses[{:>2}] {{ data_type: {:?}, source: {:?}, index: {} }}",
+                    index, data_type, source, cell_index
                 );
             }
         }
@@ -360,7 +371,7 @@ impl WitnessesParser {
         Ok(())
     }
 
-    fn parse_data(witness: &[u8]) -> Result<Data, Error> {
+    fn parse_data(witness: &[u8]) -> Result<Data, Box<dyn ScriptError>> {
         // debug!(
         //     "witness[..3] = 0x{}",
         //     util::hex_string(witness.get(..3).unwrap())
@@ -388,22 +399,22 @@ impl WitnessesParser {
                     Ok(data) => data,
                     Err(_e) => {
                         debug!("WitnessDataDecodingError: {:?}", _e);
-                        return Err(Error::WitnessDataDecodingError);
+                        return Err(code_to_error!(ErrorCode::WitnessDataDecodingError));
                     }
                 };
                 Ok(data)
             } else {
-                Err(Error::WitnessDataReadDataBodyFailed)
+                Err(code_to_error!(ErrorCode::WitnessDataReadDataBodyFailed))
             }
         } else {
-            Err(Error::WitnessDataParseLengthHeaderFailed)
+            Err(code_to_error!(ErrorCode::WitnessDataParseLengthHeaderFailed))
         }
     }
 
     fn parse_entity(
         data_entity: DataEntity,
         data_type: DataType,
-    ) -> Result<(u32, u32, DataType, Vec<u8>, Bytes), Error> {
+    ) -> Result<(u32, u32, DataType, Vec<u8>, Bytes), Box<dyn ScriptError>> {
         let index = u32::from(data_entity.index());
         let version = u32::from(data_entity.version());
         let entity = data_entity.entity();
@@ -419,33 +430,37 @@ impl WitnessesParser {
         Ok((index, version, data_type, hash, entity))
     }
 
-    fn get(&self, index: u32, source: Source) -> Result<Option<&(u32, u32, DataType, Vec<u8>, Bytes)>, Error> {
+    fn get(
+        &self,
+        index: u32,
+        source: Source,
+    ) -> Result<Option<&(u32, u32, DataType, Vec<u8>, Bytes)>, Box<dyn ScriptError>> {
         let group = match source {
             Source::Input => &self.old,
             Source::Output => &self.new,
             Source::CellDep => &self.dep,
             _ => {
-                return Err(Error::HardCodedError);
+                return Err(code_to_error!(ErrorCode::HardCodedError));
             }
         };
 
         Ok(group.iter().find(|&(i, _, _, _, _)| *i == index))
     }
 
-    pub fn verify_hash(&self, index: usize, source: Source) -> Result<(), Error> {
+    pub fn verify_hash(&self, index: usize, source: Source) -> Result<(), Box<dyn ScriptError>> {
         let data = util::load_cell_data(index, source)?;
         let expected_hash = match data.get(..32) {
             Some(bytes) => bytes,
             _ => {
                 warn!("  {:?}[{}] Can not get entity hash from outputs_data.", source, index);
-                return Err(Error::InvalidCellData);
+                return Err(code_to_error!(ErrorCode::InvalidCellData));
             }
         };
 
         if let Some((_, _, _, _hash, _)) = self.get(index as u32, source)? {
             assert!(
                 expected_hash == _hash,
-                Error::WitnessDataHashOrTypeMissMatch,
+                ErrorCode::WitnessDataHashOrTypeMissMatch,
                 "{:?}[{}] Can not find witness.(expected_hash: 0x{}, current_hash: 0x{})",
                 source,
                 index,
@@ -460,7 +475,7 @@ impl WitnessesParser {
                 index,
                 util::hex_string(expected_hash)
             );
-            return Err(Error::WitnessDataIndexMissMatch);
+            return Err(code_to_error!(ErrorCode::WitnessDataIndexMissMatch));
         }
 
         Ok(())
@@ -471,13 +486,19 @@ impl WitnessesParser {
         data_type: DataType,
         index: usize,
         source: Source,
-    ) -> Result<(u32, DataType, &Bytes), Error> {
-        let data = util::load_cell_data(index, source)?;
+    ) -> Result<(u32, DataType, &Bytes), Box<dyn ScriptError>> {
+        let data = match util::load_cell_data(index, source) {
+            Ok(data) => data,
+            _ => {
+                debug!("  {:?}[{}] Can not get outputs_data.", source, index);
+                return Err(code_to_error!(ErrorCode::InvalidCellData));
+            }
+        };
         let hash = match data.get(..32) {
             Some(bytes) => bytes,
             _ => {
                 warn!("  {:?}[{}] Can not get entity hash from outputs_data.", source, index);
-                return Err(Error::InvalidCellData);
+                return Err(code_to_error!(ErrorCode::InvalidCellData));
             }
         };
 
@@ -490,7 +511,7 @@ impl WitnessesParser {
         data_type: DataType,
         index: usize,
         source: Source,
-    ) -> Result<(u32, DataType, &Bytes), Error> {
+    ) -> Result<(u32, DataType, &Bytes), Box<dyn ScriptError>> {
         let version;
         let entity;
         if let Some((_, _version, _data_type, _hash, _entity)) = self.get(index as u32, source)? {
@@ -509,7 +530,7 @@ impl WitnessesParser {
                     util::hex_string(_hash.as_slice()),
                     util::hex_string(_entity.as_reader().raw_data())
                 );
-                return Err(Error::WitnessDataHashOrTypeMissMatch);
+                return Err(code_to_error!(ErrorCode::WitnessDataHashOrTypeMissMatch));
             }
         } else {
             // This error means the there is no witness.data.dep/old/new.index matches the index of the cell.
@@ -519,7 +540,7 @@ impl WitnessesParser {
                 index,
                 util::hex_string(expected_hash)
             );
-            return Err(Error::WitnessDataIndexMissMatch);
+            return Err(code_to_error!(ErrorCode::WitnessDataIndexMissMatch));
         }
 
         Ok((version, data_type, entity))

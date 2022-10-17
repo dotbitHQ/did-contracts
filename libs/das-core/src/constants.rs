@@ -1,16 +1,12 @@
-use super::types::ScriptLiteral;
-use super::util;
-use alloc::{vec, vec::Vec};
-use ckb_std::ckb_types::packed::*;
+use alloc::vec;
+use alloc::vec::Vec;
 
+pub use ckb_std::ckb_types::core::ScriptHashType;
+use ckb_std::ckb_types::packed::*;
 pub use das_dynamic_libs::constants::DasLockType;
 
-#[derive(Debug)]
-#[repr(u8)]
-pub enum ScriptHashType {
-    Data = 0,
-    Type = 1,
-}
+use super::types::ScriptLiteral;
+use super::util;
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum ScriptType {
@@ -71,6 +67,7 @@ pub const ACCOUNT_SUFFIX: &str = ".bit";
 pub const ACCOUNT_MAX_PRICED_LENGTH: u8 = 8;
 
 pub const CUSTOM_KEYS_NAMESPACE: &[u8] = b"0123456789abcdefghijklmnopqrstuvwxyz_";
+pub const COIN_TYPE_DIGITS: &[u8] = b"0123456789";
 
 pub const SECP_SIGNATURE_SIZE: usize = 65;
 // This is smaller than the real data type in solidity, but it is enough for now.
@@ -87,12 +84,16 @@ pub const CROSS_CHAIN_BLACK_ARGS: [u8; 42] = [
     0, 0, 0, 0,
 ];
 
+pub const TYPE_ID_CODE_HASH: [u8; 32] = [
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 84, 89, 80, 69, 95, 73, 68,
+];
+
 pub fn super_lock() -> Script {
     #[cfg(feature = "dev")]
     let super_lock = ScriptLiteral {
         code_hash: [
-            220, 52, 236, 86, 192, 214, 236, 100, 200, 246, 111, 20, 221, 83, 241, 188, 234, 8, 213, 78, 212, 233, 68,
-            96, 104, 22, 180, 238, 149, 190, 150, 70,
+            143, 45, 124, 176, 101, 18, 242, 119, 114, 7, 70, 29, 16, 11, 5, 98, 176, 33, 50, 50, 161, 189, 112, 38,
+            30, 87, 243, 127, 220, 97, 72, 61,
         ],
         hash_type: ScriptHashType::Type,
         args: vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -124,9 +125,7 @@ pub fn super_lock() -> Script {
 
     #[cfg(feature = "mainnet")]
     let super_lock = ScriptLiteral {
-        code_hash: [
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        ],
+        code_hash: [0; 32],
         hash_type: ScriptHashType::Type,
         args: vec![],
     };
@@ -138,8 +137,8 @@ pub fn das_wallet_lock() -> Script {
     #[cfg(feature = "dev")]
     let das_wallet_lock = ScriptLiteral {
         code_hash: [
-            220, 52, 236, 86, 192, 214, 236, 100, 200, 246, 111, 20, 221, 83, 241, 188, 234, 8, 213, 78, 212, 233, 68,
-            96, 104, 22, 180, 238, 149, 190, 150, 70,
+            143, 45, 124, 176, 101, 18, 242, 119, 114, 7, 70, 29, 16, 11, 5, 98, 176, 33, 50, 50, 161, 189, 112, 38,
+            30, 87, 243, 127, 220, 97, 72, 61,
         ],
         hash_type: ScriptHashType::Type,
         args: vec![3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -186,8 +185,8 @@ pub fn das_lock() -> Script {
     #[cfg(feature = "dev")]
     let das_lock: ScriptLiteral = ScriptLiteral {
         code_hash: [
-            205, 40, 154, 109, 104, 202, 150, 182, 184, 223, 137, 231, 33, 174, 176, 147, 80, 219, 87, 105, 165, 228,
-            105, 8, 223, 199, 151, 219, 191, 42, 131, 95,
+            235, 210, 202, 67, 121, 125, 241, 234, 226, 31, 90, 13, 32, 160, 154, 56, 81, 190, 171, 6, 60, 160, 109,
+            123, 134, 161, 225, 232, 239, 156, 118, 152,
         ],
         hash_type: ScriptHashType::Type,
         args: Vec::new(),
@@ -216,7 +215,8 @@ pub fn das_lock() -> Script {
     #[cfg(feature = "mainnet")]
     let das_lock: ScriptLiteral = ScriptLiteral {
         code_hash: [
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            147, 118, 195, 181, 129, 25, 66, 150, 10, 132, 102, 145, 225, 110, 71, 124, 244, 61, 124, 127, 166, 84, 6,
+            124, 153, 72, 223, 205, 9, 163, 33, 55,
         ],
         hash_type: ScriptHashType::Type,
         args: Vec::new(),
@@ -227,7 +227,7 @@ pub fn das_lock() -> Script {
 
 pub fn cross_chain_lock() -> Script {
     #[cfg(not(feature = "mainnet"))]
-        let cross_chain_lock: ScriptLiteral = ScriptLiteral {
+    let cross_chain_lock: ScriptLiteral = ScriptLiteral {
         code_hash: [
             92, 80, 105, 235, 8, 87, 239, 198, 94, 27, 202, 12, 7, 223, 52, 195, 22, 99, 179, 98, 47, 211, 135, 108,
             135, 99, 32, 252, 150, 52, 226, 168,
@@ -239,7 +239,7 @@ pub fn cross_chain_lock() -> Script {
     };
 
     #[cfg(feature = "mainnet")]
-        let cross_chain_lock: ScriptLiteral = ScriptLiteral {
+    let cross_chain_lock: ScriptLiteral = ScriptLiteral {
         code_hash: [
             92, 80, 105, 235, 8, 87, 239, 198, 94, 27, 202, 12, 7, 223, 52, 195, 22, 99, 179, 98, 47, 211, 135, 108,
             135, 99, 32, 252, 150, 52, 226, 168,
@@ -382,8 +382,8 @@ pub fn quote_cell_type() -> Script {
 #[cfg(feature = "dev")]
 pub const CONFIG_CELL_TYPE: ScriptLiteral = ScriptLiteral {
     code_hash: [
-        8, 107, 220, 190, 240, 171, 98, 141, 49, 174, 209, 231, 186, 162, 100, 22, 211, 189, 225, 226, 66, 165, 164,
-        125, 221, 174, 192, 110, 135, 229, 149, 208,
+        123, 140, 211, 76, 213, 227, 55, 74, 169, 223, 172, 16, 140, 241, 35, 54, 233, 49, 147, 62, 137, 47, 84, 71,
+        30, 70, 159, 193, 179, 26, 60, 202,
     ],
     hash_type: ScriptHashType::Type,
     args: Vec::new(),
@@ -412,7 +412,8 @@ pub const CONFIG_CELL_TYPE: ScriptLiteral = ScriptLiteral {
 #[cfg(feature = "mainnet")]
 pub const CONFIG_CELL_TYPE: ScriptLiteral = ScriptLiteral {
     code_hash: [
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        144, 59, 255, 2, 33, 183, 43, 47, 93, 84, 146, 54, 182, 49, 35, 75, 41, 79, 16, 245, 62, 108, 199, 50, 138,
+        240, 119, 118, 227, 42, 102, 64,
     ],
     hash_type: ScriptHashType::Type,
     args: Vec::new(),
@@ -426,8 +427,8 @@ pub fn always_success_lock() -> Script {
     #[cfg(feature = "dev")]
     let always_success_lock = ScriptLiteral {
         code_hash: [
-            157, 111, 41, 25, 227, 40, 243, 33, 125, 125, 211, 218, 181, 247, 206, 233, 216, 224, 98, 190, 230, 168,
-            13, 93, 5, 205, 73, 92, 163, 65, 99, 120,
+            52, 240, 82, 252, 69, 95, 206, 124, 113, 244, 144, 95, 34, 54, 83, 165, 251, 230, 66, 97, 198, 178, 83,
+            113, 36, 222, 0, 241, 213, 40, 32, 233,
         ],
         hash_type: ScriptHashType::Type,
         args: Vec::new(),
@@ -471,8 +472,8 @@ pub fn signall_lock() -> Script {
     let signall_lock = ScriptLiteral {
         // CAREFUL: If you edit the code_hash here, you need also make the code_hash in fn das_wallet_lock() consistent.
         code_hash: [
-            220, 52, 236, 86, 192, 214, 236, 100, 200, 246, 111, 20, 221, 83, 241, 188, 234, 8, 213, 78, 212, 233, 68,
-            96, 104, 22, 180, 238, 149, 190, 150, 70,
+            143, 45, 124, 176, 101, 18, 242, 119, 114, 7, 70, 29, 16, 11, 5, 98, 176, 33, 50, 50, 161, 189, 112, 38,
+            30, 87, 243, 127, 220, 97, 72, 61,
         ],
         hash_type: ScriptHashType::Type,
         args: Vec::new(),

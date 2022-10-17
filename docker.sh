@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 
 # Docker image name
-DOCKER_IMAGE="thewawar/ckb-capsule:2021-08-16"
+DOCKER_IMAGE="thewawar/ckb-capsule:2022-08-01"
+COMPILING_TARGET="riscv64imac-unknown-none-elf"
+COMPILING_FLAGS="-Z pre-link-arg=-zseparate-code -Z pre-link-arg=-zseparate-loadable-segments"
+COMPILING_RELEASE_FLAGS="-C link-arg=-s"
 # Docker container name
 DOCKER_CONTAINER="capsule-dev"${PWD//\//_}
 # Name of capsule cache volume
@@ -12,6 +15,8 @@ function is_feature_available() {
   dev | local | testnet2 | testnet3 | mainnet) ;;
 
   *)
+    switch_target_dir host
+
     echo "Feature $1 is invalid, please choose one of dev|local|testnet2|testnet3|mainnet ."
     exit 1
     ;;
@@ -66,30 +71,34 @@ function build() {
   #    exit 0
 
   if [[ ! -d contracts/$contract ]]; then
+    switch_target_dir host
+
     echo "Contract ${contract} is not exists, please check for spelling errors."
     exit 1
   fi
 
   if [[ $is_release == true ]]; then
-    command="RUSTFLAGS=\"-Z pre-link-arg=-zseparate-code -Z pre-link-arg=-zseparate-loadable-segments\" cargo build --release --features \"${feature}\" --target riscv64imac-unknown-none-elf && ckb-binary-patcher -i /code/target/riscv64imac-unknown-none-elf/release/${contract} -o /code/target/riscv64imac-unknown-none-elf/release/${contract}"
+    command="RUSTFLAGS=\"${COMPILING_FLAGS} ${COMPILING_RELEASE_FLAGS}\" cargo build --release --features \"${feature}\" --target ${COMPILING_TARGET} && ckb-binary-patcher -i /code/target/${COMPILING_TARGET}/release/${contract} -o /code/target/${COMPILING_TARGET}/release/${contract}"
     echo "Run build command: "$command
 
     # Build release version
     docker exec -it -w /code/contracts/$contract $DOCKER_CONTAINER bash -c "${command}" &&
       docker exec -it -w /code $DOCKER_CONTAINER bash -c \
-        "cp /code/target/riscv64imac-unknown-none-elf/release/${contract} /code/build/release/"
+        "cp /code/target/${COMPILING_TARGET}/release/${contract} /code/build/release/"
   else
-    command="RUSTFLAGS=\"-Z pre-link-arg=-zseparate-code -Z pre-link-arg=-zseparate-loadable-segments\" cargo build --features \"${feature}\" --target riscv64imac-unknown-none-elf && ckb-binary-patcher -i /code/target/riscv64imac-unknown-none-elf/debug/${contract} -o /code/target/riscv64imac-unknown-none-elf/debug/${contract}"
+    command="RUSTFLAGS=\"${COMPILING_FLAGS}\" cargo build --features \"${feature}\" --target ${COMPILING_TARGET} && ckb-binary-patcher -i /code/target/${COMPILING_TARGET}/debug/${contract} -o /code/target/${COMPILING_TARGET}/debug/${contract}"
     echo "Run build command: "$command
 
     # Build debug version
     docker exec -it -w /code/contracts/$contract $DOCKER_CONTAINER bash -c "${command}" &&
       docker exec -it -w /code $DOCKER_CONTAINER bash -c \
-        "cp /code/target/riscv64imac-unknown-none-elf/debug/${contract} /code/build/debug/"
+        "cp /code/target/${COMPILING_TARGET}/debug/${contract} /code/build/debug/"
   fi
   ret=$?
 
   if [[ $ret -ne 0 ]]; then
+    switch_target_dir host
+
     echo "Build contract failed, exit code ($ret)."
     exit $ret
   else
@@ -100,7 +109,7 @@ function build() {
 function build_all() {
   local dirs=$(ls -a contracts)
   for contract in $dirs; do
-    if [[ $contract != "." && $contract != ".." && $contract != "test-env" && $contract != "playground" && -d contracts/$contract ]]; then
+    if [[ $contract != "." && $contract != ".." && $contract != "test-env" && $contract != "test-custom-script" && $contract != "playground" && -d contracts/$contract ]]; then
       build $contract $1
     fi
   done
@@ -109,24 +118,20 @@ function build_all() {
 function switch_target_dir() {
   local expected=$1
 
-  # If none cache directory found, rename the target directory as the first cache directory.
-  if [[ ! -d target_test && ! -d target_build ]]; then
-    if [[ $expected == "target_test" ]]; then
-      mv target target_build
-    else
-      mv target target_test
+  if [[ $expected == "docker" ]]; then
+    if [[ -d target ]]; then
+      mv target target_host
     fi
-  fi
-
-  # If the expected cache directory exist, recover it as target directory.
-  if [[ -d $expected ]]; then
-    echo "Switching ${expected} to ./target ..."
-    if [[ $expected == "target_test" ]]; then
-      mv target target_build
-    else
-      mv target target_test
+    if [[ -d target_docker ]]; then
+      mv target_docker target
     fi
-    mv $expected target
+  else
+    if [[ -d target ]]; then
+      mv target target_docker
+    fi
+    if [[ -d target_host ]]; then
+      mv target_host target
+    fi
   fi
 }
 
@@ -146,8 +151,6 @@ start)
       -v ${dir}/das-types:/das-types \
       -v ${dir}/das-types-std:/das-types-std \
       -v $CACHE_VOLUME:/root/.cargo \
-      -e RUSTFLAGS="-Z pre-link-arg=-zseparate-code -Z pre-link-arg=-zseparate-loadable-segments" \
-      -e CAPSULE_TEST_ENV=debug \
       $DOCKER_IMAGE bin/bash &>/dev/null
   else
     docker run -it --rm \
@@ -157,8 +160,6 @@ start)
       -v ${dir}/das-types:/das-types \
       -v ${dir}/das-types-std:/das-types-std \
       -v $CACHE_VOLUME:/root/.cargo \
-      -e RUSTFLAGS="-Z pre-link-arg=-zseparate-code -Z pre-link-arg=-zseparate-loadable-segments" \
-      -e CAPSULE_TEST_ENV=debug \
       $DOCKER_IMAGE bin/bash
   fi
   ;;
@@ -172,32 +173,37 @@ build)
   parse_args $3 $4
   echo "Arguments: \$contract="$2 "\$is_release="$is_release "\$feature="$feature
 
-  switch_target_dir target_build
+  switch_target_dir docker
   create_output_dir
   build $2
+  switch_target_dir host
   ;;
 build-all)
   parse_args $2 $3
   echo "Arguments: \$is_release="$is_release "\$feature="$feature
 
-  switch_target_dir target_build
+  switch_target_dir docker
   create_output_dir
   build_all
+  switch_target_dir host
   ;;
 test-debug)
-  switch_target_dir target_test
+  switch_target_dir docker
   echo "Run test with name: $2"
-  docker exec -it -w /code $DOCKER_CONTAINER bash -c "cargo test -p tests $2 -- --nocapture"
+  docker exec -it -w /code -e BINARY_VERSION=debug $DOCKER_CONTAINER bash -c "cargo test -p tests $2 -- --nocapture"
+  switch_target_dir host
   ;;
 test)
-  switch_target_dir target_test
+  switch_target_dir docker
   echo "Run test with name: $2"
-  docker exec -it -w /code $DOCKER_CONTAINER bash -c "cargo test -p tests $2"
+  docker exec -it -w /code -e BINARY_VERSION=debug $DOCKER_CONTAINER bash -c "cargo test -p tests $2"
+  switch_target_dir host
   ;;
 test-release)
-  switch_target_dir target_test
+  switch_target_dir docker
   echo "Run test with name: $2"
   docker exec -it -w /code -e BINARY_VERSION=release $DOCKER_CONTAINER bash -c "cargo test -p tests $2"
+  switch_target_dir host
   ;;
 *)
   echo "Unsupported docker.sh command."

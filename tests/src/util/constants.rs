@@ -1,7 +1,8 @@
-use ckb_testtool::ckb_types::{h256, H256};
+use std::collections::HashMap;
+
+use ckb_types::{h256, H256};
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::collections::HashMap;
 
 // ⚠️ The maximum cycles on-chain is 70_000_000.
 pub const MAX_CYCLES: u64 = u64::MAX;
@@ -13,9 +14,13 @@ pub const ACCOUNT_ID_LENGTH: usize = 20;
 pub const ACCOUNT_BASIC_CAPACITY: u64 = 20_600_000_000;
 pub const ACCOUNT_PREPARED_FEE_CAPACITY: u64 = 100_000_000;
 pub const ACCOUNT_OPERATE_FEE: u64 = 10_000;
-pub const ACCOUNT_RELEASED_LENGTH: usize = 5;
+pub const ACCOUNT_EXPIRATION_GRACE_PERIOD: u64 = 2_592_000;
+// pub const ACCOUNT_EXPIRATION_AUCTION_PERIOD: u64 = 2_592_000;
+pub const ACCOUNT_EXPIRATION_AUCTION_PERIOD: u64 = 0;
+// pub const ACCOUNT_EXPIRATION_AUCTION_CONFIRMATION_PERIOD: u64 = 86400;
+pub const ACCOUNT_EXPIRATION_AUCTION_CONFIRMATION_PERIOD: u64 = 0;
 
-pub const ACCOUNT_PRICE_1_CHAR: u64 = 2000_000_000;
+pub const ACCOUNT_PRICE_1_CHAR: u64 = 0;
 pub const ACCOUNT_PRICE_2_CHAR: u64 = 1000_000_000;
 pub const ACCOUNT_PRICE_3_CHAR: u64 = 700_000_000;
 pub const ACCOUNT_PRICE_4_CHAR: u64 = 170_000_000;
@@ -24,6 +29,7 @@ pub const INVITED_DISCOUNT: u64 = 500;
 pub const CONSOLIDATING_FEE: u64 = 100;
 pub const CKB_QUOTE: u64 = 1000;
 pub const TIMESTAMP: u64 = 1611200090u64;
+pub const TIMESTAMP_20221810: u64 = 1666094400u64;
 pub const HEIGHT: u64 = 1000000u64;
 
 pub const PRE_ACCOUNT_REFUND_WAITING_TIME: u64 = 86400;
@@ -49,7 +55,10 @@ pub const REVERSE_RECORD_COMMON_FEE: u64 = 10_000;
 pub const SUB_ACCOUNT_BASIC_CAPACITY: u64 = 20_000_000_000;
 pub const SUB_ACCOUNT_PREPARED_FEE_CAPACITY: u64 = 1_000_000_000;
 pub const SUB_ACCOUNT_NEW_PRICE: u64 = 100_000_000;
+pub const SUB_ACCOUNT_NEW_CUSTOM_PRICE: u64 = 100_00_000_000;
+pub const SUB_ACCOUNT_NEW_CUSTOM_PRICE_DAS_PROFIT_RATE: u64 = 2_000;
 pub const SUB_ACCOUNT_RENEW_PRICE: u64 = 100_000_000;
+pub const SUB_ACCOUNT_RENEW_CUSTOM_PRICE_DAS_PROFIT_RATE: u64 = 2_000;
 pub const SUB_ACCOUNT_COMMON_FEE: u64 = 30_000;
 pub const SUB_ACCOUNT_CREATE_FEE: u64 = 30_000;
 pub const SUB_ACCOUNT_EDIT_FEE: u64 = 30_000;
@@ -101,28 +110,29 @@ lazy_static! {
         // fake locks
         map.insert(
             "fake-das-lock",
-            "0xcd289a6d68ca96b6b8df89e721aeb09350db5769a5e46908dfc797dbbf2a835f",
+            "0xebd2ca43797df1eae21f5a0d20a09a3851beab063ca06d7b86a1e1e8ef9c7698",
         );
         map.insert(
             "fake-secp256k1-blake160-signhash-all",
-            "0xdc34ec56c0d6ec64c8f66f14dd53f1bcea08d54ed4e944606816b4ee95be9646",
+            "0x8f2d7cb06512f2777207461d100b0562b0213232a1bd70261e57f37fdc61483d",
         );
         map.insert(
             "always_success",
-            "0x9d6f2919e328f3217d7dd3dab5f7cee9d8e062bee6a80d5d05cd495ca3416378",
+            "0x34f052fc455fce7c71f4905f223653a5fbe64261c6b2537124de00f1d52820e9",
         );
+
         map.insert(
             "always-success",
-            "0x3f67f5b5761db78ce746f0b140e0e63783fa84598e7e19a02ae8d417c0dfb882",
+            "0x610b14e8060fca49a46606bf2eaaa01f77a77daf27c22a3bec3cd13c6ceb1a60",
         );
         // types
         map.insert(
             "account-cell-type",
-            "0x3d216e5bfb54b9e2ec0f0fbb1cdf23703f550a7ec7c35264742fce69308482e1",
+            "0x8974b2101b074d7cd80ffb780c21758883fcc007fe7c39cf6556e09d2bdfd3ef",
         );
         map.insert(
             "account-sale-cell-type",
-            "0xde12ceb3f906179bf0591519d110b47f091688d69de301474bf998471fd8738e",
+            "0x1d39d4f27b890bd91d7ae7d040ae33c81f391705f5742979ce9aaf10a242f473",
         );
         map.insert(
             "account-auction-cell-type",
@@ -130,53 +140,57 @@ lazy_static! {
         );
         map.insert(
             "apply-register-cell-type",
-            "0xcac501b0a5826bffa485ccac13c2195fcdf3aa86b113203f620ddd34d3decd70",
+            "0x4712c67d41ca8071394c92cc7a022b853ffb877692ca5f473535d169555b2c46",
         );
         map.insert(
             "balance-cell-type",
-            "0x3a36a0e90097a7d353bdb27f446b6b68759cfbc8282088d8d59926f271b324af",
+            "0xfab0668d7e96e5ea3e52f9286e854c557aa10c4a33fd1f91be8a47ed94ea9e75",
         );
         map.insert(
             "config-cell-type",
-            "0x086BDCBEF0AB628D31AED1E7BAA26416D3BDE1E242A5A47DDDAEC06E87E595D0",
+            "0x7b8cd34cd5e3374aa9dfac108cf12336e931933e892f54471e469fc1b31a3cca",
         );
         map.insert(
             "income-cell-type",
-            "0x3ff05cd948339d6b841487a288fbfa137e0f66c9eda15b62e71f3d3676d6395e",
+            "0xdf11093f25adecd27f02170ce8c5fd15cd88094416a9731d0ec20cd4729f4cdc",
         );
         map.insert(
             "offer-cell-type",
-            "0xc1fee5148199d7a38eaa8ccc59fe81f0d83a1c96a5865112a49a6937ec1b5ba7",
+            "0x78fc7cd320243aede8bfb4eb70ad53804e6d36c24cad3a4b728439192e5425cb",
         );
         map.insert(
             "pre-account-cell-type",
-            "0x431a3af2d4bbcd69ab732d37be794ac0ab172c151545dfdbae1f578a7083bc84",
+            "0xf85ef3af97458169e2cca2a3faf296ac49fd3d2dea90fd35d3f9df09ab0375ea",
         );
         map.insert(
             "proposal-cell-type",
-            "0x071ee1a005b5bc1a619aed290c39bbb613ac93991eabab8418d6b0a9bdd220eb",
+            "0xebe59b46a2e053394ad18c97109783126fca6754e1d9b8d4313155da8a148e21",
         );
         map.insert(
             "reverse-record-cell-type",
-            "0x666163a5626501ca714b96cbcb4730b0a111ec2640fb432d0ba7f4ba5fa2855b",
+            "0x573b1d865799c4bcb98ebd8b75bd87ed6a6c2449c99edf0f17142f527118201e",
         );
         map.insert(
             "sub-account-cell-type",
-            "0xbdbe9526416cd0a86c7a3b78ae8907aed9fa37ef1d51d4c54638d81dd423e5b5",
+            "0xf70fb11157496e73f30fc5e781d52725a74c9fba1e7a52115d75320d171759ec",
         );
         // libs
         map.insert(
             "eip712-lib",
-            "0x4b12f102c83c05c9624f6e7bf371a3caaa75bf95ffb2e4a4916530671dd5b926",
+            "0x72ed0770c719091b424b7072fe69dc362fb8867e11df39ac6801557d8e559fcd",
         );
         // others
         map.insert(
             "test-env",
-            "0x4939a7b6baf71149795f59844c215af0c117f381ac615fe3f563e77509063e19",
+            "0x444c2ed8b24700700fcac7cdc0989e1db41380b9c79cc1cf30159e5336ba7d4a",
+        );
+        map.insert(
+            "test-custom-script",
+            "0x0c133a395b06d1bdb953f4a7f02bbd0d2eba99d3eb50de9de80ac7c741ed11e7",
         );
         map.insert(
             "playground",
-            "0x193bd634ba7196519e7374deb64a1c96be718296add1fd038d611a50aa5c6af7",
+            "0xca4d966895b1467702bad4038396b037d8c8f045cae9cf5a7db4eadefa347887",
         );
         map
     };

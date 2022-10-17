@@ -1,11 +1,10 @@
-use super::{
-    accounts::*,
-    constants::*,
-    template_generator::{gen_das_lock_args, TemplateGenerator},
-    util,
-};
 use das_types_std::constants::AccountStatus;
 use serde_json::{json, Value};
+
+use super::accounts::*;
+use super::constants::*;
+use super::template_generator::*;
+use super::util;
 
 pub fn push_input_apply_register_cell(template: &mut TemplateGenerator, cell_partial: Value) {
     let mut cell = json!({
@@ -17,7 +16,7 @@ pub fn push_input_apply_register_cell(template: &mut TemplateGenerator, cell_par
             "code_hash": "{{apply-register-cell-type}}"
         },
         "data": {
-            "account": ACCOUNT,
+            "account": ACCOUNT_1,
             "height": Value::Null,
             "timestamp": Value::Null,
         }
@@ -37,7 +36,7 @@ pub fn push_output_apply_register_cell(template: &mut TemplateGenerator, cell_pa
             "code_hash": "{{apply-register-cell-type}}"
         },
         "data": {
-            "account": ACCOUNT,
+            "account": ACCOUNT_1,
             "height": Value::Null,
             "timestamp": Value::Null,
         }
@@ -57,7 +56,7 @@ pub fn push_dep_pre_account_cell(template: &mut TemplateGenerator, cell_partial:
             "code_hash": "{{pre-account-cell-type}}"
         },
         "witness": {
-            "account": ACCOUNT,
+            "account": ACCOUNT_1,
             "refund_lock": {
                 "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
                 "args": "0x0000000000000000000000000000000000001111"
@@ -91,7 +90,7 @@ pub fn push_input_pre_account_cell(template: &mut TemplateGenerator, cell_partia
             "code_hash": "{{pre-account-cell-type}}"
         },
         "witness": {
-            "account": ACCOUNT,
+            "account": ACCOUNT_1,
             "refund_lock": {
                 "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
                 "args": OWNER_WITHOUT_TYPE
@@ -107,15 +106,21 @@ pub fn push_input_pre_account_cell(template: &mut TemplateGenerator, cell_partia
             },
             "quote": CKB_QUOTE,
             "invited_discount": INVITED_DISCOUNT,
-            "created_at": Value::Null
+            "created_at": Value::Null,
+            "initial_records": [],
+            "initial_cross_chain": {
+                "coin_type": 0,
+                "chain_id": 0,
+                "checked": 0
+            }
         }
     });
     util::merge_json(&mut cell, cell_partial);
 
-    template.push_input(cell, None);
+    template.push_input(cell, Some(3));
 }
 
-pub fn push_output_pre_account_cell(template: &mut TemplateGenerator, cell_partial: Value) {
+pub fn push_output_pre_account_cell_v1(template: &mut TemplateGenerator, cell_partial: Value) {
     let mut cell = json!({
         "capacity": util::gen_register_fee(5, false),
         "lock": {
@@ -125,7 +130,7 @@ pub fn push_output_pre_account_cell(template: &mut TemplateGenerator, cell_parti
             "code_hash": "{{pre-account-cell-type}}"
         },
         "witness": {
-            "account": ACCOUNT,
+            "account": ACCOUNT_1,
             "refund_lock": {
                 "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
                 "args": OWNER_WITHOUT_TYPE
@@ -146,7 +151,96 @@ pub fn push_output_pre_account_cell(template: &mut TemplateGenerator, cell_parti
     });
     util::merge_json(&mut cell, cell_partial);
 
-    template.push_output(cell, None);
+    template.push_output(cell, Some(1));
+}
+
+pub fn push_output_pre_account_cell_v2(template: &mut TemplateGenerator, cell_partial: Value) {
+    let mut cell = json!({
+        "capacity": util::gen_register_fee(5, false),
+        "lock": {
+            "code_hash": "{{always_success}}"
+        },
+        "type": {
+            "code_hash": "{{pre-account-cell-type}}"
+        },
+        "witness": {
+            "account": ACCOUNT_1,
+            "refund_lock": {
+                "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                "args": OWNER_WITHOUT_TYPE
+            },
+            "owner_lock_args": gen_das_lock_args(OWNER, None),
+            "inviter_id": Value::Null,
+            "inviter_lock": Value::Null,
+            "channel_lock": Value::Null,
+            "price": {
+                "length": 5,
+                "new": ACCOUNT_PRICE_5_CHAR,
+                "renew": ACCOUNT_PRICE_5_CHAR
+            },
+            "quote": CKB_QUOTE,
+            "invited_discount": 0,
+            "created_at": Value::Null,
+            "initial_records": [
+                {
+                    "type": "address",
+                    "key": "60",
+                    "label": "Personal",
+                    "value": OWNER_WITHOUT_TYPE,
+                }
+            ],
+        }
+    });
+    util::merge_json(&mut cell, cell_partial);
+
+    template.push_output(cell, Some(2));
+}
+
+pub fn push_output_pre_account_cell(template: &mut TemplateGenerator, cell_partial: Value) {
+    let mut cell = json!({
+        "capacity": util::gen_register_fee(5, false),
+        "lock": {
+            "code_hash": "{{always_success}}"
+        },
+        "type": {
+            "code_hash": "{{pre-account-cell-type}}"
+        },
+        "witness": {
+            "account": ACCOUNT_1,
+            "refund_lock": {
+                "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                "args": OWNER_WITHOUT_TYPE
+            },
+            "owner_lock_args": gen_das_lock_args(OWNER, None),
+            "inviter_id": Value::Null,
+            "inviter_lock": Value::Null,
+            "channel_lock": Value::Null,
+            "price": {
+                "length": 5,
+                "new": ACCOUNT_PRICE_5_CHAR,
+                "renew": ACCOUNT_PRICE_5_CHAR
+            },
+            "quote": CKB_QUOTE,
+            "invited_discount": 0,
+            "created_at": Value::Null,
+            "initial_records": [
+                {
+                    "type": "address",
+                    "key": "60",
+                    "label": "Personal",
+                    "value": OWNER_WITHOUT_TYPE,
+                }
+            ],
+            "initial_cross_chain": {
+                "coin_type": 0,
+                "chain_id": 0,
+                "checked": 0
+            }
+        }
+    });
+    util::merge_json(&mut cell, cell_partial);
+
+    template.push_output(cell, Some(3));
 }
 
 pub fn push_dep_account_cell(template: &mut TemplateGenerator, cell_partial: Value) {
@@ -160,12 +254,12 @@ pub fn push_dep_account_cell(template: &mut TemplateGenerator, cell_partial: Val
             "code_hash": "{{account-cell-type}}"
         },
         "data": {
-            "account": ACCOUNT,
+            "account": ACCOUNT_1,
             "next": "yyyyy.bit",
             "expired_at": u64::MAX,
         },
         "witness": {
-            "account": ACCOUNT,
+            "account": ACCOUNT_1,
             "registered_at": 0,
             "last_transfer_account_at": 0,
             "last_edit_manager_at": 0,
@@ -189,12 +283,12 @@ pub fn push_input_account_cell(template: &mut TemplateGenerator, cell_partial: V
             "code_hash": "{{account-cell-type}}"
         },
         "data": {
-            "account": ACCOUNT,
+            "account": ACCOUNT_1,
             "next": "yyyyy.bit",
             "expired_at": u64::MAX,
         },
         "witness": {
-            "account": ACCOUNT,
+            "account": ACCOUNT_1,
             "registered_at": 0,
             "last_transfer_account_at": 0,
             "last_edit_manager_at": 0,
@@ -221,12 +315,12 @@ pub fn push_output_account_cell(template: &mut TemplateGenerator, cell_partial: 
             "code_hash": "{{account-cell-type}}"
         },
         "data": {
-            "account": ACCOUNT,
+            "account": ACCOUNT_1,
             "next": "yyyyy.bit",
             "expired_at": u64::MAX,
         },
         "witness": {
-            "account": ACCOUNT,
+            "account": ACCOUNT_1,
             "registered_at": 0,
             "last_transfer_account_at": 0,
             "last_edit_manager_at": 0,
@@ -252,12 +346,12 @@ pub fn push_input_account_cell_v2(template: &mut TemplateGenerator, cell_partial
             "code_hash": "{{account-cell-type}}"
         },
         "data": {
-            "account": ACCOUNT,
+            "account": ACCOUNT_1,
             "next": "yyyyy.bit",
             "expired_at": u64::MAX,
         },
         "witness": {
-            "account": ACCOUNT,
+            "account": ACCOUNT_1,
             "registered_at": 0,
             "status": (AccountStatus::Normal as u8)
         }
@@ -269,17 +363,28 @@ pub fn push_input_account_cell_v2(template: &mut TemplateGenerator, cell_partial
 }
 
 pub fn push_input_sub_account_cell(template: &mut TemplateGenerator, cell_partial: Value) {
+    let das_profit = match cell_partial["data"]["das_profit"].as_u64() {
+        Some(val) => val,
+        _ => 0,
+    };
+    let owner_profit = match cell_partial["data"]["owner_profit"].as_u64() {
+        Some(val) => val,
+        _ => 0,
+    };
+
     let mut cell = json!({
-        "capacity": SUB_ACCOUNT_BASIC_CAPACITY + SUB_ACCOUNT_PREPARED_FEE_CAPACITY,
+        "capacity": SUB_ACCOUNT_BASIC_CAPACITY + SUB_ACCOUNT_PREPARED_FEE_CAPACITY + das_profit + owner_profit,
         "lock": {
             "code_hash": "{{always_success}}"
         },
         "type": {
             "code_hash": "{{sub-account-cell-type}}",
-            "args": ACCOUNT
+            "args": ACCOUNT_1
         },
         "data": {
-            "root": "0x0000000000000000000000000000000000000000000000000000000000000000"
+            "root": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "das_profit": 0,
+            "owner_profit": 0,
         }
     });
     util::merge_json(&mut cell, cell_partial);
@@ -288,27 +393,28 @@ pub fn push_input_sub_account_cell(template: &mut TemplateGenerator, cell_partia
 }
 
 pub fn push_output_sub_account_cell(template: &mut TemplateGenerator, cell_partial: Value) {
-    let profit = if cell_partial["data"]["profit"].is_null() {
-        0
-    } else {
-        match cell_partial["data"]["profit"].as_u64() {
-            Some(val) => val,
-            _ => 0,
-        }
+    let das_profit = match cell_partial["data"]["das_profit"].as_u64() {
+        Some(val) => val,
+        _ => 0,
+    };
+    let owner_profit = match cell_partial["data"]["owner_profit"].as_u64() {
+        Some(val) => val,
+        _ => 0,
     };
 
     let mut cell = json!({
-        "capacity": SUB_ACCOUNT_BASIC_CAPACITY + SUB_ACCOUNT_PREPARED_FEE_CAPACITY + profit,
+        "capacity": SUB_ACCOUNT_BASIC_CAPACITY + SUB_ACCOUNT_PREPARED_FEE_CAPACITY + das_profit + owner_profit,
         "lock": {
             "code_hash": "{{always_success}}"
         },
         "type": {
             "code_hash": "{{sub-account-cell-type}}",
-            "args": ACCOUNT
+            "args": ACCOUNT_1
         },
         "data": {
             "root": "0x0000000000000000000000000000000000000000000000000000000000000000",
-            "profit": 0
+            "das_profit": 0,
+            "owner_profit": 0,
         }
     });
     util::merge_json(&mut cell, cell_partial);

@@ -1,10 +1,13 @@
-use super::common::*;
-use crate::util::{
-    accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::TemplateGenerator,
-    template_parser::*,
-};
 use das_types_std::constants::AccountStatus;
 use serde_json::json;
+
+use super::common::*;
+use crate::util::accounts::*;
+use crate::util::constants::*;
+use crate::util::error::*;
+use crate::util::template_common_cell::*;
+use crate::util::template_generator::{ContractType, *};
+use crate::util::template_parser::*;
 
 fn before_each() -> TemplateGenerator {
     let mut template = init(
@@ -35,8 +38,8 @@ fn test_account_lock_account_for_cross_chain() {
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": CROSS_CHAIN_BLACK_ACCOUNT,
-                "manager_lock_args": CROSS_CHAIN_BLACK_ACCOUNT
+                "owner_lock_args": SENDER,
+                "manager_lock_args": SENDER
             },
             "witness": {
                 "status": (AccountStatus::LockedForCrossChain as u8)
@@ -80,8 +83,8 @@ fn challenge_account_lock_account_for_cross_chain_account_multiple_cells() {
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": CROSS_CHAIN_BLACK_ACCOUNT,
-                "manager_lock_args": CROSS_CHAIN_BLACK_ACCOUNT
+                "owner_lock_args": SENDER,
+                "manager_lock_args": SENDER
             },
             "witness": {
                 "status": (AccountStatus::LockedForCrossChain as u8)
@@ -92,8 +95,8 @@ fn challenge_account_lock_account_for_cross_chain_account_multiple_cells() {
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": CROSS_CHAIN_BLACK_ACCOUNT,
-                "manager_lock_args": CROSS_CHAIN_BLACK_ACCOUNT
+                "owner_lock_args": SENDER,
+                "manager_lock_args": SENDER
             },
             "witness": {
                 "status": (AccountStatus::LockedForCrossChain as u8)
@@ -101,7 +104,7 @@ fn challenge_account_lock_account_for_cross_chain_account_multiple_cells() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure)
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure)
 }
 
 #[test]
@@ -111,7 +114,7 @@ fn challenge_account_lock_account_for_cross_chain_account_with_other_cells() {
         Some("0x0000000000000011000000000000002200"),
     );
 
-    template.push_contract_cell("balance-cell-type", false);
+    template.push_contract_cell("balance-cell-type", ContractType::Contract);
 
     // inputs
     push_input_account_cell(
@@ -131,8 +134,8 @@ fn challenge_account_lock_account_for_cross_chain_account_with_other_cells() {
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": CROSS_CHAIN_BLACK_ACCOUNT,
-                "manager_lock_args": CROSS_CHAIN_BLACK_ACCOUNT
+                "owner_lock_args": SENDER,
+                "manager_lock_args": SENDER
             },
             "witness": {
                 "status": (AccountStatus::LockedForCrossChain as u8)
@@ -140,11 +143,11 @@ fn challenge_account_lock_account_for_cross_chain_account_with_other_cells() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure)
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure)
 }
 
 #[test]
-fn challenge_account_lock_account_for_cross_chain_account_not_modified() {
+fn challenge_account_lock_account_for_cross_chain_account_modified() {
     let mut template = before_each();
 
     // outputs
@@ -152,9 +155,9 @@ fn challenge_account_lock_account_for_cross_chain_account_not_modified() {
         &mut template,
         json!({
             "lock": {
-                // Simulate owner not change after the transaction
-                "owner_lock_args": SENDER,
-                "manager_lock_args": SENDER
+                // Simulate owner changed after the transaction
+                "owner_lock_args": RECEIVER,
+                "manager_lock_args": RECEIVER
             },
             "witness": {
                 "status": (AccountStatus::LockedForCrossChain as u8)
@@ -162,67 +165,7 @@ fn challenge_account_lock_account_for_cross_chain_account_not_modified() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellOwnerLockShouldBeModified)
-}
-
-#[test]
-fn challenge_account_lock_account_for_cross_chain_not_clear_records() {
-    let mut template = init(
-        "lock_account_for_cross_chain",
-        Some("0x0000000000000011000000000000002200"),
-    );
-
-    // inputs
-    push_input_account_cell(
-        &mut template,
-        json!({
-            "lock": {
-                "owner_lock_args": SENDER,
-                "manager_lock_args": SENDER
-            },
-            "witness": {
-                "records": [
-                    {
-                        "type": "address",
-                        "key": "eth",
-                        "label": "Personal",
-                        "value": "0x0000000000000000000000000000000000000000",
-                    },
-                    {
-                        "type": "address",
-                        "key": "eth",
-                        "label": "Company",
-                        "value": "0x0000000000000000000000000000000000001111",
-                    }
-                ]
-            }
-        }),
-    );
-
-    // outputs
-    push_output_account_cell(
-        &mut template,
-        json!({
-            "lock": {
-                "owner_lock_args": CROSS_CHAIN_BLACK_ACCOUNT,
-                "manager_lock_args": CROSS_CHAIN_BLACK_ACCOUNT
-            },
-            "witness": {
-                "status": (AccountStatus::LockedForCrossChain as u8),
-                // Simulate not clearing all records when transferring.
-                "records": [
-                    {
-                        "type": "address",
-                        "key": "eth",
-                        "label": "Company",
-                        "value": "0x0000000000000000000000000000000000001111",
-                    }
-                ]
-            }
-        }),
-    );
-
-    challenge_tx(template.as_json(), Error::AccountCellRecordNotEmpty)
+    challenge_tx(template.as_json(), ErrorCode::CellLockCanNotBeModified)
 }
 
 #[test]
@@ -234,8 +177,8 @@ fn challenge_account_lock_account_for_cross_chain_modify_data_account() {
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": CROSS_CHAIN_BLACK_ACCOUNT,
-                "manager_lock_args": CROSS_CHAIN_BLACK_ACCOUNT
+                "owner_lock_args": SENDER,
+                "manager_lock_args": SENDER
             },
             "data": {
                 // Simulate the account field has been modified accidentally.
@@ -247,7 +190,7 @@ fn challenge_account_lock_account_for_cross_chain_modify_data_account() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellDataNotConsistent)
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellDataNotConsistent)
 }
 
 #[test]
@@ -259,8 +202,8 @@ fn challenge_account_lock_account_for_cross_chain_modify_data_next() {
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": CROSS_CHAIN_BLACK_ACCOUNT,
-                "manager_lock_args": CROSS_CHAIN_BLACK_ACCOUNT
+                "owner_lock_args": SENDER,
+                "manager_lock_args": SENDER
             },
             "data": {
                 // Simulate the next field has been modified accidentally.
@@ -272,7 +215,7 @@ fn challenge_account_lock_account_for_cross_chain_modify_data_next() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellDataNotConsistent)
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellDataNotConsistent)
 }
 
 #[test]
@@ -284,8 +227,8 @@ fn challenge_account_lock_account_for_cross_chain_modify_data_expired_at() {
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": CROSS_CHAIN_BLACK_ACCOUNT,
-                "manager_lock_args": CROSS_CHAIN_BLACK_ACCOUNT
+                "owner_lock_args": SENDER,
+                "manager_lock_args": SENDER
             },
             "data": {
                 // Simulate the expired_at field has been modified accidentally.
@@ -297,7 +240,7 @@ fn challenge_account_lock_account_for_cross_chain_modify_data_expired_at() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellDataNotConsistent)
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellDataNotConsistent)
 }
 
 #[test]
@@ -309,8 +252,8 @@ fn challenge_account_lock_account_for_cross_chain_modify_witness_account() {
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": CROSS_CHAIN_BLACK_ACCOUNT,
-                "manager_lock_args": CROSS_CHAIN_BLACK_ACCOUNT
+                "owner_lock_args": SENDER,
+                "manager_lock_args": SENDER
             },
             "witness": {
                 // Simulate the account field has been modified accidentally.
@@ -320,7 +263,10 @@ fn challenge_account_lock_account_for_cross_chain_modify_witness_account() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellProtectFieldIsModified)
+    challenge_tx(
+        template.as_json(),
+        AccountCellErrorCode::AccountCellProtectFieldIsModified,
+    )
 }
 
 #[test]
@@ -332,8 +278,8 @@ fn challenge_account_lock_account_for_cross_chain_modify_witness_registered_at()
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": CROSS_CHAIN_BLACK_ACCOUNT,
-                "manager_lock_args": CROSS_CHAIN_BLACK_ACCOUNT
+                "owner_lock_args": SENDER,
+                "manager_lock_args": SENDER
             },
             "witness": {
                 // Simulate the registered_at field has been modified accidentally.
@@ -343,7 +289,10 @@ fn challenge_account_lock_account_for_cross_chain_modify_witness_registered_at()
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellProtectFieldIsModified)
+    challenge_tx(
+        template.as_json(),
+        AccountCellErrorCode::AccountCellProtectFieldIsModified,
+    )
 }
 
 #[test]
@@ -355,8 +304,8 @@ fn challenge_account_lock_account_for_cross_chain_modify_witness_last_transfer_a
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": CROSS_CHAIN_BLACK_ACCOUNT,
-                "manager_lock_args": CROSS_CHAIN_BLACK_ACCOUNT
+                "owner_lock_args": SENDER,
+                "manager_lock_args": SENDER
             },
             "witness": {
                 "status": (AccountStatus::LockedForCrossChain as u8),
@@ -366,7 +315,10 @@ fn challenge_account_lock_account_for_cross_chain_modify_witness_last_transfer_a
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellProtectFieldIsModified)
+    challenge_tx(
+        template.as_json(),
+        AccountCellErrorCode::AccountCellProtectFieldIsModified,
+    )
 }
 
 #[test]
@@ -378,8 +330,8 @@ fn challenge_account_lock_account_for_cross_chain_modify_witness_last_edit_manag
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": CROSS_CHAIN_BLACK_ACCOUNT,
-                "manager_lock_args": CROSS_CHAIN_BLACK_ACCOUNT
+                "owner_lock_args": SENDER,
+                "manager_lock_args": SENDER
             },
             "witness": {
                 "status": (AccountStatus::LockedForCrossChain as u8),
@@ -389,7 +341,10 @@ fn challenge_account_lock_account_for_cross_chain_modify_witness_last_edit_manag
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellProtectFieldIsModified)
+    challenge_tx(
+        template.as_json(),
+        AccountCellErrorCode::AccountCellProtectFieldIsModified,
+    )
 }
 
 #[test]
@@ -401,8 +356,8 @@ fn challenge_account_lock_account_for_cross_chain_modify_witness_last_edit_recor
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": CROSS_CHAIN_BLACK_ACCOUNT,
-                "manager_lock_args": CROSS_CHAIN_BLACK_ACCOUNT
+                "owner_lock_args": SENDER,
+                "manager_lock_args": SENDER
             },
             "witness": {
                 "status": (AccountStatus::LockedForCrossChain as u8),
@@ -412,7 +367,10 @@ fn challenge_account_lock_account_for_cross_chain_modify_witness_last_edit_recor
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellProtectFieldIsModified)
+    challenge_tx(
+        template.as_json(),
+        AccountCellErrorCode::AccountCellProtectFieldIsModified,
+    )
 }
 
 #[test]
@@ -443,8 +401,8 @@ fn challenge_account_lock_account_for_cross_chain_is_near_expired() {
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": CROSS_CHAIN_BLACK_ACCOUNT,
-                "manager_lock_args": CROSS_CHAIN_BLACK_ACCOUNT
+                "owner_lock_args": SENDER,
+                "manager_lock_args": SENDER
             },
             "data": {
                 "expired_at": expired_at,
@@ -455,7 +413,7 @@ fn challenge_account_lock_account_for_cross_chain_is_near_expired() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::CrossChainLockError)
+    challenge_tx(template.as_json(), ErrorCode::CrossChainLockError)
 }
 
 #[test]
@@ -467,8 +425,8 @@ fn challenge_account_lock_account_for_cross_chain_modify_witness_status_error() 
         &mut template,
         json!({
             "lock": {
-                "owner_lock_args": CROSS_CHAIN_BLACK_ACCOUNT,
-                "manager_lock_args": CROSS_CHAIN_BLACK_ACCOUNT
+                "owner_lock_args": SENDER,
+                "manager_lock_args": SENDER
             },
             "witness": {
                 // Simulate the status field has been changed to wrong value.
@@ -477,27 +435,5 @@ fn challenge_account_lock_account_for_cross_chain_modify_witness_status_error() 
         }),
     );
 
-    challenge_tx(template.as_json(), Error::CrossChainLockError)
-}
-
-#[test]
-fn challenge_account_lock_account_for_cross_chain_modify_owner_error() {
-    let mut template = before_each();
-
-    // outputs
-    push_output_account_cell(
-        &mut template,
-        json!({
-            "lock": {
-                // Simulate the owner and manager field has been changed to wrong value.
-                "owner_lock_args": "0x030000000000000000000000000000000000000001",
-                "manager_lock_args": "0x030000000000000000000000000000000000000001"
-            },
-            "witness": {
-                "status": (AccountStatus::LockedForCrossChain as u8)
-            }
-        }),
-    );
-
-    challenge_tx(template.as_json(), Error::CrossChainLockError)
+    challenge_tx(template.as_json(), ErrorCode::CrossChainLockError)
 }

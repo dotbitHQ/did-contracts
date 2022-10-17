@@ -1,9 +1,14 @@
-use super::common::*;
-use crate::util::{
-    self, accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
-};
 use das_types_std::constants::*;
 use serde_json::json;
+
+use super::common::*;
+use crate::util::accounts::*;
+use crate::util::constants::*;
+use crate::util::error::*;
+use crate::util::template_common_cell::*;
+use crate::util::template_generator::*;
+use crate::util::template_parser::*;
+use crate::util::{self};
 
 fn before_each() -> TemplateGenerator {
     let mut template = init();
@@ -32,7 +37,39 @@ fn push_output_simple_pre_account_cell(template: &mut TemplateGenerator) {
     push_output_pre_account_cell(
         template,
         json!({
-            "capacity": util::gen_register_fee(8, true),
+            "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, true),
+            "witness": {
+                "account": ACCOUNT_SP_1,
+                "created_at": TIMESTAMP,
+                "price": {
+                    "length": 8,
+                    "new": ACCOUNT_PRICE_5_CHAR,
+                    "renew": ACCOUNT_PRICE_5_CHAR
+                },
+                "inviter_id": "0x0000000000000000000000000000000000000000",
+                "inviter_lock": {
+                    "code_hash": "{{fake-das-lock}}",
+                    "args": gen_das_lock_args(INVITER, None)
+                },
+                "channel_lock": {
+                    "code_hash": "{{fake-das-lock}}",
+                    "args": gen_das_lock_args(CHANNEL, None)
+                },
+                "invited_discount": INVITED_DISCOUNT,
+            }
+        }),
+    );
+}
+
+#[test]
+fn test_pre_register_simple_v1() {
+    let mut template = before_each();
+
+    // outputs
+    push_output_pre_account_cell_v1(
+        &mut template,
+        json!({
+            "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, true),
             "witness": {
                 "account": ACCOUNT_SP_1,
                 "created_at": TIMESTAMP,
@@ -54,16 +91,95 @@ fn push_output_simple_pre_account_cell(template: &mut TemplateGenerator) {
             }
         }),
     );
+
+    test_tx(template.as_json());
 }
 
 #[test]
-fn test_pre_register_simple() {
+fn test_pre_register_simple_v2() {
+    let mut template = before_each();
+
+    // outputs
+    push_output_pre_account_cell_v2(
+        &mut template,
+        json!({
+            "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, true),
+            "witness": {
+                "account": ACCOUNT_SP_1,
+                "created_at": TIMESTAMP,
+                "price": {
+                    "length": 8,
+                    "new": ACCOUNT_PRICE_5_CHAR,
+                    "renew": ACCOUNT_PRICE_5_CHAR
+                },
+                "inviter_id": "0x0000000000000000000000000000000000000000",
+                "inviter_lock": {
+                    "code_hash": "{{fake-das-lock}}",
+                    "args": gen_das_lock_args(INVITER, None)
+                },
+                "channel_lock": {
+                    "code_hash": "{{fake-das-lock}}",
+                    "args": gen_das_lock_args(CHANNEL, None)
+                },
+                "invited_discount": INVITED_DISCOUNT
+            }
+        }),
+    );
+
+    test_tx(template.as_json());
+}
+
+#[test]
+fn test_pre_register_simple_v3() {
     let mut template = before_each();
 
     // outputs
     push_output_simple_pre_account_cell(&mut template);
 
     test_tx(template.as_json());
+}
+
+#[test]
+fn challenge_pre_register_initial_record_key_invalid() {
+    let mut template = before_each();
+
+    // outputs
+    push_output_pre_account_cell(
+        &mut template,
+        json!({
+            "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, true),
+            "witness": {
+                "account": ACCOUNT_SP_1,
+                "created_at": TIMESTAMP,
+                "price": {
+                    "length": 8,
+                    "new": ACCOUNT_PRICE_5_CHAR,
+                    "renew": ACCOUNT_PRICE_5_CHAR
+                },
+                "inviter_id": "0x0000000000000000000000000000000000000000",
+                "inviter_lock": {
+                    "code_hash": "{{fake-das-lock}}",
+                    "args": gen_das_lock_args(INVITER, None)
+                },
+                "channel_lock": {
+                    "code_hash": "{{fake-das-lock}}",
+                    "args": gen_das_lock_args(CHANNEL, None)
+                },
+                "invited_discount": INVITED_DISCOUNT,
+                "initial_records": [
+                    {
+                        "type": "address",
+                        // Simulate creating a Pre
+                        "key": "xxxx",
+                        "label": "Personal",
+                        "value": OWNER_WITHOUT_TYPE,
+                    }
+                ]
+            }
+        }),
+    );
+
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellRecordKeyInvalid);
 }
 
 #[test]
@@ -85,7 +201,7 @@ fn challenge_pre_register_apply_still_need_wait() {
 
     push_output_simple_pre_account_cell(&mut template);
 
-    challenge_tx(template.as_json(), Error::ApplyRegisterNeedWaitLonger)
+    challenge_tx(template.as_json(), ErrorCode::ApplyRegisterNeedWaitLonger)
 }
 
 #[test]
@@ -107,7 +223,7 @@ fn challenge_pre_register_apply_timeout() {
 
     push_output_simple_pre_account_cell(&mut template);
 
-    challenge_tx(template.as_json(), Error::ApplyRegisterHasTimeout)
+    challenge_tx(template.as_json(), ErrorCode::ApplyRegisterHasTimeout)
 }
 
 #[test]
@@ -120,7 +236,7 @@ fn challenge_pre_register_apply_hash_is_invalid() {
         json!({
             "data": {
                 // Simulate the ApplyRegisterCell has different account with the PreAccountCell.
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "height": HEIGHT - 1,
                 "timestamp": TIMESTAMP - 60,
             }
@@ -129,7 +245,7 @@ fn challenge_pre_register_apply_hash_is_invalid() {
 
     push_output_simple_pre_account_cell(&mut template);
 
-    challenge_tx(template.as_json(), Error::PreRegisterApplyHashIsInvalid)
+    challenge_tx(template.as_json(), ErrorCode::PreRegisterApplyHashIsInvalid)
 }
 
 #[test]
@@ -139,7 +255,7 @@ fn challenge_pre_register_invalid_account_id() {
     push_output_pre_account_cell(
         &mut template,
         json!({
-            "capacity": util::gen_register_fee(8, false),
+            "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, false),
             "data": {
                 // Simulate providing an invalid account ID with is not match the account in witness.
                 "id": "0x0000000000000000000000000000000000000000"
@@ -156,7 +272,7 @@ fn challenge_pre_register_invalid_account_id() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::PreRegisterAccountIdIsInvalid)
+    challenge_tx(template.as_json(), ErrorCode::PreRegisterAccountIdIsInvalid)
 }
 
 #[test]
@@ -166,7 +282,7 @@ fn challenge_pre_register_created_at_mismatch() {
     push_output_pre_account_cell(
         &mut template,
         json!({
-            "capacity": util::gen_register_fee(8, false),
+            "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, false),
             "witness": {
                 "account": ACCOUNT_SP_1,
                 // Simulate the created_at field is not match with the TimeCell.
@@ -180,7 +296,7 @@ fn challenge_pre_register_created_at_mismatch() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::PreRegisterCreateAtIsInvalid)
+    challenge_tx(template.as_json(), ErrorCode::PreRegisterCreateAtIsInvalid)
 }
 
 #[test]
@@ -190,7 +306,7 @@ fn challenge_pre_register_invalid_owner_lock_args() {
     push_output_pre_account_cell(
         &mut template,
         json!({
-            "capacity": util::gen_register_fee(8, false),
+            "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, false),
             "witness": {
                 "account": ACCOUNT_SP_1,
                 "created_at": TIMESTAMP,
@@ -205,7 +321,7 @@ fn challenge_pre_register_invalid_owner_lock_args() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::PreRegisterOwnerLockArgsIsInvalid)
+    challenge_tx(template.as_json(), ErrorCode::PreRegisterOwnerLockArgsIsInvalid)
 }
 
 #[test]
@@ -215,7 +331,7 @@ fn challenge_pre_register_quote_mismatch() {
     push_output_pre_account_cell(
         &mut template,
         json!({
-            "capacity": util::gen_register_fee(8, false),
+            "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, false),
             "witness": {
                 "account": ACCOUNT_SP_1,
                 "created_at": TIMESTAMP,
@@ -230,7 +346,7 @@ fn challenge_pre_register_quote_mismatch() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::PreRegisterQuoteIsInvalid)
+    challenge_tx(template.as_json(), ErrorCode::PreRegisterQuoteIsInvalid)
 }
 
 #[test]
@@ -257,7 +373,7 @@ fn challenge_pre_register_exceed_account_max_length() {
     push_output_pre_account_cell(
         &mut template,
         json!({
-            "capacity": util::gen_register_fee(43, false),
+            "capacity": util::gen_register_fee_v2(account, 43, false),
             "witness": {
                 "account": account,
                 "created_at": TIMESTAMP,
@@ -270,7 +386,7 @@ fn challenge_pre_register_exceed_account_max_length() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::PreRegisterAccountIsTooLong)
+    challenge_tx(template.as_json(), ErrorCode::PreRegisterAccountIsTooLong)
 }
 
 #[test]
@@ -280,7 +396,7 @@ fn challenge_pre_register_discount_not_zero_when_no_inviter() {
     push_output_pre_account_cell(
         &mut template,
         json!({
-            "capacity": util::gen_register_fee(8, false),
+            "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, false),
             "witness": {
                 "account": ACCOUNT_SP_1,
                 "created_at": TIMESTAMP,
@@ -295,7 +411,7 @@ fn challenge_pre_register_discount_not_zero_when_no_inviter() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::PreRegisterDiscountIsInvalid)
+    challenge_tx(template.as_json(), ErrorCode::PreRegisterDiscountIsInvalid)
 }
 
 #[test]
@@ -305,7 +421,7 @@ fn challenge_pre_register_discount_incorrect() {
     push_output_pre_account_cell(
         &mut template,
         json!({
-            "capacity": util::gen_register_fee(8, false),
+            "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, false),
             "witness": {
                 "account": ACCOUNT_SP_1,
                 "created_at": TIMESTAMP,
@@ -329,7 +445,7 @@ fn challenge_pre_register_discount_incorrect() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::PreRegisterDiscountIsInvalid)
+    challenge_tx(template.as_json(), ErrorCode::PreRegisterDiscountIsInvalid)
 }
 
 #[test]
@@ -339,7 +455,7 @@ fn challenge_pre_register_incorrect_price() {
     push_output_pre_account_cell(
         &mut template,
         json!({
-            "capacity": util::gen_register_fee(8, false),
+            "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, false),
             "witness": {
                 "account": ACCOUNT_SP_1,
                 "created_at": TIMESTAMP,
@@ -353,7 +469,7 @@ fn challenge_pre_register_incorrect_price() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::PreRegisterPriceInvalid)
+    challenge_tx(template.as_json(), ErrorCode::PreRegisterPriceInvalid)
 }
 
 #[test]
@@ -364,7 +480,7 @@ fn challenge_pre_register_incorrect_capacity() {
         &mut template,
         json!({
             // Simulate providing capacity less than one year.
-            "capacity": util::gen_register_fee(8, false) - 1,
+            "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, false) - 1,
             "witness": {
                 "account": ACCOUNT_SP_1,
                 "created_at": TIMESTAMP,
@@ -377,5 +493,5 @@ fn challenge_pre_register_incorrect_capacity() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::PreRegisterCKBInsufficient)
+    challenge_tx(template.as_json(), ErrorCode::PreRegisterCKBInsufficient)
 }

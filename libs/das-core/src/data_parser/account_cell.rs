@@ -1,5 +1,6 @@
-use crate::constants::ACCOUNT_ID_LENGTH;
 use core::convert::TryInto;
+
+use crate::constants::ACCOUNT_ID_LENGTH;
 
 pub fn get_id(data: &[u8]) -> &[u8] {
     data.get(32..(32 + ACCOUNT_ID_LENGTH))

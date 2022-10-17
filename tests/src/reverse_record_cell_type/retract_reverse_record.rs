@@ -1,5 +1,8 @@
 use super::common::*;
-use crate::util::{error::Error, template_common_cell::*, template_generator::*, template_parser::*};
+use crate::util::error::*;
+use crate::util::template_common_cell::*;
+use crate::util::template_generator::*;
+use crate::util::template_parser::*;
 
 fn before_each() -> (TemplateGenerator, &'static str) {
     let mut template = init("retract_reverse_record");
@@ -34,7 +37,7 @@ fn challenge_reverse_record_retract_redundant_cells() {
     // outputs
     push_output_balance_cell(&mut template, 20_100_000_000 * 3 - 10_000, owner);
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure)
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure)
 }
 
 #[test]
@@ -53,7 +56,7 @@ fn challenge_reverse_record_retract_reverse_record_cell_of_multi_lock() {
     // outputs
     push_output_balance_cell(&mut template, 20_100_000_000 * 4 - 10_000, owner);
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure)
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure)
 }
 
 #[test]
@@ -68,7 +71,7 @@ fn challenge_reverse_record_retract_change_owner() {
         "0x050000000000000000000000000000000000002222",
     );
 
-    challenge_tx(template.as_json(), Error::ChangeError)
+    challenge_tx(template.as_json(), ErrorCode::ChangeError)
 }
 
 #[test]
@@ -83,5 +86,5 @@ fn challenge_reverse_record_retract_change_capacity() {
         owner,
     );
 
-    challenge_tx(template.as_json(), Error::ChangeError)
+    challenge_tx(template.as_json(), ErrorCode::ChangeError)
 }

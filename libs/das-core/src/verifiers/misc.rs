@@ -1,17 +1,20 @@
-use crate::{
-    assert,
-    constants::*,
-    error::Error,
-    util::{self, find_cells_by_script},
-    warn,
-};
-use ckb_std::{ckb_constants::Source, ckb_types::packed as ckb_packed, high_level};
+use alloc::boxed::Box;
+
+use ckb_std::ckb_constants::Source;
+use ckb_std::ckb_types::packed as ckb_packed;
+use ckb_std::high_level;
+use ckb_std::syscalls::SysError;
 use das_types::packed::*;
 
-pub fn verify_no_more_cells(cells: &[usize], source: Source) -> Result<(), Error> {
+use crate::constants::*;
+use crate::error::*;
+use crate::util::{self, find_cells_by_script};
+use crate::{assert, code_to_error, warn};
+
+pub fn verify_no_more_cells(cells: &[usize], source: Source) -> Result<(), Box<dyn ScriptError>> {
     assert!(
         cells[0] == 0,
-        Error::InvalidTransactionStructure,
+        ErrorCode::InvalidTransactionStructure,
         "{:?}[{}] The cell should be the first cell in {:?}.",
         source,
         cells[0],
@@ -26,7 +29,7 @@ pub fn verify_no_more_cells(cells: &[usize], source: Source) -> Result<(), Error
         for i in cells.iter().skip(1) {
             assert!(
                 *i == prev_index + 1,
-                Error::InvalidTransactionStructure,
+                ErrorCode::InvalidTransactionStructure,
                 "{:?}[{}] The cell is missing in the verification array.",
                 source,
                 prev_index + 1
@@ -40,15 +43,15 @@ pub fn verify_no_more_cells(cells: &[usize], source: Source) -> Result<(), Error
         panic!("Can not verify empty array of cells.")
     }
 
-    match high_level::load_cell_capacity(last + 1, source).map_err(Error::from) {
-        Err(Error::IndexOutOfBound) => Ok(()), // This is Ok.
+    match high_level::load_cell_capacity(last + 1, source) {
+        Err(SysError::IndexOutOfBound) => Ok(()), // This is Ok.
         _ => {
             warn!(
                 "{:?}[{}] The cell should be the last cell in {:?}.",
                 source, last, source
             );
 
-            Err(Error::InvalidTransactionStructure)
+            Err(code_to_error!(ErrorCode::InvalidTransactionStructure))
         }
     }
 }
@@ -57,7 +60,7 @@ pub fn verify_no_more_cells_with_same_lock(
     lock: ckb_packed::ScriptReader,
     cells: &[usize],
     source: Source,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     let cells_with_same_lock = find_cells_by_script(ScriptType::Lock, lock, source)?;
 
     for i in cells_with_same_lock {
@@ -66,7 +69,7 @@ pub fn verify_no_more_cells_with_same_lock(
                 "{:?}[{}] There should be no more cells with the same lock.(lock_script: {})",
                 source, i, lock
             );
-            return Err(Error::InvalidTransactionStructure);
+            return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
         }
     }
 
@@ -78,13 +81,13 @@ pub fn verify_user_get_change(
     config_main: ConfigCellMainReader,
     user_lock_reader: ckb_packed::ScriptReader,
     expected_output_balance: u64,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     let output_balance_cells = util::find_balance_cells(config_main, user_lock_reader, Source::Output)?;
     let output_capacity = util::load_cells_capacity(&output_balance_cells, Source::Output)?;
 
     assert!(
         output_capacity >= expected_output_balance,
-        Error::ChangeError,
+        ErrorCode::ChangeError,
         "The change should be {} shannon in outputs.(current: {}, user_lock: {})",
         expected_output_balance,
         output_capacity,
@@ -100,13 +103,13 @@ pub fn verify_user_get_change_when_inputs_removed(
     input_removed_cells: &[usize],
     output_created_cells: &[usize],
     extra_cost: u64,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     let input_capacity = util::load_cells_capacity(input_removed_cells, Source::Input)?;
     let output_capacity = util::load_cells_capacity(output_created_cells, Source::Output)?;
 
     assert!(
         input_capacity >= output_capacity + extra_cost,
-        Error::ChangeError,
+        ErrorCode::ChangeError,
         "The change to user is incorrectly input_capacity < output_capacity + extra_cost. (input: {}, output: {}, extra_cost: {})",
         input_capacity,
         output_capacity,
@@ -120,8 +123,8 @@ pub fn verify_user_get_change_when_inputs_removed(
     )
 }
 
-pub fn verify_always_success_lock(index: usize, source: Source) -> Result<(), Error> {
-    let lock = high_level::load_cell_lock(index, source).map_err(Error::from)?;
+pub fn verify_always_success_lock(index: usize, source: Source) -> Result<(), Box<dyn ScriptError>> {
+    let lock = high_level::load_cell_lock(index, source).map_err(Error::<ErrorCode>::from)?;
     let lock_reader = lock.as_reader();
     let always_success_lock = always_success_lock();
     let always_success_lock_reader = always_success_lock.as_reader();
@@ -129,7 +132,7 @@ pub fn verify_always_success_lock(index: usize, source: Source) -> Result<(), Er
     assert!(
         util::is_reader_eq(lock_reader.code_hash(), always_success_lock_reader.code_hash())
             && lock_reader.hash_type() == always_success_lock_reader.hash_type(),
-        Error::AlwaysSuccessLockIsRequired,
+        ErrorCode::AlwaysSuccessLockIsRequired,
         "The cell at {:?}[{}] should use always-success lock.(expected_code_hash: {})",
         source,
         index,

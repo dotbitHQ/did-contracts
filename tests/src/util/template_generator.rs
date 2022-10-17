@@ -1,9 +1,28 @@
-use super::super::ckb_types_relay::*;
-use super::{constants::*, smt::*, util};
-use ckb_testtool::ckb_hash::blake2b_256;
-use das_types_std::{constants::*, packed::*, prelude::*, util as das_util, util::EntityWrapper};
+use std::collections::HashMap;
+use std::convert::TryFrom;
+use std::fs::OpenOptions;
+use std::io::Write;
+use std::{env, str};
+
+use ckb_hash::blake2b_256;
+use das_types_std::constants::*;
+use das_types_std::packed::*;
+use das_types_std::prelude::*;
+use das_types_std::util as das_util;
+use das_types_std::util::EntityWrapper;
 use serde_json::{json, Value};
-use std::{collections::HashMap, convert::TryFrom, env, fs::OpenOptions, io::Write, str};
+
+use super::super::ckb_types_relay::*;
+use super::constants::*;
+use super::smt::*;
+use super::util;
+
+pub enum ContractType {
+    DeployedContract,
+    Contract,
+    DeployedSharedLib,
+    SharedLib,
+}
 
 pub enum SubAccountActionType {
     Insert,
@@ -99,65 +118,6 @@ fn witness_bytes_to_hex(input: Bytes) -> String {
     "0x".to_string() + &hex::encode(input.as_reader().raw_data())
 }
 
-/// Parse u64 in JSON
-///
-/// Support both **number** and **string** format.
-fn parse_json_u64(field_name: &str, field: &Value, default: Option<u64>) -> u64 {
-    if let Some(val) = field.as_u64() {
-        val
-    } else if let Some(val) = field.as_str() {
-        val.replace("_", "")
-            .parse()
-            .expect(&format!("{} should be u64 in string", field_name))
-    } else {
-        if let Some(val) = default {
-            return val;
-        } else {
-            panic!("{} is missing", field_name);
-        }
-    }
-}
-
-/// Parse u32 in JSON
-///
-/// Support both **number** and **string** format.
-fn parse_json_u32(field_name: &str, field: &Value, default: Option<u32>) -> u32 {
-    if let Some(val) = field.as_u64() {
-        val as u32
-    } else if let Some(val) = field.as_str() {
-        val.replace("_", "")
-            .parse()
-            .expect(&format!("{} should be u32 in string", field_name))
-    } else {
-        if let Some(val) = default {
-            return val;
-        } else {
-            panic!("{} is missing", field_name);
-        }
-    }
-}
-
-/// Parse u8 in JSON
-fn parse_json_u8(field_name: &str, field: &Value, default: Option<u8>) -> u8 {
-    if let Some(val) = field.as_u64() {
-        if val > u8::MAX as u64 {
-            panic!("{} should be u8", field_name)
-        } else {
-            val as u8
-        }
-    } else if let Some(val) = field.as_str() {
-        val.replace("_", "")
-            .parse()
-            .expect(&format!("{} should be u8 in string", field_name))
-    } else {
-        if let Some(val) = default {
-            return val;
-        } else {
-            panic!("{} is missing", field_name);
-        }
-    }
-}
-
 /// Parse string in JSON
 ///
 /// All string will be treated as utf8 encoding.
@@ -180,32 +140,12 @@ fn parse_json_str_to_bytes<'a>(field_name: &str, field: &'a Value) -> &'a [u8] {
     field.as_str().expect(&format!("{} is missing", field_name)).as_bytes()
 }
 
-/// Parse hex string in JSON
-///
-/// Prefix "0x" is optional.
-fn parse_json_hex(field_name: &str, field: &Value) -> Vec<u8> {
-    let mut hex = field.as_str().expect(&format!("{} is missing", field_name));
-    hex = hex.trim_start_matches("0x");
-
-    if hex == "" {
-        Vec::new()
-    } else {
-        hex::decode(hex).expect(&format!("{} is should be hex string", field_name))
-    }
-}
-
-/// Parse hex string in JSON, if it is not exist return the default value.
-fn parse_json_hex_with_default(field_name: &str, field: &Value, default: Vec<u8>) -> Vec<u8> {
-    if field.is_null() {
-        default
-    } else {
-        parse_json_hex(field_name, field)
-    }
-}
-
 /// Parse array in JSON
-fn parse_json_array<'a>(field_name: &str, field: &'a Value) -> &'a Vec<Value> {
-    field.as_array().expect(&format!("{} is missing", field_name))
+fn parse_json_array<'a>(field_name: &str, field: &'a Value) -> &'a [Value] {
+    field
+        .as_array()
+        .map(|v| v.as_slice())
+        .expect(&format!("{} is missing", field_name))
 }
 
 /// Parse struct Script and fill optional fields
@@ -215,7 +155,7 @@ fn parse_json_array<'a>(field_name: &str, field: &'a Value) -> &'a Vec<Value> {
 /// // input
 /// {
 ///     code_hash: "{{xxx-cell-type}}"
-///     hash_type: "type", // could be omit if it is "type"    
+///     hash_type: "type", // could be omit if it is "type"
 ///     args: "" // could be omit if it it empty
 /// }
 /// // output
@@ -376,11 +316,11 @@ fn parse_json_to_records_mol(field_name: &str, field: &Value) -> Records {
             .record_label(Bytes::from(
                 parse_json_str(&format!("{}[].label", field_name), &record["label"]).as_bytes(),
             ))
-            .record_value(Bytes::from(parse_json_hex(
+            .record_value(Bytes::from(util::parse_json_hex(
                 "cell.witness.records[].value",
                 &record["value"],
             )))
-            .record_ttl(Uint32::from(parse_json_u32(
+            .record_ttl(Uint32::from(util::parse_json_u32(
                 &format!("{}[].ttl", field_name),
                 &record["ttl"],
                 Some(300),
@@ -392,54 +332,121 @@ fn parse_json_to_records_mol(field_name: &str, field: &Value) -> Records {
     records_builder.build()
 }
 
+fn parse_json_to_account_chars(field_name: &str, field: &Value, suffix_opt: Option<&str>) -> (String, AccountChars) {
+    let suffix = if let Some(suffix) = suffix_opt { suffix } else { ".bit" };
+
+    let mut account;
+    let account_chars;
+    if field.is_string() {
+        // Parse the field as a string
+        account = parse_json_str(field_name, field).to_string();
+        let account_without_suffix = match account.strip_suffix(suffix) {
+            Some(val) => val,
+            _ => &account,
+        };
+        let account_chars_raw = account_without_suffix
+            .chars()
+            .map(|c| c.to_string())
+            .collect::<Vec<String>>();
+
+        account_chars = gen_account_chars(account_chars_raw);
+    } else {
+        // Parse the field as an AccountChars array.
+        // Example:
+        // ```json
+        // [
+        //     { char: "", type: u32 },
+        //     { char: "", type: u32 },
+        //     ...
+        // ]
+        // ```
+        //
+        // gen_account_char(char: &str, char_set_type: CharSetType)
+        let json_chars = parse_json_array(field_name, field);
+        let mut builder = AccountChars::new_builder();
+        for json_char in json_chars.iter() {
+            let char = parse_json_str(&format!("{}[].char", field_name), &json_char["char"]);
+            let char_set_type = util::parse_json_u32(&format!("{}[].type", field_name), &json_char["type"], None);
+            builder = builder.push(gen_account_char(
+                char,
+                CharSetType::try_from(char_set_type)
+                    .expect(&format!("{} should only contain valid CharSetType.", field_name)),
+            ));
+        }
+        account_chars = builder.build();
+        account = String::from_utf8(account_chars.as_readable())
+            .expect(&format!("{} should only contain UTF-8 characters.", field_name));
+        account += suffix;
+    }
+
+    (account, account_chars)
+}
+
+fn parse_json_to_chain_id_mol(field_name: &str, field: &Value) -> ChainId {
+    let coin_type = Uint64::from(util::parse_json_u64(
+        &format!("{}.coin_type", field_name),
+        &field["coin_type"],
+        None,
+    ));
+    let chain_id = Uint64::from(util::parse_json_u64(
+        &format!("{}.chain_id", field_name),
+        &field["chain_id"],
+        None,
+    ));
+    let checked = Uint8::from(util::parse_json_u8(
+        &format!("{}.checked", field_name),
+        &field["checked"],
+        None,
+    ));
+
+    ChainId::new_builder()
+        .coin_type(coin_type)
+        .chain_id(chain_id)
+        .checked(checked)
+        .build()
+}
+
 pub fn parse_json_to_sub_account(field_name: &str, field: &Value) -> SubAccount {
     // let lock = parse_json_script_das_lock(&format!("{}.lock", field_name), &field["lock"]);
     let lock = parse_json_script_to_mol(
         "",
         &parse_json_script_das_lock(&format!("{}.lock", field_name), &field["lock"]),
     );
-    let account = parse_json_str(&format!("{}.account", field_name), &field["account"]);
+    let suffix = parse_json_str(&format!("{}.suffix", field_name), &field["suffix"]);
+    let (account, account_chars) =
+        parse_json_to_account_chars(&format!("{}.account", field_name), &field["account"], Some(suffix));
     let account_id = if !field["id"].is_null() {
         parse_json_str_to_account_id_mol(&format!("{}.id", field_name), &field["id"])
     } else {
-        AccountId::try_from(util::account_to_id(account)).expect("Calculate account ID from account failed")
+        AccountId::try_from(util::account_to_id(&account)).expect("Calculate account ID from account failed")
     };
-    let account_chars_raw = match account.find('.') {
-        Some(index) => account[0..index]
-            .chars()
-            .map(|c| c.to_string())
-            .collect::<Vec<String>>(),
-        None => panic!("There should be at least a dot in sub-account."),
-    };
-    let account_chars = gen_account_chars(account_chars_raw);
-    let suffix = parse_json_str(&format!("{}.suffix", field_name), &field["suffix"]);
-    let registered_at = Uint64::from(parse_json_u64(
+    let registered_at = Uint64::from(util::parse_json_u64(
         &format!("{}.registered_at", field_name),
         &field["registered_at"],
         None,
     ));
-    let expired_at = Uint64::from(parse_json_u64(
+    let expired_at = Uint64::from(util::parse_json_u64(
         &format!("{}.expired_at", field_name),
         &field["expired_at"],
         None,
     ));
-    let status = Uint8::from(parse_json_u8(
+    let status = Uint8::from(util::parse_json_u8(
         &format!("{}.status", field_name),
         &field["status"],
         Some(0),
     ));
     let records = parse_json_to_records_mol(&format!("{}.records", field_name), &field["records"]);
-    let nonce = Uint64::from(parse_json_u64(
+    let nonce = Uint64::from(util::parse_json_u64(
         &format!("{}.nonce", field_name),
         &field["nonce"],
         Some(0),
     ));
-    let enable_sub_account = Uint8::from(parse_json_u8(
+    let enable_sub_account = Uint8::from(util::parse_json_u8(
         &format!("{}.enable_sub_account", field_name),
         &field["enable_sub_account"],
         Some(0),
     ));
-    let renew_sub_account_price = Uint64::from(parse_json_u64(
+    let renew_sub_account_price = Uint64::from(util::parse_json_u64(
         &format!("{}.renew_sub_account_price", field_name),
         &field["renew_sub_account_price"],
         Some(0),
@@ -596,7 +603,7 @@ impl TemplateGenerator {
         if source == Source::Input {
             value = json!({
                 "previous_output": value,
-                "since": "0x"
+                "since": 0
             });
         }
 
@@ -647,12 +654,15 @@ impl TemplateGenerator {
             .max_length(Uint32::from(42))
             .basic_capacity(Uint64::from(ACCOUNT_BASIC_CAPACITY))
             .prepared_fee_capacity(Uint64::from(ACCOUNT_PREPARED_FEE_CAPACITY))
-            .expiration_grace_period(Uint32::from(2_592_000))
+            .expiration_grace_period(Uint32::from(ACCOUNT_EXPIRATION_GRACE_PERIOD as u32))
+            // .expiration_auction_period(Uint32::from(ACCOUNT_EXPIRATION_AUCTION_PERIOD as u32))
+            // .expiration_auction_confirmation_period(Uint32::from(ACCOUNT_EXPIRATION_AUCTION_CONFIRMATION_PERIOD as u32))
             .record_min_ttl(Uint32::from(300))
             .record_size_limit(Uint32::from(5000))
             .transfer_account_fee(Uint64::from(ACCOUNT_OPERATE_FEE))
             .edit_manager_fee(Uint64::from(ACCOUNT_OPERATE_FEE))
             .edit_records_fee(Uint64::from(ACCOUNT_OPERATE_FEE))
+            .common_fee(Uint64::from(ACCOUNT_OPERATE_FEE))
             .transfer_account_throttle(Uint32::from(86400))
             .edit_manager_throttle(Uint32::from(3600))
             .edit_records_throttle(Uint32::from(600))
@@ -818,7 +828,13 @@ impl TemplateGenerator {
             .basic_capacity(Uint64::from(SUB_ACCOUNT_BASIC_CAPACITY))
             .prepared_fee_capacity(Uint64::from(SUB_ACCOUNT_PREPARED_FEE_CAPACITY))
             .new_sub_account_price(Uint64::from(SUB_ACCOUNT_NEW_PRICE))
+            .new_sub_account_custom_price_das_profit_rate(Uint32::from(
+                SUB_ACCOUNT_NEW_CUSTOM_PRICE_DAS_PROFIT_RATE as u32,
+            ))
             .renew_sub_account_price(Uint64::from(SUB_ACCOUNT_RENEW_PRICE))
+            .renew_sub_account_custom_price_das_profit_rate(Uint32::from(
+                SUB_ACCOUNT_RENEW_CUSTOM_PRICE_DAS_PROFIT_RATE as u32,
+            ))
             .common_fee(Uint64::from(SUB_ACCOUNT_COMMON_FEE))
             .create_fee(Uint64::from(SUB_ACCOUNT_CREATE_FEE))
             .edit_fee(Uint64::from(SUB_ACCOUNT_EDIT_FEE))
@@ -994,7 +1010,7 @@ impl TemplateGenerator {
             if source == Source::Input {
                 cell = json!({
                     "previous_output": cell,
-                    "since": "0x"
+                    "since": 0
                 });
             }
 
@@ -1079,8 +1095,16 @@ impl TemplateGenerator {
             DataType::ConfigCellRecordKeyNamespace => push_cell!(@raw gen_config_cell_record_key_namespace),
             DataType::ConfigCellUnAvailableAccount => push_cell!(@raw gen_config_cell_unavailable_account),
             DataType::ConfigCellCharSetEmoji => push_cell!(@char_set gen_config_cell_char_set, "char_set_emoji.txt", 1),
-            DataType::ConfigCellCharSetDigit => push_cell!(@char_set gen_config_cell_char_set, "char_set_digit.txt", 1),
+            DataType::ConfigCellCharSetDigit => {
+                push_cell!(@char_set gen_config_cell_char_set, "char_set_digit_and_symbol.txt", 1)
+            }
             DataType::ConfigCellCharSetEn => push_cell!(@char_set gen_config_cell_char_set, "char_set_en.txt", 0),
+            DataType::ConfigCellCharSetJa => push_cell!(@char_set gen_config_cell_char_set, "char_set_ja.txt", 0),
+            DataType::ConfigCellCharSetKo => push_cell!(@char_set gen_config_cell_char_set, "char_set_ko.txt", 0),
+            DataType::ConfigCellCharSetRu => push_cell!(@char_set gen_config_cell_char_set, "char_set_ru.txt", 0),
+            DataType::ConfigCellCharSetTh => push_cell!(@char_set gen_config_cell_char_set, "char_set_th.txt", 0),
+            DataType::ConfigCellCharSetTr => push_cell!(@char_set gen_config_cell_char_set, "char_set_tr.txt", 0),
+            DataType::ConfigCellCharSetVi => push_cell!(@char_set gen_config_cell_char_set, "char_set_vi.txt", 0),
             DataType::ConfigCellSubAccountBetaList => push_cell!(@raw gen_config_cell_sub_account_beta_list),
             DataType::ConfigCellCharSetZhHans => {
                 push_cell!(@char_set gen_config_cell_char_set, "char_set_zh_hans.txt", 0)
@@ -1170,36 +1194,66 @@ impl TemplateGenerator {
 
     // ======
 
-    pub fn push_contract_cell(&mut self, contract_filename: &str, deployed: bool) {
-        let value;
-        if deployed {
-            value = json!({
-                "tmp_type": "deployed_contract",
-                "tmp_file_name": contract_filename
-            });
+    /// The header_deps should be an array of objects like below:
+    ///
+    /// ```json
+    /// {
+    ///     "version": u32,
+    ///     "number": u64,
+    ///     "timestamp": u64 | "YYYY-MM-DD HH:MM:SS",
+    ///     "epoch": u64,
+    ///     "transactions_root": "0x...",
+    /// }
+    /// ```
+    pub fn push_header_deps(&mut self, header: Value) {
+        let version = util::parse_json_u32("header.version", &header["version"], Some(0));
+        let number = if header["number"].is_null() {
+            util::parse_json_u64("header.height", &header["height"], Some(0))
         } else {
-            value = json!({
-                "tmp_type": "contract",
-                "tmp_file_name": contract_filename
-            });
-        }
+            util::parse_json_u64("header.number", &header["number"], Some(0))
+        };
+        let timestamp = util::parse_json_u64("header.timestamp", &header["timestamp"], Some(0));
+        let epoch = util::parse_json_u64("header.epoch", &header["epoch"], Some(0));
+        let transactions_root = header["transactions_root"].clone();
 
-        self.cell_deps.push(value)
+        let value = json!({
+            "version": version,
+            "number": number,
+            "timestamp": timestamp,
+            "epoch": epoch,
+            "transactions_root": transactions_root
+        });
+
+        self.header_deps.push(value);
     }
 
-    pub fn push_shared_lib_cell(&mut self, contract_filename: &str, deployed: bool) {
-        let value;
-        if deployed {
-            value = json!({
-                "tmp_type": "deployed_shared_lib",
-                "tmp_file_name": contract_filename
-            });
-        } else {
-            value = json!({
-                "tmp_type": "shared_lib",
-                "tmp_file_name": contract_filename
-            });
-        }
+    pub fn push_contract_cell(&mut self, contract_filename: &str, type_: ContractType) {
+        let value = match type_ {
+            ContractType::Contract => {
+                json!({
+                    "tmp_type": "contract",
+                    "tmp_file_name": contract_filename
+                })
+            }
+            ContractType::DeployedContract => {
+                json!({
+                    "tmp_type": "deployed_contract",
+                    "tmp_file_name": contract_filename
+                })
+            }
+            ContractType::SharedLib => {
+                json!({
+                    "tmp_type": "shared_lib",
+                    "tmp_file_name": contract_filename
+                })
+            }
+            ContractType::DeployedSharedLib => {
+                json!({
+                    "tmp_type": "deployed_shared_lib",
+                    "tmp_file_name": contract_filename
+                })
+            }
+        };
 
         self.cell_deps.push(value)
     }
@@ -1287,7 +1341,7 @@ impl TemplateGenerator {
         if source == Source::Input {
             cell = json!({
                 "previous_output": cell,
-                "since": "0x"
+                "since": 0
             });
         }
 
@@ -1346,7 +1400,7 @@ impl TemplateGenerator {
     /// })
     /// ```
     fn gen_apply_register_cell(&mut self, cell: Value) -> (Value, Option<EntityWrapper>) {
-        let capacity = parse_json_u64("cell.capacity", &cell["capacity"], Some(0));
+        let capacity = util::parse_json_u64("cell.capacity", &cell["capacity"], Some(0));
         let lock_script = parse_json_script("cell.lock", &cell["lock"]);
         let type_script = parse_json_script("cell.type", &cell["type"]);
 
@@ -1359,7 +1413,7 @@ impl TemplateGenerator {
                 Vec::new()
             } else {
                 let account = parse_json_str("cell.data.account", &data["account"]);
-                let lock_args = parse_json_hex("cell.lock.args", &lock_script["args"]);
+                let lock_args = util::parse_json_hex("cell.lock.args", &lock_script["args"]);
 
                 blake2b_256([&lock_args, account.as_bytes()].concat().as_slice()).to_vec()
             };
@@ -1367,14 +1421,14 @@ impl TemplateGenerator {
             let mut height = if data["height"].is_null() {
                 Vec::new()
             } else {
-                parse_json_u64("cell.data.height", &data["height"], None)
+                util::parse_json_u64("cell.data.height", &data["height"], None)
                     .to_le_bytes()
                     .to_vec()
             };
             let mut timestamp = if data["timestamp"].is_null() {
                 Vec::new()
             } else {
-                parse_json_u64("cell.data.timestamp", &data["timestamp"], None)
+                util::parse_json_u64("cell.data.timestamp", &data["timestamp"], None)
                     .to_le_bytes()
                     .to_vec()
             };
@@ -1431,26 +1485,18 @@ impl TemplateGenerator {
     /// })
     /// ```
     fn gen_pre_account_cell(&mut self, version: u32, cell: Value) -> (Value, Option<EntityWrapper>) {
-        let capacity: u64 = parse_json_u64("cell.capacity", &cell["capacity"], Some(0));
+        let capacity: u64 = util::parse_json_u64("cell.capacity", &cell["capacity"], Some(0));
         let lock_script = parse_json_script("cell.lock", &cell["lock"]);
         let type_script = parse_json_script("cell.type", &cell["type"]);
 
         if !cell["witness"].is_null() {
             let witness = &cell["witness"];
-            let account = parse_json_str("cell.witness.account", &witness["account"]);
-            let account_without_suffix = match account.strip_suffix(".bit") {
-                Some(val) => val,
-                _ => account,
-            };
-            let account_chars_raw = account_without_suffix
-                .chars()
-                .map(|c| c.to_string())
-                .collect::<Vec<String>>();
-            let account_chars = gen_account_chars(account_chars_raw);
+            let (account, account_chars) =
+                parse_json_to_account_chars("cell.witness.account", &witness["account"], None);
             let refund_lock = parse_json_script_to_mol("cell.witness.refund_lock", &witness["refund_lock"]);
-            let owner_lock_args = parse_json_hex("cell.witness.owner_lock_args", &witness["owner_lock_args"]);
+            let owner_lock_args = util::parse_json_hex("cell.witness.owner_lock_args", &witness["owner_lock_args"]);
             let inviter_id = if !witness["inviter_id"].is_null() {
-                Bytes::from(parse_json_hex("cell.witness.inviter_id", &witness["inviter_id"]))
+                Bytes::from(util::parse_json_hex("cell.witness.inviter_id", &witness["inviter_id"]))
             } else {
                 Bytes::default()
             };
@@ -1471,17 +1517,18 @@ impl TemplateGenerator {
                 ScriptOpt::default()
             };
             let price = PriceConfig::new_builder()
-                .length(parse_json_u8("cell.witness.price.length", &witness["price"]["length"], None).into())
-                .new(parse_json_u64("cell.witness.price.new", &witness["price"]["new"], None).into())
-                .renew(parse_json_u64("cell.witness.price.renew", &witness["price"]["renew"], None).into())
+                .length(util::parse_json_u8("cell.witness.price.length", &witness["price"]["length"], None).into())
+                .new(util::parse_json_u64("cell.witness.price.new", &witness["price"]["new"], None).into())
+                .renew(util::parse_json_u64("cell.witness.price.renew", &witness["price"]["renew"], None).into())
                 .build();
-            let quote = parse_json_u64("cell.witness.quote", &witness["quote"], None);
-            let invited_discount = parse_json_u32("cell.witness.invited_discount", &witness["invited_discount"], None);
-            let created_at = parse_json_u64("cell.witness.created_at", &witness["created_at"], None);
+            let quote = util::parse_json_u64("cell.witness.quote", &witness["quote"], None);
+            let invited_discount =
+                util::parse_json_u32("cell.witness.invited_discount", &witness["invited_discount"], None);
+            let created_at = util::parse_json_u64("cell.witness.created_at", &witness["created_at"], None);
 
             match version {
-                _ => {
-                    let entity = PreAccountCellData::new_builder()
+                1 => {
+                    let entity = PreAccountCellDataV1::new_builder()
                         .account(account_chars)
                         .refund_lock(refund_lock)
                         .owner_lock_args(Bytes::from(owner_lock_args))
@@ -1495,13 +1542,92 @@ impl TemplateGenerator {
                         .build();
 
                     let data = &cell["data"];
-                    let hash = parse_json_hex_with_default(
+                    let hash = util::parse_json_hex_with_default(
                         "cell.data.hash",
                         &data["hash"],
                         blake2b_256(entity.as_slice()).to_vec(),
                     );
                     let account_id =
-                        parse_json_hex_with_default("cell.data.id", &data["id"], util::account_to_id(account));
+                        util::parse_json_hex_with_default("cell.data.id", &data["id"], util::account_to_id(&account));
+                    let outputs_data = [hash, account_id].concat();
+
+                    (
+                        json!({
+                          "tmp_type": "full",
+                          "capacity": capacity,
+                          "lock": lock_script,
+                          "type": type_script,
+                          "tmp_data": util::bytes_to_hex(&outputs_data)
+                        }),
+                        Some(EntityWrapper::PreAccountCellDataV1(entity)),
+                    )
+                }
+                2 => {
+                    let initial_records =
+                        parse_json_to_records_mol("cell.witness.initial_records", &witness["initial_records"]);
+                    let entity = PreAccountCellDataV2::new_builder()
+                        .account(account_chars)
+                        .refund_lock(refund_lock)
+                        .owner_lock_args(Bytes::from(owner_lock_args))
+                        .inviter_id(inviter_id)
+                        .inviter_lock(inviter_lock)
+                        .channel_lock(channel_lock)
+                        .price(price)
+                        .quote(Uint64::from(quote))
+                        .invited_discount(Uint32::from(invited_discount))
+                        .created_at(Uint64::from(created_at))
+                        .initial_records(initial_records)
+                        .build();
+
+                    let data = &cell["data"];
+                    let hash = util::parse_json_hex_with_default(
+                        "cell.data.hash",
+                        &data["hash"],
+                        blake2b_256(entity.as_slice()).to_vec(),
+                    );
+                    let account_id =
+                        util::parse_json_hex_with_default("cell.data.id", &data["id"], util::account_to_id(&account));
+                    let outputs_data = [hash, account_id].concat();
+
+                    (
+                        json!({
+                          "tmp_type": "full",
+                          "capacity": capacity,
+                          "lock": lock_script,
+                          "type": type_script,
+                          "tmp_data": util::bytes_to_hex(&outputs_data)
+                        }),
+                        Some(EntityWrapper::PreAccountCellDataV2(entity)),
+                    )
+                }
+                _ => {
+                    let initial_records =
+                        parse_json_to_records_mol("cell.witness.initial_records", &witness["initial_records"]);
+                    let initial_cross_chain =
+                        parse_json_to_chain_id_mol("cell.witness.initial_cross_chain", &witness["initial_cross_chain"]);
+                    let entity = PreAccountCellData::new_builder()
+                        .account(account_chars)
+                        .refund_lock(refund_lock)
+                        .owner_lock_args(Bytes::from(owner_lock_args))
+                        .inviter_id(inviter_id)
+                        .inviter_lock(inviter_lock)
+                        .channel_lock(channel_lock)
+                        .price(price)
+                        .quote(Uint64::from(quote))
+                        .invited_discount(Uint32::from(invited_discount))
+                        .created_at(Uint64::from(created_at))
+                        .initial_records(initial_records)
+                        .initial_cross_chain(initial_cross_chain)
+                        .build();
+
+                    let data = &cell["data"];
+                    let hash = util::parse_json_hex_with_default(
+                        "cell.data.hash",
+                        &data["hash"],
+                        blake2b_256(entity.as_slice()).to_vec(),
+                    );
+                    let account_id =
+                        util::parse_json_hex_with_default("cell.data.id", &data["id"], util::account_to_id(&account));
                     let outputs_data = [hash, account_id].concat();
 
                     (
@@ -1517,7 +1643,7 @@ impl TemplateGenerator {
                 }
             }
         } else {
-            let outputs_data = parse_json_hex("cell.data", &cell["data"]);
+            let outputs_data = util::parse_json_hex("cell.data", &cell["data"]);
             (
                 json!({
                   "tmp_type": "full",
@@ -1561,7 +1687,7 @@ impl TemplateGenerator {
     /// })
     /// ```
     fn gen_proposal_cell(&mut self, version: u32, cell: Value) -> (Value, Option<EntityWrapper>) {
-        let capacity: u64 = parse_json_u64("cell.capacity", &cell["capacity"], Some(0));
+        let capacity: u64 = util::parse_json_u64("cell.capacity", &cell["capacity"], Some(0));
         let lock_script = parse_json_script("cell.lock", &cell["lock"]);
         let type_script = parse_json_script("cell.type", &cell["type"]);
 
@@ -1569,7 +1695,7 @@ impl TemplateGenerator {
             let witness = &cell["witness"];
             let proposer_lock = parse_json_script_to_mol("cell.witness.proposer_lock", &witness["proposer_lock"]);
             let created_at_height =
-                parse_json_u64("cell.witness.created_at_height", &witness["created_at_height"], None);
+                util::parse_json_u64("cell.witness.created_at_height", &witness["created_at_height"], None);
 
             // The ProposalCellData.slices is a two-dimensional arrays.
             let mut slice_list_builder = SliceList::new_builder();
@@ -1583,8 +1709,11 @@ impl TemplateGenerator {
                                 &format!("{}.account_id", field_name_base),
                                 &item["account_id"],
                             );
-                            let item_type =
-                                parse_json_u8(&format!("{}.item_type", field_name_base), &item["item_type"], None);
+                            let item_type = util::parse_json_u8(
+                                &format!("{}.item_type", field_name_base),
+                                &item["item_type"],
+                                None,
+                            );
                             let next =
                                 parse_json_str_to_account_id_mol(&format!("{}.next", field_name_base), &item["next"]);
 
@@ -1612,7 +1741,7 @@ impl TemplateGenerator {
                         .created_at_height(Uint64::from(created_at_height))
                         .slices(slice_list_builder.build())
                         .build();
-                    let outputs_data = parse_json_hex_with_default(
+                    let outputs_data = util::parse_json_hex_with_default(
                         "cell.data",
                         &cell["data"],
                         blake2b_256(entity.as_slice()).to_vec(),
@@ -1631,7 +1760,7 @@ impl TemplateGenerator {
                 }
             }
         } else {
-            let outputs_data = parse_json_hex("cell.data", &cell["data"]);
+            let outputs_data = util::parse_json_hex("cell.data", &cell["data"]);
             (
                 json!({
                   "tmp_type": "full",
@@ -1687,14 +1816,14 @@ impl TemplateGenerator {
     /// })
     /// ```
     fn gen_account_cell(&mut self, version: u32, cell: Value) -> (Value, Option<EntityWrapper>) {
-        let capacity: u64 = parse_json_u64("cell.capacity", &cell["capacity"], Some(0));
+        let capacity: u64 = util::parse_json_u64("cell.capacity", &cell["capacity"], Some(0));
         let lock_script = parse_json_script_das_lock("cell.lock", &cell["lock"]);
         let type_script = parse_json_script("cell.type", &cell["type"]);
 
         fn gen_outputs_data<T: Entity>(cell: &Value, entity: Option<&T>) -> Vec<u8> {
             let data = &cell["data"];
             let hash = if !data["hash"].is_null() {
-                parse_json_hex("cell.data.hash", &data["hash"])
+                util::parse_json_hex("cell.data.hash", &data["hash"])
             } else {
                 blake2b_256(entity.expect("The eneity should not be None.").as_slice()).to_vec()
             };
@@ -1705,7 +1834,7 @@ impl TemplateGenerator {
                 util::account_to_id(account)
             };
             let next_id = parse_json_str_to_account_id("cell.data.next", &data["next"]);
-            let expired_at = parse_json_u64("cell.data.expired_at", &data["expired_at"], None);
+            let expired_at = util::parse_json_u64("cell.data.expired_at", &data["expired_at"], None);
 
             [
                 hash,
@@ -1719,71 +1848,35 @@ impl TemplateGenerator {
 
         if !cell["witness"].is_null() {
             let witness = &cell["witness"];
-            let account = parse_json_str("cell.witness.account", &witness["account"]);
+            let (account, account_chars) =
+                parse_json_to_account_chars("cell.witness.account", &witness["account"], None);
             let account_id = if !witness["id"].is_null() {
                 parse_json_str_to_account_id_mol("cell.witness.id", &witness["id"])
             } else {
-                AccountId::try_from(util::account_to_id(account)).expect("Calculate account ID from account failed")
+                AccountId::try_from(util::account_to_id(&account)).expect("Calculate account ID from account failed")
             };
-            let account_chars_raw = account
-                .chars()
-                .take(account.len() - 4)
-                .map(|c| c.to_string())
-                .collect::<Vec<String>>();
-            let account_chars = gen_account_chars(account_chars_raw);
-            let registered_at = Uint64::from(parse_json_u64(
+            let registered_at = Uint64::from(util::parse_json_u64(
                 "cell.witness.registered_at",
                 &witness["registered_at"],
                 None,
             ));
-            let last_transfer_account_at = Uint64::from(parse_json_u64(
+            let last_transfer_account_at = Uint64::from(util::parse_json_u64(
                 "cell.witness.last_transfer_account_at",
                 &witness["last_transfer_account_at"],
                 Some(0),
             ));
-            let last_edit_manager_at = Uint64::from(parse_json_u64(
+            let last_edit_manager_at = Uint64::from(util::parse_json_u64(
                 "cell.witness.last_edit_manager_at",
                 &witness["last_edit_manager_at"],
                 Some(0),
             ));
-            let last_edit_records_at = Uint64::from(parse_json_u64(
+            let last_edit_records_at = Uint64::from(util::parse_json_u64(
                 "cell.witness.last_edit_records_at",
                 &witness["last_edit_records_at"],
                 Some(0),
             ));
-            let status = Uint8::from(parse_json_u8("cell.witness.status", &witness["status"], Some(0)));
-            // TODO Find the correct way to handle the return type of &Vec.
-            let tmp = Vec::new();
-            let mut records = &tmp;
-            if !witness["records"].is_null() {
-                records = parse_json_array("cell.witness.records", &witness["records"])
-            };
-
-            let mut records_builder = Records::new_builder();
-            for (_i, record) in records.iter().enumerate() {
-                let ttl = if !record["ttl"].is_null() {
-                    Uint32::from(parse_json_u32("cell.witness.records[].ttl", &record["ttl"], Some(300)))
-                } else {
-                    Uint32::from(300)
-                };
-                let record = Record::new_builder()
-                    .record_type(Bytes::from(
-                        parse_json_str("cell.witness.records[].type", &record["type"]).as_bytes(),
-                    ))
-                    .record_key(Bytes::from(
-                        parse_json_str("cell.witness.records[].key", &record["key"]).as_bytes(),
-                    ))
-                    .record_label(Bytes::from(
-                        parse_json_str("cell.witness.records[].label", &record["label"]).as_bytes(),
-                    ))
-                    .record_value(Bytes::from(parse_json_hex(
-                        "cell.witness.records[].value",
-                        &record["value"],
-                    )))
-                    .record_ttl(ttl)
-                    .build();
-                records_builder = records_builder.push(record);
-            }
+            let status = Uint8::from(util::parse_json_u8("cell.witness.status", &witness["status"], Some(0)));
+            let records = parse_json_to_records_mol("cell.witness.records", &witness["records"]);
 
             match version {
                 2 => {
@@ -1795,7 +1888,7 @@ impl TemplateGenerator {
                         .last_edit_manager_at(last_edit_manager_at)
                         .last_edit_records_at(last_edit_records_at)
                         .status(status)
-                        .records(records_builder.build())
+                        .records(records)
                         .build();
                     let outputs_data = gen_outputs_data(&cell, Some(&entity));
 
@@ -1811,12 +1904,12 @@ impl TemplateGenerator {
                     )
                 }
                 _ => {
-                    let enable_sub_account = Uint8::from(parse_json_u8(
+                    let enable_sub_account = Uint8::from(util::parse_json_u8(
                         "cell.witness.enable_sub_account",
                         &witness["enable_sub_account"],
                         Some(0),
                     ));
-                    let renew_sub_account_price = Uint64::from(parse_json_u64(
+                    let renew_sub_account_price = Uint64::from(util::parse_json_u64(
                         "cell.witness.renew_sub_account_price",
                         &witness["renew_sub_account_price"],
                         Some(0),
@@ -1830,7 +1923,7 @@ impl TemplateGenerator {
                         .last_edit_manager_at(last_edit_manager_at)
                         .last_edit_records_at(last_edit_records_at)
                         .status(status)
-                        .records(records_builder.build())
+                        .records(records)
                         .enable_sub_account(enable_sub_account)
                         .renew_sub_account_price(renew_sub_account_price)
                         .build();
@@ -1888,7 +1981,7 @@ impl TemplateGenerator {
     /// })
     /// ```
     fn gen_account_sale_cell(&mut self, version: u32, cell: Value) -> (Value, Option<EntityWrapper>) {
-        let capacity: u64 = parse_json_u64("cell.capacity", &cell["capacity"], Some(0));
+        let capacity: u64 = util::parse_json_u64("cell.capacity", &cell["capacity"], Some(0));
         let lock_script = parse_json_script_das_lock("cell.lock", &cell["lock"]);
         let type_script = parse_json_script("cell.type", &cell["type"]);
 
@@ -1896,18 +1989,22 @@ impl TemplateGenerator {
             let witness = &cell["witness"];
             let account = Bytes::from(parse_json_str_to_bytes("cell.witness.account", &witness["account"]));
             let account_id = if !witness["account_id"].is_null() {
-                AccountId::try_from(parse_json_hex("cell.witness.account_id", &witness["account_id"]))
+                AccountId::try_from(util::parse_json_hex("cell.witness.account_id", &witness["account_id"]))
                     .expect("cell.witness.account_id should be [u8; 20]")
             } else {
                 let hash = blake2b_256(account.as_reader().raw_data());
                 AccountId::try_from(&hash[..20]).expect("Calculate account ID from account failed")
             };
-            let price = Uint64::from(parse_json_u64("cell.witness.price", &witness["price"], None));
+            let price = Uint64::from(util::parse_json_u64("cell.witness.price", &witness["price"], None));
             let description = Bytes::from(parse_json_str_to_bytes(
                 "cell.witness.description",
                 &witness["description"],
             ));
-            let started_at = Uint64::from(parse_json_u64("cell.witness.started_at", &witness["started_at"], None));
+            let started_at = Uint64::from(util::parse_json_u64(
+                "cell.witness.started_at",
+                &witness["started_at"],
+                None,
+            ));
 
             match version {
                 1 => {
@@ -1932,7 +2029,7 @@ impl TemplateGenerator {
                     )
                 }
                 _ => {
-                    let buyer_inviter_profit_rate = Uint32::from(parse_json_u32(
+                    let buyer_inviter_profit_rate = Uint32::from(util::parse_json_u32(
                         "cell.witness.buyer_inviter_profit_rate",
                         &witness["buyer_inviter_profit_rate"],
                         Some(0),
@@ -1946,7 +2043,7 @@ impl TemplateGenerator {
                         .started_at(started_at)
                         .buyer_inviter_profit_rate(buyer_inviter_profit_rate)
                         .build();
-                    let outputs_data = parse_json_hex_with_default(
+                    let outputs_data = util::parse_json_hex_with_default(
                         "cell.data",
                         &cell["data"],
                         blake2b_256(entity.as_slice()).to_vec(),
@@ -1965,7 +2062,7 @@ impl TemplateGenerator {
                 }
             }
         } else {
-            let outputs_data = parse_json_hex("cell.data", &cell["data"]);
+            let outputs_data = util::parse_json_hex("cell.data", &cell["data"]);
 
             (
                 json!({
@@ -2023,7 +2120,7 @@ impl TemplateGenerator {
                     let belong_to =
                         parse_json_script_to_mol(&format!("cell.winess.records[{}].belong_to", i), &item["belong_to"]);
                     let capacity =
-                        parse_json_u64(&format!("cell.winess.records[{}].capacity", i), &item["capacity"], None);
+                        util::parse_json_u64(&format!("cell.winess.records[{}].capacity", i), &item["capacity"], None);
 
                     capacity_of_records += capacity;
                     records_builder = records_builder.push(
@@ -2034,7 +2131,7 @@ impl TemplateGenerator {
                     );
                 }
             }
-            let capacity = parse_json_u64("cell.capacity", &cell["capacity"], Some(capacity_of_records));
+            let capacity = util::parse_json_u64("cell.capacity", &cell["capacity"], Some(capacity_of_records));
 
             match version {
                 _ => {
@@ -2042,7 +2139,7 @@ impl TemplateGenerator {
                         .creator(creator)
                         .records(records_builder.build())
                         .build();
-                    let outputs_data = parse_json_hex_with_default(
+                    let outputs_data = util::parse_json_hex_with_default(
                         "cell.data",
                         &cell["data"],
                         blake2b_256(entity.as_slice()).to_vec(),
@@ -2061,8 +2158,8 @@ impl TemplateGenerator {
                 }
             }
         } else {
-            let capacity = parse_json_u64("cell.capacity", &cell["capacity"], Some(0));
-            let outputs_data = parse_json_hex("cell.data", &cell["data"]);
+            let capacity = util::parse_json_u64("cell.capacity", &cell["capacity"], Some(0));
+            let outputs_data = util::parse_json_hex("cell.data", &cell["data"]);
             (
                 json!({
                   "tmp_type": "full",
@@ -2094,7 +2191,7 @@ impl TemplateGenerator {
     /// })
     /// ```
     fn gen_reverse_record_cell(&mut self, cell: Value) -> (Value, Option<EntityWrapper>) {
-        let capacity: u64 = parse_json_u64("cell.capacity", &cell["capacity"], Some(0));
+        let capacity: u64 = util::parse_json_u64("cell.capacity", &cell["capacity"], Some(0));
         let lock_script = parse_json_script_das_lock("cell.lock", &cell["lock"]);
         let type_script = parse_json_script("cell.type", &cell["type"]);
 
@@ -2140,14 +2237,14 @@ impl TemplateGenerator {
     /// })
     /// ```
     fn gen_offer_cell(&mut self, version: u32, cell: Value) -> (Value, Option<EntityWrapper>) {
-        let capacity: u64 = parse_json_u64("cell.capacity", &cell["capacity"], Some(0));
+        let capacity: u64 = util::parse_json_u64("cell.capacity", &cell["capacity"], Some(0));
         let lock_script = parse_json_script_das_lock("cell.lock", &cell["lock"]);
         let type_script = parse_json_script("cell.type", &cell["type"]);
 
         if !cell["witness"].is_null() {
             let witness = &cell["witness"];
             let account = parse_json_str("cell.witness.account", &witness["account"]);
-            let price = parse_json_u64("cell.witness.price", &witness["price"], None);
+            let price = util::parse_json_u64("cell.witness.price", &witness["price"], None);
             let message = parse_json_str("cell.witness.message", &witness["message"]);
             let inviter_lock = parse_json_script_to_mol("cell.witness.inviter_lock", &witness["inviter_lock"]);
             let channel_lock = parse_json_script_to_mol("cell.witness.channel_lock", &witness["channel_lock"]);
@@ -2161,7 +2258,7 @@ impl TemplateGenerator {
                         .inviter_lock(inviter_lock)
                         .channel_lock(channel_lock)
                         .build();
-                    let outputs_data = parse_json_hex_with_default(
+                    let outputs_data = util::parse_json_hex_with_default(
                         "cell.data",
                         &cell["data"],
                         blake2b_256(entity.as_slice()).to_vec(),
@@ -2179,7 +2276,7 @@ impl TemplateGenerator {
                 }
             }
         } else {
-            let outputs_data = parse_json_hex("cell.data", &cell["data"]);
+            let outputs_data = util::parse_json_hex("cell.data", &cell["data"]);
             (
                 json!({
                   "tmp_type": "full",
@@ -2207,12 +2304,15 @@ impl TemplateGenerator {
     ///     },
     ///     "data": {
     ///         "root": null | "0x..." // If this is null, it will be an invalid cell.
-    ///         "profit": 0
+    ///         "das_profit": 0,
+    ///         "owner_profit": 0,
+    ///         "custom_script": null | "0x...",
+    ///         "script_args": null | "0x...",
     ///     }
     /// })
     /// ```
     fn gen_sub_account_cell(&mut self, cell: Value) -> (Value, Option<EntityWrapper>) {
-        let capacity: u64 = parse_json_u64("cell.capacity", &cell["capacity"], Some(0));
+        let capacity: u64 = util::parse_json_u64("cell.capacity", &cell["capacity"], Some(0));
         let lock_script = parse_json_script("cell.lock", &cell["lock"]);
 
         let type_script = match cell.get("type") {
@@ -2236,16 +2336,30 @@ impl TemplateGenerator {
             String::from("")
         } else {
             let data = &cell["data"];
-            let mut root = parse_json_hex("cell.data.root", &data["root"]);
-            let mut profit = if data["profit"].is_null() {
+            let mut root = util::parse_json_hex("cell.data.root", &data["root"]);
+            let mut das_profit = if data["das_profit"].is_null() {
                 Vec::new()
             } else {
-                parse_json_u64("cell.data.profit", &data["profit"], None)
+                util::parse_json_u64("cell.data.das_profit", &data["das_profit"], None)
                     .to_le_bytes()
                     .to_vec()
             };
+            let mut owner_profit = if data["owner_profit"].is_null() {
+                Vec::new()
+            } else {
+                util::parse_json_u64("cell.data.owner_profit", &data["owner_profit"], None)
+                    .to_le_bytes()
+                    .to_vec()
+            };
+            let mut custom_script =
+                util::parse_json_hex_with_default("cell.data.custom_script", &data["custom_script"], Vec::new());
+            let mut script_args =
+                util::parse_json_hex_with_default("cell.data.script_args", &data["script_args"], Vec::new());
 
-            root.append(&mut profit);
+            root.append(&mut das_profit);
+            root.append(&mut owner_profit);
+            root.append(&mut custom_script);
+            root.append(&mut script_args);
             util::bytes_to_hex(&root)
         };
 
@@ -2277,12 +2391,12 @@ impl TemplateGenerator {
     /// })
     /// ```
     fn gen_balance_cell(&mut self, cell: Value) -> (Value, Option<EntityWrapper>) {
-        let capacity: u64 = parse_json_u64("cell.capacity", &cell["capacity"], Some(0));
+        let capacity: u64 = util::parse_json_u64("cell.capacity", &cell["capacity"], Some(0));
         let lock_script = parse_json_script_das_lock("cell.lock", &cell["lock"]);
         let type_script = parse_json_script("cell.type", &cell["type"]);
 
         let outputs_data = if !cell["data"].is_null() {
-            util::bytes_to_hex(&parse_json_hex("cell.data", &cell["data"]))
+            util::bytes_to_hex(&util::parse_json_hex("cell.data", &cell["data"]))
         } else {
             String::from("0x")
         };
@@ -2310,12 +2424,12 @@ impl TemplateGenerator {
     /// })
     /// ```
     fn gen_custom_cell(&mut self, cell: Value) -> (Value, Option<EntityWrapper>) {
-        let capacity: u64 = parse_json_u64("cell.capacity", &cell["capacity"], Some(0));
+        let capacity: u64 = util::parse_json_u64("cell.capacity", &cell["capacity"], Some(0));
 
         let lock_script = parse_json_script("cell.lock", &cell["lock"]);
         let type_script = cell["type"].clone();
         let outputs_data = if !cell["data"].is_null() {
-            util::bytes_to_hex(&parse_json_hex("cell.data", &cell["data"]))
+            util::bytes_to_hex(&util::parse_json_hex("cell.data", &cell["data"]))
         } else {
             String::from("0x")
         };
@@ -2412,7 +2526,7 @@ impl TemplateGenerator {
             witness_bytes.extend(length_of(&proof));
             witness_bytes.extend(proof);
 
-            let version = parse_json_u32("witness.version", &witness["version"], Some(1)).to_le_bytes();
+            let version = util::parse_json_u32("witness.version", &witness["version"], Some(1)).to_le_bytes();
             witness_bytes.extend(length_of(&version));
             witness_bytes.extend(version);
 
@@ -2436,17 +2550,18 @@ impl TemplateGenerator {
                 let edit_key = parse_json_str_with_default("witness.edit_key", &witness["edit_key"], "");
                 let edit_value = match edit_key {
                     "expired_at" => {
-                        let mol = Uint64::from(parse_json_u64("witness.edit_value", &witness["edit_value"], None));
+                        let mol =
+                            Uint64::from(util::parse_json_u64("witness.edit_value", &witness["edit_value"], None));
                         mol.as_slice().to_vec()
                     }
-                    "owner" => parse_json_hex("witness.edit_value", &witness["edit_value"]),
-                    "manager" => parse_json_hex("witness.edit_value", &witness["edit_value"]),
+                    "owner" => util::parse_json_hex("witness.edit_value", &witness["edit_value"]),
+                    "manager" => util::parse_json_hex("witness.edit_value", &witness["edit_value"]),
                     "records" => {
                         let mol = parse_json_to_records_mol("witness.edit_value", &witness["edit_value"]);
                         mol.as_slice().to_vec()
                     }
                     // If the edit_key field is invalid just parse edit_value field as hex string.
-                    _ => parse_json_hex("witness.edit_value", &witness["edit_value"]),
+                    _ => util::parse_json_hex("witness.edit_value", &witness["edit_value"]),
                 };
                 witness_bytes.extend(length_of(&edit_value));
                 witness_bytes.extend(edit_value);
@@ -2455,7 +2570,7 @@ impl TemplateGenerator {
 
         let mut witness_bytes = Vec::new();
 
-        let field_value = parse_json_hex_with_default(
+        let field_value = util::parse_json_hex_with_default(
             "witness.signature",
             &witness["signature"],
             hex::decode("ffffffffffffffffffffffffffffffffffffffff").unwrap(),
@@ -2463,7 +2578,7 @@ impl TemplateGenerator {
         witness_bytes.extend(length_of(&field_value));
         witness_bytes.extend(field_value);
 
-        let field_value = parse_json_hex_with_default("witness.sign_role", &witness["sign_role"], vec![0]);
+        let field_value = util::parse_json_hex_with_default("witness.sign_role", &witness["sign_role"], vec![0]);
         witness_bytes.extend(length_of(&field_value));
         witness_bytes.extend(field_value);
 
@@ -2471,7 +2586,12 @@ impl TemplateGenerator {
             panic!("witness.sub_account is missing");
         }
         let sub_account_value = &witness["sub_account"];
-        let account = parse_json_str("witness.sub_account.account", &sub_account_value["account"]);
+        let suffix = parse_json_str("witness.sub_account.suffix", &sub_account_value["suffix"]);
+        let (account, _) = parse_json_to_account_chars(
+            "witness.sub_account.account",
+            &sub_account_value["account"],
+            Some(suffix),
+        );
         let key = util::blake2b_smt(account.as_bytes());
 
         let sub_account_entity = parse_json_to_sub_account("witness.sub_account", &witness["sub_account"]);
@@ -2500,12 +2620,13 @@ impl TemplateGenerator {
                 let edit_key = parse_json_str("witness.edit_key", &witness["edit_key"]);
                 match edit_key {
                     "expired_at" => {
-                        let mol = Uint64::from(parse_json_u64("witness.edit_value", &witness["edit_value"], None));
+                        let mol =
+                            Uint64::from(util::parse_json_u64("witness.edit_value", &witness["edit_value"], None));
                         new_sub_account_builder = new_sub_account_builder.expired_at(mol)
                     }
                     "owner" | "manager" => {
                         let mut lock_builder = sub_account_entity.lock().as_builder();
-                        let args = parse_json_hex("witness.edit_value", &witness["edit_value"]);
+                        let args = util::parse_json_hex("witness.edit_value", &witness["edit_value"]);
                         lock_builder = lock_builder.args(Bytes::from(args));
 
                         new_sub_account_builder = new_sub_account_builder.lock(lock_builder.build())
@@ -2546,7 +2667,7 @@ impl TemplateGenerator {
 
     // ======
 
-    pub fn as_json(&self) -> serde_json::Value {
+    pub fn as_json(&self) -> Value {
         let witnesses = [
             self.inner_witnesses.clone(),
             self.outer_witnesses.clone(),
@@ -2554,6 +2675,7 @@ impl TemplateGenerator {
         ]
         .concat();
         json!({
+            "header_deps": self.header_deps,
             "cell_deps": self.cell_deps,
             "inputs": self.inputs,
             "outputs": self.outputs,

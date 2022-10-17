@@ -1,27 +1,33 @@
-use super::{
-    assert as das_assert, constants::*, data_parser, debug, error::Error, types::ScriptLiteral, warn,
-    witness_parser::WitnessesParser,
-};
-use alloc::{borrow::ToOwned, boxed::Box, collections::BTreeMap, format, string::String, vec, vec::Vec};
-use blake2b_ref::{Blake2b, Blake2bBuilder};
-use ckb_std::{
-    ckb_constants::{CellField, Source},
-    ckb_types::{bytes, core::ScriptHashType, packed::*, prelude::*},
-    cstr_core::CStr,
-    error::SysError,
-    high_level, syscalls,
-};
-use core::{convert::TryInto, fmt::Debug};
-use das_types::{
-    constants::{DataType, LockRole, WITNESS_HEADER},
-    mixer::*,
-    packed as das_packed,
-};
+use alloc::borrow::ToOwned;
+use alloc::boxed::Box;
+use alloc::collections::BTreeMap;
+use alloc::string::String;
+use alloc::vec::Vec;
+use alloc::{format, vec};
+use core::convert::TryInto;
+use core::fmt::Debug;
 
+use blake2b_ref::{Blake2b, Blake2bBuilder};
+use ckb_std::ckb_constants::{CellField, Source};
+use ckb_std::ckb_types::bytes;
+use ckb_std::ckb_types::core::ScriptHashType;
+use ckb_std::ckb_types::packed::*;
+use ckb_std::ckb_types::prelude::*;
+use ckb_std::cstr_core::CStr;
+use ckb_std::error::SysError;
+use ckb_std::{high_level, syscalls};
+use das_types::constants::{DataType, LockRole, WITNESS_HEADER};
+use das_types::mixer::*;
+use das_types::packed as das_packed;
+pub use das_types::util::{hex_string, is_entity_eq, is_reader_eq};
 #[cfg(test)]
 use hex::FromHexError;
 
-pub use das_types::util::{hex_string, is_entity_eq, is_reader_eq};
+use super::constants::*;
+use super::error::*;
+use super::types::ScriptLiteral;
+use super::witness_parser::WitnessesParser;
+use super::{assert as das_assert, code_to_error, data_parser, debug, warn};
 
 #[cfg(test)]
 pub fn hex_to_unpacked_bytes(input: &str) -> Result<bytes::Bytes, FromHexError> {
@@ -89,7 +95,7 @@ pub fn find_cells_by_type_id(
     script_type: ScriptType,
     type_id: das_packed::HashReader,
     source: Source,
-) -> Result<Vec<usize>, Error> {
+) -> Result<Vec<usize>, Box<dyn ScriptError>> {
     let mut i = 0;
     let mut cell_indexes = Vec::new();
     loop {
@@ -122,7 +128,7 @@ pub fn find_cells_by_type_id(
                 break;
             }
             Err(err) => {
-                return Err(Error::from(err));
+                return Err(err.into());
             }
         }
 
@@ -135,19 +141,19 @@ pub fn find_cells_by_type_id(
 pub fn find_cells_by_type_id_in_inputs_and_outputs(
     script_type: ScriptType,
     type_id: das_packed::HashReader,
-) -> Result<(Vec<usize>, Vec<usize>), Error> {
+) -> Result<(Vec<usize>, Vec<usize>), Box<dyn ScriptError>> {
     let input_cells = find_cells_by_type_id(script_type, type_id, Source::Input)?;
     let output_cells = find_cells_by_type_id(script_type, type_id, Source::Output)?;
 
     Ok((input_cells, output_cells))
 }
 
-pub fn find_cells_by_type_id_and_filter<F: Fn(usize, Source) -> Result<bool, Error>>(
+pub fn find_cells_by_type_id_and_filter<F: Fn(usize, Source) -> Result<bool, Box<dyn ScriptError>>>(
     script_type: ScriptType,
     type_id: das_packed::HashReader,
     source: Source,
     filter: F,
-) -> Result<Vec<usize>, Error> {
+) -> Result<Vec<usize>, Box<dyn ScriptError>> {
     let cell_indexes = find_cells_by_type_id(script_type, type_id, source)?;
     let mut ret = Vec::new();
     for i in cell_indexes {
@@ -163,12 +169,12 @@ pub fn find_only_cell_by_type_id(
     script_type: ScriptType,
     type_id: das_packed::HashReader,
     source: Source,
-) -> Result<usize, Error> {
+) -> Result<usize, Box<dyn ScriptError>> {
     let cells = find_cells_by_type_id(script_type, type_id, source)?;
 
     das_assert!(
         cells.len() == 1,
-        Error::InvalidTransactionStructure,
+        ErrorCode::InvalidTransactionStructure,
         "Only one cell expected existing in this transaction, but found {:?} in {:?}.",
         cells.len(),
         source
@@ -181,7 +187,7 @@ pub fn find_cells_by_script(
     script_type: ScriptType,
     script: ScriptReader,
     source: Source,
-) -> Result<Vec<usize>, Error> {
+) -> Result<Vec<usize>, Box<dyn ScriptError>> {
     let mut i = 0;
     let mut cell_indexes = Vec::new();
     let expected_hash = blake2b_256(script.as_slice());
@@ -200,7 +206,7 @@ pub fn find_cells_by_script(
                 break;
             }
             Err(err) => {
-                return Err(Error::from(err));
+                return Err(err.into());
             }
         }
 
@@ -213,19 +219,19 @@ pub fn find_cells_by_script(
 pub fn find_cells_by_script_in_inputs_and_outputs(
     script_type: ScriptType,
     script: ScriptReader,
-) -> Result<(Vec<usize>, Vec<usize>), Error> {
+) -> Result<(Vec<usize>, Vec<usize>), Box<dyn ScriptError>> {
     let input_cells = find_cells_by_script(script_type, script, Source::Input)?;
     let output_cells = find_cells_by_script(script_type, script, Source::Output)?;
 
     Ok((input_cells, output_cells))
 }
 
-pub fn find_cells_by_script_and_filter<F: Fn(usize, Source) -> Result<bool, Error>>(
+pub fn find_cells_by_script_and_filter<F: Fn(usize, Source) -> Result<bool, Box<dyn ScriptError>>>(
     script_type: ScriptType,
     script: ScriptReader,
     source: Source,
     filter: F,
-) -> Result<Vec<usize>, Error> {
+) -> Result<Vec<usize>, Box<dyn ScriptError>> {
     let cell_indexes = find_cells_by_script(script_type, script, source)?;
     let mut ret = Vec::new();
     for i in cell_indexes {
@@ -241,7 +247,7 @@ pub fn find_balance_cells(
     config_main: das_packed::ConfigCellMainReader,
     user_lock_reader: ScriptReader,
     source: Source,
-) -> Result<Vec<usize>, Error> {
+) -> Result<Vec<usize>, Box<dyn ScriptError>> {
     let das_lock = das_lock();
     if is_type_id_equal(das_lock.as_reader(), user_lock_reader) {
         let args = user_lock_reader.args().raw_data();
@@ -344,11 +350,11 @@ pub fn load_data<F: Fn(&mut [u8], usize) -> Result<usize, SysError>>(syscall: F)
     }
 }
 
-pub fn load_cell_data(index: usize, source: Source) -> Result<Vec<u8>, Error> {
-    load_data(|buf, offset| syscalls::load_cell_data(buf, offset, index, source)).map_err(|err| Error::from(err))
+pub fn load_cell_data(index: usize, source: Source) -> Result<Vec<u8>, Box<dyn ScriptError>> {
+    load_data(|buf, offset| syscalls::load_cell_data(buf, offset, index, source)).map_err(|err| err.into())
 }
 
-pub fn load_oracle_data(type_: OracleCellType) -> Result<u64, Error> {
+pub fn load_oracle_data(type_: OracleCellType) -> Result<u64, Box<dyn ScriptError>> {
     let type_script;
     match type_ {
         OracleCellType::Height => {
@@ -369,7 +375,7 @@ pub fn load_oracle_data(type_: OracleCellType) -> Result<u64, Error> {
     let ret = find_cells_by_script(ScriptType::Type, type_script.as_reader(), Source::CellDep)?;
     das_assert!(
         ret.len() == 1,
-        Error::OracleCellIsRequired,
+        ErrorCode::OracleCellIsRequired,
         "There should be one cell of {:?} in cell_deps, no more and no less, but {} found.",
         type_,
         ret.len()
@@ -383,7 +389,7 @@ pub fn load_oracle_data(type_: OracleCellType) -> Result<u64, Error> {
         Some(bytes) => {
             das_assert!(
                 bytes.len() == 8,
-                Error::OracleCellDataDecodingError,
+                ErrorCode::OracleCellDataDecodingError,
                 "Decoding data from cell of {:?} failed, uint64 with big-endian expected.",
                 type_
             );
@@ -391,14 +397,14 @@ pub fn load_oracle_data(type_: OracleCellType) -> Result<u64, Error> {
         }
         _ => {
             warn!("Decoding data from cell of {:?} failed, data is missing.", type_);
-            return Err(Error::OracleCellDataDecodingError);
+            return Err(code_to_error!(ErrorCode::OracleCellDataDecodingError));
         }
     };
 
     Ok(data_in_uint as u64)
 }
 
-pub fn load_cells_capacity(cells: &[usize], source: Source) -> Result<u64, Error> {
+pub fn load_cells_capacity(cells: &[usize], source: Source) -> Result<u64, Box<dyn ScriptError>> {
     let mut total_input_capacity = 0;
     for i in cells.iter() {
         total_input_capacity += high_level::load_cell_capacity(*i, source)?;
@@ -407,8 +413,8 @@ pub fn load_cells_capacity(cells: &[usize], source: Source) -> Result<u64, Error
     Ok(total_input_capacity)
 }
 
-pub fn load_self_cells_in_inputs_and_outputs() -> Result<(Vec<usize>, Vec<usize>), Error> {
-    let this_type_script = high_level::load_script().map_err(Error::from)?;
+pub fn load_self_cells_in_inputs_and_outputs() -> Result<(Vec<usize>, Vec<usize>), Box<dyn ScriptError>> {
+    let this_type_script = high_level::load_script()?;
     let this_type_script_reader = this_type_script.as_reader();
 
     let input_cells = find_cells_by_script(ScriptType::Type, this_type_script_reader, Source::Input)?;
@@ -417,7 +423,7 @@ pub fn load_self_cells_in_inputs_and_outputs() -> Result<(Vec<usize>, Vec<usize>
     Ok((input_cells, output_cells))
 }
 
-pub fn load_witnesses(index: usize) -> Result<Vec<u8>, Error> {
+pub fn load_witnesses(index: usize) -> Result<Vec<u8>, Box<dyn ScriptError>> {
     let mut buf = [];
     let ret = syscalls::load_witness(&mut buf, 0, index, Source::Input);
 
@@ -427,14 +433,14 @@ pub fn load_witnesses(index: usize) -> Result<Vec<u8>, Error> {
         Err(SysError::LengthNotEnough(actual_size)) => {
             // debug!("Load witnesses[{}]: size: {} Bytes", index, actual_size);
             let mut buf = vec![0u8; actual_size];
-            syscalls::load_witness(&mut buf, 0, index, Source::Input).map_err(Error::from)?;
+            syscalls::load_witness(&mut buf, 0, index, Source::Input)?;
             Ok(buf)
         }
-        Err(e) => Err(Error::from(e)),
+        Err(e) => Err(e.into()),
     }
 }
 
-pub fn load_das_witnesses(index: usize) -> Result<Vec<u8>, Error> {
+pub fn load_das_witnesses(index: usize) -> Result<Vec<u8>, Box<dyn ScriptError>> {
     let mut buf = [0u8; 7];
     let ret = syscalls::load_witness(&mut buf, 0, index, Source::Input);
 
@@ -442,29 +448,29 @@ pub fn load_das_witnesses(index: usize) -> Result<Vec<u8>, Error> {
         // Data which length is too short to be DAS witnesses, so ignore it.
         Ok(_) => {
             warn!("The witnesses[{}] is too short to be DAS witness.", index);
-            Err(Error::WitnessReadingError)
+            Err(code_to_error!(ErrorCode::WitnessReadingError))
         }
         Err(SysError::LengthNotEnough(actual_size)) => {
             if let Some(raw) = buf.get(..3) {
                 das_assert!(
                     raw == &WITNESS_HEADER,
-                    Error::WitnessReadingError,
+                    ErrorCode::WitnessReadingError,
                     "The witness should start with \"das\" 3 bytes."
                 );
             }
 
             if actual_size > 32000 {
                 warn!("The witnesses[{}] should be less than 32KB because the signall lock do not support more than that.", index);
-                Err(Error::from(SysError::LengthNotEnough(actual_size)))
+                Err(SysError::LengthNotEnough(actual_size).into())
             } else {
                 let mut buf = vec![0u8; actual_size];
-                syscalls::load_witness(&mut buf, 0, index, Source::Input).map_err(Error::from)?;
+                syscalls::load_witness(&mut buf, 0, index, Source::Input)?;
                 Ok(buf)
             }
         }
         Err(e) => {
             warn!("Load witness[{}] failed: {:?}", index, e);
-            Err(Error::from(e))
+            Err(e.into())
         }
     }
 }
@@ -503,13 +509,13 @@ pub fn blake2b_smt<T: AsRef<[u8]>>(s: T) -> [u8; 32] {
     result
 }
 
-pub fn is_cell_lock_equal(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
-    let a_lock_hash = high_level::load_cell_lock_hash(cell_a.0, cell_a.1).map_err(Error::from)?;
-    let b_lock_hash = high_level::load_cell_lock_hash(cell_b.0, cell_b.1).map_err(Error::from)?;
+pub fn is_cell_lock_equal(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Box<dyn ScriptError>> {
+    let a_lock_hash = high_level::load_cell_lock_hash(cell_a.0, cell_a.1)?;
+    let b_lock_hash = high_level::load_cell_lock_hash(cell_b.0, cell_b.1)?;
 
     das_assert!(
         a_lock_hash == b_lock_hash,
-        Error::CellLockCanNotBeModified,
+        ErrorCode::CellLockCanNotBeModified,
         "The lock script of {:?}[{}]({}) and {:?}[{}]({}) should be the same.",
         cell_a.1,
         cell_a.0,
@@ -522,13 +528,13 @@ pub fn is_cell_lock_equal(cell_a: (usize, Source), cell_b: (usize, Source)) -> R
     Ok(())
 }
 
-pub fn is_cell_capacity_equal(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Error> {
-    let a_capacity = high_level::load_cell_capacity(cell_a.0, cell_a.1).map_err(Error::from)?;
-    let b_capacity = high_level::load_cell_capacity(cell_b.0, cell_b.1).map_err(Error::from)?;
+pub fn is_cell_capacity_equal(cell_a: (usize, Source), cell_b: (usize, Source)) -> Result<(), Box<dyn ScriptError>> {
+    let a_capacity = high_level::load_cell_capacity(cell_a.0, cell_a.1)?;
+    let b_capacity = high_level::load_cell_capacity(cell_b.0, cell_b.1)?;
 
     das_assert!(
         a_capacity == b_capacity,
-        Error::CellCapacityMustConsistent,
+        ErrorCode::CellCapacityMustConsistent,
         "The capacity of {:?}[{}]({}) should be equal to {:?}[{}]({}).",
         cell_a.1,
         cell_a.0,
@@ -541,12 +547,12 @@ pub fn is_cell_capacity_equal(cell_a: (usize, Source), cell_b: (usize, Source)) 
     Ok(())
 }
 
-pub fn is_system_off(parser: &WitnessesParser) -> Result<(), Error> {
+pub fn is_system_off(parser: &WitnessesParser) -> Result<(), Box<dyn ScriptError>> {
     let config_main = parser.configs.main()?;
     let status = u8::from(config_main.status());
     if status == 0 {
         warn!("The DAS system is currently off.");
-        return Err(Error::SystemOff);
+        return Err(code_to_error!(ErrorCode::SystemOff));
     }
 
     Ok(())
@@ -560,7 +566,7 @@ pub fn get_length_in_price(account_length: u64) -> u8 {
     }
 }
 
-pub fn is_init_day(current_timestamp: u64) -> Result<(), Error> {
+pub fn is_init_day(current_timestamp: u64) -> Result<(), Box<dyn ScriptError>> {
     use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 
     let current = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(current_timestamp as i64, 0), Utc);
@@ -571,7 +577,7 @@ pub fn is_init_day(current_timestamp: u64) -> Result<(), Error> {
         // Otherwise, any account longer than two chars in length can be registered.
         das_assert!(
             current <= init_day,
-            Error::InitDayHasPassed,
+            ErrorCode::InitDayHasPassed,
             "The day of DAS initialization has passed."
         );
     }
@@ -668,7 +674,10 @@ pub fn calc_duration_from_paid(paid: u64, yearly_price: u64, quote: u64, discoun
     paid * 365 / yearly_capacity * 86400
 }
 
-fn get_type_id(parser: &WitnessesParser, type_script: TypeScript) -> Result<das_packed::HashReader, Error> {
+fn get_type_id(
+    parser: &WitnessesParser,
+    type_script: TypeScript,
+) -> Result<das_packed::HashReader, Box<dyn ScriptError>> {
     let config = parser.configs.main()?;
 
     let type_id = match type_script {
@@ -694,8 +703,8 @@ pub fn require_type_script(
     parser: &WitnessesParser,
     type_script: TypeScript,
     source: Source,
-    err: Error,
-) -> Result<(), Error> {
+    err: ErrorCode,
+) -> Result<(), Box<dyn ScriptError>> {
     let type_id = get_type_id(parser, type_script.clone())?;
 
     debug!(
@@ -720,11 +729,15 @@ pub fn require_type_script(
     Ok(())
 }
 
-pub fn require_super_lock() -> Result<(), Error> {
+pub fn require_super_lock() -> Result<(), Box<dyn ScriptError>> {
     let super_lock = super_lock();
     let has_super_lock = find_cells_by_script(ScriptType::Lock, super_lock.as_reader(), Source::Input)?.len() > 0;
 
-    das_assert!(has_super_lock, Error::SuperLockIsRequired, "Super lock is required.");
+    das_assert!(
+        has_super_lock,
+        ErrorCode::SuperLockIsRequired,
+        "Super lock is required."
+    );
 
     Ok(())
 }
@@ -740,8 +753,8 @@ pub fn get_action_required_role(action: &[u8]) -> Option<LockRole> {
     }
 }
 
-pub fn derive_owner_lock_from_cell(input_cell: usize, source: Source) -> Result<Script, Error> {
-    let lock = high_level::load_cell_lock(input_cell, source).map_err(Error::from)?;
+pub fn derive_owner_lock_from_cell(input_cell: usize, source: Source) -> Result<Script, Box<dyn ScriptError>> {
+    let lock = high_level::load_cell_lock(input_cell, source)?;
     let lock_bytes = lock.as_reader().args().raw_data();
     let owner_lock_type = data_parser::das_lock_args::get_owner_type(lock_bytes);
     let owner_lock_args = data_parser::das_lock_args::get_owner_lock_args(lock_bytes);
@@ -789,11 +802,20 @@ pub fn parse_income_cell_witness(
     parser: &WitnessesParser,
     index: usize,
     source: Source,
-) -> Result<das_packed::IncomeCellData, Error> {
-    let (_, _, mol_bytes) = parser.verify_and_get(DataType::IncomeCellData, index, source)?;
+) -> Result<das_packed::IncomeCellData, Box<dyn ScriptError>> {
+    let (version, data_type, mol_bytes) = parser.verify_and_get(DataType::IncomeCellData, index, source)?;
+
+    assert!(
+        version == 1 && data_type == DataType::IncomeCellData,
+        ErrorCode::WitnessVersionOrTypeInvalid,
+        "{:?}[{}] The version or data_type of witness is invalid.",
+        source,
+        index
+    );
+
     let ret = das_packed::IncomeCellData::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
         warn!("Decoding IncomeCellData failed");
-        Error::WitnessEntityDecodingError
+        ErrorCode::WitnessEntityDecodingError
     })?;
 
     Ok(ret)
@@ -803,11 +825,20 @@ pub fn parse_proposal_cell_witness(
     parser: &WitnessesParser,
     index: usize,
     source: Source,
-) -> Result<das_packed::ProposalCellData, Error> {
-    let (_, _, mol_bytes) = parser.verify_and_get(DataType::ProposalCellData, index, source)?;
+) -> Result<das_packed::ProposalCellData, Box<dyn ScriptError>> {
+    let (version, data_type, mol_bytes) = parser.verify_and_get(DataType::ProposalCellData, index, source)?;
+
+    assert!(
+        version == 1 && data_type == DataType::ProposalCellData,
+        ErrorCode::WitnessVersionOrTypeInvalid,
+        "{:?}[{}] The version or data_type of witness is invalid.",
+        source,
+        index
+    );
+
     let ret = das_packed::ProposalCellData::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
-        warn!("Decoding IncomeCellData failed");
-        Error::WitnessEntityDecodingError
+        warn!("Decoding ProposalCellData failed");
+        ErrorCode::WitnessEntityDecodingError
     })?;
 
     Ok(ret)
@@ -817,12 +848,41 @@ pub fn parse_pre_account_cell_witness(
     parser: &WitnessesParser,
     index: usize,
     source: Source,
-) -> Result<das_packed::PreAccountCellData, Error> {
-    let (_, _, mol_bytes) = parser.verify_and_get(DataType::PreAccountCellData, index, source)?;
-    let ret = das_packed::PreAccountCellData::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
-        warn!("Decoding PreAccountCellData failed");
-        Error::WitnessEntityDecodingError
-    })?;
+) -> Result<Box<dyn PreAccountCellDataMixer>, Box<dyn ScriptError>> {
+    let (version, data_type, mol_bytes) = parser.verify_and_get(DataType::PreAccountCellData, index, source)?;
+
+    assert!(
+        data_type == DataType::PreAccountCellData,
+        ErrorCode::WitnessVersionOrTypeInvalid,
+        "{:?}[{}] The data_type of witness is invalid.",
+        source,
+        index
+    );
+
+    let ret: Box<dyn PreAccountCellDataMixer> = match version {
+        1 => Box::new(
+            das_packed::PreAccountCellDataV1::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
+                warn!("{:?}[{}] Decoding PreAccountCellDataV1 failed", source, index);
+                ErrorCode::WitnessEntityDecodingError
+            })?,
+        ),
+        2 => Box::new(
+            das_packed::PreAccountCellDataV2::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
+                warn!("{:?}[{}] Decoding PreAccountCellDataV2 failed", source, index);
+                ErrorCode::WitnessEntityDecodingError
+            })?,
+        ),
+        3 => Box::new(
+            das_packed::PreAccountCellData::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
+                warn!("{:?}[{}] Decoding PreAccountCellData failed", source, index);
+                ErrorCode::WitnessEntityDecodingError
+            })?,
+        ),
+        _ => {
+            warn!("{:?}[{}] The version of witness is invalid.", source, index);
+            return Err(code_to_error!(ErrorCode::WitnessVersionOrTypeInvalid));
+        }
+    };
 
     Ok(ret)
 }
@@ -831,25 +891,38 @@ pub fn parse_account_cell_witness(
     parser: &WitnessesParser,
     index: usize,
     source: Source,
-) -> Result<Box<dyn AccountCellDataMixer>, Error> {
-    let (version, _, mol_bytes) = parser.verify_and_get(DataType::AccountCellData, index, source)?;
-    let ret: Box<dyn AccountCellDataMixer> = if version <= 1 {
-        // CAREFUL! The early versions will no longer be supported.
-        return Err(Error::InvalidTransactionStructure);
-    } else if version == 2 {
-        Box::new(
+) -> Result<Box<dyn AccountCellDataMixer>, Box<dyn ScriptError>> {
+    let (version, data_type, mol_bytes) = parser.verify_and_get(DataType::AccountCellData, index, source)?;
+
+    assert!(
+        data_type == DataType::AccountCellData,
+        ErrorCode::WitnessVersionOrTypeInvalid,
+        "{:?}[{}] The data_type of witness is invalid.",
+        source,
+        index
+    );
+
+    let ret: Box<dyn AccountCellDataMixer> = match version {
+        1 => {
+            // CAREFUL! The early versions will no longer be supported.
+            return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
+        }
+        2 => Box::new(
             das_packed::AccountCellDataV2::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
-                warn!("Decoding AccountCellDataV2 failed");
-                Error::WitnessEntityDecodingError
+                warn!("{:?}[{}] Decoding AccountCellDataV2 failed", source, index);
+                ErrorCode::WitnessEntityDecodingError
             })?,
-        )
-    } else {
-        Box::new(
+        ),
+        3 => Box::new(
             das_packed::AccountCellData::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
-                warn!("Decoding AccountCellData failed");
-                Error::WitnessEntityDecodingError
+                warn!("{:?}[{}] Decoding AccountCellData failed", source, index);
+                ErrorCode::WitnessEntityDecodingError
             })?,
-        )
+        ),
+        _ => {
+            warn!("{:?}[{}] The version of witness is invalid.", source, index);
+            return Err(code_to_error!(ErrorCode::WitnessVersionOrTypeInvalid));
+        }
     };
 
     Ok(ret)
@@ -859,22 +932,34 @@ pub fn parse_account_sale_cell_witness(
     parser: &WitnessesParser,
     index: usize,
     source: Source,
-) -> Result<Box<dyn AccountSaleCellDataMixer>, Error> {
-    let (version, _, mol_bytes) = parser.verify_and_get(DataType::AccountSaleCellData, index, source)?;
-    let ret: Box<dyn AccountSaleCellDataMixer> = if version <= 1 {
-        Box::new(
+) -> Result<Box<dyn AccountSaleCellDataMixer>, Box<dyn ScriptError>> {
+    let (version, data_type, mol_bytes) = parser.verify_and_get(DataType::AccountSaleCellData, index, source)?;
+
+    assert!(
+        data_type == DataType::AccountSaleCellData,
+        ErrorCode::WitnessVersionOrTypeInvalid,
+        "{:?}[{}] The data_type of witness is invalid.",
+        source,
+        index
+    );
+
+    let ret: Box<dyn AccountSaleCellDataMixer> = match version {
+        1 => Box::new(
             das_packed::AccountSaleCellDataV1::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
-                warn!("Decoding AccountSaleCellDataV1 failed");
-                Error::WitnessEntityDecodingError
+                warn!("{:?}[{}] Decoding AccountSaleCellDataV1 failed", source, index);
+                ErrorCode::WitnessEntityDecodingError
             })?,
-        )
-    } else {
-        Box::new(
+        ),
+        2 => Box::new(
             das_packed::AccountSaleCellData::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
-                warn!("Decoding AccountSaleCellData failed");
-                Error::WitnessEntityDecodingError
+                warn!("{:?}[{}] Decoding AccountSaleCellData failed", source, index);
+                ErrorCode::WitnessEntityDecodingError
             })?,
-        )
+        ),
+        _ => {
+            warn!("{:?}[{}] The version of witness is invalid.", source, index);
+            return Err(code_to_error!(ErrorCode::WitnessVersionOrTypeInvalid));
+        }
     };
 
     Ok(ret)
@@ -884,11 +969,20 @@ pub fn parse_offer_cell_witness(
     parser: &WitnessesParser,
     index: usize,
     source: Source,
-) -> Result<das_packed::OfferCellData, Error> {
-    let (_, _, mol_bytes) = parser.verify_and_get(DataType::OfferCellData, index, source)?;
+) -> Result<das_packed::OfferCellData, Box<dyn ScriptError>> {
+    let (version, data_type, mol_bytes) = parser.verify_and_get(DataType::OfferCellData, index, source)?;
+
+    assert!(
+        version == 1 && data_type == DataType::OfferCellData,
+        ErrorCode::WitnessVersionOrTypeInvalid,
+        "{:?}[{}] The version or data_type of witness is invalid.",
+        source,
+        index
+    );
+
     let ret = das_packed::OfferCellData::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
-        warn!("Decoding OfferCellData failed");
-        Error::WitnessEntityDecodingError
+        warn!("{:?}[{}] Decoding OfferCellData failed", source, index);
+        ErrorCode::WitnessEntityDecodingError
     })?;
 
     Ok(ret)
@@ -910,7 +1004,11 @@ where
     }
 }
 
-pub fn exec_by_type_id(parser: &WitnessesParser, type_script: TypeScript, argv: &[&CStr]) -> Result<u64, Error> {
+pub fn exec_by_type_id(
+    parser: &WitnessesParser,
+    type_script: TypeScript,
+    argv: &[&CStr],
+) -> Result<u64, Box<dyn ScriptError>> {
     let type_id = get_type_id(parser, type_script.clone())?;
 
     debug!(
@@ -919,5 +1017,5 @@ pub fn exec_by_type_id(parser: &WitnessesParser, type_script: TypeScript, argv: 
         hex_string(type_id.raw_data())
     );
 
-    high_level::exec_cell(type_id.raw_data(), ScriptHashType::Type, 0, 0, argv).map_err(Error::from)
+    high_level::exec_cell(type_id.raw_data(), ScriptHashType::Type, 0, 0, argv).map_err(|err| err.into())
 }

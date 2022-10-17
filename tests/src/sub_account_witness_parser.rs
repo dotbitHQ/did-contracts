@@ -1,17 +1,22 @@
-use crate::util::{
-    accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
-};
-use das_types_std::{constants::*, prelude::*};
+use das_types_std::constants::*;
+use das_types_std::prelude::*;
 use serde_json::json;
+
+use crate::util::accounts::*;
+use crate::util::constants::*;
+use crate::util::error::*;
+use crate::util::template_common_cell::*;
+use crate::util::template_generator::*;
+use crate::util::template_parser::*;
 
 pub const TIMESTAMP: u64 = 1611200090u64;
 
 fn init(action: &str) -> TemplateGenerator {
     let mut template = TemplateGenerator::new(action, None);
 
-    template.push_contract_cell("always_success", true);
-    template.push_contract_cell("fake-secp256k1-blake160-signhash-all", true);
-    template.push_contract_cell("test-env", false);
+    template.push_contract_cell("always_success", ContractType::DeployedContract);
+    template.push_contract_cell("fake-secp256k1-blake160-signhash-all", ContractType::DeployedContract);
+    template.push_contract_cell("test-env", ContractType::Contract);
 
     template.push_config_cell(DataType::ConfigCellMain, Source::CellDep);
 
@@ -24,7 +29,7 @@ fn parse_sub_account_witness_empty() {
 
     push_input_test_env_cell(&mut template);
 
-    challenge_tx(template.as_json(), Error::WitnessEmpty);
+    challenge_tx(template.as_json(), ErrorCode::WitnessEmpty);
 }
 
 #[test]

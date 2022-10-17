@@ -1,9 +1,16 @@
-use super::common::*;
-use crate::util::{
-    self, accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
-};
-use das_types_std::{constants::*, packed::*, prelude::*};
+use das_types_std::constants::*;
+use das_types_std::packed::*;
+use das_types_std::prelude::*;
 use serde_json::json;
+
+use super::common::*;
+use crate::util::accounts::*;
+use crate::util::constants::*;
+use crate::util::error::*;
+use crate::util::template_common_cell::*;
+use crate::util::template_generator::*;
+use crate::util::template_parser::*;
+use crate::util::{self};
 
 fn push_simple_output_income_cell(template: &mut TemplateGenerator) {
     push_output_income_cell(
@@ -54,7 +61,7 @@ fn push_common_outputs(template: &mut TemplateGenerator) {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
                 "status": (AccountStatus::Normal as u8)
@@ -103,7 +110,7 @@ fn before_each(paid: u64) -> TemplateGenerator {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
                 "status": (AccountStatus::Selling as u8)
@@ -118,7 +125,7 @@ fn before_each(paid: u64) -> TemplateGenerator {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE.to_string(),
             }
         }),
@@ -154,7 +161,7 @@ fn test_account_sale_buy_not_create_income_cell() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
                 "status": (AccountStatus::Selling as u8)
@@ -169,7 +176,7 @@ fn test_account_sale_buy_not_create_income_cell() {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": price.to_string(),
             }
         }),
@@ -185,7 +192,7 @@ fn test_account_sale_buy_not_create_income_cell() {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
                 "status": (AccountStatus::Normal as u8)
@@ -251,7 +258,7 @@ fn test_account_sale_buy_no_inviter_and_channel() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
                 "status": (AccountStatus::Selling as u8)
@@ -266,7 +273,7 @@ fn test_account_sale_buy_no_inviter_and_channel() {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": price.to_string(),
             }
         }),
@@ -282,7 +289,7 @@ fn test_account_sale_buy_no_inviter_and_channel() {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
                 "status": (AccountStatus::Normal as u8)
@@ -333,7 +340,7 @@ fn test_account_sale_buy_create_with_custom_buyer_inviter_profit_rate() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
                 "status": (AccountStatus::Selling as u8)
@@ -348,7 +355,7 @@ fn test_account_sale_buy_create_with_custom_buyer_inviter_profit_rate() {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE.to_string(),
                 // Simulate custom the profit rate of the buyer's inviter to 20% .
                 "buyer_inviter_profit_rate": SALE_BUYER_INVITER_PROFIT_RATE * 20
@@ -366,7 +373,7 @@ fn test_account_sale_buy_create_with_custom_buyer_inviter_profit_rate() {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
                 "status": (AccountStatus::Normal as u8)
@@ -436,7 +443,7 @@ fn test_account_sale_buy_old_version() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
                 "status": (AccountStatus::Selling as u8)
@@ -451,7 +458,7 @@ fn test_account_sale_buy_old_version() {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE.to_string(),
             }
         }),
@@ -478,7 +485,7 @@ fn challenge_account_sale_buy_account_expired() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 // Simulate the situation AccountCell has expired.
                 "expired_at": (TIMESTAMP - 1),
             },
@@ -495,7 +502,7 @@ fn challenge_account_sale_buy_account_expired() {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE.to_string(),
             }
         }),
@@ -505,7 +512,10 @@ fn challenge_account_sale_buy_account_expired() {
     // outputs
     push_common_outputs(&mut template);
 
-    challenge_tx(template.as_json(), Error::AccountCellInExpirationGracePeriod)
+    challenge_tx(
+        template.as_json(),
+        AccountCellErrorCode::AccountCellInExpirationGracePeriod,
+    )
 }
 
 #[test]
@@ -523,10 +533,10 @@ fn challenge_account_sale_buy_account_capacity() {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "status": (AccountStatus::Normal as u8)
             }
         }),
@@ -540,7 +550,7 @@ fn challenge_account_sale_buy_account_capacity() {
         SELLER,
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellChangeCapacityError)
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellChangeCapacityError)
 }
 
 #[test]
@@ -557,7 +567,7 @@ fn challenge_account_sale_buy_input_account_status() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
                 // Simulate the AccountCell.status is wrong in inputs.
@@ -573,7 +583,7 @@ fn challenge_account_sale_buy_input_account_status() {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE.to_string(),
             }
         }),
@@ -583,7 +593,7 @@ fn challenge_account_sale_buy_input_account_status() {
     // outputs
     push_common_outputs(&mut template);
 
-    challenge_tx(template.as_json(), Error::AccountCellStatusLocked)
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellStatusLocked)
 }
 
 #[test]
@@ -599,10 +609,10 @@ fn challenge_account_sale_buy_output_account_status() {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 // Simulate the AccountCell.status is wrong in outputs.
                 "status": (AccountStatus::Selling as u8)
             }
@@ -616,7 +626,7 @@ fn challenge_account_sale_buy_output_account_status() {
         SELLER,
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellStatusLocked)
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellStatusLocked)
 }
 
 #[test]
@@ -633,10 +643,10 @@ fn challenge_account_sale_buy_sale_account() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "status": (AccountStatus::Selling as u8)
             }
         }),
@@ -660,7 +670,7 @@ fn challenge_account_sale_buy_sale_account() {
     // outputs
     push_common_outputs(&mut template);
 
-    challenge_tx(template.as_json(), Error::AccountSaleCellAccountIdInvalid)
+    challenge_tx(template.as_json(), ErrorCode::AccountSaleCellAccountIdInvalid)
 }
 
 #[test]
@@ -677,10 +687,10 @@ fn challenge_account_sale_buy_wrong_owner() {
                 "manager_lock_args": "0x050000000000000000000000000000000000003333"
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "status": (AccountStatus::Normal as u8)
             }
         }),
@@ -693,7 +703,7 @@ fn challenge_account_sale_buy_wrong_owner() {
         SELLER,
     );
 
-    challenge_tx(template.as_json(), Error::AccountSaleCellNewOwnerError)
+    challenge_tx(template.as_json(), ErrorCode::AccountSaleCellNewOwnerError)
 }
 
 #[test]
@@ -710,10 +720,10 @@ fn challenge_account_sale_buy_change_owner() {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "status": (AccountStatus::Normal as u8)
             }
         }),
@@ -732,7 +742,7 @@ fn challenge_account_sale_buy_change_owner() {
         "0x052222000000000000000000000000000000002222",
     );
 
-    challenge_tx(template.as_json(), Error::ChangeError)
+    challenge_tx(template.as_json(), ErrorCode::ChangeError)
 }
 
 #[test]
@@ -749,10 +759,10 @@ fn challenge_account_sale_buy_change_capacity() {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "status": (AccountStatus::Normal as u8)
             }
         }),
@@ -767,7 +777,7 @@ fn challenge_account_sale_buy_change_capacity() {
     // Simulate transfer changes less than the user should get.
     push_output_balance_cell(&mut template, paid - PRICE - 1, BUYER);
 
-    challenge_tx(template.as_json(), Error::ChangeError)
+    challenge_tx(template.as_json(), ErrorCode::ChangeError)
 }
 
 #[test]
@@ -783,10 +793,10 @@ fn challenge_account_sale_buy_seller_profit_owner() {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "status": (AccountStatus::Normal as u8)
             }
         }),
@@ -800,7 +810,7 @@ fn challenge_account_sale_buy_seller_profit_owner() {
         "0x051111000000000000000000000000000000001111",
     );
 
-    challenge_tx(template.as_json(), Error::ChangeError)
+    challenge_tx(template.as_json(), ErrorCode::ChangeError)
 }
 
 #[test]
@@ -816,10 +826,10 @@ fn challenge_account_sale_buy_seller_profit_capacity() {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "status": (AccountStatus::Normal as u8)
             }
         }),
@@ -834,7 +844,7 @@ fn challenge_account_sale_buy_seller_profit_capacity() {
         SELLER,
     );
 
-    challenge_tx(template.as_json(), Error::ChangeError)
+    challenge_tx(template.as_json(), ErrorCode::ChangeError)
 }
 
 #[test]
@@ -851,7 +861,7 @@ fn challenge_account_sale_buy_not_clear_records() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
                 "status": (AccountStatus::Selling as u8),
@@ -880,7 +890,7 @@ fn challenge_account_sale_buy_not_clear_records() {
                 "manager_lock_args": SELLER
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE.to_string(),
             }
         }),
@@ -896,7 +906,7 @@ fn challenge_account_sale_buy_not_clear_records() {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
                 "status": (AccountStatus::Normal as u8),
@@ -920,5 +930,5 @@ fn challenge_account_sale_buy_not_clear_records() {
         SELLER,
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellRecordNotEmpty)
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellRecordNotEmpty)
 }

@@ -1,17 +1,22 @@
-use super::{assert, data_parser, debug, error::Error, util, warn};
-use alloc::vec::Vec;
-use ckb_std::{ckb_constants::Source, error::SysError, syscalls};
-use core::{
-    convert::{TryFrom, TryInto},
-    lazy::OnceCell,
-};
-use das_dynamic_libs::constants::DasLockType;
-use das_types::{constants::*, packed::*, prelude::*};
-
+use alloc::boxed::Box;
 #[cfg(all(debug_assertions))]
 use alloc::string::String;
+use alloc::vec::Vec;
+use core::cell::OnceCell;
+use core::convert::{TryFrom, TryInto};
+
+use ckb_std::ckb_constants::Source;
+use ckb_std::error::SysError;
+use ckb_std::syscalls;
+use das_dynamic_libs::constants::DasLockType;
+use das_types::constants::*;
+use das_types::packed::*;
+use das_types::prelude::*;
 #[cfg(all(debug_assertions))]
 use das_types::prettier::Prettier;
+
+use super::error::*;
+use super::{assert, code_to_error, data_parser, debug, util, warn};
 
 // Binary format: 'das'(3) + DATA_TYPE(4) + binary_data
 
@@ -49,7 +54,7 @@ pub struct SubAccountWitnessesIter<'a> {
 }
 
 impl<'a> Iterator for SubAccountWitnessesIter<'a> {
-    type Item = Result<&'a SubAccountWitness, Error>;
+    type Item = Result<&'a SubAccountWitness, Box<dyn ScriptError>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let ret = self.parser.get(self.current);
@@ -66,7 +71,7 @@ pub struct SubAccountWitnessesParser {
 }
 
 impl SubAccountWitnessesParser {
-    pub fn new() -> Result<Self, Error> {
+    pub fn new() -> Result<Self, Box<dyn ScriptError>> {
         let mut indexes = Vec::new();
         let mut i = 0;
         let mut das_witnesses_started = false;
@@ -79,15 +84,17 @@ impl SubAccountWitnessesParser {
                 Ok(_) => i += 1,
                 Err(SysError::LengthNotEnough(_)) => {
                     if let Some(raw) = buf.get(..WITNESS_HEADER_BYTES) {
-                        if raw != &WITNESS_HEADER {
-                            assert!(
-                                !das_witnesses_started,
-                                Error::WitnessStructureError,
-                                "The witnesses of DAS must at the end of witnesses field and next to each other."
-                            );
-
-                            i += 1;
-                            continue;
+                        if das_witnesses_started {
+                            // If it is parsing DAS witnesses currently, end the parsing.
+                            if raw != &WITNESS_HEADER {
+                                break;
+                            }
+                        } else {
+                            // If it is not parsing DAS witnesses currently, continue to detect the next witness.
+                            if raw != &WITNESS_HEADER {
+                                i += 1;
+                                continue;
+                            }
                         }
                     }
 
@@ -120,14 +127,14 @@ impl SubAccountWitnessesParser {
                     i += 1;
                 }
                 Err(SysError::IndexOutOfBound) => break,
-                Err(e) => return Err(Error::from(e)),
+                Err(e) => return Err(e.into()),
             }
         }
 
         let indexes_length = indexes.len();
         if indexes_length <= 0 {
             warn!("Can not find any sub-account witness in this transaction.");
-            return Err(Error::WitnessEmpty);
+            return Err(code_to_error!(ErrorCode::WitnessEmpty));
         }
 
         let mut witnesses = Vec::with_capacity(indexes_length);
@@ -139,7 +146,7 @@ impl SubAccountWitnessesParser {
         Ok(SubAccountWitnessesParser { indexes, witnesses })
     }
 
-    fn parse_witness(i: usize) -> Result<SubAccountWitness, Error> {
+    fn parse_witness(i: usize) -> Result<SubAccountWitness, Box<dyn ScriptError>> {
         debug!("Parsing sub-accounts witnesses[{}] ...", i);
 
         let raw = util::load_das_witnesses(i)?;
@@ -158,19 +165,27 @@ impl SubAccountWitnessesParser {
 
         assert!(
             version_bytes.len() == 4,
-            Error::WitnessStructureError,
-            "  Sub-account witness structure error, the version field should be 4 bytes"
+            ErrorCode::WitnessStructureError,
+            "  witnesses[{}] Sub-account witness structure error, the version field should be 4 bytes",
+            i
         );
         let version = u32::from_le_bytes(version_bytes.try_into().unwrap());
+
+        assert!(
+            version == 1,
+            ErrorCode::WitnessVersionOrTypeInvalid,
+            "  witnesses[{}] The version of sub-account witness is invalid.",
+            i
+        );
 
         let sub_account = match SubAccount::from_slice(sub_account_bytes) {
             Ok(val) => val,
             Err(e) => {
                 warn!(
-                    "  Sub-account witness structure error, the sub_account field parse failed: {}",
-                    e
+                    "  witnesses[{}] Sub-account witness structure error, the sub_account field parse failed: {}",
+                    i, e
                 );
-                return Err(Error::WitnessStructureError);
+                return Err(code_to_error!(ErrorCode::WitnessStructureError));
             }
         };
 
@@ -181,10 +196,10 @@ impl SubAccountWitnessesParser {
                     Ok(val) => val,
                     Err(e) => {
                         warn!(
-                            "  Sub-account witness structure error, decoding expired_at failed: {}",
-                            e
+                            "  witnesses[{}] Sub-account witness structure error, decoding expired_at failed: {}",
+                            i, e
                         );
-                        return Err(Error::WitnessStructureError);
+                        return Err(code_to_error!(ErrorCode::WitnessStructureError));
                     }
                 };
 
@@ -196,8 +211,11 @@ impl SubAccountWitnessesParser {
                 let records = match Records::from_slice(edit_value_bytes) {
                     Ok(val) => val,
                     Err(e) => {
-                        warn!("  Sub-account witness structure error, decoding records failed: {}", e);
-                        return Err(Error::WitnessStructureError);
+                        warn!(
+                            "  witnesses[{}] Sub-account witness structure error, decoding records failed: {}",
+                            i, e
+                        );
+                        return Err(code_to_error!(ErrorCode::WitnessStructureError));
                     }
                 };
 
@@ -252,13 +270,13 @@ impl SubAccountWitnessesParser {
         })
     }
 
-    fn parse_field(bytes: &[u8], start: usize) -> Result<(usize, &[u8]), Error> {
+    fn parse_field(bytes: &[u8], start: usize) -> Result<(usize, &[u8]), Box<dyn ScriptError>> {
         // Every field is start with 4 bytes of uint32 as its length.
         let length = match bytes.get(start..(start + WITNESS_LENGTH_BYTES)) {
             Some(bytes) => {
                 assert!(
                     bytes.len() == 4,
-                    Error::WitnessStructureError,
+                    ErrorCode::WitnessStructureError,
                     "  Sub-account witness structure error, expect {}..{} to be bytes of LE uint32.",
                     start,
                     start + WITNESS_LENGTH_BYTES
@@ -272,7 +290,7 @@ impl SubAccountWitnessesParser {
                     start,
                     start + WITNESS_LENGTH_BYTES
                 );
-                return Err(Error::WitnessStructureError);
+                return Err(code_to_error!(ErrorCode::WitnessStructureError));
             }
         };
 
@@ -286,7 +304,7 @@ impl SubAccountWitnessesParser {
                     "  Sub-account witness structure error, expect {} bytes in {}..{} .",
                     length, from, to
                 );
-                return Err(Error::WitnessStructureError);
+                return Err(code_to_error!(ErrorCode::WitnessStructureError));
             }
         };
 
@@ -305,13 +323,12 @@ impl SubAccountWitnessesParser {
         self.indexes.len()
     }
 
-    pub fn get(&self, index: usize) -> Option<Result<&SubAccountWitness, Error>> {
+    pub fn get(&self, index: usize) -> Option<Result<&SubAccountWitness, Box<dyn ScriptError>>> {
         match self.indexes.get(index) {
             None => return None,
-            Some(&i) => self
-                .witnesses
-                .get(index)
-                .map(|cell| cell.get_or_try_init(|| -> Result<SubAccountWitness, Error> { Self::parse_witness(i) })),
+            Some(&i) => self.witnesses.get(index).map(|cell| {
+                cell.get_or_try_init(|| -> Result<SubAccountWitness, Box<dyn ScriptError>> { Self::parse_witness(i) })
+            }),
         }
     }
 }

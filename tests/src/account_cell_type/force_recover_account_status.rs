@@ -1,39 +1,14 @@
-use super::common::init;
-use crate::util::{
-    self, accounts::*, constants::*, template_common_cell::*, template_generator::*, template_parser::*,
-};
 use das_types_std::constants::AccountStatus;
 use serde_json::json;
 
-fn push_input_account_cell(template: &mut TemplateGenerator, status: AccountStatus) {
-    template.push_input(
-        json!({
-            "capacity": util::gen_account_cell_capacity(8),
-            "lock": {
-                "owner_lock_args": OWNER,
-                "manager_lock_args": MANAGER
-            },
-            "type": {
-                "code_hash": "{{account-cell-type}}"
-            },
-            "data": {
-                "account": "das00001.bit",
-                "next": "das00014.bit",
-                "expired_at": TIMESTAMP - DAY_SEC,
-            },
-            "witness": {
-                "account": "das00001.bit",
-                "registered_at": TIMESTAMP - YEAR_SEC,
-                "last_transfer_account_at": 0,
-                "last_edit_manager_at": 0,
-                "last_edit_records_at": 0,
-                "status": (status as u8)
-            }
-        }),
-        Some(2),
-    );
-    template.push_das_lock_witness("0000000000000000000000000000000000000000000000000000000000000000");
-}
+use super::common::init;
+use crate::util::accounts::*;
+use crate::util::constants::*;
+use crate::util::error::*;
+use crate::util::template_common_cell::*;
+use crate::util::template_generator::*;
+use crate::util::template_parser::*;
+use crate::util::{self};
 
 fn push_input_account_sale_cell(template: &mut TemplateGenerator) {
     template.push_input(
@@ -47,7 +22,7 @@ fn push_input_account_sale_cell(template: &mut TemplateGenerator) {
                 "code_hash": "{{account-sale-cell-type}}"
             },
             "witness": {
-                "account": "das00001.bit",
+                "account": ACCOUNT_1,
                 "price": "20_000_000_000",
                 "description": "This is some account description.",
                 "started_at": TIMESTAMP - MONTH_SEC,
@@ -61,10 +36,21 @@ fn push_input_account_sale_cell(template: &mut TemplateGenerator) {
 fn before_each() -> TemplateGenerator {
     let mut template = init("force_recover_account_status", None);
 
-    template.push_contract_cell("account-sale-cell-type", false);
-    template.push_contract_cell("balance-cell-type", false);
+    template.push_contract_cell("account-sale-cell-type", ContractType::Contract);
+    template.push_contract_cell("balance-cell-type", ContractType::Contract);
 
-    push_input_account_cell(&mut template, AccountStatus::Selling);
+    push_input_account_cell(
+        &mut template,
+        json!({
+            "capacity": util::gen_account_cell_capacity(5),
+            "data": {
+                "expired_at": TIMESTAMP - ACCOUNT_EXPIRATION_GRACE_PERIOD - 1,
+            },
+            "witness": {
+                "status": (AccountStatus::Selling as u8)
+            }
+        }),
+    );
     push_input_account_sale_cell(&mut template);
 
     template
@@ -74,34 +60,101 @@ fn before_each() -> TemplateGenerator {
 fn test_account_force_recover_account_status() {
     let mut template = before_each();
 
-    template.push_output(
+    push_output_account_cell(
+        &mut template,
         json!({
-            "capacity": util::gen_account_cell_capacity(8),
-            "lock": {
-                "owner_lock_args": OWNER,
-                "manager_lock_args": MANAGER
-            },
-            "type": {
-                "code_hash": "{{account-cell-type}}"
-            },
+            "capacity": util::gen_account_cell_capacity(5),
             "data": {
-                "account": "das00001.bit",
-                "next": "das00014.bit",
-                "expired_at": TIMESTAMP - DAY_SEC,
+                "expired_at": TIMESTAMP - ACCOUNT_EXPIRATION_GRACE_PERIOD - 1,
             },
             "witness": {
-                "account": "das00001.bit",
-                "registered_at": TIMESTAMP - YEAR_SEC,
-                "last_transfer_account_at": 0,
-                "last_edit_manager_at": 0,
-                "last_edit_records_at": 0,
                 "status": (AccountStatus::Normal as u8)
             }
         }),
-        Some(3),
     );
-
     push_output_balance_cell(&mut template, 20_099_990_000, OWNER);
 
     test_tx(template.as_json());
+}
+
+#[test]
+fn challenge_account_force_recover_account_still_ok() {
+    let mut template = init("force_recover_account_status", None);
+
+    template.push_contract_cell("account-sale-cell-type", ContractType::Contract);
+    template.push_contract_cell("balance-cell-type", ContractType::Contract);
+
+    // inputs
+    push_input_account_cell(
+        &mut template,
+        json!({
+            "capacity": util::gen_account_cell_capacity(5),
+            "data": {
+                // Simulate the AccountCell is still available.
+                "expired_at": TIMESTAMP,
+            },
+            "witness": {
+                "status": (AccountStatus::Selling as u8)
+            }
+        }),
+    );
+    push_input_account_sale_cell(&mut template);
+
+    // outputs
+    push_output_account_cell(
+        &mut template,
+        json!({
+            "capacity": util::gen_account_cell_capacity(5),
+            "data": {
+                "expired_at": TIMESTAMP,
+            },
+            "witness": {
+                "status": (AccountStatus::Normal as u8)
+            }
+        }),
+    );
+    push_output_balance_cell(&mut template, 20_099_990_000, OWNER);
+
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellIsNotExpired);
+}
+
+#[test]
+fn challenge_account_force_recover_account_in_expiration_grace_period() {
+    let mut template = init("force_recover_account_status", None);
+
+    template.push_contract_cell("account-sale-cell-type", ContractType::Contract);
+    template.push_contract_cell("balance-cell-type", ContractType::Contract);
+
+    // inputs
+    push_input_account_cell(
+        &mut template,
+        json!({
+            "capacity": util::gen_account_cell_capacity(5),
+            "data": {
+                // Simulate the AccountCell is still available.
+                "expired_at": TIMESTAMP - ACCOUNT_EXPIRATION_GRACE_PERIOD,
+            },
+            "witness": {
+                "status": (AccountStatus::Selling as u8)
+            }
+        }),
+    );
+    push_input_account_sale_cell(&mut template);
+
+    // outputs
+    push_output_account_cell(
+        &mut template,
+        json!({
+            "capacity": util::gen_account_cell_capacity(5),
+            "data": {
+                "expired_at": TIMESTAMP - ACCOUNT_EXPIRATION_GRACE_PERIOD,
+            },
+            "witness": {
+                "status": (AccountStatus::Normal as u8)
+            }
+        }),
+    );
+    push_output_balance_cell(&mut template, 20_099_990_000, OWNER);
+
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellIsNotExpired);
 }

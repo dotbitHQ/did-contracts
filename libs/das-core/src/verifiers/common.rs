@@ -1,19 +1,29 @@
-use crate::{assert as das_assert, debug, error::Error};
+use alloc::boxed::Box;
 use alloc::format;
-use ckb_std::{ckb_constants::Source, high_level};
 use core::cmp::Ordering;
 
-pub fn verify_cell_dep_number(cell_name: &str, current_deps: &[usize], expected_deps_len: usize) -> Result<(), Error> {
+use ckb_std::ckb_constants::Source;
+use ckb_std::high_level;
+
+use crate::constants::{das_wallet_lock, ScriptType};
+use crate::error::*;
+use crate::{assert as das_assert, code_to_error, debug, util};
+
+pub fn verify_cell_dep_number(
+    cell_name: &str,
+    current_deps: &[usize],
+    expected_deps_len: usize,
+) -> Result<(), Box<dyn ScriptError>> {
     debug!("Verify if the number of {}s is correct.", cell_name);
 
     das_assert!(
         current_deps.len() == expected_deps_len,
-        Error::InvalidTransactionStructure,
+        ErrorCode::InvalidTransactionStructure,
         "{}",
         match expected_deps_len {
-            0 => format!("There should be none {} in inputs.", cell_name),
-            1 => format!("There should be only one {} in inputs.", cell_name),
-            _ => format!("There should be {} {}s in inputs.", expected_deps_len, cell_name),
+            0 => format!("There should be none {} in cell_deps.", cell_name),
+            1 => format!("There should be only one {} in cell_deps.", cell_name),
+            _ => format!("There should be {} {}s in cell_deps.", expected_deps_len, cell_name),
         }
     );
 
@@ -26,12 +36,12 @@ pub fn verify_cell_number(
     expected_inputs_len: usize,
     current_outputs: &[usize],
     expected_outputs_len: usize,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     debug!("Verify if the number of {}s is correct.", cell_name);
 
     das_assert!(
         current_inputs.len() == expected_inputs_len,
-        Error::InvalidTransactionStructure,
+        ErrorCode::InvalidTransactionStructure,
         "{}",
         match expected_inputs_len {
             0 => format!("There should be none {} in inputs.", cell_name),
@@ -42,7 +52,7 @@ pub fn verify_cell_number(
 
     das_assert!(
         current_outputs.len() == expected_outputs_len,
-        Error::InvalidTransactionStructure,
+        ErrorCode::InvalidTransactionStructure,
         "{}",
         match expected_outputs_len {
             0 => format!("There should be none {} in outputs.", cell_name),
@@ -60,12 +70,12 @@ pub fn verify_cell_number_range(
     expected_inputs_range: (Ordering, usize),
     current_outputs: &[usize],
     expected_outputs_range: (Ordering, usize),
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     debug!("Verify if the number of {}s is correct.", cell_name);
 
     das_assert!(
         current_inputs.len().cmp(&expected_inputs_range.1) == expected_inputs_range.0,
-        Error::InvalidTransactionStructure,
+        ErrorCode::InvalidTransactionStructure,
         "{}",
         match expected_inputs_range.0 {
             Ordering::Less => format!(
@@ -85,7 +95,7 @@ pub fn verify_cell_number_range(
 
     das_assert!(
         current_outputs.len().cmp(&expected_outputs_range.1) == expected_outputs_range.0,
-        Error::InvalidTransactionStructure,
+        ErrorCode::InvalidTransactionStructure,
         "{}",
         match expected_outputs_range.0 {
             Ordering::Less => format!(
@@ -112,12 +122,12 @@ pub fn verify_cell_number_and_position(
     expected_inputs: &[usize],
     current_outputs: &[usize],
     expected_outputs: &[usize],
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     debug!("Verify if the number and position of {}s is correct.", cell_name);
 
     das_assert!(
         current_inputs == expected_inputs,
-        Error::InvalidTransactionStructure,
+        ErrorCode::InvalidTransactionStructure,
         "{}",
         match expected_inputs.len() {
             0 => format!("There should be none {} in inputs.", cell_name),
@@ -136,7 +146,7 @@ pub fn verify_cell_number_and_position(
 
     das_assert!(
         current_outputs == expected_outputs,
-        Error::InvalidTransactionStructure,
+        ErrorCode::InvalidTransactionStructure,
         "{}",
         match expected_outputs.len() {
             0 => format!("There should be none {} in outputs.", cell_name),
@@ -163,7 +173,7 @@ pub fn verify_tx_fee_spent_correctly(
     output_cell: usize,
     expected_fee: u64,
     basic_capacity: u64,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     debug!("Verify if {} paid fee correctly.", cell_name);
 
     let input_capacity = high_level::load_cell_capacity(input_cell, Source::Input)?;
@@ -173,7 +183,7 @@ pub fn verify_tx_fee_spent_correctly(
         // when the capacity is decreased, we need to make sure the capacity is bigger than basic_capacity
         assert!(
             output_capacity >= basic_capacity,
-            Error::TxFeeSpentError, // changed from Error::AccountSaleCellFeeError
+            ErrorCode::TxFeeSpentError, // changed from ErrorCode::AccountSaleCellFeeError
             "The {} has no more capacity as fee for this transaction.(input_capacity: {}, output_capacity: {}, basic_capacity: {})",
             cell_name,
             input_capacity,
@@ -183,7 +193,7 @@ pub fn verify_tx_fee_spent_correctly(
 
         assert!(
             input_capacity <= expected_fee + output_capacity, //  output_capacity >= input_capacity - expected_fee,
-            Error::TxFeeSpentError,
+            ErrorCode::TxFeeSpentError,
             "The {} fee should be equal to or less than {}, result: {})",
             cell_name,
             expected_fee,
@@ -200,6 +210,35 @@ pub fn verify_tx_fee_spent_correctly(
             cell_name, input_capacity, output_capacity
         );
     }
+
+    Ok(())
+}
+
+pub fn verify_das_get_change(expected_change: u64) -> Result<(), Box<dyn ScriptError>> {
+    let das_wallet_lock = das_wallet_lock();
+    let das_wallet_cells = util::find_cells_by_script(ScriptType::Lock, das_wallet_lock.as_reader(), Source::Output)?;
+
+    let mut total_capacity = 0;
+    for i in das_wallet_cells {
+        let type_hash = high_level::load_cell_type_hash(i, Source::Output)?;
+        das_assert!(
+            type_hash.is_none(),
+            ErrorCode::InvalidTransactionStructure,
+            "outputs[{}] The cells to DAS should not contains any type script.",
+            i
+        );
+
+        let capacity = high_level::load_cell_capacity(i, Source::Output)?;
+        total_capacity += capacity;
+    }
+
+    das_assert!(
+        total_capacity == expected_change,
+        ErrorCode::ChangeError,
+        "The change to DAS should be {} shannon, but {} found.",
+        expected_change,
+        total_capacity
+    );
 
     Ok(())
 }

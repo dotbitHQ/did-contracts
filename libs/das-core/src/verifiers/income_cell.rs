@@ -1,17 +1,26 @@
-use crate::{assert, constants::ScriptType, debug, error::Error, util, warn, witness_parser::WitnessesParser};
-use ckb_std::{ckb_constants::Source, high_level};
-use das_map::{map::Map, util as map_util};
-use das_types::{packed::*, prelude::*};
+use alloc::boxed::Box;
+
+use ckb_std::ckb_constants::Source;
+use ckb_std::high_level;
+use das_map::map::Map;
+use das_map::util as map_util;
+use das_types::packed::*;
+use das_types::prelude::*;
+
+use crate::constants::ScriptType;
+use crate::error::*;
+use crate::witness_parser::WitnessesParser;
+use crate::{assert, code_to_error, debug, util, warn};
 
 pub fn verify_newly_created(
     income_cell_witness_reader: IncomeCellDataReader,
     index: usize,
     source: Source,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     // The IncomeCell should be a newly created cell with only one record which is belong to the creator, but we do not need to check everything here, so we only check the length.
     assert!(
         income_cell_witness_reader.records().len() == 1,
-        Error::InvalidTransactionStructure,
+        ErrorCode::InvalidTransactionStructure,
         "{:?}[{}] The IncomeCell in inputs should be a newly created cell with only one record which is belong to the creator.",
         source,
         index
@@ -23,13 +32,13 @@ pub fn verify_newly_created(
 fn verify_records_limit(
     config_reader: ConfigCellIncomeReader,
     income_cell_witness_reader: IncomeCellDataReader,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     debug!("  Verify if the IncomeCell's records is out of limit.");
 
     let income_cell_max_records = u32::from(config_reader.max_records()) as usize;
     assert!(
         income_cell_witness_reader.records().len() <= income_cell_max_records,
-        Error::InvalidTransactionStructure,
+        ErrorCode::InvalidTransactionStructure,
         "The IncomeCell can not store more than {} records.",
         income_cell_max_records
     );
@@ -42,11 +51,11 @@ fn verify_cell_capacity_with_records_capacity(
     index: usize,
     source: Source,
     income_cell_witness_reader: IncomeCellDataReader,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     debug!("  Verify if the IncomeCell's capacity is equal to the sum of its records.");
 
     let basic_capacity = u64::from(config_reader.basic_capacity());
-    let current_capacity = high_level::load_cell_capacity(index, source).map_err(Error::from)?;
+    let current_capacity = high_level::load_cell_capacity(index, source).map_err(Error::<ErrorCode>::from)?;
 
     let mut expected_capacity = 0;
     for record in income_cell_witness_reader.records().iter() {
@@ -55,14 +64,14 @@ fn verify_cell_capacity_with_records_capacity(
 
     assert!(
         current_capacity >= basic_capacity,
-        Error::IncomeCellCapacityError,
+        ErrorCode::IncomeCellCapacityError,
         "{:?}[{}] The IncomeCell should have capacity bigger than or equal to the value in ConfigCellIncome.basic_capacity.",
         source,
         index
     );
     assert!(
         current_capacity == expected_capacity,
-        Error::IncomeCellCapacityError,
+        ErrorCode::IncomeCellCapacityError,
         "{:?}[{}] The capacity of the IncomeCell should be {} shannon, but {} shannon found.",
         source,
         index,
@@ -73,7 +82,10 @@ fn verify_cell_capacity_with_records_capacity(
     Ok(())
 }
 
-pub fn verify_income_cells(parser: &WitnessesParser, profit_map: Map<Vec<u8>, u64>) -> Result<(), Error> {
+pub fn verify_income_cells(
+    parser: &WitnessesParser,
+    profit_map: Map<Vec<u8>, u64>,
+) -> Result<(), Box<dyn ScriptError>> {
     debug!("Verify the IncomeCells in inputs and outputs.");
 
     #[cfg(debug_assertions)]
@@ -93,7 +105,7 @@ pub fn verify_income_cells(parser: &WitnessesParser, profit_map: Map<Vec<u8>, u6
 
     assert!(
         input_income_cells.len() <= 1 && output_income_cells.len() == 1,
-        Error::InvalidTransactionStructure,
+        ErrorCode::InvalidTransactionStructure,
         "There should be 0 or 1 IncomeCell in inputs and 1 IncomeCell in outputs.(inputs: {:?}, outputs: {:?})",
         input_income_cells,
         output_income_cells
@@ -151,7 +163,7 @@ pub fn verify_income_cells(parser: &WitnessesParser, profit_map: Map<Vec<u8>, u6
             if let Some(current_capacity) = output_records.get(key) {
                 assert!(
                     current_capacity >= exist_capacity,
-                    Error::IncomeCellConsolidateConditionNotSatisfied,
+                    ErrorCode::IncomeCellConsolidateConditionNotSatisfied,
                     "outputs[{}] There is some record in outputs has less capacity than itself in inputs which is not allowed. (belong_to: {})",
                     output_income_cells[0],
                     Script::from_slice(key.as_slice()).unwrap()
@@ -162,7 +174,7 @@ pub fn verify_income_cells(parser: &WitnessesParser, profit_map: Map<Vec<u8>, u6
                     output_income_cells[0],
                     Script::from_slice(key.as_slice()).unwrap()
                 );
-                return Err(Error::IncomeCellConsolidateConditionNotSatisfied);
+                return Err(code_to_error!(ErrorCode::IncomeCellConsolidateConditionNotSatisfied));
             }
         }
     }
@@ -183,7 +195,7 @@ pub fn verify_income_cells(parser: &WitnessesParser, profit_map: Map<Vec<u8>, u6
         if let Some(&expected_capacity) = profit_map.get(key) {
             assert!(
                 current_capacity >= expected_capacity,
-                Error::IncomeCellProfitMismatch,
+                ErrorCode::IncomeCellProfitMismatch,
                 "outputs[{}] The IncomeCell has a wrong record for some user.(belong_to: {}, expected: {}, current: {})",
                 output_income_cells[0],
                 Script::from_slice(key.as_slice()).unwrap(),

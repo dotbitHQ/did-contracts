@@ -1,8 +1,12 @@
-use super::common::*;
-use crate::util::{
-    accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
-};
 use serde_json::json;
+
+use super::common::*;
+use crate::util::accounts::*;
+use crate::util::constants::*;
+use crate::util::error::*;
+use crate::util::template_common_cell::*;
+use crate::util::template_generator::*;
+use crate::util::template_parser::*;
 
 fn before_each() -> TemplateGenerator {
     let mut template = init_edit("edit_sub_account", None);
@@ -220,7 +224,10 @@ fn challenge_sub_account_edit_parent_expired() {
     );
     push_simple_output_sub_account_cell(&mut template, 0);
 
-    challenge_tx(template.as_json(), Error::AccountCellInExpirationGracePeriod)
+    challenge_tx(
+        template.as_json(),
+        AccountCellErrorCode::AccountCellInExpirationGracePeriod,
+    )
 }
 
 #[test]
@@ -276,7 +283,7 @@ fn challenge_sub_account_edit_parent_not_enable_feature() {
     );
     push_simple_output_sub_account_cell(&mut template, 0);
 
-    challenge_tx(template.as_json(), Error::SubAccountFeatureNotEnabled)
+    challenge_tx(template.as_json(), ErrorCode::SubAccountFeatureNotEnabled)
 }
 
 #[test]
@@ -316,7 +323,7 @@ fn challenge_sub_account_edit_owner_not_change() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::SubAccountEditLockError)
+    challenge_tx(template.as_json(), ErrorCode::SubAccountEditLockError)
 }
 
 #[test]
@@ -356,7 +363,7 @@ fn challenge_sub_account_edit_owner_changed_when_edit_manager() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::SubAccountEditLockError)
+    challenge_tx(template.as_json(), ErrorCode::SubAccountEditLockError)
 }
 
 #[test]
@@ -396,7 +403,7 @@ fn challenge_sub_account_edit_manager_not_change() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::SubAccountEditLockError)
+    challenge_tx(template.as_json(), ErrorCode::SubAccountEditLockError)
 }
 
 #[test]
@@ -443,7 +450,7 @@ fn challenge_sub_account_edit_records_invalid_char() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellRecordKeyInvalid)
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellRecordKeyInvalid)
 }
 
 #[test]
@@ -490,7 +497,7 @@ fn challenge_sub_account_edit_records_invalid_key() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellRecordKeyInvalid)
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellRecordKeyInvalid)
 }
 
 #[test]
@@ -537,11 +544,11 @@ fn challenge_sub_account_edit_records_invalid_role() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellPermissionDenied)
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellPermissionDenied)
 }
 
 #[test]
-fn challenge_sub_account_profit_changed() {
+fn challenge_sub_account_das_profit_changed() {
     let mut template = before_each();
 
     // outputs
@@ -572,11 +579,93 @@ fn challenge_sub_account_profit_changed() {
             },
             "data": {
                 "root": String::from("0x") + &hex::encode(&current_root),
-                // Simulate modifying profit of the SubAccountCell.
-                "profit": 1
+                // Simulate modifying the DAS profit of the SubAccountCell.
+                "das_profit": 1
             }
         }),
     );
 
-    challenge_tx(template.as_json(), Error::SubAccountCellConsistencyError)
+    challenge_tx(template.as_json(), ErrorCode::SubAccountCellConsistencyError)
+}
+
+#[test]
+fn challenge_sub_account_owner_profit_changed() {
+    let mut template = before_each();
+
+    // outputs
+    template.push_sub_account_witness(
+        SubAccountActionType::Edit,
+        json!({
+            "sign_role": "0x00",
+            "sub_account": {
+                "lock": {
+                    "owner_lock_args": OWNER_1,
+                    "manager_lock_args": MANAGER_1
+                },
+                "account": SUB_ACCOUNT_1,
+                "suffix": SUB_ACCOUNT_SUFFIX,
+                "registered_at": TIMESTAMP,
+                "expired_at": u64::MAX,
+            },
+            "edit_key": "manager",
+            "edit_value": gen_das_lock_args(OWNER_1, Some(MANAGER_2))
+        }),
+    );
+    let current_root = template.smt_with_history.current_root();
+    push_output_sub_account_cell(
+        &mut template,
+        json!({
+            "type": {
+                "args": ACCOUNT_1
+            },
+            "data": {
+                "root": String::from("0x") + &hex::encode(&current_root),
+                // Simulate modifying the owner profit of the SubAccountCell.
+                "owner_profit": 1
+            }
+        }),
+    );
+
+    challenge_tx(template.as_json(), ErrorCode::SubAccountCellConsistencyError)
+}
+
+#[test]
+fn challenge_sub_account_custom_script_changed() {
+    let mut template = before_each();
+
+    // outputs
+    template.push_sub_account_witness(
+        SubAccountActionType::Edit,
+        json!({
+            "sign_role": "0x00",
+            "sub_account": {
+                "lock": {
+                    "owner_lock_args": OWNER_1,
+                    "manager_lock_args": MANAGER_1
+                },
+                "account": SUB_ACCOUNT_1,
+                "suffix": SUB_ACCOUNT_SUFFIX,
+                "registered_at": TIMESTAMP,
+                "expired_at": u64::MAX,
+            },
+            "edit_key": "manager",
+            "edit_value": gen_das_lock_args(OWNER_1, Some(MANAGER_2))
+        }),
+    );
+    let current_root = template.smt_with_history.current_root();
+    push_output_sub_account_cell(
+        &mut template,
+        json!({
+            "type": {
+                "args": ACCOUNT_1
+            },
+            "data": {
+                "root": String::from("0x") + &hex::encode(&current_root),
+                // Simulate modifying the custom script of the SubAccountCell.
+                "custom_script": "0x01746573742d637573746f6d2d736372697074"
+            }
+        }),
+    );
+
+    challenge_tx(template.as_json(), ErrorCode::SubAccountCellConsistencyError)
 }

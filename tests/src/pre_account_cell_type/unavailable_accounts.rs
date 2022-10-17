@@ -1,7 +1,12 @@
-use super::common::*;
-use crate::util::{self, constants::*, error::Error, template_common_cell::*, template_parser::*};
 use das_types_std::constants::*;
 use serde_json::json;
+
+use super::common::*;
+use crate::util::constants::*;
+use crate::util::error::*;
+use crate::util::template_common_cell::*;
+use crate::util::template_parser::*;
+use crate::util::{self};
 
 #[test]
 fn challenge_pre_register_unavailable_accounts() {
@@ -24,7 +29,7 @@ fn challenge_pre_register_unavailable_accounts() {
     push_output_pre_account_cell(
         &mut template,
         json!({
-            "capacity": util::gen_register_fee(9, false),
+            "capacity": util::gen_register_fee_v2(account, 9, false),
             "witness": {
                 "account": account,
                 "created_at": TIMESTAMP,
@@ -37,7 +42,7 @@ fn challenge_pre_register_unavailable_accounts() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountIsUnAvailable)
+    challenge_tx(template.as_json(), ErrorCode::AccountIsUnAvailable)
 }
 
 #[test]
@@ -61,7 +66,7 @@ fn test_pre_register_unavailable_accounts_below_all() {
     push_output_pre_account_cell(
         &mut template,
         json!({
-            "capacity": util::gen_register_fee(12, false),
+            "capacity": util::gen_register_fee_v2(account, 12, false),
             "witness": {
                 "account": account,
                 "created_at": TIMESTAMP,

@@ -1,16 +1,20 @@
-use super::common::*;
-use crate::util::{
-    accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
-};
 use das_types_std::constants::Source;
 use serde_json::json;
+
+use super::common::*;
+use crate::util::accounts::*;
+use crate::util::constants::*;
+use crate::util::error::*;
+use crate::util::template_common_cell::*;
+use crate::util::template_generator::*;
+use crate::util::template_parser::*;
 
 pub const MAKE_OFFER_COST: u64 = PRICE + OFFER_PREPARED_FEE_CAPACITY + SECONDARY_MARKET_COMMON_FEE;
 
 fn before_each() -> (TemplateGenerator, u64) {
     let mut template = init("make_offer");
 
-    let account_without_suffix = &ACCOUNT[0..ACCOUNT.len() - 4];
+    let account_without_suffix = &ACCOUNT_1[0..ACCOUNT_1.len() - 4];
     // println!("account_without_suffix = {:?}", account_without_suffix);
     template.push_config_cell_derived_by_account(account_without_suffix, Source::CellDep);
 
@@ -32,7 +36,7 @@ fn test_offer_make_offer() {
         json!({
             "capacity": PRICE + OFFER_PREPARED_FEE_CAPACITY,
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE,
                 "message": "Take my money.🍀"
             }
@@ -53,7 +57,7 @@ fn challenge_offer_make_offer_change_capacity() {
         json!({
             "capacity": 200_100_000_000u64,
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "200_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -62,7 +66,7 @@ fn challenge_offer_make_offer_change_capacity() {
     // Simulate transfer changes less than the user should get.
     push_output_balance_cell(&mut template, total_input - MAKE_OFFER_COST - 1, BUYER);
 
-    challenge_tx(template.as_json(), Error::ChangeError);
+    challenge_tx(template.as_json(), ErrorCode::ChangeError);
 }
 
 #[test]
@@ -74,7 +78,7 @@ fn challenge_offer_make_offer_change_owner() {
         json!({
             "capacity": 200_100_000_000u64,
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "200_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -87,7 +91,7 @@ fn challenge_offer_make_offer_change_owner() {
         "0x050000000000000000000000000000000000003333",
     );
 
-    challenge_tx(template.as_json(), Error::ChangeError);
+    challenge_tx(template.as_json(), ErrorCode::ChangeError);
 }
 
 #[test]
@@ -99,7 +103,7 @@ fn challenge_offer_make_offer_create_multiple() {
         json!({
             "capacity": PRICE + OFFER_PREPARED_FEE_CAPACITY,
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": PRICE,
                 "message": "Take my money.🍀"
             }
@@ -120,7 +124,7 @@ fn challenge_offer_make_offer_create_multiple() {
 
     push_output_balance_cell(&mut template, total_input - MAKE_OFFER_COST * 2, BUYER);
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure);
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure);
 }
 
 #[test]
@@ -133,7 +137,7 @@ fn challenge_offer_make_offer_lower_capacity() {
             // Simulate the capacity and the price is mismatched.
             "capacity": 200_100_000_000u64 - 1,
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "200_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -141,7 +145,7 @@ fn challenge_offer_make_offer_lower_capacity() {
     );
     push_output_balance_cell(&mut template, total_input - MAKE_OFFER_COST + 1, BUYER);
 
-    challenge_tx(template.as_json(), Error::OfferCellCapacityError);
+    challenge_tx(template.as_json(), ErrorCode::OfferCellCapacityError);
 }
 
 #[test]
@@ -154,7 +158,7 @@ fn challenge_offer_make_offer_higher_capacity() {
             // Simulate the capacity and the price is mismatched.
             "capacity": 200_100_000_000u64 + 1,
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "200_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -162,7 +166,7 @@ fn challenge_offer_make_offer_higher_capacity() {
     );
     push_output_balance_cell(&mut template, total_input - MAKE_OFFER_COST - 1, BUYER);
 
-    challenge_tx(template.as_json(), Error::OfferCellCapacityError);
+    challenge_tx(template.as_json(), ErrorCode::OfferCellCapacityError);
 }
 
 #[test]
@@ -174,7 +178,7 @@ fn challenge_offer_make_offer_too_long_message() {
         json!({
             "capacity": 200_100_000_000u64,
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "200_000_000_000",
                 // Simulate the length of the message in bytes has reached the limit.
                 "message": "Take my money.🍀".repeat(400)
@@ -183,5 +187,5 @@ fn challenge_offer_make_offer_too_long_message() {
     );
     push_output_balance_cell(&mut template, total_input - MAKE_OFFER_COST, BUYER);
 
-    challenge_tx(template.as_json(), Error::OfferCellMessageTooLong);
+    challenge_tx(template.as_json(), ErrorCode::OfferCellMessageTooLong);
 }

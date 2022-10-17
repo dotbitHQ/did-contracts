@@ -1,4 +1,6 @@
-use sparse_merkle_tree::{blake2b::Blake2bHasher, default_store::DefaultStore, MerkleProof, SparseMerkleTree, H256};
+use sparse_merkle_tree::blake2b::Blake2bHasher;
+use sparse_merkle_tree::default_store::DefaultStore;
+use sparse_merkle_tree::{MerkleProof, SparseMerkleTree, H256};
 
 pub type SMT = SparseMerkleTree<Blake2bHasher, H256, DefaultStore<H256>>;
 

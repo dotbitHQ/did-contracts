@@ -1,9 +1,12 @@
-use super::common::*;
-use crate::util::{
-    accounts::*, constants::*, template_common_cell::*, template_generator::TemplateGenerator, template_parser::*,
-};
 use das_types_std::constants::*;
 use serde_json::json;
+
+use super::common::*;
+use crate::util::accounts::*;
+use crate::util::constants::*;
+use crate::util::template_common_cell::*;
+use crate::util::template_generator::TemplateGenerator;
+use crate::util::template_parser::*;
 
 fn before_each() -> TemplateGenerator {
     let mut template = init("extend_proposal");

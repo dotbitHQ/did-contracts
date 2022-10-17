@@ -1,9 +1,14 @@
-use super::common::*;
-use crate::util::{
-    self, accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
-};
 use das_types_std::constants::*;
 use serde_json::json;
+
+use super::common::*;
+use crate::util::accounts::*;
+use crate::util::constants::*;
+use crate::util::error::*;
+use crate::util::template_common_cell::*;
+use crate::util::template_generator::*;
+use crate::util::template_parser::*;
+use crate::util::{self};
 
 fn push_simple_output_income_cell(template: &mut TemplateGenerator) {
     push_output_income_cell(
@@ -55,10 +60,10 @@ fn push_common_outputs(template: &mut TemplateGenerator) {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "status": (AccountStatus::Normal as u8)
             }
         }),
@@ -77,7 +82,7 @@ fn before_each() -> TemplateGenerator {
         json!({
             "capacity": "200_100_000_000",
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "200_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -91,10 +96,10 @@ fn before_each() -> TemplateGenerator {
                 "manager_lock_args": "0x050000000000000000000000000000000000005555"
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "status": (AccountStatus::Normal as u8)
             }
         }),
@@ -130,7 +135,7 @@ fn challenge_offer_accept_offer_account_expired() {
         json!({
             "capacity": "200_100_000_000",
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "200_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -144,12 +149,12 @@ fn challenge_offer_accept_offer_account_expired() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 // Simulate the AccountCell has been expired.
                 "expired_at": TIMESTAMP - 1,
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "status": (AccountStatus::Normal as u8)
             }
         }),
@@ -158,7 +163,10 @@ fn challenge_offer_accept_offer_account_expired() {
     // outputs
     push_common_outputs(&mut template);
 
-    challenge_tx(template.as_json(), Error::AccountCellInExpirationGracePeriod);
+    challenge_tx(
+        template.as_json(),
+        AccountCellErrorCode::AccountCellInExpirationGracePeriod,
+    );
 }
 
 #[test]
@@ -171,7 +179,7 @@ fn challenge_offer_accept_offer_account_not_normal_status() {
         json!({
             "capacity": "200_100_000_000",
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "200_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -185,10 +193,10 @@ fn challenge_offer_accept_offer_account_not_normal_status() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT
+                "account": ACCOUNT_1
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 // Simulate the AccountCell is not in normal status.
                 "status": (AccountStatus::Selling as u8)
             }
@@ -198,7 +206,7 @@ fn challenge_offer_accept_offer_account_not_normal_status() {
     // outputs
     push_common_outputs(&mut template);
 
-    challenge_tx(template.as_json(), Error::AccountCellStatusLocked);
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellStatusLocked);
 }
 
 #[test]
@@ -211,7 +219,7 @@ fn challenge_offer_accept_offer_account_not_exists_in_inputs() {
         json!({
             "capacity": "200_100_000_000",
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "200_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -222,7 +230,7 @@ fn challenge_offer_accept_offer_account_not_exists_in_inputs() {
     // outputs
     push_common_outputs(&mut template);
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure);
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure);
 }
 
 #[test]
@@ -235,7 +243,7 @@ fn challenge_offer_accept_offer_accept_multiple_offer_cells() {
         json!({
             "capacity": "200_100_000_000",
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "200_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -247,7 +255,7 @@ fn challenge_offer_accept_offer_accept_multiple_offer_cells() {
         json!({
             "capacity": "200_100_000_000",
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "price": "200_000_000_000",
                 "message": "Take my money.🍀"
             }
@@ -261,10 +269,10 @@ fn challenge_offer_accept_offer_accept_multiple_offer_cells() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT
+                "account": ACCOUNT_1
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 // Simulate the AccountCell is not in normal status.
                 "status": (AccountStatus::Selling as u8)
             }
@@ -274,7 +282,7 @@ fn challenge_offer_accept_offer_accept_multiple_offer_cells() {
     // outputs
     push_common_outputs(&mut template);
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure);
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure);
 }
 
 #[test]
@@ -292,10 +300,10 @@ fn challenge_offer_accept_offer_account_capacity_mismatch() {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "status": (AccountStatus::Normal as u8)
             }
         }),
@@ -304,7 +312,7 @@ fn challenge_offer_accept_offer_account_capacity_mismatch() {
     push_simple_output_income_cell(&mut template);
     push_output_balance_cell(&mut template, 194_000_000_000, SELLER);
 
-    challenge_tx(template.as_json(), Error::AccountCellChangeCapacityError);
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellChangeCapacityError);
 }
 
 #[test]
@@ -321,11 +329,11 @@ fn challenge_offer_accept_offer_account_data_mismatch() {
             },
             // Simulate the AccountCell.data is changed.
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "expired_at": TIMESTAMP + 1000,
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "status": (AccountStatus::Normal as u8)
             }
         }),
@@ -334,7 +342,7 @@ fn challenge_offer_accept_offer_account_data_mismatch() {
     push_simple_output_income_cell(&mut template);
     push_output_balance_cell(&mut template, 194_000_000_000, SELLER);
 
-    challenge_tx(template.as_json(), Error::AccountCellDataNotConsistent);
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellDataNotConsistent);
 }
 
 #[test]
@@ -350,7 +358,7 @@ fn challenge_offer_accept_offer_account_witness_mismatch() {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             // Simulate the AccountCell.witness is changed.
             "witness": {
@@ -363,7 +371,10 @@ fn challenge_offer_accept_offer_account_witness_mismatch() {
     push_simple_output_income_cell(&mut template);
     push_output_balance_cell(&mut template, 194_000_000_000, SELLER);
 
-    challenge_tx(template.as_json(), Error::AccountCellProtectFieldIsModified);
+    challenge_tx(
+        template.as_json(),
+        AccountCellErrorCode::AccountCellProtectFieldIsModified,
+    );
 }
 
 #[test]
@@ -375,7 +386,7 @@ fn challenge_offer_accept_offer_account_deleted() {
     push_simple_output_income_cell(&mut template);
     push_output_balance_cell(&mut template, 194_000_000_000, SELLER);
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure);
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure);
 }
 
 #[test]
@@ -391,7 +402,7 @@ fn challenge_offer_accept_offer_account_create() {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
                 "status": (AccountStatus::Normal as u8)
@@ -419,7 +430,7 @@ fn challenge_offer_accept_offer_account_create() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure);
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure);
 }
 
 #[test]
@@ -447,10 +458,10 @@ fn challenge_offer_accept_offer_account_mismatch() {
                 "manager_lock_args": SELLER
             },
             "data": {
-                "account": ACCOUNT
+                "account": ACCOUNT_1
             },
             "witness": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
                 "status": (AccountStatus::Normal as u8)
             }
         }),
@@ -459,7 +470,7 @@ fn challenge_offer_accept_offer_account_mismatch() {
     // outputs
     push_common_outputs(&mut template);
 
-    challenge_tx(template.as_json(), Error::OfferCellAccountMismatch);
+    challenge_tx(template.as_json(), ErrorCode::OfferCellAccountMismatch);
 }
 
 #[test]
@@ -475,7 +486,7 @@ fn challenge_offer_accept_offer_no_income_cell() {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
                 "status": (AccountStatus::Normal as u8)
@@ -485,7 +496,7 @@ fn challenge_offer_accept_offer_no_income_cell() {
 
     push_output_balance_cell(&mut template, 194_000_000_000, SELLER);
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure);
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure);
 }
 
 #[test]
@@ -501,7 +512,7 @@ fn challenge_offer_accept_offer_income_cell_lock_error() {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
                 "status": (AccountStatus::Normal as u8)
@@ -555,7 +566,7 @@ fn challenge_offer_accept_offer_income_cell_lock_error() {
 
     push_output_balance_cell(&mut template, 194_000_000_000, SELLER);
 
-    challenge_tx(template.as_json(), Error::AlwaysSuccessLockIsRequired);
+    challenge_tx(template.as_json(), ErrorCode::AlwaysSuccessLockIsRequired);
 }
 
 #[test]
@@ -571,7 +582,7 @@ fn challenge_offer_accept_offer_sellers_profit_wrong() {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
                 "status": (AccountStatus::Normal as u8)
@@ -582,7 +593,7 @@ fn challenge_offer_accept_offer_sellers_profit_wrong() {
     push_simple_output_income_cell(&mut template);
     push_output_balance_cell(&mut template, 194_000_000_000 - 1, SELLER);
 
-    challenge_tx(template.as_json(), Error::ChangeError);
+    challenge_tx(template.as_json(), ErrorCode::ChangeError);
 }
 
 #[test]
@@ -598,7 +609,7 @@ fn challenge_offer_accept_offer_others_profit_wrong() {
                 "manager_lock_args": BUYER
             },
             "data": {
-                "account": ACCOUNT,
+                "account": ACCOUNT_1,
             },
             "witness": {
                 "status": (AccountStatus::Normal as u8)
@@ -648,5 +659,5 @@ fn challenge_offer_accept_offer_others_profit_wrong() {
 
     push_output_balance_cell(&mut template, 194_000_000_000, SELLER);
 
-    challenge_tx(template.as_json(), Error::IncomeCellProfitMismatch);
+    challenge_tx(template.as_json(), ErrorCode::IncomeCellProfitMismatch);
 }

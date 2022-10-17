@@ -1,22 +1,21 @@
-use ckb_std::{ckb_constants::Source, high_level};
+use alloc::boxed::Box;
 use core::cmp::Ordering;
 use core::result::Result;
-use das_core::{
-    assert, assert_lock_equal,
-    constants::{das_lock, TypeScript},
-    debug,
-    error::Error,
-    util, verifiers,
-    witness_parser::WitnessesParser,
-};
 
-pub fn main() -> Result<(), Error> {
+use ckb_std::ckb_constants::Source;
+use ckb_std::high_level;
+use das_core::constants::{das_lock, TypeScript};
+use das_core::error::*;
+use das_core::witness_parser::WitnessesParser;
+use das_core::{assert, assert_lock_equal, code_to_error, debug, util, verifiers};
+
+pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running reverse-record-cell-type ======");
 
     let mut parser = WitnessesParser::new()?;
     let action_cp = match parser.parse_action_with_params()? {
         Some((action, _)) => action.to_vec(),
-        None => return Err(Error::ActionNotSupported),
+        None => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
     };
     let action = action_cp.as_slice();
 
@@ -24,7 +23,7 @@ pub fn main() -> Result<(), Error> {
 
     debug!(
         "Route to {:?} action ...",
-        alloc::string::String::from_utf8(action.to_vec()).map_err(|_| Error::ActionNotSupported)?
+        alloc::string::String::from_utf8(action.to_vec()).map_err(|_| ErrorCode::ActionNotSupported)?
     );
 
     let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
@@ -55,7 +54,7 @@ pub fn main() -> Result<(), Error> {
             assert!(
                 // Because the ReverseRecordCell will store account in data, it's capacity is dynamic.
                 current_capacity >= reverse_record_cell_capacity,
-                Error::ReverseRecordCellCapacityError,
+                ErrorCode::ReverseRecordCellCapacityError,
                 "The ReverseRecordCell.capacity should be at least {} shannon.(current: {})",
                 reverse_record_cell_capacity,
                 current_capacity
@@ -77,7 +76,7 @@ pub fn main() -> Result<(), Error> {
             assert_lock_equal!(
                 (balance_cells[0], Source::Input),
                 (output_cells[0], Source::Output),
-                Error::ReverseRecordCellLockError,
+                ErrorCode::ReverseRecordCellLockError,
                 "The ReverseRecordCell.lock should be the same as the lock of inputs[0]."
             );
 
@@ -87,7 +86,7 @@ pub fn main() -> Result<(), Error> {
             let current_lock = high_level::load_cell_lock(output_cells[0], Source::Output)?;
             assert!(
                 util::is_type_id_equal(expected_lock.as_reader(), current_lock.as_reader()),
-                Error::ReverseRecordCellLockError,
+                ErrorCode::ReverseRecordCellLockError,
                 "The ReverseRecordCell.lock should be the das-lock."
             );
 
@@ -114,7 +113,7 @@ pub fn main() -> Result<(), Error> {
             let output_capacity = high_level::load_cell_capacity(0, Source::Output)?;
             assert!(
                 output_capacity >= input_capacity - expected_fee,
-                Error::ReverseRecordCellCapacityError,
+                ErrorCode::ReverseRecordCellCapacityError,
                 "The ReverseRecordCell.capacity should remain equal to or more than {} shannon.(available_fee: {})",
                 input_capacity - expected_fee,
                 expected_fee
@@ -125,7 +124,7 @@ pub fn main() -> Result<(), Error> {
             assert_lock_equal!(
                 (input_cells[0], Source::Input),
                 (output_cells[0], Source::Output),
-                Error::ReverseRecordCellLockError,
+                ErrorCode::ReverseRecordCellLockError,
                 "The ReverseRecordCell.lock should be consistent in inputs and outputs."
             );
 
@@ -135,7 +134,7 @@ pub fn main() -> Result<(), Error> {
             let output_account = high_level::load_cell_data(output_cells[0], Source::Output)?;
             assert!(
                 input_account != output_account,
-                Error::InvalidTransactionStructure,
+                ErrorCode::InvalidTransactionStructure,
                 "The ReverseRecordCell.data.account should be modified."
             );
 
@@ -165,7 +164,7 @@ pub fn main() -> Result<(), Error> {
                 let lock_hash = high_level::load_cell_lock_hash(*i, Source::Input)?;
                 assert!(
                     expected_lock_hash == lock_hash,
-                    Error::InvalidTransactionStructure,
+                    ErrorCode::InvalidTransactionStructure,
                     "Inputs[{}] The ReverseRecordCell should has the same lock script with others.",
                     i
                 );
@@ -186,7 +185,7 @@ pub fn main() -> Result<(), Error> {
 
             util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
         }
-        _ => return Err(Error::ActionNotSupported),
+        _ => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
     }
 
     Ok(())

@@ -1,15 +1,20 @@
-use super::{assert, constants::ScriptHashType, debug, error::Error, util, warn};
-use alloc::{collections::BTreeMap, vec, vec::Vec};
+use alloc::boxed::Box;
+use alloc::collections::BTreeMap;
+use alloc::vec;
+use alloc::vec::Vec;
+use core::cell::OnceCell;
 use core::convert::TryFrom;
-use core::lazy::OnceCell;
-use das_types::{
-    constants::{
-        CharSetType, DataType, CHAR_SET_LENGTH, WITNESS_HEADER_BYTES, WITNESS_LENGTH_BYTES, WITNESS_TYPE_BYTES,
-    },
-    packed::*,
-    prelude::Entity,
-    util as das_types_util,
+
+use das_types::constants::{
+    CharSetType, DataType, CHAR_SET_LENGTH, WITNESS_HEADER_BYTES, WITNESS_LENGTH_BYTES, WITNESS_TYPE_BYTES,
 };
+use das_types::packed::*;
+use das_types::prelude::Entity;
+use das_types::util as das_types_util;
+
+use super::constants::ScriptHashType;
+use super::error::*;
+use super::{assert, code_to_error, debug, util, warn};
 
 macro_rules! get_or_try_init {
     ( $self:expr, $property:ident, $entity_type:ty, $data_type:expr ) => {{
@@ -18,8 +23,8 @@ macro_rules! get_or_try_init {
             .get_or_try_init(|| {
                 let (i, raw) = Configs::parse_witness(&$self.config_witnesses, $data_type)?;
                 let entity = <$entity_type>::from_slice(&raw).map_err(|e| {
-                    warn!("witnesses[{}] Decoding {:?} failed: {}", i, $data_type, e);
-                    Error::ConfigCellWitnessDecodingError
+                    warn!("witnesses[{:>2}] Decoding {:?} failed: {}", i, $data_type, e);
+                    ErrorCode::ConfigCellWitnessDecodingError
                 })?;
 
                 Ok(entity)
@@ -28,7 +33,6 @@ macro_rules! get_or_try_init {
     }};
 }
 
-#[derive(Debug)]
 pub struct ScriptLiteral {
     pub code_hash: [u8; 32],
     pub hash_type: ScriptHashType,
@@ -77,8 +81,7 @@ impl Configs {
             config_witnesses,
             account: OnceCell::new(),
             apply: OnceCell::new(),
-            // Chinese charsets is still not enabled.
-            char_set: vec![OnceCell::new(); CHAR_SET_LENGTH - 2],
+            char_set: vec![OnceCell::new(); CHAR_SET_LENGTH],
             income: OnceCell::new(),
             main: OnceCell::new(),
             price: OnceCell::new(),
@@ -98,24 +101,24 @@ impl Configs {
     fn parse_witness(
         config_witnesses: &BTreeMap<u32, (usize, [u8; 32])>,
         data_type: DataType,
-    ) -> Result<(usize, Vec<u8>), Error> {
+    ) -> Result<(usize, Vec<u8>), Box<dyn ScriptError>> {
         let &(i, expected_hash) = config_witnesses.get(&(data_type as u32)).ok_or_else(|| {
             warn!("Can not find {:?} in witnesses.", data_type);
-            Error::ConfigIsPartialMissing
+            ErrorCode::ConfigIsPartialMissing
         })?;
 
-        debug!("Parsing witnesses[{}] as {:?} ...", i, data_type);
+        debug!("witnesses[{:>2}] Parsing it as {:?} ...", i, data_type);
 
         let raw = util::load_das_witnesses(i)?;
         let entity = raw
             .get((WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES)..)
-            .ok_or(Error::ConfigCellWitnessDecodingError)?;
+            .ok_or(ErrorCode::ConfigCellWitnessDecodingError)?;
         let hash = util::blake2b_256(entity);
 
         assert!(
             hash == expected_hash,
-            Error::ConfigCellWitnessIsCorrupted,
-            "witnesses[{}] The witness is corrupted!(expected_hash: 0x{} current_hash: 0x{})",
+            ErrorCode::ConfigCellWitnessIsCorrupted,
+            "witnesses[{:>2}] The witness is corrupted!(expected_hash: 0x{} current_hash: 0x{})",
             i,
             util::hex_string(&expected_hash),
             util::hex_string(&hash)
@@ -124,39 +127,39 @@ impl Configs {
         Ok((i, entity.to_vec()))
     }
 
-    pub fn account(&self) -> Result<ConfigCellAccountReader, Error> {
+    pub fn account(&self) -> Result<ConfigCellAccountReader, Box<dyn ScriptError>> {
         get_or_try_init!(self, account, ConfigCellAccount, DataType::ConfigCellAccount)
     }
 
-    pub fn apply(&self) -> Result<ConfigCellApplyReader, Error> {
+    pub fn apply(&self) -> Result<ConfigCellApplyReader, Box<dyn ScriptError>> {
         get_or_try_init!(self, apply, ConfigCellApply, DataType::ConfigCellApply)
     }
 
-    pub fn income(&self) -> Result<ConfigCellIncomeReader, Error> {
+    pub fn income(&self) -> Result<ConfigCellIncomeReader, Box<dyn ScriptError>> {
         get_or_try_init!(self, income, ConfigCellIncome, DataType::ConfigCellIncome)
     }
 
-    pub fn main(&self) -> Result<ConfigCellMainReader, Error> {
+    pub fn main(&self) -> Result<ConfigCellMainReader, Box<dyn ScriptError>> {
         get_or_try_init!(self, main, ConfigCellMain, DataType::ConfigCellMain)
     }
 
-    pub fn price(&self) -> Result<ConfigCellPriceReader, Error> {
+    pub fn price(&self) -> Result<ConfigCellPriceReader, Box<dyn ScriptError>> {
         get_or_try_init!(self, price, ConfigCellPrice, DataType::ConfigCellPrice)
     }
 
-    pub fn proposal(&self) -> Result<ConfigCellProposalReader, Error> {
+    pub fn proposal(&self) -> Result<ConfigCellProposalReader, Box<dyn ScriptError>> {
         get_or_try_init!(self, proposal, ConfigCellProposal, DataType::ConfigCellProposal)
     }
 
-    pub fn profit_rate(&self) -> Result<ConfigCellProfitRateReader, Error> {
+    pub fn profit_rate(&self) -> Result<ConfigCellProfitRateReader, Box<dyn ScriptError>> {
         get_or_try_init!(self, profit_rate, ConfigCellProfitRate, DataType::ConfigCellProfitRate)
     }
 
-    pub fn release(&self) -> Result<ConfigCellReleaseReader, Error> {
+    pub fn release(&self) -> Result<ConfigCellReleaseReader, Box<dyn ScriptError>> {
         get_or_try_init!(self, release, ConfigCellRelease, DataType::ConfigCellRelease)
     }
 
-    pub fn secondary_market(&self) -> Result<ConfigCellSecondaryMarketReader, Error> {
+    pub fn secondary_market(&self) -> Result<ConfigCellSecondaryMarketReader, Box<dyn ScriptError>> {
         get_or_try_init!(
             self,
             secondary_market,
@@ -165,7 +168,7 @@ impl Configs {
         )
     }
 
-    pub fn reverse_resolution(&self) -> Result<ConfigCellReverseResolutionReader, Error> {
+    pub fn reverse_resolution(&self) -> Result<ConfigCellReverseResolutionReader, Box<dyn ScriptError>> {
         get_or_try_init!(
             self,
             reverse_resolution,
@@ -174,19 +177,19 @@ impl Configs {
         )
     }
 
-    pub fn sub_account(&self) -> Result<ConfigCellSubAccountReader, Error> {
+    pub fn sub_account(&self) -> Result<ConfigCellSubAccountReader, Box<dyn ScriptError>> {
         get_or_try_init!(self, sub_account, ConfigCellSubAccount, DataType::ConfigCellSubAccount)
     }
 
-    pub fn record_key_namespace(&self) -> Result<&Vec<u8>, Error> {
+    pub fn record_key_namespace(&self) -> Result<&Vec<u8>, Box<dyn ScriptError>> {
         self.record_key_namespace.get_or_try_init(|| {
             let data_type = DataType::ConfigCellRecordKeyNamespace;
             let (i, raw) = Self::parse_witness(&self.config_witnesses, data_type)?;
             let data = match raw.get(WITNESS_LENGTH_BYTES..) {
                 Some(data) => data.to_vec(),
                 None => {
-                    warn!("witnesses[{}] The data of {:?} is empty.", i, data_type);
-                    return Err(Error::ConfigIsPartialMissing);
+                    warn!("witnesses[{:>2}] The data of {:?} is empty.", i, data_type);
+                    return Err(code_to_error!(ErrorCode::ConfigIsPartialMissing).into());
                 }
             };
 
@@ -194,15 +197,15 @@ impl Configs {
         })
     }
 
-    pub fn preserved_account(&self, data_type: DataType) -> Result<&Vec<u8>, Error> {
+    pub fn preserved_account(&self, data_type: DataType) -> Result<&Vec<u8>, Box<dyn ScriptError>> {
         self.preserved_account.get_or_try_init(|| {
             let (i, raw) = Self::parse_witness(&self.config_witnesses, data_type)?;
             let data = match raw.get(WITNESS_LENGTH_BYTES..) {
                 Some(data) => data.to_vec(),
                 None => {
-                    warn!("witnesses[{}] The data of {:?} is empty.", i, data_type);
+                    warn!("witnesses[{:>2}] The data of {:?} is empty.", i, data_type);
 
-                    return Err(Error::ConfigIsPartialMissing);
+                    return Err(code_to_error!(ErrorCode::ConfigIsPartialMissing).into());
                 }
             };
 
@@ -210,15 +213,15 @@ impl Configs {
         })
     }
 
-    pub fn unavailable_account(&self) -> Result<&Vec<u8>, Error> {
+    pub fn unavailable_account(&self) -> Result<&Vec<u8>, Box<dyn ScriptError>> {
         self.unavailable_account.get_or_try_init(|| {
             let data_type = DataType::ConfigCellUnAvailableAccount;
             let (i, raw) = Self::parse_witness(&self.config_witnesses, data_type)?;
             let data = match raw.get(WITNESS_LENGTH_BYTES..) {
                 Some(data) => data.to_vec(),
                 None => {
-                    warn!("witnesses[{}] The data of {:?} is empty.", i, data_type);
-                    return Err(Error::ConfigIsPartialMissing);
+                    warn!("witnesses[{:>2}] The data of {:?} is empty.", i, data_type);
+                    return Err(code_to_error!(ErrorCode::ConfigIsPartialMissing).into());
                 }
             };
 
@@ -226,15 +229,15 @@ impl Configs {
         })
     }
 
-    pub fn sub_account_beta_list(&self) -> Result<&Vec<u8>, Error> {
+    pub fn sub_account_beta_list(&self) -> Result<&Vec<u8>, Box<dyn ScriptError>> {
         self.unavailable_account.get_or_try_init(|| {
             let data_type = DataType::ConfigCellSubAccountBetaList;
             let (i, raw) = Self::parse_witness(&self.config_witnesses, data_type)?;
             let data = match raw.get(WITNESS_LENGTH_BYTES..) {
                 Some(data) => data.to_vec(),
                 None => {
-                    warn!("witnesses[{}] The data of {:?} is empty.", i, data_type);
-                    return Err(Error::ConfigIsPartialMissing);
+                    warn!("witnesses[{:>2}] The data of {:?} is empty.", i, data_type);
+                    return Err(code_to_error!(ErrorCode::ConfigIsPartialMissing).into());
                 }
             };
 
@@ -242,15 +245,14 @@ impl Configs {
         })
     }
 
-    pub fn char_set(&self) -> Vec<Result<&CharSet, Error>> {
-        let mut ret = Vec::new();
-        for (i, char_set) in self.char_set.iter().enumerate() {
-            let item = char_set.get_or_try_init(|| {
-                let char_set_type = match CharSetType::try_from(i as u32) {
+    pub fn char_set(&self, char_set_index: usize) -> Option<Result<&CharSet, Box<dyn ScriptError>>> {
+        self.char_set.get(char_set_index).map(|char_set| {
+            char_set.get_or_try_init(|| {
+                let char_set_type = match CharSetType::try_from(char_set_index as u32) {
                     Ok(char_set_type) => char_set_type,
                     Err(_) => {
-                        warn!("Invalid CharSetType[{}]", i);
-                        return Err(Error::ConfigCellWitnessDecodingError);
+                        warn!("Invalid CharSetType[{}]", char_set_index);
+                        return Err(code_to_error!(ErrorCode::ConfigCellWitnessDecodingError).into());
                     }
                 };
                 let data_type = das_types_util::char_set_to_data_type(char_set_type);
@@ -262,15 +264,15 @@ impl Configs {
                         u32::from_le_bytes(tmp) as usize
                     }
                     None => {
-                        warn!("witnesses[{}] The data of {:?} is empty.", i, data_type);
-                        return Err(Error::ConfigIsPartialMissing);
+                        warn!("witnesses[{:>2}] The data of {:?} is empty.", i, data_type);
+                        return Err(code_to_error!(ErrorCode::ConfigIsPartialMissing).into());
                     }
                 };
 
                 assert!(
                     raw.len() == length,
-                    Error::ConfigCellWitnessDecodingError,
-                    "witnesses[{}] The {:?} should have length of {} bytes, but {} bytes found.",
+                    ErrorCode::ConfigCellWitnessDecodingError,
+                    "witnesses[{:>2}] The {:?} should have length of {} bytes, but {} bytes found.",
                     i,
                     data_type,
                     length,
@@ -285,11 +287,7 @@ impl Configs {
                 };
 
                 Ok(char_set)
-            });
-
-            ret.push(item);
-        }
-
-        ret
+            })
+        })
     }
 }
