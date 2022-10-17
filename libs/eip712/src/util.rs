@@ -1,4 +1,5 @@
 use std::prelude::v1::*;
+
 use tiny_keccak::{Hasher, Keccak};
 
 pub fn keccak256(data: &[u8]) -> Vec<u8> {

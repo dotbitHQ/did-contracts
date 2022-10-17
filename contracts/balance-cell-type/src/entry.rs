@@ -1,18 +1,18 @@
+use alloc::boxed::Box;
 use alloc::vec::Vec;
-use ckb_std::{ckb_constants::Source, high_level};
-use das_core::{
-    constants::{das_lock, DasLockType, ScriptType, TypeScript},
-    data_parser, debug,
-    error::Error,
-    util, warn,
-    witness_parser::WitnessesParser,
-};
+
+use ckb_std::ckb_constants::Source;
+use ckb_std::high_level;
+use das_core::constants::{das_lock, DasLockType, ScriptType, TypeScript};
+use das_core::error::*;
+use das_core::witness_parser::WitnessesParser;
+use das_core::{code_to_error, data_parser, debug, util, warn};
 use das_types::packed as das_packed;
 
-pub fn main() -> Result<(), Error> {
+pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running balance-cell-type ======");
 
-    let balance_cell_type = high_level::load_script().map_err(|e| Error::from(e))?;
+    let balance_cell_type = high_level::load_script().map_err(|e| Error::<ErrorCode>::from(e))?;
     let balance_cell_type_reader = balance_cell_type.as_reader();
     let das_lock = das_lock();
     let das_lock_reader = das_lock.as_reader();
@@ -30,7 +30,7 @@ pub fn main() -> Result<(), Error> {
 
         let action_cp = match parser.parse_action_with_params()? {
             Some((action, _)) => action.to_vec(),
-            None => return Err(Error::ActionNotSupported),
+            None => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
         };
         let action = action_cp.as_slice();
 
@@ -43,7 +43,7 @@ pub fn main() -> Result<(), Error> {
                     &parser,
                     TypeScript::AccountCellType,
                     Source::Input,
-                    Error::InvalidTransactionStructure,
+                    ErrorCode::InvalidTransactionStructure,
                 )?;
             }
             b"start_account_sale" => {
@@ -51,7 +51,7 @@ pub fn main() -> Result<(), Error> {
                     &parser,
                     TypeScript::AccountSaleCellType,
                     Source::Output,
-                    Error::InvalidTransactionStructure,
+                    ErrorCode::InvalidTransactionStructure,
                 )?;
             }
             b"cancel_account_sale" | b"buy_account" | b"edit_account_sale" => {
@@ -59,7 +59,7 @@ pub fn main() -> Result<(), Error> {
                     &parser,
                     TypeScript::AccountSaleCellType,
                     Source::Input,
-                    Error::InvalidTransactionStructure,
+                    ErrorCode::InvalidTransactionStructure,
                 )?;
             }
             b"declare_reverse_record" => {
@@ -67,7 +67,7 @@ pub fn main() -> Result<(), Error> {
                     &parser,
                     TypeScript::ReverseRecordCellType,
                     Source::Output,
-                    Error::InvalidTransactionStructure,
+                    ErrorCode::InvalidTransactionStructure,
                 )?;
             }
             b"redeclare_reverse_record" | b"retract_reverse_record" => {
@@ -75,7 +75,7 @@ pub fn main() -> Result<(), Error> {
                     &parser,
                     TypeScript::ReverseRecordCellType,
                     Source::Input,
-                    Error::InvalidTransactionStructure,
+                    ErrorCode::InvalidTransactionStructure,
                 )?;
             }
             b"make_offer" | b"edit_offer" => {
@@ -83,7 +83,7 @@ pub fn main() -> Result<(), Error> {
                     &parser,
                     TypeScript::OfferCellType,
                     Source::Output,
-                    Error::InvalidTransactionStructure,
+                    ErrorCode::InvalidTransactionStructure,
                 )?;
             }
             b"cancel_offer" | b"accept_offer" => {
@@ -91,7 +91,7 @@ pub fn main() -> Result<(), Error> {
                     &parser,
                     TypeScript::OfferCellType,
                     Source::Input,
-                    Error::InvalidTransactionStructure,
+                    ErrorCode::InvalidTransactionStructure,
                 )?;
             }
             b"enable_sub_account" | b"create_sub_account" | b"renew_sub_account" => {
@@ -99,7 +99,7 @@ pub fn main() -> Result<(), Error> {
                     &parser,
                     TypeScript::SubAccountCellType,
                     Source::Output,
-                    Error::InvalidTransactionStructure,
+                    ErrorCode::InvalidTransactionStructure,
                 )?;
             }
             _ => {
@@ -157,12 +157,12 @@ pub fn main() -> Result<(), Error> {
 
                         if !pass {
                             warn!("Outputs[{}] This cell has das-lock, so it should also has one of the specific type scripts.", index);
-                            return Err(Error::BalanceCellFoundSomeOutputsLackOfType);
+                            return Err(code_to_error!(ErrorCode::BalanceCellFoundSomeOutputsLackOfType));
                         }
                     }
                     _ => {
                         warn!("Outputs[{}] This cell has das-lock, so it should also has one of the specific type scripts.", index);
-                        return Err(Error::BalanceCellFoundSomeOutputsLackOfType);
+                        return Err(code_to_error!(ErrorCode::BalanceCellFoundSomeOutputsLackOfType));
                     }
                 }
             }

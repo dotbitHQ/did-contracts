@@ -1,6 +1,7 @@
-use super::util::cmp;
 use alloc::vec::Vec;
 use std::prelude::v1::*;
+
+use super::util::cmp;
 
 #[derive(Debug)]
 pub struct DasSortedList {
@@ -33,9 +34,10 @@ impl DasSortedList {
 
 #[cfg(test)]
 mod test {
+    use alloc::vec;
+
     use super::super::util::hex_to_bytes;
     use super::*;
-    use alloc::vec;
 
     #[test]
     fn test_sorted_list_cmp() {

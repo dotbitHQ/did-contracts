@@ -1,7 +1,13 @@
-use super::common::*;
-use crate::util::{self, accounts::*, constants::*, error::Error, template_common_cell::*, template_parser::*};
 use das_types_std::constants::*;
 use serde_json::json;
+
+use super::common::*;
+use crate::util::accounts::*;
+use crate::util::constants::*;
+use crate::util::error::*;
+use crate::util::template_common_cell::*;
+use crate::util::template_parser::*;
+use crate::util::{self};
 
 #[test]
 fn test_pre_register_shortest_registrable_account() {
@@ -86,7 +92,7 @@ fn challenge_pre_register_3_chars_account() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountStillCanNotBeRegister)
+    challenge_tx(template.as_json(), ErrorCode::AccountStillCanNotBeRegister)
 }
 
 #[test]
@@ -174,5 +180,168 @@ fn challenge_pre_register_unreleased_account() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountStillCanNotBeRegister)
+    challenge_tx(template.as_json(), ErrorCode::AccountStillCanNotBeRegister)
+}
+
+#[test]
+fn test_pre_register_pure_digit_account_after_20221018() {
+    let account = "0004.bit";
+    let mut template = init_after_20221018();
+    template.push_config_cell_derived_by_account(account, Source::CellDep);
+
+    push_input_simple_apply_register_cell(&mut template, account);
+
+    push_output_pre_account_cell(
+        &mut template,
+        json!({
+            "capacity": util::gen_register_fee_v2(account, 4, false),
+            "witness": {
+                "account": [
+                    { "char": "0", "type": CharSetType::Digit as u32 },
+                    { "char": "0", "type": CharSetType::Digit as u32 },
+                    { "char": "0", "type": CharSetType::Digit as u32 },
+                    { "char": "4", "type": CharSetType::Digit as u32 },
+                ],
+                "created_at": TIMESTAMP_20221810,
+                "price": {
+                    "length": 4,
+                    "new": ACCOUNT_PRICE_4_CHAR,
+                    "renew": ACCOUNT_PRICE_4_CHAR
+                }
+            }
+        }),
+    );
+
+    test_tx(template.as_json())
+}
+
+#[test]
+fn test_pre_register_pure_emoji_account_after_20221018() {
+    let account = "🏹🏹🏹🏹.bit";
+    let mut template = init_after_20221018();
+    template.push_config_cell_derived_by_account(account, Source::CellDep);
+
+    push_input_simple_apply_register_cell(&mut template, account);
+
+    push_output_pre_account_cell(
+        &mut template,
+        json!({
+            "capacity": util::gen_register_fee_v2(account, 4, false),
+            "witness": {
+                "account": [
+                    { "char": "🏹", "type": CharSetType::Emoji as u32 },
+                    { "char": "🏹", "type": CharSetType::Emoji as u32 },
+                    { "char": "🏹", "type": CharSetType::Emoji as u32 },
+                    { "char": "🏹", "type": CharSetType::Emoji as u32 },
+                ],
+                "created_at": TIMESTAMP_20221810,
+                "price": {
+                    "length": 4,
+                    "new": ACCOUNT_PRICE_4_CHAR,
+                    "renew": ACCOUNT_PRICE_4_CHAR
+                }
+            }
+        }),
+    );
+
+    test_tx(template.as_json())
+}
+
+#[test]
+fn challenge_pre_register_pure_digit_account_before_20221018() {
+    let account = "0004.bit";
+    let mut template = init();
+    template.push_config_cell_derived_by_account(account, Source::CellDep);
+
+    push_input_simple_apply_register_cell(&mut template, account);
+
+    push_output_pre_account_cell(
+        &mut template,
+        json!({
+            "capacity": util::gen_register_fee_v2(account, 4, false),
+            "witness": {
+                "account": [
+                    // Simulate trying to register full released char-sets before 20221028.
+                    { "char": "0", "type": CharSetType::Digit as u32 },
+                    { "char": "0", "type": CharSetType::Digit as u32 },
+                    { "char": "0", "type": CharSetType::Digit as u32 },
+                    { "char": "4", "type": CharSetType::Digit as u32 },
+                ],
+                "created_at": TIMESTAMP,
+                "price": {
+                    "length": 4,
+                    "new": ACCOUNT_PRICE_4_CHAR,
+                    "renew": ACCOUNT_PRICE_4_CHAR
+                }
+            }
+        }),
+    );
+
+    challenge_tx(template.as_json(), ErrorCode::AccountStillCanNotBeRegister)
+}
+
+#[test]
+fn challenge_pre_register_pure_digit_account_less_than_4_chars_after_20221018() {
+    let account = "000.bit";
+    let mut template = init_after_20221018();
+    template.push_config_cell_derived_by_account(account, Source::CellDep);
+
+    push_input_simple_apply_register_cell(&mut template, account);
+
+    push_output_pre_account_cell(
+        &mut template,
+        json!({
+            "capacity": util::gen_register_fee_v2(account, 3, false),
+            "witness": {
+                "account": [
+                    // Simulate trying to register account less than 4 chars.
+                    { "char": "0", "type": CharSetType::Digit as u32 },
+                    { "char": "0", "type": CharSetType::Digit as u32 },
+                    { "char": "0", "type": CharSetType::Digit as u32 },
+                ],
+                "created_at": TIMESTAMP_20221810,
+                "price": {
+                    "length": 3,
+                    "new": ACCOUNT_PRICE_3_CHAR,
+                    "renew": ACCOUNT_PRICE_3_CHAR
+                }
+            }
+        }),
+    );
+
+    challenge_tx(template.as_json(), ErrorCode::AccountStillCanNotBeRegister)
+}
+
+#[test]
+fn challenge_pre_register_unreleased_pure_en_account_after_20221018() {
+    let account = "ftyht.bit";
+    let mut template = init_after_20221018();
+    template.push_config_cell_derived_by_account(account, Source::CellDep);
+
+    push_input_simple_apply_register_cell(&mut template, account);
+
+    push_output_pre_account_cell(
+        &mut template,
+        json!({
+            "capacity": util::gen_register_fee_v2(account, 5, false),
+            "witness": {
+                "account": [
+                    // Simulate trying to register account with not fully unreleased char-set.
+                    { "char": "f", "type": CharSetType::En as u32 },
+                    { "char": "t", "type": CharSetType::En as u32 },
+                    { "char": "y", "type": CharSetType::En as u32 },
+                    { "char": "h", "type": CharSetType::En as u32 },
+                    { "char": "t", "type": CharSetType::En as u32 },
+                ],
+                "created_at": TIMESTAMP_20221810,
+                "price": {
+                    "length": 5,
+                    "new": ACCOUNT_PRICE_5_CHAR,
+                    "renew": ACCOUNT_PRICE_5_CHAR
+                }
+            }
+        }),
+    );
+
+    challenge_tx(template.as_json(), ErrorCode::AccountStillCanNotBeRegister)
 }

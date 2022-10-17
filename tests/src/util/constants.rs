@@ -1,7 +1,8 @@
+use std::collections::HashMap;
+
 use ckb_types::{h256, H256};
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::collections::HashMap;
 
 // ⚠️ The maximum cycles on-chain is 70_000_000.
 pub const MAX_CYCLES: u64 = u64::MAX;
@@ -13,8 +14,11 @@ pub const ACCOUNT_ID_LENGTH: usize = 20;
 pub const ACCOUNT_BASIC_CAPACITY: u64 = 20_600_000_000;
 pub const ACCOUNT_PREPARED_FEE_CAPACITY: u64 = 100_000_000;
 pub const ACCOUNT_OPERATE_FEE: u64 = 10_000;
-pub const ACCOUNT_RELEASED_LENGTH: usize = 5;
 pub const ACCOUNT_EXPIRATION_GRACE_PERIOD: u64 = 2_592_000;
+// pub const ACCOUNT_EXPIRATION_AUCTION_PERIOD: u64 = 2_592_000;
+pub const ACCOUNT_EXPIRATION_AUCTION_PERIOD: u64 = 0;
+// pub const ACCOUNT_EXPIRATION_AUCTION_CONFIRMATION_PERIOD: u64 = 86400;
+pub const ACCOUNT_EXPIRATION_AUCTION_CONFIRMATION_PERIOD: u64 = 0;
 
 pub const ACCOUNT_PRICE_1_CHAR: u64 = 0;
 pub const ACCOUNT_PRICE_2_CHAR: u64 = 1000_000_000;
@@ -25,6 +29,7 @@ pub const INVITED_DISCOUNT: u64 = 500;
 pub const CONSOLIDATING_FEE: u64 = 100;
 pub const CKB_QUOTE: u64 = 1000;
 pub const TIMESTAMP: u64 = 1611200090u64;
+pub const TIMESTAMP_20221810: u64 = 1666094400u64;
 pub const HEIGHT: u64 = 1000000u64;
 
 pub const PRE_ACCOUNT_REFUND_WAITING_TIME: u64 = 86400;

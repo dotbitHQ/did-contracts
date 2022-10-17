@@ -1,23 +1,27 @@
-use alloc::{boxed::Box, vec};
-use ckb_std::{
-    ckb_constants::Source,
-    ckb_types::{packed as ckb_packed, prelude::*},
-    high_level,
-};
-use das_core::{
-    assert, assert_lock_equal, constants::*, data_parser, debug, error::Error, util, verifiers, warn,
-    witness_parser::WitnessesParser,
-};
-use das_map::{map::Map, util as map_util};
-use das_types::{constants::AccountStatus, mixer::*, packed::*};
+use alloc::boxed::Box;
+use alloc::vec;
 
-pub fn main() -> Result<(), Error> {
+use ckb_std::ckb_constants::Source;
+use ckb_std::ckb_types::packed as ckb_packed;
+use ckb_std::ckb_types::prelude::*;
+use ckb_std::high_level;
+use das_core::constants::*;
+use das_core::error::*;
+use das_core::witness_parser::WitnessesParser;
+use das_core::{assert, assert_lock_equal, code_to_error, data_parser, debug, util, verifiers, warn};
+use das_map::map::Map;
+use das_map::util as map_util;
+use das_types::constants::AccountStatus;
+use das_types::mixer::*;
+use das_types::packed::*;
+
+pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running account-sale-cell-type ======");
 
     let mut parser = WitnessesParser::new()?;
     let action_cp = match parser.parse_action_with_params()? {
         Some((action, _)) => action.to_vec(),
-        None => return Err(Error::ActionNotSupported),
+        None => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
     };
     let action = action_cp.as_slice();
 
@@ -25,7 +29,7 @@ pub fn main() -> Result<(), Error> {
 
     debug!(
         "Route to {:?} action ...",
-        alloc::string::String::from_utf8(action.to_vec()).map_err(|_| Error::ActionNotSupported)?
+        alloc::string::String::from_utf8(action.to_vec()).map_err(|_| ErrorCode::ActionNotSupported)?
     );
     match action {
         b"start_account_sale" | b"cancel_account_sale" | b"buy_account" => {
@@ -207,7 +211,7 @@ pub fn main() -> Result<(), Error> {
 
                     assert!(
                         util::is_entity_eq(&buyer_lock, &output_account_cell_lock),
-                        Error::AccountSaleCellNewOwnerError,
+                        ErrorCode::AccountSaleCellNewOwnerError,
                         "The new owner's lock of AccountCell is mismatch with the BalanceCell in inputs.(expected: {}, current: {})",
                         buyer_lock,
                         output_account_cell_lock
@@ -221,7 +225,7 @@ pub fn main() -> Result<(), Error> {
                     // Actually, this assertion is already covered by `verify_user_get_change_when_inputs_removed()`, we write it here explict for better understanding
                     assert!(
                         total_input_capacity >= price,
-                        Error::InvalidTransactionStructure,
+                        ErrorCode::InvalidTransactionStructure,
                         "The buyer not pay enough to buy the account.(expected: {}, current: {})",
                         price,
                         total_input_capacity
@@ -322,7 +326,7 @@ pub fn main() -> Result<(), Error> {
             if input_cell_witness_reader.version() == 1 {
                 assert!(
                     output_cell_witness_reader.version() == 2,
-                    Error::InvalidTransactionStructure,
+                    ErrorCode::InvalidTransactionStructure,
                     "The AccountSaleCell should be upgrade to the latest version."
                 );
 
@@ -347,7 +351,7 @@ pub fn main() -> Result<(), Error> {
 
             assert!(
                 changed,
-                Error::InvalidTransactionStructure,
+                ErrorCode::InvalidTransactionStructure,
                 "Either price or description should be modified."
             );
 
@@ -358,16 +362,18 @@ pub fn main() -> Result<(), Error> {
                 &parser,
                 TypeScript::AccountCellType,
                 Source::Input,
-                Error::InvalidTransactionStructure,
+                ErrorCode::InvalidTransactionStructure,
             )?;
         }
-        _ => return Err(Error::ActionNotSupported),
+        _ => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
     }
 
     Ok(())
 }
 
-fn decode_scripts_from_params(params: &[Bytes]) -> Result<(ckb_packed::Script, ckb_packed::Script), Error> {
+fn decode_scripts_from_params(
+    params: &[Bytes],
+) -> Result<(ckb_packed::Script, ckb_packed::Script), Box<dyn ScriptError>> {
     macro_rules! decode_script {
         ($param:expr, $name:expr) => {
             ckb_packed::Script::from_slice($param.raw_data()).map_err(|_| {
@@ -376,7 +382,7 @@ fn decode_scripts_from_params(params: &[Bytes]) -> Result<(ckb_packed::Script, c
                     $name,
                     util::hex_string($param.raw_data())
                 );
-                Error::ParamsDecodingError
+                ErrorCode::ParamsDecodingError
             })?
         };
     }
@@ -397,7 +403,7 @@ fn verify_account_cell_expiration_status_and_consistent<'a>(
     input_status: AccountStatus,
     output_status: AccountStatus,
     owner_changed: bool,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     debug!("Verify if the AccountCell is expired and its status is Selling.");
 
     verifiers::account_cell::verify_account_expiration(config_account, input_account_cell, Source::Input, timestamp)?;
@@ -448,14 +454,14 @@ fn verify_account_cell_expiration_status_and_consistent<'a>(
 fn verify_sale_cell_capacity(
     config_reader: ConfigCellSecondaryMarketReader,
     output_sale_cell_index: usize,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     let account_sale_cell_capacity = high_level::load_cell_capacity(output_sale_cell_index, Source::Output)?;
     let expected = u64::from(config_reader.sale_cell_basic_capacity())
         + u64::from(config_reader.sale_cell_prepared_fee_capacity());
 
     assert!(
         account_sale_cell_capacity == expected,
-        Error::AccountSaleCellCapacityError,
+        ErrorCode::AccountSaleCellCapacityError,
         "The AccountSaleCell.capacity should be equal to {} .",
         expected
     );
@@ -466,7 +472,7 @@ fn verify_sale_cell_capacity(
 fn verify_sale_cell_account_and_id<'a>(
     input_account_cell: usize,
     witness_reader: &Box<dyn AccountSaleCellDataReaderMixer + 'a>,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     let input_account_cell_data = util::load_cell_data(input_account_cell, Source::Input)?;
     let account_cell_account = data_parser::account_cell::get_account(&input_account_cell_data);
     let account_cell_account_id = data_parser::account_cell::get_id(&input_account_cell_data);
@@ -476,7 +482,7 @@ fn verify_sale_cell_account_and_id<'a>(
     // ensure the AccountSaleCell's args equal to accountCell's id
     assert!(
         account_cell_account_id == account_sale_cell_account_id,
-        Error::AccountSaleCellAccountIdInvalid,
+        ErrorCode::AccountSaleCellAccountIdInvalid,
         "The AccountSaleCell.witness.account_id should be equal to the AccountCell.data.account_id ."
     );
 
@@ -485,7 +491,7 @@ fn verify_sale_cell_account_and_id<'a>(
     // ensure the AccountSaleCell's args equal to accountCell's id
     assert!(
         account_cell_account == account_sale_cell_account,
-        Error::AccountSaleCellAccountIdInvalid,
+        ErrorCode::AccountSaleCellAccountIdInvalid,
         "The AccountSaleCell.witness.account should be equal to the AccountCell.data.account ."
     );
 
@@ -495,12 +501,12 @@ fn verify_sale_cell_account_and_id<'a>(
 fn verify_price<'a>(
     config_reader: ConfigCellSecondaryMarketReader,
     witness_reader: &Box<dyn AccountSaleCellDataReaderMixer + 'a>,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     let price = u64::from(witness_reader.price());
     let sale_min_price = u64::from(config_reader.sale_min_price());
     assert!(
         price >= sale_min_price,
-        Error::AccountSaleCellPriceTooSmall,
+        ErrorCode::AccountSaleCellPriceTooSmall,
         "The price of account should be higher than ConfigCellSecondaryMarket.sale_min_price.(expected: >= {}, current: {})",
         sale_min_price,
         price
@@ -512,12 +518,12 @@ fn verify_price<'a>(
 fn verify_description<'a>(
     config_reader: ConfigCellSecondaryMarketReader,
     witness_reader: &Box<dyn AccountSaleCellDataReaderMixer + 'a>,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     let description = witness_reader.description();
     let bytes_limit = u32::from(config_reader.sale_description_bytes_limit());
     assert!(
         description.len() <= bytes_limit as usize,
-        Error::AccountSaleCellDescriptionTooLarge,
+        ErrorCode::AccountSaleCellDescriptionTooLarge,
         "The size of description in bytes should be less than ConfigCellSecondaryMarket.sale_description_bytes_limit.(expected: <= {}, current: {})",
         bytes_limit,
         description.len()
@@ -528,10 +534,10 @@ fn verify_description<'a>(
 
 fn verify_buyer_inviter_profit_rate<'a>(
     witness_reader: &Box<dyn AccountSaleCellDataReaderMixer + 'a>,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     assert!(
         witness_reader.version() == 2,
-        Error::InvalidTransactionStructure,
+        ErrorCode::InvalidTransactionStructure,
         "Only AccountSaleCell in version 2 can be created from now on."
     );
 
@@ -540,7 +546,7 @@ fn verify_buyer_inviter_profit_rate<'a>(
 
     assert!(
         profit_rate <= RATE_BASE,
-        Error::AccountSaleCellProfitRateError,
+        ErrorCode::AccountSaleCellProfitRateError,
         "The AccountSaleCell.witness.buyer_inviter_profit_rate should be less than or equal to {}.",
         RATE_BASE
     );
@@ -551,12 +557,12 @@ fn verify_buyer_inviter_profit_rate<'a>(
 fn verify_started_at<'a>(
     current_timestamp: u64,
     witness_reader: &Box<dyn AccountSaleCellDataReaderMixer + 'a>,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     let started_at = u64::from(witness_reader.started_at());
 
     assert!(
         current_timestamp == started_at,
-        Error::AccountSaleCellStartedAtInvalid,
+        ErrorCode::AccountSaleCellStartedAtInvalid,
         "The AccountSaleCell.witness.started_at should be equal to the timestamp in TimeCell.(expected: {}, current: {})",
         current_timestamp,
         started_at
@@ -570,13 +576,13 @@ fn verify_account_sale_cell_consistent<'a>(
     output_cell: usize,
     input_cell_witness_reader: &Box<dyn AccountSaleCellDataReaderMixer + 'a>,
     output_cell_witness_reader: &Box<dyn AccountSaleCellDataReaderMixer + 'a>,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     debug!("Verify if AccountSaleCell consistent in inputs and outputs.");
 
     assert_lock_equal!(
         (input_cell, Source::Input),
         (output_cell, Source::Output),
-        Error::InvalidTransactionStructure,
+        ErrorCode::InvalidTransactionStructure,
         "The AccountSaleCell.lock should be consistent in inputs and outputs."
     );
 
@@ -584,7 +590,7 @@ fn verify_account_sale_cell_consistent<'a>(
     let output_account_id = output_cell_witness_reader.account_id();
     assert!(
         util::is_reader_eq(input_account_id, output_account_id),
-        Error::AccountSaleCellAccountIdInvalid,
+        ErrorCode::AccountSaleCellAccountIdInvalid,
         "The AccountSaleCell.witness.account_id should be consistent in inputs and outputs.(input: {}, output: {})",
         util::hex_string(input_account_id.raw_data()),
         util::hex_string(output_account_id.raw_data())
@@ -594,7 +600,7 @@ fn verify_account_sale_cell_consistent<'a>(
     let output_account = output_cell_witness_reader.account();
     assert!(
         util::is_reader_eq(input_account, output_account),
-        Error::AccountSaleCellAccountIdInvalid,
+        ErrorCode::AccountSaleCellAccountIdInvalid,
         "The AccountSaleCell.witness.account should be consistent in inputs and outputs.(input: {}, output: {})",
         util::hex_string(input_account.raw_data()),
         util::hex_string(output_account.raw_data())
@@ -604,7 +610,7 @@ fn verify_account_sale_cell_consistent<'a>(
     let output_started_at = output_cell_witness_reader.started_at();
     assert!(
         util::is_reader_eq(input_started_at, output_started_at),
-        Error::AccountSaleCellStartedAtInvalid,
+        ErrorCode::AccountSaleCellStartedAtInvalid,
         "The AccountSaleCell.witness.started_at should be consistent in inputs and outputs.(input: {}, output: {})",
         util::hex_string(input_started_at.raw_data()),
         util::hex_string(output_started_at.raw_data())
@@ -622,7 +628,7 @@ fn verify_profit_distribution<'a>(
     input_sale_cell_witness_reader: &Box<dyn AccountSaleCellDataReaderMixer + 'a>,
     account_sale_cell_capacity: u64,
     common_fee: u64,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     let config_profit_rate = parser.configs.profit_rate()?;
     let price = u64::from(input_sale_cell_witness_reader.price());
 

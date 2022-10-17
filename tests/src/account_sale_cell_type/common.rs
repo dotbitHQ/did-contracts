@@ -1,18 +1,23 @@
-use crate::util::{self, accounts::*, constants::*, template_generator::*};
-use das_types_std::{constants::*, packed::*};
+use das_types_std::constants::*;
+use das_types_std::packed::*;
 use serde_json::{json, Value};
+
+use crate::util::accounts::*;
+use crate::util::constants::*;
+use crate::util::template_generator::*;
+use crate::util::{self};
 
 pub const PRICE: u64 = 200_000_000_000;
 
 pub fn init(action: &str, params_opt: Option<&str>) -> TemplateGenerator {
     let mut template = TemplateGenerator::new(action, params_opt.map(|raw| Bytes::from(util::hex_to_bytes(raw))));
 
-    template.push_contract_cell("always_success", true);
-    template.push_contract_cell("fake-das-lock", true);
-    template.push_contract_cell("eip712-lib", false);
-    template.push_contract_cell("balance-cell-type", false);
-    template.push_contract_cell("account-cell-type", false);
-    template.push_contract_cell("account-sale-cell-type", false);
+    template.push_contract_cell("always_success", ContractType::DeployedContract);
+    template.push_contract_cell("fake-das-lock", ContractType::DeployedContract);
+    template.push_contract_cell("eip712-lib", ContractType::Contract);
+    template.push_contract_cell("balance-cell-type", ContractType::Contract);
+    template.push_contract_cell("account-cell-type", ContractType::Contract);
+    template.push_contract_cell("account-sale-cell-type", ContractType::Contract);
 
     template.push_oracle_cell(1, OracleCellType::Time, TIMESTAMP);
 
@@ -25,7 +30,7 @@ pub fn init(action: &str, params_opt: Option<&str>) -> TemplateGenerator {
 
 pub fn init_with_profit_rate(action: &str, params_opt: Option<&str>) -> TemplateGenerator {
     let mut template = init(action, params_opt);
-    template.push_contract_cell("income-cell-type", false);
+    template.push_contract_cell("income-cell-type", ContractType::Contract);
     template.push_config_cell(DataType::ConfigCellProfitRate, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellIncome, Source::CellDep);
 

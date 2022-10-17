@@ -1,10 +1,13 @@
-use super::{debug, error::*, util::*};
-use alloc::{collections::BTreeMap, format, vec};
+use alloc::collections::BTreeMap;
+use alloc::{format, vec};
 use core::cmp::Ordering;
-use std::prelude::v1::*;
-
 #[cfg(debug_assertions)]
 use core::fmt;
+use std::prelude::v1::*;
+
+use super::debug;
+use super::error::*;
+use super::util::*;
 
 #[derive(Debug)]
 pub struct TypedDataV4 {
@@ -500,8 +503,9 @@ fn eth_abi_encode_single(type_: &str, value: &[u8]) -> Result<Vec<u8>, EIP712Enc
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use hex;
+
+    use super::*;
 
     fn gen_typed_data_v4() -> TypedDataV4 {
         let data = typed_data_v4!({

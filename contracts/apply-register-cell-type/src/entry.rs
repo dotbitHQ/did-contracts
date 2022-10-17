@@ -1,21 +1,20 @@
-use ckb_std::{ckb_constants::Source, high_level};
+use alloc::boxed::Box;
 use core::result::Result;
-use das_core::{
-    assert,
-    constants::{OracleCellType, ScriptType, TypeScript},
-    data_parser, debug,
-    error::Error,
-    util, verifiers,
-    witness_parser::WitnessesParser,
-};
 
-pub fn main() -> Result<(), Error> {
+use ckb_std::ckb_constants::Source;
+use ckb_std::high_level;
+use das_core::constants::{OracleCellType, ScriptType, TypeScript};
+use das_core::error::*;
+use das_core::witness_parser::WitnessesParser;
+use das_core::{assert, code_to_error, data_parser, debug, util, verifiers};
+
+pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running apply-register-cell-type ======");
 
     let mut parser = WitnessesParser::new()?;
     let action_cp = match parser.parse_action_with_params()? {
         Some((action, _)) => action.to_vec(),
-        None => return Err(Error::ActionNotSupported),
+        None => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
     };
     let action = action_cp.as_slice();
 
@@ -23,7 +22,7 @@ pub fn main() -> Result<(), Error> {
 
     debug!(
         "Route to {:?} action ...",
-        alloc::string::String::from_utf8(action.to_vec()).map_err(|_| Error::ActionNotSupported)?
+        alloc::string::String::from_utf8(action.to_vec()).map_err(|_| ErrorCode::ActionNotSupported)?
     );
     match action {
         b"apply_register" => {
@@ -36,7 +35,7 @@ pub fn main() -> Result<(), Error> {
 
             assert!(
                 data.len() == 48,
-                Error::InvalidCellData,
+                ErrorCode::InvalidCellData,
                 "The data of ApplyRegisterCell should have 48 bytes of data."
             );
 
@@ -46,7 +45,7 @@ pub fn main() -> Result<(), Error> {
             let expected_height = util::load_oracle_data(OracleCellType::Height)?;
             assert!(
                 apply_height == expected_height,
-                Error::InvalidCellData,
+                ErrorCode::InvalidCellData,
                 "The block number in ApplyRegisterCell data should be the same as which in HeightCell."
             );
 
@@ -56,7 +55,7 @@ pub fn main() -> Result<(), Error> {
             let expected_time = util::load_oracle_data(OracleCellType::Time)?;
             assert!(
                 apply_time == expected_time,
-                Error::InvalidCellData,
+                ErrorCode::InvalidCellData,
                 "The timestamp in ApplyRegisterCell data should be the same as which in TimeCell."
             );
         }
@@ -73,7 +72,7 @@ pub fn main() -> Result<(), Error> {
 
             assert!(
                 data.len() == 48,
-                Error::InvalidCellData,
+                ErrorCode::InvalidCellData,
                 "The data of ApplyRegisterCell should have 48 bytes of data."
             );
 
@@ -84,7 +83,7 @@ pub fn main() -> Result<(), Error> {
             let current_height = util::load_oracle_data(OracleCellType::Height)?;
             assert!(
                 apply_height + max_waiting_block_number < current_height,
-                Error::ApplyRegisterRefundNeedWaitLonger,
+                ErrorCode::ApplyRegisterRefundNeedWaitLonger,
                 "The ApplyRegisterCell can be refunded only if it has passed {} blocks since it created.(created_height: {}, current_height: {})",
                 max_waiting_block_number,
                 apply_height,
@@ -93,21 +92,22 @@ pub fn main() -> Result<(), Error> {
 
             debug!("Check if the capacity of refund is correct ...");
 
-            let lock_script = high_level::load_cell_lock(input_cells[0], Source::Input).map_err(|e| Error::from(e))?;
+            let lock_script =
+                high_level::load_cell_lock(input_cells[0], Source::Input).map_err(|e| Error::<ErrorCode>::from(e))?;
             let transfer_cells = util::find_cells_by_script(ScriptType::Lock, lock_script.as_reader(), Source::Output)?;
             assert!(
                 transfer_cells.len() == 1,
-                Error::InvalidTransactionStructure,
+                ErrorCode::InvalidTransactionStructure,
                 "There should be one cell in outputs which refund the capacity of the ApplyRegisterCell."
             );
 
-            let expected_capacity =
-                high_level::load_cell_capacity(input_cells[0], Source::Input).map_err(|e| Error::from(e))?;
-            let transferred_capacity =
-                high_level::load_cell_capacity(transfer_cells[0], Source::Output).map_err(|e| Error::from(e))?;
+            let expected_capacity = high_level::load_cell_capacity(input_cells[0], Source::Input)
+                .map_err(|e| Error::<ErrorCode>::from(e))?;
+            let transferred_capacity = high_level::load_cell_capacity(transfer_cells[0], Source::Output)
+                .map_err(|e| Error::<ErrorCode>::from(e))?;
             assert!(
                 transferred_capacity >= expected_capacity - 100_000_000,
-                Error::ApplyRegisterRefundCapacityError,
+                ErrorCode::ApplyRegisterRefundCapacityError,
                 "The refund of the ApplyRegisterCell should be more than {}, but {} found.",
                 expected_capacity - 100_000_000,
                 transferred_capacity
@@ -118,10 +118,10 @@ pub fn main() -> Result<(), Error> {
                 &parser,
                 TypeScript::PreAccountCellType,
                 Source::Output,
-                Error::InvalidTransactionStructure,
+                ErrorCode::InvalidTransactionStructure,
             )?;
         }
-        _ => return Err(Error::ActionNotSupported),
+        _ => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
     }
 
     Ok(())

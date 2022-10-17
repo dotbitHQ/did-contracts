@@ -1,9 +1,14 @@
-use super::common::*;
-use crate::util::{
-    self, accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
-};
 use das_types_std::constants::*;
 use serde_json::json;
+
+use super::common::*;
+use crate::util::accounts::*;
+use crate::util::constants::*;
+use crate::util::error::*;
+use crate::util::template_common_cell::*;
+use crate::util::template_generator::*;
+use crate::util::template_parser::*;
+use crate::util::{self};
 
 fn push_input_proposal_cell_with_slices(template: &mut TemplateGenerator) {
     push_input_proposal_cell(
@@ -470,7 +475,7 @@ fn challenge_proposal_confirm_height() {
     push_output_income_cell_with_profit(&mut template);
     push_output_normal_cell_with_refund(&mut template);
 
-    challenge_tx(template.as_json(), Error::ProposalConfirmNeedWaitLonger);
+    challenge_tx(template.as_json(), ErrorCode::ProposalConfirmNeedWaitLonger);
 }
 
 #[test]
@@ -531,7 +536,10 @@ fn challenge_proposal_confirm_account_cell_modified_1() {
     push_output_income_cell_with_profit(&mut template);
     push_output_normal_cell_with_refund(&mut template);
 
-    challenge_tx(template.as_json(), Error::AccountCellProtectFieldIsModified);
+    challenge_tx(
+        template.as_json(),
+        AccountCellErrorCode::AccountCellProtectFieldIsModified,
+    );
 }
 
 #[test]
@@ -591,7 +599,7 @@ fn challenge_proposal_confirm_account_cell_modified_2() {
     push_output_income_cell_with_profit(&mut template);
     push_output_normal_cell_with_refund(&mut template);
 
-    challenge_tx(template.as_json(), Error::CellCapacityMustConsistent);
+    challenge_tx(template.as_json(), ErrorCode::CellCapacityMustConsistent);
 }
 
 #[test]
@@ -646,7 +654,7 @@ fn challenge_proposal_confirm_account_cell_next_mismatch() {
     push_output_income_cell_with_profit(&mut template);
     push_output_normal_cell_with_refund(&mut template);
 
-    challenge_tx(template.as_json(), Error::ProposalCellNextError);
+    challenge_tx(template.as_json(), ErrorCode::ProposalCellNextError);
 }
 
 #[test]
@@ -661,7 +669,7 @@ fn challenge_proposal_confirm_refund() {
     // Simulate refund capacity is less than the ProposalCell.capacity .
     push_output_normal_cell(&mut template, 20_000_000_000 - 1, COMMON_PROPOSER);
 
-    challenge_tx(template.as_json(), Error::ProposalConfirmRefundError);
+    challenge_tx(template.as_json(), ErrorCode::ProposalConfirmRefundError);
 }
 
 #[test]
@@ -711,7 +719,7 @@ fn challenge_proposal_confirm_income_records_capacity() {
 
     push_output_normal_cell_with_refund(&mut template);
 
-    challenge_tx(template.as_json(), Error::IncomeCellProfitMismatch);
+    challenge_tx(template.as_json(), ErrorCode::IncomeCellProfitMismatch);
 }
 
 #[test]
@@ -762,7 +770,7 @@ fn challenge_proposal_confirm_income_cell_capacity() {
 
     push_output_normal_cell_with_refund(&mut template);
 
-    challenge_tx(template.as_json(), Error::IncomeCellCapacityError);
+    challenge_tx(template.as_json(), ErrorCode::IncomeCellCapacityError);
 }
 
 #[test]
@@ -822,7 +830,10 @@ fn challenge_proposal_confirm_new_account_cell_capacity() {
     push_output_income_cell_with_profit(&mut template);
     push_output_normal_cell_with_refund(&mut template);
 
-    challenge_tx(template.as_json(), Error::ProposalConfirmNewAccountCellCapacityError);
+    challenge_tx(
+        template.as_json(),
+        ErrorCode::ProposalConfirmNewAccountCellCapacityError,
+    );
 }
 
 #[test]
@@ -1044,5 +1055,5 @@ fn challenge_proposal_confirm_new_account_with_cross_chain() {
     push_output_income_cell_with_profit(&mut template);
     push_output_normal_cell_with_refund(&mut template);
 
-    challenge_tx(template.as_json(), Error::ProposalConfirmNewAccountWitnessError);
+    challenge_tx(template.as_json(), ErrorCode::ProposalConfirmNewAccountWitnessError);
 }

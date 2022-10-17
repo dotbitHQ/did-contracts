@@ -1,18 +1,27 @@
-use alloc::{boxed::Box, collections::BTreeMap, string::String};
-use ckb_std::{ckb_constants::Source, high_level};
-use core::{convert::TryInto, result::Result};
-use das_core::{
-    assert, constants::*, data_parser, debug, error::Error, util, verifiers, witness_parser::WitnessesParser, warn,
-};
-use das_types::{mixer::PreAccountCellDataReaderMixer, packed::*, prelude::*};
+use alloc::boxed::Box;
+use alloc::collections::BTreeMap;
+use alloc::string::String;
+use core::convert::{TryFrom, TryInto};
+use core::result::Result;
 
-pub fn main() -> Result<(), Error> {
+use ckb_std::ckb_constants::Source;
+use ckb_std::high_level;
+use das_core::constants::*;
+use das_core::error::*;
+use das_core::witness_parser::WitnessesParser;
+use das_core::{assert, code_to_error, data_parser, debug, util, verifiers, warn};
+use das_types::constants::*;
+use das_types::mixer::PreAccountCellDataReaderMixer;
+use das_types::packed::*;
+use das_types::prelude::*;
+
+pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running pre-account-cell-type ======");
 
     let mut parser = WitnessesParser::new()?;
     let action_cp = match parser.parse_action_with_params()? {
         Some((action, _)) => action.to_vec(),
-        None => return Err(Error::ActionNotSupported),
+        None => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
     };
     let action = action_cp.as_slice();
 
@@ -20,7 +29,7 @@ pub fn main() -> Result<(), Error> {
 
     debug!(
         "Route to {:?} action ...",
-        alloc::string::String::from_utf8(action.to_vec()).map_err(|_| Error::ActionNotSupported)?
+        alloc::string::String::from_utf8(action.to_vec()).map_err(|_| ErrorCode::ActionNotSupported)?
     );
 
     match action {
@@ -29,7 +38,7 @@ pub fn main() -> Result<(), Error> {
                 &parser,
                 TypeScript::ProposalCellType,
                 Source::Input,
-                Error::InvalidTransactionStructure,
+                ErrorCode::InvalidTransactionStructure,
             )?;
         }
         b"pre_register" => {
@@ -67,7 +76,7 @@ pub fn main() -> Result<(), Error> {
             let data = high_level::load_cell_data(index.to_owned(), Source::Input)?;
             let apply_register_hash = match data.get(..32) {
                 Some(bytes) => bytes,
-                _ => return Err(Error::InvalidCellData),
+                _ => return Err(code_to_error!(ErrorCode::InvalidCellData)),
             };
             let apply_register_lock = high_level::load_cell_lock(index.to_owned(), Source::Input)?;
 
@@ -114,33 +123,39 @@ pub fn main() -> Result<(), Error> {
 
             match verify_account_length_and_years(&pre_account_cell_witness_reader, timestamp) {
                 Ok(_) => {}
-                Err(code) => {
-                    if !(code == Error::AccountStillCanNotBeRegister && cells_with_super_lock.len() > 0) {
-                        return Err(code);
+                Err(err) => {
+                    if err.as_i8() == ErrorCode::AccountStillCanNotBeRegister as i8 && cells_with_super_lock.len() > 0 {
+                        debug!("Skip ErrorCode::AccountStillCanNotBeRegister because of super lock.");
+                        // Ok
+                    } else {
+                        return Err(err);
                     }
-                    debug!("Skip Error::AccountStillCanNotBeRegister because of super lock.");
                 }
             }
 
             let config_release = parser.configs.release()?;
-            match verify_account_release_status(config_release, &pre_account_cell_witness_reader) {
+            match verify_account_release_status(timestamp, config_release, &pre_account_cell_witness_reader) {
                 Ok(_) => {}
-                Err(code) => {
-                    if !(code == Error::AccountStillCanNotBeRegister && cells_with_super_lock.len() > 0) {
-                        return Err(code);
+                Err(err) => {
+                    if err.as_i8() == ErrorCode::AccountStillCanNotBeRegister as i8 && cells_with_super_lock.len() > 0 {
+                        debug!("Skip ErrorCode::AccountStillCanNotBeRegister because of super lock.");
+                        // Ok
+                    } else {
+                        return Err(err);
                     }
-                    debug!("Skip Error::AccountStillCanNotBeRegister because of super lock.");
                 }
             }
 
             let account = pre_account_cell_witness_reader.account().as_readable();
             match verifiers::account_cell::verify_preserved_accounts(&parser, &account) {
                 Ok(_) => {}
-                Err(code) => {
-                    if !(code == Error::AccountIsPreserved && cells_with_super_lock.len() > 0) {
-                        return Err(code);
+                Err(err) => {
+                    if err.as_i8() == ErrorCode::AccountIsPreserved as i8 && cells_with_super_lock.len() > 0 {
+                        debug!("Skip ErrorCode::AccountIsPreserved because of super lock.");
+                        // Ok
+                    } else {
+                        return Err(err);
                     }
-                    debug!("Skip Error::AccountIsPreserved because of super lock.");
                 }
             }
             verifiers::account_cell::verify_unavailable_accounts(&parser, &account)?;
@@ -155,7 +170,7 @@ pub fn main() -> Result<(), Error> {
                         verifiers::account_cell::verify_records_keys(&parser, reader.initial_records())?;
                     } else {
                         warn!("The PreAccountCellDataReaderMixer.version returned a mismatched version number.");
-                        return Err(Error::HardCodedError);
+                        return Err(code_to_error!(ErrorCode::HardCodedError));
                     }
                 }
                 3 => {
@@ -163,7 +178,7 @@ pub fn main() -> Result<(), Error> {
                         verifiers::account_cell::verify_records_keys(&parser, reader.initial_records())?;
                     } else {
                         warn!("The PreAccountCellDataReaderMixer.version returned a mismatched version number.");
-                        return Err(Error::HardCodedError);
+                        return Err(code_to_error!(ErrorCode::HardCodedError));
                     }
                 }
                 _ => {}
@@ -177,7 +192,7 @@ pub fn main() -> Result<(), Error> {
 
             assert!(
                 input_cells.len() > 0 && output_cells.len() == 0,
-                Error::InvalidTransactionStructure,
+                ErrorCode::InvalidTransactionStructure,
                 "There should be at least 1 PreAccountCell in inputs and none in outputs.(in_inputs: {}, in_outputs: {})",
                 input_cells.len(),
                 output_cells.len()
@@ -194,7 +209,7 @@ pub fn main() -> Result<(), Error> {
 
                 assert!(
                     timestamp >= created_at + PRE_ACCOUNT_CELL_TIMEOUT,
-                    Error::PreRegisterIsNotTimeout,
+                    ErrorCode::PreRegisterIsNotTimeout,
                     "The PreAccountCell is not timeout, so it can not be refunded for now.(current: {}, created_at: {}, timeout_limit: {})",
                     timestamp,
                     created_at,
@@ -216,7 +231,7 @@ pub fn main() -> Result<(), Error> {
 
                 assert!(
                     cells.len() == 1,
-                    Error::InvalidTransactionStructure,
+                    ErrorCode::InvalidTransactionStructure,
                     "There should be only 1 cell to take the refund.(expected: 1, result: {})",
                     cells.len()
                 );
@@ -225,7 +240,7 @@ pub fn main() -> Result<(), Error> {
 
                 assert!(
                     expect_capacity <= current_capacity + 10000,
-                    Error::PreRegisterRefundCapacityError,
+                    ErrorCode::PreRegisterRefundCapacityError,
                     "The refund of PreAccountCell to {} should be {} shannon.(expected: {}, result: {})",
                     lock_reader.args(),
                     expect_capacity,
@@ -235,14 +250,18 @@ pub fn main() -> Result<(), Error> {
             }
         }
         _ => {
-            return Err(Error::ActionNotSupported);
+            return Err(code_to_error!(ErrorCode::ActionNotSupported));
         }
     }
 
     Ok(())
 }
 
-fn verify_apply_height(current_height: u64, config_reader: ConfigCellApplyReader, data: &[u8]) -> Result<(), Error> {
+fn verify_apply_height(
+    current_height: u64,
+    config_reader: ConfigCellApplyReader,
+    data: &[u8],
+) -> Result<(), Box<dyn ScriptError>> {
     // Read the apply timestamp from outputs_data of ApplyRegisterCell.
     let apply_height = data_parser::apply_register_cell::get_height(data);
 
@@ -262,14 +281,14 @@ fn verify_apply_height(current_height: u64, config_reader: ConfigCellApplyReader
 
     assert!(
         passed_block_number >= apply_min_waiting_block as u64,
-        Error::ApplyRegisterNeedWaitLonger,
+        ErrorCode::ApplyRegisterNeedWaitLonger,
         "The ApplyRegisterCell need to wait longer.(passed: {}, min_wait: {})",
         passed_block_number,
         apply_min_waiting_block
     );
     assert!(
         passed_block_number <= apply_max_waiting_block as u64,
-        Error::ApplyRegisterHasTimeout,
+        ErrorCode::ApplyRegisterHasTimeout,
         "The ApplyRegisterCell has been timeout.(passed: {}, max_wait: {})",
         passed_block_number,
         apply_max_waiting_block
@@ -278,13 +297,16 @@ fn verify_apply_height(current_height: u64, config_reader: ConfigCellApplyReader
     Ok(())
 }
 
-fn verify_account_id<'a>(reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>, account_id: &[u8]) -> Result<(), Error> {
+fn verify_account_id<'a>(
+    reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>,
+    account_id: &[u8],
+) -> Result<(), Box<dyn ScriptError>> {
     let account: Vec<u8> = [reader.account().as_readable(), ACCOUNT_SUFFIX.as_bytes().to_vec()].concat();
     let expected_account_id = util::get_account_id_from_account(&account);
 
     assert!(
         &expected_account_id == account_id,
-        Error::PreRegisterAccountIdIsInvalid,
+        ErrorCode::PreRegisterAccountIdIsInvalid,
         "PreAccountCell.account_id should be calculated from account correctly.(account: {:?}, expected_account_id: 0x{})",
         String::from_utf8(account),
         util::hex_string(&expected_account_id)
@@ -297,7 +319,7 @@ fn verify_apply_hash<'a>(
     reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>,
     apply_register_cell_lock_args: Vec<u8>,
     current_hash: &[u8],
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     let data_to_hash: Vec<u8> = [
         apply_register_cell_lock_args.clone(),
         reader.account().as_readable(),
@@ -308,7 +330,7 @@ fn verify_apply_hash<'a>(
 
     assert!(
         current_hash == expected_hash,
-        Error::PreRegisterApplyHashIsInvalid,
+        ErrorCode::PreRegisterApplyHashIsInvalid,
         "The hash in ApplyRegisterCell should be calculated from blake2b(ApplyRegisterCell.lock.args + account).(expected: 0x{}, current: 0x{})",
         util::hex_string(&expected_hash),
         util::hex_string(current_hash)
@@ -320,12 +342,12 @@ fn verify_apply_hash<'a>(
 fn verify_created_at<'a>(
     expected_timestamp: u64,
     reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     let create_at = u64::from(reader.created_at());
 
     assert!(
         create_at == expected_timestamp,
-        Error::PreRegisterCreateAtIsInvalid,
+        ErrorCode::PreRegisterCreateAtIsInvalid,
         "PreAccountCell.created_at should be the same as the TimeCell.(expected: {}, current: {})",
         expected_timestamp,
         create_at
@@ -334,14 +356,16 @@ fn verify_created_at<'a>(
     Ok(())
 }
 
-fn verify_owner_lock_args<'a>(reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>) -> Result<(), Error> {
+fn verify_owner_lock_args<'a>(
+    reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>,
+) -> Result<(), Box<dyn ScriptError>> {
     debug!("Check if PreAccountCell.witness.owner_lock_args is more than 1 byte and the first byte is 0x00.");
 
     let owner_lock_args = reader.owner_lock_args().raw_data();
 
     assert!(
         owner_lock_args.len() >= 42,
-        Error::PreRegisterOwnerLockArgsIsInvalid,
+        ErrorCode::PreRegisterOwnerLockArgsIsInvalid,
         "The length of owner_lock_args should be more 42 byte, but {} found.",
         owner_lock_args.len()
     );
@@ -349,7 +373,7 @@ fn verify_owner_lock_args<'a>(reader: &Box<dyn PreAccountCellDataReaderMixer + '
     Ok(())
 }
 
-fn verify_quote<'a>(reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>) -> Result<(), Error> {
+fn verify_quote<'a>(reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>) -> Result<(), Box<dyn ScriptError>> {
     debug!("Check if PreAccountCell.witness.quote is the same as QuoteCell.");
 
     let expected_quote = util::load_oracle_data(OracleCellType::Quote)?;
@@ -357,7 +381,7 @@ fn verify_quote<'a>(reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>) -> Res
 
     assert!(
         expected_quote == current,
-        Error::PreRegisterQuoteIsInvalid,
+        ErrorCode::PreRegisterQuoteIsInvalid,
         "PreAccountCell.quote should be the same as the QuoteCell.(expected: {:?}, current: {:?})",
         expected_quote,
         current
@@ -369,7 +393,7 @@ fn verify_quote<'a>(reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>) -> Res
 fn verify_invited_discount<'a>(
     config: ConfigCellPriceReader,
     reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     debug!("Check if PreAccountCell.witness.invited_discount is 0 or the same as configuration.");
 
     let default_lock = Script::default();
@@ -381,14 +405,14 @@ fn verify_invited_discount<'a>(
     if reader.inviter_lock().is_none() {
         assert!(
             reader.inviter_id().is_empty(),
-            Error::PreRegisterFoundInvalidTransaction,
+            ErrorCode::PreRegisterFoundInvalidTransaction,
             "The inviter_id should be empty when inviter do not exist."
         );
 
         expected_discount = zero.as_reader();
         assert!(
             util::is_reader_eq(expected_discount, reader.invited_discount()),
-            Error::PreRegisterDiscountIsInvalid,
+            ErrorCode::PreRegisterDiscountIsInvalid,
             "The invited_discount should be 0 when inviter does not exist."
         );
     } else {
@@ -397,27 +421,27 @@ fn verify_invited_discount<'a>(
         if util::is_reader_eq(default_lock_reader, inviter_lock_reader) {
             assert!(
                 reader.inviter_id().is_empty(),
-                Error::PreRegisterFoundInvalidTransaction,
+                ErrorCode::PreRegisterFoundInvalidTransaction,
                 "The inviter_id should be empty when inviter do not exist."
             );
 
             expected_discount = zero.as_reader();
             assert!(
                 util::is_reader_eq(expected_discount, reader.invited_discount()),
-                Error::PreRegisterDiscountIsInvalid,
+                ErrorCode::PreRegisterDiscountIsInvalid,
                 "The invited_discount should be 0 when inviter does not exist."
             );
         } else {
             assert!(
                 reader.inviter_id().len() == ACCOUNT_ID_LENGTH,
-                Error::PreRegisterFoundInvalidTransaction,
+                ErrorCode::PreRegisterFoundInvalidTransaction,
                 "The inviter_id should be 20 bytes when inviter exists."
             );
 
             expected_discount = config.discount().invited_discount();
             assert!(
                 util::is_reader_eq(expected_discount, reader.invited_discount()),
-                Error::PreRegisterDiscountIsInvalid,
+                ErrorCode::PreRegisterDiscountIsInvalid,
                 "The invited_discount should greater than 0 when inviter exist. (expected: {}, current: {})",
                 u32::from(expected_discount),
                 u32::from(reader.invited_discount())
@@ -433,7 +457,7 @@ fn verify_price_and_capacity<'a>(
     config_price: ConfigCellPriceReader,
     reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>,
     capacity: u64,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     let length_in_price = util::get_length_in_price(reader.account().len() as u64);
     let price = reader.price();
     let prices = config_price.prices();
@@ -442,13 +466,13 @@ fn verify_price_and_capacity<'a>(
     let expected_price = prices
         .iter()
         .find(|item| u8::from(item.length()) == length_in_price)
-        .ok_or(Error::ItemMissing)?;
+        .ok_or(ErrorCode::ItemMissing)?;
 
     debug!("Check if PreAccountCell.witness.price is selected base on account length.");
 
     assert!(
         util::is_reader_eq(expected_price, price),
-        Error::PreRegisterPriceInvalid,
+        ErrorCode::PreRegisterPriceInvalid,
         "PreAccountCell.price should be the same as which in ConfigCellPrice.(expected: {}, current: {})",
         expected_price,
         price
@@ -475,7 +499,7 @@ fn verify_price_and_capacity<'a>(
 
     assert!(
         capacity >= register_capacity + storage_capacity,
-        Error::PreRegisterCKBInsufficient,
+        ErrorCode::PreRegisterCKBInsufficient,
         "PreAccountCell.capacity should contains more than 1 year of registeration fee. (expected: {}, current: {})",
         register_capacity + storage_capacity,
         capacity
@@ -487,7 +511,7 @@ fn verify_price_and_capacity<'a>(
 fn verify_account_length_and_years<'a>(
     reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>,
     current_timestamp: u64,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     use chrono::{DateTime, NaiveDateTime, Utc};
 
     let account_length = reader.account().len();
@@ -502,7 +526,7 @@ fn verify_account_length_and_years<'a>(
     // CAREFUL Triple check.
     assert!(
         account_length >= 4,
-        Error::AccountStillCanNotBeRegister,
+        ErrorCode::AccountStillCanNotBeRegister,
         "The account less than 4 characters can not be registered now."
     );
 
@@ -510,14 +534,56 @@ fn verify_account_length_and_years<'a>(
 }
 
 fn verify_account_release_status<'a>(
+    timestamp: u64,
     config_release: ConfigCellReleaseReader,
     reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     debug!("Check if account is released for registration.");
 
     if reader.account().len() >= 10 {
         debug!("Ths account contains more than 9 characters, skip verification.");
         return Ok(());
+    }
+
+    // 1666094400 is 2022-10-18 12:00:00 UTC.
+    if timestamp >= 1666094400 {
+        debug!("It is after 2022-10-18 12:00:00 UTC now, start fully released char-sets verification.");
+
+        let account_chars = reader.account();
+        // Only if all characters are the same char-set, the account_char_set will have value.
+        let mut account_char_set = None;
+        for char in account_chars.iter() {
+            let char_set = CharSetType::try_from(char.char_set_name()).map_err(|_| ErrorCode::CharSetIsUndefined)?;
+            if account_char_set.is_none() {
+                account_char_set = Some(char_set);
+            } else if account_char_set != Some(char_set) {
+                account_char_set = None;
+                break;
+            }
+        }
+
+        debug!("The account_char_set is: {:?}", account_char_set);
+
+        let completely_released_char_set = vec![
+            CharSetType::Emoji,
+            CharSetType::Digit,
+            CharSetType::Ko,
+            CharSetType::Tr,
+            CharSetType::Th,
+            CharSetType::Vi,
+        ];
+        if let Some(char_set) = account_char_set {
+            // If the account_char_set is in while list and the account's length is greater than or equel to 4, then the account is released.
+            if account_chars.len() >= 4 && completely_released_char_set.contains(&char_set) {
+                debug!(
+                    "The account contains only one fully released char-set: {:?}, skip verification.",
+                    char_set
+                );
+                return Ok(());
+            } else {
+                debug!("The account is not fullfilled the fully released rule, continue the next verification.");
+            }
+        }
     }
 
     let account: Vec<u8> = [reader.account().as_readable(), ACCOUNT_SUFFIX.as_bytes().to_vec()].concat();
@@ -528,7 +594,7 @@ fn verify_account_release_status<'a>(
     // CAREFUL Triple check.
     assert!(
         lucky_num <= expected_lucky_num,
-        Error::AccountStillCanNotBeRegister,
+        ErrorCode::AccountStillCanNotBeRegister,
         "The registration is still not started.(lucky_num: {}, required: <= {})",
         lucky_num,
         expected_lucky_num

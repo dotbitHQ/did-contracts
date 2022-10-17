@@ -1,35 +1,31 @@
-use alloc::{borrow::ToOwned, boxed::Box};
-use ckb_std::{
-    ckb_constants::Source,
-    high_level::{self, load_cell_capacity, load_cell_lock, load_cell_type, load_script},
-};
-use core::{convert::TryFrom, result::Result};
-use das_core::{
-    assert,
-    constants::*,
-    data_parser,
-    debug,
-    error::Error,
-    util, verifiers, warn,
-    witness_parser::WitnessesParser,
-};
-use das_map::{map::Map, util as map_util};
-use das_sorted_list::DasSortedList;
-use das_types::{
-    constants::*,
-    mixer::{AccountCellDataMixer, PreAccountCellDataReaderMixer},
-    packed::*,
-    prelude::*,
-    prettier::Prettier,
-};
+use alloc::borrow::ToOwned;
+use alloc::boxed::Box;
+use alloc::string::String;
+use core::convert::TryFrom;
+use core::result::Result;
 
-pub fn main() -> Result<(), Error> {
+use ckb_std::ckb_constants::Source;
+use ckb_std::high_level::{self, load_cell_capacity, load_cell_lock, load_cell_type, load_script};
+use das_core::constants::*;
+use das_core::error::*;
+use das_core::witness_parser::WitnessesParser;
+use das_core::{assert, code_to_error, data_parser, debug, util, verifiers, warn};
+use das_map::map::Map;
+use das_map::util as map_util;
+use das_sorted_list::DasSortedList;
+use das_types::constants::*;
+use das_types::mixer::{AccountCellDataMixer, PreAccountCellDataReaderMixer};
+use das_types::packed::*;
+use das_types::prelude::*;
+use das_types::prettier::Prettier;
+
+pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running proposal-cell-type ======");
 
     let mut parser = WitnessesParser::new()?;
     let action_cp = match parser.parse_action_with_params()? {
         Some((action, _)) => action.to_vec(),
-        None => return Err(Error::ActionNotSupported),
+        None => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
     };
     let action = action_cp.as_slice();
 
@@ -45,7 +41,7 @@ pub fn main() -> Result<(), Error> {
 
     debug!(
         "Route to {:?} action ...",
-        alloc::string::String::from_utf8(action.to_vec()).map_err(|_| Error::ActionNotSupported)?
+        alloc::string::String::from_utf8(action.to_vec()).map_err(|_| ErrorCode::ActionNotSupported)?
     );
     match action {
         b"propose" | b"extend_proposal" => {
@@ -58,13 +54,13 @@ pub fn main() -> Result<(), Error> {
             if action == b"propose" {
                 assert!(
                     dep_cells.len() == 0,
-                    Error::InvalidTransactionStructure,
+                    ErrorCode::InvalidTransactionStructure,
                     "There should be 0 ProposalCell in the cell_deps."
                 );
             } else {
                 assert!(
                     dep_cells.len() == 1,
-                    Error::InvalidTransactionStructure,
+                    ErrorCode::InvalidTransactionStructure,
                     "There should be 1 ProposalCell found in the cell_deps"
                 );
             }
@@ -94,7 +90,7 @@ pub fn main() -> Result<(), Error> {
 
             assert!(
                 required_cells_count == dep_related_cells.len(),
-                Error::ProposalSliceRelatedCellMissing,
+                ErrorCode::ProposalSliceRelatedCellMissing,
                 "Some of the proposal relevant cells are missing. (expected: {}, current: {})",
                 required_cells_count,
                 dep_related_cells.len()
@@ -131,7 +127,7 @@ pub fn main() -> Result<(), Error> {
 
             assert!(
                 height >= created_at_height + proposal_min_confirm_interval,
-                Error::ProposalConfirmNeedWaitLonger,
+                ErrorCode::ProposalConfirmNeedWaitLonger,
                 "ProposalCell should be confirmed later, about {} block to wait.",
                 created_at_height + proposal_min_confirm_interval - height
             );
@@ -166,21 +162,21 @@ pub fn main() -> Result<(), Error> {
 
             assert!(
                 height >= created_at_height + proposal_min_recycle_interval,
-                Error::ProposalRecycleNeedWaitLonger,
+                ErrorCode::ProposalRecycleNeedWaitLonger,
                 "ProposalCell should be recycled later, about {} block to wait.",
                 created_at_height + proposal_min_recycle_interval - height
             );
 
             verify_refund_correct(input_cells[0], input_cell_witness_reader, 10000)?;
         }
-        _ => return Err(Error::ActionNotSupported),
+        _ => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
     }
 
     Ok(())
 }
 
 #[cfg(debug_assertions)]
-fn inspect_slices(slices_reader: SliceListReader) -> Result<(), Error> {
+fn inspect_slices(slices_reader: SliceListReader) -> Result<(), Box<dyn ScriptError>> {
     debug!("Inspect Slices [");
     for (sl_index, sl_reader) in slices_reader.iter().enumerate() {
         debug!("  Slice[{}] [", sl_index);
@@ -213,7 +209,7 @@ fn inspect_related_cells(
     config_main: ConfigCellMainReader,
     related_cells: Vec<usize>,
     related_cells_source: Source,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     debug!("Inspect {:?}{:?}:", related_cells_source, related_cells);
 
     for i in related_cells {
@@ -239,7 +235,7 @@ fn inspect_related_cells(
                 related_cells_source,
                 i,
                 version,
-                util::hex_string(pre_account_cell::get_id(&data))
+                util::hex_string(data_parser::pre_account_cell::get_id(&data))
             );
         }
     }
@@ -247,7 +243,10 @@ fn inspect_related_cells(
     Ok(())
 }
 
-fn verify_slices(config: ConfigCellProposalReader, slices_reader: SliceListReader) -> Result<usize, Error> {
+fn verify_slices(
+    config: ConfigCellProposalReader,
+    slices_reader: SliceListReader,
+) -> Result<usize, Box<dyn ScriptError>> {
     debug!("Check the data structure of proposal slices.");
 
     // debug!("slices_reader = {}", slices_reader);
@@ -258,7 +257,7 @@ fn verify_slices(config: ConfigCellProposalReader, slices_reader: SliceListReade
 
     assert!(
         slices_reader.len() > 0,
-        Error::ProposalSlicesCanNotBeEmpty,
+        ErrorCode::ProposalSlicesCanNotBeEmpty,
         "The slices of ProposalCell should not be empty."
     );
 
@@ -270,7 +269,7 @@ fn verify_slices(config: ConfigCellProposalReader, slices_reader: SliceListReade
 
         assert!(
             sl_reader.len() > 1,
-            Error::ProposalSliceMustContainMoreThanOneElement,
+            ErrorCode::ProposalSliceMustContainMoreThanOneElement,
             "Slice[{}] must contain more than one element, but {} found.",
             sl_index,
             sl_reader.len()
@@ -290,7 +289,7 @@ fn verify_slices(config: ConfigCellProposalReader, slices_reader: SliceListReade
                 account_cell_contained += 1;
                 assert!(
                     u8::from(item.item_type()) != ProposalSliceItemType::New as u8,
-                    Error::ProposalCellTypeError,
+                    ErrorCode::ProposalCellTypeError,
                     "  Item[{}] The item_type of item[{}] should not be {:?}.",
                     index,
                     index,
@@ -313,7 +312,7 @@ fn verify_slices(config: ConfigCellProposalReader, slices_reader: SliceListReade
                 pre_account_cell_contained += 1;
                 assert!(
                     u8::from(item.item_type()) == ProposalSliceItemType::New as u8,
-                    Error::ProposalCellTypeError,
+                    ErrorCode::ProposalCellTypeError,
                     "  Item[{}] The item_type of item[{}] should be {:?}.",
                     index,
                     index,
@@ -325,7 +324,7 @@ fn verify_slices(config: ConfigCellProposalReader, slices_reader: SliceListReade
             if let Some(next_item) = sl_reader.get(index + 1) {
                 assert!(
                     util::is_reader_eq(item.next(), next_item.account_id()),
-                    Error::ProposalSliceIsDiscontinuity,
+                    ErrorCode::ProposalSliceIsDiscontinuity,
                     "  Item[{}].next should be {}, but it is {} now.",
                     index,
                     util::hex_string(next_item.account_id().raw_data()),
@@ -337,7 +336,7 @@ fn verify_slices(config: ConfigCellProposalReader, slices_reader: SliceListReade
             for exist_account_id in account_id_list.iter() {
                 assert!(
                     &account_id != exist_account_id,
-                    Error::ProposalSliceItemMustBeUniqueAccount,
+                    ErrorCode::ProposalSliceItemMustBeUniqueAccount,
                     "Every item in slice should be unique, but item[0x{}] is found twice.",
                     util::hex_string(&account_id)
                 )
@@ -357,7 +356,7 @@ fn verify_slices(config: ConfigCellProposalReader, slices_reader: SliceListReade
         for account_id in account_id_list.iter() {
             assert!(
                 next != account_id,
-                Error::ProposalSliceItemMustBeUniqueAccount,
+                ErrorCode::ProposalSliceItemMustBeUniqueAccount,
                 "The next of any exist AccountCell should not be contained in the slices as an item, but the item[{}] is found.",
                 util::hex_string(&next)
             )
@@ -368,14 +367,14 @@ fn verify_slices(config: ConfigCellProposalReader, slices_reader: SliceListReade
     let sorted_account_id_list = DasSortedList::new(account_id_list_with_next.clone());
     assert!(
         sorted_account_id_list.cmp_order_with(&account_id_list_with_next),
-        Error::ProposalSliceIsNotSorted,
+        ErrorCode::ProposalSliceIsNotSorted,
         "The order of items in slices is incorrect."
     );
 
     let max_account_cell_count = u32::from(config.proposal_max_account_affect());
     assert!(
         account_cell_contained <= max_account_cell_count,
-        Error::InvalidTransactionStructure,
+        ErrorCode::InvalidTransactionStructure,
         "The proposal should not contains more than {} AccountCells.",
         max_account_cell_count
     );
@@ -383,7 +382,7 @@ fn verify_slices(config: ConfigCellProposalReader, slices_reader: SliceListReade
     let max_pre_account_cell_count = u32::from(config.proposal_max_pre_account_contain());
     assert!(
         pre_account_cell_contained <= max_pre_account_cell_count,
-        Error::InvalidTransactionStructure,
+        ErrorCode::InvalidTransactionStructure,
         "The proposal should not contains more than {} PreAccountCells.",
         max_pre_account_cell_count
     );
@@ -391,7 +390,10 @@ fn verify_slices(config: ConfigCellProposalReader, slices_reader: SliceListReade
     Ok(required_cells_count)
 }
 
-fn find_proposal_related_cells(config: ConfigCellMainReader, source: Source) -> Result<Vec<usize>, Error> {
+fn find_proposal_related_cells(
+    config: ConfigCellMainReader,
+    source: Source,
+) -> Result<Vec<usize>, Box<dyn ScriptError>> {
     // Find related cells' indexes in cell_deps or inputs.
     let account_cell_type_id = config.type_id_table().account_cell();
     let account_cells = util::find_cells_by_type_id(ScriptType::Type, account_cell_type_id, source)?;
@@ -400,7 +402,7 @@ fn find_proposal_related_cells(config: ConfigCellMainReader, source: Source) -> 
 
     assert!(
         pre_account_cells.len() > 0,
-        Error::InvalidTransactionStructure,
+        ErrorCode::InvalidTransactionStructure,
         "There should be some PreAccountCells in {:?}.",
         source
     );
@@ -448,7 +450,7 @@ fn find_proposal_related_cells(config: ConfigCellMainReader, source: Source) -> 
     Ok(sorted)
 }
 
-fn find_output_account_cells(config: ConfigCellMainReader) -> Result<Vec<usize>, Error> {
+fn find_output_account_cells(config: ConfigCellMainReader) -> Result<Vec<usize>, Box<dyn ScriptError>> {
     // Find updated cells' indexes in outputs.
     let account_cell_type_id = config.type_id_table().account_cell();
     let mut account_cells = util::find_cells_by_type_id(ScriptType::Type, account_cell_type_id, Source::Output)?;
@@ -456,7 +458,7 @@ fn find_output_account_cells(config: ConfigCellMainReader) -> Result<Vec<usize>,
 
     assert!(
         account_cells.len() > 0,
-        Error::InvalidTransactionStructure,
+        ErrorCode::InvalidTransactionStructure,
         "There should be some AccountCells in the outputs."
     );
 
@@ -472,7 +474,7 @@ fn verify_slices_relevant_cells(
     slices_reader: SliceListReader,
     relevant_cells: Vec<usize>,
     prev_slices_reader_opt: Option<SliceListReader>,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     debug!("Check the proposal slices relevant cells are real exist and in correct status.");
 
     let mut i = 0;
@@ -520,7 +522,7 @@ fn verify_slices_relevant_cells(
                 let created_at = u64::from(pre_account_cell_witness_reader.created_at());
                 assert!(
                     timestamp <= created_at + PRE_ACCOUNT_CELL_TIMEOUT,
-                    Error::ProposalConfirmPreAccountCellExpired,
+                    ErrorCode::ProposalConfirmPreAccountCellExpired,
                     "The PreAccountCell has been expired.(created_at: {}, expired_at: {})",
                     created_at,
                     created_at + PRE_ACCOUNT_CELL_TIMEOUT
@@ -534,13 +536,13 @@ fn verify_slices_relevant_cells(
                 if prev_slices_reader_opt.is_none() {
                     assert!(
                         item_type == ProposalSliceItemType::Exist as u8,
-                        Error::ProposalSliceMustStartWithAccountCell,
+                        ErrorCode::ProposalSliceMustStartWithAccountCell,
                         "  In the first proposal of a proposal chain, all slice should start with an AccountCell."
                     );
 
                     // The correct "next" of first proposal is come from the cell's outputs_data.
-                    next_of_first_cell =
-                        AccountId::try_from(data_parser::account_cell::get_next(&cell_data)).map_err(|_| Error::InvalidCellData)?;
+                    next_of_first_cell = AccountId::try_from(data_parser::account_cell::get_next(&cell_data))
+                        .map_err(|_| ErrorCode::InvalidCellData)?;
 
                 // If this is the extended proposal in proposal chain, slice may starting with an
                 // AccountCell/PreAccountCell included in previous proposal, or it may starting with
@@ -548,7 +550,7 @@ fn verify_slices_relevant_cells(
                 } else {
                     assert!(
                         item_type == ProposalSliceItemType::Exist as u8 || item_type == ProposalSliceItemType::Proposed as u8,
-                        Error::ProposalSliceMustStartWithAccountCell,
+                        ErrorCode::ProposalSliceMustStartWithAccountCell,
                         "  In the extended proposal of a proposal chain, slices should start with an AccountCell or a PreAccountCell which included in previous proposal."
                     );
 
@@ -558,7 +560,7 @@ fn verify_slices_relevant_cells(
                         Ok(prev_item) => prev_item.next(),
                         // If the item is not included in previous proposal, then we get its latest "next" from the cell's outputs_data.
                         Err(_) => AccountId::try_from(data_parser::account_cell::get_next(&cell_data))
-                            .map_err(|_| Error::InvalidCellData)?,
+                            .map_err(|_| ErrorCode::InvalidCellData)?,
                     };
                 }
             }
@@ -572,7 +574,7 @@ fn verify_slices_relevant_cells(
 
         assert!(
             util::is_reader_eq(next_of_first_cell.as_reader(), next_of_last_item),
-            Error::ProposalSliceNotEndCorrectly,
+            ErrorCode::ProposalSliceNotEndCorrectly,
             "The next of first item should be pass to the last item correctly."
         );
     }
@@ -583,7 +585,7 @@ fn verify_slices_relevant_cells(
 fn find_item_contains_account_id(
     prev_slices_reader: &SliceListReader,
     account_id: &AccountIdReader,
-) -> Result<ProposalItem, Error> {
+) -> Result<ProposalItem, Box<dyn ScriptError>> {
     for slice in prev_slices_reader.iter() {
         for item in slice.iter() {
             if util::is_reader_eq(item.account_id(), *account_id) {
@@ -593,7 +595,7 @@ fn find_item_contains_account_id(
     }
 
     debug!("Can not find previous item: {}", account_id);
-    Err(Error::PrevProposalItemNotFound)
+    Err(code_to_error!(ErrorCode::PrevProposalItemNotFound))
 }
 
 fn verify_proposal_execution_result(
@@ -603,7 +605,7 @@ fn verify_proposal_execution_result(
     config_profit_rate: ConfigCellProfitRateReader,
     timestamp: u64,
     proposal_cell_data_reader: ProposalCellDataReader,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     debug!("Check that all AccountCells/PreAccountCells have been converted according to the proposal.");
 
     #[cfg(debug_assertions)]
@@ -763,7 +765,7 @@ fn verify_proposal_execution_result(
                         "  Item[{}] The AccouneCell in outputs is required to be latest data structure.",
                         item_index
                     );
-                    return Err(Error::InvalidTransactionStructure);
+                    return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
                 };
 
                 let account_name_storage = data_parser::account_cell::get_account(&output_cell_data).len() as u64;
@@ -810,7 +812,11 @@ fn verify_proposal_execution_result(
                 verify_witness_throttle_fields(item_index, output_cell_witness_reader)?;
                 verify_witness_sub_account_fields(item_index, output_cell_witness_reader)?;
                 verify_witness_initial_records(item_index, &input_cell_witness_reader, output_cell_witness_reader)?;
-                verify_witness_initial_cross_chain_and_status(item_index, &input_cell_witness_reader, output_cell_witness_reader)?;
+                verify_witness_initial_cross_chain_and_status(
+                    item_index,
+                    &input_cell_witness_reader,
+                    output_cell_witness_reader,
+                )?;
 
                 let mut inviter_profit = 0;
                 if input_cell_witness_reader.inviter_lock().is_some() {
@@ -891,14 +897,14 @@ fn verify_cell_type_id(
     cell_index: usize,
     source: Source,
     expected_type_id: &HashReader,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     let cell_type_id = load_cell_type(cell_index, source)?
         .map(|script| script.code_hash())
-        .ok_or(Error::ProposalSliceRelatedCellNotFound)?;
+        .ok_or(ErrorCode::ProposalSliceRelatedCellNotFound)?;
 
     assert!(
         cell_type_id.as_reader().raw_data() == expected_type_id.raw_data(),
-        Error::ProposalCellTypeError,
+        ErrorCode::ProposalCellTypeError,
         "  The type ID of Item[{}] should be {}. (related_cell: {:?}[{}])",
         item_index,
         expected_type_id,
@@ -914,12 +920,12 @@ fn verify_next_is_consistent_in_account_cell_and_item(
     cell_index: usize,
     cell_data: &[u8],
     original_next_of_account_cell: &[u8],
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     let next = data_parser::account_cell::get_next(cell_data);
 
     assert!(
         next == original_next_of_account_cell,
-        Error::ProposalCellNextError,
+        ErrorCode::ProposalCellNextError,
         "  The next of Item[{}] should be {}, but it has changed. (related_cell: {:?}[{}])",
         item_index,
         util::hex_string(original_next_of_account_cell),
@@ -936,12 +942,12 @@ fn verify_account_cell_account_id(
     cell_index: usize,
     source: Source,
     expected_account_id: &[u8],
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     let account_id = data_parser::account_cell::get_id(cell_data);
 
     assert!(
         account_id == expected_account_id,
-        Error::ProposalCellAccountIdError,
+        ErrorCode::ProposalCellAccountIdError,
         "  The account ID of Item[{}] should be {}. (related_cell: {:?}[{}])",
         item_index,
         util::hex_string(expected_account_id),
@@ -958,12 +964,12 @@ fn verify_pre_account_cell_account_id(
     cell_index: usize,
     source: Source,
     expected_account_id: &[u8],
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     let account_id = data_parser::pre_account_cell::get_id(cell_data);
 
     assert!(
         account_id == expected_account_id,
-        Error::ProposalCellAccountIdError,
+        ErrorCode::ProposalCellAccountIdError,
         "  The account ID of Item[{}] should be {}. (related_cell: {:?}[{}])",
         item_index,
         util::hex_string(expected_account_id),
@@ -979,7 +985,7 @@ fn is_new_account_cell_lock_correct<'a>(
     input_cell_index: usize,
     input_cell_witness_reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>,
     output_cell_index: usize,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     debug!(
         "  Item[{}] Check if the lock script of new AccountCells is das-lock.",
         item_index
@@ -993,7 +999,7 @@ fn is_new_account_cell_lock_correct<'a>(
 
     assert!(
         util::is_entity_eq(&expected_lock, &output_cell_lock),
-        Error::ProposalConfirmAccountLockArgsIsInvalid,
+        ErrorCode::ProposalConfirmAccountLockArgsIsInvalid,
         "  Item[{}] The outputs[{}].lock should come from the owner_lock_args of inputs[{}]. (expected: {}, current: {})",
         item_index,
         output_cell_index,
@@ -1010,8 +1016,8 @@ fn is_bytes_eq(
     field: &str,
     current_bytes: &[u8],
     expected_bytes: &[u8],
-    error_code: Error,
-) -> Result<(), Error> {
+    error_code: ErrorCode,
+) -> Result<(), Box<dyn ScriptError>> {
     assert!(
         current_bytes == expected_bytes,
         error_code,
@@ -1029,43 +1035,51 @@ fn is_old_account_cell_data_consistent(
     item_index: usize,
     output_cell_data: &Vec<u8>,
     input_cell_data: &Vec<u8>,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     is_bytes_eq(
         item_index,
         "id",
         data_parser::account_cell::get_id(output_cell_data),
         data_parser::account_cell::get_id(input_cell_data),
-        Error::ProposalFieldCanNotBeModified,
+        ErrorCode::ProposalFieldCanNotBeModified,
     )?;
     is_bytes_eq(
         item_index,
         "account",
         data_parser::account_cell::get_account(output_cell_data),
         data_parser::account_cell::get_account(input_cell_data),
-        Error::ProposalFieldCanNotBeModified,
+        ErrorCode::ProposalFieldCanNotBeModified,
     )?;
     is_bytes_eq(
         item_index,
         "expired_at",
         &data_parser::account_cell::get_expired_at(output_cell_data).to_le_bytes(),
         &data_parser::account_cell::get_expired_at(input_cell_data).to_le_bytes(),
-        Error::ProposalFieldCanNotBeModified,
+        ErrorCode::ProposalFieldCanNotBeModified,
     )?;
 
     Ok(())
 }
 
-fn is_id_correct(item_index: usize, output_cell_data: &Vec<u8>, input_cell_data: &Vec<u8>) -> Result<(), Error> {
+fn is_id_correct(
+    item_index: usize,
+    output_cell_data: &Vec<u8>,
+    input_cell_data: &Vec<u8>,
+) -> Result<(), Box<dyn ScriptError>> {
     is_bytes_eq(
         item_index,
         "id",
         data_parser::account_cell::get_id(output_cell_data),
         data_parser::account_cell::get_id(input_cell_data),
-        Error::ProposalConfirmNewAccountCellDataError,
+        ErrorCode::ProposalConfirmNewAccountCellDataError,
     )
 }
 
-fn is_next_correct(item_index: usize, output_cell_data: &Vec<u8>, proposed_next: AccountIdReader) -> Result<(), Error> {
+fn is_next_correct(
+    item_index: usize,
+    output_cell_data: &Vec<u8>,
+    proposed_next: AccountIdReader,
+) -> Result<(), Box<dyn ScriptError>> {
     let expected_next = proposed_next.raw_data();
 
     is_bytes_eq(
@@ -1073,7 +1087,7 @@ fn is_next_correct(item_index: usize, output_cell_data: &Vec<u8>, proposed_next:
         "next",
         data_parser::account_cell::get_next(output_cell_data),
         expected_next,
-        Error::ProposalConfirmNewAccountCellDataError,
+        ErrorCode::ProposalConfirmNewAccountCellDataError,
     )
 }
 
@@ -1083,7 +1097,7 @@ fn is_expired_at_correct<'a>(
     current_timestamp: u64,
     output_cell_data: &Vec<u8>,
     pre_account_cell_witness: &Box<dyn PreAccountCellDataReaderMixer + 'a>,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     let price = u64::from(pre_account_cell_witness.price().new());
     let quote = u64::from(pre_account_cell_witness.quote());
     let discount = u32::from(pre_account_cell_witness.invited_discount());
@@ -1102,7 +1116,7 @@ fn is_expired_at_correct<'a>(
 
     assert!(
         calculated_expired_at == expired_at,
-        Error::ProposalConfirmNewAccountCellDataError,
+        ErrorCode::ProposalConfirmNewAccountCellDataError,
         "  Item[{}] The AccountCell.expired_at should be {}, but {} found.",
         item_index,
         calculated_expired_at,
@@ -1112,7 +1126,7 @@ fn is_expired_at_correct<'a>(
     Ok(())
 }
 
-fn is_account_correct(item_index: usize, output_cell_data: &Vec<u8>) -> Result<(), Error> {
+fn is_account_correct(item_index: usize, output_cell_data: &Vec<u8>) -> Result<(), Box<dyn ScriptError>> {
     let expected_account_id = data_parser::account_cell::get_id(output_cell_data);
     let account = data_parser::account_cell::get_account(output_cell_data);
 
@@ -1124,16 +1138,20 @@ fn is_account_correct(item_index: usize, output_cell_data: &Vec<u8>) -> Result<(
         "account",
         account_id,
         expected_account_id,
-        Error::ProposalConfirmNewAccountCellDataError,
+        ErrorCode::ProposalConfirmNewAccountCellDataError,
     )
 }
 
-fn is_cell_capacity_correct(item_index: usize, cell_index: usize, expected_capacity: u64) -> Result<(), Error> {
+fn is_cell_capacity_correct(
+    item_index: usize,
+    cell_index: usize,
+    expected_capacity: u64,
+) -> Result<(), Box<dyn ScriptError>> {
     let cell_capacity = load_cell_capacity(cell_index, Source::Output)?;
 
     assert!(
         expected_capacity == cell_capacity,
-        Error::ProposalConfirmNewAccountCellCapacityError,
+        ErrorCode::ProposalConfirmNewAccountCellCapacityError,
         "  Item[{}] The AccountCell.capacity should be {}, but {} found.",
         item_index,
         expected_capacity,
@@ -1147,7 +1165,7 @@ fn verify_witness_id(
     item_index: usize,
     output_cell_data: &Vec<u8>,
     output_cell_witness_reader: AccountCellDataReader,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     let account_id = output_cell_witness_reader.id().raw_data();
     let expected_account_id = data_parser::account_cell::get_id(output_cell_data);
 
@@ -1156,7 +1174,7 @@ fn verify_witness_id(
         "witness.id",
         account_id,
         expected_account_id,
-        Error::ProposalConfirmNewAccountWitnessError,
+        ErrorCode::ProposalConfirmNewAccountWitnessError,
     )
 }
 
@@ -1164,7 +1182,7 @@ fn verify_witness_account(
     item_index: usize,
     output_cell_data: &Vec<u8>,
     output_cell_witness_reader: AccountCellDataReader,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     let mut account = output_cell_witness_reader.account().as_readable();
     account.append(&mut ACCOUNT_SUFFIX.as_bytes().to_vec());
     let expected_account = data_parser::account_cell::get_account(output_cell_data);
@@ -1174,7 +1192,7 @@ fn verify_witness_account(
         "witness.account",
         account.as_slice(),
         expected_account,
-        Error::ProposalConfirmNewAccountWitnessError,
+        ErrorCode::ProposalConfirmNewAccountWitnessError,
     )
 }
 
@@ -1182,12 +1200,12 @@ fn verify_witness_registered_at(
     item_index: usize,
     timestamp: u64,
     output_cell_witness_reader: AccountCellDataReader,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     let registered_at = u64::from(output_cell_witness_reader.registered_at());
 
     assert!(
         registered_at == timestamp,
-        Error::ProposalConfirmNewAccountWitnessError,
+        ErrorCode::ProposalConfirmNewAccountWitnessError,
         "  Item[{}] The AccountCell.registered_at should be the same as the timestamp in TimeCell.(expected: {}, current: {})",
         item_index,
         timestamp,
@@ -1200,14 +1218,14 @@ fn verify_witness_registered_at(
 fn verify_witness_throttle_fields(
     item_index: usize,
     output_cell_witness_reader: AccountCellDataReader,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     let last_transfer_account_at = u64::from(output_cell_witness_reader.last_transfer_account_at());
     let last_edit_manager_at = u64::from(output_cell_witness_reader.last_edit_manager_at());
     let last_edit_records_at = u64::from(output_cell_witness_reader.last_edit_records_at());
 
     assert!(
         last_transfer_account_at == 0 && last_edit_manager_at == 0 && last_edit_records_at == 0,
-        Error::ProposalConfirmNewAccountWitnessError,
+        ErrorCode::ProposalConfirmNewAccountWitnessError,
         "  Item[{}] The AccountCell.last_transfer_account_at/last_edit_manager_at/last_edit_records_at should be 0 .",
         item_index
     );
@@ -1218,13 +1236,13 @@ fn verify_witness_throttle_fields(
 fn verify_witness_sub_account_fields(
     item_index: usize,
     output_cell_witness_reader: AccountCellDataReader,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     let enable_sub_account = u8::from(output_cell_witness_reader.enable_sub_account());
     let renew_sub_account_price = u64::from(output_cell_witness_reader.renew_sub_account_price());
 
     assert!(
         enable_sub_account == SubAccountEnableStatus::Off as u8,
-        Error::ProposalConfirmNewAccountWitnessError,
+        ErrorCode::ProposalConfirmNewAccountWitnessError,
         "  Item[{}] The AccountCell.enable_sub_account should be off. (expected: 0, current: {})",
         item_index,
         enable_sub_account
@@ -1232,7 +1250,7 @@ fn verify_witness_sub_account_fields(
 
     assert!(
         renew_sub_account_price == 0,
-        Error::ProposalConfirmNewAccountWitnessError,
+        ErrorCode::ProposalConfirmNewAccountWitnessError,
         "  Item[{}] The AccountCell.renew_sub_account_price should be 0. (expected: 0, current: {})",
         item_index,
         renew_sub_account_price
@@ -1245,7 +1263,7 @@ fn verify_witness_initial_records<'a>(
     item_index: usize,
     pre_account_cell_reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>,
     account_cell_reader: AccountCellDataReader,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     let current_records = account_cell_reader.records();
     if pre_account_cell_reader.version() >= 2 {
         debug!(
@@ -1253,19 +1271,19 @@ fn verify_witness_initial_records<'a>(
             item_index
         );
 
-        let expected_records ;
+        let expected_records;
         if let Ok(reader) = pre_account_cell_reader.try_into_latest() {
             expected_records = reader.initial_records();
         } else if let Ok(reader) = pre_account_cell_reader.try_into_v2() {
             expected_records = reader.initial_records();
         } else {
             warn!("  Item[{}] Some version of PreAccountCell is unhandled. It is required to verify the field initial_records.", item_index);
-            return Err(Error::HardCodedError);
+            return Err(code_to_error!(ErrorCode::HardCodedError));
         }
 
         assert!(
             util::is_reader_eq(expected_records, current_records),
-            Error::ProposalConfirmInitialRecordsMismatch,
+            ErrorCode::ProposalConfirmInitialRecordsMismatch,
             "  Item[{}] The AccountCell.records should be the same as the PreAccountCell.initial_records . (expected: {}, current: {})",
             item_index,
             expected_records.as_prettier(),
@@ -1279,7 +1297,7 @@ fn verify_witness_initial_records<'a>(
 
         assert!(
             current_records.is_empty(),
-            Error::ProposalConfirmInitialRecordsMismatch,
+            ErrorCode::ProposalConfirmInitialRecordsMismatch,
             "  Item[{}] The AccountCell.records should be empty.",
             item_index
         );
@@ -1292,7 +1310,7 @@ fn verify_witness_initial_cross_chain_and_status<'a>(
     item_index: usize,
     pre_account_cell_reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>,
     account_cell_reader: AccountCellDataReader,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     let status = u8::from(account_cell_reader.status());
     if pre_account_cell_reader.version() >= 3 {
         debug!(
@@ -1300,18 +1318,18 @@ fn verify_witness_initial_cross_chain_and_status<'a>(
             item_index
         );
 
-        let checked ;
+        let checked;
         if let Ok(reader) = pre_account_cell_reader.try_into_latest() {
             checked = u8::from(reader.initial_cross_chain().checked());
         } else {
             warn!("  Item[{}] Some version of PreAccountCell is unhandled. It is required to verify the field initial_cross_chain.", item_index);
-            return Err(Error::HardCodedError);
+            return Err(code_to_error!(ErrorCode::HardCodedError));
         }
 
         if checked == 1 {
             assert!(
                 status == AccountStatus::LockedForCrossChain as u8,
-                Error::ProposalConfirmNewAccountWitnessError,
+                ErrorCode::ProposalConfirmNewAccountWitnessError,
                 "  Item[{}] The AccountCell.status should be LockedForCrossChain in outputs. (expected: {:?}, current: {})",
                 item_index,
                 AccountStatus::LockedForCrossChain as u8,
@@ -1320,7 +1338,7 @@ fn verify_witness_initial_cross_chain_and_status<'a>(
         } else {
             assert!(
                 status == AccountStatus::Normal as u8,
-                Error::ProposalConfirmNewAccountWitnessError,
+                ErrorCode::ProposalConfirmNewAccountWitnessError,
                 "  Item[{}] The AccountCell.status should be Normal in outputs. (expected: {:?}, current: {})",
                 item_index,
                 AccountStatus::Normal as u8,
@@ -1335,7 +1353,7 @@ fn verify_witness_initial_cross_chain_and_status<'a>(
 
         assert!(
             status == AccountStatus::Normal as u8,
-            Error::ProposalConfirmNewAccountWitnessError,
+            ErrorCode::ProposalConfirmNewAccountWitnessError,
             "  Item[{}] The AccountCell.status should be Normal in outputs. (expected: {:?}, current: {})",
             item_index,
             AccountStatus::Normal as u8,
@@ -1350,7 +1368,7 @@ fn verify_refund_correct(
     proposal_cell_index: usize,
     proposal_cell_data_reader: ProposalCellDataReader,
     available_for_fee: u64,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     debug!("Check if the refund amount to proposer_lock is correct.");
 
     let proposer_lock = proposal_cell_data_reader.proposer_lock();
@@ -1358,7 +1376,7 @@ fn verify_refund_correct(
 
     assert!(
         refund_cells.len() >= 1,
-        Error::ProposalConfirmRefundError,
+        ErrorCode::ProposalConfirmRefundError,
         "There should be at least 1 cell in outputs with the lock of the proposer. (expected_lock: {})",
         proposer_lock
     );
@@ -1371,7 +1389,7 @@ fn verify_refund_correct(
     let proposal_capacity = load_cell_capacity(proposal_cell_index.to_owned(), Source::Input)?;
     assert!(
         proposal_capacity <= refund_capacity + available_for_fee,
-        Error::ProposalConfirmRefundError,
+        ErrorCode::ProposalConfirmRefundError,
         "There refund of proposer should be at least {}, but {} found.",
         proposal_capacity - available_for_fee,
         refund_capacity

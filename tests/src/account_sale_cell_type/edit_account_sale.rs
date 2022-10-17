@@ -1,6 +1,11 @@
-use super::common::*;
-use crate::util::{accounts::*, constants::*, error::Error, template_generator::*, template_parser::*};
 use serde_json::json;
+
+use super::common::*;
+use crate::util::accounts::*;
+use crate::util::constants::*;
+use crate::util::error::*;
+use crate::util::template_generator::*;
+use crate::util::template_parser::*;
 
 fn before_each() -> TemplateGenerator {
     let mut template = init("edit_account_sale", Some("0x00"));
@@ -119,7 +124,7 @@ fn challenge_account_sale_edit_with_manager() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellPermissionDenied)
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellPermissionDenied)
 }
 
 #[test]
@@ -143,7 +148,7 @@ fn challenge_account_sale_edit_lock_consistent() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure)
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure)
 }
 
 #[test]
@@ -167,7 +172,7 @@ fn challenge_account_sale_edit_account_consistent() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountSaleCellAccountIdInvalid)
+    challenge_tx(template.as_json(), ErrorCode::AccountSaleCellAccountIdInvalid)
 }
 
 #[test]
@@ -192,7 +197,7 @@ fn challenge_account_sale_edit_account_id_consistent() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountSaleCellAccountIdInvalid)
+    challenge_tx(template.as_json(), ErrorCode::AccountSaleCellAccountIdInvalid)
 }
 
 #[test]
@@ -217,7 +222,7 @@ fn challenge_account_sale_edit_started_at_consistent() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountSaleCellStartedAtInvalid)
+    challenge_tx(template.as_json(), ErrorCode::AccountSaleCellStartedAtInvalid)
 }
 
 #[test]
@@ -241,7 +246,7 @@ fn challenge_account_sale_edit_fee_spent() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::TxFeeSpentError)
+    challenge_tx(template.as_json(), ErrorCode::TxFeeSpentError)
 }
 
 #[test]
@@ -280,7 +285,7 @@ fn challenge_account_sale_edit_fee_empty() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::TxFeeSpentError)
+    challenge_tx(template.as_json(), ErrorCode::TxFeeSpentError)
 }
 
 #[test]
@@ -304,7 +309,7 @@ fn challenge_account_sale_edit_price() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountSaleCellPriceTooSmall)
+    challenge_tx(template.as_json(), ErrorCode::AccountSaleCellPriceTooSmall)
 }
 
 #[test]
@@ -327,7 +332,7 @@ fn challenge_account_sale_edit_no_change() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure)
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure)
 }
 
 #[test]
@@ -366,5 +371,5 @@ fn challenge_account_sale_edit_keep_old_version() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure)
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure)
 }

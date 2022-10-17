@@ -1,9 +1,14 @@
-use super::common::*;
-use crate::util::{
-    self, accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
-};
 use das_types_std::constants::*;
 use serde_json::json;
+
+use super::common::*;
+use crate::util::accounts::*;
+use crate::util::constants::*;
+use crate::util::error::*;
+use crate::util::template_common_cell::*;
+use crate::util::template_generator::*;
+use crate::util::template_parser::*;
+use crate::util::{self};
 
 fn push_simple_output_income_cell(template: &mut TemplateGenerator) {
     push_output_income_cell(
@@ -158,7 +163,10 @@ fn challenge_offer_accept_offer_account_expired() {
     // outputs
     push_common_outputs(&mut template);
 
-    challenge_tx(template.as_json(), Error::AccountCellInExpirationGracePeriod);
+    challenge_tx(
+        template.as_json(),
+        AccountCellErrorCode::AccountCellInExpirationGracePeriod,
+    );
 }
 
 #[test]
@@ -198,7 +206,7 @@ fn challenge_offer_accept_offer_account_not_normal_status() {
     // outputs
     push_common_outputs(&mut template);
 
-    challenge_tx(template.as_json(), Error::AccountCellStatusLocked);
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellStatusLocked);
 }
 
 #[test]
@@ -222,7 +230,7 @@ fn challenge_offer_accept_offer_account_not_exists_in_inputs() {
     // outputs
     push_common_outputs(&mut template);
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure);
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure);
 }
 
 #[test]
@@ -274,7 +282,7 @@ fn challenge_offer_accept_offer_accept_multiple_offer_cells() {
     // outputs
     push_common_outputs(&mut template);
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure);
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure);
 }
 
 #[test]
@@ -304,7 +312,7 @@ fn challenge_offer_accept_offer_account_capacity_mismatch() {
     push_simple_output_income_cell(&mut template);
     push_output_balance_cell(&mut template, 194_000_000_000, SELLER);
 
-    challenge_tx(template.as_json(), Error::AccountCellChangeCapacityError);
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellChangeCapacityError);
 }
 
 #[test]
@@ -334,7 +342,7 @@ fn challenge_offer_accept_offer_account_data_mismatch() {
     push_simple_output_income_cell(&mut template);
     push_output_balance_cell(&mut template, 194_000_000_000, SELLER);
 
-    challenge_tx(template.as_json(), Error::AccountCellDataNotConsistent);
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellDataNotConsistent);
 }
 
 #[test]
@@ -363,7 +371,10 @@ fn challenge_offer_accept_offer_account_witness_mismatch() {
     push_simple_output_income_cell(&mut template);
     push_output_balance_cell(&mut template, 194_000_000_000, SELLER);
 
-    challenge_tx(template.as_json(), Error::AccountCellProtectFieldIsModified);
+    challenge_tx(
+        template.as_json(),
+        AccountCellErrorCode::AccountCellProtectFieldIsModified,
+    );
 }
 
 #[test]
@@ -375,7 +386,7 @@ fn challenge_offer_accept_offer_account_deleted() {
     push_simple_output_income_cell(&mut template);
     push_output_balance_cell(&mut template, 194_000_000_000, SELLER);
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure);
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure);
 }
 
 #[test]
@@ -419,7 +430,7 @@ fn challenge_offer_accept_offer_account_create() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure);
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure);
 }
 
 #[test]
@@ -459,7 +470,7 @@ fn challenge_offer_accept_offer_account_mismatch() {
     // outputs
     push_common_outputs(&mut template);
 
-    challenge_tx(template.as_json(), Error::OfferCellAccountMismatch);
+    challenge_tx(template.as_json(), ErrorCode::OfferCellAccountMismatch);
 }
 
 #[test]
@@ -485,7 +496,7 @@ fn challenge_offer_accept_offer_no_income_cell() {
 
     push_output_balance_cell(&mut template, 194_000_000_000, SELLER);
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure);
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure);
 }
 
 #[test]
@@ -555,7 +566,7 @@ fn challenge_offer_accept_offer_income_cell_lock_error() {
 
     push_output_balance_cell(&mut template, 194_000_000_000, SELLER);
 
-    challenge_tx(template.as_json(), Error::AlwaysSuccessLockIsRequired);
+    challenge_tx(template.as_json(), ErrorCode::AlwaysSuccessLockIsRequired);
 }
 
 #[test]
@@ -582,7 +593,7 @@ fn challenge_offer_accept_offer_sellers_profit_wrong() {
     push_simple_output_income_cell(&mut template);
     push_output_balance_cell(&mut template, 194_000_000_000 - 1, SELLER);
 
-    challenge_tx(template.as_json(), Error::ChangeError);
+    challenge_tx(template.as_json(), ErrorCode::ChangeError);
 }
 
 #[test]
@@ -648,5 +659,5 @@ fn challenge_offer_accept_offer_others_profit_wrong() {
 
     push_output_balance_cell(&mut template, 194_000_000_000, SELLER);
 
-    challenge_tx(template.as_json(), Error::IncomeCellProfitMismatch);
+    challenge_tx(template.as_json(), ErrorCode::IncomeCellProfitMismatch);
 }

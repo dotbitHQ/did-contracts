@@ -1,42 +1,42 @@
-use alloc::{borrow::ToOwned, string::String, vec, vec::Vec};
-use ckb_std::{
-    ckb_constants::Source, cstr_core::CStr, dynamic_loading_c_impl::CKBDLContext, error::SysError, high_level,
-};
-use core::{convert::TryInto, result::Result};
-use das_core::{
-    assert as das_assert,
-    constants::*,
-    data_parser, debug,
-    error::Error,
-    sub_account_witness_parser::{SubAccountEditValue, SubAccountWitness, SubAccountWitnessesParser},
-    util::{self, blake2b_256},
-    verifiers, warn,
-    witness_parser::WitnessesParser,
-};
-use das_dynamic_libs::{
-    constants::{DymLibSize, ETH_LIB_CODE_HASH, TRON_LIB_CODE_HASH},
-    sign_lib::{SignLib, SignLibWith2Methods},
-};
-use das_types::{
-    constants::AccountStatus,
-    packed::*,
-    prelude::{Builder, Entity},
-    prettier::Prettier,
-};
+use alloc::borrow::ToOwned;
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec;
+use alloc::vec::Vec;
+use core::convert::TryInto;
+use core::result::Result;
 
-pub fn main() -> Result<(), Error> {
+use ckb_std::ckb_constants::Source;
+use ckb_std::cstr_core::CStr;
+use ckb_std::dynamic_loading_c_impl::CKBDLContext;
+use ckb_std::error::SysError;
+use ckb_std::high_level;
+use das_core::constants::*;
+use das_core::error::*;
+use das_core::sub_account_witness_parser::{SubAccountEditValue, SubAccountWitness, SubAccountWitnessesParser};
+use das_core::util::{self, blake2b_256};
+use das_core::witness_parser::WitnessesParser;
+use das_core::{assert as das_assert, code_to_error, data_parser, debug, verifiers, warn};
+use das_dynamic_libs::constants::{DymLibSize, ETH_LIB_CODE_HASH, TRON_LIB_CODE_HASH};
+use das_dynamic_libs::sign_lib::{SignLib, SignLibWith2Methods};
+use das_types::constants::AccountStatus;
+use das_types::packed::*;
+use das_types::prelude::{Builder, Entity};
+use das_types::prettier::Prettier;
+
+pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running sub-account-cell-type ======");
 
     let mut parser = WitnessesParser::new()?;
     let action_cp = match parser.parse_action_with_params()? {
         Some((action, _)) => action.to_vec(),
-        None => return Err(Error::ActionNotSupported),
+        None => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
     };
     let action = action_cp.as_slice();
 
     debug!(
         "Route to {:?} action ...",
-        alloc::string::String::from_utf8(action.to_vec()).map_err(|_| Error::ActionNotSupported)?
+        alloc::string::String::from_utf8(action.to_vec()).map_err(|_| ErrorCode::ActionNotSupported)?
     );
 
     match action {
@@ -45,7 +45,7 @@ pub fn main() -> Result<(), Error> {
                 &parser,
                 TypeScript::AccountCellType,
                 Source::Input,
-                Error::InvalidTransactionStructure,
+                ErrorCode::InvalidTransactionStructure,
             )?;
         }
         b"recycle_expired_account" => {
@@ -53,7 +53,7 @@ pub fn main() -> Result<(), Error> {
                 &parser,
                 TypeScript::AccountCellType,
                 Source::Input,
-                Error::InvalidTransactionStructure,
+                ErrorCode::InvalidTransactionStructure,
             )?;
         }
         b"config_sub_account_custom_script" => {
@@ -161,12 +161,12 @@ pub fn main() -> Result<(), Error> {
             das_assert!(
                 input_sub_account_custom_script != output_sub_account_custom_script
                     || input_sub_account_script_args != output_sub_account_script_args,
-                Error::SubAccountCustomScriptError,
+                ErrorCode::SubAccountCustomScriptError,
                 "outputs[{}] The custom script of SubAccountCell should be different in inputs and outputs.",
                 output_sub_account_cells[0]
             );
 
-            verify_sub_account_cell_is_consistent(
+            verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
                 input_sub_account_cells[0],
                 output_sub_account_cells[0],
                 vec!["custom_script", "custom_script_args"],
@@ -249,7 +249,7 @@ pub fn main() -> Result<(), Error> {
                                 &[0],
                             )?;
 
-                            verify_sub_account_cell_is_consistent(
+                            verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
                                 input_sub_account_cells[0],
                                 output_sub_account_cells[0],
                                 vec!["smt_root", "das_profit", "owner_profit"],
@@ -369,7 +369,7 @@ pub fn main() -> Result<(), Error> {
                                 &[1],
                             )?;
 
-                            verify_sub_account_cell_is_consistent(
+                            verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
                                 input_sub_account_cells[0],
                                 output_sub_account_cells[0],
                                 vec!["smt_root", "das_profit"],
@@ -436,7 +436,7 @@ pub fn main() -> Result<(), Error> {
                     parent_account = dep_account_cell_reader.account().as_readable();
                     parent_account.extend(ACCOUNT_SUFFIX.as_bytes());
 
-                    verify_sub_account_cell_is_consistent(
+                    verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
                         input_sub_account_cells[0],
                         output_sub_account_cells[0],
                         vec!["smt_root"],
@@ -509,7 +509,7 @@ pub fn main() -> Result<(), Error> {
 
                                 das_assert!(
                                     current_root == prev_root_of_next,
-                                    Error::SubAccountCellSMTRootError,
+                                    ErrorCode::SubAccountCellSMTRootError,
                                     "witnesses[{}] The roots in sub-account witnesses should be sequential, but witnesses[{}] and witnesses[{}] is not.",
                                     witness.index,
                                     witness.index,
@@ -620,7 +620,7 @@ pub fn main() -> Result<(), Error> {
                                             das_assert!(
                                                 current_owner_type != new_owner_type
                                                     || current_owner_args != new_owner_args,
-                                                Error::SubAccountEditLockError,
+                                                ErrorCode::SubAccountEditLockError,
                                                 "witnesses[{}] The owner fields in args should be consistent.",
                                                 witness.index
                                             );
@@ -635,7 +635,7 @@ pub fn main() -> Result<(), Error> {
                                             das_assert!(
                                                 current_owner_type == new_owner_type
                                                     && current_owner_args == new_owner_args,
-                                                Error::SubAccountEditLockError,
+                                                ErrorCode::SubAccountEditLockError,
                                                 "witnesses[{}] The owner fields in args should be consistent.",
                                                 witness.index
                                             );
@@ -643,7 +643,7 @@ pub fn main() -> Result<(), Error> {
                                             das_assert!(
                                                 current_manager_type != new_manager_type
                                                     || current_manager_args != new_manager_args,
-                                                Error::SubAccountEditLockError,
+                                                ErrorCode::SubAccountEditLockError,
                                                 "witnesses[{}] The manager fields in args should be changed.",
                                                 witness.index
                                             );
@@ -655,7 +655,7 @@ pub fn main() -> Result<(), Error> {
                                     // manual::verify_expired_at_not_editable
                                     SubAccountEditValue::ExpiredAt(_) => {
                                         warn!("witnesses[{}] Can not edit witness.sub_account.expired_at in this transaction.", witness.index);
-                                        return Err(Error::SubAccountFieldNotEditable);
+                                        return Err(code_to_error!(ErrorCode::SubAccountFieldNotEditable));
                                     }
                                     // manual::verify_edit_value_not_empty
                                     SubAccountEditValue::None => {
@@ -663,7 +663,7 @@ pub fn main() -> Result<(), Error> {
                                             "witnesses[{}] The witness.edit_value should not be empty.",
                                             witness.index
                                         );
-                                        return Err(Error::SubAccountFieldNotEditable);
+                                        return Err(code_to_error!(ErrorCode::SubAccountFieldNotEditable));
                                     }
                                 }
                             }
@@ -716,7 +716,8 @@ pub fn main() -> Result<(), Error> {
                             })
                             .collect::<Vec<_>>();
                         debug!("The total size of custom script params: {} bytes", total_size);
-                        high_level::exec_cell(&type_id, ScriptHashType::Type, 0, 0, &params).map_err(Error::from)?;
+                        high_level::exec_cell(&type_id, ScriptHashType::Type, 0, 0, &params)
+                            .map_err(Error::<ErrorCode>::from)?;
                     } else {
                         verify_profit_to_das(
                             action,
@@ -763,7 +764,7 @@ pub fn main() -> Result<(), Error> {
                 &output_sub_account_data,
             )?;
 
-            verify_sub_account_cell_is_consistent(
+            verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
                 input_sub_account_cells[0],
                 output_sub_account_cells[0],
                 vec!["das_profit", "owner_profit"],
@@ -797,7 +798,7 @@ pub fn main() -> Result<(), Error> {
 
             das_assert!(
                 input_das_profit != 0 || input_owner_profit != 0,
-                Error::InvalidTransactionStructure,
+                ErrorCode::InvalidTransactionStructure,
                 "Either the profit of DAS or the profit of owner should not be 0 ."
             );
 
@@ -832,20 +833,28 @@ pub fn main() -> Result<(), Error> {
 
             das_assert!(
                 collected,
-                Error::InvalidTransactionStructure,
+                ErrorCode::InvalidTransactionStructure,
                 "All profit should be collected at one time, either from DAS or the owner."
             );
 
             // manual::verify_remain_capacity
             das_assert!(
                 output_sub_account_capacity >= expected_remain_capacity - transaction_fee,
-                Error::SubAccountCollectProfitError,
+                ErrorCode::SubAccountCollectProfitError,
                 "The capacity of SubAccountCell in outputs should be at least {}, but only {} found.",
                 expected_remain_capacity - transaction_fee,
                 output_sub_account_capacity
             );
         }
-        _ => return Err(Error::ActionNotSupported),
+        b"confirm_expired_account_auction" => {
+            util::require_type_script(
+                &parser,
+                TypeScript::AccountCellType,
+                Source::Input,
+                ErrorCode::InvalidTransactionStructure,
+            )?;
+        }
+        _ => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
     }
 
     Ok(())
@@ -859,7 +868,7 @@ fn verify_sub_account_capacity_is_enough(
     output_index: usize,
     output_capacity: u64,
     output_data: &[u8],
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     let basic_capacity = u64::from(config.basic_capacity());
     let input_das_profit = data_parser::sub_account_cell::get_das_profit(&input_data).unwrap();
     let output_das_profit = data_parser::sub_account_cell::get_das_profit(&output_data).unwrap();
@@ -868,7 +877,7 @@ fn verify_sub_account_capacity_is_enough(
 
     das_assert!(
         input_capacity >= input_das_profit + input_owner_profit + basic_capacity,
-        Error::SubAccountCellCapacityError,
+        ErrorCode::SubAccountCellCapacityError,
         "inputs[{}] The capacity of SubAccountCell should contains profit and basic_capacity, but its not enough.(expected_capacity: {}, current_capacity: {}, das_profit: {}, owner_profit: {})",
         input_index,
         input_das_profit + input_owner_profit + basic_capacity,
@@ -878,7 +887,7 @@ fn verify_sub_account_capacity_is_enough(
     );
     das_assert!(
         output_capacity >= output_das_profit + output_owner_profit + basic_capacity,
-        Error::SubAccountCellCapacityError,
+        ErrorCode::SubAccountCellCapacityError,
         "outputs[{}] The capacity of SubAccountCell should contains profit and basic_capacity, but its not enough.(expected_capacity: {}, current_capacity: {}, das_profit: {}, owner_profit: {})",
         output_index,
         output_das_profit + output_owner_profit + basic_capacity,
@@ -897,7 +906,7 @@ fn verify_sub_account_transaction_fee(
     input_data: &[u8],
     output_capacity: u64,
     output_data: &[u8],
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     let input_das_profit = data_parser::sub_account_cell::get_das_profit(&input_data).unwrap();
     let output_das_profit = data_parser::sub_account_cell::get_das_profit(&output_data).unwrap();
     let input_owner_profit = data_parser::sub_account_cell::get_owner_profit(&input_data).unwrap();
@@ -916,7 +925,7 @@ fn verify_sub_account_transaction_fee(
 
     das_assert!(
         input_remain_fees <= fee + output_remain_fees,
-        Error::TxFeeSpentError,
+        ErrorCode::TxFeeSpentError,
         "The transaction fee should be equal to or less than {} .(output_remain_fees: {} = output_capacity - output_profit - basic_capacity, input_remain_fees: {} = ...)",
         fee,
         output_remain_fees,
@@ -926,67 +935,12 @@ fn verify_sub_account_transaction_fee(
     Ok(())
 }
 
-fn verify_sub_account_cell_is_consistent(
-    input_sub_account_cell: usize,
-    output_sub_account_cell: usize,
-    except: Vec<&str>,
-) -> Result<(), Error> {
-    debug!("Verify if the SubAccountCell is consistent in inputs and outputs.");
-
-    let input_sub_account_cell_lock = high_level::load_cell_lock(input_sub_account_cell, Source::Input)?;
-    let output_sub_account_cell_lock = high_level::load_cell_lock(output_sub_account_cell, Source::Output)?;
-
-    das_assert!(
-        util::is_entity_eq(&input_sub_account_cell_lock, &output_sub_account_cell_lock),
-        Error::SubAccountCellConsistencyError,
-        "The SubAccountCell.lock should be consistent in inputs and outputs."
-    );
-
-    let input_sub_account_cell_type =
-        high_level::load_cell_type(input_sub_account_cell, Source::Input)?.expect("The type script should exist.");
-    let output_sub_account_cell_type =
-        high_level::load_cell_type(output_sub_account_cell, Source::Output)?.expect("The type script should exist.");
-
-    das_assert!(
-        util::is_entity_eq(&input_sub_account_cell_type, &output_sub_account_cell_type),
-        Error::SubAccountCellConsistencyError,
-        "The SubAccountCell.type should be consistent in inputs and outputs."
-    );
-
-    let input_sub_account_data = high_level::load_cell_data(input_sub_account_cell, Source::Input)?;
-    let output_sub_account_data = high_level::load_cell_data(output_sub_account_cell, Source::Output)?;
-
-    macro_rules! assert_field_consistent_if_not_except {
-        ($field_name:expr, $get_name:ident) => {
-            if !except.contains(&$field_name) {
-                let input_value = data_parser::sub_account_cell::$get_name(&input_sub_account_data);
-                let output_value = data_parser::sub_account_cell::$get_name(&output_sub_account_data);
-
-                das_assert!(
-                    input_value == output_value,
-                    Error::SubAccountCellConsistencyError,
-                    "The SubAccountCell.data.{} should be consistent in inputs and outputs.",
-                    $field_name
-                );
-            }
-        };
-    }
-
-    assert_field_consistent_if_not_except!("smt_root", get_smt_root);
-    assert_field_consistent_if_not_except!("das_profit", get_das_profit);
-    assert_field_consistent_if_not_except!("owner_profit", get_owner_profit);
-    assert_field_consistent_if_not_except!("custom_script", get_custom_script);
-    assert_field_consistent_if_not_except!("custom_script_args", get_custom_script_args);
-
-    Ok(())
-}
-
 fn verify_sub_account_cell_smt_root(
     input_sub_account_cell: usize,
     output_sub_account_cell: usize,
     first_root_in_witnesses: &[u8],
     last_root_in_witnesses: &[u8],
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     debug!("Verify if the first SMT root in sub-account witnesses is equal to the SubAccountCell.data in inputs.");
 
     let data = high_level::load_cell_data(input_sub_account_cell, Source::Input)?;
@@ -994,7 +948,7 @@ fn verify_sub_account_cell_smt_root(
 
     das_assert!(
         first_root == Some(first_root_in_witnesses),
-        Error::SubAccountWitnessSMTRootError,
+        ErrorCode::SubAccountWitnessSMTRootError,
         "The first SMT root in sub-account witnesses should be equal to the SubAccountCell.data in inputs.(root_in_cell: 0x{}, root_in_witness: 0x{})",
         util::hex_string(first_root.or(Some(&[])).unwrap()),
         util::hex_string(first_root_in_witnesses)
@@ -1005,7 +959,7 @@ fn verify_sub_account_cell_smt_root(
 
     das_assert!(
         last_root == Some(last_root_in_witnesses),
-        Error::SubAccountWitnessSMTRootError,
+        ErrorCode::SubAccountWitnessSMTRootError,
         "The last SMT root in sub-account witnesses should be equal to the SubAccountCell.data in outputs.(root_in_cell: 0x{}, root_in_witness: 0x{})",
         util::hex_string(last_root.or(Some(&[])).unwrap()),
         util::hex_string(last_root_in_witnesses)
@@ -1020,7 +974,7 @@ fn verify_profit_to_das(
     input_data: &[u8],
     output_data: &[u8],
     profit_to_das: u64,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     debug!("Verify the profit to DAS is recorded properly.");
 
     if action == b"create_sub_account" {
@@ -1029,7 +983,7 @@ fn verify_profit_to_das(
 
         das_assert!(
             output_das_profit == input_das_profit + profit_to_das,
-            Error::SubAccountProfitError,
+            ErrorCode::SubAccountProfitError,
             "outputs[{}] The profit of SubAccountCell should contains the new register fees. (input_das_profit: {}, output_das_profit: {}, expected_register_fee: {})",
             cell_index,
             input_das_profit,
@@ -1049,7 +1003,7 @@ fn verify_profit_to_das_with_custom_script(
     minimal_profit_to_das: u64,
     input_data: &[u8],
     output_data: &[u8],
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     debug!("Verify the profit to DAS is calculated from rate of config properly.");
 
     let input_das_profit = data_parser::sub_account_cell::get_das_profit(&input_data).unwrap();
@@ -1063,7 +1017,7 @@ fn verify_profit_to_das_with_custom_script(
 
     das_assert!(
         das_profit >= minimal_profit_to_das,
-        Error::SubAccountProfitError,
+        ErrorCode::SubAccountProfitError,
         "The profit to DAS should be greater than or equal to the minimal profit which is 1 CKB per account. (das_profit: {}, minimal_profit_to_das: {})",
         das_profit,
         minimal_profit_to_das
@@ -1077,7 +1031,7 @@ fn verify_profit_to_das_with_custom_script(
 
     das_assert!(
         expected_das_profit == das_profit,
-        Error::SubAccountProfitError,
+        ErrorCode::SubAccountProfitError,
         "The profit to DAS should be calculated from rate of config properly. (expected_das_profit: {}, das_profit: {})",
         expected_das_profit,
         das_profit
@@ -1089,7 +1043,7 @@ fn verify_profit_to_das_with_custom_script(
 fn verify_there_is_only_one_lock_for_normal_cells(
     input_sub_account_cell: usize,
     output_sub_account_cell: usize,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     debug!("Verify there is only one lock for cells which is not SubAccountCell.");
 
     let mut lock_hash = None;
@@ -1112,7 +1066,7 @@ fn verify_there_is_only_one_lock_for_normal_cells(
                     } else {
                         das_assert!(
                             lock_hash == Some(val),
-                            Error::SubAccountNormalCellLockLimit,
+                            ErrorCode::SubAccountNormalCellLockLimit,
                             "{}[{}] There should be only one lock for cells which is not SubAccountCell.",
                             field_name,
                             i
@@ -1123,7 +1077,7 @@ fn verify_there_is_only_one_lock_for_normal_cells(
                     break;
                 }
                 Err(err) => {
-                    return Err(Error::from(err));
+                    return Err(Error::<ErrorCode>::from(err).into());
                 }
             }
 
@@ -1141,7 +1095,7 @@ fn gen_smt_key_by_account_id(account_id: &[u8]) -> [u8; 32] {
     key
 }
 
-fn smt_verify_sub_account_is_creatable(witness: &SubAccountWitness) -> Result<(), Error> {
+fn smt_verify_sub_account_is_creatable(witness: &SubAccountWitness) -> Result<(), Box<dyn ScriptError>> {
     let key = gen_smt_key_by_account_id(witness.sub_account.id().as_slice());
     let proof = witness.proof.as_slice();
 
@@ -1168,7 +1122,7 @@ fn smt_verify_sub_account_is_creatable(witness: &SubAccountWitness) -> Result<()
 fn smt_verify_sub_account_is_editable(
     witness: &SubAccountWitness,
     new_sub_account: SubAccountReader,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     let key = gen_smt_key_by_account_id(witness.sub_account.id().as_slice());
     let proof = witness.proof.as_slice();
 
@@ -1201,7 +1155,7 @@ fn smt_verify_sub_account_is_editable(
 fn generate_new_sub_account_by_edit_value(
     sub_account: SubAccount,
     edit_value: &SubAccountEditValue,
-) -> Result<SubAccount, Error> {
+) -> Result<SubAccount, Box<dyn ScriptError>> {
     let current_nonce = u64::from(sub_account.nonce());
 
     let mut sub_account_builder = match edit_value {

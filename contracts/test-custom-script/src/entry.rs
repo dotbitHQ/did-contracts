@@ -1,9 +1,14 @@
-use super::error::Error;
 use alloc::vec;
-use ckb_std::{cstr_core::CStr, debug};
 use core::convert::TryInto;
 use core::slice::from_raw_parts;
-use das_types::{packed::AccountChars, prelude::Entity, prettier::Prettier};
+
+use ckb_std::cstr_core::CStr;
+use ckb_std::debug;
+use das_types::packed::AccountChars;
+use das_types::prelude::Entity;
+use das_types::prettier::Prettier;
+
+use super::error::Error;
 
 pub fn main(argc: usize, argv: *const *const u8) -> Result<(), Error> {
     debug!("====== Running test-custom-script ======");

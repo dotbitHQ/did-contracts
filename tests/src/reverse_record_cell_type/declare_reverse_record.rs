@@ -1,5 +1,9 @@
 use super::common::{push_dep_account_cell, *};
-use crate::util::{constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*};
+use crate::util::constants::*;
+use crate::util::error::*;
+use crate::util::template_common_cell::*;
+use crate::util::template_generator::*;
+use crate::util::template_parser::*;
 
 fn before_each() -> (TemplateGenerator, &'static str, &'static str, u64) {
     let mut template = init("declare_reverse_record");
@@ -83,7 +87,7 @@ fn challenge_reverse_record_declare_no_reverse_record_cell() {
         owner,
     );
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure)
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure)
 }
 
 #[test]
@@ -109,7 +113,7 @@ fn challenge_reverse_record_declare_multi_reverse_record_cell() {
         owner,
     );
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure)
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure)
 }
 
 #[test]
@@ -130,7 +134,7 @@ fn challenge_reverse_record_declare_owner() {
         owner,
     );
 
-    challenge_tx(template.as_json(), Error::ReverseRecordCellLockError)
+    challenge_tx(template.as_json(), ErrorCode::ReverseRecordCellLockError)
 }
 
 #[test]
@@ -151,7 +155,7 @@ fn challenge_reverse_record_declare_capacity() {
         owner,
     );
 
-    challenge_tx(template.as_json(), Error::ReverseRecordCellCapacityError)
+    challenge_tx(template.as_json(), ErrorCode::ReverseRecordCellCapacityError)
 }
 
 #[test]
@@ -176,7 +180,7 @@ fn challenge_reverse_record_declare_payment_not_enough() {
         account,
     );
 
-    challenge_tx(template.as_json(), Error::ReverseRecordCellCapacityError)
+    challenge_tx(template.as_json(), ErrorCode::ReverseRecordCellCapacityError)
 }
 
 #[test]
@@ -197,7 +201,7 @@ fn challenge_reverse_record_declare_change_owner() {
         "0x050000000000000000000000000000000000002222",
     );
 
-    challenge_tx(template.as_json(), Error::ChangeError)
+    challenge_tx(template.as_json(), ErrorCode::ChangeError)
 }
 
 #[test]
@@ -222,5 +226,5 @@ fn challenge_reverse_record_declare_change_capacity() {
         owner,
     );
 
-    challenge_tx(template.as_json(), Error::ChangeError)
+    challenge_tx(template.as_json(), ErrorCode::ChangeError)
 }

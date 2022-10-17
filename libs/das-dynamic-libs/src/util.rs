@@ -1,5 +1,4 @@
 use blake2b_ref::{Blake2b, Blake2bBuilder};
-
 pub use das_types::util::hex_string;
 
 pub const CKB_HASH_DIGEST: usize = 32;

@@ -1,6 +1,11 @@
-use super::common::*;
-use crate::util::{accounts::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*};
 use serde_json::json;
+
+use super::common::*;
+use crate::util::accounts::*;
+use crate::util::error::*;
+use crate::util::template_common_cell::*;
+use crate::util::template_generator::*;
+use crate::util::template_parser::*;
 
 fn before_each() -> TemplateGenerator {
     let mut template = init_create("config_sub_account_custom_script", Some("0x00"));
@@ -113,7 +118,7 @@ fn challenge_sub_account_config_custom_script_not_change() {
         "",
     );
 
-    challenge_tx(template.as_json(), Error::SubAccountCustomScriptError)
+    challenge_tx(template.as_json(), ErrorCode::SubAccountCustomScriptError)
 }
 
 #[test]
@@ -159,5 +164,5 @@ fn challenge_sub_account_config_custom_script_args_not_change() {
         "0x0011223300",
     );
 
-    challenge_tx(template.as_json(), Error::SubAccountCustomScriptError)
+    challenge_tx(template.as_json(), ErrorCode::SubAccountCustomScriptError)
 }

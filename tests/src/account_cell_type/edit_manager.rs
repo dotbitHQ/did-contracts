@@ -1,8 +1,12 @@
-use super::common::init;
-use crate::util::{
-    accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
-};
 use serde_json::json;
+
+use super::common::init;
+use crate::util::accounts::*;
+use crate::util::constants::*;
+use crate::util::error::*;
+use crate::util::template_common_cell::*;
+use crate::util::template_generator::*;
+use crate::util::template_parser::*;
 
 fn before_each() -> TemplateGenerator {
     let mut template = init("edit_manager", Some("0x00"));
@@ -107,14 +111,14 @@ fn challenge_account_edit_manager_multiple_cells() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure)
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure)
 }
 
 #[test]
 fn challenge_account_edit_manager_with_other_cells() {
     let mut template = init("edit_manager", Some("0x00"));
 
-    template.push_contract_cell("balance-cell-type", false);
+    template.push_contract_cell("balance-cell-type", ContractType::Contract);
 
     // inputs
     push_input_account_cell(
@@ -143,7 +147,7 @@ fn challenge_account_edit_manager_with_other_cells() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure)
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure)
 }
 
 #[test]
@@ -164,5 +168,8 @@ fn challenge_account_edit_manager_not_modified() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellManagerLockShouldBeModified)
+    challenge_tx(
+        template.as_json(),
+        AccountCellErrorCode::AccountCellManagerLockShouldBeModified,
+    )
 }

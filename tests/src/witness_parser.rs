@@ -1,17 +1,27 @@
-use crate::util::{
-    self, accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
-};
-use ckb_hash::blake2b_256;
-use das_types_std::{constants::*, packed::*, prelude::*, util as das_util, util::EntityWrapper};
-use serde_json::{json, Value};
 use std::convert::TryFrom;
+
+use ckb_hash::blake2b_256;
+use das_types_std::constants::*;
+use das_types_std::packed::*;
+use das_types_std::prelude::*;
+use das_types_std::util as das_util;
+use das_types_std::util::EntityWrapper;
+use serde_json::{json, Value};
+
+use crate::util::accounts::*;
+use crate::util::constants::*;
+use crate::util::error::*;
+use crate::util::template_common_cell::*;
+use crate::util::template_generator::*;
+use crate::util::template_parser::*;
+use crate::util::{self};
 
 fn init(action: &str) -> TemplateGenerator {
     let mut template = TemplateGenerator::new(action, None);
 
-    template.push_contract_cell("always_success", true);
-    template.push_contract_cell("fake-secp256k1-blake160-signhash-all", true);
-    template.push_contract_cell("test-env", false);
+    template.push_contract_cell("always_success", ContractType::DeployedContract);
+    template.push_contract_cell("fake-secp256k1-blake160-signhash-all", ContractType::DeployedContract);
+    template.push_contract_cell("test-env", ContractType::Contract);
 
     template.push_config_cell(DataType::ConfigCellMain, Source::CellDep);
 
@@ -117,7 +127,7 @@ fn parse_witness_error_entity_config_data_type() {
     template.outer_witnesses.push(util::bytes_to_hex(&witness.raw_data()));
 
     push_input_test_env_cell(&mut template);
-    challenge_tx(template.as_json(), Error::ConfigIsPartialMissing);
+    challenge_tx(template.as_json(), ErrorCode::ConfigIsPartialMissing);
 }
 
 #[test]
@@ -133,7 +143,7 @@ fn parse_witness_error_entity_config_entity_hash() {
     template.outer_witnesses.push(util::bytes_to_hex(&witness.raw_data()));
 
     push_input_test_env_cell(&mut template);
-    challenge_tx(template.as_json(), Error::ConfigCellWitnessIsCorrupted);
+    challenge_tx(template.as_json(), ErrorCode::ConfigCellWitnessIsCorrupted);
 }
 
 fn gen_account_cell(outputs_data_opt: Option<String>) -> (Value, EntityWrapper) {
@@ -203,7 +213,7 @@ fn parse_witness_error_cells_data_type() {
     template.push_cell_json_with_entity(cell, Source::CellDep, DataType::IncomeCellData, 3, Some(entity));
 
     push_input_test_env_cell(&mut template);
-    challenge_tx(template.as_json(), Error::WitnessDataHashOrTypeMissMatch);
+    challenge_tx(template.as_json(), ErrorCode::WitnessDataHashOrTypeMissMatch);
 }
 
 #[test]
@@ -216,5 +226,5 @@ fn parse_witness_error_cells_hash() {
     template.push_cell_json_with_entity(cell, Source::CellDep, DataType::IncomeCellData, 3, Some(entity));
 
     push_input_test_env_cell(&mut template);
-    challenge_tx(template.as_json(), Error::WitnessDataHashOrTypeMissMatch);
+    challenge_tx(template.as_json(), ErrorCode::WitnessDataHashOrTypeMissMatch);
 }

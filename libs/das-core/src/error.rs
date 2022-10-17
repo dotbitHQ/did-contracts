@@ -1,9 +1,19 @@
+use alloc::boxed::Box;
+use alloc::string::String;
+use core::convert::Into;
+use core::fmt;
+
 use ckb_std::error::SysError;
 
 /// Error
+///
+/// Error code range rules:
+/// 1 ~ 50: reserved for common error
+/// 50 ~ 126: shared by all type script
+/// the rest: temporarily reserved
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[repr(i8)]
-pub enum Error {
+pub enum ErrorCode {
     IndexOutOfBound = 1,
     ItemMissing,
     LengthNotEnough,
@@ -106,31 +116,6 @@ pub enum Error {
     IncomeCellTransferError,
     IncomeCellCapacityError,
     IncomeCellProfitMismatch,
-    AccountCellMissingPrevAccount = -114,
-    AccountCellNextUpdateError,
-    AccountCellHasNotExpired,
-    AccountCellIdNotMatch,
-    AccountCellPermissionDenied = -110,
-    AccountCellOwnerLockShouldNotBeModified,
-    AccountCellOwnerLockShouldBeModified,
-    AccountCellManagerLockShouldBeModified,
-    AccountCellDataNotConsistent,
-    AccountCellProtectFieldIsModified,
-    AccountCellNoMoreFee,
-    AccountCellThrottle = -102,
-    // ⚠️ DO NOT CHANGE
-    AccountCellRenewDurationMustLongerThanYear,
-    AccountCellRenewDurationBiggerThanPayed,
-    // -100
-    AccountCellInExpirationGracePeriod,
-    AccountCellHasExpired,
-    AccountCellIsNotExpired,
-    AccountCellRecycleCapacityError,
-    AccountCellChangeCapacityError, // -95
-    AccountCellRecordKeyInvalid,
-    AccountCellRecordSizeTooLarge,
-    AccountCellRecordNotEmpty,
-    AccountCellStatusLocked,
     EIP712SerializationError = -90,
     EIP712SematicError,
     EIP712DecodingWitnessArgsError,
@@ -169,7 +154,7 @@ pub enum Error {
     SubAccountJoinBetaError = -40,
     SubAccountProfitError,
     SubAccountCustomScriptError,
-    SubAccountNormalCellLockLimit,
+    SubAccountNormalCellLockLimit = -37,
     SubAccountCollectProfitError,
     // -40
     UpgradeForWitnessIsRequired,
@@ -180,7 +165,7 @@ pub enum Error {
     SystemOff = -1,
 }
 
-impl From<SysError> for Error {
+impl From<SysError> for ErrorCode {
     fn from(err: SysError) -> Self {
         use SysError::*;
         match err {
@@ -190,5 +175,141 @@ impl From<SysError> for Error {
             Encoding => Self::Encoding,
             Unknown(err_code) => panic!("unexpected sys error {}", err_code),
         }
+    }
+}
+
+impl From<ErrorCode> for Box<dyn ScriptError> {
+    fn from(err: ErrorCode) -> Box<dyn ScriptError> {
+        Box::new(Error::new(err, String::new()))
+    }
+}
+
+impl Into<i8> for ErrorCode {
+    fn into(self) -> i8 {
+        self as i8
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+#[repr(i8)]
+pub enum AccountCellErrorCode {
+    // WARNING Reserved errors:
+    IndexOutOfBound = 1,
+    ItemMissing = 2,
+    LengthNotEnough = 3,
+    Encoding = 4,
+    IncomeCellConsolidateConditionNotSatisfied = -126,
+    AccountCellMissingPrevAccount = -114,
+    AccountCellThrottle = -102,
+    AccountCellInExpirationGracePeriod = -99,
+    SubAccountNormalCellLockLimit = -37,
+    SystemOff = -1,
+    // Customized errors:
+    AccountCellNextUpdateError = 50,
+    AccountCellIdNotMatch,
+    AccountCellPermissionDenied,
+    AccountCellOwnerLockShouldNotBeModified,
+    AccountCellOwnerLockShouldBeModified,
+    AccountCellManagerLockShouldBeModified,
+    AccountCellDataNotConsistent,
+    AccountCellProtectFieldIsModified,
+    AccountCellNoMoreFee,
+    AccountCellRenewDurationMustLongerThanYear,
+    // 60
+    AccountCellRenewDurationBiggerThanPayed,
+    AccountCellRecycleCapacityError,
+    AccountCellChangeCapacityError,
+    AccountCellRecordKeyInvalid,
+    AccountCellRecordSizeTooLarge,
+    AccountCellRecordNotEmpty,
+    AccountCellStatusLocked,
+    AccountCellIsNotExpired,
+    AccountCellInExpirationAuctionConfirmationPeriod,
+    AccountCellInExpirationAuctionPeriod,
+    // 70
+    AccountCellHasExpired,
+    AccountCellStillCanNotRecycle,
+}
+
+impl From<SysError> for AccountCellErrorCode {
+    fn from(err: SysError) -> Self {
+        use SysError::*;
+        match err {
+            IndexOutOfBound => Self::IndexOutOfBound,
+            ItemMissing => Self::ItemMissing,
+            LengthNotEnough(_) => Self::LengthNotEnough,
+            Encoding => Self::Encoding,
+            Unknown(err_code) => panic!("unexpected sys error {}", err_code),
+        }
+    }
+}
+
+impl Into<i8> for AccountCellErrorCode {
+    fn into(self) -> i8 {
+        self as i8
+    }
+}
+
+pub trait ScriptError {
+    fn as_i8(&self) -> i8;
+}
+
+#[derive(Debug, Clone)]
+pub struct Error<T: Into<i8> + From<SysError> + Copy> {
+    pub code: T,
+    pub message: String,
+}
+
+impl<T: Into<i8> + From<SysError> + Copy> Error<T> {
+    pub fn new(code: T, message: String) -> Self {
+        Self { code, message }
+    }
+
+    pub fn boxed(code: T, message: String) -> Box<Self> {
+        Box::new(Self { code, message })
+    }
+}
+
+impl<T: Into<i8> + From<SysError> + Copy> ScriptError for Error<T> {
+    fn as_i8(&self) -> i8 {
+        self.code.into()
+    }
+}
+
+impl<T: Into<i8> + From<SysError> + Copy> PartialEq for Error<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.code.into() == other.code.into()
+    }
+}
+
+impl<'a, T: Into<i8> + From<SysError> + Copy + 'a> From<Error<T>> for Box<dyn ScriptError + 'a> {
+    fn from(err: Error<T>) -> Box<dyn ScriptError + 'a> {
+        Box::new(err)
+    }
+}
+
+impl<'a, T: Into<i8> + From<SysError> + Copy + 'a> From<Box<Error<T>>> for Box<dyn ScriptError + 'a> {
+    fn from(err: Box<Error<T>>) -> Box<dyn ScriptError + 'a> {
+        err
+    }
+}
+
+impl<T: Into<i8> + From<SysError> + Copy> From<SysError> for Error<T> {
+    fn from(err: SysError) -> Self {
+        Self::new(T::from(err), String::new())
+    }
+}
+
+impl From<SysError> for Box<dyn ScriptError> {
+    fn from(err: SysError) -> Box<dyn ScriptError> {
+        Box::new(Error::<ErrorCode>::from(err))
+    }
+}
+
+impl fmt::Debug for Box<dyn ScriptError> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Box<dyn ScriptError>")
+            .field("code", &self.as_i8())
+            .finish()
     }
 }

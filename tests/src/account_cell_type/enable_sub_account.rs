@@ -1,8 +1,11 @@
-use super::common::*;
-use crate::util::{
-    accounts::*, error::Error, template_common_cell::*, template_generator::TemplateGenerator, template_parser::*,
-};
 use serde_json::json;
+
+use super::common::*;
+use crate::util::accounts::*;
+use crate::util::error::*;
+use crate::util::template_common_cell::*;
+use crate::util::template_generator::TemplateGenerator;
+use crate::util::template_parser::*;
 
 fn before_each() -> TemplateGenerator {
     let mut template = init_for_sub_account("enable_sub_account", Some("0x00"));
@@ -101,5 +104,5 @@ fn challenge_enable_sub_account_beta_limit() {
     );
     push_output_balance_cell(&mut template, 479_000_000_000, SENDER);
 
-    challenge_tx(template.as_json(), Error::SubAccountJoinBetaError);
+    challenge_tx(template.as_json(), ErrorCode::SubAccountJoinBetaError);
 }

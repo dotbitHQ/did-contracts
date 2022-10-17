@@ -1,32 +1,27 @@
-use alloc::{
-    boxed::Box,
-    collections::btree_map::BTreeMap,
-    format,
-    string::{String, ToString},
-    vec::Vec,
-};
+use alloc::boxed::Box;
+use alloc::collections::btree_map::BTreeMap;
+use alloc::format;
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
+use core::convert::{TryFrom, TryInto};
+
 use bech32::{self, ToBase32, Variant};
 use bs58;
-use ckb_std::{
-    ckb_constants::Source,
-    ckb_types::{
-        packed as ckb_packed,
-        prelude::{Entity, Pack, Unpack},
-    },
-    error::SysError,
-    high_level,
-};
-use core::convert::{TryFrom, TryInto};
-use das_core::{
-    assert as das_assert, constants::*, data_parser, debug, error::Error, util, warn, witness_parser::WitnessesParser,
-};
-use das_types::{
-    constants::{DataType, LockRole},
-    mixer::AccountCellDataMixer,
-    packed as das_packed,
-    prelude::*,
-};
-use eip712::{eip712::*, hash_data, typed_data_v4};
+use ckb_std::ckb_constants::Source;
+use ckb_std::ckb_types::packed as ckb_packed;
+use ckb_std::ckb_types::prelude::{Entity, Pack, Unpack};
+use ckb_std::error::SysError;
+use ckb_std::high_level;
+use das_core::constants::*;
+use das_core::error::*;
+use das_core::witness_parser::WitnessesParser;
+use das_core::{assert as das_assert, code_to_error, data_parser, debug, util, warn};
+use das_types::constants::{DataType, LockRole};
+use das_types::mixer::AccountCellDataMixer;
+use das_types::packed as das_packed;
+use das_types::prelude::*;
+use eip712::eip712::*;
+use eip712::{hash_data, typed_data_v4};
 use sha2::{Digest, Sha256};
 
 #[cfg(feature = "mainnet")]
@@ -40,8 +35,8 @@ const PARAM_OMIT_SIZE: usize = 10;
 
 pub fn verify_eip712_hashes(
     parser: &WitnessesParser,
-    tx_to_das_message: fn(parser: &WitnessesParser) -> Result<String, Error>,
-) -> Result<(), Error> {
+    tx_to_das_message: fn(parser: &WitnessesParser) -> Result<String, Box<dyn ScriptError>>,
+) -> Result<(), Box<dyn ScriptError>> {
     let required_role_opt = util::get_action_required_role(&parser.action);
     let das_lock = das_lock();
     let das_lock_reader = das_lock.as_reader();
@@ -83,7 +78,7 @@ pub fn verify_eip712_hashes(
                 break;
             }
             Err(err) => {
-                return Err(Error::from(err));
+                return Err(Error::<ErrorCode>::from(err).into());
             }
         }
 
@@ -116,7 +111,7 @@ pub fn verify_eip712_hashes(
             if cfg!(not(feature = "dev")) {
                 das_assert!(
                     &item.typed_data_hash == expected_hash.as_slice(),
-                    Error::EIP712SignatureError,
+                    ErrorCode::EIP712SignatureError,
                     "Inputs[{}] The hash of EIP712 typed data is mismatched.(current: 0x{}, expected: 0x{})",
                     index,
                     util::hex_string(&item.typed_data_hash),
@@ -131,8 +126,8 @@ pub fn verify_eip712_hashes(
 
 pub fn verify_eip712_hashes_if_has_das_lock(
     parser: &WitnessesParser,
-    tx_to_das_message: fn(parser: &WitnessesParser) -> Result<String, Error>,
-) -> Result<(), Error> {
+    tx_to_das_message: fn(parser: &WitnessesParser) -> Result<String, Box<dyn ScriptError>>,
+) -> Result<(), Box<dyn ScriptError>> {
     let das_lock = das_lock();
     let input_cells =
         util::find_cells_by_type_id(ScriptType::Lock, das_lock.as_reader().code_hash().into(), Source::Input)?;
@@ -151,7 +146,7 @@ struct DigestAndHash {
 fn tx_to_digest(
     input_groups_idxs: BTreeMap<Vec<u8>, Vec<usize>>,
     input_size: usize,
-) -> Result<(BTreeMap<usize, DigestAndHash>, Vec<u8>), Error> {
+) -> Result<(BTreeMap<usize, DigestAndHash>, Vec<u8>), Box<dyn ScriptError>> {
     let mut ret: BTreeMap<usize, DigestAndHash> = BTreeMap::new();
     let mut eip712_chain_id = Vec::new();
     for (_key, input_group_idxs) in input_groups_idxs {
@@ -164,7 +159,7 @@ fn tx_to_digest(
                 init_witness_idx,
                 util::hex_string(&witness_bytes)
             );
-            Error::EIP712DecodingWitnessArgsError
+            ErrorCode::EIP712DecodingWitnessArgsError
         })?;
 
         // Reset witness_args to empty status for calculation of digest.
@@ -176,7 +171,7 @@ fn tx_to_digest(
                     .set(Some(vec![0u8; SECP_SIGNATURE_SIZE].pack()))
                     .build();
                 let empty_witness = ckb_packed::WitnessArgs::new_builder().lock(empty_signature).build();
-                let tx_hash = high_level::load_tx_hash().map_err(|_| Error::ItemMissing)?;
+                let tx_hash = high_level::load_tx_hash().map_err(|_| ErrorCode::ItemMissing)?;
 
                 let mut blake2b = util::new_blake2b();
                 blake2b.update(&tx_hash);
@@ -195,11 +190,12 @@ fn tx_to_digest(
                             blake2b.update(&(outter_witness_bytes.len() as u64).to_le_bytes());
                             blake2b.update(&outter_witness_bytes);
                         }
-                        Err(Error::IndexOutOfBound) => {
-                            break;
-                        }
                         Err(err) => {
-                            return Err(err);
+                            if err.as_i8() == ErrorCode::IndexOutOfBound as i8 {
+                                break;
+                            } else {
+                                return Err(err);
+                            }
                         }
                     }
 
@@ -217,7 +213,7 @@ fn tx_to_digest(
 
                 das_assert!(
                     lock_of_witness.len() == SECP_SIGNATURE_SIZE + CKB_HASH_DIGEST + EIP712_CHAINID_SIZE,
-                    Error::EIP712SignatureError,
+                    ErrorCode::EIP712SignatureError,
                     "Inputs[{}] The length of signature is invalid.(current: {}, expected: {})",
                     init_witness_idx,
                     lock_of_witness.len(),
@@ -241,7 +237,7 @@ fn tx_to_digest(
                 );
             }
             None => {
-                return Err(Error::EIP712SignatureError);
+                return Err(code_to_error!(ErrorCode::EIP712SignatureError));
             }
         }
     }
@@ -252,8 +248,8 @@ fn tx_to_digest(
 pub fn tx_to_eip712_typed_data(
     parser: &WitnessesParser,
     chain_id: Vec<u8>,
-    tx_to_das_message: fn(parser: &WitnessesParser) -> Result<String, Error>,
-) -> Result<TypedDataV4, Error> {
+    tx_to_das_message: fn(parser: &WitnessesParser) -> Result<String, Box<dyn ScriptError>>,
+) -> Result<TypedDataV4, Box<dyn ScriptError>> {
     let type_id_table = parser.configs.main()?.type_id_table();
 
     let plain_text = tx_to_das_message(parser)?;
@@ -329,14 +325,15 @@ pub fn to_semantic_address(
     parser: &WitnessesParser,
     lock_reader: das_packed::ScriptReader,
     role: LockRole,
-) -> Result<String, Error> {
+) -> Result<String, Box<dyn ScriptError>> {
     let address;
 
     match parser.get_lock_script_type(lock_reader) {
         Some(LockScript::DasLock) => {
             // If this is a das-lock, convert it to address base on args.
             let args_in_bytes = lock_reader.args().raw_data();
-            let das_lock_type = DasLockType::try_from(args_in_bytes[0]).map_err(|_| Error::EIP712SerializationError)?;
+            let das_lock_type =
+                DasLockType::try_from(args_in_bytes[0]).map_err(|_| ErrorCode::EIP712SerializationError)?;
             match das_lock_type {
                 DasLockType::CKBSingle => {
                     let pubkey_hash = if role == LockRole::Owner {
@@ -365,7 +362,7 @@ pub fn to_semantic_address(
                     };
                     address = format!("0x{}", util::hex_string(&pubkey_hash));
                 }
-                _ => return Err(Error::EIP712SematicError),
+                _ => return Err(code_to_error!(ErrorCode::EIP712SematicError)),
             }
         }
         Some(LockScript::Secp256k1Blake160SignhashLock) => {
@@ -392,18 +389,28 @@ pub fn to_semantic_address(
     Ok(address)
 }
 
-fn script_to_legacy_address(code_hash: Vec<u8>, hash_type: Vec<u8>, args: Vec<u8>) -> Result<String, Error> {
+fn script_to_legacy_address(
+    code_hash: Vec<u8>,
+    hash_type: Vec<u8>,
+    args: Vec<u8>,
+) -> Result<String, Box<dyn ScriptError>> {
     // This is the payload of legacy address.
     let data = [hash_type, code_hash, args].concat();
 
-    bech32::encode(&HRP.to_string(), data.to_base32(), Variant::Bech32).map_err(|_| Error::EIP712SematicError)
+    bech32::encode(&HRP.to_string(), data.to_base32(), Variant::Bech32)
+        .map_err(|_| Error::new(ErrorCode::EIP712SematicError, String::new()).into())
 }
 
-fn script_to_full_address(code_hash: Vec<u8>, hash_type: Vec<u8>, args: Vec<u8>) -> Result<String, Error> {
+fn script_to_full_address(
+    code_hash: Vec<u8>,
+    hash_type: Vec<u8>,
+    args: Vec<u8>,
+) -> Result<String, Box<dyn ScriptError>> {
     // This is the payload of full address.
     let data = [vec![0u8], code_hash, hash_type, args].concat();
 
-    bech32::encode(&HRP.to_string(), data.to_base32(), Variant::Bech32m).map_err(|_| Error::EIP712SematicError)
+    bech32::encode(&HRP.to_string(), data.to_base32(), Variant::Bech32m)
+        .map_err(|_| Error::new(ErrorCode::EIP712SematicError, String::new()).into())
 }
 
 fn b58encode_check<T: AsRef<[u8]>>(raw: T) -> String {
@@ -423,8 +430,8 @@ fn b58encode_check<T: AsRef<[u8]>>(raw: T) -> String {
     output
 }
 
-fn to_typed_action(parser: &WitnessesParser) -> Result<Value, Error> {
-    let action = String::from_utf8(parser.action.clone()).map_err(|_| Error::EIP712SerializationError)?;
+fn to_typed_action(parser: &WitnessesParser) -> Result<Value, Box<dyn ScriptError>> {
+    let action = String::from_utf8(parser.action.clone()).map_err(|_| ErrorCode::EIP712SerializationError)?;
     let mut params = Vec::new();
     for param in parser.params.iter() {
         if param.len() > 10 {
@@ -447,7 +454,7 @@ fn to_typed_cells(
     parser: &WitnessesParser,
     type_id_table_reader: das_packed::TypeIdTableReader,
     source: Source,
-) -> Result<(u64, Value), Error> {
+) -> Result<(u64, Value), Box<dyn ScriptError>> {
     let mut i = 0;
     let mut cells: Vec<Value> = Vec::new();
     let mut total_capacity = 0;
@@ -544,7 +551,7 @@ fn to_typed_cells(
                 break;
             }
             Err(err) => {
-                return Err(Error::from(err));
+                return Err(Error::<ErrorCode>::from(err).into());
             }
         }
 
@@ -634,10 +641,10 @@ fn to_typed_common_data(data_in_bytes: &[u8]) -> String {
     }
 }
 
-fn to_semantic_account_cell_data(data_in_bytes: &[u8]) -> Result<String, Error> {
+fn to_semantic_account_cell_data(data_in_bytes: &[u8]) -> Result<String, Box<dyn ScriptError>> {
     let account_in_bytes = data_parser::account_cell::get_account(data_in_bytes);
     let expired_at = data_parser::account_cell::get_expired_at(data_in_bytes);
-    let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| Error::EIP712SerializationError)?;
+    let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| ErrorCode::EIP712SerializationError)?;
     Ok(format!(
         "{{ account: {}, expired_at: {} }}",
         account,
@@ -651,20 +658,20 @@ fn to_semantic_account_witness(
     data_type: DataType,
     index: usize,
     source: Source,
-) -> Result<String, Error> {
+) -> Result<String, Box<dyn ScriptError>> {
     let (version, _, entity) = parser.verify_with_hash_and_get(expected_hash, data_type, index, source)?;
     let witness: Box<dyn AccountCellDataMixer> = if version == 2 {
         Box::new(
             das_packed::AccountCellDataV2::from_slice(entity.as_reader().raw_data()).map_err(|_| {
                 warn!("EIP712 decoding AccountCellDataV2 failed");
-                Error::WitnessEntityDecodingError
+                ErrorCode::WitnessEntityDecodingError
             })?,
         )
     } else {
         Box::new(
             das_packed::AccountCellData::from_slice(entity.as_reader().raw_data()).map_err(|_| {
                 warn!("EIP712 decoding AccountCellData failed");
-                Error::WitnessEntityDecodingError
+                ErrorCode::WitnessEntityDecodingError
             })?,
         )
     };

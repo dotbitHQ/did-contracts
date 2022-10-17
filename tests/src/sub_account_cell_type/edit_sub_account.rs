@@ -1,8 +1,12 @@
-use super::common::*;
-use crate::util::{
-    accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
-};
 use serde_json::json;
+
+use super::common::*;
+use crate::util::accounts::*;
+use crate::util::constants::*;
+use crate::util::error::*;
+use crate::util::template_common_cell::*;
+use crate::util::template_generator::*;
+use crate::util::template_parser::*;
 
 fn before_each() -> TemplateGenerator {
     let mut template = init_edit("edit_sub_account", None);
@@ -220,7 +224,10 @@ fn challenge_sub_account_edit_parent_expired() {
     );
     push_simple_output_sub_account_cell(&mut template, 0);
 
-    challenge_tx(template.as_json(), Error::AccountCellInExpirationGracePeriod)
+    challenge_tx(
+        template.as_json(),
+        AccountCellErrorCode::AccountCellInExpirationGracePeriod,
+    )
 }
 
 #[test]
@@ -276,7 +283,7 @@ fn challenge_sub_account_edit_parent_not_enable_feature() {
     );
     push_simple_output_sub_account_cell(&mut template, 0);
 
-    challenge_tx(template.as_json(), Error::SubAccountFeatureNotEnabled)
+    challenge_tx(template.as_json(), ErrorCode::SubAccountFeatureNotEnabled)
 }
 
 #[test]
@@ -316,7 +323,7 @@ fn challenge_sub_account_edit_owner_not_change() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::SubAccountEditLockError)
+    challenge_tx(template.as_json(), ErrorCode::SubAccountEditLockError)
 }
 
 #[test]
@@ -356,7 +363,7 @@ fn challenge_sub_account_edit_owner_changed_when_edit_manager() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::SubAccountEditLockError)
+    challenge_tx(template.as_json(), ErrorCode::SubAccountEditLockError)
 }
 
 #[test]
@@ -396,7 +403,7 @@ fn challenge_sub_account_edit_manager_not_change() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::SubAccountEditLockError)
+    challenge_tx(template.as_json(), ErrorCode::SubAccountEditLockError)
 }
 
 #[test]
@@ -443,7 +450,7 @@ fn challenge_sub_account_edit_records_invalid_char() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellRecordKeyInvalid)
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellRecordKeyInvalid)
 }
 
 #[test]
@@ -490,7 +497,7 @@ fn challenge_sub_account_edit_records_invalid_key() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellRecordKeyInvalid)
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellRecordKeyInvalid)
 }
 
 #[test]
@@ -537,7 +544,7 @@ fn challenge_sub_account_edit_records_invalid_role() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::AccountCellPermissionDenied)
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellPermissionDenied)
 }
 
 #[test]
@@ -578,7 +585,7 @@ fn challenge_sub_account_das_profit_changed() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::SubAccountCellConsistencyError)
+    challenge_tx(template.as_json(), ErrorCode::SubAccountCellConsistencyError)
 }
 
 #[test]
@@ -619,7 +626,7 @@ fn challenge_sub_account_owner_profit_changed() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::SubAccountCellConsistencyError)
+    challenge_tx(template.as_json(), ErrorCode::SubAccountCellConsistencyError)
 }
 
 #[test]
@@ -660,5 +667,5 @@ fn challenge_sub_account_custom_script_changed() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::SubAccountCellConsistencyError)
+    challenge_tx(template.as_json(), ErrorCode::SubAccountCellConsistencyError)
 }

@@ -1,8 +1,12 @@
-use super::common::*;
-use crate::util::{
-    accounts::*, constants::*, error::Error, template_common_cell::*, template_generator::*, template_parser::*,
-};
 use serde_json::{json, Value};
+
+use super::common::*;
+use crate::util::accounts::*;
+use crate::util::constants::*;
+use crate::util::error::*;
+use crate::util::template_common_cell::*;
+use crate::util::template_generator::*;
+use crate::util::template_parser::*;
 
 fn before() -> TemplateGenerator {
     init("apply_register")
@@ -51,7 +55,7 @@ fn challenge_apply_register_consuming_cell() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure)
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure)
 }
 
 #[test]
@@ -69,7 +73,7 @@ fn challenge_apply_register_missing_field() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::InvalidCellData)
+    challenge_tx(template.as_json(), ErrorCode::InvalidCellData)
 }
 
 #[test]
@@ -87,7 +91,7 @@ fn challenge_apply_register_invalid_height_1() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::InvalidCellData)
+    challenge_tx(template.as_json(), ErrorCode::InvalidCellData)
 }
 
 #[test]
@@ -105,7 +109,7 @@ fn challenge_apply_register_invalid_height_2() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::InvalidCellData)
+    challenge_tx(template.as_json(), ErrorCode::InvalidCellData)
 }
 
 #[test]
@@ -123,7 +127,7 @@ fn challenge_apply_register_invalid_timestamp_1() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::InvalidCellData)
+    challenge_tx(template.as_json(), ErrorCode::InvalidCellData)
 }
 
 #[test]
@@ -141,5 +145,5 @@ fn challenge_apply_register_invalid_timestamp_2() {
         }),
     );
 
-    challenge_tx(template.as_json(), Error::InvalidCellData)
+    challenge_tx(template.as_json(), ErrorCode::InvalidCellData)
 }

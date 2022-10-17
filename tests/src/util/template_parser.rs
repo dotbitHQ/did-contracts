@@ -1,32 +1,53 @@
-use super::{constants::*, error::Error, util};
-use crate::{util::template_generator::TemplateGenerator, Loader};
+use std::cell::Cell;
+use std::collections::hash_map::RandomState;
+use std::collections::{HashMap, HashSet};
+use std::error::Error as StdError;
+use std::fmt::Debug;
+use std::fs::File;
+use std::io::Read;
+use std::path::PathBuf;
+use std::str::FromStr;
+use std::{env, fs};
+
 use ckb_chain_spec::consensus::TYPE_ID_CODE_HASH;
 use ckb_hash::blake2b_256;
 use ckb_mock_tx_types::*;
 use ckb_script::TransactionScriptsVerifier;
-use ckb_types::{
-    bytes,
-    core::{
-        cell::{resolve_transaction, ResolvedTransaction},
-        Cycle, HeaderView, ScriptHashType, TransactionBuilder, TransactionView,
-    },
-    packed::*,
-    prelude::*,
-    H256,
-};
+use ckb_types::core::cell::{resolve_transaction, ResolvedTransaction};
+use ckb_types::core::{Cycle, HeaderView, ScriptHashType, TransactionBuilder, TransactionView};
+use ckb_types::packed::*;
+use ckb_types::prelude::*;
+use ckb_types::{bytes, H256};
 use das_types_std::{
     constants::Source,
     // packed::{Script, ScriptOpt},
     prelude::{Builder, Entity},
 };
 use serde_json::Value;
-use std::{
-    cell::Cell,
-    collections::{hash_map::RandomState, HashMap, HashSet},
-    error::Error as StdError,
-    fs::File,
-    io::Read,
-};
+
+use super::constants::*;
+use super::error::*;
+use super::util;
+use crate::util::template_generator::TemplateGenerator;
+
+const BINARY_VERSION: &str = "BINARY_VERSION";
+
+pub enum BinaryVersion {
+    Debug,
+    Release,
+}
+
+impl FromStr for BinaryVersion {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "debug" => Ok(BinaryVersion::Debug),
+            "release" => Ok(BinaryVersion::Release),
+            _ => Err("Environment variable BINARY_VERSION only support \"debug\" and \"release\"."),
+        }
+    }
+}
 
 pub fn test_tx(tx: Value) {
     // println!("Transaction template: {}", serde_json::to_string_pretty(&tx).unwrap());
@@ -61,27 +82,28 @@ Transaction size: {} bytes,
     }
 }
 
-pub fn challenge_tx(tx: Value, expected_error: Error) {
+pub fn challenge_tx(tx: Value, expected_error: impl Into<i8> + Clone + Debug) {
     // println!("Transaction template: {}", serde_json::to_string_pretty(&tx).unwrap());
     let mut parser = TemplateParser::from_data(tx, 350_000_000);
+    let error_code: i8 = expected_error.clone().into();
     match parser.try_parse() {
         Ok(_) => match parser.execute_tx() {
             Ok(_) => {
                 panic!(
                     "\n======\nThe test should failed with error code: {:?}({}), but it returns Ok.\n======\n",
-                    expected_error, expected_error as i8
-                )
+                    expected_error, error_code
+                );
             }
             Err(err) => {
                 let msg = err.to_string();
                 println!("Error message(single code): {}", msg);
 
-                let search = format!("error code {}", expected_error as i8);
+                let search = format!("error code {}", error_code);
                 assert!(
                     msg.contains(search.as_str()),
                     "\n======\nThe test should failed with error code: {:?}({})\n======\n",
                     expected_error,
-                    expected_error as i8
+                    error_code
                 );
             }
         },
@@ -99,7 +121,7 @@ pub fn test_tx2(tx: fn() -> TemplateGenerator) {
     test_tx(tx().as_json())
 }
 
-pub fn challenge_tx2(expected_error: Error, tx: fn() -> TemplateGenerator) {
+pub fn challenge_tx2(expected_error: ErrorCode, tx: fn() -> TemplateGenerator) {
     challenge_tx(tx().as_json(), expected_error)
 }
 
@@ -107,6 +129,7 @@ pub struct TemplateParser {
     template: Value,
     type_id_map: HashMap<String, Byte32>,
     tx_builder: Cell<TransactionBuilder>,
+    mock_header_deps: Vec<HeaderView>,
     mock_cell_deps: Vec<MockCellDep>,
     mock_inputs: Vec<MockInput>,
     max_cycles: u64,
@@ -120,6 +143,7 @@ impl TemplateParser {
             template,
             type_id_map: TemplateParser::init_type_id_map(),
             tx_builder: Cell::new(TransactionBuilder::default()),
+            mock_header_deps: vec![],
             mock_cell_deps: vec![],
             mock_inputs: vec![],
             max_cycles,
@@ -135,6 +159,7 @@ impl TemplateParser {
             template,
             type_id_map: TemplateParser::init_type_id_map(),
             tx_builder: Cell::new(TransactionBuilder::default()),
+            mock_header_deps: vec![],
             mock_cell_deps: vec![],
             mock_inputs: vec![],
             max_cycles,
@@ -146,6 +171,7 @@ impl TemplateParser {
             template,
             type_id_map: TemplateParser::init_type_id_map(),
             tx_builder: Cell::new(TransactionBuilder::default()),
+            mock_header_deps: vec![],
             mock_cell_deps: vec![],
             mock_inputs: vec![],
             max_cycles,
@@ -165,6 +191,9 @@ impl TemplateParser {
     pub fn try_parse(&mut self) -> Result<(), Box<dyn StdError>> {
         let to_owned = |v: &Vec<Value>| -> Vec<Value> { v.to_owned() };
 
+        if let Some(header_deps) = self.template["header_deps"].as_array().map(to_owned) {
+            self.parse_header_deps(header_deps)?
+        }
         if let Some(cell_deps) = self.template["cell_deps"].as_array().map(to_owned) {
             self.parse_cell_deps(cell_deps)?
         }
@@ -185,7 +214,7 @@ impl TemplateParser {
         let builder = self.tx_builder.take();
         let tx = builder.build();
         let mock_info = MockInfo {
-            header_deps: Vec::new(),
+            header_deps: self.mock_header_deps.drain(0..).collect(),
             cell_deps: self.mock_cell_deps.drain(0..).collect(),
             inputs: self.mock_inputs.drain(0..).collect(),
         };
@@ -211,44 +240,87 @@ impl TemplateParser {
         }
     }
 
+    /// The header_deps should be an array of objects like below:
+    ///
+    /// ```json
+    /// [
+    ///     {
+    ///         "version": "0x0"
+    ///         "number": "0x1c526b",
+    ///         "timestamp": "0x179f5e91cb9",
+    ///         "epoch": "0x50903410008fb",
+    ///         "transactions_root": "0xd5439ebffae718cab0fc837fb7b03a06253c250bcae8a2933ac820580a675560",
+    ///         "hash": "0x24e33cfffb2658d32ed61b55ee156ad7288e0980b72416bf3a9ce11ecc2c737a",
+    ///         "extra_hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    ///         "nonce": "0xb13000f771a12a98d82d62d2d6dfe382",
+    ///         "parent_hash": "0x9fed43a51ae94c039e29602b46d25483c7b6a46cbce48559a3040440e6c12d5d",
+    ///         "proposals_hash": "0x1bc5abcadf5b34bcc85b00c4c4afd0d6b01d0c0ca11f8ca34241838d12b9df04",
+    ///         "compact_target": "0x1d17319c",
+    ///         "dao": "0xece20aa8185bb5368aedb6e329ee24001603723bfefdae0100290badf10d4507",
+    ///     },
+    ///     ...
+    /// ]
+    /// ```
+    ///
+    /// These fields are all optional, and it will be compiled to a RawHeader object in molecule finally.
+    fn parse_header_deps(&mut self, header_deps: Vec<Value>) -> Result<(), Box<dyn StdError>> {
+        let mut mocked_header_deps = vec![];
+
+        for (i, item) in header_deps.into_iter().enumerate() {
+            let version = util::parse_json_u32(&format!("header_deps[{}].version", i), &item["version"], Some(0));
+            let number = if item["number"].is_null() {
+                util::parse_json_u64(&format!("header_deps[{}].height", i), &item["height"], Some(0))
+            } else {
+                util::parse_json_u64(&format!("header_deps[{}].number", i), &item["number"], Some(0))
+            };
+            let timestamp = util::parse_json_u64(&format!("header_deps[{}].timestamp", i), &item["timestamp"], Some(0));
+            let epoch = util::parse_json_u64(&format!("header_deps[{}].epoch", i), &item["epoch"], Some(0));
+
+            let transactions_root_raw = util::parse_json_hex_with_default(
+                &format!("header_deps[{}].transactions_root", i),
+                &item["transactions_root"],
+                vec![0u8; 32],
+            );
+            let transactions_root = match Byte32::from_slice(&transactions_root_raw) {
+                Ok(transactions_root) => transactions_root,
+                Err(err) => return Err(format!("Parse transactions_root error: {:?}", err).into()),
+            };
+
+            let raw_header = RawHeaderBuilder::default()
+                .version(version.pack())
+                .number(number.pack())
+                .timestamp(timestamp.pack())
+                .epoch(epoch.pack())
+                .transactions_root(transactions_root)
+                .build();
+            let header = Header::new_builder().raw(raw_header).nonce(Uint128::default()).build();
+            let header_view = header.into_view();
+            let hash = header_view.hash();
+            self.mock_header_deps.push(header_view);
+
+            mocked_header_deps.push(hash);
+        }
+
+        let builder = self.tx_builder.take();
+        self.tx_builder.set(builder.set_header_deps(mocked_header_deps));
+
+        Ok(())
+    }
+
     fn parse_cell_deps(&mut self, cell_deps: Vec<Value>) -> Result<(), Box<dyn StdError>> {
         let mut mocked_cell_deps = vec![];
 
         for (i, item) in cell_deps.into_iter().enumerate() {
             match item["tmp_type"].as_str() {
-                Some("contract") | Some("deployed_contract") => {
-                    let deployed = if item["tmp_type"].as_str() == Some("deployed_contract") {
-                        true
-                    } else {
-                        false
-                    };
+                Some("contract") | Some("deployed_contract") | Some("shared_lib") | Some("deployed_shared_lib") => {
+                    let tmp_type = item["tmp_type"].as_str().expect("The tmp_type field is required.");
+                    let is_deployed = if tmp_type.contains("deployed") { true } else { false };
+                    let is_shared_lib = if tmp_type.contains("shared_lib") { true } else { false };
 
                     let name = item["tmp_file_name"].as_str().unwrap();
                     let (_type_id, _out_point, cell_dep, cell_output, cell_data) =
-                        self.mock_contract(name, deployed, Some(i));
+                        self.mock_contract(name, is_deployed, is_shared_lib, Some(i));
                     // println!("{:>30}: {}", name, type_id);
-
-                    let mock_cell_dep = MockCellDep {
-                        cell_dep: cell_dep.clone(),
-                        output: cell_output,
-                        data: cell_data,
-                        header: None,
-                    };
-                    self.mock_cell_deps.push(mock_cell_dep);
-
-                    mocked_cell_deps.push(cell_dep);
-                }
-                Some("shared_lib") | Some("deployed_shared_lib") => {
-                    let deployed = if item["tmp_type"].as_str() == Some("deployed_shared_lib") {
-                        true
-                    } else {
-                        false
-                    };
-
-                    let name = item["tmp_file_name"].as_str().unwrap();
-                    let (_type_id, _out_point, cell_dep, cell_output, cell_data) =
-                        self.mock_shared_lib(name, deployed, Some(i));
-                    // println!("{:>30}: {}", name, code_hash);
 
                     let mock_cell_dep = MockCellDep {
                         cell_dep: cell_dep.clone(),
@@ -296,7 +368,6 @@ impl TemplateParser {
         let builder = self.tx_builder.take();
         self.tx_builder.set(builder.set_cell_deps(mocked_cell_deps));
 
-        // eprintln!("Parse self.contracts = {:#?}", self.contracts);
         Ok(())
     }
 
@@ -316,44 +387,15 @@ impl TemplateParser {
                                 err.to_string()
                             )
                         })?;
-
-                    // parse inputs[].since as a mock cell
-                    let mut since_opt = None;
-                    if !item["since"].is_null() {
-                        if item["since"].is_number() {
-                            since_opt = item["since"].as_u64();
-                        } else {
-                            since_opt = match item["since"].as_str() {
-                                Some(hex) => match util::hex_to_u64(hex) {
-                                    Ok(since) => Some(since),
-                                    Err(e) => {
-                                        return Err(format!(
-                                            "Parse `inputs[{}].since` to u64 failed: {}",
-                                            i,
-                                            e.to_string()
-                                        )
-                                        .into());
-                                    }
-                                },
-                                None => {
-                                    return Err(
-                                        format!("Field `inputs[{}].since` is not a valid hex string.", i).into()
-                                    );
-                                }
-                            };
-                        }
-                    }
+                    // parse inputs[].since
+                    let since = util::parse_json_u64("cell.inputs.since", &item["since"], Some(0));
 
                     // Generate static out point for debugging purposes, and it use the space of 1_000_000 to u64::Max.
                     let out_point = self.mock_out_point(i + 1_000_000);
-                    let cell_input = if let Some(since) = since_opt {
-                        CellInput::new_builder()
-                            .previous_output(out_point.clone())
-                            .since(since.pack())
-                            .build()
-                    } else {
-                        CellInput::new_builder().previous_output(out_point.clone()).build()
-                    };
+                    let cell_input = CellInput::new_builder()
+                        .previous_output(out_point.clone())
+                        .since(since.pack())
+                        .build();
                     let cell_output = CellOutput::new_builder()
                         .capacity(capacity.pack())
                         .lock(lock_script)
@@ -441,13 +483,7 @@ impl TemplateParser {
         source: Source,
     ) -> Result<(u64, Script, Option<Script>, bytes::Bytes), Box<dyn StdError>> {
         // parse capacity of cell
-        let capacity: u64;
-        if cell["capacity"].is_number() {
-            capacity = cell["capacity"].as_u64().ok_or("Field `cell.capacity` is required.")?;
-        } else {
-            let hex = cell["capacity"].as_str().ok_or("Field `cell.capacity` is required.")?;
-            capacity = util::hex_to_u64(hex).expect("Field `cell.capacity` is not valid u64 in hex.");
-        }
+        let capacity = util::parse_json_u64("cell.capacity", &cell["capacity"], None);
 
         // parse lock script and type script of cell
         let lock_script = self
@@ -541,98 +577,121 @@ impl TemplateParser {
     }
 
     fn mock_out_point(&self, index: usize) -> OutPoint {
-        let index_bytes = (index as u64).to_be_bytes().to_vec();
-        let tx_hash_bytes = [
-            vec![0u8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            index_bytes,
-        ]
-        .concat();
-        let tx_hash = Byte32::from_slice(&tx_hash_bytes).expect("The input of Byte32::from_slice is invalid.");
-
+        let tx_hash = index_to_byte32(index);
         OutPoint::new_builder().index(0u32.pack()).tx_hash(tx_hash).build()
     }
 
     fn mock_contract(
         &self,
         binary_name: &str,
-        deployed: bool,
+        is_deployed: bool,
+        is_shared_lib: bool,
         index_opt: Option<usize>,
     ) -> (Byte32, OutPoint, CellDep, CellOutput, bytes::Bytes) {
-        let file: bytes::Bytes = if deployed {
-            Loader::with_deployed_scripts().load_binary(binary_name)
-        } else {
-            Loader::default().load_binary(binary_name)
-        };
+        let file = self.load_binary(binary_name, is_deployed);
 
-        let args = {
-            // Padding args to 32 bytes, because it is convenient to use 32 bytes as the real args are also 32 bytes.
-            let mut buf = [0u8; 32];
-            let len = buf.len();
-            let bytes = binary_name.as_bytes();
-            if bytes.len() >= len {
-                buf.copy_from_slice(&bytes[..32]);
-            } else {
-                let (_, right) = buf.split_at_mut(len - bytes.len());
-                right.copy_from_slice(bytes);
+        let code_hash;
+        let cell_output;
+        if is_shared_lib {
+            let hash = blake2b_256(file.clone());
+            let mut inner = [Byte::new(0); 32];
+            for (i, item) in hash.iter().enumerate() {
+                inner[i] = Byte::new(*item);
             }
-
-            buf
-        };
-        let args_bytes = args.iter().map(|v| Byte::new(*v)).collect::<Vec<_>>();
-        let type_ = Script::new_builder()
-            .code_hash(Byte32::new_unchecked(bytes::Bytes::from(TYPE_ID_CODE_HASH.as_bytes())))
-            .hash_type(ScriptHashType::Type.into())
-            .args(Bytes::new_builder().set(args_bytes).build())
-            .build();
-        let type_id = type_.calc_script_hash();
-        // Uncomment the line below can print type ID of each script in unit tests.
-        // println!(
-        //     "script: {}, type_id: {}, args: {}",
-        //     binary_name,
-        //     type_id,
-        //     hex_string(binary_name.as_bytes())
-        // );
-
-        let out_point = self.mock_out_point(index_opt.unwrap_or(rand::random::<usize>()));
-        let cell_dep = CellDep::new_builder().out_point(out_point.clone()).build();
-        let cell_output = CellOutput::new_builder()
-            .capacity(0u64.pack())
-            .lock(Script::default())
-            .type_(ScriptOpt::new_builder().set(Some(type_)).build())
-            .build();
-
-        (type_id, out_point, cell_dep, cell_output, file)
-    }
-
-    fn mock_shared_lib(
-        &self,
-        binary_name: &str,
-        deployed: bool,
-        index_opt: Option<usize>,
-    ) -> (Byte32, OutPoint, CellDep, CellOutput, bytes::Bytes) {
-        let file: bytes::Bytes = if deployed {
-            Loader::with_deployed_scripts().load_binary(binary_name)
+            code_hash = Byte32::new_builder().set(inner).build();
+            cell_output = CellOutput::new_builder()
+                .capacity(0u64.pack())
+                .lock(Script::default())
+                .type_(ScriptOpt::new_builder().set(None).build())
+                .build();
         } else {
-            Loader::default().load_binary(binary_name)
-        };
+            let args = {
+                // Padding args to 32 bytes, because it is convenient to use 32 bytes as the real args are also 32 bytes.
+                let mut buf = [0u8; 32];
+                let len = buf.len();
+                let bytes = binary_name.as_bytes();
+                if bytes.len() >= len {
+                    buf.copy_from_slice(&bytes[..32]);
+                } else {
+                    let (_, right) = buf.split_at_mut(len - bytes.len());
+                    right.copy_from_slice(bytes);
+                }
 
-        let hash = blake2b_256(file.clone());
-        let mut inner = [Byte::new(0); 32];
-        for (i, item) in hash.iter().enumerate() {
-            inner[i] = Byte::new(*item);
+                buf
+            };
+            let args_bytes = args.iter().map(|v| Byte::new(*v)).collect::<Vec<_>>();
+            let type_ = Script::new_builder()
+                .code_hash(Byte32::new_unchecked(bytes::Bytes::from(TYPE_ID_CODE_HASH.as_bytes())))
+                .hash_type(ScriptHashType::Type.into())
+                .args(Bytes::new_builder().set(args_bytes).build())
+                .build();
+
+            code_hash = type_.calc_script_hash();
+            cell_output = CellOutput::new_builder()
+                .capacity(0u64.pack())
+                .lock(Script::default())
+                .type_(ScriptOpt::new_builder().set(Some(type_)).build())
+                .build();
+            // Uncomment the line below can print type ID of each script in unit tests.
+            // println!(
+            //     "script: {}, type_id: {}, args: {}",
+            //     binary_name,
+            //     type_id,
+            //     hex_string(binary_name.as_bytes())
+            // );
         }
-        let code_hash = Byte32::new_builder().set(inner).build();
 
         let out_point = self.mock_out_point(index_opt.unwrap_or(rand::random::<usize>()));
         let cell_dep = CellDep::new_builder().out_point(out_point.clone()).build();
-        let cell_output = CellOutput::new_builder()
-            .capacity(0u64.pack())
-            .lock(Script::default())
-            .type_(ScriptOpt::new_builder().set(None).build())
-            .build();
 
         (code_hash, out_point, cell_dep, cell_output, file)
     }
+
+    fn load_binary(&self, name: &str, is_deployed: bool) -> bytes::Bytes {
+        let current_dir = env::current_dir().unwrap();
+        let mut file_path = PathBuf::new();
+
+        if is_deployed {
+            file_path.push(current_dir);
+            file_path.push("..");
+            file_path.push("deployed-scripts");
+        } else {
+            let binary_version = match env::var(BINARY_VERSION) {
+                Ok(val) => val.parse().expect("Binary version should be one of debug and release."),
+                Err(_) => BinaryVersion::Debug,
+            };
+            let binary_dir = match binary_version {
+                BinaryVersion::Debug => "debug",
+                BinaryVersion::Release => "release",
+            };
+
+            file_path.push(current_dir);
+            file_path.push("..");
+            file_path.push("build");
+            file_path.push(binary_dir);
+        }
+
+        file_path.push(name);
+
+        fs::read(file_path.as_path())
+            .expect(&format!(
+                "Can not load binary of {} from path {}.",
+                name,
+                file_path.display()
+            ))
+            .into()
+    }
+}
+
+fn index_to_byte32(index: usize) -> Byte32 {
+    let index_bytes = (index as u64).to_be_bytes().to_vec();
+    let padding_bytes = [
+        vec![0u8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        index_bytes,
+    ]
+    .concat();
+
+    Byte32::from_slice(&padding_bytes).expect("The Byte32::from_slice(&tx_hash_bytes) should always succeed.")
 }
 
 pub struct DummyResourceLoader {}

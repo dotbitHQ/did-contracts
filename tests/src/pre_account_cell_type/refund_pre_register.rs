@@ -1,6 +1,11 @@
-use super::common::*;
-use crate::util::{accounts::*, constants::*, error::Error, template_common_cell::*, template_parser::*};
 use serde_json::json;
+
+use super::common::*;
+use crate::util::accounts::*;
+use crate::util::constants::*;
+use crate::util::error::*;
+use crate::util::template_common_cell::*;
+use crate::util::template_parser::*;
 
 #[test]
 fn test_pre_register_refund() {
@@ -148,7 +153,7 @@ fn challenge_pre_register_cell_in_outputs() {
     );
     push_output_normal_cell(&mut template, 200_000_000_000, OWNER_WITHOUT_TYPE);
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure)
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure)
 }
 
 #[test]
@@ -175,7 +180,7 @@ fn challenge_pre_register_refund_too_early() {
     // outputs
     push_output_normal_cell(&mut template, 100_000_000_000u64, OWNER_WITHOUT_TYPE);
 
-    challenge_tx(template.as_json(), Error::PreRegisterIsNotTimeout)
+    challenge_tx(template.as_json(), ErrorCode::PreRegisterIsNotTimeout)
 }
 
 #[test]
@@ -203,7 +208,7 @@ fn challenge_pre_register_refund_to_multiple_cells() {
     push_output_normal_cell(&mut template, 10_000_000_000u64, OWNER_WITHOUT_TYPE);
     push_output_normal_cell(&mut template, 90_000_000_000u64, OWNER_WITHOUT_TYPE);
 
-    challenge_tx(template.as_json(), Error::InvalidTransactionStructure)
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure)
 }
 
 #[test]
@@ -234,5 +239,5 @@ fn challenge_pre_register_refund_capacity_not_enough() {
         OWNER_WITHOUT_TYPE,
     );
 
-    challenge_tx(template.as_json(), Error::PreRegisterRefundCapacityError)
+    challenge_tx(template.as_json(), ErrorCode::PreRegisterRefundCapacityError)
 }

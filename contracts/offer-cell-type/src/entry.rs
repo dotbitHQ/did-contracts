@@ -1,20 +1,26 @@
+use alloc::boxed::Box;
 use alloc::string::String;
-use ckb_std::{ckb_constants::Source, high_level};
 use core::result::Result;
-use das_core::{
-    assert, assert_lock_equal, constants::*, data_parser, debug, error::Error, util, verifiers,
-    witness_parser::WitnessesParser,
-};
-use das_map::{map::Map, util as map_util};
-use das_types::{constants::AccountStatus, packed::*, prelude::*};
 
-pub fn main() -> Result<(), Error> {
+use ckb_std::ckb_constants::Source;
+use ckb_std::high_level;
+use das_core::constants::*;
+use das_core::error::*;
+use das_core::witness_parser::WitnessesParser;
+use das_core::{assert, assert_lock_equal, code_to_error, data_parser, debug, util, verifiers};
+use das_map::map::Map;
+use das_map::util as map_util;
+use das_types::constants::AccountStatus;
+use das_types::packed::*;
+use das_types::prelude::*;
+
+pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running offer-cell-type ======");
 
     let mut parser = WitnessesParser::new()?;
     let action_cp = match parser.parse_action_with_params()? {
         Some((action, _)) => action.to_vec(),
-        None => return Err(Error::ActionNotSupported),
+        None => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
     };
     let action = action_cp.as_slice();
 
@@ -24,7 +30,7 @@ pub fn main() -> Result<(), Error> {
 
     debug!(
         "Route to {:?} action ...",
-        String::from_utf8(action.to_vec()).map_err(|_| Error::ActionNotSupported)?
+        String::from_utf8(action.to_vec()).map_err(|_| ErrorCode::ActionNotSupported)?
     );
     match action {
         b"make_offer" | b"edit_offer" => {
@@ -83,7 +89,7 @@ pub fn main() -> Result<(), Error> {
             let current_lock = high_level::load_cell_lock(output_cells[0], Source::Output)?;
             assert!(
                 util::is_type_id_equal(expected_lock.as_reader(), current_lock.as_reader()),
-                Error::OfferCellLockError,
+                ErrorCode::OfferCellLockError,
                 "The OfferCell.lock should be the das-lock."
             );
 
@@ -92,7 +98,7 @@ pub fn main() -> Result<(), Error> {
             assert_lock_equal!(
                 (all_input_cells[0], Source::Input),
                 (output_cells[0], Source::Output),
-                Error::OfferCellLockError,
+                ErrorCode::OfferCellLockError,
                 "The OfferCell.lock should be the same as the lock of inputs[0]."
             );
 
@@ -121,7 +127,7 @@ pub fn main() -> Result<(), Error> {
                         input_offer_cell_witness_reader.account(),
                         output_offer_cell_witness_reader.account()
                     ),
-                    Error::OfferCellFieldCanNotModified,
+                    ErrorCode::OfferCellFieldCanNotModified,
                     "The OfferCell.account can not be modified."
                 );
 
@@ -130,7 +136,7 @@ pub fn main() -> Result<(), Error> {
                         input_offer_cell_witness_reader.inviter_lock(),
                         output_offer_cell_witness_reader.inviter_lock()
                     ),
-                    Error::OfferCellFieldCanNotModified,
+                    ErrorCode::OfferCellFieldCanNotModified,
                     "The OfferCell.inviter_lock can not be modified."
                 );
 
@@ -139,7 +145,7 @@ pub fn main() -> Result<(), Error> {
                         input_offer_cell_witness_reader.channel_lock(),
                         output_offer_cell_witness_reader.channel_lock()
                     ),
-                    Error::OfferCellFieldCanNotModified,
+                    ErrorCode::OfferCellFieldCanNotModified,
                     "The OfferCell.channel_lock can not be modified."
                 );
 
@@ -155,7 +161,7 @@ pub fn main() -> Result<(), Error> {
 
                 assert!(
                     old_fee - new_fee <= common_fee,
-                    Error::OfferCellCapacityError,
+                    ErrorCode::OfferCellCapacityError,
                     "The fee paid by the OfferCell should be less than or equal to {} shannon.(expected: {} = {}(old_fee) - {}(new_fee))",
                     common_fee,
                     old_fee - new_fee,
@@ -188,7 +194,7 @@ pub fn main() -> Result<(), Error> {
 
                 assert!(
                     changed,
-                    Error::InvalidTransactionStructure,
+                    ErrorCode::InvalidTransactionStructure,
                     "The OfferCell has not been changed."
                 );
             }
@@ -206,7 +212,7 @@ pub fn main() -> Result<(), Error> {
 
             assert!(
                 input_cells.len() >= 1 && output_cells.len() == 0,
-                Error::InvalidTransactionStructure,
+                ErrorCode::InvalidTransactionStructure,
                 "There should be at least 1 OfferCell in inputs."
             );
 
@@ -221,7 +227,7 @@ pub fn main() -> Result<(), Error> {
                 let lock_hash = high_level::load_cell_lock_hash(*i, Source::Input)?;
                 assert!(
                     expected_lock_hash == lock_hash,
-                    Error::InvalidTransactionStructure,
+                    ErrorCode::InvalidTransactionStructure,
                     "Inputs[{}] The OfferCell should has the same lock script with others.",
                     i
                 );
@@ -312,7 +318,7 @@ pub fn main() -> Result<(), Error> {
             let new_owner_lock = high_level::load_cell_lock(output_account_cells[0], Source::Output)?;
             assert!(
                 util::is_entity_eq(&buyer_lock, &new_owner_lock),
-                Error::OfferCellNewOwnerError,
+                ErrorCode::OfferCellNewOwnerError,
                 "The new owner of the AccountCell is not the buyer's lock.(expected: {}, current: {})",
                 buyer_lock,
                 new_owner_lock
@@ -330,7 +336,7 @@ pub fn main() -> Result<(), Error> {
 
             assert!(
                 expected_account == current_account,
-                Error::OfferCellAccountMismatch,
+                ErrorCode::OfferCellAccountMismatch,
                 "The account should be {}, but {} found.",
                 String::from_utf8(expected_account.to_vec()).unwrap(),
                 String::from_utf8(current_account.to_vec()).unwrap()
@@ -357,7 +363,7 @@ pub fn main() -> Result<(), Error> {
 
             util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
         }
-        _ => return Err(Error::ActionNotSupported),
+        _ => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
     }
 
     Ok(())
@@ -366,13 +372,13 @@ pub fn main() -> Result<(), Error> {
 fn verify_message_length(
     config_second_market: ConfigCellSecondaryMarketReader,
     offer_cell_witness: OfferCellDataReader,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     let max_length = u32::from(config_second_market.offer_message_bytes_limit()) as usize;
     let message_length = offer_cell_witness.message().len();
 
     assert!(
         max_length >= message_length,
-        Error::OfferCellMessageTooLong,
+        ErrorCode::OfferCellMessageTooLong,
         "The OfferCell.witness.message is too long.(max_length_in_bytes: {})",
         max_length
     );
@@ -386,7 +392,7 @@ fn verify_price(
     index: usize,
     source: Source,
     exist_fee: Option<u64>,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     let basic_capacity = u64::from(config_second_market.offer_cell_basic_capacity());
     let fee = if let Some(exist_fee) = exist_fee {
         exist_fee
@@ -399,14 +405,14 @@ fn verify_price(
 
     assert!(
         current_price >= basic_capacity,
-        Error::OfferCellCapacityError,
+        ErrorCode::OfferCellCapacityError,
         "The OfferCell.price should be more than or equal to the basic capacity.(current_price: {}, basic_capacity: {})",
         current_price,
         basic_capacity
     );
     assert!(
         current_capacity == current_price + fee,
-        Error::OfferCellCapacityError,
+        ErrorCode::OfferCellCapacityError,
         "The OfferCell.capacity should contain its price and prepared fee.(price: {}, current_capacity: {})",
         current_price,
         current_capacity
@@ -424,7 +430,7 @@ fn verify_profit_distribution(
     price: u64,
     common_fee: u64,
     offer_cell_capacity: u64,
-) -> Result<(), Error> {
+) -> Result<(), Box<dyn ScriptError>> {
     let config_profit_rate = parser.configs.profit_rate()?;
     let default_script = Script::default();
     let default_script_reader = default_script.as_reader();

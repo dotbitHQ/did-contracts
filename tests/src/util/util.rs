@@ -1,23 +1,26 @@
-use super::{super::ckb_types_relay::*, constants::*, error};
+use std::error::Error;
+use std::fs::File;
+use std::io::{BufRead, BufReader, Lines};
+use std::path::PathBuf;
+use std::{env, io, str};
+
 use chrono::{DateTime, NaiveDateTime, Utc};
 use ckb_hash::{blake2b_256, Blake2bBuilder};
-use ckb_types::{bytes, packed::*, prelude::*};
+use ckb_types::bytes;
+use ckb_types::packed::*;
+use ckb_types::prelude::*;
 use lazy_static::lazy_static;
 use serde_json::Value;
-use std::{
-    env,
-    error::Error,
-    fs::File,
-    io,
-    io::{BufRead, BufReader, Lines},
-    path::PathBuf,
-};
+
+use super::super::ckb_types_relay::*;
+use super::constants::*;
+use super::error;
 
 lazy_static! {
     pub static ref SECP256K1: secp256k1::Secp256k1<secp256k1::All> = secp256k1::Secp256k1::new();
 }
 
-pub fn contains_error(message: &str, err_code: error::Error) -> bool {
+pub fn contains_error(message: &str, err_code: error::ErrorCode) -> bool {
     let err_str = format!("ValidationFailure({})", (err_code as i8).to_string());
     message.contains(&err_str)
 }
@@ -184,4 +187,86 @@ pub fn gen_register_fee_v2(account: &str, account_length: usize, has_inviter: bo
 
 pub fn gen_account_cell_capacity(length: u64) -> u64 {
     ((length + 4) * 100_000_000) + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY
+}
+
+/// Parse u64 in JSON
+///
+/// Support both **number** and **string** format.
+pub fn parse_json_u64(field_name: &str, field: &Value, default: Option<u64>) -> u64 {
+    if let Some(val) = field.as_u64() {
+        val
+    } else if let Some(val) = field.as_str() {
+        val.replace("_", "")
+            .parse()
+            .expect(&format!("{} should be u64 in string", field_name))
+    } else {
+        if let Some(val) = default {
+            return val;
+        } else {
+            panic!("{} is missing", field_name);
+        }
+    }
+}
+
+/// Parse u32 in JSON
+///
+/// Support both **number** and **string** format.
+pub fn parse_json_u32(field_name: &str, field: &Value, default: Option<u32>) -> u32 {
+    if let Some(val) = field.as_u64() {
+        val as u32
+    } else if let Some(val) = field.as_str() {
+        val.replace("_", "")
+            .parse()
+            .expect(&format!("{} should be u32 in string", field_name))
+    } else {
+        if let Some(val) = default {
+            return val;
+        } else {
+            panic!("{} is missing", field_name);
+        }
+    }
+}
+
+/// Parse u8 in JSON
+pub fn parse_json_u8(field_name: &str, field: &Value, default: Option<u8>) -> u8 {
+    if let Some(val) = field.as_u64() {
+        if val > u8::MAX as u64 {
+            panic!("{} should be u8", field_name)
+        } else {
+            val as u8
+        }
+    } else if let Some(val) = field.as_str() {
+        val.replace("_", "")
+            .parse()
+            .expect(&format!("{} should be u8 in string", field_name))
+    } else {
+        if let Some(val) = default {
+            return val;
+        } else {
+            panic!("{} is missing", field_name);
+        }
+    }
+}
+
+/// Parse hex string in JSON
+///
+/// Prefix "0x" is optional.
+pub fn parse_json_hex(field_name: &str, field: &Value) -> Vec<u8> {
+    let mut hex = field.as_str().expect(&format!("{} is missing", field_name));
+    hex = hex.trim_start_matches("0x");
+
+    if hex == "" {
+        Vec::new()
+    } else {
+        hex::decode(hex).expect(&format!("{} is should be hex string", field_name))
+    }
+}
+
+/// Parse hex string in JSON, if it is not exist return the default value.
+pub fn parse_json_hex_with_default(field_name: &str, field: &Value, default: Vec<u8>) -> Vec<u8> {
+    if field.is_null() {
+        default
+    } else {
+        parse_json_hex(field_name, field)
+    }
 }

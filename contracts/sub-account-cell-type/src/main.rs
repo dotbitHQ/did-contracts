@@ -14,8 +14,9 @@
 // define modules
 mod entry;
 
-use ckb_std::default_alloc;
 use core::arch::asm;
+
+use ckb_std::default_alloc;
 
 ckb_std::entry!(program_entry);
 default_alloc!();
@@ -25,6 +26,6 @@ fn program_entry() -> i8 {
     // Call main function and return error code
     match entry::main() {
         Ok(_) => 0,
-        Err(err) => err as i8,
+        Err(err) => err.as_i8(),
     }
 }
