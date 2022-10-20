@@ -568,9 +568,7 @@ fn verify_account_release_status<'a>(
             CharSetType::Emoji,
             CharSetType::Digit,
             CharSetType::Ko,
-            CharSetType::Tr,
             CharSetType::Th,
-            CharSetType::Vi,
         ];
         if let Some(char_set) = account_char_set {
             // If the account_char_set is in while list and the account's length is greater than or equel to 4, then the account is released.
