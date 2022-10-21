@@ -313,6 +313,40 @@ fn challenge_pre_register_pure_digit_account_less_than_4_chars_after_20221018() 
 }
 
 #[test]
+fn challenge_pre_register_unreleased_pure_vi_account_after_20221018() {
+    let account = "evwcu.bit";
+    let mut template = init_after_20221018();
+    template.push_config_cell_derived_by_account(account, Source::CellDep);
+
+    push_input_simple_apply_register_cell(&mut template, account);
+
+    push_output_pre_account_cell(
+        &mut template,
+        json!({
+            "capacity": util::gen_register_fee_v2(account, 5, false),
+            "witness": {
+                "account": [
+                    // Simulate trying to register account with not fully unreleased char-set.
+                    { "char": "e", "type": CharSetType::Vi as u32 },
+                    { "char": "v", "type": CharSetType::Vi as u32 },
+                    { "char": "w", "type": CharSetType::Vi as u32 },
+                    { "char": "c", "type": CharSetType::Vi as u32 },
+                    { "char": "u", "type": CharSetType::Vi as u32 },
+                ],
+                "created_at": TIMESTAMP_20221810,
+                "price": {
+                    "length": 5,
+                    "new": ACCOUNT_PRICE_5_CHAR,
+                    "renew": ACCOUNT_PRICE_5_CHAR
+                }
+            }
+        }),
+    );
+
+    challenge_tx(template.as_json(), ErrorCode::AccountStillCanNotBeRegister)
+}
+
+#[test]
 fn challenge_pre_register_unreleased_pure_en_account_after_20221018() {
     let account = "ftyht.bit";
     let mut template = init_after_20221018();
