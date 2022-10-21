@@ -52,6 +52,8 @@ pub fn init_after_20221018() -> TemplateGenerator {
     template.push_config_cell(DataType::ConfigCellCharSetEmoji, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellCharSetDigit, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellCharSetEn, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellCharSetVi, Source::CellDep);
+    template.push_config_cell(DataType::ConfigCellCharSetTr, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellMain, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellPrice, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellRelease, Source::CellDep);
