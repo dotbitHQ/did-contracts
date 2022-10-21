@@ -636,7 +636,7 @@ impl TemplateParser {
             // println!(
             //     "script: {}, type_id: {}, args: {}",
             //     binary_name,
-            //     type_id,
+            //     code_hash,
             //     hex_string(binary_name.as_bytes())
             // );
         }

@@ -110,6 +110,46 @@ fn test_account_recycle_without_sub_account() {
 }
 
 #[test]
+fn test_account_recycle_without_sub_account_from_black_hole() {
+    let mut template = before_each();
+
+    push_prev_account_cell(&mut template);
+    push_input_account_cell(
+        &mut template,
+        json!({
+            "capacity": util::gen_account_cell_capacity(8),
+            "lock": {
+                "owner_lock_args": CROSS_CHAIN_BLACK_ACCOUNT,
+                "manager_lock_args": MANAGER
+            },
+            "data": {
+                "account": "das00002.bit",
+                "next": "das00003.bit",
+                "expired_at": TIMESTAMP - ACCOUNT_EXPIRATION_GRACE_PERIOD - ACCOUNT_EXPIRATION_AUCTION_PERIOD - ACCOUNT_EXPIRATION_AUCTION_CONFIRMATION_PERIOD - 1,
+            },
+            "witness": {
+                "enable_sub_account": 0,
+            }
+        }),
+    );
+    template.push_das_lock_witness("0000000000000000000000000000000000000000000000000000000000000000");
+
+    push_output_account_cell(
+        &mut template,
+        json!({
+            "capacity": util::gen_account_cell_capacity(8),
+            "data": {
+                "account": "das00001.bit",
+                "next": "das00003.bit",
+            },
+        }),
+    );
+    push_output_normal_cell(&mut template, util::gen_account_cell_capacity(8) - ACCOUNT_OPERATE_FEE, DAS_WALLET_LOCK_ARGS);
+
+    test_tx(template.as_json());
+}
+
+#[test]
 fn test_account_recycle_with_sub_account_and_refund_to_das() {
     let mut template = before_each();
 

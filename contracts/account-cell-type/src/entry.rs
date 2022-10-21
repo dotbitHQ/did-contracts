@@ -485,9 +485,13 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let available_fee = u64::from(config_account.common_fee());
             let refund_lock = util::derive_owner_lock_from_cell(input_cells[1], Source::Input)?;
             let refund_args = refund_lock.as_reader().args().raw_data();
+            let owner_args = data_parser::das_lock_args::get_owner_lock_args(refund_args);
 
-            if refund_args != &CROSS_CHAIN_BLACK_ARGS {
+            if owner_args != &CROSS_CHAIN_BLACK_ARGS {
                 // If the lock is not the black hole lock, then the refund should be refunded to current owner.
+
+                debug!("The lock is not the black hole lock, so refund normally.");
+
                 verifiers::misc::verify_user_get_change(
                     config_main,
                     refund_lock.as_reader(),
