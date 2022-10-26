@@ -1,13 +1,11 @@
 use alloc::boxed::Box;
-use alloc::vec::Vec;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
-use das_core::constants::{das_lock, DasLockType, ScriptType, TypeScript};
+use das_core::constants::{das_lock, ScriptType, TypeScript};
 use das_core::error::*;
 use das_core::witness_parser::WitnessesParser;
-use das_core::{code_to_error, data_parser, debug, util, warn};
-use das_types::packed as das_packed;
+use das_core::{code_to_error, debug, util, verifiers};
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running balance-cell-type ======");
@@ -111,62 +109,8 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
     }
 
     if output_cells.len() > 0 {
-        debug!("Check if any cells with das-lock in outputs lack of one of balance-cell-type, account-cell-type, account-sale-cell-type, account-auction-cell-type.");
-
-        let mut available_type_scripts: Vec<das_packed::Script> = Vec::new();
-        for index in output_cells {
-            let lock = high_level::load_cell_lock(index, Source::Output)?;
-            let lock_args = lock.as_reader().args().raw_data();
-            let owner_type = data_parser::das_lock_args::get_owner_type(lock_args);
-            let manager_type = data_parser::das_lock_args::get_owner_type(lock_args);
-
-            // Check if cells with das-lock in outputs also has the type script named balance-cell-type, account-cell-type, account-sale-cell-type, account-auction-cell-type..
-            if owner_type == DasLockType::ETHTypedData as u8 || manager_type == DasLockType::ETHTypedData as u8 {
-                let type_opt = high_level::load_cell_type(index, Source::Output)?;
-                match type_opt {
-                    Some(type_) => {
-                        let mut pass = false;
-                        if util::is_reader_eq(balance_cell_type_reader, type_.as_reader()) {
-                            pass = true;
-                        } else {
-                            if available_type_scripts.is_empty() {
-                                debug!("Try to load type ID table from ConfigCellMain, because found some cells with das-lock not using balance-cell-type.");
-                                let parser = WitnessesParser::new()?;
-
-                                macro_rules! push_type_script {
-                                    ($type_id_name:ident) => {
-                                        let type_id = parser.configs.main()?.type_id_table().$type_id_name();
-                                        let type_script = util::type_id_to_script(type_id);
-                                        available_type_scripts.push(type_script);
-                                    };
-                                }
-
-                                push_type_script!(account_cell);
-                                push_type_script!(account_sale_cell);
-                                push_type_script!(account_auction_cell);
-                                push_type_script!(offer_cell);
-                                push_type_script!(reverse_record_cell);
-                            }
-
-                            for script in available_type_scripts.iter() {
-                                if util::is_type_id_equal(script.as_reader().into(), type_.as_reader()) {
-                                    pass = true;
-                                }
-                            }
-                        }
-
-                        if !pass {
-                            warn!("Outputs[{}] This cell has das-lock, so it should also has one of the specific type scripts.", index);
-                            return Err(code_to_error!(ErrorCode::BalanceCellFoundSomeOutputsLackOfType));
-                        }
-                    }
-                    _ => {
-                        warn!("Outputs[{}] This cell has das-lock, so it should also has one of the specific type scripts.", index);
-                        return Err(code_to_error!(ErrorCode::BalanceCellFoundSomeOutputsLackOfType));
-                    }
-                }
-            }
-        }
+        let config_main_reader = parser.configs.main()?;
+        verifiers::balance_cell::verify_das_lock_always_with_type(config_main_reader)?;
     }
 
     if input_cells.len() > 0 && is_unknown_action {
