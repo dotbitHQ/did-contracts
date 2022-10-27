@@ -12,20 +12,12 @@ use crate::util::{self};
 fn challenge_pre_register_unavailable_accounts() {
     // Simulate registering an unavailable account.
     let account = "thiscantr.bit";
-    let mut template = init();
-    template.push_config_cell_derived_by_account(account, Source::CellDep);
+    let mut template = before_each(account);
 
-    push_input_apply_register_cell(
-        &mut template,
-        json!({
-            "data": {
-                "account": account,
-                "height": HEIGHT - 4,
-                "timestamp": TIMESTAMP - 60,
-            }
-        }),
-    );
+    // inputs
+    push_input_simple_apply_register_cell(&mut template, account);
 
+    // outputs
     push_output_pre_account_cell(
         &mut template,
         json!({
@@ -49,20 +41,12 @@ fn challenge_pre_register_unavailable_accounts() {
 fn test_pre_register_unavailable_accounts_below_all() {
     // Challenge if the index of ConfigCells will overflow
     let account = "🐭🐂🐯🐰🐲🐍🐎🐑🐒🐔🐶🐷.bit";
-    let mut template = init();
-    template.push_config_cell_derived_by_account(account, Source::CellDep);
+    let mut template = before_each(account);
 
-    push_input_apply_register_cell(
-        &mut template,
-        json!({
-            "data": {
-                "account": account,
-                "height": HEIGHT - 4,
-                "timestamp": TIMESTAMP - 60,
-            }
-        }),
-    );
+    // inputs
+    push_input_simple_apply_register_cell(&mut template, account);
 
+    // outputs
     push_output_pre_account_cell(
         &mut template,
         json!({

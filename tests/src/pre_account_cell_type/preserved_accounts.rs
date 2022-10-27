@@ -13,8 +13,7 @@ use crate::util::{self};
 fn challenge_pre_register_preserved_account() {
     // Simulate registering an unavailable account.
     let account = "microsoft.bit";
-    let mut template = init();
-    template.push_config_cell_derived_by_account(account, Source::CellDep);
+    let mut template = before_each(account);
 
     push_input_simple_apply_register_cell(&mut template, account);
 
@@ -40,8 +39,7 @@ fn challenge_pre_register_preserved_account() {
 #[test]
 fn test_pre_register_preserved_account_with_super_lock() {
     let account = "microsoft.bit";
-    let mut template = init();
-    template.push_config_cell_derived_by_account(account, Source::CellDep);
+    let mut template = before_each(account);
 
     push_input_simple_apply_register_cell(&mut template, account);
     // Simulate manually minting a preserved account.

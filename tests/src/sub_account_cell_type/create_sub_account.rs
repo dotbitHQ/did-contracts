@@ -500,7 +500,7 @@ fn challenge_sub_account_create_invalid_char() {
     );
     push_common_output_cells(&mut template);
 
-    challenge_tx(template.as_json(), ErrorCode::PreRegisterAccountCharIsInvalid);
+    challenge_tx(template.as_json(), ErrorCode::AccountCharIsInvalid);
 }
 
 #[test]
@@ -561,7 +561,7 @@ fn challenge_sub_account_create_too_long() {
     );
     push_common_output_cells(&mut template);
 
-    challenge_tx(template.as_json(), ErrorCode::PreRegisterAccountIsTooLong);
+    challenge_tx(template.as_json(), ErrorCode::AccountIsTooLong);
 }
 
 #[test]

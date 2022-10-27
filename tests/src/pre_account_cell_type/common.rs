@@ -34,7 +34,7 @@ pub fn init() -> TemplateGenerator {
     template
 }
 
-pub fn init_after_20221018() -> TemplateGenerator {
+pub fn init_with_timestamp(timestamp: u64) -> TemplateGenerator {
     let mut template = TemplateGenerator::new("pre_register", None);
 
     template.push_contract_cell("always_success", ContractType::DeployedContract);
@@ -44,7 +44,7 @@ pub fn init_after_20221018() -> TemplateGenerator {
     template.push_contract_cell("pre-account-cell-type", ContractType::Contract);
 
     template.push_oracle_cell(1, OracleCellType::Height, HEIGHT);
-    template.push_oracle_cell(1, OracleCellType::Time, TIMESTAMP_20221810);
+    template.push_oracle_cell(1, OracleCellType::Time, timestamp);
     template.push_oracle_cell(1, OracleCellType::Quote, CKB_QUOTE);
 
     template.push_config_cell(DataType::ConfigCellAccount, Source::CellDep);
@@ -77,6 +77,27 @@ pub fn init_for_refund() -> TemplateGenerator {
     template.push_config_cell(DataType::ConfigCellMain, Source::CellDep);
 
     template
+}
+
+pub fn before_each(account: &str) -> TemplateGenerator {
+    let mut template = init();
+    template.push_config_cell_derived_by_account(account, Source::CellDep);
+
+    push_dep_simple_account_cell(&mut template);
+
+    template
+}
+
+pub fn push_dep_simple_account_cell(template: &mut TemplateGenerator) {
+    push_dep_account_cell(
+        template,
+        json!({
+            "data": {
+                "id": "0x0000000000000000000000000000000000000000",
+                "next": "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+            }
+        }),
+    );
 }
 
 pub fn push_input_simple_apply_register_cell(template: &mut TemplateGenerator, account: &str) {

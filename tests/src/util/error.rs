@@ -61,21 +61,10 @@ pub enum ErrorCode {
     ApplyRegisterHasTimeout,
     ApplyRegisterRefundNeedWaitLonger,
     ApplyRegisterRefundCapacityError,
-    PreRegisterFoundInvalidTransaction = 70,
-    PreRegisterAccountIdIsInvalid,
-    PreRegisterApplyHashIsInvalid,
-    PreRegisterCreateAtIsInvalid,
-    PreRegisterPriceInvalid,
-    CharSetIsUndefined, // 75
-    PreRegisterCKBInsufficient,
-    PreRegisterAccountIsTooLong,
-    PreRegisterAccountCharSetConflict,
-    PreRegisterAccountCharIsInvalid,
-    PreRegisterQuoteIsInvalid, // 80
-    PreRegisterDiscountIsInvalid,
-    PreRegisterOwnerLockArgsIsInvalid,
-    PreRegisterIsNotTimeout,
-    PreRegisterRefundCapacityError,
+    CharSetIsConflict,
+    CharSetIsUndefined,
+    AccountCharIsInvalid,
+    AccountIsTooLong,
     ProposalSliceIsNotSorted = 90,
     ProposalSliceIsDiscontinuity,
     ProposalSliceRelatedCellNotFound,
@@ -205,6 +194,44 @@ pub enum AccountCellErrorCode {
 }
 
 impl Into<i8> for AccountCellErrorCode {
+    fn into(self) -> i8 {
+        self as i8
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+#[repr(i8)]
+pub enum PreAccountCellErrorCode {
+    // WARNING Reserved errors:
+    IndexOutOfBound = 1,
+    ItemMissing = 2,
+    LengthNotEnough = 3,
+    Encoding = 4,
+    IncomeCellConsolidateConditionNotSatisfied = -126,
+    AccountCellMissingPrevAccount = -114,
+    AccountCellThrottle = -102,
+    AccountCellInExpirationGracePeriod = -99,
+    SubAccountNormalCellLockLimit = -37,
+    SystemOff = -1,
+    // Customized errors:
+    AccountIdIsInvalid = 50,
+    ApplyHashMismatch,
+    CreateAtIsInvalid,
+    PriceIsInvalid,
+    CharSetIsUndefined,
+    CKBIsInsufficient,
+    QuoteIsInvalid,
+    OwnerLockArgsIsInvalid,
+    PreAccountCellIsNotTimeout,
+    RefundCapacityError,
+    InviterIdShouldBeEmpty,
+    InviterIdIsInvalid,
+    InviteeDiscountShouldBeEmpty,
+    InviteeDiscountIsInvalid,
+    AccountAlreadyExistOrProofInvalid,
+}
+
+impl Into<i8> for PreAccountCellErrorCode {
     fn into(self) -> i8 {
         self as i8
     }

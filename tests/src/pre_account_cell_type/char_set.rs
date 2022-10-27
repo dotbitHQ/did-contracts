@@ -12,8 +12,7 @@ use crate::util::{self};
 fn challenge_pre_register_invalid_char() {
     // Simulate registering an account with invalid character.
     let account = "✨das🇫🇮001.bit";
-    let mut template = init();
-    template.push_config_cell_derived_by_account(account, Source::CellDep);
+    let mut template = before_each(account);
 
     push_input_simple_apply_register_cell(&mut template, account);
 
@@ -42,15 +41,14 @@ fn challenge_pre_register_invalid_char() {
         }),
     );
 
-    challenge_tx(template.as_json(), ErrorCode::PreRegisterAccountCharIsInvalid)
+    challenge_tx(template.as_json(), ErrorCode::AccountCharIsInvalid)
 }
 
 #[test]
 fn challenge_pre_register_zh() {
     // Simulate registering an account with invalid character.
     let account = "✨das大001.bit";
-    let mut template = init();
-    template.push_config_cell_derived_by_account(account, Source::CellDep);
+    let mut template = before_each(account);
 
     push_input_simple_apply_register_cell(&mut template, account);
 
@@ -86,10 +84,9 @@ fn challenge_pre_register_zh() {
 fn challenge_pre_register_multiple_language() {
     // Simulate registering an account with invalid character.
     let account = "✨лд지얕001.bit";
-    let mut template = init();
+    let mut template = before_each(account);
     template.push_config_cell(DataType::ConfigCellCharSetRu, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellCharSetKo, Source::CellDep);
-    template.push_config_cell_derived_by_account(account, Source::CellDep);
 
     push_input_simple_apply_register_cell(&mut template, account);
 
@@ -118,15 +115,14 @@ fn challenge_pre_register_multiple_language() {
         }),
     );
 
-    challenge_tx(template.as_json(), ErrorCode::PreRegisterAccountCharSetConflict)
+    challenge_tx(template.as_json(), ErrorCode::CharSetIsConflict)
 }
 
 #[test]
 fn test_pre_register_ja() {
     let account = "✨のロ00.bit";
-    let mut template = init();
+    let mut template = before_each(account);
     template.push_config_cell(DataType::ConfigCellCharSetJa, Source::CellDep);
-    template.push_config_cell_derived_by_account(account, Source::CellDep);
 
     push_input_simple_apply_register_cell(&mut template, account);
 
@@ -158,9 +154,8 @@ fn test_pre_register_ja() {
 #[test]
 fn test_pre_register_ko() {
     let account = "✨지얕00.bit";
-    let mut template = init();
+    let mut template = before_each(account);
     template.push_config_cell(DataType::ConfigCellCharSetKo, Source::CellDep);
-    template.push_config_cell_derived_by_account(account, Source::CellDep);
 
     push_input_simple_apply_register_cell(&mut template, account);
 
@@ -192,9 +187,8 @@ fn test_pre_register_ko() {
 #[test]
 fn test_pre_register_ru() {
     let account = "✨лд00.bit";
-    let mut template = init();
+    let mut template = before_each(account);
     template.push_config_cell(DataType::ConfigCellCharSetRu, Source::CellDep);
-    template.push_config_cell_derived_by_account(account, Source::CellDep);
 
     push_input_simple_apply_register_cell(&mut template, account);
 
@@ -226,9 +220,8 @@ fn test_pre_register_ru() {
 #[test]
 fn test_pre_register_th() {
     let account = "✨ฆี่จั00.bit";
-    let mut template = init();
+    let mut template = before_each(account);
     template.push_config_cell(DataType::ConfigCellCharSetTh, Source::CellDep);
-    template.push_config_cell_derived_by_account(account, Source::CellDep);
 
     push_input_simple_apply_register_cell(&mut template, account);
 
@@ -260,9 +253,8 @@ fn test_pre_register_th() {
 #[test]
 fn test_pre_register_tr() {
     let account = "✨çö00.bit";
-    let mut template = init();
+    let mut template = before_each(account);
     template.push_config_cell(DataType::ConfigCellCharSetTr, Source::CellDep);
-    template.push_config_cell_derived_by_account(account, Source::CellDep);
 
     push_input_simple_apply_register_cell(&mut template, account);
 
@@ -294,9 +286,8 @@ fn test_pre_register_tr() {
 #[test]
 fn test_pre_register_vi() {
     let account = "✨ăk00.bit";
-    let mut template = init();
+    let mut template = before_each(account);
     template.push_config_cell(DataType::ConfigCellCharSetVi, Source::CellDep);
-    template.push_config_cell_derived_by_account(account, Source::CellDep);
 
     push_input_simple_apply_register_cell(&mut template, account);
 

@@ -6,15 +6,24 @@ use crate::util::accounts::*;
 use crate::util::constants::*;
 use crate::util::error::*;
 use crate::util::template_common_cell::*;
+use crate::util::template_generator::TemplateGenerator;
 use crate::util::template_parser::*;
 use crate::util::{self};
+
+fn before_each_at_20221018(account: &str) -> TemplateGenerator {
+    let mut template = init_with_timestamp(TIMESTAMP_20221018);
+    template.push_config_cell_derived_by_account(account, Source::CellDep);
+
+    push_dep_simple_account_cell(&mut template);
+
+    template
+}
 
 #[test]
 fn test_pre_register_shortest_registrable_account() {
     // Simulate registering the shortest registrable account for now.
     let account = "0j7p.bit";
-    let mut template = init();
-    template.push_config_cell_derived_by_account(account, Source::CellDep);
+    let mut template = before_each(account);
 
     push_input_simple_apply_register_cell(&mut template, account);
     push_input_normal_cell(&mut template, 0, SUPER_LOCK_ARGS);
@@ -41,8 +50,7 @@ fn test_pre_register_shortest_registrable_account() {
 #[test]
 fn test_pre_register_3_chars_account_with_super_lock() {
     let account = "mc7.bit";
-    let mut template = init();
-    template.push_config_cell_derived_by_account(account, Source::CellDep);
+    let mut template = before_each(account);
 
     push_input_simple_apply_register_cell(&mut template, account);
     // Simulate manually minting a three chars account with super lock.
@@ -71,8 +79,7 @@ fn test_pre_register_3_chars_account_with_super_lock() {
 fn challenge_pre_register_3_chars_account() {
     // Simulate registering an unavailable account.
     let account = "mc7.bit";
-    let mut template = init();
-    template.push_config_cell_derived_by_account(account, Source::CellDep);
+    let mut template = before_each(account);
 
     push_input_simple_apply_register_cell(&mut template, account);
 
@@ -99,8 +106,7 @@ fn challenge_pre_register_3_chars_account() {
 fn test_pre_register_10_chars_account() {
     // The account with 10 or more charactors should always pass.
     let account = "1234567890.bit";
-    let mut template = init();
-    template.push_config_cell_derived_by_account(account, Source::CellDep);
+    let mut template = before_each(account);
 
     push_input_simple_apply_register_cell(&mut template, account);
     // Simulate manually minting a three chars account with super lock.
@@ -129,8 +135,7 @@ fn test_pre_register_10_chars_account() {
 fn test_pre_register_unreleased_account_with_super_lock() {
     // This account is not registrable, because its first 4 bytes in u32 is bigger than 3435973836.
     let account = "g0xhlqew.bit";
-    let mut template = init();
-    template.push_config_cell_derived_by_account(account, Source::CellDep);
+    let mut template = before_each(account);
 
     push_input_simple_apply_register_cell(&mut template, account);
     // Simulate manually minting a unreleased account with super lock.
@@ -159,8 +164,7 @@ fn test_pre_register_unreleased_account_with_super_lock() {
 fn challenge_pre_register_unreleased_account() {
     // This account is not registrable, because its first 4 bytes in u32 is bigger than 3435973836.
     let account = "g0xhlqew.bit";
-    let mut template = init();
-    template.push_config_cell_derived_by_account(account, Source::CellDep);
+    let mut template = before_each(account);
 
     push_input_simple_apply_register_cell(&mut template, account);
 
@@ -186,8 +190,7 @@ fn challenge_pre_register_unreleased_account() {
 #[test]
 fn test_pre_register_pure_digit_account_after_20221018() {
     let account = "0004.bit";
-    let mut template = init_after_20221018();
-    template.push_config_cell_derived_by_account(account, Source::CellDep);
+    let mut template = before_each_at_20221018(account);
 
     push_input_simple_apply_register_cell(&mut template, account);
 
@@ -202,7 +205,7 @@ fn test_pre_register_pure_digit_account_after_20221018() {
                     { "char": "0", "type": CharSetType::Digit as u32 },
                     { "char": "4", "type": CharSetType::Digit as u32 },
                 ],
-                "created_at": TIMESTAMP_20221810,
+                "created_at": TIMESTAMP_20221018,
                 "price": {
                     "length": 4,
                     "new": ACCOUNT_PRICE_4_CHAR,
@@ -218,8 +221,7 @@ fn test_pre_register_pure_digit_account_after_20221018() {
 #[test]
 fn test_pre_register_pure_emoji_account_after_20221018() {
     let account = "🏹🏹🏹🏹.bit";
-    let mut template = init_after_20221018();
-    template.push_config_cell_derived_by_account(account, Source::CellDep);
+    let mut template = before_each_at_20221018(account);
 
     push_input_simple_apply_register_cell(&mut template, account);
 
@@ -234,7 +236,7 @@ fn test_pre_register_pure_emoji_account_after_20221018() {
                     { "char": "🏹", "type": CharSetType::Emoji as u32 },
                     { "char": "🏹", "type": CharSetType::Emoji as u32 },
                 ],
-                "created_at": TIMESTAMP_20221810,
+                "created_at": TIMESTAMP_20221018,
                 "price": {
                     "length": 4,
                     "new": ACCOUNT_PRICE_4_CHAR,
@@ -250,8 +252,7 @@ fn test_pre_register_pure_emoji_account_after_20221018() {
 #[test]
 fn challenge_pre_register_pure_digit_account_before_20221018() {
     let account = "0004.bit";
-    let mut template = init();
-    template.push_config_cell_derived_by_account(account, Source::CellDep);
+    let mut template = before_each(account);
 
     push_input_simple_apply_register_cell(&mut template, account);
 
@@ -283,8 +284,7 @@ fn challenge_pre_register_pure_digit_account_before_20221018() {
 #[test]
 fn challenge_pre_register_pure_digit_account_less_than_4_chars_after_20221018() {
     let account = "000.bit";
-    let mut template = init_after_20221018();
-    template.push_config_cell_derived_by_account(account, Source::CellDep);
+    let mut template = before_each_at_20221018(account);
 
     push_input_simple_apply_register_cell(&mut template, account);
 
@@ -299,7 +299,7 @@ fn challenge_pre_register_pure_digit_account_less_than_4_chars_after_20221018() 
                     { "char": "0", "type": CharSetType::Digit as u32 },
                     { "char": "0", "type": CharSetType::Digit as u32 },
                 ],
-                "created_at": TIMESTAMP_20221810,
+                "created_at": TIMESTAMP_20221018,
                 "price": {
                     "length": 3,
                     "new": ACCOUNT_PRICE_3_CHAR,
@@ -315,8 +315,7 @@ fn challenge_pre_register_pure_digit_account_less_than_4_chars_after_20221018() 
 #[test]
 fn challenge_pre_register_unreleased_pure_vi_account_after_20221018() {
     let account = "evwcu.bit";
-    let mut template = init_after_20221018();
-    template.push_config_cell_derived_by_account(account, Source::CellDep);
+    let mut template = before_each_at_20221018(account);
 
     push_input_simple_apply_register_cell(&mut template, account);
 
@@ -333,7 +332,7 @@ fn challenge_pre_register_unreleased_pure_vi_account_after_20221018() {
                     { "char": "c", "type": CharSetType::Vi as u32 },
                     { "char": "u", "type": CharSetType::Vi as u32 },
                 ],
-                "created_at": TIMESTAMP_20221810,
+                "created_at": TIMESTAMP_20221018,
                 "price": {
                     "length": 5,
                     "new": ACCOUNT_PRICE_5_CHAR,
@@ -349,8 +348,7 @@ fn challenge_pre_register_unreleased_pure_vi_account_after_20221018() {
 #[test]
 fn challenge_pre_register_unreleased_pure_en_account_after_20221018() {
     let account = "ftyht.bit";
-    let mut template = init_after_20221018();
-    template.push_config_cell_derived_by_account(account, Source::CellDep);
+    let mut template = before_each_at_20221018(account);
 
     push_input_simple_apply_register_cell(&mut template, account);
 
@@ -367,7 +365,7 @@ fn challenge_pre_register_unreleased_pure_en_account_after_20221018() {
                     { "char": "h", "type": CharSetType::En as u32 },
                     { "char": "t", "type": CharSetType::En as u32 },
                 ],
-                "created_at": TIMESTAMP_20221810,
+                "created_at": TIMESTAMP_20221018,
                 "price": {
                     "length": 5,
                     "new": ACCOUNT_PRICE_5_CHAR,

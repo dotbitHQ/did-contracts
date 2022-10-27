@@ -181,7 +181,7 @@ fn challenge_pre_register_refund_too_early() {
     // outputs
     push_output_normal_cell(&mut template, 100_000_000_000u64, OWNER_WITHOUT_TYPE);
 
-    challenge_tx(template.as_json(), ErrorCode::PreRegisterIsNotTimeout)
+    challenge_tx(template.as_json(), PreAccountCellErrorCode::PreAccountCellIsNotTimeout)
 }
 
 #[test]
@@ -240,7 +240,7 @@ fn challenge_pre_register_refund_capacity_not_enough() {
         OWNER_WITHOUT_TYPE,
     );
 
-    challenge_tx(template.as_json(), ErrorCode::PreRegisterRefundCapacityError)
+    challenge_tx(template.as_json(), PreAccountCellErrorCode::RefundCapacityError)
 }
 
 #[test]
