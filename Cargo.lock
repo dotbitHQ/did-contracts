@@ -1063,6 +1063,7 @@ dependencies = [
  "chrono",
  "ckb-std",
  "das-core",
+ "das-sorted-list",
  "das-types",
  "hex",
 ]

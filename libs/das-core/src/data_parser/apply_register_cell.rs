@@ -1,4 +1,13 @@
 use core::convert::TryInto;
+use alloc::vec::Vec;
+use alloc::boxed::Box;
+
+use super::super::error::*;
+
+pub fn get_account_hash(data: &[u8]) -> Result<Vec<u8>, Box<dyn ScriptError>> {
+    let ret = data.get(..32).ok_or(ErrorCode::InvalidCellData)?;
+    Ok(ret.to_vec())
+}
 
 pub fn get_height(data: &[u8]) -> u64 {
     let raw = data

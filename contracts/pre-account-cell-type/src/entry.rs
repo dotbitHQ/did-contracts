@@ -1,6 +1,7 @@
 use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
 use alloc::string::String;
+use core::cmp::Ordering;
 use core::convert::{TryFrom, TryInto};
 use core::result::Result;
 
@@ -10,6 +11,7 @@ use das_core::constants::*;
 use das_core::error::*;
 use das_core::witness_parser::WitnessesParser;
 use das_core::{assert, code_to_error, data_parser, debug, util, verifiers, warn};
+use das_sorted_list::util as sorted_list_util;
 use das_types::constants::*;
 use das_types::mixer::PreAccountCellDataReaderMixer;
 use das_types::packed::*;
@@ -44,16 +46,18 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
         b"pre_register" => {
             debug!("Find out PreAccountCell ...");
 
-            // Find out PreAccountCells in current transaction.
-            let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
-            verifiers::common::verify_cell_number("PreRegisterCell", &input_cells, 0, &output_cells, 1)?;
-
-            verifiers::misc::verify_always_success_lock(output_cells[0], Source::Output)?;
-
-            debug!("Find out ApplyRegisterCell ...");
-
             parser.parse_cell()?;
             let config_main_reader = parser.configs.main()?;
+
+            debug!("Parse cells in transaction ...");
+
+            let dep_account_cells = util::find_cells_by_type_id(
+                ScriptType::Type,
+                config_main_reader.type_id_table().account_cell(),
+                Source::CellDep
+            )?;
+
+            verifiers::common::verify_cell_dep_number("AccountCell", &dep_account_cells, 1)?;
 
             let (input_apply_register_cells, output_apply_register_cells) =
                 util::find_cells_by_type_id_in_inputs_and_outputs(
@@ -69,22 +73,20 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 0,
             )?;
 
+            let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
+            verifiers::common::verify_cell_number("PreRegisterCell", &input_cells, 0, &output_cells, 1)?;
+
             debug!("Read data of ApplyRegisterCell ...");
+
+            let config_apply_reader = parser.configs.apply()?;
+            let height = util::load_oracle_data(OracleCellType::Height)?;
 
             // Read the hash from outputs_data of the ApplyRegisterCell.
             let index = &input_apply_register_cells[0];
-            let data = high_level::load_cell_data(index.to_owned(), Source::Input)?;
-            let apply_register_hash = match data.get(..32) {
-                Some(bytes) => bytes,
-                _ => return Err(code_to_error!(ErrorCode::InvalidCellData)),
-            };
             let apply_register_lock = high_level::load_cell_lock(index.to_owned(), Source::Input)?;
+            let data = high_level::load_cell_data(index.to_owned(), Source::Input)?;
+            let apply_register_hash = data_parser::apply_register_cell::get_account_hash(&data)?;
 
-            #[cfg(debug_assertions)]
-            das_core::inspect::apply_register_cell(Source::Input, index.to_owned(), &data);
-
-            let height = util::load_oracle_data(OracleCellType::Height)?;
-            let config_apply_reader = parser.configs.apply()?;
             verify_apply_height(height, config_apply_reader, &data)?;
 
             debug!("Read witness of PreAccountCell ...");
@@ -98,23 +100,25 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 util::parse_pre_account_cell_witness(&parser, output_cells[0], Source::Output)?;
             let pre_account_cell_witness_reader = pre_account_cell_witness.as_reader();
 
+            debug!("Verify various fields of PreAccountCell ...");
+
+            let config_price = parser.configs.price()?;
+            let config_account = parser.configs.account()?;
+            let timestamp = util::load_oracle_data(OracleCellType::Time)?;
+
+            verifiers::misc::verify_always_success_lock(output_cells[0], Source::Output)?;
             verify_apply_hash(
                 &pre_account_cell_witness_reader,
                 apply_register_lock.as_reader().args().raw_data().to_vec(),
-                apply_register_hash,
+                &apply_register_hash,
             )?;
-
-            debug!("Verify various fields of PreAccountCell ...");
-
             verify_owner_lock_args(&pre_account_cell_witness_reader)?;
             verify_quote(&pre_account_cell_witness_reader)?;
-            let config_price = parser.configs.price()?;
-            let config_account = parser.configs.account()?;
             verify_invited_discount(config_price, &pre_account_cell_witness_reader)?;
             verify_price_and_capacity(config_account, config_price, &pre_account_cell_witness_reader, capacity)?;
             verify_account_id(&pre_account_cell_witness_reader, account_id)?;
-            let timestamp = util::load_oracle_data(OracleCellType::Time)?;
             verify_created_at(timestamp, &pre_account_cell_witness_reader)?;
+            verify_account_not_exist(dep_account_cells[0], account_id)?;
 
             debug!("Verify if account is available for registration for now ...");
 
@@ -210,7 +214,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
                 assert!(
                     timestamp >= created_at + PRE_ACCOUNT_CELL_TIMEOUT,
-                    ErrorCode::PreRegisterIsNotTimeout,
+                    PreAccountCellErrorCode::PreAccountCellIsNotTimeout,
                     "The PreAccountCell is not timeout, so it can not be refunded for now.(current: {}, created_at: {}, timeout_limit: {})",
                     timestamp,
                     created_at,
@@ -241,7 +245,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
                 assert!(
                     expect_capacity <= current_capacity + 10000,
-                    ErrorCode::PreRegisterRefundCapacityError,
+                    PreAccountCellErrorCode::RefundCapacityError,
                     "The refund of PreAccountCell to {} should be {} shannon.(expected: {}, result: {})",
                     lock_reader.args(),
                     expect_capacity,
@@ -309,7 +313,7 @@ fn verify_account_id<'a>(
 
     assert!(
         &expected_account_id == account_id,
-        ErrorCode::PreRegisterAccountIdIsInvalid,
+        PreAccountCellErrorCode::AccountIdIsInvalid,
         "PreAccountCell.account_id should be calculated from account correctly.(account: {:?}, expected_account_id: 0x{})",
         String::from_utf8(account),
         util::hex_string(&expected_account_id)
@@ -333,7 +337,7 @@ fn verify_apply_hash<'a>(
 
     assert!(
         current_hash == expected_hash,
-        ErrorCode::PreRegisterApplyHashIsInvalid,
+        PreAccountCellErrorCode::ApplyHashMismatch,
         "The hash in ApplyRegisterCell should be calculated from blake2b(ApplyRegisterCell.lock.args + account).(expected: 0x{}, current: 0x{})",
         util::hex_string(&expected_hash),
         util::hex_string(current_hash)
@@ -350,7 +354,7 @@ fn verify_created_at<'a>(
 
     assert!(
         create_at == expected_timestamp,
-        ErrorCode::PreRegisterCreateAtIsInvalid,
+        PreAccountCellErrorCode::CreateAtIsInvalid,
         "PreAccountCell.created_at should be the same as the TimeCell.(expected: {}, current: {})",
         expected_timestamp,
         create_at
@@ -368,7 +372,7 @@ fn verify_owner_lock_args<'a>(
 
     assert!(
         owner_lock_args.len() >= 42,
-        ErrorCode::PreRegisterOwnerLockArgsIsInvalid,
+        PreAccountCellErrorCode::OwnerLockArgsIsInvalid,
         "The length of owner_lock_args should be more 42 byte, but {} found.",
         owner_lock_args.len()
     );
@@ -384,7 +388,7 @@ fn verify_quote<'a>(reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>) -> Res
 
     assert!(
         expected_quote == current,
-        ErrorCode::PreRegisterQuoteIsInvalid,
+        PreAccountCellErrorCode::QuoteIsInvalid,
         "PreAccountCell.quote should be the same as the QuoteCell.(expected: {:?}, current: {:?})",
         expected_quote,
         current
@@ -408,14 +412,14 @@ fn verify_invited_discount<'a>(
     if reader.inviter_lock().is_none() {
         assert!(
             reader.inviter_id().is_empty(),
-            ErrorCode::PreRegisterFoundInvalidTransaction,
+            PreAccountCellErrorCode::InviterIdShouldBeEmpty,
             "The inviter_id should be empty when inviter do not exist."
         );
 
         expected_discount = zero.as_reader();
         assert!(
             util::is_reader_eq(expected_discount, reader.invited_discount()),
-            ErrorCode::PreRegisterDiscountIsInvalid,
+            PreAccountCellErrorCode::InviteeDiscountShouldBeEmpty,
             "The invited_discount should be 0 when inviter does not exist."
         );
     } else {
@@ -424,27 +428,27 @@ fn verify_invited_discount<'a>(
         if util::is_reader_eq(default_lock_reader, inviter_lock_reader) {
             assert!(
                 reader.inviter_id().is_empty(),
-                ErrorCode::PreRegisterFoundInvalidTransaction,
+                PreAccountCellErrorCode::InviterIdShouldBeEmpty,
                 "The inviter_id should be empty when inviter do not exist."
             );
 
             expected_discount = zero.as_reader();
             assert!(
                 util::is_reader_eq(expected_discount, reader.invited_discount()),
-                ErrorCode::PreRegisterDiscountIsInvalid,
+                PreAccountCellErrorCode::InviteeDiscountShouldBeEmpty,
                 "The invited_discount should be 0 when inviter does not exist."
             );
         } else {
             assert!(
                 reader.inviter_id().len() == ACCOUNT_ID_LENGTH,
-                ErrorCode::PreRegisterFoundInvalidTransaction,
+                PreAccountCellErrorCode::InviterIdIsInvalid,
                 "The inviter_id should be 20 bytes when inviter exists."
             );
 
             expected_discount = config.discount().invited_discount();
             assert!(
                 util::is_reader_eq(expected_discount, reader.invited_discount()),
-                ErrorCode::PreRegisterDiscountIsInvalid,
+                PreAccountCellErrorCode::InviteeDiscountIsInvalid,
                 "The invited_discount should greater than 0 when inviter exist. (expected: {}, current: {})",
                 u32::from(expected_discount),
                 u32::from(reader.invited_discount())
@@ -475,7 +479,7 @@ fn verify_price_and_capacity<'a>(
 
     assert!(
         util::is_reader_eq(expected_price, price),
-        ErrorCode::PreRegisterPriceInvalid,
+        PreAccountCellErrorCode::PriceIsInvalid,
         "PreAccountCell.price should be the same as which in ConfigCellPrice.(expected: {}, current: {})",
         expected_price,
         price
@@ -502,7 +506,7 @@ fn verify_price_and_capacity<'a>(
 
     assert!(
         capacity >= register_capacity + storage_capacity,
-        ErrorCode::PreRegisterCKBInsufficient,
+        PreAccountCellErrorCode::CKBIsInsufficient,
         "PreAccountCell.capacity should contains more than 1 year of registeration fee. (expected: {}, current: {})",
         register_capacity + storage_capacity,
         capacity
@@ -604,6 +608,24 @@ fn verify_account_release_status<'a>(
     debug!(
         "The account has been released.(lucky_num: {}, required: <= {})",
         lucky_num, expected_lucky_num
+    );
+
+    Ok(())
+}
+
+fn verify_account_not_exist(pre_account_cell: usize, account_id: &[u8]) -> Result<(), Box<dyn ScriptError>> {
+    let account_data = high_level::load_cell_data(pre_account_cell, Source::CellDep)?;
+    let pre_account_id = data_parser::account_cell::get_id(&account_data);
+    let pre_account_next = data_parser::account_cell::get_next(&account_data);
+
+    assert!(
+        sorted_list_util::cmp(pre_account_id, account_id) == Ordering::Greater &&
+        sorted_list_util::cmp(account_id, pre_account_next) == Ordering::Greater,
+        PreAccountCellErrorCode::AccountAlreadyExistOrProofInvalid,
+        "The account already exists or the proof is invalid.(0x{} > 0x{} > 0x{})",
+        util::hex_string(pre_account_id),
+        util::hex_string(account_id),
+        util::hex_string(pre_account_next)
     );
 
     Ok(())
