@@ -112,6 +112,9 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 expected_capacity - 100_000_000,
                 transferred_capacity
             );
+
+            let config_main_reader = parser.configs.main()?;
+            verifiers::balance_cell::verify_das_lock_always_with_type(config_main_reader)?;
         }
         b"pre_register" => {
             util::require_type_script(

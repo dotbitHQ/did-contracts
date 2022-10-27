@@ -533,6 +533,19 @@ pub fn push_output_balance_cell(template: &mut TemplateGenerator, capacity: u64,
     );
 }
 
+pub fn push_output_balance_cell_without_type(template: &mut TemplateGenerator, capacity: u64, owner: &str) {
+    template.push_output(
+        json!({
+            "capacity": capacity.to_string(),
+            "lock": {
+                "owner_lock_args": owner,
+                "manager_lock_args": owner,
+            }
+        }),
+        None,
+    );
+}
+
 pub fn push_input_normal_cell(template: &mut TemplateGenerator, capacity: u64, args: &str) {
     template.push_input(
         json!({
