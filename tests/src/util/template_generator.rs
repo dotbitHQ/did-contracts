@@ -2426,7 +2426,11 @@ impl TemplateGenerator {
     fn gen_custom_cell(&mut self, cell: Value) -> (Value, Option<EntityWrapper>) {
         let capacity: u64 = util::parse_json_u64("cell.capacity", &cell["capacity"], Some(0));
 
-        let lock_script = parse_json_script("cell.lock", &cell["lock"]);
+        let lock_script = if cell["lock"]["owner_lock_args"].is_null() {
+            parse_json_script("cell.lock", &cell["lock"])
+        } else {
+            parse_json_script_das_lock("cell.lock", &cell["lock"])
+        };
         let type_script = cell["type"].clone();
         let outputs_data = if !cell["data"].is_null() {
             util::bytes_to_hex(&util::parse_json_hex("cell.data", &cell["data"]))

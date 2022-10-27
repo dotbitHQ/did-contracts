@@ -5,6 +5,7 @@ use crate::util::accounts::*;
 use crate::util::constants::*;
 use crate::util::error::*;
 use crate::util::template_common_cell::*;
+use crate::util::template_generator::*;
 use crate::util::template_parser::*;
 
 #[test]
@@ -240,4 +241,30 @@ fn challenge_pre_register_refund_capacity_not_enough() {
     );
 
     challenge_tx(template.as_json(), ErrorCode::PreRegisterRefundCapacityError)
+}
+
+#[test]
+fn challenge_pre_register_refund_to_das_lock_without_type() {
+    let mut template = init_for_refund();
+
+    // inputs
+    push_input_pre_account_cell(
+        &mut template,
+        json!({
+            "capacity": 100_000_000_000u64,
+            "witness": {
+                "account": "xxxxx.bit",
+                "created_at": TIMESTAMP - PRE_ACCOUNT_REFUND_WAITING_TIME,
+                "refund_lock": {
+                    "code_hash": "{{fake-das-lock}}",
+                    "args": gen_das_lock_args(SELLER, None)
+                },
+            }
+        }),
+    );
+
+    // outputs
+    push_output_balance_cell_without_type(&mut template, 100_000_000_000u64, SELLER);
+
+    challenge_tx(template.as_json(), ErrorCode::BalanceCellFoundSomeOutputsLackOfType)
 }

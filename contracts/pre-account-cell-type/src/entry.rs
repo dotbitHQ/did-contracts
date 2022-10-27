@@ -186,6 +186,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
         }
         b"refund_pre_register" => {
             parser.parse_cell()?;
+            let config_main_reader = parser.configs.main()?;
 
             let timestamp = util::load_oracle_data(OracleCellType::Time)?;
             let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
@@ -248,6 +249,8 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                     current_capacity
                 );
             }
+
+            verifiers::balance_cell::verify_das_lock_always_with_type(config_main_reader)?;
         }
         _ => {
             return Err(code_to_error!(ErrorCode::ActionNotSupported));
