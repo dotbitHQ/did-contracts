@@ -54,7 +54,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let dep_account_cells = util::find_cells_by_type_id(
                 ScriptType::Type,
                 config_main_reader.type_id_table().account_cell(),
-                Source::CellDep
+                Source::CellDep,
             )?;
 
             verifiers::common::verify_cell_dep_number("AccountCell", &dep_account_cells, 1)?;
@@ -571,12 +571,8 @@ fn verify_account_release_status<'a>(
 
         debug!("The account_char_set is: {:?}", account_char_set);
 
-        let completely_released_char_set = vec![
-            CharSetType::Emoji,
-            CharSetType::Digit,
-            CharSetType::Ko,
-            CharSetType::Th,
-        ];
+        let completely_released_char_set =
+            vec![CharSetType::Emoji, CharSetType::Digit, CharSetType::Ko, CharSetType::Th];
         if let Some(char_set) = account_char_set {
             // If the account_char_set is in while list and the account's length is greater than or equel to 4, then the account is released.
             if account_chars.len() >= 4 && completely_released_char_set.contains(&char_set) {
@@ -619,10 +615,10 @@ fn verify_account_not_exist(pre_account_cell: usize, account_id: &[u8]) -> Resul
     let pre_account_next = data_parser::account_cell::get_next(&account_data);
 
     assert!(
-        sorted_list_util::cmp(pre_account_id, account_id) == Ordering::Greater &&
-        sorted_list_util::cmp(account_id, pre_account_next) == Ordering::Greater,
+        sorted_list_util::cmp(pre_account_id, account_id) == Ordering::Less
+            && sorted_list_util::cmp(account_id, pre_account_next) == Ordering::Less,
         PreAccountCellErrorCode::AccountAlreadyExistOrProofInvalid,
-        "The account already exists or the proof is invalid.(0x{} > 0x{} > 0x{})",
+        "The account already exists or the proof is invalid.(expected: current.id < new.id < current.next, current: 0x{} < 0x{} < 0x{})",
         util::hex_string(pre_account_id),
         util::hex_string(account_id),
         util::hex_string(pre_account_next)
