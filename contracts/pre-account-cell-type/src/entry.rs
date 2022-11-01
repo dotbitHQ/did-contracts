@@ -9,8 +9,9 @@ use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
 use das_core::constants::*;
 use das_core::error::*;
+use das_core::since_util::SinceFlag;
 use das_core::witness_parser::WitnessesParser;
-use das_core::{assert, code_to_error, data_parser, debug, util, verifiers, warn};
+use das_core::{assert, code_to_error, data_parser, debug, since_util, util, verifiers, warn};
 use das_sorted_list::util as sorted_list_util;
 use das_types::constants::*;
 use das_types::mixer::PreAccountCellDataReaderMixer;
@@ -191,17 +192,47 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
         b"refund_pre_register" => {
             parser.parse_cell()?;
             let config_main_reader = parser.configs.main()?;
-
-            let timestamp = util::load_oracle_data(OracleCellType::Time)?;
             let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
 
-            assert!(
-                input_cells.len() > 0 && output_cells.len() == 0,
-                ErrorCode::InvalidTransactionStructure,
-                "There should be at least 1 PreAccountCell in inputs and none in outputs.(in_inputs: {}, in_outputs: {})",
-                input_cells.len(),
-                output_cells.len()
-            );
+            verifiers::common::verify_cell_number_range(
+                "PreAccountCell",
+                &input_cells,
+                (Ordering::Greater, 0),
+                &output_cells,
+                (Ordering::Equal, 0),
+            )?;
+
+            debug!("Find if any cell with refund_lock in inputs ...");
+
+            let pre_account_cell_witness =
+                util::parse_pre_account_cell_witness(&parser, input_cells[0], Source::Input)?;
+            let pre_account_cell_witness_reader = pre_account_cell_witness.as_reader();
+            let refund_lock = pre_account_cell_witness_reader.refund_lock();
+
+            let cells_with_refund_lock =
+                util::find_cells_by_script(ScriptType::Lock, refund_lock.into(), Source::Input)?;
+            let input_capacity_of_refund_lock;
+            if !cells_with_refund_lock.is_empty() {
+                assert!(
+                    cells_with_refund_lock.len() == 1,
+                    ErrorCode::InvalidTransactionStructure,
+                    "There should be only one cell with refund_lock in inputs."
+                );
+
+                input_capacity_of_refund_lock =
+                    high_level::load_cell_capacity(cells_with_refund_lock[0], Source::Input)?;
+            } else {
+                input_capacity_of_refund_lock = 0;
+            }
+
+            let mut expected_since = 0u64;
+            expected_since = since_util::set_absolute_flag(expected_since, SinceFlag::Relative);
+            expected_since = since_util::set_metric_flag(expected_since, SinceFlag::Timestamp);
+            if cells_with_refund_lock.is_empty() {
+                expected_since = since_util::set_value(expected_since, PRE_ACCOUNT_CELL_TIMEOUT);
+            } else {
+                expected_since = since_util::set_value(expected_since, PRE_ACCOUNT_CELL_SHORT_TIMEOUT);
+            };
 
             debug!("Collect the capacities of all PreAccountCells ...");
 
@@ -210,15 +241,14 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 let pre_account_cell_witness = util::parse_pre_account_cell_witness(&parser, index, Source::Input)?;
                 let pre_account_cell_witness_reader = pre_account_cell_witness.as_reader();
                 let capacity = high_level::load_cell_capacity(index, Source::Input)?;
-                let created_at = u64::from(pre_account_cell_witness_reader.created_at());
+                let since = high_level::load_input_since(index, Source::Input)?;
 
                 assert!(
-                    timestamp >= created_at + PRE_ACCOUNT_CELL_TIMEOUT,
-                    PreAccountCellErrorCode::PreAccountCellIsNotTimeout,
-                    "The PreAccountCell is not timeout, so it can not be refunded for now.(current: {}, created_at: {}, timeout_limit: {})",
-                    timestamp,
-                    created_at,
-                    PRE_ACCOUNT_CELL_TIMEOUT
+                    since == expected_since,
+                    PreAccountCellErrorCode::SinceMismatch,
+                    "The since of PreAccountCell is not correct.(expected: {}, current: {})",
+                    expected_since,
+                    since
                 );
 
                 util::map_add(
@@ -234,23 +264,19 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 let lock_reader = ScriptReader::from_slice(lock_bytes).unwrap();
                 let cells = util::find_cells_by_script(ScriptType::Lock, lock_reader.into(), Source::Output)?;
 
-                assert!(
-                    cells.len() == 1,
-                    ErrorCode::InvalidTransactionStructure,
-                    "There should be only 1 cell to take the refund.(expected: 1, result: {})",
-                    cells.len()
-                );
-
-                let current_capacity = high_level::load_cell_capacity(cells[0], Source::Output)?;
+                let mut output_capacity_of_refund_lock = 0;
+                for index in cells {
+                    output_capacity_of_refund_lock += high_level::load_cell_capacity(index, Source::Output)?;
+                }
 
                 assert!(
-                    expect_capacity <= current_capacity + 10000,
+                    expect_capacity <= output_capacity_of_refund_lock - input_capacity_of_refund_lock + 10000,
                     PreAccountCellErrorCode::RefundCapacityError,
                     "The refund of PreAccountCell to {} should be {} shannon.(expected: {}, result: {})",
                     lock_reader.args(),
                     expect_capacity,
                     expect_capacity,
-                    current_capacity
+                    output_capacity_of_refund_lock - input_capacity_of_refund_lock
                 );
             }
 
