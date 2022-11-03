@@ -98,6 +98,7 @@ fn push_input_slice_0(template: &mut TemplateGenerator) {
                 ]
             }
         }),
+        None,
     );
 }
 
@@ -142,6 +143,7 @@ fn push_input_slice_1(template: &mut TemplateGenerator) {
                 ]
             }
         }),
+        None,
     );
     push_input_pre_account_cell(
         template,
@@ -163,6 +165,7 @@ fn push_input_slice_1(template: &mut TemplateGenerator) {
                 ]
             }
         }),
+        None,
     );
 }
 
@@ -644,6 +647,7 @@ fn challenge_proposal_confirm_account_cell_next_mismatch() {
                 "created_at": TIMESTAMP - HOUR_SEC
             }
         }),
+        None,
     );
 
     push_input_slice_1(&mut template);
@@ -887,6 +891,7 @@ fn test_proposal_confirm_new_account_with_cross_chain() {
                 }
             }
         }),
+        None,
     );
 
     push_input_slice_1(&mut template);
@@ -998,6 +1003,7 @@ fn challenge_proposal_confirm_new_account_with_cross_chain() {
                 }
             }
         }),
+        None,
     );
 
     push_input_slice_1(&mut template);

@@ -57,7 +57,7 @@ pub fn push_input_account_sale_cell(template: &mut TemplateGenerator, cell_parti
     });
     util::merge_json(&mut cell, cell_partial);
 
-    template.push_input(cell, Some(2));
+    template.push_input(cell, None, Some(2));
     template.push_das_lock_witness("0000000000000000000000000000000000000000000000000000000000000000");
 }
 
@@ -103,7 +103,7 @@ pub fn push_input_account_sale_cell_v1(template: &mut TemplateGenerator, cell_pa
     });
     util::merge_json(&mut cell, cell_partial);
 
-    template.push_input(cell, Some(1));
+    template.push_input(cell, None, Some(1));
     template.push_das_lock_witness("0000000000000000000000000000000000000000000000000000000000000000");
 }
 

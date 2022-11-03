@@ -1,11 +1,19 @@
 use das_types_std::constants::*;
+use lazy_static::lazy_static;
 use serde_json::json;
 
 use crate::util::constants::*;
+use crate::util::since_util::SinceFlag;
 use crate::util::template_common_cell::*;
 use crate::util::template_generator::*;
 
 pub const ACCOUNT_SP_1: &str = "✨das🎉001.bit";
+pub const INPUT_CAPACITY_OF_REFUND_LOCK: u64 = 6_100_000_000;
+
+lazy_static! {
+    pub static ref SINCE_1_D: Option<u64> = gen_since(SinceFlag::Relative, SinceFlag::Timestamp, DAY_SEC);
+    pub static ref SINCE_1_H: Option<u64> = gen_since(SinceFlag::Relative, SinceFlag::Timestamp, HOUR_SEC);
+}
 
 pub fn init() -> TemplateGenerator {
     let mut template = TemplateGenerator::new("pre_register", None);
@@ -72,8 +80,6 @@ pub fn init_for_refund() -> TemplateGenerator {
     template.push_contract_cell("apply-register-cell-type", ContractType::Contract);
     template.push_contract_cell("pre-account-cell-type", ContractType::Contract);
 
-    template.push_oracle_cell(1, OracleCellType::Time, TIMESTAMP);
-
     template.push_config_cell(DataType::ConfigCellMain, Source::CellDep);
 
     template
@@ -110,5 +116,6 @@ pub fn push_input_simple_apply_register_cell(template: &mut TemplateGenerator, a
                 "timestamp": TIMESTAMP - 60,
             }
         }),
+        None,
     );
 }

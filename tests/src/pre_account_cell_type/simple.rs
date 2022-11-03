@@ -186,6 +186,7 @@ fn challenge_pre_register_apply_still_need_wait() {
                 "timestamp": TIMESTAMP - 60,
             }
         }),
+        None,
     );
 
     push_output_simple_pre_account_cell(&mut template);
@@ -208,6 +209,7 @@ fn challenge_pre_register_apply_timeout() {
                 "timestamp": TIMESTAMP - 60,
             }
         }),
+        None,
     );
 
     push_output_simple_pre_account_cell(&mut template);
@@ -525,7 +527,10 @@ fn challenge_pre_register_refered_exact_account() {
     // outputs
     push_output_simple_pre_account_cell(&mut template);
 
-    challenge_tx(template.as_json(), PreAccountCellErrorCode::AccountAlreadyExistOrProofInvalid)
+    challenge_tx(
+        template.as_json(),
+        PreAccountCellErrorCode::AccountAlreadyExistOrProofInvalid,
+    )
 }
 
 #[test]
@@ -552,7 +557,10 @@ fn challenge_pre_register_refered_next_account() {
     // outputs
     push_output_simple_pre_account_cell(&mut template);
 
-    challenge_tx(template.as_json(), PreAccountCellErrorCode::AccountAlreadyExistOrProofInvalid)
+    challenge_tx(
+        template.as_json(),
+        PreAccountCellErrorCode::AccountAlreadyExistOrProofInvalid,
+    )
 }
 
 #[test]
@@ -578,7 +586,10 @@ fn challenge_pre_register_refered_before_account() {
     // outputs
     push_output_simple_pre_account_cell(&mut template);
 
-    challenge_tx(template.as_json(), PreAccountCellErrorCode::AccountAlreadyExistOrProofInvalid)
+    challenge_tx(
+        template.as_json(),
+        PreAccountCellErrorCode::AccountAlreadyExistOrProofInvalid,
+    )
 }
 
 #[test]
@@ -604,5 +615,8 @@ fn challenge_pre_register_refered_after_account() {
     // outputs
     push_output_simple_pre_account_cell(&mut template);
 
-    challenge_tx(template.as_json(), PreAccountCellErrorCode::AccountAlreadyExistOrProofInvalid)
+    challenge_tx(
+        template.as_json(),
+        PreAccountCellErrorCode::AccountAlreadyExistOrProofInvalid,
+    )
 }

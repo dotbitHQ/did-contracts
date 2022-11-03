@@ -267,37 +267,8 @@ impl TemplateParser {
         let mut mocked_header_deps = vec![];
 
         for (i, item) in header_deps.into_iter().enumerate() {
-            let version = util::parse_json_u32(&format!("header_deps[{}].version", i), &item["version"], Some(0));
-            let number = if item["number"].is_null() {
-                util::parse_json_u64(&format!("header_deps[{}].height", i), &item["height"], Some(0))
-            } else {
-                util::parse_json_u64(&format!("header_deps[{}].number", i), &item["number"], Some(0))
-            };
-            let timestamp = util::parse_json_u64(&format!("header_deps[{}].timestamp", i), &item["timestamp"], Some(0));
-            let epoch = util::parse_json_u64(&format!("header_deps[{}].epoch", i), &item["epoch"], Some(0));
-
-            let transactions_root_raw = util::parse_json_hex_with_default(
-                &format!("header_deps[{}].transactions_root", i),
-                &item["transactions_root"],
-                vec![0u8; 32],
-            );
-            let transactions_root = match Byte32::from_slice(&transactions_root_raw) {
-                Ok(transactions_root) => transactions_root,
-                Err(err) => return Err(format!("Parse transactions_root error: {:?}", err).into()),
-            };
-
-            let raw_header = RawHeaderBuilder::default()
-                .version(version.pack())
-                .number(number.pack())
-                .timestamp(timestamp.pack())
-                .epoch(epoch.pack())
-                .transactions_root(transactions_root)
-                .build();
-            let header = Header::new_builder().raw(raw_header).nonce(Uint128::default()).build();
-            let header_view = header.into_view();
-            let hash = header_view.hash();
+            let (hash, header_view) = self.mock_block_header(&format!("header_deps[{}]", i), &item)?;
             self.mock_header_deps.push(header_view);
-
             mocked_header_deps.push(hash);
         }
 
@@ -371,6 +342,27 @@ impl TemplateParser {
         Ok(())
     }
 
+    /// The header_deps should be an array of objects like below:
+    ///
+    /// ```json
+    /// [
+    ///     {
+    ///         "previous_output": {
+    ///             "capacity": ...,
+    ///             "lock": ...,
+    ///             "type": ...,
+    ///             "tmp_data": ...,""
+    ///         },
+    ///         "since": "0x...",
+    ///         "block_header": {
+    ///             ... // The same as the header_deps
+    ///         }
+    ///     },
+    ///     ...
+    /// ]
+    /// ```
+    ///
+    /// These fields are all optional, and it will be compiled to a RawHeader object in molecule finally.
     fn parse_inputs(&mut self, inputs: Vec<Value>) -> Result<(), Box<dyn StdError>> {
         let mut mocked_inputs = vec![];
 
@@ -388,7 +380,16 @@ impl TemplateParser {
                             )
                         })?;
                     // parse inputs[].since
-                    let since = util::parse_json_u64("cell.inputs.since", &item["since"], Some(0));
+                    let since = util::parse_json_u64(&format!("cell.inputs[{}].since", i), &item["since"], Some(0));
+
+                    let header_hash_opt = if !item["block_header"].is_null() {
+                        let (hash, header) =
+                            self.mock_block_header(&format!("inputs[{}]", i), &item["block_header"])?;
+
+                        Some(hash)
+                    } else {
+                        None
+                    };
 
                     // Generate static out point for debugging purposes, and it use the space of 1_000_000 to u64::Max.
                     let out_point = self.mock_out_point(i + 1_000_000);
@@ -406,7 +407,7 @@ impl TemplateParser {
                         input: cell_input.clone(),
                         output: cell_output,
                         data: cell_data,
-                        header: None,
+                        header: header_hash_opt,
                     };
                     self.mock_inputs.push(mock_input);
 
@@ -574,6 +575,40 @@ impl TemplateParser {
         }
 
         Ok(script)
+    }
+
+    fn mock_block_header(&self, field_name: &str, header: &Value) -> Result<(Byte32, HeaderView), Box<dyn StdError>> {
+        let version = util::parse_json_u32(&format!("{}.version", field_name), &header["version"], Some(0));
+        let number = if header["number"].is_null() {
+            util::parse_json_u64(&format!("{}.height", field_name), &header["height"], Some(0))
+        } else {
+            util::parse_json_u64(&format!("{}.number", field_name), &header["number"], Some(0))
+        };
+        let timestamp = util::parse_json_u64(&format!("{}.timestamp", field_name), &header["timestamp"], Some(0));
+        let epoch = util::parse_json_u64(&format!("{}.epoch", field_name), &header["epoch"], Some(0));
+
+        let transactions_root_raw = util::parse_json_hex_with_default(
+            &format!("{}.transactions_root", field_name),
+            &header["transactions_root"],
+            vec![0u8; 32],
+        );
+        let transactions_root = match Byte32::from_slice(&transactions_root_raw) {
+            Ok(transactions_root) => transactions_root,
+            Err(err) => return Err(format!("Parse transactions_root error: {:?}", err).into()),
+        };
+
+        let raw_header = RawHeaderBuilder::default()
+            .version(version.pack())
+            .number(number.pack())
+            .timestamp(timestamp.pack())
+            .epoch(epoch.pack())
+            .transactions_root(transactions_root)
+            .build();
+        let header = Header::new_builder().raw(raw_header).nonce(Uint128::default()).build();
+        let header_view = header.into_view();
+        let hash = header_view.hash();
+
+        Ok((hash, header_view))
     }
 
     fn mock_out_point(&self, index: usize) -> OutPoint {

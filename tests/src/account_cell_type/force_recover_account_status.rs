@@ -29,6 +29,7 @@ fn push_input_account_sale_cell(template: &mut TemplateGenerator) {
                 "buyer_inviter_profit_rate": SALE_BUYER_INVITER_PROFIT_RATE
             }
         }),
+        None,
         Some(2),
     );
 }

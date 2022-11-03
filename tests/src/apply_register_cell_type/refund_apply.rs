@@ -29,6 +29,7 @@ fn test_apply_register_refund() {
                 "timestamp": TIMESTAMP,
             }
         }),
+        None,
     );
 
     push_output_normal_cell(&mut template, 19_900_000_000, OWNER_WITHOUT_TYPE);
@@ -54,6 +55,7 @@ fn challenge_apply_register_refund_too_early() {
                 "timestamp": TIMESTAMP,
             }
         }),
+        None,
     );
 
     push_output_normal_cell(&mut template, 19_900_000_000, OWNER_WITHOUT_TYPE);
@@ -78,6 +80,7 @@ fn challenge_apply_register_refund_capacity_error() {
                 "timestamp": TIMESTAMP,
             }
         }),
+        None,
     );
 
     // Simulate refunding the ApplyRegisterCell with wrong capacity ...

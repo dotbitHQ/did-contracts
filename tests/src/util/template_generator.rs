@@ -14,8 +14,9 @@ use serde_json::{json, Value};
 
 use super::super::ckb_types_relay::*;
 use super::constants::*;
+use super::since_util::SinceFlag;
 use super::smt::*;
-use super::util;
+use super::{since_util, util};
 
 pub enum ContractType {
     DeployedContract,
@@ -68,6 +69,16 @@ pub fn gen_das_lock_args(owner_pubkey_hash: &str, manager_pubkey_hash_opt: Optio
     }
 
     format!("0x{}{}", owner_args, manager_args)
+}
+
+pub fn gen_since(absolute_flag: SinceFlag, metric_flag: SinceFlag, value: u64) -> Option<u64> {
+    let mut since = 0u64;
+    since = since_util::set_absolute_flag(since, absolute_flag);
+    since = since_util::set_metric_flag(since, metric_flag);
+    since = since_util::set_value(since, value);
+
+    // println!("0b{:064b}", since);
+    Some(since)
 }
 
 fn gen_price_config(length: u8, new_price: u64, renew_price: u64) -> PriceConfig {
@@ -1259,22 +1270,28 @@ impl TemplateGenerator {
     }
 
     pub fn push_dep(&mut self, cell: Value, version_opt: Option<u32>) -> usize {
-        self.push_cell_v2(cell, Source::CellDep, version_opt)
+        self.push_cell_v2(cell, Source::CellDep, version_opt, None)
     }
 
-    pub fn push_input(&mut self, cell: Value, version_opt: Option<u32>) -> usize {
-        self.push_cell_v2(cell, Source::Input, version_opt)
+    pub fn push_input(&mut self, cell: Value, since_opt: Option<u64>, version_opt: Option<u32>) -> usize {
+        self.push_cell_v2(cell, Source::Input, version_opt, since_opt)
     }
 
     pub fn push_output(&mut self, cell: Value, version_opt: Option<u32>) -> usize {
-        self.push_cell_v2(cell, Source::Output, version_opt)
+        self.push_cell_v2(cell, Source::Output, version_opt, None)
     }
 
-    pub fn push_cell_v2(&mut self, cell: Value, source: Source, version_opt: Option<u32>) -> usize {
+    pub fn push_cell_v2(
+        &mut self,
+        cell: Value,
+        source: Source,
+        version_opt: Option<u32>,
+        since_opt: Option<u64>,
+    ) -> usize {
         macro_rules! push_cell {
             ($gen_fn:ident, $cell:expr) => {{
                 let (cell, _) = self.$gen_fn($cell);
-                self.push_cell_json(cell, source)
+                self.push_cell_json(cell, source, since_opt)
             }};
             ($data_type:expr, $gen_fn:ident, $version_opt:expr, $cell:expr) => {{
                 let version = if let Some(version) = $version_opt {
@@ -1284,7 +1301,7 @@ impl TemplateGenerator {
                 };
 
                 let (cell, entity_opt) = self.$gen_fn(version, $cell);
-                self.push_cell_json_with_entity(cell, source, $data_type, version, entity_opt)
+                self.push_cell_json_with_entity(cell, source, $data_type, version, entity_opt, since_opt)
             }};
         }
 
@@ -1337,11 +1354,13 @@ impl TemplateGenerator {
         }
     }
 
-    pub fn push_cell_json(&mut self, mut cell: Value, source: Source) -> usize {
+    pub fn push_cell_json(&mut self, mut cell: Value, source: Source, since_opt: Option<u64>) -> usize {
         if source == Source::Input {
+            let since = if let Some(since) = since_opt { since } else { 0 };
+
             cell = json!({
                 "previous_output": cell,
-                "since": 0
+                "since": since
             });
         }
 
@@ -1369,8 +1388,9 @@ impl TemplateGenerator {
         data_type: DataType,
         version: u32,
         entity_opt: Option<EntityWrapper>,
+        since_opt: Option<u64>,
     ) -> usize {
-        let index = self.push_cell_json(cell, source);
+        let index = self.push_cell_json(cell, source, since_opt);
 
         if let Some(entity) = entity_opt {
             let witness = das_util::wrap_data_witness_v3(data_type, version, index, entity, source);
@@ -1394,8 +1414,8 @@ impl TemplateGenerator {
     ///     },
     ///     "data": {
     ///         "account": null | "xxxxx.bit", // If this is null, it will be an invalid cell.
-    ///         "height": u64,
-    ///         "timestamp": u64
+    ///         "height": null | u64,
+    ///         "timestamp": null | u64
     ///     }
     /// })
     /// ```
@@ -1417,25 +1437,21 @@ impl TemplateGenerator {
 
                 blake2b_256([&lock_args, account.as_bytes()].concat().as_slice()).to_vec()
             };
-
-            let mut height = if data["height"].is_null() {
-                Vec::new()
-            } else {
-                util::parse_json_u64("cell.data.height", &data["height"], None)
-                    .to_le_bytes()
-                    .to_vec()
-            };
-            let mut timestamp = if data["timestamp"].is_null() {
-                Vec::new()
-            } else {
-                util::parse_json_u64("cell.data.timestamp", &data["timestamp"], None)
-                    .to_le_bytes()
-                    .to_vec()
-            };
-
             raw.append(&mut account_hash_bytes);
-            raw.append(&mut height);
-            raw.append(&mut timestamp);
+
+            if !data["height"].is_null() {
+                let mut height = util::parse_json_u64("cell.data.height", &data["height"], None)
+                    .to_le_bytes()
+                    .to_vec();
+                raw.append(&mut height);
+            };
+            if !data["timestamp"].is_null() {
+                let mut timestamp = util::parse_json_u64("cell.data.timestamp", &data["timestamp"], None)
+                    .to_le_bytes()
+                    .to_vec();
+                raw.append(&mut timestamp);
+            };
+
             util::bytes_to_hex(&raw)
         };
 
@@ -1524,7 +1540,7 @@ impl TemplateGenerator {
             let quote = util::parse_json_u64("cell.witness.quote", &witness["quote"], None);
             let invited_discount =
                 util::parse_json_u32("cell.witness.invited_discount", &witness["invited_discount"], None);
-            let created_at = util::parse_json_u64("cell.witness.created_at", &witness["created_at"], None);
+            let created_at = util::parse_json_u64("cell.witness.created_at", &witness["created_at"], Some(0));
 
             match version {
                 1 => {

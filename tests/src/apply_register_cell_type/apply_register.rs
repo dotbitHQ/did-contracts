@@ -43,6 +43,7 @@ fn challenge_apply_register_consuming_cell() {
                 "timestamp": TIMESTAMP,
             }
         }),
+        None,
     );
 
     push_output_apply_register_cell(

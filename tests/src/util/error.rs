@@ -214,21 +214,21 @@ pub enum PreAccountCellErrorCode {
     SubAccountNormalCellLockLimit = -37,
     SystemOff = -1,
     // Customized errors:
-    AccountIdIsInvalid = 50,
-    ApplyHashMismatch,
+    ApplyHashMismatch = 50,
+    AccountIdIsInvalid,
+    AccountAlreadyExistOrProofInvalid,
     CreateAtIsInvalid,
     PriceIsInvalid,
     CharSetIsUndefined,
     CKBIsInsufficient,
     QuoteIsInvalid,
     OwnerLockArgsIsInvalid,
-    PreAccountCellIsNotTimeout,
     RefundCapacityError,
+    SinceMismatch,
     InviterIdShouldBeEmpty,
     InviterIdIsInvalid,
     InviteeDiscountShouldBeEmpty,
     InviteeDiscountIsInvalid,
-    AccountAlreadyExistOrProofInvalid,
 }
 
 impl Into<i8> for PreAccountCellErrorCode {
