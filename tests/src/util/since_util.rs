@@ -32,18 +32,18 @@ macro_rules! unset {
     };
 }
 
-pub fn get_absolute_flag(since: u64) -> SinceFlag {
+pub fn get_relative_flag(since: u64) -> SinceFlag {
     if is_set!(since, 63) {
-        SinceFlag::Absolute
-    } else {
         SinceFlag::Relative
+    } else {
+        SinceFlag::Absolute
     }
 }
 
-pub fn set_absolute_flag(since: u64, flag: SinceFlag) -> u64 {
+pub fn set_relative_flag(since: u64, flag: SinceFlag) -> u64 {
     match flag {
-        SinceFlag::Absolute => set!(since, 63),
-        SinceFlag::Relative => unset!(since, 63),
+        SinceFlag::Absolute => unset!(since, 63),
+        SinceFlag::Relative => set!(since, 63),
         _ => panic!(),
     }
 }
@@ -82,38 +82,35 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_since_absolute_flag_getter() {
+    fn test_since_relative_flag_getter() {
         let since = 0b00000000_11111110_11111110_11111111_11111111_11111111_11111111_11111111;
-        let flag = get_absolute_flag(since);
+        let flag = get_relative_flag(since);
 
         // println!("0b{:064b}", since);
-        assert_eq!(flag, SinceFlag::Relative);
+        assert_eq!(flag, SinceFlag::Absolute);
 
         let since = 0b10000000_11111110_11111110_11111111_11111111_11111111_11111111_11111111;
-        let flag = get_absolute_flag(since);
+        let flag = get_relative_flag(since);
 
-        assert_eq!(flag, SinceFlag::Absolute);
+        assert_eq!(flag, SinceFlag::Relative);
     }
 
     #[test]
-    fn test_since_absolute_flag_setter() {
+    fn test_since_relative_flag_setter() {
         let mut since = 0b00000000_11111110_11111110_11111111_11111111_11111111_11111111_11111111;
-        since = set_absolute_flag(since, SinceFlag::Absolute);
-        let flag = get_absolute_flag(since);
+        since = set_relative_flag(since, SinceFlag::Absolute);
 
-        assert_eq!(flag, SinceFlag::Absolute);
+        assert!(is_not_set!(since, 63));
 
         let mut since = 0b00000000_11111110_11111110_11111111_11111111_11111111_11111111_11111111;
-        since = set_absolute_flag(since, SinceFlag::Relative);
-        let flag = get_absolute_flag(since);
+        since = set_relative_flag(since, SinceFlag::Relative);
 
-        assert_eq!(flag, SinceFlag::Relative);
+        assert!(is_set!(since, 63));
 
         let mut since = 0b10000000_11111110_11111110_11111111_11111111_11111111_11111111_11111111;
-        since = set_absolute_flag(since, SinceFlag::Relative);
-        let flag = get_absolute_flag(since);
+        since = set_relative_flag(since, SinceFlag::Relative);
 
-        assert_eq!(flag, SinceFlag::Relative);
+        assert!(is_set!(since, 63));
     }
 
     #[test]
@@ -145,57 +142,48 @@ mod test {
     fn test_since_metric_flag_setter() {
         let mut since = 0b00000000_11111110_11111110_11111111_11111111_11111111_11111111_11111111;
         since = set_metric_flag(since, SinceFlag::Height);
-        let flag = get_metric_flag(since);
 
-        assert_eq!(flag, SinceFlag::Height);
+        assert!(is_not_set!(since, 62) && is_not_set!(since, 61));
 
         let mut since = 0b01000000_11111110_11111110_11111111_11111111_11111111_11111111_11111111;
         since = set_metric_flag(since, SinceFlag::Height);
-        let flag = get_metric_flag(since);
 
-        assert_eq!(flag, SinceFlag::Height);
+        assert!(is_not_set!(since, 62) && is_not_set!(since, 61));
 
         let mut since = 0b00100000_11111110_11111110_11111111_11111111_11111111_11111111_11111111;
         since = set_metric_flag(since, SinceFlag::Height);
-        let flag = get_metric_flag(since);
 
-        assert_eq!(flag, SinceFlag::Height);
+        assert!(is_not_set!(since, 62) && is_not_set!(since, 61));
 
         let mut since = 0b00000000_11111110_11111110_11111111_11111111_11111111_11111111_11111111;
         since = set_metric_flag(since, SinceFlag::Timestamp);
-        let flag = get_metric_flag(since);
 
-        assert_eq!(flag, SinceFlag::Timestamp);
+        assert!(is_set!(since, 62) && is_not_set!(since, 61));
 
         let mut since = 0b00100000_11111110_11111110_11111111_11111111_11111111_11111111_11111111;
         since = set_metric_flag(since, SinceFlag::Timestamp);
-        let flag = get_metric_flag(since);
 
-        assert_eq!(flag, SinceFlag::Timestamp);
+        assert!(is_set!(since, 62) && is_not_set!(since, 61));
 
         let mut since = 0b01100000_11111110_11111110_11111111_11111111_11111111_11111111_11111111;
         since = set_metric_flag(since, SinceFlag::Timestamp);
-        let flag = get_metric_flag(since);
 
-        assert_eq!(flag, SinceFlag::Timestamp);
+        assert!(is_set!(since, 62) && is_not_set!(since, 61));
 
         let mut since = 0b00000000_11111110_11111110_11111111_11111111_11111111_11111111_11111111;
         since = set_metric_flag(since, SinceFlag::Epoch);
-        let flag = get_metric_flag(since);
 
-        assert_eq!(flag, SinceFlag::Epoch);
+        assert!(is_not_set!(since, 62) && is_set!(since, 61));
 
         let mut since = 0b01000000_11111110_11111110_11111111_11111111_11111111_11111111_11111111;
         since = set_metric_flag(since, SinceFlag::Epoch);
-        let flag = get_metric_flag(since);
 
-        assert_eq!(flag, SinceFlag::Epoch);
+        assert!(is_not_set!(since, 62) && is_set!(since, 61));
 
         let mut since = 0b01100000_11111110_11111110_11111111_11111111_11111111_11111111_11111111;
         since = set_metric_flag(since, SinceFlag::Epoch);
-        let flag = get_metric_flag(since);
 
-        assert_eq!(flag, SinceFlag::Epoch);
+        assert!(is_not_set!(since, 62) && is_set!(since, 61));
     }
 
     #[test]

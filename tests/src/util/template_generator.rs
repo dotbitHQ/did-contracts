@@ -73,7 +73,7 @@ pub fn gen_das_lock_args(owner_pubkey_hash: &str, manager_pubkey_hash_opt: Optio
 
 pub fn gen_since(absolute_flag: SinceFlag, metric_flag: SinceFlag, value: u64) -> Option<u64> {
     let mut since = 0u64;
-    since = since_util::set_absolute_flag(since, absolute_flag);
+    since = since_util::set_relative_flag(since, absolute_flag);
     since = since_util::set_metric_flag(since, metric_flag);
     since = since_util::set_value(since, value);
 

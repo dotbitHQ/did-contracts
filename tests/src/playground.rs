@@ -1,6 +1,7 @@
 use serde_json::json;
 
 use crate::util::constants::*;
+use crate::util::since_util::SinceFlag;
 use crate::util::template_common_cell::*;
 use crate::util::template_generator::*;
 use crate::util::template_parser::*;
@@ -29,4 +30,12 @@ fn xxx_playground() {
     push_input_playground_cell(&mut template);
 
     test_tx(template.as_json());
+}
+
+#[test]
+fn yyy() {
+    println!("1 day: {:?}", gen_since(SinceFlag::Relative, SinceFlag::Timestamp, DAY_SEC).expect(""));
+    // println!("1 day: {:064b}", gen_since(SinceFlag::Relative, SinceFlag::Timestamp, DAY_SEC).expect(""));
+    println!("1 hour: {:?}", gen_since(SinceFlag::Relative, SinceFlag::Timestamp, HOUR_SEC).expect(""));
+    // println!("1 hour: {:064b}", gen_since(SinceFlag::Relative, SinceFlag::Timestamp, HOUR_SEC).expect(""));
 }

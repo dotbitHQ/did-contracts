@@ -88,7 +88,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let data = high_level::load_cell_data(index.to_owned(), Source::Input)?;
             let apply_register_hash = data_parser::apply_register_cell::get_account_hash(&data)?;
 
-            verify_apply_height(height, config_apply_reader, &data)?;
+                verify_apply_height(height, config_apply_reader, &data)?;
 
             debug!("Read witness of PreAccountCell ...");
 
@@ -226,7 +226,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             }
 
             let mut expected_since = 0u64;
-            expected_since = since_util::set_absolute_flag(expected_since, SinceFlag::Relative);
+            expected_since = since_util::set_relative_flag(expected_since, SinceFlag::Relative);
             expected_since = since_util::set_metric_flag(expected_since, SinceFlag::Timestamp);
             if cells_with_refund_lock.is_empty() {
                 expected_since = since_util::set_value(expected_since, PRE_ACCOUNT_CELL_TIMEOUT);
@@ -246,7 +246,8 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 assert!(
                     since == expected_since,
                     PreAccountCellErrorCode::SinceMismatch,
-                    "The since of PreAccountCell is not correct.(expected: {}, current: {})",
+                    "inputs[{}] The since of PreAccountCell is not correct.(expected: {}, current: {})",
+                    index,
                     expected_since,
                     since
                 );
@@ -295,6 +296,8 @@ fn verify_apply_height(
     config_reader: ConfigCellApplyReader,
     data: &[u8],
 ) -> Result<(), Box<dyn ScriptError>> {
+    debug!("Check if the ApplyRegisterCell has existed long enough ...");
+
     // Read the apply timestamp from outputs_data of ApplyRegisterCell.
     let apply_height = data_parser::apply_register_cell::get_height(data);
 
