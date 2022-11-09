@@ -202,7 +202,7 @@ fn challenge_pre_register_refund_outputs_not_clean() {
 }
 
 #[test]
-fn challenge_pre_register_refund_since_absolute_flag_error() {
+fn challenge_pre_register_refund_since_relative_flag_error() {
     let mut template = init_for_refund();
 
     // inputs

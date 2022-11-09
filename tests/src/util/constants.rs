@@ -9,6 +9,7 @@ pub const MAX_CYCLES: u64 = u64::MAX;
 
 pub const APPLY_MIN_WAITING_BLOCK: u64 = 1;
 pub const APPLY_MAX_WAITING_BLOCK: u64 = 5760;
+pub const APPLY_REFUND_REWARD: u64 = 100_000_000;
 
 pub const ACCOUNT_ID_LENGTH: usize = 20;
 pub const ACCOUNT_BASIC_CAPACITY: u64 = 20_600_000_000;
