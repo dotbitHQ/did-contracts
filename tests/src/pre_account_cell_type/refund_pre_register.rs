@@ -119,63 +119,46 @@ fn test_pre_register_refund_with_refund_lock() {
     test_tx(template.as_json())
 }
 
-// Disabled for now, since only PreAccountCells with the same refund_lock can be handled in batch for now.
-// fn test_pre_register_refund_multi_target() {
-//     let mut template = init_for_refund();
+#[test]
+fn challenge_pre_register_refund_multi_target() {
+    let mut template = init_for_refund();
 
-//     // inputs
-//     push_input_pre_account_cell(
-//         &mut template,
-//         json!({
-//             "capacity": 100_000_000_000u64,
-//             "witness": {
-//                 "account": "xxxxx.bit",
-//                 "created_at": TIMESTAMP - PRE_ACCOUNT_REFUND_WAITING_TIME,
-//                 "refund_lock": {
-//                     "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
-//                     "args": OWNER_WITHOUT_TYPE
-//                 },
-//             },
-//         }),
-//         *SINCE_1_D,
-//     );
-//     push_input_pre_account_cell(
-//         &mut template,
-//         json!({
-//             "capacity": 100_000_000_000u64,
-//             "witness": {
-//                 "account": "yyyyy.bit",
-//                 "created_at": TIMESTAMP - PRE_ACCOUNT_REFUND_WAITING_TIME,
-//                 "refund_lock": {
-//                     "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
-//                     "args": OWNER_WITHOUT_TYPE
-//                 },
-//             }
-//         }),
-//         *SINCE_1_D,
-//     );
-//     push_input_pre_account_cell(
-//         &mut template,
-//         json!({
-//             "capacity": 100_000_000_000u64,
-//             "witness": {
-//                 "account": "zzzzz.bit",
-//                 "created_at": TIMESTAMP - PRE_ACCOUNT_REFUND_WAITING_TIME,
-//                 "refund_lock": {
-//                     "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
-//                     "args": MANAGER_WITHOUT_TYPE
-//                 },
-//             }
-//         }),
-//         *SINCE_1_D
-//     );
+    // inputs
+    push_input_pre_account_cell(
+        &mut template,
+        json!({
+            "capacity": 100_000_000_000u64,
+            "witness": {
+                "account": "xxxxx.bit",
+                "refund_lock": {
+                    "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                    "args": OWNER_1_WITHOUT_TYPE
+                },
+            }
+        }),
+        *SINCE_1_D,
+    );
+    push_input_pre_account_cell(
+        &mut template,
+        json!({
+            "capacity": 100_000_000_000u64,
+            "witness": {
+                "account": "zzzzz.bit",
+                "refund_lock": {
+                    "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                    "args": OWNER_2_WITHOUT_TYPE
+                },
+            }
+        }),
+        *SINCE_1_D,
+    );
 
-//     // outputs
-//     push_output_normal_cell(&mut template, 200_000_000_000, OWNER_WITHOUT_TYPE);
-//     push_output_normal_cell(&mut template, 100_000_000_000, MANAGER_WITHOUT_TYPE);
+    // outputs
+    push_output_normal_cell(&mut template, 100_000_000_000, OWNER_1_WITHOUT_TYPE);
+    push_output_normal_cell(&mut template, 100_000_000_000, OWNER_2_WITHOUT_TYPE);
 
-//     test_tx(template.as_json())
-// }
+    challenge_tx(template.as_json(), PreAccountCellErrorCode::RefundLockMustBeUnique)
+}
 
 #[test]
 fn challenge_pre_register_refund_outputs_not_clean() {
@@ -327,34 +310,6 @@ fn challenge_pre_register_refund_with_refund_lock_since_value_error() {
 
     challenge_tx(template.as_json(), PreAccountCellErrorCode::SinceMismatch)
 }
-
-// #[test]
-// fn challenge_pre_register_refund_to_multiple_cells() {
-//     let mut template = init_for_refund();
-
-//     // inputs
-//     push_input_pre_account_cell(
-//         &mut template,
-//         json!({
-//             "capacity": 100_000_000_000u64,
-//             "witness": {
-//                 "account": "xxxxx.bit",
-//                 "refund_lock": {
-//                     "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
-//                     "args": OWNER_WITHOUT_TYPE
-//                 },
-//             }
-//         }),
-//         *SINCE_1_D,
-//     );
-
-//     // outputs
-//     // Simulate refunding the capacity of a single refund lock to multiple cells.
-//     push_output_normal_cell(&mut template, 10_000_000_000u64, OWNER_WITHOUT_TYPE);
-//     push_output_normal_cell(&mut template, 90_000_000_000u64, OWNER_WITHOUT_TYPE);
-
-//     challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure)
-// }
 
 #[test]
 fn challenge_pre_register_refund_capacity_not_enough() {

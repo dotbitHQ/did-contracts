@@ -252,6 +252,13 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                     since
                 );
 
+                assert!(
+                    util::is_reader_eq(refund_lock, pre_account_cell_witness_reader.refund_lock()),
+                    PreAccountCellErrorCode::RefundLockMustBeUnique,
+                    "inputs[{}] The refund_lock of PreAccountCell is not the same as others, only one refund_lock is admited in one transaction.",
+                    index
+                );
+
                 util::map_add(
                     &mut refund_map,
                     pre_account_cell_witness_reader.refund_lock().as_slice().to_vec(),

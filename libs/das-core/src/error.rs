@@ -263,6 +263,7 @@ pub enum PreAccountCellErrorCode {
     CKBIsInsufficient,
     QuoteIsInvalid,
     OwnerLockArgsIsInvalid,
+    RefundLockMustBeUnique,
     RefundCapacityError,
     SinceMismatch,
     InviterIdShouldBeEmpty,
