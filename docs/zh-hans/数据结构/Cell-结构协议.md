@@ -1074,6 +1074,7 @@ enum DataType {
     IncomeCellData,
     OfferCellData,
     SubAccount,
+    SubAccountMintSign,
     ConfigCellAccount = 100,              // args: 0x64000000
     ConfigCellApply = 101,                // args: 0x65000000
     ConfigCellIncome = 103,               // args: 0x67000000
