@@ -1352,9 +1352,6 @@ impl TemplateGenerator {
                     "account-sale-cell-type" => {
                         push_cell!(DataType::AccountSaleCellData, gen_account_sale_cell, version_opt, cell)
                     }
-                    "apply-register-cell-type" => push_cell!(gen_apply_register_cell, cell),
-                    "balance-cell-type" => push_cell!(gen_balance_cell, cell),
-                    "sub-account-cell-type" => push_cell!(gen_sub_account_cell, cell),
                     "income-cell-type" => {
                         push_cell!(DataType::IncomeCellData, gen_income_cell, version_opt, cell)
                     }
@@ -1367,6 +1364,9 @@ impl TemplateGenerator {
                     "proposal-cell-type" => {
                         push_cell!(DataType::ProposalCellData, gen_proposal_cell, version_opt, cell)
                     }
+                    "apply-register-cell-type" => push_cell!(gen_apply_register_cell, cell),
+                    "balance-cell-type" => push_cell!(gen_balance_cell, cell),
+                    "sub-account-cell-type" => push_cell!(gen_sub_account_cell, cell),
                     "reverse-record-cell-type" => push_cell!(gen_reverse_record_cell, cell),
                     "test-env" => push_cell!(gen_custom_cell, cell),
                     "playground" => push_cell!(gen_custom_cell, cell),
@@ -1485,11 +1485,12 @@ impl TemplateGenerator {
 
         (
             json!({
-              "tmp_type": "full",
-              "capacity": capacity,
-              "lock": lock_script,
-              "type": type_script,
-              "tmp_data": outputs_data
+                "tmp_header": cell["header"],
+                "tmp_type": "full",
+                "capacity": capacity,
+                "lock": lock_script,
+                "type": type_script,
+                "tmp_data": outputs_data
             }),
             None,
         )
@@ -1597,11 +1598,12 @@ impl TemplateGenerator {
 
                     (
                         json!({
-                          "tmp_type": "full",
-                          "capacity": capacity,
-                          "lock": lock_script,
-                          "type": type_script,
-                          "tmp_data": util::bytes_to_hex(&outputs_data)
+                            "tmp_header": cell["header"],
+                            "tmp_type": "full",
+                            "capacity": capacity,
+                            "lock": lock_script,
+                            "type": type_script,
+                            "tmp_data": util::bytes_to_hex(&outputs_data)
                         }),
                         Some(EntityWrapper::PreAccountCellDataV1(entity)),
                     )
@@ -1635,11 +1637,12 @@ impl TemplateGenerator {
 
                     (
                         json!({
-                          "tmp_type": "full",
-                          "capacity": capacity,
-                          "lock": lock_script,
-                          "type": type_script,
-                          "tmp_data": util::bytes_to_hex(&outputs_data)
+                            "tmp_header": cell["header"],
+                            "tmp_type": "full",
+                            "capacity": capacity,
+                            "lock": lock_script,
+                            "type": type_script,
+                            "tmp_data": util::bytes_to_hex(&outputs_data)
                         }),
                         Some(EntityWrapper::PreAccountCellDataV2(entity)),
                     )
@@ -1676,11 +1679,12 @@ impl TemplateGenerator {
 
                     (
                         json!({
-                          "tmp_type": "full",
-                          "capacity": capacity,
-                          "lock": lock_script,
-                          "type": type_script,
-                          "tmp_data": util::bytes_to_hex(&outputs_data)
+                            "tmp_header": cell["header"],
+                            "tmp_type": "full",
+                            "capacity": capacity,
+                            "lock": lock_script,
+                            "type": type_script,
+                            "tmp_data": util::bytes_to_hex(&outputs_data)
                         }),
                         Some(EntityWrapper::PreAccountCellData(entity)),
                     )
@@ -1690,11 +1694,12 @@ impl TemplateGenerator {
             let outputs_data = util::parse_json_hex("cell.data", &cell["data"]);
             (
                 json!({
-                  "tmp_type": "full",
-                  "capacity": capacity,
-                  "lock": lock_script,
-                  "type": type_script,
-                  "tmp_data": util::bytes_to_hex(&outputs_data)
+                    "tmp_header": cell["header"],
+                    "tmp_type": "full",
+                    "capacity": capacity,
+                    "lock": lock_script,
+                    "type": type_script,
+                    "tmp_data": util::bytes_to_hex(&outputs_data)
                 }),
                 None,
             )
@@ -1793,11 +1798,12 @@ impl TemplateGenerator {
 
                     (
                         json!({
-                          "tmp_type": "full",
-                          "capacity": capacity,
-                          "lock": lock_script,
-                          "type": type_script,
-                          "tmp_data": util::bytes_to_hex(&outputs_data)
+                            "tmp_header": cell["header"],
+                            "tmp_type": "full",
+                            "capacity": capacity,
+                            "lock": lock_script,
+                            "type": type_script,
+                            "tmp_data": util::bytes_to_hex(&outputs_data)
                         }),
                         Some(EntityWrapper::ProposalCellData(entity)),
                     )
@@ -1807,11 +1813,12 @@ impl TemplateGenerator {
             let outputs_data = util::parse_json_hex("cell.data", &cell["data"]);
             (
                 json!({
-                  "tmp_type": "full",
-                  "capacity": capacity,
-                  "lock": lock_script,
-                  "type": type_script,
-                  "tmp_data": util::bytes_to_hex(&outputs_data)
+                    "tmp_header": cell["header"],
+                    "tmp_type": "full",
+                    "capacity": capacity,
+                    "lock": lock_script,
+                    "type": type_script,
+                    "tmp_data": util::bytes_to_hex(&outputs_data)
                 }),
                 None,
             )
@@ -1938,11 +1945,12 @@ impl TemplateGenerator {
 
                     (
                         json!({
-                          "tmp_type": "full",
-                          "capacity": capacity,
-                          "lock": lock_script,
-                          "type": type_script,
-                          "tmp_data": util::bytes_to_hex(&outputs_data)
+                            "tmp_header": cell["header"],
+                            "tmp_type": "full",
+                            "capacity": capacity,
+                            "lock": lock_script,
+                            "type": type_script,
+                            "tmp_data": util::bytes_to_hex(&outputs_data)
                         }),
                         Some(EntityWrapper::AccountCellDataV2(entity)),
                     )
@@ -1975,11 +1983,12 @@ impl TemplateGenerator {
 
                     (
                         json!({
-                          "tmp_type": "full",
-                          "capacity": capacity,
-                          "lock": lock_script,
-                          "type": type_script,
-                          "tmp_data": util::bytes_to_hex(&outputs_data)
+                            "tmp_header": cell["header"],
+                            "tmp_type": "full",
+                            "capacity": capacity,
+                            "lock": lock_script,
+                            "type": type_script,
+                            "tmp_data": util::bytes_to_hex(&outputs_data)
                         }),
                         Some(EntityWrapper::AccountCellData(entity)),
                     )
@@ -1990,11 +1999,12 @@ impl TemplateGenerator {
 
             (
                 json!({
-                  "tmp_type": "full",
-                  "capacity": capacity,
-                  "lock": lock_script,
-                  "type": type_script,
-                  "tmp_data": util::bytes_to_hex(&outputs_data)
+                    "tmp_header": cell["header"],
+                    "tmp_type": "full",
+                    "capacity": capacity,
+                    "lock": lock_script,
+                    "type": type_script,
+                    "tmp_data": util::bytes_to_hex(&outputs_data)
                 }),
                 None,
             )
@@ -2063,11 +2073,12 @@ impl TemplateGenerator {
 
                     (
                         json!({
-                          "tmp_type": "full",
-                          "capacity": capacity,
-                          "lock": lock_script,
-                          "type": type_script,
-                          "tmp_data": util::bytes_to_hex(&outputs_data)
+                            "tmp_header": cell["header"],
+                            "tmp_type": "full",
+                            "capacity": capacity,
+                            "lock": lock_script,
+                            "type": type_script,
+                            "tmp_data": util::bytes_to_hex(&outputs_data)
                         }),
                         Some(EntityWrapper::AccountSaleCellDataV1(entity)),
                     )
@@ -2095,11 +2106,12 @@ impl TemplateGenerator {
 
                     (
                         json!({
-                          "tmp_type": "full",
-                          "capacity": capacity,
-                          "lock": lock_script,
-                          "type": type_script,
-                          "tmp_data": util::bytes_to_hex(&outputs_data)
+                            "tmp_header": cell["header"],
+                            "tmp_type": "full",
+                            "capacity": capacity,
+                            "lock": lock_script,
+                            "type": type_script,
+                            "tmp_data": util::bytes_to_hex(&outputs_data)
                         }),
                         Some(EntityWrapper::AccountSaleCellData(entity)),
                     )
@@ -2110,11 +2122,12 @@ impl TemplateGenerator {
 
             (
                 json!({
-                  "tmp_type": "full",
-                  "capacity": capacity,
-                  "lock": lock_script,
-                  "type": type_script,
-                  "tmp_data": util::bytes_to_hex(&outputs_data)
+                    "tmp_header": cell["header"],
+                    "tmp_type": "full",
+                    "capacity": capacity,
+                    "lock": lock_script,
+                    "type": type_script,
+                    "tmp_data": util::bytes_to_hex(&outputs_data)
                 }),
                 None,
             )
@@ -2191,11 +2204,12 @@ impl TemplateGenerator {
 
                     (
                         json!({
-                          "tmp_type": "full",
-                          "capacity": capacity,
-                          "lock": lock_script,
-                          "type": type_script,
-                          "tmp_data": util::bytes_to_hex(&outputs_data)
+                            "tmp_header": cell["header"],
+                            "tmp_type": "full",
+                            "capacity": capacity,
+                            "lock": lock_script,
+                            "type": type_script,
+                            "tmp_data": util::bytes_to_hex(&outputs_data)
                         }),
                         Some(EntityWrapper::IncomeCellData(entity)),
                     )
@@ -2206,11 +2220,12 @@ impl TemplateGenerator {
             let outputs_data = util::parse_json_hex("cell.data", &cell["data"]);
             (
                 json!({
-                  "tmp_type": "full",
-                  "capacity": capacity,
-                  "lock": lock_script,
-                  "type": type_script,
-                  "tmp_data": util::bytes_to_hex(&outputs_data)
+                    "tmp_header": cell["header"],
+                    "tmp_type": "full",
+                    "capacity": capacity,
+                    "lock": lock_script,
+                    "type": type_script,
+                    "tmp_data": util::bytes_to_hex(&outputs_data)
                 }),
                 None,
             )
@@ -2248,11 +2263,12 @@ impl TemplateGenerator {
 
         (
             json!({
-              "tmp_type": "full",
-              "capacity": capacity,
-              "lock": lock_script,
-              "type": type_script,
-              "tmp_data": outputs_data
+                "tmp_header": cell["header"],
+                "tmp_type": "full",
+                "capacity": capacity,
+                "lock": lock_script,
+                "type": type_script,
+                "tmp_data": outputs_data
             }),
             None,
         )
@@ -2309,11 +2325,12 @@ impl TemplateGenerator {
                     );
                     (
                         json!({
-                          "tmp_type": "full",
-                          "capacity": capacity,
-                          "lock": lock_script,
-                          "type": type_script,
-                          "tmp_data": util::bytes_to_hex(&outputs_data)
+                            "tmp_header": cell["header"],
+                            "tmp_type": "full",
+                            "capacity": capacity,
+                            "lock": lock_script,
+                            "type": type_script,
+                            "tmp_data": util::bytes_to_hex(&outputs_data)
                         }),
                         Some(EntityWrapper::OfferCellData(entity)),
                     )
@@ -2323,11 +2340,12 @@ impl TemplateGenerator {
             let outputs_data = util::parse_json_hex("cell.data", &cell["data"]);
             (
                 json!({
-                  "tmp_type": "full",
-                  "capacity": capacity,
-                  "lock": lock_script,
-                  "type": type_script,
-                  "tmp_data": util::bytes_to_hex(&outputs_data)
+                    "tmp_header": cell["header"],
+                    "tmp_type": "full",
+                    "capacity": capacity,
+                    "lock": lock_script,
+                    "type": type_script,
+                    "tmp_data": util::bytes_to_hex(&outputs_data)
                 }),
                 None,
             )
@@ -2409,11 +2427,12 @@ impl TemplateGenerator {
 
         (
             json!({
-              "tmp_type": "full",
-              "capacity": capacity,
-              "lock": lock_script,
-              "type": type_script,
-              "tmp_data": outputs_data
+                "tmp_header": cell["header"],
+                "tmp_type": "full",
+                "capacity": capacity,
+                "lock": lock_script,
+                "type": type_script,
+                "tmp_data": outputs_data
             }),
             None,
         )
@@ -2447,11 +2466,12 @@ impl TemplateGenerator {
 
         (
             json!({
-              "tmp_type": "full",
-              "capacity": capacity,
-              "lock": lock_script,
-              "type": type_script,
-              "tmp_data": outputs_data
+                "tmp_header": cell["header"],
+                "tmp_type": "full",
+                "capacity": capacity,
+                "lock": lock_script,
+                "type": type_script,
+                "tmp_data": outputs_data
             }),
             None,
         )
@@ -2484,11 +2504,12 @@ impl TemplateGenerator {
 
         (
             json!({
-              "tmp_type": "full",
-              "capacity": capacity,
-              "lock": lock_script,
-              "type": type_script,
-              "tmp_data": outputs_data
+                "tmp_header": cell["header"],
+                "tmp_type": "full",
+                "capacity": capacity,
+                "lock": lock_script,
+                "type": type_script,
+                "tmp_data": outputs_data
             }),
             None,
         )

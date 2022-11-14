@@ -68,6 +68,10 @@ pub fn hex_to_u64(input: &str) -> Result<u64, Box<dyn Error>> {
 }
 
 pub fn merge_json(target: &mut Value, source: Value) {
+    if source.is_null() {
+        return;
+    }
+
     match (target, source) {
         (a @ &mut Value::Object(_), Value::Object(b)) => {
             let a = a.as_object_mut().unwrap();
