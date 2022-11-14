@@ -42,13 +42,13 @@ lock: <ckb_lock_script>
 type: <apply-register-cell-type>
 data:
   hash(lock_args + account) // account 包含 .bit 后缀
-  [height]
-  [timestamp]
+  [height] // Deprecated
+  [timestamp] // Deprecated
 ```
 
 - hash ，账户名和 owner 的 lock_args 的 hash；
-- height ，在 v1 交易中为必填字段，值为 cell 创建时的区块高度(小端)，从 heightcell 里获取；
-- timestamp ，在 v1 交易中为必填字段，值为 cell 创建时的时间戳(小端)，从 timecell 里获取；
+- height ，值为 cell 创建时的区块高度(小端)，从 heightcell 里获取；
+- timestamp ，值为 cell 创建时的时间戳(小端)，从 timecell 里获取；
 
 #### 体积
 
