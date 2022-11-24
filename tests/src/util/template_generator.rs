@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::fs::OpenOptions;
 use std::io::Write;
+use std::str::FromStr;
 use std::{env, str};
 
 use ckb_hash::blake2b_256;
@@ -10,6 +11,7 @@ use das_types_std::packed::*;
 use das_types_std::prelude::*;
 use das_types_std::util as das_util;
 use das_types_std::util::EntityWrapper;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use super::super::ckb_types_relay::*;
@@ -25,10 +27,30 @@ pub enum ContractType {
     SharedLib,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(untagged)]
 pub enum SubAccountActionType {
-    Insert,
+    Create,
     Edit,
-    Delete,
+    Renew,
+    Recycle,
+}
+
+impl SubAccountActionType {
+    fn to_string(self) -> String {
+        self.into()
+    }
+}
+
+impl Into<String> for SubAccountActionType {
+    fn into(self) -> String {
+        match self {
+            SubAccountActionType::Create => "create".to_string(),
+            SubAccountActionType::Edit => "edit".to_string(),
+            SubAccountActionType::Renew => "renew".to_string(),
+            SubAccountActionType::Recycle => "recycle".to_string(),
+        }
+    }
 }
 
 pub fn gen_fake_das_lock(lock_args: &str) -> Script {
@@ -478,6 +500,10 @@ pub fn parse_json_to_sub_account(field_name: &str, field: &Value) -> SubAccount 
         .build()
 }
 
+fn length_of(data: &[u8]) -> Vec<u8> {
+    (data.len() as u32).to_le_bytes().to_vec()
+}
+
 #[derive(Debug, Clone)]
 pub struct AccountRecordParam {
     pub type_: &'static str,
@@ -504,6 +530,7 @@ pub struct TemplateGenerator {
     pub preserved_account_groups: HashMap<u32, (Vec<u8>, Vec<u8>)>,
     pub charsets: HashMap<u32, (Bytes, Vec<u8>)>,
     pub smt_with_history: SMTWithHistory,
+    pub new_sub_account_smt: SMTWithHistory,
 }
 
 impl TemplateGenerator {
@@ -532,6 +559,7 @@ impl TemplateGenerator {
             preserved_account_groups: HashMap::new(),
             charsets: HashMap::new(),
             smt_with_history: SMTWithHistory::new(),
+            new_sub_account_smt: SMTWithHistory::new(),
         }
     }
 
@@ -2483,7 +2511,72 @@ impl TemplateGenerator {
         self.smt_with_history.restore_state(leaves);
     }
 
-    /// Push sub-account witness
+    /// Push SubAccountMintSign witness
+    ///
+    /// Witness structure:
+    ///
+    /// ```json
+    /// json!({
+    ///     "version": u32,
+    ///     "signature": null | "0x...", // If this is null, it will be filled with 65 bytes of 0.
+    ///     "expired_at": u64,
+    ///     "account_list_smt_root": [ // The SMT root will be calculated automatically from the account list.
+    ///         ["xxxx.bit", "0x..."],
+    ///         ["xxxx.bit", "0x..."],
+    ///         ["xxxx.bit", "0x..."],
+    ///         ...
+    ///     ]
+    /// })
+    /// ```
+    pub fn push_sub_account_sign_witness(&mut self, witness: Value) -> SMTWithHistory {
+        let mut witness_bytes = Vec::new();
+
+        let field_value = util::parse_json_u32("witness.version", &witness["version"], Some(1)).to_le_bytes();
+        witness_bytes.extend(length_of(&field_value));
+        witness_bytes.extend(field_value);
+
+        let field_value = util::parse_json_hex_with_default(
+            "witness.signature",
+            &witness["signature"],
+            hex::decode("ffffffffffffffffffffffffffffffffffffffff").unwrap(),
+        );
+        witness_bytes.extend(length_of(&field_value));
+        witness_bytes.extend(field_value);
+
+        let field_value = util::parse_json_u64("witness.expired_at", &witness["expired_at"], None).to_le_bytes();
+        witness_bytes.extend(length_of(&field_value));
+        witness_bytes.extend(field_value);
+
+        let registerable_accounts =
+            parse_json_array("witness.account_list_smt_root", &witness["account_list_smt_root"]);
+        let mut smt = SMTWithHistory::new();
+        for (i, registerable_account) in registerable_accounts.iter().enumerate() {
+            let account = parse_json_str(
+                &format!("witness.account_list_smt_root[{}][0]", i),
+                &registerable_account[0],
+            );
+            let lock_args = util::parse_json_hex(
+                &format!("witness.account_list_smt_root[{}][1]", i),
+                &registerable_account[1],
+            );
+            let key = util::blake2b_smt(account.as_bytes());
+            let value = util::blake2b_smt(lock_args.as_slice());
+
+            smt.insert(key.into(), value.into());
+        }
+        let root = smt.current_root();
+        witness_bytes.extend(length_of(&root));
+        witness_bytes.extend(root);
+
+        // println!("witness_bytes = {:?}", util::bytes_to_hex(&witness_bytes));
+        witness_bytes = das_util::wrap_sub_account_witness(DataType::SubAccountMintSign, witness_bytes);
+        self.sub_account_outer_witnesses
+            .push(util::bytes_to_hex(&witness_bytes));
+
+        smt
+    }
+
+    // Push sub-account witness
     ///
     /// The sub-account witnesses will always be the end of the whole witnesses array, so no matter when you need to call this function, you
     /// can call it freely.
@@ -2492,12 +2585,13 @@ impl TemplateGenerator {
     ///
     /// ```json
     /// json!({
-    ///     "signature": null | "0x...", // If this is null, it will be filled with 65 bytes of 0.
-    ///     "sign_role": 0 | 1, // 0 means owner, 1 means manager.
-    ///     "prev_root": null | "0x...", // If this is null, it will be calculated automatically from self.smt_with_history.
-    ///     "current_root": null | "0x...", // If this is null, it will be calculated automatically from self.smt_with_history.
-    ///     "proof": "0x...", // If this is null, it will be calculated automatically from self.smt_with_history.
     ///     "version": u32,
+    ///     "signature": null | "0x...", // If this is null, it will be filled with 65 bytes of 0.
+    ///     "sign_role": null | "0x...",
+    ///     "sign_expired_at": null | u64, // If this is null, it will be filled with 0.
+    ///     "new_root": null | "0x...", // If this is null, it will be calculated automatically from self.smt_with_history.
+    ///     "proof": null | "0x...", // If this is null, it will be calculated automatically from self.smt_with_history.
+    ///     "action": "create" | "edit" | "renew" | "recycle",
     ///     "sub_account": {
     ///         "lock": Script,
     ///         "id": null | "yyyyy.xxxxx.bit" | "0x...", // If this is null, it will be an invalid cell. If this is not hex, it will be treated as account to calculate account ID.
@@ -2520,35 +2614,27 @@ impl TemplateGenerator {
     ///         "enable_sub_account": u8,
     ///         "renew_sub_account_price": u64
     ///     },
-    ///     "edit_key": null | "expired_at",
+    ///     "edit_key": null | "expired_at" | "owner" | "manager" | "records",
     ///     "edit_value": null | ..., // A JSON object which expired_at
     /// })
     /// ```
-    pub fn push_sub_account_witness(&mut self, action: SubAccountActionType, witness: Value) {
-        fn length_of(data: &[u8]) -> Vec<u8> {
-            (data.len() as u32).to_le_bytes().to_vec()
-        }
-
+    pub fn push_sub_account_witness_v2(&mut self, witness: Value) {
         fn extend_main_fields(
             witness_bytes: &mut Vec<u8>,
-            prev_root: [u8; 32],
-            current_root: [u8; 32],
+            new_root: [u8; 32],
             proof: Vec<u8>,
+            action: SubAccountAction,
             sub_account_entity_bytes: Vec<u8>,
-            witness: &Value,
         ) {
-            witness_bytes.extend(length_of(&prev_root));
-            witness_bytes.extend(prev_root);
-
-            witness_bytes.extend(length_of(&current_root));
-            witness_bytes.extend(current_root);
+            witness_bytes.extend(length_of(&new_root));
+            witness_bytes.extend(new_root);
 
             witness_bytes.extend(length_of(&proof));
             witness_bytes.extend(proof);
 
-            let version = util::parse_json_u32("witness.version", &witness["version"], Some(1)).to_le_bytes();
-            witness_bytes.extend(length_of(&version));
-            witness_bytes.extend(version);
+            let action_str = action.to_string();
+            witness_bytes.extend(length_of(action_str.as_bytes()));
+            witness_bytes.extend(action_str.as_bytes());
 
             witness_bytes.extend(length_of(&sub_account_entity_bytes));
             witness_bytes.extend(sub_account_entity_bytes);
@@ -2590,6 +2676,10 @@ impl TemplateGenerator {
 
         let mut witness_bytes = Vec::new();
 
+        let field_value = util::parse_json_u32("witness.version", &witness["version"], Some(2)).to_le_bytes();
+        witness_bytes.extend(length_of(&field_value));
+        witness_bytes.extend(field_value);
+
         let field_value = util::parse_json_hex_with_default(
             "witness.signature",
             &witness["signature"],
@@ -2599,6 +2689,11 @@ impl TemplateGenerator {
         witness_bytes.extend(field_value);
 
         let field_value = util::parse_json_hex_with_default("witness.sign_role", &witness["sign_role"], vec![0]);
+        witness_bytes.extend(length_of(&field_value));
+        witness_bytes.extend(field_value);
+
+        let field_value =
+            util::parse_json_u64("witness.sign_expired_at", &witness["sign_expired_at"], Some(0)).to_le_bytes();
         witness_bytes.extend(length_of(&field_value));
         witness_bytes.extend(field_value);
 
@@ -2615,24 +2710,29 @@ impl TemplateGenerator {
         let key = util::blake2b_smt(account.as_bytes());
 
         let sub_account_entity = parse_json_to_sub_account("witness.sub_account", &witness["sub_account"]);
-
+        let action = SubAccountAction::from_str(
+            witness["action"]
+                .as_str()
+                .expect("witness.action should be a valid str."),
+        )
+        .expect("witness.action should be a valid SubAccountAction.");
         match action {
-            SubAccountActionType::Insert => {
+            SubAccountAction::Create => {
                 let sub_account_entity_bytes = sub_account_entity.as_slice().to_vec();
                 let value = util::blake2b_smt(&sub_account_entity_bytes);
-                let (prev_root, current_root, proof) = self.smt_with_history.insert(key.into(), value.into());
+                let (_, current_root, proof) = self.smt_with_history.insert(key.clone().into(), value.clone().into());
+                let compiled_proof = proof.compile(vec![(key.into(), value.into())]).unwrap().0;
 
                 extend_main_fields(
                     &mut witness_bytes,
-                    prev_root,
                     current_root,
-                    proof,
+                    compiled_proof,
+                    action,
                     sub_account_entity_bytes,
-                    &witness,
                 );
                 extend_edit_fields(&mut witness_bytes, &witness);
             }
-            SubAccountActionType::Edit => {
+            SubAccountAction::Edit => {
                 let mut new_sub_account_builder = sub_account_entity.clone().as_builder();
                 let current_nonce = u64::from(sub_account_entity.nonce());
 
@@ -2662,28 +2762,34 @@ impl TemplateGenerator {
                 let new_sub_account_entity = new_sub_account_builder.build();
                 let new_sub_account_entity_bytes = new_sub_account_entity.as_slice().to_vec();
                 let value = util::blake2b_smt(&new_sub_account_entity_bytes);
-                let (prev_root, current_root, proof) = self.smt_with_history.insert(key.into(), value.into());
+                let (_, current_root, proof) = self.smt_with_history.insert(key.into(), value.into());
+                let compiled_proof = proof.compile(vec![(key.into(), value.into())]).unwrap().0;
 
                 extend_main_fields(
                     &mut witness_bytes,
-                    prev_root,
                     current_root,
-                    proof,
+                    compiled_proof,
+                    action,
                     sub_account_entity.as_slice().to_vec(),
-                    &witness,
                 );
                 extend_edit_fields(&mut witness_bytes, &witness);
             }
-            SubAccountActionType::Delete => {
+            SubAccountAction::Renew => {
+                todo!();
+                // extend_edit_fields(&mut witness_bytes, &witness);
+            }
+            SubAccountAction::Recycle => {
                 todo!();
                 // extend_edit_fields(&mut witness_bytes, &witness);
             }
         }
 
-        witness_bytes = das_util::wrap_sub_account_witness(witness_bytes);
+        witness_bytes = das_util::wrap_sub_account_witness(DataType::SubAccount, witness_bytes);
         self.sub_account_outer_witnesses
-            .push(String::from("0x") + &hex::encode(&witness_bytes));
+            .push(util::bytes_to_hex(&witness_bytes));
     }
+
+    pub fn push_sub_account_witness(&mut self, action: SubAccountActionType, witness: Value) {}
 
     // ======
 
