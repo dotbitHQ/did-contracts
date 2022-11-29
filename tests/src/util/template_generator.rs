@@ -2528,7 +2528,7 @@ impl TemplateGenerator {
     ///     ]
     /// })
     /// ```
-    pub fn push_sub_account_sign_witness(&mut self, witness: Value) -> SMTWithHistory {
+    pub fn push_sub_account_mint_sign_witness(&mut self, witness: Value) -> SMTWithHistory {
         let mut witness_bytes = Vec::new();
 
         let field_value = util::parse_json_u32("witness.version", &witness["version"], Some(1)).to_le_bytes();
@@ -2540,6 +2540,10 @@ impl TemplateGenerator {
             &witness["signature"],
             hex::decode("ffffffffffffffffffffffffffffffffffffffff").unwrap(),
         );
+        witness_bytes.extend(length_of(&field_value));
+        witness_bytes.extend(field_value);
+
+        let field_value = util::parse_json_hex_with_default("witness.sign_role", &witness["sign_role"], vec![0]);
         witness_bytes.extend(length_of(&field_value));
         witness_bytes.extend(field_value);
 
@@ -2586,12 +2590,12 @@ impl TemplateGenerator {
     /// ```json
     /// json!({
     ///     "version": u32,
+    ///     "action": "create" | "edit" | "renew" | "recycle",
     ///     "signature": null | "0x...", // If this is null, it will be filled with 65 bytes of 0.
     ///     "sign_role": null | "0x...",
     ///     "sign_expired_at": null | u64, // If this is null, it will be filled with 0.
     ///     "new_root": null | "0x...", // If this is null, it will be calculated automatically from self.smt_with_history.
     ///     "proof": null | "0x...", // If this is null, it will be calculated automatically from self.smt_with_history.
-    ///     "action": "create" | "edit" | "renew" | "recycle",
     ///     "sub_account": {
     ///         "lock": Script,
     ///         "id": null | "yyyyy.xxxxx.bit" | "0x...", // If this is null, it will be an invalid cell. If this is not hex, it will be treated as account to calculate account ID.
@@ -2623,7 +2627,6 @@ impl TemplateGenerator {
             witness_bytes: &mut Vec<u8>,
             new_root: [u8; 32],
             proof: Vec<u8>,
-            action: SubAccountAction,
             sub_account_entity_bytes: Vec<u8>,
         ) {
             witness_bytes.extend(length_of(&new_root));
@@ -2631,10 +2634,6 @@ impl TemplateGenerator {
 
             witness_bytes.extend(length_of(&proof));
             witness_bytes.extend(proof);
-
-            let action_str = action.to_string();
-            witness_bytes.extend(length_of(action_str.as_bytes()));
-            witness_bytes.extend(action_str.as_bytes());
 
             witness_bytes.extend(length_of(&sub_account_entity_bytes));
             witness_bytes.extend(sub_account_entity_bytes);
@@ -2680,6 +2679,16 @@ impl TemplateGenerator {
         witness_bytes.extend(length_of(&field_value));
         witness_bytes.extend(field_value);
 
+        let action = SubAccountAction::from_str(
+            witness["action"]
+                .as_str()
+                .expect("witness.action should be a valid str."),
+        )
+        .expect("witness.action should be a valid SubAccountAction.");
+        let action_str = action.clone().to_string();
+        witness_bytes.extend(length_of(action_str.as_bytes()));
+        witness_bytes.extend(action_str.as_bytes());
+
         let field_value = util::parse_json_hex_with_default(
             "witness.signature",
             &witness["signature"],
@@ -2710,12 +2719,6 @@ impl TemplateGenerator {
         let key = util::blake2b_smt(account.as_bytes());
 
         let sub_account_entity = parse_json_to_sub_account("witness.sub_account", &witness["sub_account"]);
-        let action = SubAccountAction::from_str(
-            witness["action"]
-                .as_str()
-                .expect("witness.action should be a valid str."),
-        )
-        .expect("witness.action should be a valid SubAccountAction.");
         match action {
             SubAccountAction::Create => {
                 let sub_account_entity_bytes = sub_account_entity.as_slice().to_vec();
@@ -2727,7 +2730,6 @@ impl TemplateGenerator {
                     &mut witness_bytes,
                     current_root,
                     compiled_proof,
-                    action,
                     sub_account_entity_bytes,
                 );
                 extend_edit_fields(&mut witness_bytes, &witness);
@@ -2769,7 +2771,6 @@ impl TemplateGenerator {
                     &mut witness_bytes,
                     current_root,
                     compiled_proof,
-                    action,
                     sub_account_entity.as_slice().to_vec(),
                 );
                 extend_edit_fields(&mut witness_bytes, &witness);

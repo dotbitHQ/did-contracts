@@ -41,7 +41,7 @@ fn parse_sub_account_witness_create_only() {
 
     push_input_test_env_cell(&mut template);
 
-    let smt = template.push_sub_account_sign_witness(json!({
+    let smt = template.push_sub_account_mint_sign_witness(json!({
         "version": 1,
         "expired_at": TIMESTAMP + DAY_SEC,
         "account_list_smt_root": [
@@ -224,7 +224,7 @@ fn parse_sub_account_witness_mixed() {
         }),
     ]);
 
-    let smt = template.push_sub_account_sign_witness(json!({
+    let smt = template.push_sub_account_mint_sign_witness(json!({
         "version": 1,
         "expired_at": TIMESTAMP + DAY_SEC,
         "account_list_smt_root": [

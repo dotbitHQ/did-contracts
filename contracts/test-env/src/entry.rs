@@ -3,7 +3,7 @@ use core::result::Result;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::debug;
-use das_core::constants::ScriptType;
+use das_core::constants::{DasLockType, ScriptType};
 use das_core::error::*;
 use das_core::sub_account_witness_parser::{SubAccountEditValue, SubAccountWitnessesParser};
 use das_core::witness_parser::WitnessesParser;
@@ -54,61 +54,166 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
         b"test_parse_sub_account_witness_empty" => {
             SubAccountWitnessesParser::new()?;
         }
-        b"test_parse_sub_account_witness_create" => {
-            let sub_account_parser = SubAccountWitnessesParser::new()?;
+        b"test_parse_sub_account_witness_create_only" => {
+            let sub_account_witness_parser = SubAccountWitnessesParser::new()?;
 
-            let witness_0 = sub_account_parser.get(0).expect("Should exist").expect("Should be Ok");
-            let witness_1 = sub_account_parser.get(1).expect("Should exist").expect("Should be Ok");
-            let witness_2 = sub_account_parser.get(2).expect("Should exist").expect("Should be Ok");
+            let lock_args = &[
+                2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 255, 255,
+            ];
+            let sub_account_mint_sign_witness = sub_account_witness_parser
+                .get_mint_sign(lock_args)
+                .expect("Should exist")
+                .expect("Should be Ok");
 
             assert!(
-                witness_0.prev_root != witness_0.current_root
-                    && witness_1.prev_root != witness_1.current_root
-                    && witness_2.prev_root != witness_2.current_root,
+                sub_account_mint_sign_witness.version == 1,
                 ErrorCode::UnittestError,
-                "The prev_root and current_root in witnesses should not be the same."
+                "The SubAccountMintSignWitness.version should be 1."
             );
 
             assert!(
-                witness_0.current_root == witness_1.prev_root && witness_1.current_root == witness_2.prev_root,
+                sub_account_mint_sign_witness.sign_type == Some(DasLockType::ETH),
                 ErrorCode::UnittestError,
-                "The roots should be sequential."
+                "The SubAccountMintSignWitness.sign_type should be Some(DasLockType::ETH)."
             );
 
             assert!(
-                witness_0.edit_key.is_empty(),
+                sub_account_mint_sign_witness.sign_role == Some(LockRole::Owner),
                 ErrorCode::UnittestError,
-                "The edit_key field should be empty."
+                "The SubAccountMintSignWitness.sign_role should be Some(LockRole::Owner)."
             );
-            match witness_0.edit_value {
-                SubAccountEditValue::None => {}
-                _ => {
-                    warn!("The edit_key field should be empty");
-                    return Err(code_to_error!(ErrorCode::UnittestError));
+
+            assert!(
+                sub_account_mint_sign_witness.sign_args
+                    == vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255],
+                ErrorCode::UnittestError,
+                "The SubAccountMintSignWitness.sign_args should be the same with the lock_args."
+            );
+
+            assert!(
+                sub_account_mint_sign_witness.expired_at > 0,
+                ErrorCode::UnittestError,
+                "The SubAccountMintSignWitness.expired_at should be greater than 0."
+            );
+
+            assert!(
+                sub_account_mint_sign_witness.account_list_smt_root.len() == 32,
+                ErrorCode::UnittestError,
+                "The SubAccountMintSignWitness.account_list_smt_root should be 32 bytes."
+            );
+
+            assert!(
+                sub_account_witness_parser.len() == 3,
+                ErrorCode::UnittestError,
+                "There should be 3 SubAccountWitness."
+            );
+
+            assert!(
+                sub_account_witness_parser.contains_creation == true
+                    && sub_account_witness_parser.contains_edition == false,
+                ErrorCode::UnittestError,
+                "The transaction should only contains edition actions."
+            );
+
+            for witness_ret in sub_account_witness_parser.iter() {
+                let witness = witness_ret.expect("Should be Ok");
+
+                assert!(
+                    witness.version == 2,
+                    ErrorCode::UnittestError,
+                    "The SubAccountWitness.veresion should be 2."
+                );
+
+                assert!(
+                    witness.sign_expired_at == 0,
+                    ErrorCode::UnittestError,
+                    "The SubAccountWitness.sign_expired_at should be greater than 0."
+                );
+
+                assert!(
+                    witness.new_root.len() == 32,
+                    ErrorCode::UnittestError,
+                    "The SubAccountWitness.new_root should be 32 bytes."
+                );
+
+                assert!(
+                    witness.action == SubAccountAction::Create,
+                    ErrorCode::UnittestError,
+                    "The SubAccountWitness.action should be SubAccountEditValue::Create."
+                );
+
+                assert!(
+                    witness.edit_key.is_empty(),
+                    ErrorCode::UnittestError,
+                    "The edit_key field should be empty."
+                );
+                match witness.edit_value {
+                    SubAccountEditValue::None => {
+                        assert!(
+                            !witness.edit_value_bytes.is_empty(),
+                            ErrorCode::UnittestError,
+                            "The SubAccountWitness.edit_value_bytes should not be empty."
+                        );
+                    }
+                    _ => {
+                        warn!("The edit_key field should be empty");
+                        return Err(code_to_error!(ErrorCode::UnittestError));
+                    }
                 }
             }
         }
-        b"test_parse_sub_account_witness_edit" => {
-            let sub_account_parser = SubAccountWitnessesParser::new()?;
-
-            let witness_0 = sub_account_parser.get(0).expect("Should exist").expect("Should be Ok");
-            let witness_1 = sub_account_parser.get(1).expect("Should exist").expect("Should be Ok");
-            let witness_2 = sub_account_parser.get(2).expect("Should exist").expect("Should be Ok");
+        b"test_parse_sub_account_witness_edit_only" => {
+            let sub_account_witness_parser = SubAccountWitnessesParser::new()?;
 
             assert!(
-                witness_0.prev_root != witness_0.current_root
-                    && witness_1.prev_root != witness_1.current_root
-                    && witness_2.prev_root != witness_2.current_root,
+                sub_account_witness_parser.len() == 3,
                 ErrorCode::UnittestError,
-                "The prev_root and current_root in witnesses should not be the same."
+                "There should be 3 SubAccountWitness."
             );
 
             assert!(
-                witness_0.current_root == witness_1.prev_root && witness_1.current_root == witness_2.prev_root,
+                sub_account_witness_parser.contains_creation == false
+                    && sub_account_witness_parser.contains_edition == true,
                 ErrorCode::UnittestError,
-                "The roots should be sequential."
+                "The transaction should only contains edition actions."
             );
 
+            for witness_ret in sub_account_witness_parser.iter() {
+                let witness = witness_ret.expect("Should be Ok");
+
+                assert!(
+                    witness.version == 2,
+                    ErrorCode::UnittestError,
+                    "The SubAccountWitness.veresion should be 2."
+                );
+
+                assert!(
+                    witness.sign_expired_at > 0,
+                    ErrorCode::UnittestError,
+                    "The SubAccountWitness.sign_expired_at should be greater than 0."
+                );
+
+                assert!(
+                    witness.new_root.len() == 32,
+                    ErrorCode::UnittestError,
+                    "The SubAccountWitness.new_root should be 32 bytes."
+                );
+
+                assert!(
+                    witness.action == SubAccountAction::Edit,
+                    ErrorCode::UnittestError,
+                    "The SubAccountWitness.action should be SubAccountEditValue::Edit."
+                );
+
+                assert!(
+                    !witness.edit_key.is_empty(),
+                    ErrorCode::UnittestError,
+                    "The SubAccountWitness.edit_key field should not be empty."
+                );
+            }
+
+            let witness_0 = sub_account_witness_parser.get(0).unwrap().unwrap();
             assert!(
                 &witness_0.edit_key == b"expired_at",
                 ErrorCode::UnittestError,
@@ -129,6 +234,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 }
             }
 
+            let witness_1 = sub_account_witness_parser.get(1).unwrap().unwrap();
             assert!(
                 &witness_1.edit_key == b"owner",
                 ErrorCode::UnittestError,
@@ -147,6 +253,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 }
             }
 
+            let witness_2 = sub_account_witness_parser.get(2).unwrap().unwrap();
             assert!(
                 &witness_2.edit_key == b"records",
                 ErrorCode::UnittestError,
@@ -163,6 +270,101 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 _ => {
                     warn!("The edit_value field should be type of SubAccountEditValue::Records .");
                     return Err(code_to_error!(ErrorCode::UnittestError));
+                }
+            }
+        }
+        b"test_parse_sub_account_witness_mixed" => {
+            let sub_account_witness_parser = SubAccountWitnessesParser::new()?;
+
+            let lock_args = &[
+                2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 255, 255,
+            ];
+            let sub_account_mint_sign_witness = sub_account_witness_parser
+                .get_mint_sign(lock_args)
+                .expect("Should exist")
+                .expect("Should be Ok");
+
+            assert!(
+                sub_account_mint_sign_witness.version == 1,
+                ErrorCode::UnittestError,
+                "The SubAccountMintSignWitness.version should be 1."
+            );
+
+            assert!(
+                sub_account_mint_sign_witness.expired_at > 0,
+                ErrorCode::UnittestError,
+                "The SubAccountMintSignWitness.expired_at should be greater than 0."
+            );
+
+            assert!(
+                sub_account_mint_sign_witness.account_list_smt_root.len() == 32,
+                ErrorCode::UnittestError,
+                "The SubAccountMintSignWitness.account_list_smt_root should be 32 bytes."
+            );
+
+            assert!(
+                sub_account_witness_parser.len() == 4,
+                ErrorCode::UnittestError,
+                "There should be 4 SubAccountWitness."
+            );
+
+            assert!(
+                sub_account_witness_parser.contains_creation == true
+                    && sub_account_witness_parser.contains_edition == true,
+                ErrorCode::UnittestError,
+                "The transaction should only contains edition actions."
+            );
+
+            for witness_ret in sub_account_witness_parser.iter() {
+                let witness = witness_ret.expect("Should be Ok");
+
+                assert!(
+                    witness.version == 2,
+                    ErrorCode::UnittestError,
+                    "The SubAccountWitness.veresion should be 2."
+                );
+
+                assert!(
+                    witness.new_root.len() == 32,
+                    ErrorCode::UnittestError,
+                    "The SubAccountWitness.new_root should be 32 bytes."
+                );
+
+                match witness.action {
+                    SubAccountAction::Create => {
+                        assert!(
+                            witness.sign_expired_at == 0,
+                            ErrorCode::UnittestError,
+                            "The SubAccountWitness.sign_expired_at should be greater than 0."
+                        );
+
+                        assert!(
+                            witness.edit_key.is_empty(),
+                            ErrorCode::UnittestError,
+                            "The SubAccountWitness.edit_key field should not be empty."
+                        );
+                    }
+                    SubAccountAction::Edit => {
+                        assert!(
+                            witness.sign_expired_at > 0,
+                            ErrorCode::UnittestError,
+                            "The SubAccountWitness.sign_expired_at should be greater than 0."
+                        );
+
+                        assert!(
+                            !witness.edit_key.is_empty(),
+                            ErrorCode::UnittestError,
+                            "The SubAccountWitness.edit_key field should not be empty."
+                        );
+                    }
+                    _ => {
+                        assert!(
+                            false,
+                            ErrorCode::UnittestError,
+                            "This action {:?} has not been implemented.", witness.action
+                        );
+                    }
                 }
             }
         }
