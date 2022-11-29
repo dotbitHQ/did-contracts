@@ -38,6 +38,7 @@ pub struct History {
 
 pub struct SMTWithHistory {
     smt: SMT,
+    leaves: Vec<(H256, H256)>,
     pub history: Vec<History>,
 }
 
@@ -47,6 +48,7 @@ impl SMTWithHistory {
 
         return SMTWithHistory {
             smt,
+            leaves: vec![],
             history: Vec::new(),
         };
     }
@@ -66,13 +68,14 @@ impl SMTWithHistory {
     /// The returned value is exactly what a sub_account witness want, so use it when you need to construct sub_account witness.
     pub fn insert(&mut self, key: H256, value: H256) -> ([u8; 32], [u8; 32], MerkleProof) {
         let prev_root = self.smt.root().to_owned();
-        self.smt.update(key, value).expect("Should update successfully");
+        self.smt.update(key.clone(), value.clone()).expect("Should update successfully");
         let current_root = self.smt.root().to_owned();
         let proof = self
             .smt
             .merkle_proof(vec![key])
             .expect("Should generate proof successfully");
 
+        self.leaves.push((key, value));
         self.history.push(History {
             prev_root,
             current_root,
@@ -88,8 +91,11 @@ impl SMTWithHistory {
         self.smt.merkle_proof(keys).expect("Should generate proof successfully")
     }
 
-    pub fn get_compiled_proof(&self, leaves: Vec<(H256, H256)>) -> Vec<u8> {
-        let keys = leaves.iter().map(|(k, _)| k.to_owned()).collect();
+    pub fn get_compiled_proof(&self, keys: Vec<H256>) -> Vec<u8> {
+        let leaves = keys.iter().map(|key| {
+            let leave = self.leaves.iter().find(|(k, _)| k == key).expect("Should find key");
+            leave.to_owned()
+        }).collect::<Vec<_>>();
         let proof = self.smt.merkle_proof(keys).expect("Should generate proof successfully");
         proof
             .compile(leaves)

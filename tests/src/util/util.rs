@@ -91,10 +91,18 @@ pub fn merge_json(target: &mut Value, source: Value) {
 
 pub fn blake2b_smt<T: AsRef<[u8]>>(s: T) -> [u8; 32] {
     let mut result = [0u8; 32];
-    let mut blake2b = Blake2bBuilder::new(32).personal(b"sparsemerkletree").key(&[]).build();
+    let mut blake2b = Blake2bBuilder::new(32).personal(b"ckb-default-hash").key(&[]).build();
     blake2b.update(s.as_ref());
     blake2b.finalize(&mut result);
     result
+}
+
+pub fn gen_smt_key_from_account(account: &str) -> [u8; 32] {
+    let account_id = account_to_id(account);
+    let mut key = [0u8; 32];
+    let key_pre = [account_id, vec![0u8; 12]].concat();
+    key.copy_from_slice(&key_pre);
+    key
 }
 
 pub fn get_type_id_bytes(name: &str) -> Vec<u8> {

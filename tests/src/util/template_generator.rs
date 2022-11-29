@@ -2523,7 +2523,7 @@ impl TemplateGenerator {
 
         for sub_account_json in sub_account_jsons {
             let account = parse_json_str("", &sub_account_json["account"]);
-            let key = util::blake2b_smt(account.as_bytes());
+            let key = util::gen_smt_key_from_account(account);
             let sub_account_1 = parse_json_to_sub_account("", &sub_account_json);
             let value = util::blake2b_smt(sub_account_1.as_slice());
             leaves.push((key.into(), value.into()));
@@ -2584,7 +2584,7 @@ impl TemplateGenerator {
                 &format!("witness.account_list_smt_root[{}][1]", i),
                 &registerable_account[1],
             );
-            let key = util::blake2b_smt(account.as_bytes());
+            let key = util::gen_smt_key_from_account(&account);
             let value = util::blake2b_smt(lock_args.as_slice());
 
             smt.insert(key.into(), value.into());
@@ -2737,7 +2737,7 @@ impl TemplateGenerator {
             &sub_account_value["account"],
             Some(suffix),
         );
-        let key = util::blake2b_smt(account.as_bytes());
+        let key = util::gen_smt_key_from_account(&account);
 
         let sub_account_entity = parse_json_to_sub_account("witness.sub_account", &witness["sub_account"]);
         match action {

@@ -64,7 +64,7 @@ fn parse_sub_account_witness_create_only() {
             "registered_at": TIMESTAMP,
             "expired_at": TIMESTAMP + YEAR_SEC,
         },
-        "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_1, OWNER_1_WITHOUT_TYPE)
+        "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_1)
     }));
     template.push_sub_account_witness_v2(json!({
         "action": SubAccountAction::Create.to_string(),
@@ -78,7 +78,7 @@ fn parse_sub_account_witness_create_only() {
             "registered_at": TIMESTAMP,
             "expired_at": TIMESTAMP + YEAR_SEC,
         },
-        "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_2, OWNER_2_WITHOUT_TYPE)
+        "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_2)
     }));
     template.push_sub_account_witness_v2(json!({
         "action": SubAccountAction::Create.to_string(),
@@ -92,7 +92,7 @@ fn parse_sub_account_witness_create_only() {
             "registered_at": TIMESTAMP,
             "expired_at": TIMESTAMP + YEAR_SEC,
         },
-        "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_1, OWNER_1_WITHOUT_TYPE)
+        "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_3)
     }));
 
     test_tx(template.as_json());
@@ -267,7 +267,7 @@ fn parse_sub_account_witness_mixed() {
             "registered_at": TIMESTAMP,
             "expired_at": TIMESTAMP + YEAR_SEC,
         },
-        "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_2, OWNER_2_WITHOUT_TYPE)
+        "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_2)
     }));
     template.push_sub_account_witness_v2(json!({
         "sign_expired_at": u64::MAX,
@@ -305,16 +305,15 @@ fn parse_sub_account_witness_mixed() {
             "registered_at": TIMESTAMP,
             "expired_at": TIMESTAMP + YEAR_SEC,
         },
-        "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_4, OWNER_4_WITHOUT_TYPE)
+        "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_4)
     }));
 
     test_tx(template.as_json());
 }
 
-fn get_compiled_proof(smt: &SMTWithHistory, key: &str, value: &str) -> String {
+fn get_compiled_proof(smt: &SMTWithHistory, key: &str) -> String {
     let key = H256::from(blake2b_smt(key.as_bytes()));
-    let value = H256::from(blake2b_smt(hex_to_bytes(value)));
-    let proof = smt.get_compiled_proof(vec![(key, value)]);
+    let proof = smt.get_compiled_proof(vec![key]);
 
     format!("0x{}", hex::encode(proof))
 }
