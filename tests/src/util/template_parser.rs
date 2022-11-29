@@ -297,7 +297,7 @@ impl TemplateParser {
 
                     let header_hash_opt = if !item["tmp_header"].is_null() {
                         let header =
-                            self.mock_block_header(&format!("inputs[{}]", i), &item["tmp_header"])?;
+                            self.mock_block_header(&format!("cell_deps[{}]", i), &item["tmp_header"])?;
                         let hash = header.hash();
                         self.mock_header_deps.push(header);
                         Some(hash)

@@ -70,7 +70,7 @@ impl WitnessesParser {
                             .unwrap(),
                     );
                     match DataType::try_from(data_type_in_int) {
-                        Ok(DataType::SubAccount) => {
+                        Ok(DataType::SubAccount | DataType::SubAccountMintSign) => {
                             // Ignore sub-account witnesses in this parser.
                         }
                         Ok(data_type) => {

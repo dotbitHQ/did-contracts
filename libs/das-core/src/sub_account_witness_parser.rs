@@ -1,6 +1,7 @@
 use alloc::boxed::Box;
 #[cfg(all(debug_assertions))]
 use alloc::string::String;
+use alloc::string::ToString;
 use alloc::vec::Vec;
 use core::cell::OnceCell;
 use core::convert::{TryFrom, TryInto};
@@ -23,17 +24,21 @@ use super::{assert, code_to_error, data_parser, debug, util, warn};
 
 #[derive(Debug)]
 pub struct SubAccountMintSignWitness {
+    // The index of the transaction's witnesses, this field is mainly used for debug.
+    pub index: usize,
     pub version: u32,
     pub signature: Vec<u8>,
+    pub sign_role: Option<LockRole>,
+    pub sign_type: Option<DasLockType>,
+    pub sign_args: Vec<u8>,
     pub expired_at: u64,
     pub account_list_smt_root: Vec<u8>,
 }
 
 #[derive(Debug)]
 pub struct SubAccountWitness {
-    // The index of the transaction's witnesses, this field is mainly used for debug.
+    // The index of the transaction's witnesses, this field aaaaaaaaaaaaaaaaaaaais mainly used for debug.
     pub index: usize,
-    // The rest is actually existing fields in the witness.
     pub version: u32,
     pub signature: Vec<u8>,
     pub sign_role: Option<LockRole>,
@@ -76,6 +81,8 @@ impl<'a> Iterator for SubAccountWitnessesIter<'a> {
 
 #[derive(Debug)]
 pub struct SubAccountWitnessesParser {
+    pub contains_creation: bool,
+    pub contains_edition: bool,
     pub sub_account_mint_sign_index: Option<usize>,
     pub sub_account_indexes: Vec<usize>,
     pub witnesses: Vec<OnceCell<SubAccountWitness>>,
@@ -83,12 +90,17 @@ pub struct SubAccountWitnessesParser {
 
 impl SubAccountWitnessesParser {
     pub fn new() -> Result<Self, Box<dyn ScriptError>> {
+        let mut contains_creation = false;
+        let mut contains_edition = false;
         let mut sub_account_mint_sign_index = None;
         let mut sub_account_indexes = Vec::new();
         let mut i = 0;
         let mut das_witnesses_started = false;
         loop {
-            let mut buf = [0u8; (WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES)];
+            let mut buf = [0u8; (WITNESS_HEADER_BYTES
+                + WITNESS_TYPE_BYTES
+                + SUB_ACCOUNT_WITNESS_VERSION_BYTES
+                + SUB_ACCOUNT_WITNESS_ACTION_BYTES)];
             let ret = syscalls::load_witness(&mut buf, 0, i, Source::Input);
 
             match ret {
@@ -123,6 +135,16 @@ impl SubAccountWitnessesParser {
                         }
                         Ok(DataType::SubAccount) => {
                             sub_account_indexes.push(i);
+
+                            let start = WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES;
+                            // Every sub-account witness has the next fields, here we parse it one by one.
+                            let (start, _) = Self::parse_field("version", &buf, start)?;
+                            let (_, action_bytes) = Self::parse_field("action", &buf, start)?;
+                            if action_bytes == SubAccountAction::Create.to_string().as_bytes() {
+                                contains_creation = true;
+                            } else if action_bytes == SubAccountAction::Edit.to_string().as_bytes() {
+                                contains_edition = true;
+                            }
                         }
                         Ok(_) => {
                             // Ignore other witnesses in this parser.
@@ -156,13 +178,15 @@ impl SubAccountWitnessesParser {
         }
 
         Ok(SubAccountWitnessesParser {
+            contains_creation,
+            contains_edition,
             sub_account_mint_sign_index,
             sub_account_indexes,
             witnesses,
         })
     }
 
-    fn parse_mint_sign_witness(&self) -> Result<SubAccountMintSignWitness, Box<dyn ScriptError>> {
+    fn parse_mint_sign_witness(&self, lock_args: &[u8]) -> Result<SubAccountMintSignWitness, Box<dyn ScriptError>> {
         if self.sub_account_mint_sign_index.is_none() {
             return Err(code_to_error!(ErrorCode::WitnessReadingError));
         }
@@ -176,6 +200,7 @@ impl SubAccountWitnessesParser {
 
         let (start, version_bytes) = Self::parse_field("version", &raw, start)?;
         let (start, signature) = Self::parse_field("signature", &raw, start)?;
+        let (start, sign_role_byte) = Self::parse_field("sign_role", &raw, start)?;
         let (start, expired_at_bytes) = Self::parse_field("expired_at", &raw, start)?;
         let (_, account_list_smt_root) = Self::parse_field("account_list_smt_root", &raw, start)?;
 
@@ -195,9 +220,15 @@ impl SubAccountWitnessesParser {
         );
         let expired_at = u64::from_le_bytes(expired_at_bytes.try_into().unwrap());
 
+        let (sign_role, sign_type, sign_args) = Self::parse_sign_info(sign_role_byte, lock_args);
+
         Ok(SubAccountMintSignWitness {
+            index,
             version: version,
             signature: signature.to_vec(),
+            sign_role,
+            sign_type,
+            sign_args,
             expired_at,
             account_list_smt_root: account_list_smt_root.to_vec(),
         })
@@ -211,12 +242,12 @@ impl SubAccountWitnessesParser {
 
         // Every sub-account witness has the next fields, here we parse it one by one.
         let (start, version_bytes) = Self::parse_field("version", &raw, start)?;
+        let (start, action_bytes) = Self::parse_field("action", &raw, start)?;
         let (start, signature) = Self::parse_field("signature", &raw, start)?;
         let (start, sign_role_byte) = Self::parse_field("sign_role", &raw, start)?;
         let (start, sign_expired_at_bytes) = Self::parse_field("sign_expired_at", &raw, start)?;
         let (start, new_root) = Self::parse_field("new_root", &raw, start)?;
         let (start, proof) = Self::parse_field("proof", &raw, start)?;
-        let (start, action_bytes) = Self::parse_field("action", &raw, start)?;
         let (start, sub_account_bytes) = Self::parse_field("sub_account", &raw, start)?;
         let (start, edit_key) = Self::parse_field("edit_key", &raw, start)?;
         let (_, edit_value_bytes) = Self::parse_field("edit_value", &raw, start)?;
@@ -316,29 +347,9 @@ impl SubAccountWitnessesParser {
             _ => SubAccountEditValue::None,
         };
 
-        let mut sign_type = None;
-        let mut sign_args = Vec::new();
-        let mut sign_role = None;
-        if sign_role_byte.len() == 1 {
-            let sign_role_int = u8::from_le_bytes(sign_role_byte.try_into().unwrap());
-            let args = sub_account.as_reader().lock().args();
-            let args_bytes = args.raw_data();
-
-            let sign_type_int;
-            let sign_args_ref;
-            if sign_role_int == LockRole::Owner as u8 {
-                sign_type_int = data_parser::das_lock_args::get_owner_type(args_bytes);
-                sign_args_ref = data_parser::das_lock_args::get_owner_lock_args(args_bytes);
-                sign_role = Some(LockRole::Owner);
-            } else {
-                sign_type_int = data_parser::das_lock_args::get_manager_type(args_bytes);
-                sign_args_ref = data_parser::das_lock_args::get_manager_lock_args(args_bytes);
-                sign_role = Some(LockRole::Manager);
-            };
-
-            sign_type = DasLockType::try_from(sign_type_int).ok();
-            sign_args = sign_args_ref.to_vec();
-        }
+        let lock_args_reader = sub_account.as_reader().lock().args();
+        let lock_args = lock_args_reader.raw_data();
+        let (sign_role, sign_type, sign_args) = Self::parse_sign_info(sign_role_byte, lock_args);
 
         debug!(
             "  Sub-account witnesses[{:>2}]: {{ version: {}, signature: 0x{}, sign_role: 0x{}, sign_exipired_at: {}, new_root: 0x{}, action: {}, sub_account: {}, edit_key: {}, sign_args: {} }}",
@@ -411,6 +422,28 @@ impl SubAccountWitnessesParser {
         Ok((new_start, field_bytes))
     }
 
+    fn parse_sign_info(sign_role_byte: &[u8], lock_args: &[u8]) -> (Option<LockRole>, Option<DasLockType>, Vec<u8>) {
+        let sign_role_int = u8::from_le_bytes(sign_role_byte.try_into().unwrap());
+        let sign_type_int;
+        let sign_args_ref;
+
+        let sign_role;
+        if sign_role_int == LockRole::Owner as u8 {
+            sign_type_int = data_parser::das_lock_args::get_owner_type(lock_args);
+            sign_args_ref = data_parser::das_lock_args::get_owner_lock_args(lock_args);
+            sign_role = Some(LockRole::Owner);
+        } else {
+            sign_type_int = data_parser::das_lock_args::get_manager_type(lock_args);
+            sign_args_ref = data_parser::das_lock_args::get_manager_lock_args(lock_args);
+            sign_role = Some(LockRole::Manager);
+        };
+
+        let sign_type = DasLockType::try_from(sign_type_int).ok();
+        let sign_args = sign_args_ref.to_vec();
+
+        (sign_role, sign_type, sign_args)
+    }
+
     pub fn iter(&self) -> SubAccountWitnessesIter {
         SubAccountWitnessesIter {
             parser: self,
@@ -422,9 +455,9 @@ impl SubAccountWitnessesParser {
         self.sub_account_indexes.len()
     }
 
-    pub fn get_mint_sign(&self) -> Option<Result<SubAccountMintSignWitness, Box<dyn ScriptError>>> {
+    pub fn get_mint_sign(&self, lock_args: &[u8]) -> Option<Result<SubAccountMintSignWitness, Box<dyn ScriptError>>> {
         match self.sub_account_mint_sign_index {
-            Some(_) => match self.parse_mint_sign_witness() {
+            Some(_) => match self.parse_mint_sign_witness(lock_args) {
                 Ok(witness) => Some(Ok(witness)),
                 Err(e) => Some(Err(e)),
             },
