@@ -3,7 +3,6 @@ use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
-use core::cmp::Ordering;
 use core::convert::TryInto;
 use core::result::Result;
 
@@ -14,9 +13,7 @@ use ckb_std::error::SysError;
 use ckb_std::high_level;
 use das_core::constants::*;
 use das_core::error::*;
-use das_core::sub_account_witness_parser::{
-    SubAccountEditValue, SubAccountMintSignWitness, SubAccountWitness, SubAccountWitnessesParser,
-};
+use das_core::sub_account_witness_parser::{SubAccountEditValue, SubAccountWitness, SubAccountWitnessesParser};
 use das_core::util::{self, blake2b_256};
 use das_core::witness_parser::WitnessesParser;
 use das_core::{assert as das_assert, code_to_error, data_parser, debug, verifiers, warn};
@@ -298,13 +295,16 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             }
             let sign_lib = SignLib::new(eth, tron, None);
 
+            // Initiate some variables used again and again in the following codes.
             let mut account_list_smt_root = None;
             let mut custom_script_params = Vec::new();
             let mut custom_script_type_id = None;
             let sub_account_parser = SubAccountWitnessesParser::new()?;
-
             let sender_lock = util::derive_owner_lock_from_cell(account_cell_index, account_cell_source)?;
             let mut parent_owner_total_input_capacity = 0;
+            let parent_expired_at = data_parser::account_cell::get_expired_at(&account_cell_data);
+            let header = high_level::load_header(input_sub_account_cells[0], Source::Input)?;
+            let sub_account_last_updated_at = u64::from(Uint64::from(header.raw().timestamp()));
 
             if sub_account_parser.contains_creation {
                 debug!("Found `create` action in this transaction, do some common verfications ...");
@@ -388,29 +388,13 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                         match sub_account_parser.get_mint_sign(account_lock_args) {
                             Some(witness_ret) => match witness_ret {
                                 Ok(witness) => {
-                                    debug!("Verify if the SubAccountMintSign is expired ...");
-
-                                    let max_expired_at = data_parser::account_cell::get_expired_at(&account_cell_data);
-                                    let header = high_level::load_header(input_sub_account_cells[0], Source::Input)?;
-                                    let sub_account_last_updated_at = u64::from(Uint64::from(header.raw().timestamp()));
-
-                                    das_assert!(
-                                        witness.expired_at <= max_expired_at,
-                                        ErrorCode::SubAccountSignMintExpiredAtTooLarge,
-                                        "SubAccountMintSign.expired_at should be less than the AccountCell.expired_at. (current: {}, max: {})",
-                                        witness.expired_at,
-                                        max_expired_at
-                                    );
-
-                                    das_assert!(
-                                        sub_account_last_updated_at <= witness.expired_at,
-                                        ErrorCode::SubAccountSignMintExpiredAtReached,
-                                        "The signature in SubAccountMintSign is expired. (current: {}, expired_at: {})",
+                                    verifiers::sub_account_cell::verify_sub_account_mint_sign_not_expired(
+                                        &sub_account_parser,
+                                        &witness,
+                                        parent_expired_at,
                                         sub_account_last_updated_at,
-                                        witness.expired_at
-                                    );
-
-                                    verifiers::sub_account_cell::verify_sub_account_mint_sig(&witness, &sign_lib)?;
+                                    )?;
+                                    verifiers::sub_account_cell::verify_sub_account_mint_sign(&witness, &sign_lib)?;
 
                                     let mut tmp = [0u8; 32];
                                     tmp.copy_from_slice(&witness.account_list_smt_root);
@@ -569,7 +553,12 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                         smt_verify_sub_account_is_editable(prev_root, witness, new_sub_account_reader)?;
 
                         verifiers::sub_account_cell::verify_unlock_role(witness)?;
-                        verifiers::sub_account_cell::verify_sub_account_sig(witness, &sign_lib)?;
+                        verifiers::sub_account_cell::verify_sub_account_edit_sign(witness, &sign_lib)?;
+                        verifiers::sub_account_cell::verify_sub_account_edit_sign_not_expired(
+                            witness,
+                            parent_expired_at,
+                            sub_account_last_updated_at,
+                        )?;
                         verifiers::sub_account_cell::verify_expiration(
                             config_account,
                             witness.index,
@@ -654,7 +643,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                     }
                     SubAccountAction::Renew => todo!(),
                     SubAccountAction::Recycle => todo!(),
-                    _ => unreachable!(),
                 }
 
                 prev_root = witness.new_root.as_slice();

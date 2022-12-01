@@ -77,10 +77,7 @@ impl WitnessesParser {
                     match DataType::try_from(data_type_in_int) {
                         Ok(DataType::SubAccount | DataType::SubAccountMintSign) => {
                             // Ignore sub-account witnesses in this parser.
-                            debug!(
-                                "witnesses[{:>2}] Found sub-account witness skip parsing.",
-                                i
-                            );
+                            debug!("witnesses[{:>2}] Found sub-account witness skip parsing.", i);
                         }
                         Ok(data_type) => {
                             if !das_witnesses_started {

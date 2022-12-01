@@ -101,10 +101,7 @@ impl SignLib {
         lock_bytes: Vec<u8>,
         lock_args: Vec<u8>,
     ) -> Result<(), i32> {
-        warn_log!(
-            "SignLib::validate_str das_lock_type: {:?}",
-            das_lock_type
-        );
+        warn_log!("SignLib::validate_str das_lock_type: {:?}", das_lock_type);
 
         warn_log!(
             "SignLib::validate_str The params pass to dynamic lib is {{ type_no: {}, digest: 0x{}, digest_len: {}, lock_bytes: 0x{}, lock_args: 0x{} }}",

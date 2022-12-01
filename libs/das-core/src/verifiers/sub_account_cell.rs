@@ -15,7 +15,9 @@ use sparse_merkle_tree::H256;
 
 use crate::constants::*;
 use crate::error::*;
-use crate::sub_account_witness_parser::{SubAccountEditValue, SubAccountMintSignWitness, SubAccountWitness};
+use crate::sub_account_witness_parser::{
+    SubAccountEditValue, SubAccountMintSignWitness, SubAccountWitness, SubAccountWitnessesParser,
+};
 use crate::witness_parser::WitnessesParser;
 use crate::{assert as das_assert, code_to_error, data_parser, debug, util, warn};
 
@@ -275,7 +277,7 @@ pub fn verify_smt_proof(
     Ok(())
 }
 
-pub fn verify_sub_account_mint_sig(
+pub fn verify_sub_account_mint_sign(
     witness: &SubAccountMintSignWitness,
     sign_lib: &SignLib,
 ) -> Result<(), Box<dyn ScriptError>> {
@@ -328,7 +330,63 @@ pub fn verify_sub_account_mint_sig(
     }
 }
 
-pub fn verify_sub_account_sig(witness: &SubAccountWitness, sign_lib: &SignLib) -> Result<(), Box<dyn ScriptError>> {
+pub fn verify_sub_account_mint_sign_not_expired(
+    sub_account_parser: &SubAccountWitnessesParser,
+    witness: &SubAccountMintSignWitness,
+    parent_expired_at: u64,
+    sub_account_last_updated_at: u64,
+) -> Result<(), Box<dyn ScriptError>> {
+    debug!(
+        "witnesses[{}] Verify if the SubAccountMintSign.signature is expired ...",
+        witness.index
+    );
+
+    let expired_at = witness.expired_at;
+    let mut limit_expired_at = parent_expired_at;
+    for (_i, witness_ret) in sub_account_parser.iter().enumerate() {
+        if let Err(e) = witness_ret {
+            return Err(e);
+        }
+
+        let witness = witness_ret.unwrap();
+        let sub_account_reader = witness.sub_account.as_reader();
+
+        match witness.action {
+            SubAccountAction::Create => {
+                let expired_at = u64::from(sub_account_reader.expired_at());
+                if expired_at < limit_expired_at {
+                    limit_expired_at = expired_at;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    das_assert!(
+        expired_at <= limit_expired_at,
+        ErrorCode::SubAccountSignMintExpiredAtTooLarge,
+        "witnesses[{}] SubAccountMintSign.expired_at should be less than the minimal expired_at of AccountCell and all sub-accounts'. (current: {}, limit: {})",
+        witness.index,
+        expired_at,
+        limit_expired_at
+    );
+
+    das_assert!(
+        expired_at >= sub_account_last_updated_at,
+        ErrorCode::SubAccountSignMintExpiredAtReached,
+        "witnesses[{}] The signature in SubAccountMintSign is expired. (current: {}, expired_at: {})",
+        witness.index,
+        sub_account_last_updated_at,
+        expired_at
+    );
+
+    Ok(())
+}
+
+pub fn verify_sub_account_edit_sign(
+    witness: &SubAccountWitness,
+    sign_lib: &SignLib,
+) -> Result<(), Box<dyn ScriptError>> {
     if cfg!(feature = "dev") {
         // CAREFUL Proof verification has been skipped in development mode.
         debug!(
@@ -393,6 +451,44 @@ pub fn verify_sub_account_sig(witness: &SubAccountWitness, sign_lib: &SignLib) -
             Ok(())
         }
     }
+}
+
+pub fn verify_sub_account_edit_sign_not_expired(
+    witness: &SubAccountWitness,
+    parent_expired_at: u64,
+    sub_account_last_updated_at: u64,
+) -> Result<(), Box<dyn ScriptError>> {
+    debug!(
+        "witnesses[{}] Verify if the SubAccount.signature is expired ...",
+        witness.index
+    );
+
+    let expired_at = witness.sign_expired_at;
+
+    let mut limit_expired_at = u64::from(witness.sub_account.expired_at());
+    if limit_expired_at <= parent_expired_at {
+        limit_expired_at = parent_expired_at;
+    }
+
+    das_assert!(
+        expired_at <= limit_expired_at,
+        ErrorCode::SubAccountSignMintExpiredAtTooLarge,
+        "witnesses[{}] SubAccount.expired_at should be less than the minimal expired_at of AccountCell and all sub-accounts'. (current: {}, limit: {})",
+        witness.index,
+        expired_at,
+        limit_expired_at
+    );
+
+    das_assert!(
+        expired_at >= sub_account_last_updated_at,
+        ErrorCode::SubAccountSignMintExpiredAtReached,
+        "witnesses[{}] The signature in SubAccount is expired. (current: {}, expired_at: {})",
+        witness.index,
+        sub_account_last_updated_at,
+        expired_at
+    );
+
+    Ok(())
 }
 
 pub fn verify_sub_account_parent_id(
