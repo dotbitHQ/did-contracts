@@ -303,7 +303,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let sender_lock = util::derive_owner_lock_from_cell(account_cell_index, account_cell_source)?;
             let mut parent_owner_total_input_capacity = 0;
             let parent_expired_at = data_parser::account_cell::get_expired_at(&account_cell_data);
-            let header = high_level::load_header(input_sub_account_cells[0], Source::Input)?;
+            let header = util::load_header(input_sub_account_cells[0], Source::Input)?;
             let sub_account_last_updated_at = u64::from(Uint64::from(header.raw().timestamp()));
 
             if sub_account_parser.contains_creation {

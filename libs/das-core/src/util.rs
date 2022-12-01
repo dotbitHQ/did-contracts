@@ -354,6 +354,19 @@ pub fn load_cell_data(index: usize, source: Source) -> Result<Vec<u8>, Box<dyn S
     load_data(|buf, offset| syscalls::load_cell_data(buf, offset, index, source)).map_err(|err| err.into())
 }
 
+pub fn load_header(index: usize, source: Source) -> Result<Header, Box<dyn ScriptError>> {
+    match high_level::load_header(index, source) {
+        Ok(header) => Ok(header),
+        Err(err) => {
+            warn!(
+                "{:?}[{}] Loading header failed, maybe the block_hash is not filled in the header_deps: {:?}",
+                source, index, err
+            );
+            Err(err.into())
+        }
+    }
+}
+
 pub fn load_oracle_data(type_: OracleCellType) -> Result<u64, Box<dyn ScriptError>> {
     let type_script;
     match type_ {

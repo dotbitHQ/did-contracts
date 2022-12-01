@@ -535,9 +535,6 @@ impl WitnessesParser {
     ) -> Result<(u32, DataType, &Bytes), Box<dyn ScriptError>> {
         let version;
         let entity;
-        debug!("self.dep = {:?}", self.dep);
-        debug!("index = {:?}", index);
-        debug!("source = {:?}", source);
         if let Some((_, _version, _data_type, _hash, _entity)) = self.get(index as u32, source)? {
             if expected_hash == _hash.as_slice() && &data_type == _data_type {
                 version = _version.to_owned();
