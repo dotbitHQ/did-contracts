@@ -15,7 +15,7 @@ use sparse_merkle_tree::H256;
 
 use crate::constants::*;
 use crate::error::*;
-use crate::sub_account_witness_parser::{SubAccountEditValue, SubAccountWitness};
+use crate::sub_account_witness_parser::{SubAccountEditValue, SubAccountMintSignWitness, SubAccountWitness};
 use crate::witness_parser::WitnessesParser;
 use crate::{assert as das_assert, code_to_error, data_parser, debug, util, warn};
 
@@ -261,11 +261,6 @@ pub fn verify_smt_proof(
     root: [u8; 32],
     proof: &[u8],
 ) -> Result<(), Box<dyn ScriptError>> {
-    if cfg!(feature = "dev") {
-        // CAREFUL Proof verification has been skipped in development mode.
-        return Ok(());
-    }
-
     let builder = SMTBuilder::new();
     let builder = builder.insert(&H256::from(key), &H256::from(val)).unwrap();
 
@@ -278,6 +273,59 @@ pub fn verify_smt_proof(
         debug!("verify_smt_proof verification passed.");
     }
     Ok(())
+}
+
+pub fn verify_sub_account_mint_sig(
+    witness: &SubAccountMintSignWitness,
+    sign_lib: &SignLib,
+) -> Result<(), Box<dyn ScriptError>> {
+    if cfg!(feature = "dev") {
+        // CAREFUL Signature verification has been skipped in development mode.
+        return Ok(());
+    }
+
+    debug!(
+        "witnesses[{}] Verify if the SubAccountMintSignWitness.signature is valid.",
+        witness.index
+    );
+
+    let das_lock_type = match witness.sign_type {
+        Some(val) if val == DasLockType::ETH || val == DasLockType::ETHTypedData || val == DasLockType::TRON => val,
+        _ => {
+            warn!(
+                "witnesses[{}] Parsing das-lock(witness.sub_account.lock.args) algorithm failed (maybe not supported for now), but it is required in this transaction.",
+                witness.index
+            );
+            return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
+        }
+    };
+
+    let expired_at = witness.expired_at.to_le_bytes().to_vec();
+    let account_list_smt_root = witness.account_list_smt_root.clone();
+    let signature = witness.signature.clone();
+    let args = witness.sign_args.clone();
+
+    let ret = sign_lib.verify_sub_account_mint_sig(das_lock_type, expired_at, account_list_smt_root, signature, args);
+    match ret {
+        Err(_error_code) if _error_code == DasDynamicLibError::UndefinedDasLockType as i32 => {
+            warn!(
+                "witnesses[{}] The signature algorithm has not been supported",
+                witness.index
+            );
+            Err(code_to_error!(ErrorCode::HardCodedError))
+        }
+        Err(_error_code) => {
+            warn!(
+                "witnesses[{}] The witness.signature is invalid, the error_code returned by dynamic library is: {}",
+                witness.index, _error_code
+            );
+            Err(code_to_error!(ErrorCode::SubAccountSigVerifyError))
+        }
+        _ => {
+            debug!("witnesses[{}] The witness.signature is valid.", witness.index);
+            Ok(())
+        }
+    }
 }
 
 pub fn verify_sub_account_sig(witness: &SubAccountWitness, sign_lib: &SignLib) -> Result<(), Box<dyn ScriptError>> {

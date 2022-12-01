@@ -88,7 +88,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let data = high_level::load_cell_data(index.to_owned(), Source::Input)?;
             let apply_register_hash = data_parser::apply_register_cell::get_account_hash(&data)?;
 
-                verify_apply_height(height, config_apply_reader, &data)?;
+            verify_apply_height(height, config_apply_reader, &data)?;
 
             debug!("Read witness of PreAccountCell ...");
 
