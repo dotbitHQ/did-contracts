@@ -1,5 +1,4 @@
 use alloc::boxed::Box;
-#[cfg(all(debug_assertions))]
 use alloc::string::String;
 use alloc::string::ToString;
 use alloc::vec::Vec;

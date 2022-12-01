@@ -147,6 +147,7 @@ impl SignLib {
         Ok(())
     }
 
+    // TODO abstrate the common code of verify_* functions
     pub fn verify_sub_account_mint_sig(
         &self,
         das_lock_type: DasLockType,
@@ -176,8 +177,9 @@ impl SignLib {
         nonce: Vec<u8>,
         sig: Vec<u8>,
         args: Vec<u8>,
+        sign_expired_at: Vec<u8>,
     ) -> Result<(), i32> {
-        let data = [account_id, edit_key, edit_value, nonce].concat();
+        let data = [account_id, edit_key, edit_value, nonce, sign_expired_at].concat();
         let message = self.gen_digest(das_lock_type, data)?;
         let type_no = 0i32;
         let m_len = message.len();

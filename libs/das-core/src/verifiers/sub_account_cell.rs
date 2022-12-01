@@ -360,6 +360,7 @@ pub fn verify_sub_account_sig(witness: &SubAccountWitness, sign_lib: &SignLib) -
     let nonce = witness.sub_account.nonce().as_slice().to_vec();
     let signature = witness.signature.as_slice();
     let args = witness.sign_args.as_slice();
+    let sign_expired_at = witness.sign_expired_at.to_le_bytes().to_vec();
 
     let ret = sign_lib.verify_sub_account_sig(
         das_lock_type,
@@ -369,6 +370,7 @@ pub fn verify_sub_account_sig(witness: &SubAccountWitness, sign_lib: &SignLib) -
         nonce,
         signature.to_vec(),
         args.to_vec(),
+        sign_expired_at,
     );
 
     match ret {
