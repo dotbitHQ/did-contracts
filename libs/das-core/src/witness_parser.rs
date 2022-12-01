@@ -38,6 +38,7 @@ impl WitnessesParser {
     pub fn new() -> Result<Self, Box<dyn ScriptError>> {
         let mut witnesses = Vec::new();
         let mut config_witnesses = BTreeMap::new();
+        let mut found_config_cell_main = false;
         let mut i = 0;
         let mut das_witnesses_started = false;
         loop {
@@ -52,6 +53,10 @@ impl WitnessesParser {
                         if das_witnesses_started {
                             // If it is parsing DAS witnesses currently, end the parsing.
                             if raw != &WITNESS_HEADER {
+                                debug!(
+                                    "witnesses[{:>2}] Found witness not started with 0x{}, stop parsing the remain witnesses.",
+                                    i, util::hex_string(&WITNESS_HEADER)
+                                );
                                 break;
                             }
                         } else {
@@ -72,6 +77,10 @@ impl WitnessesParser {
                     match DataType::try_from(data_type_in_int) {
                         Ok(DataType::SubAccount | DataType::SubAccountMintSign) => {
                             // Ignore sub-account witnesses in this parser.
+                            debug!(
+                                "witnesses[{:>2}] Found sub-account witness skip parsing.",
+                                i
+                            );
                         }
                         Ok(data_type) => {
                             if !das_witnesses_started {
@@ -81,6 +90,10 @@ impl WitnessesParser {
                                     "The first DAS witness must be the type of DataType::ActionData ."
                                 );
                                 das_witnesses_started = true
+                            }
+
+                            if data_type == DataType::ConfigCellMain {
+                                found_config_cell_main = true;
                             }
 
                             // If there is any ConfigCells in cell_deps, store its index and expected witness hash.
@@ -123,6 +136,11 @@ impl WitnessesParser {
 
                                     config_witnesses.insert(data_type as u32, (i, expected_entity_hash));
                                 }
+                            } else {
+                                debug!(
+                                    "witnesses[{:>2}] The type is {:?}, treat as non-config witness.",
+                                    i, data_type
+                                );
                             }
 
                             witnesses.push((i, data_type));
@@ -142,6 +160,12 @@ impl WitnessesParser {
                 Err(e) => return Err(Box::new(Error::<ErrorCode>::from(e))),
             }
         }
+
+        assert!(
+            found_config_cell_main,
+            ErrorCode::ConfigCellIsRequired,
+            "Can not find ConfigCellMain in cell_deps."
+        );
 
         let lock_type_id_table = LockScriptTypeIdTable {
             always_success: always_success_lock().into(),
@@ -514,6 +538,9 @@ impl WitnessesParser {
     ) -> Result<(u32, DataType, &Bytes), Box<dyn ScriptError>> {
         let version;
         let entity;
+        debug!("self.dep = {:?}", self.dep);
+        debug!("index = {:?}", index);
+        debug!("source = {:?}", source);
         if let Some((_, _version, _data_type, _hash, _entity)) = self.get(index as u32, source)? {
             if expected_hash == _hash.as_slice() && &data_type == _data_type {
                 version = _version.to_owned();
