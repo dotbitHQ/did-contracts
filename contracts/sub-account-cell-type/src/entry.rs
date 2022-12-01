@@ -259,11 +259,13 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let mut tron_lib = unsafe { CKBDLContext::<DymLibSize>::new() };
             let mut eth = None;
             let mut tron = None;
-            let sign_lib = SignLib::new(eth, tron, None);
 
             if cfg!(not(feature = "dev")) {
                 // CAREFUL Proof verification has been skipped in development mode.
                 // TODO Refactor the temporary solution of dynamic library loading ...
+
+                debug!("Loading ETH dynamic library ...");
+
                 let lib = eth_lib
                     .load(&ETH_LIB_CODE_HASH)
                     .expect("The shared lib should be loaded successfully.");
@@ -277,6 +279,8 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                             .expect("Load function 'validate_str' from library failed.")
                     },
                 });
+
+                debug!("Loading TRON dynamic library ...");
 
                 let lib = tron_lib
                     .load(&TRON_LIB_CODE_HASH)
@@ -292,6 +296,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                     },
                 });
             }
+            let sign_lib = SignLib::new(eth, tron, None);
 
             let mut account_list_smt_root = None;
             let mut custom_script_params = Vec::new();
