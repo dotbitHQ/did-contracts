@@ -448,11 +448,19 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             if sub_account_parser.contains_edition {
                 debug!("Found `edit` action in this transaction, do some common verfications ...");
 
-                verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
-                    input_sub_account_cells[0],
-                    output_sub_account_cells[0],
-                    vec!["smt_root"],
-                )?;
+                if sub_account_parser.contains_creation {
+                    verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
+                        input_sub_account_cells[0],
+                        output_sub_account_cells[0],
+                        vec!["smt_root", "das_profit"],
+                    )?;
+                } else {
+                    verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
+                        input_sub_account_cells[0],
+                        output_sub_account_cells[0],
+                        vec!["smt_root"],
+                    )?;
+                }
             }
 
             debug!("Start iterating sub-account witnesses ...");
