@@ -510,15 +510,18 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
                 match witness.action {
                     SubAccountAction::Create => {
-                        match account_list_smt_root {
-                            Some(root) => {
-                                smt_verify_sub_account_is_in_signed_list(root, witness)?;
-                            }
-                            None => {
-                                warn!("The SubAccountMintSignWitness.account_list_smt_root should be exist.");
-                                return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
+                        if custom_script_type_id.is_none() {
+                            match account_list_smt_root {
+                                Some(root) => {
+                                    smt_verify_sub_account_is_in_signed_list(root, witness)?;
+                                }
+                                None => {
+                                    warn!("The SubAccountMintSignWitness.account_list_smt_root should be exist.");
+                                    return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
+                                }
                             }
                         }
+
                         smt_verify_sub_account_is_creatable(prev_root, witness)?;
 
                         debug!("witnesses[{}] Verify if the account is registrable.", witness.index);

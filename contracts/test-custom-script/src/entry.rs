@@ -32,9 +32,9 @@ pub fn main(argc: usize, argv: *const *const u8) -> Result<(), Error> {
     debug!("script_args = 0x{}", hex::encode(&script_args));
 
     das_assert!(
-        action == "create_sub_account",
+        action == "update_sub_account",
         Error::InvalidAction,
-        "The param action should be create_sub_account . (current: {})",
+        "The param action should be update_sub_account . (current: {})",
         action
     );
 
