@@ -102,6 +102,7 @@ table PreAccountCellData {
     // The discount rate for invited user
     invited_discount: Uint32,
     // The created timestamp of the PreAccountCell.
+    // Deprecated
     created_at: Uint64,
     // The initial records should be write into the AccountCell when it is created successfully.
     initial_records: Records,
