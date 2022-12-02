@@ -18,7 +18,7 @@ use ckb_std::error::SysError;
 use ckb_std::{high_level, syscalls};
 use das_types::constants::{DataType, LockRole, WITNESS_HEADER};
 use das_types::mixer::*;
-use das_types::packed as das_packed;
+use das_types::packed::{self as das_packed};
 pub use das_types::util::{hex_string, is_entity_eq, is_reader_eq};
 #[cfg(test)]
 use hex::FromHexError;
@@ -307,6 +307,33 @@ pub fn find_balance_cells(
         // Currently only BalanceCells with das-lock is supported.
         unreachable!();
     }
+}
+
+pub fn find_all_balance_cells(
+    config_main: das_packed::ConfigCellMainReader,
+    source: Source,
+) -> Result<Vec<usize>, Box<dyn ScriptError>> {
+    let das_lock = das_lock();
+    let all_cells = find_cells_by_type_id(
+        ScriptType::Lock,
+        das_packed::HashReader::from(das_lock.code_hash().as_reader()),
+        source,
+    )?;
+
+    let balance_cell_type_script = type_id_to_script(config_main.type_id_table().balance_cell());
+    let mut cells = Vec::new();
+    for i in all_cells {
+        let type_script_opt = high_level::load_cell_type(i, source)?;
+        if let Some(type_script) = type_script_opt {
+            if is_type_id_equal(type_script.as_reader(), balance_cell_type_script.as_reader().into()) {
+                cells.push(i);
+            }
+        } else {
+            cells.push(i);
+        }
+    }
+
+    Ok(cells)
 }
 
 pub fn load_data<F: Fn(&mut [u8], usize) -> Result<usize, SysError>>(syscall: F) -> Result<Vec<u8>, SysError> {

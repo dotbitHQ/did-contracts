@@ -381,7 +381,7 @@ pub fn verify_sub_account_mint_sign_not_expired(
     );
 
     das_assert!(
-        expired_at >= sub_account_last_updated_at,
+        sub_account_last_updated_at <= expired_at,
         ErrorCode::SubAccountSignMintExpiredAtReached,
         "  witnesses[{:>2}] The signature in SubAccountMintSign is expired. (current: {}, expired_at: {})",
         witness.index,

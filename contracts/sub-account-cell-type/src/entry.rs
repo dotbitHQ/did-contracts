@@ -301,6 +301,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let mut custom_script_type_id = None;
             let sub_account_parser = SubAccountWitnessesParser::new()?;
             let sender_lock = util::derive_owner_lock_from_cell(account_cell_index, account_cell_source)?;
+            let input_balance_cells = util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Input)?;
             let mut parent_owner_total_input_capacity = 0;
             let parent_expired_at = data_parser::account_cell::get_expired_at(&account_cell_data);
             let header = util::load_header(input_sub_account_cells[0], Source::Input)?;
@@ -410,9 +411,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                             }
                         }
 
-                        let input_balance_cells =
-                            util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Input)?;
-
                         verifiers::misc::verify_no_more_cells_with_same_lock(
                             sender_lock.as_reader(),
                             &input_balance_cells,
@@ -440,10 +438,17 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 // CAREFUL This is very important, only update it with fully understanding the requirements.
                 debug!("Verify if there is no BalanceCells of the parent AccountCell's owner is spent.");
 
-                let input_balance_cells =
-                    util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Input)?;
                 verifiers::common::verify_cell_number("BalanceCell", &input_balance_cells, 0, &[], 0)?;
             }
+
+            let all_inputs_balance_cells = util::find_all_balance_cells(config_main, Source::Input)?;
+            das_assert!(
+                &input_balance_cells == &all_inputs_balance_cells,
+                ErrorCode::BalanceCellCanNotBeSpent,
+                "Only BalanceCells which belong to the parent AccountCell's owner can be spent in this transaction."
+            );
+
+            // das_assert!(false, ErrorCode::HardCodedError, "");
 
             if sub_account_parser.contains_edition {
                 debug!("Found `edit` action in this transaction, do some common verfications ...");

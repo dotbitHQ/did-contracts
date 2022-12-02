@@ -111,6 +111,7 @@ pub enum ErrorCode {
     EIP712DecodingWitnessArgsError,
     EIP712SignatureError,
     BalanceCellFoundSomeOutputsLackOfType = -80,
+    BalanceCellCanNotBeSpent,
     AccountSaleCellCapacityError,
     AccountSaleCellRefundError,
     AccountSaleCellAccountIdInvalid,
