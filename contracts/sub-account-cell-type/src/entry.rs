@@ -704,13 +704,18 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                     let parent_owner_total_output_capacity =
                         util::load_cells_capacity(&output_balance_cells, Source::Output)?;
 
-                    das_assert!(
-                        parent_owner_total_output_capacity - parent_owner_total_input_capacity <= profit_to_das,
-                        ErrorCode::SubAccountBalanceManagerError,
-                        "The change to the parent AccountCell's owner should be less than or equal to the profit to DAS wallet.(expect: {} shannon, current: {} shannon)",
-                        profit_to_das,
-                        parent_owner_total_output_capacity - parent_owner_total_input_capacity
-                    );
+                    // Only if the output capacity of the balance cells is less than the input capacity, we need to do the versification.
+                    if parent_owner_total_input_capacity > parent_owner_total_output_capacity {
+                        let available_fee = u64::from(config_sub_account.common_fee());
+
+                        das_assert!(
+                            parent_owner_total_input_capacity - parent_owner_total_output_capacity <= profit_to_das + available_fee,
+                            ErrorCode::SubAccountBalanceManagerError,
+                            "The change to the parent AccountCell's owner should be less than or equal to the profit to DAS wallet plus the fee.(expect: {} shannon, current: {} shannon)",
+                            profit_to_das + available_fee,
+                            parent_owner_total_input_capacity - parent_owner_total_output_capacity
+                        );
+                    }
 
                     verify_profit_to_das(
                         action,
