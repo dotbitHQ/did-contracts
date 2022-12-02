@@ -304,7 +304,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let mut parent_owner_total_input_capacity = 0;
             let parent_expired_at = data_parser::account_cell::get_expired_at(&account_cell_data);
             let header = util::load_header(input_sub_account_cells[0], Source::Input)?;
-            let sub_account_last_updated_at = u64::from(Uint64::from(header.raw().timestamp()));
+            let sub_account_last_updated_at = u64::from(Uint64::from(header.raw().timestamp())) / 1000;
 
             if sub_account_parser.contains_creation {
                 debug!("Found `create` action in this transaction, do some common verfications ...");
@@ -553,12 +553,12 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                         smt_verify_sub_account_is_editable(prev_root, witness, new_sub_account_reader)?;
 
                         verifiers::sub_account_cell::verify_unlock_role(witness)?;
-                        verifiers::sub_account_cell::verify_sub_account_edit_sign(witness, &sign_lib)?;
                         verifiers::sub_account_cell::verify_sub_account_edit_sign_not_expired(
                             witness,
                             parent_expired_at,
                             sub_account_last_updated_at,
                         )?;
+                        verifiers::sub_account_cell::verify_sub_account_edit_sign(witness, &sign_lib)?;
                         verifiers::sub_account_cell::verify_expiration(
                             config_account,
                             witness.index,

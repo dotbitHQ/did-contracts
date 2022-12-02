@@ -218,7 +218,7 @@ impl SubAccountWitnessesParser {
         );
         let expired_at = u64::from_le_bytes(expired_at_bytes.try_into().unwrap());
 
-        let (sign_role, sign_type, sign_args) = Self::parse_sign_info(sign_role_byte, lock_args);
+        let (sign_role, sign_type, sign_args) = Self::parse_sign_info(index, sign_role_byte, lock_args)?;
 
         Ok(SubAccountMintSignWitness {
             index,
@@ -268,14 +268,6 @@ impl SubAccountWitnessesParser {
             return Err(code_to_error!(ErrorCode::WitnessVersionOrTypeInvalid));
         }
 
-        assert!(
-            sign_expired_at_bytes.len() == 8,
-            ErrorCode::WitnessStructureError,
-            "  witnesses[{:>2}] SubAccountMintSignWitness.expired_at_bytes should be 8 bytes.",
-            i
-        );
-        let sign_expired_at = u64::from_le_bytes(sign_expired_at_bytes.try_into().unwrap());
-
         let action = match String::from_utf8(action_bytes.to_vec()) {
             Ok(action) => match SubAccountAction::from_str(action.as_str()) {
                 Ok(val) => val,
@@ -307,51 +299,76 @@ impl SubAccountWitnessesParser {
             }
         };
 
-        // The actual type of the edit_value field is base what the edit_key field is.
-        let edit_value = match action {
-            SubAccountAction::Edit => match edit_key {
-                b"expired_at" => {
-                    let expired_at = match Uint64::from_slice(edit_value_bytes) {
-                        Ok(val) => val,
-                        Err(e) => {
-                            warn!(
-                                "  witnesses[{:>2}] Sub-account witness structure error, decoding expired_at failed: {}",
-                                i, e
-                            );
-                            return Err(code_to_error!(ErrorCode::WitnessStructureError));
+        let mut sign_role = None;
+        let mut sign_type = None;
+        let mut sign_args = vec![];
+        let mut sign_expired_at = 0;
+        let mut lock_args = vec![];
+        let mut edit_value = SubAccountEditValue::None;
+        match action {
+            SubAccountAction::Create => {
+                debug!(
+                    "  witnesses[{:>2}] SubAccountWitness.action is Create, skip signature related fields.",
+                    i
+                );
+            }
+            SubAccountAction::Edit => {
+                assert!(
+                    sign_expired_at_bytes.len() == 8,
+                    ErrorCode::WitnessStructureError,
+                    "  witnesses[{:>2}] SubAccountMintSignWitness.expired_at_bytes should be 8 bytes.",
+                    i
+                );
+                sign_expired_at = u64::from_le_bytes(sign_expired_at_bytes.try_into().unwrap());
+
+                let lock_args_reader = sub_account.as_reader().lock().args();
+                lock_args = lock_args_reader.raw_data().to_vec();
+                (sign_role, sign_type, sign_args) = Self::parse_sign_info(i, sign_role_byte, &lock_args)?;
+
+                // The actual type of the edit_value field is base what the edit_key field is.
+                edit_value = match action {
+                    SubAccountAction::Edit => match edit_key {
+                        b"expired_at" => {
+                            let expired_at = match Uint64::from_slice(edit_value_bytes) {
+                                Ok(val) => val,
+                                Err(e) => {
+                                    warn!(
+                                        "  witnesses[{:>2}] Sub-account witness structure error, decoding expired_at failed: {}",
+                                        i, e
+                                    );
+                                    return Err(code_to_error!(ErrorCode::WitnessStructureError));
+                                }
+                            };
+
+                            SubAccountEditValue::ExpiredAt(expired_at)
                         }
-                    };
+                        b"owner" => SubAccountEditValue::Owner(edit_value_bytes.to_vec()),
+                        b"manager" => SubAccountEditValue::Manager(edit_value_bytes.to_vec()),
+                        b"records" => {
+                            let records = match Records::from_slice(edit_value_bytes) {
+                                Ok(val) => val,
+                                Err(e) => {
+                                    warn!(
+                                        "  witnesses[{:>2}] Sub-account witness structure error, decoding records failed: {}",
+                                        i, e
+                                    );
+                                    return Err(code_to_error!(ErrorCode::WitnessStructureError));
+                                }
+                            };
 
-                    SubAccountEditValue::ExpiredAt(expired_at)
-                }
-                b"owner" => SubAccountEditValue::Owner(edit_value_bytes.to_vec()),
-                b"manager" => SubAccountEditValue::Manager(edit_value_bytes.to_vec()),
-                b"records" => {
-                    let records = match Records::from_slice(edit_value_bytes) {
-                        Ok(val) => val,
-                        Err(e) => {
-                            warn!(
-                                "  witnesses[{:>2}] Sub-account witness structure error, decoding records failed: {}",
-                                i, e
-                            );
-                            return Err(code_to_error!(ErrorCode::WitnessStructureError));
+                            SubAccountEditValue::Records(records)
                         }
-                    };
-
-                    SubAccountEditValue::Records(records)
-                }
-                _ => SubAccountEditValue::None,
-            },
-            _ => SubAccountEditValue::None,
-        };
-
-        let lock_args_reader = sub_account.as_reader().lock().args();
-        let lock_args = lock_args_reader.raw_data();
-        let (sign_role, sign_type, sign_args) = Self::parse_sign_info(sign_role_byte, lock_args);
+                        _ => SubAccountEditValue::None,
+                    },
+                    _ => SubAccountEditValue::None,
+                };
+            }
+            _ => todo!(),
+        }
 
         debug!(
             "  Sub-account witnesses[{:>2}]: {{ version: {}, signature: 0x{}, lock_args: 0x{}, sign_role: 0x{}, sign_exipired_at: {}, new_root: 0x{}, action: {}, sub_account: {}, edit_key: {}, sign_args: {} }}",
-            i, version, util::hex_string(signature), util::hex_string(lock_args), util::hex_string(sign_role_byte), sign_expired_at, util::hex_string(new_root), action, sub_account.account().as_prettier(), String::from_utf8(edit_key.to_vec()).unwrap(), util::hex_string(&sign_args)
+            i, version, util::hex_string(signature), util::hex_string(&lock_args), util::hex_string(sign_role_byte), sign_expired_at, util::hex_string(new_root), action, sub_account.account().as_prettier(), String::from_utf8(edit_key.to_vec()).unwrap(), util::hex_string(&sign_args)
         );
 
         Ok(SubAccountWitness {
@@ -420,8 +437,23 @@ impl SubAccountWitnessesParser {
         Ok((new_start, field_bytes))
     }
 
-    fn parse_sign_info(sign_role_byte: &[u8], lock_args: &[u8]) -> (Option<LockRole>, Option<DasLockType>, Vec<u8>) {
-        let sign_role_int = u8::from_le_bytes(sign_role_byte.try_into().unwrap());
+    fn parse_sign_info(
+        index: usize,
+        sign_role_byte: &[u8],
+        lock_args: &[u8],
+    ) -> Result<(Option<LockRole>, Option<DasLockType>, Vec<u8>), Box<dyn ScriptError>> {
+        let sign_role_int = match sign_role_byte.try_into() {
+            Ok(val) => u8::from_le_bytes(val),
+            Err(e) => {
+                warn!(
+                    "  witnesses[{:>2}] Parsing 0x{} to u8 failed: {}",
+                    index,
+                    util::hex_string(sign_role_byte),
+                    e
+                );
+                return Err(code_to_error!(ErrorCode::Encoding));
+            }
+        };
         let sign_type_int;
         let sign_args_ref;
 
@@ -439,7 +471,7 @@ impl SubAccountWitnessesParser {
         let sign_type = DasLockType::try_from(sign_type_int).ok();
         let sign_args = sign_args_ref.to_vec();
 
-        (sign_role, sign_type, sign_args)
+        Ok((sign_role, sign_type, sign_args))
     }
 
     pub fn iter(&self) -> SubAccountWitnessesIter {
