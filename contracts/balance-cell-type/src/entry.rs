@@ -92,7 +92,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                     ErrorCode::InvalidTransactionStructure,
                 )?;
             }
-            b"update_sub_account" | b"renew_sub_account" | b"recycle_sub_account" => {
+            b"enable_sub_account" | b"update_sub_account" => {
                 util::require_type_script(
                     &parser,
                     TypeScript::SubAccountCellType,
