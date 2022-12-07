@@ -902,14 +902,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 )?;
             }
         }
-        b"create_sub_account" => {
-            util::require_type_script(
-                &parser,
-                TypeScript::SubAccountCellType,
-                Source::Input,
-                ErrorCode::InvalidTransactionStructure,
-            )?;
-        }
         b"config_sub_account_custom_script" => {
             util::require_type_script(
                 &parser,

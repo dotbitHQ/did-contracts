@@ -453,13 +453,9 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             if sub_account_parser.contains_edition {
                 debug!("Found `edit` action in this transaction, do some common verfications ...");
 
-                if sub_account_parser.contains_creation {
-                    verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
-                        input_sub_account_cells[0],
-                        output_sub_account_cells[0],
-                        vec!["smt_root", "das_profit"],
-                    )?;
-                } else {
+                if !sub_account_parser.contains_creation {
+                    debug!("There is no `create` action found, verify the SubAccountCell is consistent in inputs and outputs.");
+
                     verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
                         input_sub_account_cells[0],
                         output_sub_account_cells[0],
