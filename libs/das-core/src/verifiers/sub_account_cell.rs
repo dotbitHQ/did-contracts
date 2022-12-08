@@ -345,7 +345,7 @@ pub fn verify_sub_account_mint_sign_not_expired(
 
     let expired_at = witness.expired_at;
     let mut limit_expired_at = parent_expired_at;
-    let mut limit_expired_at_from_index = None;
+    let mut _limit_expired_at_from_index = None;
     for (i, witness_ret) in sub_account_parser.iter().enumerate() {
         if let Err(e) = witness_ret {
             return Err(e);
@@ -359,7 +359,7 @@ pub fn verify_sub_account_mint_sign_not_expired(
                 let expired_at = u64::from(sub_account_reader.expired_at());
                 if expired_at < limit_expired_at {
                     limit_expired_at = expired_at;
-                    limit_expired_at_from_index = Some(i);
+                    _limit_expired_at_from_index = Some(i);
                 }
             }
             _ => {}
@@ -368,7 +368,7 @@ pub fn verify_sub_account_mint_sign_not_expired(
 
     debug!(
         "  The earliest expired_at is {} from witnesses[{:?}].(None means from parent AccountCell)",
-        limit_expired_at, limit_expired_at_from_index
+        limit_expired_at, _limit_expired_at_from_index
     );
 
     das_assert!(

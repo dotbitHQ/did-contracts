@@ -22,6 +22,7 @@ use das_dynamic_libs::sign_lib::{SignLib, SignLibWith2Methods};
 use das_types::constants::{AccountStatus, SubAccountAction};
 use das_types::packed::*;
 use das_types::prelude::{Builder, Entity};
+#[cfg(debug_assertions)]
 use das_types::prettier::Prettier;
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {

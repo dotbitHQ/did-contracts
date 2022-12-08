@@ -353,20 +353,20 @@ impl WitnessesParser {
             let raw = util::load_das_witnesses(index)?;
 
             let data = Self::parse_data(raw.as_slice())?;
-            let mut cell_index = 0;
+            let mut _cell_index = 0;
             if let Some(entity) = data.dep().to_opt() {
                 let entity_info = Self::parse_entity(entity, data_type)?;
-                cell_index = entity_info.0;
+                _cell_index = entity_info.0;
                 self.dep.push(entity_info)
             }
             if let Some(entity) = data.old().to_opt() {
                 let entity_info = Self::parse_entity(entity, data_type)?;
-                cell_index = entity_info.0;
+                _cell_index = entity_info.0;
                 self.old.push(entity_info)
             }
             if let Some(entity) = data.new().to_opt() {
                 let entity_info = Self::parse_entity(entity, data_type)?;
-                cell_index = entity_info.0;
+                _cell_index = entity_info.0;
                 self.new.push(entity_info)
             }
 
@@ -384,7 +384,7 @@ impl WitnessesParser {
                 }
                 debug!(
                     "  witnesses[{:>2}] {{ data_type: {:?}, source: {:?}, index: {} }}",
-                    index, data_type, source, cell_index
+                    index, data_type, source, _cell_index
                 );
             }
         }

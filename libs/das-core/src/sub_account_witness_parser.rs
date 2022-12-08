@@ -303,7 +303,7 @@ impl SubAccountWitnessesParser {
         let mut sign_type = None;
         let mut sign_args = vec![];
         let mut sign_expired_at = 0;
-        let mut lock_args = vec![];
+        let mut _lock_args = vec![];
         let mut edit_value = SubAccountEditValue::None;
         match action {
             SubAccountAction::Create => {
@@ -322,8 +322,8 @@ impl SubAccountWitnessesParser {
                 sign_expired_at = u64::from_le_bytes(sign_expired_at_bytes.try_into().unwrap());
 
                 let lock_args_reader = sub_account.as_reader().lock().args();
-                lock_args = lock_args_reader.raw_data().to_vec();
-                (sign_role, sign_type, sign_args) = Self::parse_sign_info(i, sign_role_byte, &lock_args)?;
+                _lock_args = lock_args_reader.raw_data().to_vec();
+                (sign_role, sign_type, sign_args) = Self::parse_sign_info(i, sign_role_byte, &_lock_args)?;
 
                 // The actual type of the edit_value field is base what the edit_key field is.
                 edit_value = match action {
@@ -368,7 +368,7 @@ impl SubAccountWitnessesParser {
 
         debug!(
             "  Sub-account witnesses[{:>2}]: {{ version: {}, signature: 0x{}, lock_args: 0x{}, sign_role: 0x{}, sign_exipired_at: {}, new_root: 0x{}, action: {}, sub_account: {}, edit_key: {}, sign_args: {} }}",
-            i, version, util::hex_string(signature), util::hex_string(&lock_args), util::hex_string(sign_role_byte), sign_expired_at, util::hex_string(new_root), action, sub_account.account().as_prettier(), String::from_utf8(edit_key.to_vec()).unwrap(), util::hex_string(&sign_args)
+            i, version, util::hex_string(signature), util::hex_string(&_lock_args), util::hex_string(sign_role_byte), sign_expired_at, util::hex_string(new_root), action, sub_account.account().as_prettier(), String::from_utf8(edit_key.to_vec()).unwrap(), util::hex_string(&sign_args)
         );
 
         Ok(SubAccountWitness {
