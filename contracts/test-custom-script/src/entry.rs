@@ -40,16 +40,16 @@ pub fn main(argc: usize, argv: *const *const u8) -> Result<(), Error> {
     );
 
     das_assert!(
-        owner_profit == 24_000_000_000u64,
+        owner_profit == 24_000_000_000u64 || owner_profit == 8_000_000_000u64,
         Error::InvalidOwnerProfit,
-        "The param owner_profit should be 24_000_000_000u64 . (current: {})",
+        "The param owner_profit should be 24_000_000_000u64(3 accounts) or 8_000_000_000u64(1 account). (current: {})",
         owner_profit
     );
 
     das_assert!(
-        das_profit == 6_000_000_000u64,
+        das_profit == 6_000_000_000u64 || das_profit == 2_000_000_000u64,
         Error::InvalidDasProfit,
-        "The param das_profit should be 6_000_000_000u64 . (current: {})",
+        "The param das_profit should be 6_000_000_000u64(3 accounts) or 2_000_000_000u64(1 account). (current: {})",
         das_profit
     );
 

@@ -302,6 +302,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let mut custom_script_type_id = None;
             let sub_account_parser = SubAccountWitnessesParser::new()?;
             let sender_lock = util::derive_owner_lock_from_cell(account_cell_index, account_cell_source)?;
+            let all_inputs_balance_cells = util::find_all_balance_cells(config_main, Source::Input)?;
             let input_balance_cells = util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Input)?;
             let mut parent_owner_total_input_capacity = 0;
             let parent_expired_at = data_parser::account_cell::get_expired_at(&account_cell_data);
@@ -374,9 +375,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                         // CAREFUL This is very important, only update it with fully understanding the requirements.
                         debug!("Verify if there is no BalanceCells of the parent AccountCell's owner is spent.");
 
-                        let input_balance_cells =
-                            util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Input)?;
-                        verifiers::common::verify_cell_number("BalanceCell", &input_balance_cells, 0, &[], 0)?;
+                        verifiers::common::verify_cell_number("BalanceCell", &all_inputs_balance_cells, 0, &[], 0)?;
                     }
                     Some(_) | None => {
                         debug!("Do not find custom scripts in SubAccountCell.data, verifying the signature for minting new sub-accounts ...");
@@ -437,12 +436,11 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 )?;
             } else {
                 // CAREFUL This is very important, only update it with fully understanding the requirements.
-                debug!("Verify if there is no BalanceCells of the parent AccountCell's owner is spent.");
+                debug!("Verify if there is no BalanceCells are spent.");
 
-                verifiers::common::verify_cell_number("BalanceCell", &input_balance_cells, 0, &[], 0)?;
+                verifiers::common::verify_cell_number("BalanceCell", &all_inputs_balance_cells, 0, &[], 0)?;
             }
 
-            let all_inputs_balance_cells = util::find_all_balance_cells(config_main, Source::Input)?;
             das_assert!(
                 &input_balance_cells == &all_inputs_balance_cells,
                 ErrorCode::BalanceCellCanNotBeSpent,
