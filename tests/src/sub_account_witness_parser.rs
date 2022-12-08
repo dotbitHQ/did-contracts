@@ -4,13 +4,13 @@ use serde_json::json;
 use sparse_merkle_tree::H256;
 
 use crate::util::accounts::*;
+use crate::util::blake2b_smt;
 use crate::util::constants::*;
 use crate::util::error::*;
 use crate::util::smt::SMTWithHistory;
 use crate::util::template_common_cell::*;
 use crate::util::template_generator::*;
 use crate::util::template_parser::*;
-use crate::util::{blake2b_smt, hex_to_bytes};
 
 pub const TIMESTAMP: u64 = 1611200090u64;
 

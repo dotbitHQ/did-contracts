@@ -129,7 +129,11 @@ fn challenge_apply_register_refund_capacity_error() {
     );
 
     // Simulate refunding the ApplyRegisterCell with wrong capacity ...
-    push_output_normal_cell(&mut template, 20_000_000_000 - APPLY_REFUND_REWARD - 1, OWNER_WITHOUT_TYPE);
+    push_output_normal_cell(
+        &mut template,
+        20_000_000_000 - APPLY_REFUND_REWARD - 1,
+        OWNER_WITHOUT_TYPE,
+    );
 
     challenge_tx(template.as_json(), ErrorCode::ApplyRegisterRefundCapacityError)
 }

@@ -68,7 +68,9 @@ impl SMTWithHistory {
     /// The returned value is exactly what a sub_account witness want, so use it when you need to construct sub_account witness.
     pub fn insert(&mut self, key: H256, value: H256) -> ([u8; 32], [u8; 32], MerkleProof) {
         let prev_root = self.smt.root().to_owned();
-        self.smt.update(key.clone(), value.clone()).expect("Should update successfully");
+        self.smt
+            .update(key.clone(), value.clone())
+            .expect("Should update successfully");
         let current_root = self.smt.root().to_owned();
         let proof = self
             .smt
@@ -92,10 +94,13 @@ impl SMTWithHistory {
     }
 
     pub fn get_compiled_proof(&self, keys: Vec<H256>) -> Vec<u8> {
-        let leaves = keys.iter().map(|key| {
-            let leave = self.leaves.iter().find(|(k, _)| k == key).expect("Should find key");
-            leave.to_owned()
-        }).collect::<Vec<_>>();
+        let leaves = keys
+            .iter()
+            .map(|key| {
+                let leave = self.leaves.iter().find(|(k, _)| k == key).expect("Should find key");
+                leave.to_owned()
+            })
+            .collect::<Vec<_>>();
         let proof = self.smt.merkle_proof(keys).expect("Should generate proof successfully");
         proof
             .compile(leaves)
@@ -123,8 +128,8 @@ fn smt_test_current_root() {
 
     let current_root = hex::encode(current_root);
     let expected_root = hex::encode([
-        189, 54, 5, 77, 115, 196, 110, 91, 204, 52, 94, 3, 153, 190, 52, 225, 253, 27, 39, 149, 102, 196, 214, 87, 36,
-        202, 18, 184, 14, 109, 74, 10,
+        250, 217, 253, 241, 90, 196, 134, 16, 171, 121, 226, 215, 222, 119, 20, 22, 51, 170, 64, 76, 187, 141, 238, 74,
+        60, 253, 178, 162, 211, 138, 87, 221,
     ]);
     assert!(
         expected_root == current_root,
@@ -145,8 +150,8 @@ fn smt_test_restore_state() {
 
     let current_root = hex::encode(smt.current_root());
     let expected_root = hex::encode([
-        189, 54, 5, 77, 115, 196, 110, 91, 204, 52, 94, 3, 153, 190, 52, 225, 253, 27, 39, 149, 102, 196, 214, 87, 36,
-        202, 18, 184, 14, 109, 74, 10,
+        250, 217, 253, 241, 90, 196, 134, 16, 171, 121, 226, 215, 222, 119, 20, 22, 51, 170, 64, 76, 187, 141, 238, 74,
+        60, 253, 178, 162, 211, 138, 87, 221,
     ]);
     assert!(
         expected_root == current_root,
@@ -172,8 +177,8 @@ fn smt_test_insert() {
 
     let root_1_hex = hex::encode(root_1);
     let expected_root_1 = hex::encode([
-        53, 234, 182, 66, 181, 102, 7, 156, 17, 211, 36, 42, 149, 110, 212, 223, 127, 132, 159, 211, 119, 142, 56, 101,
-        155, 146, 50, 81, 197, 7, 5, 11,
+        89, 141, 136, 18, 208, 19, 19, 77, 44, 97, 74, 58, 20, 214, 25, 114, 233, 147, 145, 149, 88, 208, 6, 47, 60,
+        71, 118, 85, 125, 70, 232, 70,
     ]);
     assert!(
         expected_root_1 == root_1_hex,
@@ -183,8 +188,8 @@ fn smt_test_insert() {
     );
     let root_2_hex = hex::encode(root_2);
     let expected_root_2 = hex::encode([
-        189, 54, 5, 77, 115, 196, 110, 91, 204, 52, 94, 3, 153, 190, 52, 225, 253, 27, 39, 149, 102, 196, 214, 87, 36,
-        202, 18, 184, 14, 109, 74, 10,
+        250, 217, 253, 241, 90, 196, 134, 16, 171, 121, 226, 215, 222, 119, 20, 22, 51, 170, 64, 76, 187, 141, 238, 74,
+        60, 253, 178, 162, 211, 138, 87, 221,
     ]);
     assert!(
         expected_root_2 == root_2_hex,
@@ -194,8 +199,8 @@ fn smt_test_insert() {
     );
     let root_3_hex = hex::encode(root_3);
     let expected_root_3 = hex::encode([
-        112, 38, 186, 222, 170, 241, 57, 204, 124, 249, 91, 200, 44, 181, 47, 191, 114, 126, 19, 80, 72, 240, 140, 225,
-        225, 149, 212, 97, 15, 228, 71, 103,
+        202, 179, 188, 233, 182, 189, 192, 125, 97, 119, 102, 17, 35, 0, 62, 17, 111, 103, 138, 40, 107, 245, 45, 5,
+        66, 202, 70, 236, 4, 149, 169, 99,
     ]);
     assert!(
         expected_root_3 == root_3_hex,

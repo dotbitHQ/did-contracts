@@ -256,7 +256,7 @@ pub fn push_dep_account_cell(template: &mut TemplateGenerator, cell_partial: Val
         "data": {
             "account": ACCOUNT_1,
             "next": "yyyyy.bit",
-            "expired_at": u64::MAX,
+            "expired_at": TIMESTAMP + YEAR_SEC,
         },
         "witness": {
             "account": ACCOUNT_1,

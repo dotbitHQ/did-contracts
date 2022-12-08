@@ -519,6 +519,7 @@ pub struct IncomeRecordParam {
 }
 
 pub struct TemplateGenerator {
+    loaded_contracts: Vec<String>,
     pub header_deps: Vec<Value>,
     pub cell_deps: Vec<Value>,
     pub inputs: Vec<Value>,
@@ -548,6 +549,7 @@ impl TemplateGenerator {
         prices.insert(8u8, gen_price_config(8, ACCOUNT_PRICE_5_CHAR, ACCOUNT_PRICE_5_CHAR));
 
         TemplateGenerator {
+            loaded_contracts: vec![],
             header_deps: Vec::new(),
             cell_deps: Vec::new(),
             inputs: Vec::new(),
@@ -1294,6 +1296,7 @@ impl TemplateGenerator {
             }
         };
 
+        self.loaded_contracts.push(contract_filename.to_string());
         self.cell_deps.push(value)
     }
 
@@ -1345,6 +1348,11 @@ impl TemplateGenerator {
                     .get(1)
                     .map(|m| m.as_str())
                     .expect("type.code_hash is something like '{{...}}'");
+
+                if source != Source::CellDep && !self.loaded_contracts.contains(&type_id.to_string()) {
+                    panic!("The contract {} has no cell_deps, please use TemplateGenerater::push_contract_cell to push the related cell_deps.", type_id);
+                }
+
                 let index = match type_id {
                     "account-cell-type" => {
                         push_cell!(DataType::AccountCellData, gen_account_cell, version_opt, cell)
@@ -1383,6 +1391,14 @@ impl TemplateGenerator {
     }
 
     pub fn push_cell_json(&mut self, mut cell: Value, source: Source, since_opt: Option<u64>) -> usize {
+        if !cell["tmp_header"].is_null() {
+            let mut timestamp = util::parse_json_u64("header.timestamp", &cell["tmp_header"]["timestamp"], Some(0));
+            timestamp = timestamp * 1000; // The timestamp in real block header contains milliseconds.
+
+            let field = &mut cell["tmp_header"]["timestamp"];
+            *field = json!(timestamp);
+        }
+
         if source == Source::Input {
             let since = if let Some(since) = since_opt { since } else { 0 };
 
@@ -2379,10 +2395,14 @@ impl TemplateGenerator {
 
         let type_script = match cell.get("type") {
             Some(type_) => {
-                let args = if type_["args"].is_null() {
-                    String::from("0x")
+                let args = if let Some(args) = type_["args"].as_str() {
+                    if args.starts_with("0x") {
+                        args.to_owned()
+                    } else {
+                        util::bytes_to_hex(&parse_json_str_to_account_id("cell.type.args", &type_["args"]))
+                    }
                 } else {
-                    util::bytes_to_hex(&parse_json_str_to_account_id("cell.type.args", &type_["args"]))
+                    String::from("0x")
                 };
 
                 json!({
@@ -2418,6 +2438,10 @@ impl TemplateGenerator {
             let mut script_args =
                 util::parse_json_hex_with_default("cell.data.script_args", &data["script_args"], Vec::new());
 
+            // println!("das_profit = {:?}", util::bytes_to_hex(&das_profit));
+            // println!("owner_profit = {:?}", util::bytes_to_hex(&owner_profit));
+            // println!("custom_script = {:?}", util::bytes_to_hex(&custom_script));
+            // println!("script_args = {:?}", util::bytes_to_hex(&script_args));
             root.append(&mut das_profit);
             root.append(&mut owner_profit);
             root.append(&mut custom_script);
@@ -2810,8 +2834,6 @@ impl TemplateGenerator {
         self.sub_account_outer_witnesses
             .push(util::bytes_to_hex(&witness_bytes));
     }
-
-    pub fn push_sub_account_witness(&mut self, action: SubAccountActionType, witness: Value) {}
 
     // ======
 
