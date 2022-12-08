@@ -814,6 +814,39 @@ pub fn derive_owner_lock_from_cell(input_cell: usize, source: Source) -> Result<
     Ok(lock_of_balance_cell)
 }
 
+pub fn diff_das_lock_args(lock_a: &[u8], lock_b: &[u8]) -> (bool, bool) {
+    macro_rules! diff {
+        ($role:expr, $fn_get_type:ident, $fn_get_args:ident) => {{
+            let input_lock_type = data_parser::das_lock_args::$fn_get_type(lock_a);
+            let input_pubkey_hash = data_parser::das_lock_args::$fn_get_args(lock_a);
+            let output_lock_type = data_parser::das_lock_args::$fn_get_type(lock_b);
+            let output_pubkey_hash = data_parser::das_lock_args::$fn_get_args(lock_b);
+
+            let lock_type_consistent = if input_lock_type == DasLockType::ETH as u8 {
+                output_lock_type == input_lock_type || output_lock_type == DasLockType::ETHTypedData as u8
+            } else {
+                output_lock_type == input_lock_type
+            };
+
+            lock_type_consistent && input_pubkey_hash == output_pubkey_hash
+        }};
+    }
+
+    let owner_changed = diff!("owner", get_owner_type, get_owner_lock_args);
+    let manager_changed = diff!("manager", get_manager_type, get_manager_lock_args);
+
+    (owner_changed, manager_changed)
+}
+
+pub fn is_das_lock_owner_manager_same(lock_args: &[u8]) -> bool {
+    let owner_type = data_parser::das_lock_args::get_owner_type(lock_args);
+    let owner_pubkey_hash = data_parser::das_lock_args::get_owner_lock_args(lock_args);
+    let manager_type = data_parser::das_lock_args::get_manager_type(lock_args);
+    let manager_pubkey_hash = data_parser::das_lock_args::get_manager_lock_args(lock_args);
+
+    owner_type == manager_type && owner_pubkey_hash == manager_pubkey_hash
+}
+
 pub fn get_account_from_reader<'a>(account_reader: &Box<dyn AccountCellDataReaderMixer + 'a>) -> String {
     let mut account = account_reader.account().as_readable();
     account.extend(ACCOUNT_SUFFIX.as_bytes());

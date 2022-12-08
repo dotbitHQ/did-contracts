@@ -92,6 +92,64 @@ fn test_account_unlock_account_for_cross_chain_change_owner() {
 }
 
 #[test]
+fn test_account_unlock_account_for_cross_chain_change_manager() {
+    let mut template = init("unlock_account_for_cross_chain", Some("0x00"));
+
+    // inputs
+    push_input_account_cell_with_multi_sign(&mut template, json!({
+        "lock": {
+            "owner_lock_args": SENDER,
+            "manager_lock_args": MANAGER
+        },
+    }));
+
+    // outputs
+    push_output_account_cell(
+        &mut template,
+        json!({
+            "lock": {
+                "owner_lock_args": SENDER,
+                "manager_lock_args": SENDER
+            },
+            "witness": {
+                "status": (AccountStatus::Normal as u8)
+            }
+        }),
+    );
+
+    test_tx(template.as_json())
+}
+
+#[test]
+fn challenge_account_unlock_account_for_cross_chain_owner_and_manager_not_match() {
+    let mut template = init("unlock_account_for_cross_chain", Some("0x00"));
+
+    // inputs
+    push_input_account_cell_with_multi_sign(&mut template, json!({
+        "lock": {
+            "owner_lock_args": SENDER,
+            "manager_lock_args": SENDER
+        },
+    }));
+
+    // outputs
+    push_output_account_cell(
+        &mut template,
+        json!({
+            "lock": {
+                "owner_lock_args": SENDER,
+                "manager_lock_args": MANAGER
+            },
+            "witness": {
+                "status": (AccountStatus::Normal as u8)
+            }
+        }),
+    );
+
+    challenge_tx(template.as_json(), ErrorCode::CrossChainUnlockError);
+}
+
+#[test]
 fn challenge_account_unlock_account_for_cross_chain_account_multiple_cells() {
     let mut template = init("unlock_account_for_cross_chain", Some("0x00"));
 
