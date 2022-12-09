@@ -828,7 +828,7 @@ pub fn diff_das_lock_args(lock_a: &[u8], lock_b: &[u8]) -> (bool, bool) {
                 output_lock_type == input_lock_type
             };
 
-            lock_type_consistent && input_pubkey_hash == output_pubkey_hash
+            !(lock_type_consistent && input_pubkey_hash == output_pubkey_hash)
         }};
     }
 

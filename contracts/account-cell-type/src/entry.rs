@@ -964,6 +964,9 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let output_args = output_lock.as_reader().args().raw_data();
             let (owner_changed, _) = util::diff_das_lock_args(input_args, output_args);
 
+            debug!("inputs[{}] cell.lock.args: 0x{}", input_account_cells[0], util::hex_string(input_args));
+            debug!("outputs[{}] cell.lock.args: 0x{}", output_account_cells[0], util::hex_string(output_args));
+
             if owner_changed {
                 // The lock is changed, so the records must be cleared.
                 verifiers::account_cell::verify_account_witness_consistent(
