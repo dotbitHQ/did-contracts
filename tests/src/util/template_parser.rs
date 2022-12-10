@@ -211,8 +211,16 @@ impl TemplateParser {
     }
 
     pub fn execute_tx(&mut self) -> Result<(Cycle, TransactionView), String> {
-        let builder = self.tx_builder.take();
+        let mut builder = self.tx_builder.take();
+        // The block hash of headers must be put into the header_deps field, then it will be readable later in the script.
+        let mut header_hashes = Vec::new();
+        for header in self.mock_header_deps.iter() {
+            header_hashes.push(header.hash());
+        }
+        builder = builder.set_header_deps(header_hashes);
+
         let tx = builder.build();
+
         let mock_info = MockInfo {
             header_deps: self.mock_header_deps.drain(0..).collect(),
             cell_deps: self.mock_cell_deps.drain(0..).collect(),
@@ -264,16 +272,10 @@ impl TemplateParser {
     ///
     /// These fields are all optional, and it will be compiled to a RawHeader object in molecule finally.
     fn parse_header_deps(&mut self, header_deps: Vec<Value>) -> Result<(), Box<dyn StdError>> {
-        let mut mocked_header_deps = vec![];
-
         for (i, item) in header_deps.into_iter().enumerate() {
-            let (hash, header_view) = self.mock_block_header(&format!("header_deps[{}]", i), &item)?;
-            self.mock_header_deps.push(header_view);
-            mocked_header_deps.push(hash);
+            let header = self.mock_block_header(&format!("header_deps[{}]", i), &item)?;
+            self.mock_header_deps.push(header);
         }
-
-        let builder = self.tx_builder.take();
-        self.tx_builder.set(builder.set_header_deps(mocked_header_deps));
 
         Ok(())
     }
@@ -293,11 +295,20 @@ impl TemplateParser {
                         self.mock_contract(name, is_deployed, is_shared_lib, Some(i));
                     // println!("{:>30}: {}", name, type_id);
 
+                    let header_hash_opt = if !item["tmp_header"].is_null() {
+                        let header = self.mock_block_header(&format!("cell_deps[{}]", i), &item["tmp_header"])?;
+                        let hash = header.hash();
+                        self.mock_header_deps.push(header);
+                        Some(hash)
+                    } else {
+                        None
+                    };
+
                     let mock_cell_dep = MockCellDep {
                         cell_dep: cell_dep.clone(),
                         output: cell_output,
                         data: cell_data,
-                        header: None,
+                        header: header_hash_opt,
                     };
                     self.mock_cell_deps.push(mock_cell_dep);
 
@@ -342,7 +353,7 @@ impl TemplateParser {
         Ok(())
     }
 
-    /// The header_deps should be an array of objects like below:
+    /// The inputs should be an array of objects like below:
     ///
     /// ```json
     /// [
@@ -382,10 +393,11 @@ impl TemplateParser {
                     // parse inputs[].since
                     let since = util::parse_json_u64(&format!("cell.inputs[{}].since", i), &item["since"], Some(0));
 
-                    let header_hash_opt = if !item["block_header"].is_null() {
-                        let (hash, header) =
-                            self.mock_block_header(&format!("inputs[{}]", i), &item["block_header"])?;
-
+                    let header_hash_opt = if !item["previous_output"]["tmp_header"].is_null() {
+                        let header =
+                            self.mock_block_header(&format!("inputs[{}]", i), &item["previous_output"]["tmp_header"])?;
+                        let hash = header.hash();
+                        self.mock_header_deps.push(header);
                         Some(hash)
                     } else {
                         None
@@ -577,7 +589,7 @@ impl TemplateParser {
         Ok(script)
     }
 
-    fn mock_block_header(&self, field_name: &str, header: &Value) -> Result<(Byte32, HeaderView), Box<dyn StdError>> {
+    fn mock_block_header(&self, field_name: &str, header: &Value) -> Result<HeaderView, Box<dyn StdError>> {
         let version = util::parse_json_u32(&format!("{}.version", field_name), &header["version"], Some(0));
         let number = if header["number"].is_null() {
             util::parse_json_u64(&format!("{}.height", field_name), &header["height"], Some(0))
@@ -606,9 +618,8 @@ impl TemplateParser {
             .build();
         let header = Header::new_builder().raw(raw_header).nonce(Uint128::default()).build();
         let header_view = header.into_view();
-        let hash = header_view.hash();
 
-        Ok((hash, header_view))
+        Ok(header_view)
     }
 
     fn mock_out_point(&self, index: usize) -> OutPoint {

@@ -6,6 +6,7 @@ use ckb_std::cstr_core::CStr;
 use ckb_std::debug;
 use das_types::packed::AccountChars;
 use das_types::prelude::Entity;
+#[cfg(debug_assertions)]
 use das_types::prettier::Prettier;
 
 use super::error::Error;
@@ -21,34 +22,34 @@ pub fn main(argc: usize, argv: *const *const u8) -> Result<(), Error> {
 
     let args = unsafe { from_raw_parts(argv, argc as usize) };
     let action = unsafe { CStr::from_ptr(args[0]).to_str().unwrap() };
-    let quote = read_u64_param!(args[1]);
+    let _quote = read_u64_param!(args[1]);
     let owner_profit = read_u64_param!(args[2]);
     let das_profit = read_u64_param!(args[3]);
     let script_args = read_bytes_param!(args[4]);
 
-    debug!("quote = {:?}", quote);
+    debug!("quote = {:?}", _quote);
     debug!("owner_profit = {:?}", owner_profit);
     debug!("das_profit = {:?}", das_profit);
     debug!("script_args = 0x{}", hex::encode(&script_args));
 
     das_assert!(
-        action == "create_sub_account",
+        action == "update_sub_account",
         Error::InvalidAction,
-        "The param action should be create_sub_account . (current: {})",
+        "The param action should be update_sub_account . (current: {})",
         action
     );
 
     das_assert!(
-        owner_profit == 24_000_000_000u64,
+        owner_profit == 24_000_000_000u64 || owner_profit == 8_000_000_000u64,
         Error::InvalidOwnerProfit,
-        "The param owner_profit should be 24_000_000_000u64 . (current: {})",
+        "The param owner_profit should be 24_000_000_000u64(3 accounts) or 8_000_000_000u64(1 account). (current: {})",
         owner_profit
     );
 
     das_assert!(
-        das_profit == 6_000_000_000u64,
+        das_profit == 6_000_000_000u64 || das_profit == 2_000_000_000u64,
         Error::InvalidDasProfit,
-        "The param das_profit should be 6_000_000_000u64 . (current: {})",
+        "The param das_profit should be 6_000_000_000u64(3 accounts) or 2_000_000_000u64(1 account). (current: {})",
         das_profit
     );
 

@@ -94,7 +94,7 @@ pub fn super_lock() -> Script {
             30, 87, 243, 127, 220, 97, 72, 61,
         ],
         hash_type: ScriptHashType::Type,
-        args: vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        args: vec![0; 20],
     };
 
     #[cfg(feature = "local")]

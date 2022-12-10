@@ -6,8 +6,10 @@ use crate::util::since_util::SinceFlag;
 use crate::util::template_generator::*;
 
 lazy_static! {
-    pub static ref SINCE_MIN_HEIGHT: Option<u64> = gen_since(SinceFlag::Relative, SinceFlag::Height, APPLY_MIN_WAITING_BLOCK);
-    pub static ref SINCE_MAX_HEIGHT: Option<u64> = gen_since(SinceFlag::Relative, SinceFlag::Height, APPLY_MAX_WAITING_BLOCK);
+    pub static ref SINCE_MIN_HEIGHT: Option<u64> =
+        gen_since(SinceFlag::Relative, SinceFlag::Height, APPLY_MIN_WAITING_BLOCK);
+    pub static ref SINCE_MAX_HEIGHT: Option<u64> =
+        gen_since(SinceFlag::Relative, SinceFlag::Height, APPLY_MAX_WAITING_BLOCK);
 }
 
 pub fn init(action: &str) -> TemplateGenerator {
