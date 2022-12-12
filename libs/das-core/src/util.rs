@@ -814,6 +814,27 @@ pub fn derive_owner_lock_from_cell(input_cell: usize, source: Source) -> Result<
     Ok(lock_of_balance_cell)
 }
 
+pub fn derive_manager_lock_from_cell(input_cell: usize, source: Source) -> Result<Script, Box<dyn ScriptError>> {
+    let lock = high_level::load_cell_lock(input_cell, source)?;
+    let lock_bytes = lock.as_reader().args().raw_data();
+    let manager_lock_type = data_parser::das_lock_args::get_manager_type(lock_bytes);
+    let manager_lock_args = data_parser::das_lock_args::get_manager_lock_args(lock_bytes);
+
+    // Build expected refund lock.
+    let args = das_packed::Bytes::from(
+        [
+            vec![manager_lock_type],
+            manager_lock_args.to_vec(),
+            vec![manager_lock_type],
+            manager_lock_args.to_vec(),
+        ]
+        .concat(),
+    );
+    let lock_of_balance_cell = lock.as_builder().args(args.into()).build();
+
+    Ok(lock_of_balance_cell)
+}
+
 pub fn diff_das_lock_args(lock_a: &[u8], lock_b: &[u8]) -> (bool, bool) {
     macro_rules! diff {
         ($role:expr, $fn_get_type:ident, $fn_get_args:ident) => {{

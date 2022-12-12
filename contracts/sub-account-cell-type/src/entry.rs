@@ -7,6 +7,7 @@ use core::convert::TryInto;
 use core::result::Result;
 
 use ckb_std::ckb_constants::Source;
+use ckb_std::ckb_types::packed;
 use ckb_std::cstr_core::CStr;
 use ckb_std::dynamic_loading_c_impl::CKBDLContext;
 use ckb_std::error::SysError;
@@ -19,7 +20,7 @@ use das_core::witness_parser::WitnessesParser;
 use das_core::{assert as das_assert, code_to_error, data_parser, debug, verifiers, warn};
 use das_dynamic_libs::constants::{DymLibSize, ETH_LIB_CODE_HASH, TRON_LIB_CODE_HASH};
 use das_dynamic_libs::sign_lib::{SignLib, SignLibWith2Methods};
-use das_types::constants::{AccountStatus, SubAccountAction};
+use das_types::constants::{AccountStatus, LockRole, SubAccountAction};
 use das_types::packed::*;
 use das_types::prelude::{Builder, Entity};
 #[cfg(debug_assertions)]
@@ -301,14 +302,14 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let mut custom_script_params = Vec::new();
             let mut custom_script_type_id = None;
             let sub_account_parser = SubAccountWitnessesParser::new()?;
-            let sender_lock = util::derive_owner_lock_from_cell(account_cell_index, account_cell_source)?;
-            let all_inputs_balance_cells = util::find_all_balance_cells(config_main, Source::Input)?;
-            let input_balance_cells = util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Input)?;
             let mut parent_owner_total_input_capacity = 0;
             let parent_expired_at = data_parser::account_cell::get_expired_at(&account_cell_data);
             let header = util::load_header(input_sub_account_cells[0], Source::Input)?;
             let sub_account_last_updated_at = u64::from(Uint64::from(header.raw().timestamp())) / 1000;
 
+            let all_inputs_balance_cells = util::find_all_balance_cells(config_main, Source::Input)?;
+            let mut sender_lock = packed::Script::default();
+            let mut input_balance_cells = vec![];
             if sub_account_parser.contains_creation {
                 debug!("Found `create` action in this transaction, do some common verfications ...");
 
@@ -400,6 +401,14 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                                     let mut tmp = [0u8; 32];
                                     tmp.copy_from_slice(&witness.account_list_smt_root);
                                     account_list_smt_root = Some(tmp);
+
+                                    sender_lock = if witness.sign_role == Some(LockRole::Manager) {
+                                        debug!("Found SubAccountWitness.sign_role is manager, use manager lock as sender_lock.");
+                                        util::derive_manager_lock_from_cell(account_cell_index, account_cell_source)?
+                                    } else {
+                                        debug!("Found SubAccountWitness.sign_role is owner, use owner lock as sender_lock.");
+                                        util::derive_owner_lock_from_cell(account_cell_index, account_cell_source)?
+                                    }
                                 }
                                 Err(e) => {
                                     return Err(e);
@@ -410,6 +419,9 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                                 return Err(code_to_error!(ErrorCode::SubAccountSignMintSignatureRequired));
                             }
                         }
+
+                        input_balance_cells =
+                            util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Input)?;
 
                         verifiers::misc::verify_no_more_cells_with_same_lock(
                             sender_lock.as_reader(),
