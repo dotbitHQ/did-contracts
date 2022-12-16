@@ -96,12 +96,15 @@ fn test_account_unlock_account_for_cross_chain_change_manager() {
     let mut template = init("unlock_account_for_cross_chain", Some("0x00"));
 
     // inputs
-    push_input_account_cell_with_multi_sign(&mut template, json!({
-        "lock": {
-            "owner_lock_args": SENDER,
-            "manager_lock_args": MANAGER
-        },
-    }));
+    push_input_account_cell_with_multi_sign(
+        &mut template,
+        json!({
+            "lock": {
+                "owner_lock_args": SENDER,
+                "manager_lock_args": MANAGER
+            },
+        }),
+    );
 
     // outputs
     push_output_account_cell(
@@ -125,12 +128,15 @@ fn challenge_account_unlock_account_for_cross_chain_owner_and_manager_not_match(
     let mut template = init("unlock_account_for_cross_chain", Some("0x00"));
 
     // inputs
-    push_input_account_cell_with_multi_sign(&mut template, json!({
-        "lock": {
-            "owner_lock_args": SENDER,
-            "manager_lock_args": SENDER
-        },
-    }));
+    push_input_account_cell_with_multi_sign(
+        &mut template,
+        json!({
+            "lock": {
+                "owner_lock_args": SENDER,
+                "manager_lock_args": SENDER
+            },
+        }),
+    );
 
     // outputs
     push_output_account_cell(

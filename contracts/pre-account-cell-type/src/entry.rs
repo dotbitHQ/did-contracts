@@ -564,7 +564,7 @@ fn verify_account_release_status<'a>(
         return Ok(());
     }
 
-    let apply_header = high_level::load_header(input_apply_register_cell, Source::Input)?;
+    let apply_header = util::load_header(input_apply_register_cell, Source::Input)?;
     let apply_created_at = util::get_timestamp_from_header(apply_header.as_reader());
 
     // TODO Verify if the apply_created_at can be used to replace the TimeCell.

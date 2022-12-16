@@ -31,11 +31,3 @@ fn xxx_playground() {
 
     test_tx(template.as_json());
 }
-
-#[test]
-fn yyy() {
-    println!("1 day: {:?}", gen_since(SinceFlag::Relative, SinceFlag::Timestamp, DAY_SEC).expect(""));
-    // println!("1 day: {:064b}", gen_since(SinceFlag::Relative, SinceFlag::Timestamp, DAY_SEC).expect(""));
-    println!("1 hour: {:?}", gen_since(SinceFlag::Relative, SinceFlag::Timestamp, HOUR_SEC).expect(""));
-    // println!("1 hour: {:064b}", gen_since(SinceFlag::Relative, SinceFlag::Timestamp, HOUR_SEC).expect(""));
-}
