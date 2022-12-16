@@ -629,9 +629,7 @@ fn verify_account_release_status<'a>(
     }
 
     let apply_header = high_level::load_header(input_apply_register_cell, Source::Input)?;
-    let apply_created_at = u64::from(Uint64Reader::new_unchecked(
-        apply_header.as_reader().raw().timestamp().raw_data(),
-    ));
+    let apply_created_at = util::get_timestamp_from_header(apply_header.as_reader());
 
     // TODO Verify if the apply_created_at can be used to replace the TimeCell.
     // 1666094400 is 2022-10-18 12:00:00 UTC.
