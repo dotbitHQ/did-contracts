@@ -1,9 +1,8 @@
 use std::env;
 
 use ckb_chain_spec::consensus::TYPE_ID_CODE_HASH;
-use ckb_types::bytes;
 use ckb_types::core::ScriptHashType;
-use ckb_types::prelude::Pack;
+use ckb_types::packed;
 use das_types_std::prelude::*;
 use walkdir::WalkDir;
 
@@ -30,11 +29,26 @@ fn gen_type_id_table() {
                 continue;
             }
 
+            let args = {
+                // Padding args to 32 bytes, because it is convenient to use 32 bytes as the real args are also 32 bytes.
+                let mut buf = [0u8; 32];
+                let len = buf.len();
+                let bytes = filename.as_bytes();
+
+                if bytes.len() >= len {
+                    buf.copy_from_slice(&bytes[..32]);
+                } else {
+                    let (_, right) = buf.split_at_mut(len - bytes.len());
+                    right.copy_from_slice(bytes);
+                }
+                buf
+            };
+            let args_bytes = args.iter().map(|v| Byte::new(*v)).collect::<Vec<_>>();
             let type_ = script_build(
                 script_new_builder()
                     .code_hash(byte32_new(TYPE_ID_CODE_HASH.as_bytes()))
                     .hash_type(ScriptHashType::Type.into())
-                    .args(bytes::Bytes::from(filename.clone()).pack()),
+                    .args(packed::Bytes::new_builder().set(args_bytes).build()),
             );
 
             hash_list.push((filename, type_.calc_script_hash()));

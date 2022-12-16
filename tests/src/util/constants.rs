@@ -104,7 +104,7 @@ pub enum OracleCellType {
 
 lazy_static! {
     pub static ref TYPE_ID_TABLE: HashMap<&'static str, &'static str> = {
-        // For calculation of these type ID, you need uncomment a line of debug code in the funtion **deploy_contract** in src/util.rs.
+        // For calculation of these type ID, you need uncomment a line of debug code in the funtion **mock_contract** in src/util/template_parser .
         //
         // CAREFUL! There may be some error in the map, but the contracts will still work. It is because when parsing scripts in cell_deps, their type
         // ID will be calculated dynamically and insert into the map.
