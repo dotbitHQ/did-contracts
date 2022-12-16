@@ -22,7 +22,7 @@ fn challenge_pre_register_preserved_account() {
             "capacity": util::gen_register_fee_v2(account, 9, false),
             "witness": {
                 "account": account,
-                "created_at": TIMESTAMP,
+                "created_at": 0,
                 "price": {
                     "length": 8,
                     "new": ACCOUNT_PRICE_5_CHAR,
@@ -50,7 +50,7 @@ fn test_pre_register_preserved_account_with_super_lock() {
             "capacity": util::gen_register_fee_v2(account, 9, false),
             "witness": {
                 "account": account,
-                "created_at": TIMESTAMP,
+                "created_at": 0,
                 "price": {
                     "length": 8,
                     "new": ACCOUNT_PRICE_5_CHAR,

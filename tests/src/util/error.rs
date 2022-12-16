@@ -222,6 +222,7 @@ pub enum PreAccountCellErrorCode {
     SystemOff = -1,
     // Customized errors:
     ApplyHashMismatch = 50,
+    ApplySinceMismatch,
     AccountIdIsInvalid,
     AccountAlreadyExistOrProofInvalid,
     CreateAtIsInvalid,
