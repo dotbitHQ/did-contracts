@@ -124,8 +124,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             verify_invited_discount(config_price, &pre_account_cell_witness_reader)?;
             verify_price_and_capacity(config_account, config_price, &pre_account_cell_witness_reader, capacity)?;
             verify_account_id(&pre_account_cell_witness_reader, account_id)?;
-            // TODO Remove the PreAccountCell.witness.created_at field, it is no longer needed.
-            verify_created_at(0, &pre_account_cell_witness_reader)?;
             verify_account_not_exist(dep_account_cells[0], account_id)?;
 
             debug!("Verify if account is available for registration for now ...");
@@ -416,24 +414,6 @@ fn verify_apply_hash<'a>(
         "The hash in ApplyRegisterCell should be calculated from blake2b(ApplyRegisterCell.lock.args + account).(expected: 0x{}, current: 0x{})",
         util::hex_string(&expected_hash),
         util::hex_string(current_hash)
-    );
-
-    Ok(())
-}
-
-#[deprecated]
-fn verify_created_at<'a>(
-    expected_timestamp: u64,
-    reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>,
-) -> Result<(), Box<dyn ScriptError>> {
-    let create_at = u64::from(reader.created_at());
-
-    assert!(
-        create_at == expected_timestamp,
-        PreAccountCellErrorCode::CreateAtIsInvalid,
-        "PreAccountCell.created_at should be the same as the TimeCell.(expected: {}, current: {})",
-        expected_timestamp,
-        create_at
     );
 
     Ok(())
