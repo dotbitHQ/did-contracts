@@ -35,7 +35,6 @@ fn test_pre_register_shortest_registrable_account() {
             "capacity": util::gen_register_fee_v2(account, 4, false),
             "witness": {
                 "account": account,
-                "created_at": 0,
                 "price": {
                     "length": 4,
                     "new": ACCOUNT_PRICE_4_CHAR,
@@ -63,7 +62,6 @@ fn test_pre_register_3_chars_account_with_super_lock() {
             "capacity": util::gen_register_fee_v2(account, 3, false),
             "witness": {
                 "account": account,
-                "created_at": 0,
                 "price": {
                     "length": 3,
                     "new": ACCOUNT_PRICE_3_CHAR,
@@ -90,7 +88,6 @@ fn challenge_pre_register_3_chars_account() {
             "capacity": util::gen_register_fee_v2(account, 3, false),
             "witness": {
                 "account": account,
-                "created_at": 0,
                 "price": {
                     "length": 3,
                     "new": ACCOUNT_PRICE_3_CHAR,
@@ -119,7 +116,6 @@ fn test_pre_register_10_chars_account() {
             "capacity": util::gen_register_fee_v2(account, 10, false),
             "witness": {
                 "account": account,
-                "created_at": 0,
                 "price": {
                     "length": 8,
                     "new": ACCOUNT_PRICE_5_CHAR,
@@ -148,7 +144,6 @@ fn test_pre_register_unreleased_account_with_super_lock() {
             "capacity": util::gen_register_fee_v2(account, 10, false),
             "witness": {
                 "account": account,
-                "created_at": 0,
                 "price": {
                     "length": 8,
                     "new": ACCOUNT_PRICE_5_CHAR,
@@ -175,7 +170,6 @@ fn challenge_pre_register_unreleased_account() {
             "capacity": util::gen_register_fee_v2(account, 10, false),
             "witness": {
                 "account": account,
-                "created_at": 0,
                 "price": {
                     "length": 8,
                     "new": ACCOUNT_PRICE_5_CHAR,
@@ -206,12 +200,12 @@ fn test_pre_register_pure_digit_account_after_20221018() {
                     { "char": "0", "type": CharSetType::Digit as u32 },
                     { "char": "4", "type": CharSetType::Digit as u32 },
                 ],
-                "created_at": 0,
                 "price": {
                     "length": 4,
                     "new": ACCOUNT_PRICE_4_CHAR,
                     "renew": ACCOUNT_PRICE_4_CHAR
-                }
+                },
+                "created_at": TIMESTAMP_20221018
             }
         }),
     );
@@ -237,12 +231,12 @@ fn test_pre_register_pure_emoji_account_after_20221018() {
                     { "char": "🏹", "type": CharSetType::Emoji as u32 },
                     { "char": "🏹", "type": CharSetType::Emoji as u32 },
                 ],
-                "created_at": 0,
                 "price": {
                     "length": 4,
                     "new": ACCOUNT_PRICE_4_CHAR,
                     "renew": ACCOUNT_PRICE_4_CHAR
-                }
+                },
+                "created_at": TIMESTAMP_20221018
             }
         }),
     );
@@ -281,7 +275,6 @@ fn challenge_pre_register_pure_digit_account_before_20221018() {
                     { "char": "0", "type": CharSetType::Digit as u32 },
                     { "char": "4", "type": CharSetType::Digit as u32 },
                 ],
-                "created_at": 0,
                 "price": {
                     "length": 4,
                     "new": ACCOUNT_PRICE_4_CHAR,
@@ -312,12 +305,12 @@ fn challenge_pre_register_pure_digit_account_less_than_4_chars_after_20221018() 
                     { "char": "0", "type": CharSetType::Digit as u32 },
                     { "char": "0", "type": CharSetType::Digit as u32 },
                 ],
-                "created_at": 0,
                 "price": {
                     "length": 3,
                     "new": ACCOUNT_PRICE_3_CHAR,
                     "renew": ACCOUNT_PRICE_3_CHAR
-                }
+                },
+                "created_at": TIMESTAMP_20221018
             }
         }),
     );
@@ -345,12 +338,12 @@ fn challenge_pre_register_unreleased_pure_vi_account_after_20221018() {
                     { "char": "c", "type": CharSetType::Vi as u32 },
                     { "char": "u", "type": CharSetType::Vi as u32 },
                 ],
-                "created_at": 0,
                 "price": {
                     "length": 5,
                     "new": ACCOUNT_PRICE_5_CHAR,
                     "renew": ACCOUNT_PRICE_5_CHAR
-                }
+                },
+                "created_at": TIMESTAMP_20221018
             }
         }),
     );
@@ -378,12 +371,12 @@ fn challenge_pre_register_unreleased_pure_en_account_after_20221018() {
                     { "char": "h", "type": CharSetType::En as u32 },
                     { "char": "t", "type": CharSetType::En as u32 },
                 ],
-                "created_at": 0,
                 "price": {
                     "length": 5,
                     "new": ACCOUNT_PRICE_5_CHAR,
                     "renew": ACCOUNT_PRICE_5_CHAR
-                }
+                },
+                "created_at": TIMESTAMP_20221018
             }
         }),
     );

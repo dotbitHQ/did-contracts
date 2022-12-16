@@ -150,7 +150,7 @@ pub fn push_output_pre_account_cell_v1(template: &mut TemplateGenerator, cell_pa
             },
             "quote": CKB_QUOTE,
             "invited_discount": 0,
-            "created_at": Value::Null
+            "created_at": TIMESTAMP
         }
     });
     util::merge_json(&mut cell, cell_partial);
@@ -184,7 +184,7 @@ pub fn push_output_pre_account_cell_v2(template: &mut TemplateGenerator, cell_pa
             },
             "quote": CKB_QUOTE,
             "invited_discount": 0,
-            "created_at": Value::Null,
+            "created_at": TIMESTAMP,
             "initial_records": [
                 {
                     "type": "address",
@@ -226,7 +226,7 @@ pub fn push_output_pre_account_cell(template: &mut TemplateGenerator, cell_parti
             },
             "quote": CKB_QUOTE,
             "invited_discount": 0,
-            "created_at": Value::Null,
+            "created_at": TIMESTAMP,
             "initial_records": [
                 {
                     "type": "address",

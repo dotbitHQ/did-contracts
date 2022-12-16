@@ -18,7 +18,6 @@ fn push_output_simple_pre_account_cell(template: &mut TemplateGenerator) {
             "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, true),
             "witness": {
                 "account": ACCOUNT_SP_1,
-                "created_at": 0,
                 "price": {
                     "length": 8,
                     "new": ACCOUNT_PRICE_5_CHAR,
@@ -53,7 +52,6 @@ fn test_pre_register_simple_v1() {
             "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, true),
             "witness": {
                 "account": ACCOUNT_SP_1,
-                "created_at": 0,
                 "price": {
                     "length": 8,
                     "new": ACCOUNT_PRICE_5_CHAR,
@@ -90,7 +88,6 @@ fn test_pre_register_simple_v2() {
             "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, true),
             "witness": {
                 "account": ACCOUNT_SP_1,
-                "created_at": 0,
                 "price": {
                     "length": 8,
                     "new": ACCOUNT_PRICE_5_CHAR,
@@ -140,7 +137,6 @@ fn challenge_pre_register_initial_record_key_invalid() {
             "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, true),
             "witness": {
                 "account": ACCOUNT_SP_1,
-                "created_at": 0,
                 "price": {
                     "length": 8,
                     "new": ACCOUNT_PRICE_5_CHAR,
@@ -267,7 +263,6 @@ fn challenge_pre_register_invalid_account_id() {
             },
             "witness": {
                 "account": ACCOUNT_SP_1,
-                "created_at": 0,
                 "price": {
                     "length": 8,
                     "new": ACCOUNT_PRICE_5_CHAR,
@@ -322,7 +317,6 @@ fn challenge_pre_register_invalid_owner_lock_args() {
             "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, false),
             "witness": {
                 "account": ACCOUNT_SP_1,
-                "created_at": 0,
                 "price": {
                     "length": 8,
                     "new": ACCOUNT_PRICE_5_CHAR,
@@ -351,7 +345,6 @@ fn challenge_pre_register_quote_mismatch() {
             "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, false),
             "witness": {
                 "account": ACCOUNT_SP_1,
-                "created_at": 0,
                 "price": {
                     "length": 8,
                     "new": ACCOUNT_PRICE_5_CHAR,
@@ -382,7 +375,6 @@ fn challenge_pre_register_exceed_account_max_length() {
             "capacity": util::gen_register_fee_v2(account, 43, false),
             "witness": {
                 "account": account,
-                "created_at": 0,
                 "price": {
                     "length": 8,
                     "new": ACCOUNT_PRICE_5_CHAR,
@@ -409,7 +401,6 @@ fn challenge_pre_register_discount_not_zero_when_no_inviter() {
             "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, false),
             "witness": {
                 "account": ACCOUNT_SP_1,
-                "created_at": 0,
                 "price": {
                     "length": 8,
                     "new": ACCOUNT_PRICE_5_CHAR,
@@ -441,7 +432,6 @@ fn challenge_pre_register_discount_incorrect() {
             "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, false),
             "witness": {
                 "account": ACCOUNT_SP_1,
-                "created_at": 0,
                 "price": {
                     "length": 8,
                     "new": ACCOUNT_PRICE_5_CHAR,
@@ -479,7 +469,6 @@ fn challenge_pre_register_incorrect_price() {
             "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, false),
             "witness": {
                 "account": ACCOUNT_SP_1,
-                "created_at": 0,
                 // Simulate providing price which is not match the account length.
                 "price": {
                     "length": 4,
@@ -508,7 +497,6 @@ fn challenge_pre_register_incorrect_capacity() {
             "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, false) - 1,
             "witness": {
                 "account": ACCOUNT_SP_1,
-                "created_at": 0,
                 "price": {
                     "length": 8,
                     "new": ACCOUNT_PRICE_5_CHAR,

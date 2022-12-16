@@ -31,7 +31,6 @@ fn challenge_pre_register_invalid_char() {
                     { "char": "0", "type": CharSetType::Digit as u32 },
                     { "char": "1", "type": CharSetType::Digit as u32 },
                 ],
-                "created_at": 0,
                 "price": {
                     "length": 8,
                     "new": ACCOUNT_PRICE_5_CHAR,
@@ -67,7 +66,6 @@ fn challenge_pre_register_zh() {
                     { "char": "0", "type": CharSetType::Digit as u32 },
                     { "char": "1", "type": CharSetType::Digit as u32 },
                 ],
-                "created_at": 0,
                 "price": {
                     "length": 8,
                     "new": ACCOUNT_PRICE_5_CHAR,
@@ -105,7 +103,6 @@ fn challenge_pre_register_multiple_language() {
                     { "char": "0", "type": CharSetType::Digit as u32 },
                     { "char": "1", "type": CharSetType::Digit as u32 },
                 ],
-                "created_at": 0,
                 "price": {
                     "length": 8,
                     "new": ACCOUNT_PRICE_5_CHAR,
@@ -138,7 +135,6 @@ fn test_pre_register_ja() {
                     { "char": "0", "type": CharSetType::Digit as u32 },
                     { "char": "0", "type": CharSetType::Digit as u32 },
                 ],
-                "created_at": 0,
                 "price": {
                     "length": 5,
                     "new": ACCOUNT_PRICE_5_CHAR,
@@ -171,7 +167,6 @@ fn test_pre_register_ko() {
                     { "char": "0", "type": CharSetType::Digit as u32 },
                     { "char": "0", "type": CharSetType::Digit as u32 },
                 ],
-                "created_at": 0,
                 "price": {
                     "length": 5,
                     "new": ACCOUNT_PRICE_5_CHAR,
@@ -204,7 +199,6 @@ fn test_pre_register_ru() {
                     { "char": "0", "type": CharSetType::Digit as u32 },
                     { "char": "0", "type": CharSetType::Digit as u32 },
                 ],
-                "created_at": 0,
                 "price": {
                     "length": 5,
                     "new": ACCOUNT_PRICE_5_CHAR,
@@ -237,7 +231,6 @@ fn test_pre_register_th() {
                     { "char": "0", "type": CharSetType::Digit as u32 },
                     { "char": "0", "type": CharSetType::Digit as u32 },
                 ],
-                "created_at": 0,
                 "price": {
                     "length": 5,
                     "new": ACCOUNT_PRICE_5_CHAR,
@@ -270,7 +263,6 @@ fn test_pre_register_tr() {
                     { "char": "0", "type": CharSetType::Digit as u32 },
                     { "char": "0", "type": CharSetType::Digit as u32 },
                 ],
-                "created_at": 0,
                 "price": {
                     "length": 5,
                     "new": ACCOUNT_PRICE_5_CHAR,
@@ -303,7 +295,6 @@ fn test_pre_register_vi() {
                     { "char": "0", "type": CharSetType::Digit as u32 },
                     { "char": "0", "type": CharSetType::Digit as u32 },
                 ],
-                "created_at": 0,
                 "price": {
                     "length": 5,
                     "new": ACCOUNT_PRICE_5_CHAR,
