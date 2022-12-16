@@ -80,7 +80,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             debug!("Read data of ApplyRegisterCell ...");
 
             let config_apply_reader = parser.configs.apply()?;
-            let height = util::load_oracle_data(OracleCellType::Height)?;
 
             // Read the hash from outputs_data of the ApplyRegisterCell.
             let index = &input_apply_register_cells[0];
@@ -88,7 +87,14 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let data = high_level::load_cell_data(index.to_owned(), Source::Input)?;
             let apply_register_hash = data_parser::apply_register_cell::get_account_hash(&data)?;
 
-            verify_apply_height(height, config_apply_reader, &data)?;
+            if data.len() == 48 {
+                let height = util::load_oracle_data(OracleCellType::Height)?;
+                verify_apply_height(height, config_apply_reader, &data)?;
+            } else if data.len() == 32 {
+                verify_apply_height_with_since(index.to_owned(), config_apply_reader)?;
+            } else {
+                return Err(code_to_error!(ErrorCode::InvalidCellData));
+            }
 
             debug!("Read witness of PreAccountCell ...");
 
@@ -118,7 +124,8 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             verify_invited_discount(config_price, &pre_account_cell_witness_reader)?;
             verify_price_and_capacity(config_account, config_price, &pre_account_cell_witness_reader, capacity)?;
             verify_account_id(&pre_account_cell_witness_reader, account_id)?;
-            verify_created_at(timestamp, &pre_account_cell_witness_reader)?;
+            // TODO Remove the PreAccountCell.witness.created_at field, it is no longer needed.
+            verify_created_at(0, &pre_account_cell_witness_reader)?;
             verify_account_not_exist(dep_account_cells[0], account_id)?;
 
             debug!("Verify if account is available for registration for now ...");
@@ -340,6 +347,31 @@ fn verify_apply_height(
     Ok(())
 }
 
+fn verify_apply_height_with_since(
+    index: usize,
+    config_reader: ConfigCellApplyReader,
+) -> Result<(), Box<dyn ScriptError>> {
+    debug!("Check if the ApplyRegisterCell has existed long enough ...");
+
+    let mut expected_since = 0u64;
+    expected_since = since_util::set_relative_flag(expected_since, SinceFlag::Relative);
+    expected_since = since_util::set_metric_flag(expected_since, SinceFlag::Height);
+    expected_since = since_util::set_value(expected_since, u32::from(config_reader.apply_min_waiting_block_number()) as u64);
+
+    let since = high_level::load_input_since(index, Source::Input)?;
+
+    assert!(
+        since == expected_since,
+        PreAccountCellErrorCode::ApplySinceMismatch,
+        "inputs[{}] The since of ApplyRegisterCell is invalid.(expected: {}, current: {})",
+        index,
+        expected_since,
+        since
+    );
+
+    Ok(())
+}
+
 fn verify_account_id<'a>(
     reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>,
     account_id: &[u8],
@@ -382,6 +414,7 @@ fn verify_apply_hash<'a>(
     Ok(())
 }
 
+#[deprecated]
 fn verify_created_at<'a>(
     expected_timestamp: u64,
     reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>,

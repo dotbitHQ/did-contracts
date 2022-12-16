@@ -16,18 +16,6 @@ use super::data_parser::{account_cell, apply_register_cell, pre_account_cell};
 use super::debug;
 
 #[cfg(debug_assertions)]
-pub fn apply_register_cell(source: Source, index: usize, data: &Vec<u8>) {
-    debug!("  ====== {:?}[{}] ApplyRegisterCell ↓ ======", source, index);
-
-    debug!(
-        "    data: {{ hash: 0x{}, height: {}, timestamp: {} }}",
-        hex_string(data.get(..32).unwrap()),
-        apply_register_cell::get_height(data),
-        apply_register_cell::get_timestamp(data)
-    );
-}
-
-#[cfg(debug_assertions)]
 pub fn income_cell(
     source: Source,
     index: usize,
