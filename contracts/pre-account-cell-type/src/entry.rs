@@ -87,14 +87,12 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let data = high_level::load_cell_data(index.to_owned(), Source::Input)?;
             let apply_register_hash = data_parser::apply_register_cell::get_account_hash(&data)?;
 
-            if data.len() == 48 {
-                let height = util::load_oracle_data(OracleCellType::Height)?;
-                verify_apply_height(height, config_apply_reader, &data)?;
-            } else if data.len() == 32 {
-                verify_apply_height_with_since(index.to_owned(), config_apply_reader)?;
-            } else {
-                return Err(code_to_error!(ErrorCode::InvalidCellData));
-            }
+            assert!(
+                data.len() == 32 || data.len() == 48,
+                ErrorCode::InvalidCellData,
+                "The ApplyRegisterCell.outputs_data should be 32 bytes or 48 bytes long."
+            );
+            verify_apply_height_with_since(index.to_owned(), config_apply_reader)?;
 
             debug!("Read witness of PreAccountCell ...");
 
@@ -303,48 +301,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             return Err(code_to_error!(ErrorCode::ActionNotSupported));
         }
     }
-
-    Ok(())
-}
-
-fn verify_apply_height(
-    current_height: u64,
-    config_reader: ConfigCellApplyReader,
-    data: &[u8],
-) -> Result<(), Box<dyn ScriptError>> {
-    debug!("Check if the ApplyRegisterCell has existed long enough ...");
-
-    // Read the apply timestamp from outputs_data of ApplyRegisterCell.
-    let apply_height = data_parser::apply_register_cell::get_height(data);
-
-    // Check that the ApplyRegisterCell has existed long enough, but has not yet timed out.
-    let apply_min_waiting_block = u32::from(config_reader.apply_min_waiting_block_number());
-    let apply_max_waiting_block = u32::from(config_reader.apply_max_waiting_block_number());
-    let passed_block_number = if current_height > apply_height {
-        current_height - apply_height
-    } else {
-        0
-    };
-
-    debug!(
-        "Has passed {} block after apply.(min waiting: {} block, max waiting: {} block)",
-        passed_block_number, apply_min_waiting_block, apply_max_waiting_block
-    );
-
-    assert!(
-        passed_block_number >= apply_min_waiting_block as u64,
-        ErrorCode::ApplyRegisterNeedWaitLonger,
-        "The ApplyRegisterCell need to wait longer.(passed: {}, min_wait: {})",
-        passed_block_number,
-        apply_min_waiting_block
-    );
-    assert!(
-        passed_block_number <= apply_max_waiting_block as u64,
-        ErrorCode::ApplyRegisterHasTimeout,
-        "The ApplyRegisterCell has been timeout.(passed: {}, max_wait: {})",
-        passed_block_number,
-        apply_max_waiting_block
-    );
 
     Ok(())
 }
