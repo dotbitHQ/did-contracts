@@ -14,7 +14,7 @@ fn before() -> TemplateGenerator {
 fn test_apply_register() {
     let mut template = before();
 
-    push_output_apply_register_cell( &mut template, Value::Null );
+    push_output_apply_register_cell(&mut template, Value::Null);
     test_tx(template.as_json())
 }
 
@@ -23,16 +23,9 @@ fn challenge_apply_register_consuming_cell() {
     let mut template = before();
 
     // Simulate consuming ApplyRegisterCell.
-    push_input_apply_register_cell(
-        &mut template,
-        Value::Null,
-        None,
-    );
+    push_input_apply_register_cell(&mut template, Value::Null, None);
 
-    push_output_apply_register_cell(
-        &mut template,
-        Value::Null,
-    );
+    push_output_apply_register_cell(&mut template, Value::Null);
 
     challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure)
 }

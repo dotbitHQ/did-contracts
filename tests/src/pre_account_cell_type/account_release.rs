@@ -5,8 +5,9 @@ use super::common::*;
 use crate::util::accounts::*;
 use crate::util::constants::*;
 use crate::util::error::*;
+use crate::util::since_util::SinceFlag;
 use crate::util::template_common_cell::*;
-use crate::util::template_generator::TemplateGenerator;
+use crate::util::template_generator::{gen_since, TemplateGenerator};
 use crate::util::template_parser::*;
 use crate::util::{self};
 
@@ -254,7 +255,19 @@ fn challenge_pre_register_pure_digit_account_before_20221018() {
     let account = "0004.bit";
     let mut template = before_each(account);
 
-    push_input_simple_apply_register_cell(&mut template, account);
+    push_input_apply_register_cell(
+        &mut template,
+        json!({
+            "header": {
+                "height": HEIGHT - 1,
+                "timestamp": TIMESTAMP_20221018 - 1,
+            },
+            "data": {
+                "account": account
+            }
+        }),
+        gen_since(SinceFlag::Relative, SinceFlag::Height, 1),
+    );
 
     push_output_pre_account_cell(
         &mut template,

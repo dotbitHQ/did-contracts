@@ -8,6 +8,10 @@ use super::util;
 
 pub fn push_input_apply_register_cell(template: &mut TemplateGenerator, cell_partial: Value, since: Option<u64>) {
     let mut cell = json!({
+        "header": {
+            "height": HEIGHT - 1,
+            "timestamp": TIMESTAMP - DAY_SEC,
+        },
         "lock": {
             "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
             "args": OWNER_WITHOUT_TYPE
