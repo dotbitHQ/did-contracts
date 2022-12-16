@@ -146,7 +146,11 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             }
 
             let config_release = parser.configs.release()?;
-            match verify_account_release_status(timestamp, config_release, &pre_account_cell_witness_reader) {
+            match verify_account_release_status(
+                config_release,
+                &pre_account_cell_witness_reader,
+                input_apply_register_cells[0],
+            ) {
                 Ok(_) => {}
                 Err(err) => {
                     if err.as_i8() == ErrorCode::AccountStillCanNotBeRegister as i8 && cells_with_super_lock.len() > 0 {
@@ -356,7 +360,10 @@ fn verify_apply_height_with_since(
     let mut expected_since = 0u64;
     expected_since = since_util::set_relative_flag(expected_since, SinceFlag::Relative);
     expected_since = since_util::set_metric_flag(expected_since, SinceFlag::Height);
-    expected_since = since_util::set_value(expected_since, u32::from(config_reader.apply_min_waiting_block_number()) as u64);
+    expected_since = since_util::set_value(
+        expected_since,
+        u32::from(config_reader.apply_min_waiting_block_number()) as u64,
+    );
 
     let since = high_level::load_input_since(index, Source::Input)?;
 
@@ -610,9 +617,9 @@ fn verify_account_length_and_years<'a>(
 }
 
 fn verify_account_release_status<'a>(
-    timestamp: u64,
     config_release: ConfigCellReleaseReader,
     reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>,
+    input_apply_register_cell: usize,
 ) -> Result<(), Box<dyn ScriptError>> {
     debug!("Check if account is released for registration.");
 
@@ -621,8 +628,14 @@ fn verify_account_release_status<'a>(
         return Ok(());
     }
 
+    let apply_header = high_level::load_header(input_apply_register_cell, Source::Input)?;
+    let apply_created_at = u64::from(Uint64Reader::new_unchecked(
+        apply_header.as_reader().raw().timestamp().raw_data(),
+    ));
+
+    // TODO Verify if the apply_created_at can be used to replace the TimeCell.
     // 1666094400 is 2022-10-18 12:00:00 UTC.
-    if timestamp >= 1666094400 {
+    if apply_created_at >= 1666094400 {
         debug!("It is after 2022-10-18 12:00:00 UTC now, start fully released char-sets verification.");
 
         let account_chars = reader.account();

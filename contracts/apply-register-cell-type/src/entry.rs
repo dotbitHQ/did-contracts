@@ -29,7 +29,13 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
     match action {
         b"apply_register" => {
             let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
-            verifiers::common::verify_cell_number_and_position("ApplyRegisterCell", &input_cells, &[], &output_cells, &[0])?;
+            verifiers::common::verify_cell_number_and_position(
+                "ApplyRegisterCell",
+                &input_cells,
+                &[],
+                &output_cells,
+                &[0],
+            )?;
 
             let data = util::load_cell_data(output_cells[0], Source::Output)?;
 
