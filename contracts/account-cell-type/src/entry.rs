@@ -902,14 +902,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 )?;
             }
         }
-        b"create_sub_account" => {
-            util::require_type_script(
-                &parser,
-                TypeScript::SubAccountCellType,
-                Source::Input,
-                ErrorCode::InvalidTransactionStructure,
-            )?;
-        }
         b"config_sub_account_custom_script" => {
             util::require_type_script(
                 &parser,
@@ -960,42 +952,59 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 output_account_cells[0],
                 vec![],
             )?;
+
+            debug!("Verify if the lock.args is changed during the unlock transaction.");
+
             // CAREFUL! The owner lock may be changed or not changed, only the keepers know it, so we skip verification here.
-            match verifiers::account_cell::verify_account_lock_consistent(
+            let input_lock =
+                high_level::load_cell_lock(input_account_cells[0], Source::Input).map_err(Error::<ErrorCode>::from)?;
+            let input_args = input_lock.as_reader().args().raw_data();
+            let output_lock = high_level::load_cell_lock(output_account_cells[0], Source::Output)
+                .map_err(Error::<ErrorCode>::from)?;
+            let output_args = output_lock.as_reader().args().raw_data();
+            let (owner_changed, _) = util::diff_das_lock_args(input_args, output_args);
+
+            debug!(
+                "inputs[{}] cell.lock.args: 0x{}",
                 input_account_cells[0],
+                util::hex_string(input_args)
+            );
+            debug!(
+                "outputs[{}] cell.lock.args: 0x{}",
                 output_account_cells[0],
-                None,
-            ) {
-                Ok(_) => {
-                    // The lock is not changed, so the records must be kept.
-                    verifiers::account_cell::verify_account_witness_consistent(
-                        input_account_cells[0],
-                        output_account_cells[0],
-                        &input_cell_witness_reader,
-                        &output_cell_witness_reader,
-                        vec!["status"],
-                    )?;
-                }
-                Err(err) => {
-                    if err.as_i8() == ErrorCode::CellLockCanNotBeModified as i8 {
-                        // The lock is changed, so the records must be cleared.
-                        verifiers::account_cell::verify_account_witness_consistent(
-                            input_account_cells[0],
-                            output_account_cells[0],
-                            &input_cell_witness_reader,
-                            &output_cell_witness_reader,
-                            vec!["status", "records"],
-                        )?;
-                        verifiers::account_cell::verify_account_witness_record_empty(
-                            &output_cell_witness_reader,
-                            output_account_cells[0],
-                            Source::Output,
-                        )?;
-                    } else {
-                        return Err(err);
-                    }
-                }
+                util::hex_string(output_args)
+            );
+
+            if owner_changed {
+                // The lock is changed, so the records must be cleared.
+                verifiers::account_cell::verify_account_witness_consistent(
+                    input_account_cells[0],
+                    output_account_cells[0],
+                    &input_cell_witness_reader,
+                    &output_cell_witness_reader,
+                    vec!["status", "records"],
+                )?;
+                verifiers::account_cell::verify_account_witness_record_empty(
+                    &output_cell_witness_reader,
+                    output_account_cells[0],
+                    Source::Output,
+                )?;
+            } else {
+                // The lock is not changed, so the records must be kept.
+                verifiers::account_cell::verify_account_witness_consistent(
+                    input_account_cells[0],
+                    output_account_cells[0],
+                    &input_cell_witness_reader,
+                    &output_cell_witness_reader,
+                    vec!["status"],
+                )?;
             }
+
+            das_assert!(
+                util::is_das_lock_owner_manager_same(output_args),
+                ErrorCode::CrossChainUnlockError,
+                "The owner lock is not the same with the manager lock in outputs."
+            );
 
             verify_account_is_unlocked_for_cross_chain(output_account_cells[0], &output_cell_witness_reader)?;
 

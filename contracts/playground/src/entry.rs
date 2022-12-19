@@ -8,7 +8,5 @@ use das_core::error::*;
 pub fn main(_argc: usize, _argv: *const *const u8) -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running playground ======");
 
-    let header = high_level::load_header(index, source);
-
     Ok(())
 }

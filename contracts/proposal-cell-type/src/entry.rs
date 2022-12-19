@@ -1,5 +1,6 @@
 use alloc::borrow::ToOwned;
 use alloc::boxed::Box;
+#[cfg(debug_assertions)]
 use alloc::string::String;
 use core::convert::TryFrom;
 use core::result::Result;

@@ -36,7 +36,7 @@ pub fn push_input_account_cell_with_multi_sign(template: &mut TemplateGenerator,
     });
     util::merge_json(&mut cell, cell_partial);
 
-    template.push_input(cell, Some(2));
+    template.push_input(cell, None, Some(2));
     template.push_multi_sign_witness(0, 3, 5, "0x567419c40d0f2c3566e7630ee32697560fa97a7b543d8ec90d784f60cf920e76a359ae83839a5e7a14dd22136ce74aee2a007c71e5440143dab7b326619b019a75910e04d5f215ace571e5600d48b6766d6a5e1df00e2cf82dd4dcfbba444a94119ae2de");
 }
 
@@ -89,6 +89,70 @@ fn test_account_unlock_account_for_cross_chain_change_owner() {
     );
 
     test_tx(template.as_json())
+}
+
+#[test]
+fn test_account_unlock_account_for_cross_chain_change_manager() {
+    let mut template = init("unlock_account_for_cross_chain", Some("0x00"));
+
+    // inputs
+    push_input_account_cell_with_multi_sign(
+        &mut template,
+        json!({
+            "lock": {
+                "owner_lock_args": SENDER,
+                "manager_lock_args": MANAGER
+            },
+        }),
+    );
+
+    // outputs
+    push_output_account_cell(
+        &mut template,
+        json!({
+            "lock": {
+                "owner_lock_args": SENDER,
+                "manager_lock_args": SENDER
+            },
+            "witness": {
+                "status": (AccountStatus::Normal as u8)
+            }
+        }),
+    );
+
+    test_tx(template.as_json())
+}
+
+#[test]
+fn challenge_account_unlock_account_for_cross_chain_owner_and_manager_not_match() {
+    let mut template = init("unlock_account_for_cross_chain", Some("0x00"));
+
+    // inputs
+    push_input_account_cell_with_multi_sign(
+        &mut template,
+        json!({
+            "lock": {
+                "owner_lock_args": SENDER,
+                "manager_lock_args": SENDER
+            },
+        }),
+    );
+
+    // outputs
+    push_output_account_cell(
+        &mut template,
+        json!({
+            "lock": {
+                "owner_lock_args": SENDER,
+                "manager_lock_args": MANAGER
+            },
+            "witness": {
+                "status": (AccountStatus::Normal as u8)
+            }
+        }),
+    );
+
+    challenge_tx(template.as_json(), ErrorCode::CrossChainUnlockError);
 }
 
 #[test]

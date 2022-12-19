@@ -5,33 +5,11 @@ use super::common::*;
 use crate::util::accounts::*;
 use crate::util::constants::*;
 use crate::util::error::*;
+use crate::util::since_util::SinceFlag;
 use crate::util::template_common_cell::*;
 use crate::util::template_generator::*;
 use crate::util::template_parser::*;
 use crate::util::{self};
-
-fn before_each() -> TemplateGenerator {
-    let mut template = init();
-    template.push_config_cell_derived_by_account(ACCOUNT_SP_1, Source::CellDep);
-
-    // inputs
-    push_input_simple_apply_register_cell(&mut template);
-
-    template
-}
-
-fn push_input_simple_apply_register_cell(template: &mut TemplateGenerator) {
-    push_input_apply_register_cell(
-        template,
-        json!({
-            "data": {
-                "account": ACCOUNT_SP_1,
-                "height": HEIGHT - 4,
-                "timestamp": TIMESTAMP - 60,
-            }
-        }),
-    );
-}
 
 fn push_output_simple_pre_account_cell(template: &mut TemplateGenerator) {
     push_output_pre_account_cell(
@@ -40,7 +18,6 @@ fn push_output_simple_pre_account_cell(template: &mut TemplateGenerator) {
             "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, true),
             "witness": {
                 "account": ACCOUNT_SP_1,
-                "created_at": TIMESTAMP,
                 "price": {
                     "length": 8,
                     "new": ACCOUNT_PRICE_5_CHAR,
@@ -63,7 +40,10 @@ fn push_output_simple_pre_account_cell(template: &mut TemplateGenerator) {
 
 #[test]
 fn test_pre_register_simple_v1() {
-    let mut template = before_each();
+    let mut template = before_each(ACCOUNT_SP_1);
+
+    // inputs
+    push_input_simple_apply_register_cell(&mut template, ACCOUNT_SP_1);
 
     // outputs
     push_output_pre_account_cell_v1(
@@ -72,7 +52,6 @@ fn test_pre_register_simple_v1() {
             "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, true),
             "witness": {
                 "account": ACCOUNT_SP_1,
-                "created_at": TIMESTAMP,
                 "price": {
                     "length": 8,
                     "new": ACCOUNT_PRICE_5_CHAR,
@@ -97,7 +76,10 @@ fn test_pre_register_simple_v1() {
 
 #[test]
 fn test_pre_register_simple_v2() {
-    let mut template = before_each();
+    let mut template = before_each(ACCOUNT_SP_1);
+
+    // inputs
+    push_input_simple_apply_register_cell(&mut template, ACCOUNT_SP_1);
 
     // outputs
     push_output_pre_account_cell_v2(
@@ -106,7 +88,6 @@ fn test_pre_register_simple_v2() {
             "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, true),
             "witness": {
                 "account": ACCOUNT_SP_1,
-                "created_at": TIMESTAMP,
                 "price": {
                     "length": 8,
                     "new": ACCOUNT_PRICE_5_CHAR,
@@ -131,7 +112,10 @@ fn test_pre_register_simple_v2() {
 
 #[test]
 fn test_pre_register_simple_v3() {
-    let mut template = before_each();
+    let mut template = before_each(ACCOUNT_SP_1);
+
+    // inputs
+    push_input_simple_apply_register_cell(&mut template, ACCOUNT_SP_1);
 
     // outputs
     push_output_simple_pre_account_cell(&mut template);
@@ -141,7 +125,10 @@ fn test_pre_register_simple_v3() {
 
 #[test]
 fn challenge_pre_register_initial_record_key_invalid() {
-    let mut template = before_each();
+    let mut template = before_each(ACCOUNT_SP_1);
+
+    // inputs
+    push_input_simple_apply_register_cell(&mut template, ACCOUNT_SP_1);
 
     // outputs
     push_output_pre_account_cell(
@@ -150,7 +137,6 @@ fn challenge_pre_register_initial_record_key_invalid() {
             "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, true),
             "witness": {
                 "account": ACCOUNT_SP_1,
-                "created_at": TIMESTAMP,
                 "price": {
                     "length": 8,
                     "new": ACCOUNT_PRICE_5_CHAR,
@@ -179,79 +165,94 @@ fn challenge_pre_register_initial_record_key_invalid() {
         }),
     );
 
-    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellRecordKeyInvalid);
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellRecordKeyInvalid)
 }
 
 #[test]
-fn challenge_pre_register_apply_still_need_wait() {
-    let mut template = init();
-    template.push_config_cell_derived_by_account(ACCOUNT_SP_1, Source::CellDep);
+fn challenge_pre_register_apply_since_relative_flag_error() {
+    let mut template = before_each(ACCOUNT_SP_1);
 
+    // inputs
     push_input_apply_register_cell(
         &mut template,
         json!({
             "data": {
                 "account": ACCOUNT_SP_1,
-                // Simulate the ApplyRegisterCell is created just now.
-                "height": HEIGHT,
-                "timestamp": TIMESTAMP - 60,
             }
         }),
+        // Simulate spending the ApplyRegisterCell with a invalid since.
+        gen_since(SinceFlag::Absolute, SinceFlag::Height, APPLY_MIN_WAITING_BLOCK),
     );
 
     push_output_simple_pre_account_cell(&mut template);
 
-    challenge_tx(template.as_json(), ErrorCode::ApplyRegisterNeedWaitLonger)
+    challenge_tx(template.as_json(), PreAccountCellErrorCode::ApplySinceMismatch)
 }
 
 #[test]
-fn challenge_pre_register_apply_timeout() {
-    let mut template = init();
-    template.push_config_cell_derived_by_account(ACCOUNT_SP_1, Source::CellDep);
+fn challenge_pre_register_apply_since_metric_flag_error() {
+    let mut template = before_each(ACCOUNT_SP_1);
 
+    // inputs
     push_input_apply_register_cell(
         &mut template,
         json!({
             "data": {
                 "account": ACCOUNT_SP_1,
-                // Simulate the ApplyRegisterCell is created far more ago.
-                "height": HEIGHT - APPLY_MAX_WAITING_BLOCK - 1,
-                "timestamp": TIMESTAMP - 60,
             }
         }),
+        // Simulate spending the ApplyRegisterCell with a invalid since.
+        gen_since(SinceFlag::Absolute, SinceFlag::Timestamp, APPLY_MIN_WAITING_BLOCK),
     );
 
     push_output_simple_pre_account_cell(&mut template);
 
-    challenge_tx(template.as_json(), ErrorCode::ApplyRegisterHasTimeout)
+    challenge_tx(template.as_json(), PreAccountCellErrorCode::ApplySinceMismatch)
+}
+
+#[test]
+fn challenge_pre_register_apply_since_value_error() {
+    let mut template = before_each(ACCOUNT_SP_1);
+
+    // inputs
+    push_input_apply_register_cell(
+        &mut template,
+        json!({
+            "data": {
+                "account": ACCOUNT_SP_1,
+            }
+        }),
+        // Simulate spending the ApplyRegisterCell with a invalid since.
+        gen_since(SinceFlag::Absolute, SinceFlag::Height, APPLY_MIN_WAITING_BLOCK + 1),
+    );
+
+    push_output_simple_pre_account_cell(&mut template);
+
+    challenge_tx(template.as_json(), PreAccountCellErrorCode::ApplySinceMismatch)
 }
 
 #[test]
 fn challenge_pre_register_apply_hash_is_invalid() {
-    let mut template = init();
-    template.push_config_cell_derived_by_account(ACCOUNT_SP_1, Source::CellDep);
+    let mut template = before_each(ACCOUNT_1);
 
-    push_input_apply_register_cell(
-        &mut template,
-        json!({
-            "data": {
-                // Simulate the ApplyRegisterCell has different account with the PreAccountCell.
-                "account": ACCOUNT_1,
-                "height": HEIGHT - 1,
-                "timestamp": TIMESTAMP - 60,
-            }
-        }),
-    );
+    // inputs
+    // Simulate the ApplyRegisterCell has different account with the PreAccountCell.
+    push_input_simple_apply_register_cell(&mut template, ACCOUNT_1);
 
+    // outputs
     push_output_simple_pre_account_cell(&mut template);
 
-    challenge_tx(template.as_json(), ErrorCode::PreRegisterApplyHashIsInvalid)
+    challenge_tx(template.as_json(), PreAccountCellErrorCode::ApplyHashMismatch)
 }
 
 #[test]
 fn challenge_pre_register_invalid_account_id() {
-    let mut template = before_each();
+    let mut template = before_each(ACCOUNT_SP_1);
 
+    // inputs
+    push_input_simple_apply_register_cell(&mut template, ACCOUNT_SP_1);
+
+    // outputs
     push_output_pre_account_cell(
         &mut template,
         json!({
@@ -262,7 +263,6 @@ fn challenge_pre_register_invalid_account_id() {
             },
             "witness": {
                 "account": ACCOUNT_SP_1,
-                "created_at": TIMESTAMP,
                 "price": {
                     "length": 8,
                     "new": ACCOUNT_PRICE_5_CHAR,
@@ -272,13 +272,17 @@ fn challenge_pre_register_invalid_account_id() {
         }),
     );
 
-    challenge_tx(template.as_json(), ErrorCode::PreRegisterAccountIdIsInvalid)
+    challenge_tx(template.as_json(), PreAccountCellErrorCode::AccountIdIsInvalid)
 }
 
 #[test]
 fn challenge_pre_register_created_at_mismatch() {
-    let mut template = before_each();
+    let mut template = before_each(ACCOUNT_SP_1);
 
+    // inputs
+    push_input_simple_apply_register_cell(&mut template, ACCOUNT_SP_1);
+
+    // outputs
     push_output_pre_account_cell(
         &mut template,
         json!({
@@ -296,20 +300,23 @@ fn challenge_pre_register_created_at_mismatch() {
         }),
     );
 
-    challenge_tx(template.as_json(), ErrorCode::PreRegisterCreateAtIsInvalid)
+    challenge_tx(template.as_json(), PreAccountCellErrorCode::CreateAtIsInvalid)
 }
 
 #[test]
 fn challenge_pre_register_invalid_owner_lock_args() {
-    let mut template = before_each();
+    let mut template = before_each(ACCOUNT_SP_1);
 
+    // inputs
+    push_input_simple_apply_register_cell(&mut template, ACCOUNT_SP_1);
+
+    // outputs
     push_output_pre_account_cell(
         &mut template,
         json!({
             "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, false),
             "witness": {
                 "account": ACCOUNT_SP_1,
-                "created_at": TIMESTAMP,
                 "price": {
                     "length": 8,
                     "new": ACCOUNT_PRICE_5_CHAR,
@@ -321,20 +328,23 @@ fn challenge_pre_register_invalid_owner_lock_args() {
         }),
     );
 
-    challenge_tx(template.as_json(), ErrorCode::PreRegisterOwnerLockArgsIsInvalid)
+    challenge_tx(template.as_json(), PreAccountCellErrorCode::OwnerLockArgsIsInvalid)
 }
 
 #[test]
 fn challenge_pre_register_quote_mismatch() {
-    let mut template = before_each();
+    let mut template = before_each(ACCOUNT_SP_1);
 
+    // inputs
+    push_input_simple_apply_register_cell(&mut template, ACCOUNT_SP_1);
+
+    // outputs
     push_output_pre_account_cell(
         &mut template,
         json!({
             "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, false),
             "witness": {
                 "account": ACCOUNT_SP_1,
-                "created_at": TIMESTAMP,
                 "price": {
                     "length": 8,
                     "new": ACCOUNT_PRICE_5_CHAR,
@@ -346,28 +356,17 @@ fn challenge_pre_register_quote_mismatch() {
         }),
     );
 
-    challenge_tx(template.as_json(), ErrorCode::PreRegisterQuoteIsInvalid)
+    challenge_tx(template.as_json(), PreAccountCellErrorCode::QuoteIsInvalid)
 }
 
 #[test]
 fn challenge_pre_register_exceed_account_max_length() {
     // Simulate registering an account longer than maximum length limitation.
     let account = "1234567890123456789012345678901234567890123.bit";
-
-    let mut template = init();
-    template.push_config_cell_derived_by_account(ACCOUNT_SP_1, Source::CellDep);
+    let mut template = before_each(account);
 
     // inputs
-    push_input_apply_register_cell(
-        &mut template,
-        json!({
-            "data": {
-                "account": account,
-                "height": HEIGHT - 4,
-                "timestamp": TIMESTAMP - 60,
-            }
-        }),
-    );
+    push_input_simple_apply_register_cell(&mut template, account);
 
     // outputs
     push_output_pre_account_cell(
@@ -376,7 +375,6 @@ fn challenge_pre_register_exceed_account_max_length() {
             "capacity": util::gen_register_fee_v2(account, 43, false),
             "witness": {
                 "account": account,
-                "created_at": TIMESTAMP,
                 "price": {
                     "length": 8,
                     "new": ACCOUNT_PRICE_5_CHAR,
@@ -386,20 +384,23 @@ fn challenge_pre_register_exceed_account_max_length() {
         }),
     );
 
-    challenge_tx(template.as_json(), ErrorCode::PreRegisterAccountIsTooLong)
+    challenge_tx(template.as_json(), ErrorCode::AccountIsTooLong)
 }
 
 #[test]
 fn challenge_pre_register_discount_not_zero_when_no_inviter() {
-    let mut template = before_each();
+    let mut template = before_each(ACCOUNT_SP_1);
 
+    // inputs
+    push_input_simple_apply_register_cell(&mut template, ACCOUNT_SP_1);
+
+    // outputs
     push_output_pre_account_cell(
         &mut template,
         json!({
             "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, false),
             "witness": {
                 "account": ACCOUNT_SP_1,
-                "created_at": TIMESTAMP,
                 "price": {
                     "length": 8,
                     "new": ACCOUNT_PRICE_5_CHAR,
@@ -411,20 +412,26 @@ fn challenge_pre_register_discount_not_zero_when_no_inviter() {
         }),
     );
 
-    challenge_tx(template.as_json(), ErrorCode::PreRegisterDiscountIsInvalid)
+    challenge_tx(
+        template.as_json(),
+        PreAccountCellErrorCode::InviteeDiscountShouldBeEmpty,
+    )
 }
 
 #[test]
 fn challenge_pre_register_discount_incorrect() {
-    let mut template = before_each();
+    let mut template = before_each(ACCOUNT_SP_1);
 
+    // inputs
+    push_input_simple_apply_register_cell(&mut template, ACCOUNT_SP_1);
+
+    // outputs
     push_output_pre_account_cell(
         &mut template,
         json!({
             "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, false),
             "witness": {
                 "account": ACCOUNT_SP_1,
-                "created_at": TIMESTAMP,
                 "price": {
                     "length": 8,
                     "new": ACCOUNT_PRICE_5_CHAR,
@@ -445,20 +452,23 @@ fn challenge_pre_register_discount_incorrect() {
         }),
     );
 
-    challenge_tx(template.as_json(), ErrorCode::PreRegisterDiscountIsInvalid)
+    challenge_tx(template.as_json(), PreAccountCellErrorCode::InviteeDiscountIsInvalid)
 }
 
 #[test]
 fn challenge_pre_register_incorrect_price() {
-    let mut template = before_each();
+    let mut template = before_each(ACCOUNT_SP_1);
 
+    // inputs
+    push_input_simple_apply_register_cell(&mut template, ACCOUNT_SP_1);
+
+    // outputs
     push_output_pre_account_cell(
         &mut template,
         json!({
             "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, false),
             "witness": {
                 "account": ACCOUNT_SP_1,
-                "created_at": TIMESTAMP,
                 // Simulate providing price which is not match the account length.
                 "price": {
                     "length": 4,
@@ -469,13 +479,17 @@ fn challenge_pre_register_incorrect_price() {
         }),
     );
 
-    challenge_tx(template.as_json(), ErrorCode::PreRegisterPriceInvalid)
+    challenge_tx(template.as_json(), PreAccountCellErrorCode::PriceIsInvalid)
 }
 
 #[test]
 fn challenge_pre_register_incorrect_capacity() {
-    let mut template = before_each();
+    let mut template = before_each(ACCOUNT_SP_1);
 
+    // inputs
+    push_input_simple_apply_register_cell(&mut template, ACCOUNT_SP_1);
+
+    // outputs
     push_output_pre_account_cell(
         &mut template,
         json!({
@@ -483,7 +497,6 @@ fn challenge_pre_register_incorrect_capacity() {
             "capacity": util::gen_register_fee_v2(ACCOUNT_SP_1, 8, false) - 1,
             "witness": {
                 "account": ACCOUNT_SP_1,
-                "created_at": TIMESTAMP,
                 "price": {
                     "length": 8,
                     "new": ACCOUNT_PRICE_5_CHAR,
@@ -493,5 +506,123 @@ fn challenge_pre_register_incorrect_capacity() {
         }),
     );
 
-    challenge_tx(template.as_json(), ErrorCode::PreRegisterCKBInsufficient)
+    challenge_tx(template.as_json(), PreAccountCellErrorCode::CKBIsInsufficient)
+}
+
+#[test]
+fn challenge_pre_register_refered_exact_account() {
+    // Account ID of ACCOUNT_SP_1: 0xacfa8b68f77544e40abbb9daaaacc96621a3ee36
+    let mut template = init();
+    template.push_config_cell_derived_by_account(ACCOUNT_SP_1, Source::CellDep);
+
+    // cell_deps
+    push_dep_account_cell(
+        &mut template,
+        json!({
+            "data": {
+                "id": "0xacfa8b68f77544e40abbb9daaaacc96621a3ee36",
+                // Simulate the refered AccountCell is the exact AccountCell of ACCOUNT_SP_1.
+                "next": "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+            }
+        }),
+    );
+
+    // inputs
+    push_input_simple_apply_register_cell(&mut template, ACCOUNT_SP_1);
+
+    // outputs
+    push_output_simple_pre_account_cell(&mut template);
+
+    challenge_tx(
+        template.as_json(),
+        PreAccountCellErrorCode::AccountAlreadyExistOrProofInvalid,
+    )
+}
+
+#[test]
+fn challenge_pre_register_refered_next_account() {
+    // Account ID of ACCOUNT_SP_1: 0xacfa8b68f77544e40abbb9daaaacc96621a3ee36
+    let mut template = init();
+    template.push_config_cell_derived_by_account(ACCOUNT_SP_1, Source::CellDep);
+
+    // cell_deps
+    push_dep_account_cell(
+        &mut template,
+        json!({
+            "data": {
+                "id": "0x0000000000000000000000000000000000000000",
+                // Simulate the refered AccountCell is the previouse AccountCell of ACCOUNT_SP_1.
+                "next": "0xacfa8b68f77544e40abbb9daaaacc96621a3ee36",
+            }
+        }),
+    );
+
+    // inputs
+    push_input_simple_apply_register_cell(&mut template, ACCOUNT_SP_1);
+
+    // outputs
+    push_output_simple_pre_account_cell(&mut template);
+
+    challenge_tx(
+        template.as_json(),
+        PreAccountCellErrorCode::AccountAlreadyExistOrProofInvalid,
+    )
+}
+
+#[test]
+fn challenge_pre_register_refered_before_account() {
+    // Account ID of ACCOUNT_SP_1: 0xacfa8b68f77544e40abbb9daaaacc96621a3ee36
+    let mut template = init();
+    template.push_config_cell_derived_by_account(ACCOUNT_SP_1, Source::CellDep);
+
+    // cell_deps
+    push_dep_account_cell(
+        &mut template,
+        json!({
+            "data": {
+                "id": "0x0000000000000000000000000000000000000000",
+                "next": "0xacfa8b68f77544e40abbb9daaaacc96621a3ee35",
+            }
+        }),
+    );
+
+    // inputs
+    push_input_simple_apply_register_cell(&mut template, ACCOUNT_SP_1);
+
+    // outputs
+    push_output_simple_pre_account_cell(&mut template);
+
+    challenge_tx(
+        template.as_json(),
+        PreAccountCellErrorCode::AccountAlreadyExistOrProofInvalid,
+    )
+}
+
+#[test]
+fn challenge_pre_register_refered_after_account() {
+    // Account ID of ACCOUNT_SP_1: 0xacfa8b68f77544e40abbb9daaaacc96621a3ee36
+    let mut template = init();
+    template.push_config_cell_derived_by_account(ACCOUNT_SP_1, Source::CellDep);
+
+    // cell_deps
+    push_dep_account_cell(
+        &mut template,
+        json!({
+            "data": {
+                "id": "0xacfa8b68f77544e40abbb9daaaacc96621a3ee37",
+                "next": "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+            }
+        }),
+    );
+
+    // inputs
+    push_input_simple_apply_register_cell(&mut template, ACCOUNT_SP_1);
+
+    // outputs
+    push_output_simple_pre_account_cell(&mut template);
+
+    challenge_tx(
+        template.as_json(),
+        PreAccountCellErrorCode::AccountAlreadyExistOrProofInvalid,
+    )
 }

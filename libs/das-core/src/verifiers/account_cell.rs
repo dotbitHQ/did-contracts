@@ -576,7 +576,7 @@ pub fn verify_account_chars(
                         let pre_char_set_index = prev_char_set_name.as_ref().unwrap();
                         das_assert!(
                             pre_char_set_index == &char_set_index,
-                            ErrorCode::PreRegisterAccountCharSetConflict,
+                            ErrorCode::CharSetIsConflict,
                             "Non-global CharSet[{}] has been used by account, so CharSet[{}] can not be used together.",
                             pre_char_set_index,
                             char_set_index
@@ -629,7 +629,7 @@ pub fn verify_account_chars(
 
         das_assert!(
             found,
-            ErrorCode::PreRegisterAccountCharIsInvalid,
+            ErrorCode::AccountCharIsInvalid,
             "The character {}(utf-8: 0x{}) can not be used in account, because it is not contained by CharSet[{}].",
             String::from_utf8(account_char_bytes.to_vec()).unwrap(),
             util::hex_string(account_char.bytes().raw_data()),
@@ -650,7 +650,7 @@ pub fn verify_account_chars_max_length(
 
     das_assert!(
         max_chars_length >= account_chars_length,
-        ErrorCode::PreRegisterAccountIsTooLong,
+        ErrorCode::AccountIsTooLong,
         "The maximum length of account is {}, but {} found.",
         max_chars_length,
         account_chars_length

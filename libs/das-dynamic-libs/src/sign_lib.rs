@@ -101,6 +101,8 @@ impl SignLib {
         lock_bytes: Vec<u8>,
         lock_args: Vec<u8>,
     ) -> Result<(), i32> {
+        warn_log!("SignLib::validate_str das_lock_type: {:?}", das_lock_type);
+
         warn_log!(
             "SignLib::validate_str The params pass to dynamic lib is {{ type_no: {}, digest: 0x{}, digest_len: {}, lock_bytes: 0x{}, lock_args: 0x{} }}",
             type_no,
@@ -147,28 +149,24 @@ impl SignLib {
         Ok(())
     }
 
-    pub fn gen_digest(
+    // TODO abstrate the common code of verify_* functions
+    pub fn verify_sub_account_mint_sig(
         &self,
         das_lock_type: DasLockType,
-        account_id: Vec<u8>,
-        edit_key: Vec<u8>,
-        edit_value: Vec<u8>,
-        nonce: Vec<u8>,
-    ) -> Result<Vec<u8>, i32> {
-        let mut blake2b = util::new_blake2b();
-        blake2b.update(&account_id);
-        blake2b.update(&edit_key);
-        blake2b.update(&edit_value);
-        blake2b.update(&nonce);
-        let mut h = [0u8; 32];
-        blake2b.finalize(&mut h);
-
-        match das_lock_type {
-            DasLockType::ETH | DasLockType::ETHTypedData | DasLockType::TRON => {
-                let prefix = "from did: ".as_bytes();
-                Ok([prefix, &h].concat())
-            }
-            _ => Err(Error::UndefinedDasLockType as i32),
+        expired_at: Vec<u8>,
+        account_list_smt_root: Vec<u8>,
+        sig: Vec<u8>,
+        args: Vec<u8>,
+    ) -> Result<(), i32> {
+        let data = [expired_at, account_list_smt_root].concat();
+        let message = self.gen_digest(das_lock_type, data)?;
+        let type_no = 0i32;
+        let m_len = message.len();
+        let ret = self.validate_str(das_lock_type, type_no, message, m_len, sig, args);
+        if let Err(error_code) = ret {
+            Err(error_code)
+        } else {
+            Ok(())
         }
     }
 
@@ -181,8 +179,10 @@ impl SignLib {
         nonce: Vec<u8>,
         sig: Vec<u8>,
         args: Vec<u8>,
+        sign_expired_at: Vec<u8>,
     ) -> Result<(), i32> {
-        let message = self.gen_digest(das_lock_type, account_id, edit_key, edit_value, nonce)?;
+        let data = [account_id, edit_key, edit_value, nonce, sign_expired_at].concat();
+        let message = self.gen_digest(das_lock_type, data)?;
         let type_no = 0i32;
         let m_len = message.len();
         let ret = self.validate_str(das_lock_type, type_no, message, m_len, sig, args);
@@ -190,6 +190,21 @@ impl SignLib {
             Err(error_code)
         } else {
             Ok(())
+        }
+    }
+
+    fn gen_digest(&self, das_lock_type: DasLockType, data: Vec<u8>) -> Result<Vec<u8>, i32> {
+        let mut blake2b = util::new_blake2b();
+        blake2b.update(&data);
+        let mut h = [0u8; 32];
+        blake2b.finalize(&mut h);
+
+        match das_lock_type {
+            DasLockType::ETH | DasLockType::ETHTypedData | DasLockType::TRON => {
+                let prefix = "from did: ".as_bytes();
+                Ok([prefix, &h].concat())
+            }
+            _ => Err(Error::UndefinedDasLockType as i32),
         }
     }
 }

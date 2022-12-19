@@ -211,7 +211,7 @@ pub fn push_input_proposal_cell(template: &mut TemplateGenerator, cell_partial: 
     });
     util::merge_json(&mut cell, cell_partial);
 
-    template.push_input(cell, None);
+    template.push_input(cell, None, None);
     template.push_empty_witness();
 }
 

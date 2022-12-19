@@ -8,7 +8,9 @@ use crate::util::template_generator::*;
 use crate::util::template_parser::*;
 
 fn before_each() -> TemplateGenerator {
-    let mut template = init_create("config_sub_account_custom_script", Some("0x00"));
+    let mut template = init_config("config_sub_account_custom_script", Some("0x00"));
+
+    template.push_contract_cell("test-custom-script", ContractType::Contract);
 
     // inputs
     push_simple_input_account_cell(&mut template);
@@ -84,7 +86,7 @@ fn push_simple_output_sub_account_cell(template: &mut TemplateGenerator, custom_
 }
 
 #[test]
-fn test_sub_account_config_custom_script() {
+fn test_sub_account_config_custom_script_without_args() {
     let mut template = before_each();
 
     // outputs
@@ -100,7 +102,7 @@ fn test_sub_account_config_custom_script() {
 
 #[test]
 fn challenge_sub_account_config_custom_script_not_change() {
-    let mut template = init_create("config_sub_account_custom_script", Some("0x00"));
+    let mut template = init_config("config_sub_account_custom_script", Some("0x00"));
 
     // inputs
     push_simple_input_account_cell(&mut template);
@@ -123,7 +125,7 @@ fn challenge_sub_account_config_custom_script_not_change() {
 
 #[test]
 fn test_sub_account_config_custom_script_args_change() {
-    let mut template = init_create("config_sub_account_custom_script", Some("0x00"));
+    let mut template = init_config("config_sub_account_custom_script", Some("0x00"));
 
     // inputs
     push_simple_input_account_cell(&mut template);
@@ -146,7 +148,7 @@ fn test_sub_account_config_custom_script_args_change() {
 
 #[test]
 fn challenge_sub_account_config_custom_script_args_not_change() {
-    let mut template = init_create("config_sub_account_custom_script", Some("0x00"));
+    let mut template = init_config("config_sub_account_custom_script", Some("0x00"));
 
     // inputs
     push_simple_input_account_cell(&mut template);

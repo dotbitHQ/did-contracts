@@ -38,6 +38,7 @@ impl WitnessesParser {
     pub fn new() -> Result<Self, Box<dyn ScriptError>> {
         let mut witnesses = Vec::new();
         let mut config_witnesses = BTreeMap::new();
+        let mut found_config_cell_main = false;
         let mut i = 0;
         let mut das_witnesses_started = false;
         loop {
@@ -52,6 +53,10 @@ impl WitnessesParser {
                         if das_witnesses_started {
                             // If it is parsing DAS witnesses currently, end the parsing.
                             if raw != &WITNESS_HEADER {
+                                debug!(
+                                    "witnesses[{:>2}] Found witness not started with 0x{}, stop parsing the remain witnesses.",
+                                    i, util::hex_string(&WITNESS_HEADER)
+                                );
                                 break;
                             }
                         } else {
@@ -70,8 +75,9 @@ impl WitnessesParser {
                             .unwrap(),
                     );
                     match DataType::try_from(data_type_in_int) {
-                        Ok(DataType::SubAccount) => {
+                        Ok(DataType::SubAccount | DataType::SubAccountMintSign) => {
                             // Ignore sub-account witnesses in this parser.
+                            debug!("witnesses[{:>2}] Found sub-account witness skip parsing.", i);
                         }
                         Ok(data_type) => {
                             if !das_witnesses_started {
@@ -81,6 +87,10 @@ impl WitnessesParser {
                                     "The first DAS witness must be the type of DataType::ActionData ."
                                 );
                                 das_witnesses_started = true
+                            }
+
+                            if data_type == DataType::ConfigCellMain {
+                                found_config_cell_main = true;
                             }
 
                             // If there is any ConfigCells in cell_deps, store its index and expected witness hash.
@@ -123,6 +133,11 @@ impl WitnessesParser {
 
                                     config_witnesses.insert(data_type as u32, (i, expected_entity_hash));
                                 }
+                            } else {
+                                debug!(
+                                    "witnesses[{:>2}] The type is {:?}, treat as non-config witness.",
+                                    i, data_type
+                                );
                             }
 
                             witnesses.push((i, data_type));
@@ -142,6 +157,12 @@ impl WitnessesParser {
                 Err(e) => return Err(Box::new(Error::<ErrorCode>::from(e))),
             }
         }
+
+        assert!(
+            found_config_cell_main,
+            ErrorCode::ConfigCellIsRequired,
+            "Can not find ConfigCellMain in cell_deps."
+        );
 
         let lock_type_id_table = LockScriptTypeIdTable {
             always_success: always_success_lock().into(),
@@ -332,20 +353,20 @@ impl WitnessesParser {
             let raw = util::load_das_witnesses(index)?;
 
             let data = Self::parse_data(raw.as_slice())?;
-            let mut cell_index = 0;
+            let mut _cell_index = 0;
             if let Some(entity) = data.dep().to_opt() {
                 let entity_info = Self::parse_entity(entity, data_type)?;
-                cell_index = entity_info.0;
+                _cell_index = entity_info.0;
                 self.dep.push(entity_info)
             }
             if let Some(entity) = data.old().to_opt() {
                 let entity_info = Self::parse_entity(entity, data_type)?;
-                cell_index = entity_info.0;
+                _cell_index = entity_info.0;
                 self.old.push(entity_info)
             }
             if let Some(entity) = data.new().to_opt() {
                 let entity_info = Self::parse_entity(entity, data_type)?;
-                cell_index = entity_info.0;
+                _cell_index = entity_info.0;
                 self.new.push(entity_info)
             }
 
@@ -363,7 +384,7 @@ impl WitnessesParser {
                 }
                 debug!(
                     "  witnesses[{:>2}] {{ data_type: {:?}, source: {:?}, index: {} }}",
-                    index, data_type, source, cell_index
+                    index, data_type, source, _cell_index
                 );
             }
         }

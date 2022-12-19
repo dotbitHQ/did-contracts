@@ -66,7 +66,7 @@ pub fn push_input_offer_cell(template: &mut TemplateGenerator, cell_partial: Val
     });
     util::merge_json(&mut cell, cell_partial);
 
-    template.push_input(cell, None);
+    template.push_input(cell, None, None);
     template.push_das_lock_witness("0000000000000000000000000000000000000000000000000000000000000000");
 }
 

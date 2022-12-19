@@ -18,7 +18,7 @@ use ckb_std::error::SysError;
 use ckb_std::{high_level, syscalls};
 use das_types::constants::{DataType, LockRole, WITNESS_HEADER};
 use das_types::mixer::*;
-use das_types::packed as das_packed;
+use das_types::packed::{self as das_packed};
 pub use das_types::util::{hex_string, is_entity_eq, is_reader_eq};
 #[cfg(test)]
 use hex::FromHexError;
@@ -309,6 +309,33 @@ pub fn find_balance_cells(
     }
 }
 
+pub fn find_all_balance_cells(
+    config_main: das_packed::ConfigCellMainReader,
+    source: Source,
+) -> Result<Vec<usize>, Box<dyn ScriptError>> {
+    let das_lock = das_lock();
+    let all_cells = find_cells_by_type_id(
+        ScriptType::Lock,
+        das_packed::HashReader::from(das_lock.code_hash().as_reader()),
+        source,
+    )?;
+
+    let balance_cell_type_script = type_id_to_script(config_main.type_id_table().balance_cell());
+    let mut cells = Vec::new();
+    for i in all_cells {
+        let type_script_opt = high_level::load_cell_type(i, source)?;
+        if let Some(type_script) = type_script_opt {
+            if is_type_id_equal(type_script.as_reader(), balance_cell_type_script.as_reader().into()) {
+                cells.push(i);
+            }
+        } else {
+            cells.push(i);
+        }
+    }
+
+    Ok(cells)
+}
+
 pub fn load_data<F: Fn(&mut [u8], usize) -> Result<usize, SysError>>(syscall: F) -> Result<Vec<u8>, SysError> {
     // The buffer length should be a little bigger than the size of the biggest data.
     let mut buf = [0u8; 2000];
@@ -352,6 +379,19 @@ pub fn load_data<F: Fn(&mut [u8], usize) -> Result<usize, SysError>>(syscall: F)
 
 pub fn load_cell_data(index: usize, source: Source) -> Result<Vec<u8>, Box<dyn ScriptError>> {
     load_data(|buf, offset| syscalls::load_cell_data(buf, offset, index, source)).map_err(|err| err.into())
+}
+
+pub fn load_header(index: usize, source: Source) -> Result<Header, Box<dyn ScriptError>> {
+    match high_level::load_header(index, source) {
+        Ok(header) => Ok(header),
+        Err(err) => {
+            warn!(
+                "{:?}[{}] Loading header failed, maybe the block_hash is not filled in the header_deps: {:?}",
+                source, index, err
+            );
+            Err(err.into())
+        }
+    }
 }
 
 pub fn load_oracle_data(type_: OracleCellType) -> Result<u64, Box<dyn ScriptError>> {
@@ -774,6 +814,60 @@ pub fn derive_owner_lock_from_cell(input_cell: usize, source: Source) -> Result<
     Ok(lock_of_balance_cell)
 }
 
+pub fn derive_manager_lock_from_cell(input_cell: usize, source: Source) -> Result<Script, Box<dyn ScriptError>> {
+    let lock = high_level::load_cell_lock(input_cell, source)?;
+    let lock_bytes = lock.as_reader().args().raw_data();
+    let manager_lock_type = data_parser::das_lock_args::get_manager_type(lock_bytes);
+    let manager_lock_args = data_parser::das_lock_args::get_manager_lock_args(lock_bytes);
+
+    // Build expected refund lock.
+    let args = das_packed::Bytes::from(
+        [
+            vec![manager_lock_type],
+            manager_lock_args.to_vec(),
+            vec![manager_lock_type],
+            manager_lock_args.to_vec(),
+        ]
+        .concat(),
+    );
+    let lock_of_balance_cell = lock.as_builder().args(args.into()).build();
+
+    Ok(lock_of_balance_cell)
+}
+
+pub fn diff_das_lock_args(lock_a: &[u8], lock_b: &[u8]) -> (bool, bool) {
+    macro_rules! diff {
+        ($role:expr, $fn_get_type:ident, $fn_get_args:ident) => {{
+            let input_lock_type = data_parser::das_lock_args::$fn_get_type(lock_a);
+            let input_pubkey_hash = data_parser::das_lock_args::$fn_get_args(lock_a);
+            let output_lock_type = data_parser::das_lock_args::$fn_get_type(lock_b);
+            let output_pubkey_hash = data_parser::das_lock_args::$fn_get_args(lock_b);
+
+            let lock_type_consistent = if input_lock_type == DasLockType::ETH as u8 {
+                output_lock_type == input_lock_type || output_lock_type == DasLockType::ETHTypedData as u8
+            } else {
+                output_lock_type == input_lock_type
+            };
+
+            !(lock_type_consistent && input_pubkey_hash == output_pubkey_hash)
+        }};
+    }
+
+    let owner_changed = diff!("owner", get_owner_type, get_owner_lock_args);
+    let manager_changed = diff!("manager", get_manager_type, get_manager_lock_args);
+
+    (owner_changed, manager_changed)
+}
+
+pub fn is_das_lock_owner_manager_same(lock_args: &[u8]) -> bool {
+    let owner_type = data_parser::das_lock_args::get_owner_type(lock_args);
+    let owner_pubkey_hash = data_parser::das_lock_args::get_owner_lock_args(lock_args);
+    let manager_type = data_parser::das_lock_args::get_manager_type(lock_args);
+    let manager_pubkey_hash = data_parser::das_lock_args::get_manager_lock_args(lock_args);
+
+    owner_type == manager_type && owner_pubkey_hash == manager_pubkey_hash
+}
+
 pub fn get_account_from_reader<'a>(account_reader: &Box<dyn AccountCellDataReaderMixer + 'a>) -> String {
     let mut account = account_reader.account().as_readable();
     account.extend(ACCOUNT_SUFFIX.as_bytes());
@@ -1018,4 +1112,10 @@ pub fn exec_by_type_id(
     );
 
     high_level::exec_cell(type_id.raw_data(), ScriptHashType::Type, 0, 0, argv).map_err(|err| err.into())
+}
+
+pub fn get_timestamp_from_header(header: HeaderReader) -> u64 {
+    u64::from(das_packed::Uint64Reader::new_unchecked(
+        header.raw().timestamp().raw_data(),
+    )) / 1000
 }

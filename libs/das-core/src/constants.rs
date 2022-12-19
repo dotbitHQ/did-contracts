@@ -78,6 +78,7 @@ pub const DAYS_OF_YEAR: u64 = 365;
 pub const YEAR_SEC: u64 = DAY_SEC * DAYS_OF_YEAR;
 
 pub const PRE_ACCOUNT_CELL_TIMEOUT: u64 = DAY_SEC;
+pub const PRE_ACCOUNT_CELL_SHORT_TIMEOUT: u64 = 3600;
 
 pub const CROSS_CHAIN_BLACK_ARGS: [u8; 20] = [0; 20];
 
@@ -93,7 +94,7 @@ pub fn super_lock() -> Script {
             30, 87, 243, 127, 220, 97, 72, 61,
         ],
         hash_type: ScriptHashType::Type,
-        args: vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        args: vec![0; 20],
     };
 
     #[cfg(feature = "local")]
