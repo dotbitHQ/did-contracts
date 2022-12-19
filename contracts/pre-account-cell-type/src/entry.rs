@@ -80,7 +80,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             debug!("Read data of ApplyRegisterCell ...");
 
             let config_apply_reader = parser.configs.apply()?;
-            let height = util::load_oracle_data(OracleCellType::Height)?;
 
             // Read the hash from outputs_data of the ApplyRegisterCell.
             let index = &input_apply_register_cells[0];
@@ -88,7 +87,12 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let data = high_level::load_cell_data(index.to_owned(), Source::Input)?;
             let apply_register_hash = data_parser::apply_register_cell::get_account_hash(&data)?;
 
-            verify_apply_height(height, config_apply_reader, &data)?;
+            assert!(
+                data.len() == 32 || data.len() == 48,
+                ErrorCode::InvalidCellData,
+                "The ApplyRegisterCell.outputs_data should be 32 bytes or 48 bytes long."
+            );
+            verify_apply_height_with_since(index.to_owned(), config_apply_reader)?;
 
             debug!("Read witness of PreAccountCell ...");
 
@@ -118,6 +122,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             verify_invited_discount(config_price, &pre_account_cell_witness_reader)?;
             verify_price_and_capacity(config_account, config_price, &pre_account_cell_witness_reader, capacity)?;
             verify_account_id(&pre_account_cell_witness_reader, account_id)?;
+            // TODO Remove the PreAccountCell.witness.created_at field, it is no longer needed.
             verify_created_at(timestamp, &pre_account_cell_witness_reader)?;
             verify_account_not_exist(dep_account_cells[0], account_id)?;
 
@@ -139,7 +144,11 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             }
 
             let config_release = parser.configs.release()?;
-            match verify_account_release_status(timestamp, config_release, &pre_account_cell_witness_reader) {
+            match verify_account_release_status(
+                config_release,
+                &pre_account_cell_witness_reader,
+                input_apply_register_cells[0],
+            ) {
                 Ok(_) => {}
                 Err(err) => {
                     if err.as_i8() == ErrorCode::AccountStillCanNotBeRegister as i8 && cells_with_super_lock.len() > 0 {
@@ -298,43 +307,29 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
     Ok(())
 }
 
-fn verify_apply_height(
-    current_height: u64,
+fn verify_apply_height_with_since(
+    index: usize,
     config_reader: ConfigCellApplyReader,
-    data: &[u8],
 ) -> Result<(), Box<dyn ScriptError>> {
     debug!("Check if the ApplyRegisterCell has existed long enough ...");
 
-    // Read the apply timestamp from outputs_data of ApplyRegisterCell.
-    let apply_height = data_parser::apply_register_cell::get_height(data);
-
-    // Check that the ApplyRegisterCell has existed long enough, but has not yet timed out.
-    let apply_min_waiting_block = u32::from(config_reader.apply_min_waiting_block_number());
-    let apply_max_waiting_block = u32::from(config_reader.apply_max_waiting_block_number());
-    let passed_block_number = if current_height > apply_height {
-        current_height - apply_height
-    } else {
-        0
-    };
-
-    debug!(
-        "Has passed {} block after apply.(min waiting: {} block, max waiting: {} block)",
-        passed_block_number, apply_min_waiting_block, apply_max_waiting_block
+    let mut expected_since = 0u64;
+    expected_since = since_util::set_relative_flag(expected_since, SinceFlag::Relative);
+    expected_since = since_util::set_metric_flag(expected_since, SinceFlag::Height);
+    expected_since = since_util::set_value(
+        expected_since,
+        u32::from(config_reader.apply_min_waiting_block_number()) as u64,
     );
 
+    let since = high_level::load_input_since(index, Source::Input)?;
+
     assert!(
-        passed_block_number >= apply_min_waiting_block as u64,
-        ErrorCode::ApplyRegisterNeedWaitLonger,
-        "The ApplyRegisterCell need to wait longer.(passed: {}, min_wait: {})",
-        passed_block_number,
-        apply_min_waiting_block
-    );
-    assert!(
-        passed_block_number <= apply_max_waiting_block as u64,
-        ErrorCode::ApplyRegisterHasTimeout,
-        "The ApplyRegisterCell has been timeout.(passed: {}, max_wait: {})",
-        passed_block_number,
-        apply_max_waiting_block
+        since == expected_since,
+        PreAccountCellErrorCode::ApplySinceMismatch,
+        "inputs[{}] The since of ApplyRegisterCell is invalid.(expected: {}, current: {})",
+        index,
+        expected_since,
+        since
     );
 
     Ok(())
@@ -382,6 +377,7 @@ fn verify_apply_hash<'a>(
     Ok(())
 }
 
+#[deprecated]
 fn verify_created_at<'a>(
     expected_timestamp: u64,
     reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>,
@@ -577,9 +573,9 @@ fn verify_account_length_and_years<'a>(
 }
 
 fn verify_account_release_status<'a>(
-    timestamp: u64,
     config_release: ConfigCellReleaseReader,
     reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>,
+    input_apply_register_cell: usize,
 ) -> Result<(), Box<dyn ScriptError>> {
     debug!("Check if account is released for registration.");
 
@@ -588,8 +584,12 @@ fn verify_account_release_status<'a>(
         return Ok(());
     }
 
+    let apply_header = util::load_header(input_apply_register_cell, Source::Input)?;
+    let apply_created_at = util::get_timestamp_from_header(apply_header.as_reader());
+
+    // TODO Verify if the apply_created_at can be used to replace the TimeCell.
     // 1666094400 is 2022-10-18 12:00:00 UTC.
-    if timestamp >= 1666094400 {
+    if apply_created_at >= 1666094400 {
         debug!("It is after 2022-10-18 12:00:00 UTC now, start fully released char-sets verification.");
 
         let account_chars = reader.account();

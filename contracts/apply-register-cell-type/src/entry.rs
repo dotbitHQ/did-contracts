@@ -4,11 +4,11 @@ use core::result::Result;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
-use das_core::constants::{OracleCellType, ScriptType, TypeScript};
+use das_core::constants::{ScriptType, TypeScript};
 use das_core::error::*;
 use das_core::since_util::SinceFlag;
 use das_core::witness_parser::WitnessesParser;
-use das_core::{assert, code_to_error, data_parser, debug, since_util, util, verifiers};
+use das_core::{assert, code_to_error, debug, since_util, util, verifiers};
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running apply-register-cell-type ======");
@@ -29,36 +29,22 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
     match action {
         b"apply_register" => {
             let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
-            verifiers::common::verify_cell_number("ApplyRegisterCell", &input_cells, 0, &output_cells, 1)?;
+            verifiers::common::verify_cell_number_and_position(
+                "ApplyRegisterCell",
+                &input_cells,
+                &[],
+                &output_cells,
+                &[0],
+            )?;
 
             let data = util::load_cell_data(output_cells[0], Source::Output)?;
 
-            debug!("Check if the first 32 bytes exists ...");
+            debug!("Check if the data is a 32 bytes hash ...");
 
             assert!(
-                data.len() == 48,
+                data.len() == 32,
                 ErrorCode::InvalidCellData,
-                "The data of ApplyRegisterCell should have 48 bytes of data."
-            );
-
-            debug!("Check if the ApplyRegisterCell.data.height is match with the HeightCell.data.height ...");
-
-            let apply_height = data_parser::apply_register_cell::get_height(&data);
-            let expected_height = util::load_oracle_data(OracleCellType::Height)?;
-            assert!(
-                apply_height == expected_height,
-                ErrorCode::InvalidCellData,
-                "The block number in ApplyRegisterCell data should be the same as which in HeightCell."
-            );
-
-            debug!("Check if the ApplyRegisterCell.data.timestamp is match with the HeightCell.data.timestamp ...");
-
-            let apply_time = data_parser::apply_register_cell::get_timestamp(&data);
-            let expected_time = util::load_oracle_data(OracleCellType::Time)?;
-            assert!(
-                apply_time == expected_time,
-                ErrorCode::InvalidCellData,
-                "The timestamp in ApplyRegisterCell data should be the same as which in TimeCell."
+                "The data of ApplyRegisterCell should have 32 bytes of data."
             );
         }
         b"refund_apply" => {

@@ -110,12 +110,14 @@ pub fn push_input_simple_apply_register_cell(template: &mut TemplateGenerator, a
     push_input_apply_register_cell(
         template,
         json!({
+            "header": {
+                "height": HEIGHT - 1,
+                "timestamp": TIMESTAMP_20221018,
+            },
             "data": {
-                "account": account,
-                "height": HEIGHT - 4,
-                "timestamp": TIMESTAMP - 60,
+                "account": account
             }
         }),
-        None,
+        gen_since(SinceFlag::Relative, SinceFlag::Height, 1),
     );
 }

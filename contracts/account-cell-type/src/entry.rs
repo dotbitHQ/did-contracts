@@ -959,13 +959,21 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let input_lock =
                 high_level::load_cell_lock(input_account_cells[0], Source::Input).map_err(Error::<ErrorCode>::from)?;
             let input_args = input_lock.as_reader().args().raw_data();
-            let output_lock =
-                high_level::load_cell_lock(output_account_cells[0], Source::Output).map_err(Error::<ErrorCode>::from)?;
+            let output_lock = high_level::load_cell_lock(output_account_cells[0], Source::Output)
+                .map_err(Error::<ErrorCode>::from)?;
             let output_args = output_lock.as_reader().args().raw_data();
             let (owner_changed, _) = util::diff_das_lock_args(input_args, output_args);
 
-            debug!("inputs[{}] cell.lock.args: 0x{}", input_account_cells[0], util::hex_string(input_args));
-            debug!("outputs[{}] cell.lock.args: 0x{}", output_account_cells[0], util::hex_string(output_args));
+            debug!(
+                "inputs[{}] cell.lock.args: 0x{}",
+                input_account_cells[0],
+                util::hex_string(input_args)
+            );
+            debug!(
+                "outputs[{}] cell.lock.args: 0x{}",
+                output_account_cells[0],
+                util::hex_string(output_args)
+            );
 
             if owner_changed {
                 // The lock is changed, so the records must be cleared.

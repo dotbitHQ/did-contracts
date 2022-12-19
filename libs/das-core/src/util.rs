@@ -1113,3 +1113,9 @@ pub fn exec_by_type_id(
 
     high_level::exec_cell(type_id.raw_data(), ScriptHashType::Type, 0, 0, argv).map_err(|err| err.into())
 }
+
+pub fn get_timestamp_from_header(header: HeaderReader) -> u64 {
+    u64::from(das_packed::Uint64Reader::new_unchecked(
+        header.raw().timestamp().raw_data(),
+    )) / 1000
+}

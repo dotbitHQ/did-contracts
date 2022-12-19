@@ -8,6 +8,10 @@ use super::util;
 
 pub fn push_input_apply_register_cell(template: &mut TemplateGenerator, cell_partial: Value, since: Option<u64>) {
     let mut cell = json!({
+        "header": {
+            "height": HEIGHT - 1,
+            "timestamp": TIMESTAMP - DAY_SEC,
+        },
         "lock": {
             "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
             "args": OWNER_WITHOUT_TYPE
@@ -146,7 +150,7 @@ pub fn push_output_pre_account_cell_v1(template: &mut TemplateGenerator, cell_pa
             },
             "quote": CKB_QUOTE,
             "invited_discount": 0,
-            "created_at": Value::Null
+            "created_at": TIMESTAMP
         }
     });
     util::merge_json(&mut cell, cell_partial);
@@ -180,7 +184,7 @@ pub fn push_output_pre_account_cell_v2(template: &mut TemplateGenerator, cell_pa
             },
             "quote": CKB_QUOTE,
             "invited_discount": 0,
-            "created_at": Value::Null,
+            "created_at": TIMESTAMP,
             "initial_records": [
                 {
                     "type": "address",
@@ -222,7 +226,7 @@ pub fn push_output_pre_account_cell(template: &mut TemplateGenerator, cell_parti
             },
             "quote": CKB_QUOTE,
             "invited_discount": 0,
-            "created_at": Value::Null,
+            "created_at": TIMESTAMP,
             "initial_records": [
                 {
                     "type": "address",

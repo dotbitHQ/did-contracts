@@ -305,7 +305,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let mut parent_owner_total_input_capacity = 0;
             let parent_expired_at = data_parser::account_cell::get_expired_at(&account_cell_data);
             let header = util::load_header(input_sub_account_cells[0], Source::Input)?;
-            let sub_account_last_updated_at = u64::from(Uint64::from(header.raw().timestamp())) / 1000;
+            let sub_account_last_updated_at = util::get_timestamp_from_header(header.as_reader());
 
             let all_inputs_balance_cells = util::find_all_balance_cells(config_main, Source::Input)?;
             let mut sender_lock = packed::Script::default();

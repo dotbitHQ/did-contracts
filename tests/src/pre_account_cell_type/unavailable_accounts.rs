@@ -23,7 +23,6 @@ fn challenge_pre_register_unavailable_accounts() {
             "capacity": util::gen_register_fee_v2(account, 9, false),
             "witness": {
                 "account": account,
-                "created_at": TIMESTAMP,
                 "price": {
                     "length": 8,
                     "new": ACCOUNT_PRICE_5_CHAR,
@@ -52,7 +51,6 @@ fn test_pre_register_unavailable_accounts_below_all() {
             "capacity": util::gen_register_fee_v2(account, 12, false),
             "witness": {
                 "account": account,
-                "created_at": TIMESTAMP,
                 "price": {
                     "length": 8,
                     "new": ACCOUNT_PRICE_5_CHAR,
