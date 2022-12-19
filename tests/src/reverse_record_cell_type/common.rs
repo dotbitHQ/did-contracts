@@ -65,6 +65,7 @@ pub fn push_input_reverse_record_cell(template: &mut TemplateGenerator, capacity
             }
         }),
         None,
+        None,
     );
     template.push_das_lock_witness("0000000000000000000000000000000000000000000000000000000000000000");
 }

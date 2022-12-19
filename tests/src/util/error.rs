@@ -59,23 +59,13 @@ pub enum ErrorCode {
     WitnessVersionOrTypeInvalid,
     ApplyRegisterNeedWaitLonger = 60,
     ApplyRegisterHasTimeout,
-    ApplyRegisterRefundNeedWaitLonger,
+    ApplyLockMustBeUnique,
+    ApplyRegisterSinceMismatch,
     ApplyRegisterRefundCapacityError,
-    PreRegisterFoundInvalidTransaction = 70,
-    PreRegisterAccountIdIsInvalid,
-    PreRegisterApplyHashIsInvalid,
-    PreRegisterCreateAtIsInvalid,
-    PreRegisterPriceInvalid,
-    CharSetIsUndefined, // 75
-    PreRegisterCKBInsufficient,
-    PreRegisterAccountIsTooLong,
-    PreRegisterAccountCharSetConflict,
-    PreRegisterAccountCharIsInvalid,
-    PreRegisterQuoteIsInvalid, // 80
-    PreRegisterDiscountIsInvalid,
-    PreRegisterOwnerLockArgsIsInvalid,
-    PreRegisterIsNotTimeout,
-    PreRegisterRefundCapacityError,
+    CharSetIsConflict,
+    CharSetIsUndefined,
+    AccountCharIsInvalid,
+    AccountIsTooLong,
     ProposalSliceIsNotSorted = 90,
     ProposalSliceIsDiscontinuity,
     ProposalSliceRelatedCellNotFound,
@@ -113,6 +103,7 @@ pub enum ErrorCode {
     EIP712DecodingWitnessArgsError,
     EIP712SignatureError,
     BalanceCellFoundSomeOutputsLackOfType = -80,
+    BalanceCellCanNotBeSpent,
     AccountSaleCellCapacityError,
     AccountSaleCellRefundError,
     AccountSaleCellAccountIdInvalid,
@@ -136,18 +127,23 @@ pub enum ErrorCode {
     SubAccountFeatureNotEnabled = -50,
     SubAccountCellSMTRootError,
     SubAccountWitnessSMTRootError,
+    SubAccountWitnessMismatched,
+    SubAccountSignMintExpiredAtTooLarge,
+    SubAccountSignMintExpiredAtReached,
+    SubAccountSignMintSignatureRequired,
     SubAccountCellCapacityError,
     SubAccountCellAccountIdError,
     SubAccountCellConsistencyError,
     SubAccountInitialValueError,
     SubAccountSigVerifyError,
     SubAccountFieldNotEditable,
+    SubAccountNormalCellLockLimit = -37,
     SubAccountEditLockError,
-    SubAccountJoinBetaError = -40,
+    SubAccountJoinBetaError,
     SubAccountProfitError,
     SubAccountCustomScriptError,
-    SubAccountNormalCellLockLimit = -37,
     SubAccountCollectProfitError,
+    SubAccountBalanceManagerError,
     // -40
     UpgradeForWitnessIsRequired,
     UpgradeDefaultValueOfNewFieldIsError,
@@ -205,6 +201,46 @@ pub enum AccountCellErrorCode {
 }
 
 impl Into<i8> for AccountCellErrorCode {
+    fn into(self) -> i8 {
+        self as i8
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+#[repr(i8)]
+pub enum PreAccountCellErrorCode {
+    // WARNING Reserved errors:
+    IndexOutOfBound = 1,
+    ItemMissing = 2,
+    LengthNotEnough = 3,
+    Encoding = 4,
+    IncomeCellConsolidateConditionNotSatisfied = -126,
+    AccountCellMissingPrevAccount = -114,
+    AccountCellThrottle = -102,
+    AccountCellInExpirationGracePeriod = -99,
+    SubAccountNormalCellLockLimit = -37,
+    SystemOff = -1,
+    // Customized errors:
+    ApplyHashMismatch = 50,
+    ApplySinceMismatch,
+    AccountIdIsInvalid,
+    AccountAlreadyExistOrProofInvalid,
+    CreateAtIsInvalid,
+    PriceIsInvalid,
+    CharSetIsUndefined,
+    CKBIsInsufficient,
+    QuoteIsInvalid,
+    OwnerLockArgsIsInvalid,
+    RefundLockMustBeUnique,
+    RefundCapacityError,
+    SinceMismatch,
+    InviterIdShouldBeEmpty,
+    InviterIdIsInvalid,
+    InviteeDiscountShouldBeEmpty,
+    InviteeDiscountIsInvalid,
+}
+
+impl Into<i8> for PreAccountCellErrorCode {
     fn into(self) -> i8 {
         self as i8
     }

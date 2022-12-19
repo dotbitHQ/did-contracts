@@ -182,7 +182,7 @@ fn parse_witness_cells() {
     let mut template = init("test_parse_witness_cells");
 
     let (cell, entity) = gen_account_cell(None);
-    template.push_cell_json_with_entity(cell, Source::CellDep, DataType::AccountCellData, 3, Some(entity));
+    template.push_cell_json_with_entity(cell, Source::CellDep, DataType::AccountCellData, 3, Some(entity), None);
 
     push_input_test_env_cell(&mut template);
     test_tx(template.as_json());
@@ -193,7 +193,7 @@ fn parse_witness_end_with_unknown_witnesses() {
     let mut template = init("test_parse_witness_cells");
 
     let (cell, entity) = gen_account_cell(None);
-    template.push_cell_json_with_entity(cell, Source::CellDep, DataType::AccountCellData, 3, Some(entity));
+    template.push_cell_json_with_entity(cell, Source::CellDep, DataType::AccountCellData, 3, Some(entity), None);
     template
         .outer_witnesses
         .push(String::from("0x11112222333344445555666677778888"));
@@ -210,7 +210,7 @@ fn parse_witness_error_cells_data_type() {
     let mut template = init("test_parse_witness_cells");
 
     let (cell, entity) = gen_account_cell(None);
-    template.push_cell_json_with_entity(cell, Source::CellDep, DataType::IncomeCellData, 3, Some(entity));
+    template.push_cell_json_with_entity(cell, Source::CellDep, DataType::IncomeCellData, 3, Some(entity), None);
 
     push_input_test_env_cell(&mut template);
     challenge_tx(template.as_json(), ErrorCode::WitnessDataHashOrTypeMissMatch);
@@ -223,7 +223,7 @@ fn parse_witness_error_cells_hash() {
     let (cell, entity) = gen_account_cell(Some(String::from(
         "0x0000000000000000000000000000000000000000000000000000000000000000",
     )));
-    template.push_cell_json_with_entity(cell, Source::CellDep, DataType::IncomeCellData, 3, Some(entity));
+    template.push_cell_json_with_entity(cell, Source::CellDep, DataType::IncomeCellData, 3, Some(entity), None);
 
     push_input_test_env_cell(&mut template);
     challenge_tx(template.as_json(), ErrorCode::WitnessDataHashOrTypeMissMatch);

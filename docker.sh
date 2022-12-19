@@ -77,6 +77,8 @@ function build() {
     exit 1
   fi
 
+  if [[ $is_release == true ]]; then echo "release: true"; else echo "release: false"; fi
+  echo "feature: " $feature
   if [[ $is_release == true ]]; then
     command="RUSTFLAGS=\"${COMPILING_FLAGS} ${COMPILING_RELEASE_FLAGS}\" cargo build --release --features \"${feature}\" --target ${COMPILING_TARGET} && ckb-binary-patcher -i /code/target/${COMPILING_TARGET}/release/${contract} -o /code/target/${COMPILING_TARGET}/release/${contract}"
     echo "Run build command: "$command

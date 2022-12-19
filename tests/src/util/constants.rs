@@ -9,6 +9,7 @@ pub const MAX_CYCLES: u64 = u64::MAX;
 
 pub const APPLY_MIN_WAITING_BLOCK: u64 = 1;
 pub const APPLY_MAX_WAITING_BLOCK: u64 = 5760;
+pub const APPLY_REFUND_REWARD: u64 = 100_000_000;
 
 pub const ACCOUNT_ID_LENGTH: usize = 20;
 pub const ACCOUNT_BASIC_CAPACITY: u64 = 20_600_000_000;
@@ -29,10 +30,11 @@ pub const INVITED_DISCOUNT: u64 = 500;
 pub const CONSOLIDATING_FEE: u64 = 100;
 pub const CKB_QUOTE: u64 = 1000;
 pub const TIMESTAMP: u64 = 1611200090u64;
-pub const TIMESTAMP_20221810: u64 = 1666094400u64;
+pub const TIMESTAMP_20221018: u64 = 1666094400u64;
 pub const HEIGHT: u64 = 1000000u64;
 
-pub const PRE_ACCOUNT_REFUND_WAITING_TIME: u64 = 86400;
+pub const PRE_ACCOUNT_TIMEOUT_LIMIT: u64 = 86400;
+pub const PRE_ACCOUNT_SHORT_TIMEOUT_LIMIT: u64 = 3600;
 pub const PRE_ACCOUNT_REFUND_AVAILABLE_FEE: u64 = 86400;
 
 pub const INCOME_BASIC_CAPACITY: u64 = 20_000_000_000;
@@ -102,7 +104,7 @@ pub enum OracleCellType {
 
 lazy_static! {
     pub static ref TYPE_ID_TABLE: HashMap<&'static str, &'static str> = {
-        // For calculation of these type ID, you need uncomment a line of debug code in the funtion **deploy_contract** in src/util.rs.
+        // For calculation of these type ID, you need uncomment a line of debug code in the funtion **mock_contract** in src/util/template_parser .
         //
         // CAREFUL! There may be some error in the map, but the contracts will still work. It is because when parsing scripts in cell_deps, their type
         // ID will be calculated dynamically and insert into the map.

@@ -6,8 +6,12 @@ use super::constants::*;
 use super::template_generator::*;
 use super::util;
 
-pub fn push_input_apply_register_cell(template: &mut TemplateGenerator, cell_partial: Value) {
+pub fn push_input_apply_register_cell(template: &mut TemplateGenerator, cell_partial: Value, since: Option<u64>) {
     let mut cell = json!({
+        "header": {
+            "height": HEIGHT - 1,
+            "timestamp": TIMESTAMP - DAY_SEC,
+        },
         "lock": {
             "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
             "args": OWNER_WITHOUT_TYPE
@@ -23,7 +27,7 @@ pub fn push_input_apply_register_cell(template: &mut TemplateGenerator, cell_par
     });
     util::merge_json(&mut cell, cell_partial);
 
-    template.push_input(cell, None);
+    template.push_input(cell, since, None);
 }
 
 pub fn push_output_apply_register_cell(template: &mut TemplateGenerator, cell_partial: Value) {
@@ -80,7 +84,7 @@ pub fn push_dep_pre_account_cell(template: &mut TemplateGenerator, cell_partial:
     template.push_dep(cell, None);
 }
 
-pub fn push_input_pre_account_cell(template: &mut TemplateGenerator, cell_partial: Value) {
+pub fn push_input_pre_account_cell(template: &mut TemplateGenerator, cell_partial: Value, since: Option<u64>) {
     let mut cell = json!({
         "capacity": util::gen_register_fee(5, false),
         "lock": {
@@ -117,7 +121,7 @@ pub fn push_input_pre_account_cell(template: &mut TemplateGenerator, cell_partia
     });
     util::merge_json(&mut cell, cell_partial);
 
-    template.push_input(cell, Some(3));
+    template.push_input(cell, since, Some(3));
 }
 
 pub fn push_output_pre_account_cell_v1(template: &mut TemplateGenerator, cell_partial: Value) {
@@ -146,7 +150,7 @@ pub fn push_output_pre_account_cell_v1(template: &mut TemplateGenerator, cell_pa
             },
             "quote": CKB_QUOTE,
             "invited_discount": 0,
-            "created_at": Value::Null
+            "created_at": TIMESTAMP
         }
     });
     util::merge_json(&mut cell, cell_partial);
@@ -180,7 +184,7 @@ pub fn push_output_pre_account_cell_v2(template: &mut TemplateGenerator, cell_pa
             },
             "quote": CKB_QUOTE,
             "invited_discount": 0,
-            "created_at": Value::Null,
+            "created_at": TIMESTAMP,
             "initial_records": [
                 {
                     "type": "address",
@@ -222,7 +226,7 @@ pub fn push_output_pre_account_cell(template: &mut TemplateGenerator, cell_parti
             },
             "quote": CKB_QUOTE,
             "invited_discount": 0,
-            "created_at": Value::Null,
+            "created_at": TIMESTAMP,
             "initial_records": [
                 {
                     "type": "address",
@@ -256,7 +260,7 @@ pub fn push_dep_account_cell(template: &mut TemplateGenerator, cell_partial: Val
         "data": {
             "account": ACCOUNT_1,
             "next": "yyyyy.bit",
-            "expired_at": u64::MAX,
+            "expired_at": TIMESTAMP + YEAR_SEC,
         },
         "witness": {
             "account": ACCOUNT_1,
@@ -300,7 +304,7 @@ pub fn push_input_account_cell(template: &mut TemplateGenerator, cell_partial: V
     });
     util::merge_json(&mut cell, cell_partial);
 
-    template.push_input(cell, Some(3));
+    template.push_input(cell, None, Some(3));
     template.push_das_lock_witness("0000000000000000000000000000000000000000000000000000000000000000");
 }
 
@@ -358,7 +362,7 @@ pub fn push_input_account_cell_v2(template: &mut TemplateGenerator, cell_partial
     });
     util::merge_json(&mut cell, cell_partial);
 
-    template.push_input(cell, Some(2));
+    template.push_input(cell, None, Some(2));
     template.push_das_lock_witness("0000000000000000000000000000000000000000000000000000000000000000");
 }
 
@@ -389,7 +393,7 @@ pub fn push_input_sub_account_cell(template: &mut TemplateGenerator, cell_partia
     });
     util::merge_json(&mut cell, cell_partial);
 
-    template.push_input(cell, None);
+    template.push_input(cell, None, None);
 }
 
 pub fn push_output_sub_account_cell(template: &mut TemplateGenerator, cell_partial: Value) {
@@ -440,7 +444,7 @@ pub fn push_input_income_cell(template: &mut TemplateGenerator, cell_partial: Va
     });
     util::merge_json(&mut cell, cell_partial);
 
-    template.push_input(cell, None);
+    template.push_input(cell, None, None);
     template.push_empty_witness();
 }
 
@@ -458,7 +462,7 @@ pub fn push_input_income_cell_no_creator(template: &mut TemplateGenerator, cell_
     });
     util::merge_json(&mut cell, cell_partial);
 
-    template.push_input(cell, None);
+    template.push_input(cell, None, None);
     template.push_empty_witness();
 }
 
@@ -513,6 +517,7 @@ pub fn push_input_balance_cell(template: &mut TemplateGenerator, capacity: u64, 
             }
         }),
         None,
+        None,
     );
     template.push_das_lock_witness("0000000000000000000000000000000000000000000000000000000000000000");
 }
@@ -556,6 +561,7 @@ pub fn push_input_normal_cell(template: &mut TemplateGenerator, capacity: u64, a
             }
         }),
         None,
+        None,
     );
     template.push_empty_witness();
 }
@@ -585,6 +591,7 @@ pub fn push_input_test_env_cell(template: &mut TemplateGenerator) {
             }
         }),
         None,
+        None,
     );
     template.push_empty_witness();
 }
@@ -600,6 +607,7 @@ pub fn push_input_playground_cell(template: &mut TemplateGenerator) {
                 "code_hash": "{{playground}}"
             }
         }),
+        None,
         None,
     );
     template.push_empty_witness();
