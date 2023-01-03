@@ -158,12 +158,6 @@ impl WitnessesParser {
             }
         }
 
-        assert!(
-            found_config_cell_main,
-            ErrorCode::ConfigCellIsRequired,
-            "Can not find ConfigCellMain in cell_deps."
-        );
-
         let lock_type_id_table = LockScriptTypeIdTable {
             always_success: always_success_lock().into(),
             das_lock: das_lock().into(),
