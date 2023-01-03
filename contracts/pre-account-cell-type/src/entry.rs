@@ -87,12 +87,25 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let data = high_level::load_cell_data(index.to_owned(), Source::Input)?;
             let apply_register_hash = data_parser::apply_register_cell::get_account_hash(&data)?;
 
+            let cells_with_super_lock =
+                util::find_cells_by_script(ScriptType::Lock, super_lock().as_reader(), Source::Input)?;
+
             assert!(
                 data.len() == 32 || data.len() == 48,
                 ErrorCode::InvalidCellData,
                 "The ApplyRegisterCell.outputs_data should be 32 bytes or 48 bytes long."
             );
-            verify_apply_height_with_since(index.to_owned(), config_apply_reader)?;
+            match verify_apply_height_with_since(index.to_owned(), config_apply_reader) {
+                Ok(_) => {},
+                Err(err) => {
+                    if err.as_i8() == PreAccountCellErrorCode::ApplySinceMismatch as i8 && cells_with_super_lock.len() > 0 {
+                        debug!("Skip ErrorCode::ApplySinceMismatch because of super lock.");
+                        // Ok
+                    } else {
+                        return Err(err);
+                    }
+                }
+            };
 
             debug!("Read witness of PreAccountCell ...");
 
@@ -127,9 +140,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             verify_account_not_exist(dep_account_cells[0], account_id)?;
 
             debug!("Verify if account is available for registration for now ...");
-
-            let cells_with_super_lock =
-                util::find_cells_by_script(ScriptType::Lock, super_lock().as_reader(), Source::Input)?;
 
             match verify_account_length_and_years(&pre_account_cell_witness_reader, timestamp) {
                 Ok(_) => {}
