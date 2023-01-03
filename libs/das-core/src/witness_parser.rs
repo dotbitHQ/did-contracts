@@ -38,7 +38,6 @@ impl WitnessesParser {
     pub fn new() -> Result<Self, Box<dyn ScriptError>> {
         let mut witnesses = Vec::new();
         let mut config_witnesses = BTreeMap::new();
-        let mut found_config_cell_main = false;
         let mut i = 0;
         let mut das_witnesses_started = false;
         loop {
@@ -87,10 +86,6 @@ impl WitnessesParser {
                                     "The first DAS witness must be the type of DataType::ActionData ."
                                 );
                                 das_witnesses_started = true
-                            }
-
-                            if data_type == DataType::ConfigCellMain {
-                                found_config_cell_main = true;
                             }
 
                             // If there is any ConfigCells in cell_deps, store its index and expected witness hash.
