@@ -25,7 +25,6 @@ fn test_config_create() {
     template.push_config_cell(DataType::ConfigCellApply, Source::Output);
     template.push_config_cell(DataType::ConfigCellCharSetDigit, Source::Output);
     template.push_config_cell(DataType::ConfigCellIncome, Source::Output);
-    template.push_config_cell(DataType::ConfigCellMain, Source::Output);
     template.push_config_cell(DataType::ConfigCellPrice, Source::Output);
     template.push_config_cell(DataType::ConfigCellProposal, Source::Output);
     template.push_config_cell(DataType::ConfigCellProfitRate, Source::Output);
@@ -49,7 +48,6 @@ fn test_config_edit() {
     template.push_config_cell(DataType::ConfigCellApply, Source::Input);
     template.push_config_cell(DataType::ConfigCellCharSetDigit, Source::Input);
     template.push_config_cell(DataType::ConfigCellIncome, Source::Input);
-    template.push_config_cell(DataType::ConfigCellMain, Source::Input);
     template.push_config_cell(DataType::ConfigCellPrice, Source::Input);
     template.push_config_cell(DataType::ConfigCellProposal, Source::Input);
     template.push_config_cell(DataType::ConfigCellProfitRate, Source::Input);
@@ -58,7 +56,6 @@ fn test_config_edit() {
     template.push_config_cell(DataType::ConfigCellApply, Source::Output);
     template.push_config_cell(DataType::ConfigCellCharSetDigit, Source::Output);
     template.push_config_cell(DataType::ConfigCellIncome, Source::Output);
-    template.push_config_cell(DataType::ConfigCellMain, Source::Output);
     template.push_config_cell(DataType::ConfigCellPrice, Source::Output);
     template.push_config_cell(DataType::ConfigCellProposal, Source::Output);
     template.push_config_cell(DataType::ConfigCellProfitRate, Source::Output);

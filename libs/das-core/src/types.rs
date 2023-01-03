@@ -103,7 +103,7 @@ impl Configs {
         data_type: DataType,
     ) -> Result<(usize, Vec<u8>), Box<dyn ScriptError>> {
         let &(i, expected_hash) = config_witnesses.get(&(data_type as u32)).ok_or_else(|| {
-            warn!("Can not find {:?} in witnesses.", data_type);
+            warn!("Can not find {:?} in Configs.config_witnesses, this means the WitnessesParser did not find the witness", data_type);
             ErrorCode::ConfigIsPartialMissing
         })?;
 
