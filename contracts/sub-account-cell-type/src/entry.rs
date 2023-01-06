@@ -479,7 +479,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             // The first smt root is in the outputs_data of the SubAccountCell in inputs.
             let mut prev_root = match data_parser::sub_account_cell::get_smt_root(&input_sub_account_data) {
-                Some(val) => val,
+                Some(val) => val.to_vec(),
                 None => {
                     warn!(
                         "inputs[{}] The outputs_data.smt_root should be exist.",
@@ -490,7 +490,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             };
             // The latest smt root is in the outputs_data of the SubAccountCell in outputs.
             let latest_root = match data_parser::sub_account_cell::get_smt_root(&output_sub_account_data) {
-                Some(val) => val,
+                Some(val) => val.to_vec(),
                 None => {
                     warn!(
                         "outputs[{}] The outputs_data.smt_root should be exist.",
@@ -520,7 +520,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                         if custom_script_type_id.is_none() {
                             match account_list_smt_root {
                                 Some(root) => {
-                                    smt_verify_sub_account_is_in_signed_list(root, witness)?;
+                                    smt_verify_sub_account_is_in_signed_list(root, &witness)?;
                                 }
                                 None => {
                                     warn!("The SubAccountMintSignWitness.account_list_smt_root should be exist.");
@@ -529,7 +529,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                             }
                         }
 
-                        smt_verify_sub_account_is_creatable(prev_root, witness)?;
+                        smt_verify_sub_account_is_creatable(&prev_root, &witness)?;
 
                         debug!("witnesses[{}] Verify if the account is registrable.", witness.index);
 
@@ -573,15 +573,15 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                             new_sub_account_reader.as_prettier()
                         );
 
-                        smt_verify_sub_account_is_editable(prev_root, witness, new_sub_account_reader)?;
+                        smt_verify_sub_account_is_editable(&prev_root, &witness, new_sub_account_reader)?;
 
-                        verifiers::sub_account_cell::verify_unlock_role(witness)?;
+                        verifiers::sub_account_cell::verify_unlock_role(&witness)?;
                         verifiers::sub_account_cell::verify_sub_account_edit_sign_not_expired(
-                            witness,
+                            &witness,
                             parent_expired_at,
                             sub_account_last_updated_at,
                         )?;
-                        verifiers::sub_account_cell::verify_sub_account_edit_sign(witness, &sign_lib)?;
+                        verifiers::sub_account_cell::verify_sub_account_edit_sign(&witness, &sign_lib)?;
                         verifiers::sub_account_cell::verify_expiration(
                             config_account,
                             witness.index,
@@ -668,7 +668,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                     SubAccountAction::Recycle => todo!(),
                 }
 
-                prev_root = witness.new_root.as_slice();
+                prev_root = witness.new_root.clone();
 
                 if i == sub_account_parser.len() - 1 {
                     debug!(
@@ -682,7 +682,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                         ErrorCode::SubAccountWitnessMismatched,
                         "The latest SMT root in witnesses should be consistent with the latest SMT root in the SubAccountCell in the outputs.(current: {}, expected: {})",
                         util::hex_string(latest_root_in_witness),
-                        util::hex_string(latest_root)
+                        util::hex_string(&latest_root)
                     );
                 }
             }

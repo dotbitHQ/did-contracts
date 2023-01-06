@@ -1,7 +1,6 @@
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
-use core::cell::OnceCell;
 use core::convert::{TryFrom, TryInto};
 use core::str::FromStr;
 
@@ -67,7 +66,7 @@ pub struct SubAccountWitnessesIter<'a> {
 }
 
 impl<'a> Iterator for SubAccountWitnessesIter<'a> {
-    type Item = Result<&'a SubAccountWitness, Box<dyn ScriptError>>;
+    type Item = Result<SubAccountWitness, Box<dyn ScriptError>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let ret = self.parser.get(self.current);
@@ -83,7 +82,6 @@ pub struct SubAccountWitnessesParser {
     pub contains_edition: bool,
     pub sub_account_mint_sign_index: Option<usize>,
     pub sub_account_indexes: Vec<usize>,
-    pub witnesses: Vec<OnceCell<SubAccountWitness>>,
 }
 
 impl SubAccountWitnessesParser {
@@ -169,18 +167,11 @@ impl SubAccountWitnessesParser {
             return Err(code_to_error!(ErrorCode::WitnessEmpty));
         }
 
-        let mut witnesses = Vec::with_capacity(indexes_length);
-        for _ in sub_account_indexes.iter() {
-            let cell = OnceCell::new();
-            witnesses.push(cell);
-        }
-
         Ok(SubAccountWitnessesParser {
             contains_creation,
             contains_edition,
             sub_account_mint_sign_index,
             sub_account_indexes,
-            witnesses,
         })
     }
 
@@ -495,12 +486,10 @@ impl SubAccountWitnessesParser {
         }
     }
 
-    pub fn get(&self, index: usize) -> Option<Result<&SubAccountWitness, Box<dyn ScriptError>>> {
+    pub fn get(&self, index: usize) -> Option<Result<SubAccountWitness, Box<dyn ScriptError>>> {
         match self.sub_account_indexes.get(index) {
             None => return None,
-            Some(&i) => self.witnesses.get(index).map(|cell| {
-                cell.get_or_try_init(|| -> Result<SubAccountWitness, Box<dyn ScriptError>> { Self::parse_witness(i) })
-            }),
+            Some(&i) => Some(Self::parse_witness(i)),
         }
     }
 }
