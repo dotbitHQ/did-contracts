@@ -14,8 +14,9 @@ use das_map::util as map_util;
 use das_types::constants::{DataType, LockRole};
 use das_types::packed::*;
 use das_types::prelude::*;
+use eip712::util::to_semantic_capacity;
 
-use super::eip712::{to_semantic_address, to_semantic_capacity, verify_eip712_hashes_if_has_das_lock};
+use super::eip712::{to_semantic_address, verify_eip712_hashes_if_has_das_lock};
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== EIP712 Lib ======");

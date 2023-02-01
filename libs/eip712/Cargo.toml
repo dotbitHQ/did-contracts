@@ -7,10 +7,13 @@ edition = "2018"
 default = ["no_std"]
 std = ["no-std-compat/std"]
 no_std = []
+dev = []
+local = []
+testnet = []
+mainnet = []
 
 [dependencies]
 no-std-compat = { version = "0.4", features = [ "alloc", "compat_macros" ] }
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 hex = { version = "0.4", default-features = false }
-
-[dev-dependencies]
+bech32 = { version = "0.8.1", default-features = false }

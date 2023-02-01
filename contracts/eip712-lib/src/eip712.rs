@@ -5,7 +5,6 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::convert::{TryFrom, TryInto};
 
-use bech32::{self, ToBase32, Variant};
 use bs58;
 use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::packed as ckb_packed;
@@ -21,13 +20,9 @@ use das_types::mixer::AccountCellDataMixer;
 use das_types::packed as das_packed;
 use das_types::prelude::*;
 use eip712::eip712::*;
+use eip712::util::*;
 use eip712::{hash_data, typed_data_v4};
 use sha2::{Digest, Sha256};
-
-#[cfg(feature = "mainnet")]
-const HRP: &str = "ckb";
-#[cfg(not(feature = "mainnet"))]
-const HRP: &str = "ckt";
 
 const TRX_ADDR_PREFIX: u8 = 0x41;
 const DATA_OMIT_SIZE: usize = 20;
@@ -327,6 +322,9 @@ pub fn to_semantic_address(
     role: LockRole,
 ) -> Result<String, Box<dyn ScriptError>> {
     let address;
+    let hash_type: Vec<u8> = lock_reader.hash_type().as_slice().to_vec();
+    let code_hash = lock_reader.code_hash().raw_data().to_vec();
+    let args = lock_reader.args().raw_data().to_vec();
 
     match parser.get_lock_script_type(lock_reader) {
         Some(LockScript::DasLock) => {
@@ -342,7 +340,11 @@ pub fn to_semantic_address(
                         data_parser::das_lock_args::get_manager_lock_args(args_in_bytes).to_vec()
                     };
 
-                    address = format!("{}", script_to_legacy_address(vec![0], vec![1], pubkey_hash)?)
+                    address = format!(
+                        "{}",
+                        to_full_address(code_hash, hash_type, pubkey_hash)
+                            .map_err(|_| Error::new(ErrorCode::EIP712SematicError, String::new()))?
+                    )
                 }
                 DasLockType::TRON => {
                     let mut raw = [0u8; 21];
@@ -365,52 +367,18 @@ pub fn to_semantic_address(
                 _ => return Err(code_to_error!(ErrorCode::EIP712SematicError)),
             }
         }
-        Some(LockScript::Secp256k1Blake160SignhashLock) => {
-            // If this is a secp256k1_blake160_signhash_all lock, convert it to short address.
-            let args = lock_reader.args().raw_data().to_vec();
-            address = format!("{}", script_to_legacy_address(vec![0], vec![1], args)?)
-        }
-        // Some(LockScript::Secp256k1Blake160MultisigLock) => {
-        //     // If this is a secp256k1_blake160_multisig_all lock, convert it to short address.
-        //     let args = lock_reader.args().raw_data().to_vec();
-        //     address = format!("{}", script_to_legacy_address(vec![1], vec![1], args)?)
-        // }
         _ => {
-            // If this is a unknown lock, convert it to full address.
-            let hash_type: Vec<u8> = lock_reader.hash_type().as_slice().to_vec();
-            let code_hash = lock_reader.code_hash().raw_data().to_vec();
-            let args = lock_reader.args().raw_data().to_vec();
-
-            address = format!("{}", script_to_full_address(code_hash, hash_type, args)?)
+            // If this is a other lock, convert it to full address.
+            address = format!(
+                "{}",
+                to_full_address(code_hash, hash_type, args)
+                    .map_err(|_| Error::new(ErrorCode::EIP712SematicError, String::new()))?
+            );
         }
     }
 
     // debug!("lock: {} => address: {}", lock_reader, address);
     Ok(address)
-}
-
-fn script_to_legacy_address(
-    code_hash: Vec<u8>,
-    hash_type: Vec<u8>,
-    args: Vec<u8>,
-) -> Result<String, Box<dyn ScriptError>> {
-    // This is the payload of legacy address.
-    let data = [hash_type, code_hash, args].concat();
-
-    bech32::encode(&HRP.to_string(), data.to_base32(), Variant::Bech32)
-        .map_err(|_| Error::new(ErrorCode::EIP712SematicError, String::new()).into())
-}
-
-fn script_to_full_address(
-    code_hash: Vec<u8>,
-    hash_type: Vec<u8>,
-    args: Vec<u8>,
-) -> Result<String, Box<dyn ScriptError>> {
-    // This is the payload of full address.
-    let data = [vec![0u8], code_hash, hash_type, args].concat();
-
-    bech32::encode(&HRP.to_string(), data.to_base32(), Variant::Bech32m)
-        .map_err(|_| Error::new(ErrorCode::EIP712SematicError, String::new()).into())
 }
 
 fn b58encode_check<T: AsRef<[u8]>>(raw: T) -> String {
@@ -561,32 +529,6 @@ fn to_typed_cells(
     Ok((total_capacity, Value::Array(cells)))
 }
 
-pub fn to_semantic_capacity(capacity: u64) -> String {
-    let capacity_str = capacity.to_string();
-    let length = capacity_str.len();
-    let mut ret = String::new();
-    if length > 8 {
-        let integer = &capacity_str[0..length - 8];
-        let mut decimal = &capacity_str[length - 8..length];
-        decimal = decimal.trim_end_matches("0");
-        if decimal.is_empty() {
-            ret = ret + integer + " CKB";
-        } else {
-            ret = ret + integer + "." + decimal + " CKB";
-        }
-    } else {
-        if capacity_str == "0" {
-            ret = String::from("0 CKB");
-        } else {
-            let padded_str = format!("{:0>8}", capacity_str);
-            let decimal = padded_str.trim_end_matches("0");
-            ret = ret + "0." + decimal + " CKB";
-        }
-    }
-
-    ret
-}
-
 fn to_typed_script(parser: &WitnessesParser, script_type: ScriptType, script: das_packed::ScriptReader) -> String {
     let code_hash = if script_type == ScriptType::Lock {
         match parser.get_lock_script_type(script) {
@@ -691,35 +633,6 @@ fn to_semantic_account_witness(
 mod test {
     use super::*;
 
-    #[test]
-    fn test_eip712_to_semantic_address() {
-        let code_hash = vec![0];
-        let hash_type = vec![1];
-        // cde11acafefadb5cb437eb33ab8bbca958ad2a86
-        let args = vec![
-            205, 225, 26, 202, 254, 250, 219, 92, 180, 55, 235, 51, 171, 139, 188, 169, 88, 173, 42, 134,
-        ];
-
-        let expected = "ckt1qyqvmcg6etl04k6uksm7kvat3w72jk9d92rq5tn6px";
-        let address = script_to_legacy_address(code_hash, hash_type, args).unwrap();
-        assert_eq!(&address, expected);
-
-        let code_hash = vec![
-            155, 215, 224, 111, 62, 207, 75, 224, 242, 252, 210, 24, 139, 35, 241, 185, 252, 200, 142, 93, 75, 101,
-            168, 99, 123, 23, 114, 59, 189, 163, 204, 232,
-        ];
-        let hash_type = vec![1];
-        // b39bbc0b3673c7d36450bc14cfcdad2d559c6c64
-        let args = vec![
-            179, 155, 188, 11, 54, 115, 199, 211, 100, 80, 188, 20, 207, 205, 173, 45, 85, 156, 108, 100,
-        ];
-
-        let expected =
-            "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqdnnw7qkdnnclfkg59uzn8umtfd2kwxceqgutnjd";
-        let address = script_to_full_address(code_hash, hash_type, args).unwrap();
-        assert_eq!(&address, expected);
-    }
-
     // #[test]
     // fn test_eip712_to_typed_script() {
     //     let account_cell_type_id = das_packed::Hash::from([1u8; 32]);
@@ -777,27 +690,4 @@ mod test {
     //     );
     //     assert_eq!(result, expected);
     // }
-
-    #[test]
-    fn test_eip712_to_semantic_capacity() {
-        let expected = "0 CKB";
-        let result = to_semantic_capacity(0);
-        assert_eq!(result, expected);
-
-        let expected = "1 CKB";
-        let result = to_semantic_capacity(100_000_000);
-        assert_eq!(result, expected);
-
-        let expected = "0.0001 CKB";
-        let result = to_semantic_capacity(10_000);
-        assert_eq!(result, expected);
-
-        let expected = "1000.0001 CKB";
-        let result = to_semantic_capacity(100_000_010_000);
-        assert_eq!(result, expected);
-
-        let expected = "1000 CKB";
-        let result = to_semantic_capacity(100_000_000_000);
-        assert_eq!(result, expected);
-    }
 }

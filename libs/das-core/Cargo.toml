@@ -5,10 +5,10 @@ edition = "2018"
 
 [features]
 default = ["dev"]
-dev = []
-local = []
-testnet = []
-mainnet = []
+dev = ["eip712/dev"]
+local = ["eip712/local"]
+testnet = ["eip712/testnet"]
+mainnet = ["eip712/mainnet"]
 
 [dependencies]
 ckb-std = "0.10.0"
