@@ -490,7 +490,9 @@ table AccountAuctionCellData {
 
 链上体积：取决于 ConfigCellSecondaryMarket 里的配置项
 
-### ReverseRecordCell
+### ~~ReverseRecordCell~~
+
+> **Deprecated**！此 Cell 已经废弃，此文档仅供交易解析使用。
 
 存放反向解析记录的 Cell ，同一个地址上可能有多个，需要按照[协议](../反向解析机制/反向解析机制.md)进行去重。
 
@@ -505,7 +507,26 @@ data:
 
 #### 体积
 
-`74 + n` Bytes，`n` 具体取决于 lock 的 args 长度以及 account 的长度。
+`116 + n` Bytes，`n` 具体取决于 lock 的 args 长度以及 account 的长度。
+
+### ReverseRecordRootCell
+
+存放反向解析记录 SMT Root 的 Cell 。
+
+#### 结构
+
+```
+lock: <always_success>
+type: <reverse-record-root-cell-type>
+data:
+  smt_root
+```
+
+- smt_root ，反向解析 SMT 的 Root ；
+
+#### 体积
+
+`116` Bytes
 
 ### OfferCell
 
@@ -1076,6 +1097,7 @@ enum DataType {
     OfferCellData,
     SubAccount,
     SubAccountMintSign,
+    ReverseRecord,
     ConfigCellAccount = 100,              // args: 0x64000000
     ConfigCellApply = 101,                // args: 0x65000000
     ConfigCellIncome = 103,               // args: 0x67000000
