@@ -1113,6 +1113,7 @@ enum DataType {
     ConfigCellSubAccount,                 // args: 0x71000000
     ConfigCellSubAccountBetaList,         // args: 0x72000000
     ConfigCellSystemStatus,               // args: 0x73000000
+    ConfigCellSMTNodeWhitelist,           // args: 0x74000000
     ConfigCellPreservedAccount00 = 10000, // args: 0x10270000
     ConfigCellPreservedAccount01,
     ConfigCellPreservedAccount02,
