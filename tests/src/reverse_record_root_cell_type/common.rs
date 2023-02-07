@@ -2,6 +2,7 @@ use das_types_std::constants::*;
 use das_types_std::packed::*;
 use serde_json::json;
 
+use crate::util::constants::REVERSE_RECORD_BASIC_CAPACITY;
 use crate::util::template_generator::*;
 
 pub fn init(action: &str) -> TemplateGenerator {
@@ -9,9 +10,7 @@ pub fn init(action: &str) -> TemplateGenerator {
 
     template.push_contract_cell("always_success", ContractType::DeployedContract);
     template.push_contract_cell("fake-das-lock", ContractType::DeployedContract);
-    template.push_contract_cell("eip712-lib", ContractType::Contract);
-    template.push_contract_cell("balance-cell-type", ContractType::Contract);
-    template.push_contract_cell("reverse-record-cell-type", ContractType::Contract);
+    template.push_contract_cell("reverse-record-root-cell-type", ContractType::Contract);
 
     template.push_config_cell(DataType::ConfigCellMain, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellReverseResolution, Source::CellDep);
@@ -19,23 +18,22 @@ pub fn init(action: &str) -> TemplateGenerator {
     template
 }
 
-pub fn push_input_reverse_record_cell(template: &mut TemplateGenerator, capacity: u64, owner: &str, account: &str) {
+pub fn push_input_reverse_record_root_cell(template: &mut TemplateGenerator) {
+    let current_root = template.smt_with_history.current_root();
     template.push_input(
         json!({
-            "capacity": capacity.to_string(),
+            "capacity": REVERSE_RECORD_BASIC_CAPACITY,
             "lock": {
-                "owner_lock_args": owner,
-                "manager_lock_args": owner,
+                "code_hash": "{{always_success}}"
             },
             "type": {
-                "code_hash": "{{reverse-record-cell-type}}"
+                "code_hash": "{{reverse-record-root-cell-type}}"
             },
             "data": {
-                "account": account
+                "root": String::from("0x") + &hex::encode(&current_root),
             }
         }),
         None,
         None,
     );
-    template.push_das_lock_witness("0000000000000000000000000000000000000000000000000000000000000000");
 }

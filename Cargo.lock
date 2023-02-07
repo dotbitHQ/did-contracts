@@ -650,19 +650,21 @@ dependencies = [
 
 [[package]]
 name = "das-types"
-version = "1.10.1"
+version = "1.11.0"
 dependencies = [
  "ckb-std",
  "molecule",
+ "num_enum",
  "strum",
 ]
 
 [[package]]
 name = "das-types-std"
-version = "1.10.2"
+version = "1.11.0"
 dependencies = [
  "ckb-types",
  "molecule",
+ "num_enum",
  "strum",
 ]
 
@@ -966,6 +968,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9a64b1ec5cda2586e284722486d802acf1f7dbdc623e2bfc57e65ca1cd099290"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "num_enum"
+version = "0.5.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8d829733185c1ca374f17e52b762f24f535ec625d2cc1f070e34c8a9068f341b"
+dependencies = [
+ "num_enum_derive",
+]
+
+[[package]]
+name = "num_enum_derive"
+version = "0.5.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2be1598bf1c313dcdd12092e3f1920f463462525a21b7b4e11b4168353d0123e"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -1275,6 +1297,16 @@ checksum = "49b3de9ec5dc0a3417da371aab17d729997c15010e7fd24ff707773a33bddb64"
 [[package]]
 name = "reverse-record-cell-type"
 version = "1.0.1"
+dependencies = [
+ "ckb-std",
+ "das-core",
+ "das-types",
+ "hex",
+]
+
+[[package]]
+name = "reverse-record-root-cell-type"
+version = "1.0.0"
 dependencies = [
  "ckb-std",
  "das-core",

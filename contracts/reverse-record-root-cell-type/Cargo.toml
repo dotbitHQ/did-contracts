@@ -1,0 +1,16 @@
+[package]
+name = "reverse-record-root-cell-type"
+version = "1.0.0"
+edition = "2018"
+
+[features]
+dev = ["das-core/dev"]
+local = ["das-core/local"]
+testnet = ["das-core/testnet"]
+mainnet = ["das-core/mainnet"]
+
+[dependencies]
+ckb-std = "0.10.0"
+hex = { default-features = false, version = "0.4.2"}
+das-core = { path = "../../libs/das-core", default-features = false }
+das-types = { path = "../../../das-types/rust", default-features = false }
