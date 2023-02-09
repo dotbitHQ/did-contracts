@@ -4,10 +4,8 @@ use serde_json::{json, Value};
 use super::common::*;
 use crate::util::accounts::*;
 use crate::util::constants::*;
-use crate::util::error::*;
 use crate::util::template_common_cell::*;
 use crate::util::template_generator::{ContractType, *};
-use crate::util::template_parser::*;
 use crate::util::{self};
 
 const OWNER_PROFIT: u64 = 20_000_000_000;

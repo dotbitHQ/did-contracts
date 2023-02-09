@@ -13,6 +13,7 @@ use das_types_std::util as das_util;
 use das_types_std::util::EntityWrapper;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use sparse_merkle_tree::H256;
 
 use super::super::ckb_types_relay::*;
 use super::constants::*;
@@ -145,10 +146,6 @@ pub fn gen_account_chars(chars: Vec<impl AsRef<str>>) -> AccountChars {
     }
 
     builder.build()
-}
-
-fn witness_bytes_to_hex(input: Bytes) -> String {
-    "0x".to_string() + &hex::encode(input.as_reader().raw_data())
 }
 
 /// Parse string in JSON
@@ -536,7 +533,7 @@ pub struct TemplateGenerator {
 
 impl TemplateGenerator {
     pub fn new(action: &str, params_opt: Option<Bytes>) -> TemplateGenerator {
-        let witness = das_util::wrap_action_witness(action, params_opt);
+        let witness = das_util::wrap_action_witness_v2(action, params_opt);
 
         let mut prices = HashMap::new();
         prices.insert(1u8, gen_price_config(1, ACCOUNT_PRICE_1_CHAR, ACCOUNT_PRICE_1_CHAR));
@@ -555,7 +552,7 @@ impl TemplateGenerator {
             inputs: Vec::new(),
             outputs: Vec::new(),
             inner_witnesses: Vec::new(),
-            outer_witnesses: vec![witness_bytes_to_hex(witness)],
+            outer_witnesses: vec![util::bytes_to_hex(&witness)],
             sub_account_outer_witnesses: Vec::new(),
             prices,
             preserved_account_groups: HashMap::new(),
@@ -584,9 +581,9 @@ impl TemplateGenerator {
         }
 
         self.inner_witnesses
-            .push(witness_bytes_to_hex(Bytes::from(to_slice(witness_args_build(
+            .push(util::bytes_to_hex(&to_slice(witness_args_build(
                 witness_args_builder,
-            )))));
+            ))));
     }
 
     pub fn push_empty_witness(&mut self) {
@@ -620,7 +617,7 @@ impl TemplateGenerator {
         capacity: u64,
         lock_script: Value,
         type_script: Value,
-        data: Option<Bytes>,
+        data: Option<Vec<u8>>,
         source: Source,
     ) -> usize {
         let mut value;
@@ -630,7 +627,7 @@ impl TemplateGenerator {
               "capacity": capacity,
               "lock": lock_script,
               "type": type_script,
-              "tmp_data": witness_bytes_to_hex(tmp_data.clone())
+              "tmp_data": util::bytes_to_hex(&tmp_data),
             });
         } else {
             value = json!({
@@ -666,11 +663,11 @@ impl TemplateGenerator {
     }
 
     pub fn push_oracle_cell(&mut self, index: u8, type_: OracleCellType, data: u64) {
-        let mut cell_raw_data = Vec::new();
+        let mut cell_raw_data: Vec<u8> = Vec::new();
         cell_raw_data.extend(index.to_be_bytes().iter());
         cell_raw_data.extend(&[type_ as u8]);
         cell_raw_data.extend(data.to_be_bytes().iter());
-        let cell_data = Bytes::from(cell_raw_data);
+        let cell_data = cell_raw_data;
 
         let lock_script = json!({
             "code_hash": "{{always_success}}"
@@ -1078,41 +1075,41 @@ impl TemplateGenerator {
                 let (outputs_data, entity) = self.$fn();
                 push_cell(self, config_type, outputs_data, source);
                 let witness = match source {
-                    Source::Input => das_util::wrap_entity_witness_v3(config_type, entity),
-                    Source::Output => das_util::wrap_entity_witness_v3(config_type, entity),
-                    _ => das_util::wrap_entity_witness_v3(config_type, entity),
+                    Source::Input => das_util::wrap_entity_witness_v4(config_type, entity),
+                    Source::Output => das_util::wrap_entity_witness_v4(config_type, entity),
+                    _ => das_util::wrap_entity_witness_v4(config_type, entity),
                 };
-                self.outer_witnesses.push(witness_bytes_to_hex(witness));
+                self.outer_witnesses.push(util::bytes_to_hex(&witness));
             }};
             (@raw $fn:ident) => {{
                 let (outputs_data, raw) = self.$fn();
                 push_cell(self, config_type, outputs_data, source);
                 let witness = match source {
-                    Source::Input => das_util::wrap_raw_witness(config_type, raw),
-                    Source::Output => das_util::wrap_raw_witness(config_type, raw),
-                    _ => das_util::wrap_raw_witness(config_type, raw),
+                    Source::Input => das_util::wrap_raw_witness_v2(config_type, raw),
+                    Source::Output => das_util::wrap_raw_witness_v2(config_type, raw),
+                    _ => das_util::wrap_raw_witness_v2(config_type, raw),
                 };
-                self.outer_witnesses.push(witness_bytes_to_hex(witness));
+                self.outer_witnesses.push(util::bytes_to_hex(&witness));
             }};
             (@char_set $fn:ident, $file_name:expr, $is_global:expr) => {{
                 let (outputs_data, raw) = self.$fn($file_name, $is_global);
                 push_cell(self, config_type, outputs_data, source);
                 let witness = match source {
-                    Source::Input => das_util::wrap_raw_witness(config_type, raw),
-                    Source::Output => das_util::wrap_raw_witness(config_type, raw),
-                    _ => das_util::wrap_raw_witness(config_type, raw),
+                    Source::Input => das_util::wrap_raw_witness_v2(config_type, raw),
+                    Source::Output => das_util::wrap_raw_witness_v2(config_type, raw),
+                    _ => das_util::wrap_raw_witness_v2(config_type, raw),
                 };
-                self.outer_witnesses.push(witness_bytes_to_hex(witness));
+                self.outer_witnesses.push(util::bytes_to_hex(&witness));
             }};
             (@preserved_account $fn:ident, $config_type:expr) => {{
                 if let Some((outputs_data, raw)) = self.$fn($config_type) {
                     push_cell(self, config_type, outputs_data, source);
                     let witness = match source {
-                        Source::Input => das_util::wrap_raw_witness(config_type, raw),
-                        Source::Output => das_util::wrap_raw_witness(config_type, raw),
-                        _ => das_util::wrap_raw_witness(config_type, raw),
+                        Source::Input => das_util::wrap_raw_witness_v2(config_type, raw),
+                        Source::Output => das_util::wrap_raw_witness_v2(config_type, raw),
+                        _ => das_util::wrap_raw_witness_v2(config_type, raw),
                     };
-                    self.outer_witnesses.push(witness_bytes_to_hex(witness));
+                    self.outer_witnesses.push(util::bytes_to_hex(&witness));
                 } else {
                     panic!("Load preserved_account failed.");
                 }
@@ -1147,6 +1144,7 @@ impl TemplateGenerator {
             DataType::ConfigCellCharSetTr => push_cell!(@char_set gen_config_cell_char_set, "char_set_tr.txt", 0),
             DataType::ConfigCellCharSetVi => push_cell!(@char_set gen_config_cell_char_set, "char_set_vi.txt", 0),
             DataType::ConfigCellSubAccountBetaList => push_cell!(@raw gen_config_cell_sub_account_beta_list),
+            DataType::ConfigCellSMTNodeWhitelist => push_cell!(@raw gen_config_cell_smt_node_white_list),
             DataType::ConfigCellCharSetZhHans => {
                 push_cell!(@char_set gen_config_cell_char_set, "char_set_zh_hans.txt", 0)
             }
@@ -1376,6 +1374,7 @@ impl TemplateGenerator {
                     "balance-cell-type" => push_cell!(gen_balance_cell, cell),
                     "sub-account-cell-type" => push_cell!(gen_sub_account_cell, cell),
                     "reverse-record-cell-type" => push_cell!(gen_reverse_record_cell, cell),
+                    "reverse-record-root-cell-type" => push_cell!(gen_reverse_record_root_cell, cell),
                     "test-env" => push_cell!(gen_custom_cell, cell),
                     "playground" => push_cell!(gen_custom_cell, cell),
                     _ => panic!("Unknown type ID {}", type_id),
@@ -2468,6 +2467,49 @@ impl TemplateGenerator {
     /// json!({
     ///     "capacity": u64,
     ///     "lock": {
+    ///         "code_hash": "{{always_success}}",
+    ///     },
+    ///     "type": {
+    ///         "code_hash": "{{reverse-record-root-cell-type}}",
+    ///         "args": null | "xxxxx.bit" | "0x...", // If this is null, it will be an invalid cell. If this is not hex, it will be treated as account to calculate account ID.
+    ///     },
+    ///     "data": {
+    ///         "root": null | "0x..." // If this is null, it will be an invalid cell.
+    ///     }
+    /// })
+    /// ```
+    fn gen_reverse_record_root_cell(&mut self, cell: Value) -> (Value, Option<EntityWrapper>) {
+        let capacity: u64 = util::parse_json_u64("cell.capacity", &cell["capacity"], Some(0));
+        let lock_script = parse_json_script("cell.lock", &cell["lock"]);
+        let type_script = parse_json_script("cell.type", &cell["type"]);
+
+        let outputs_data = if cell["data"].is_null() {
+            String::from("")
+        } else {
+            let data = &cell["data"];
+            let root = util::parse_json_hex("cell.data.root", &data["root"]);
+            util::bytes_to_hex(&root)
+        };
+
+        (
+            json!({
+                "tmp_header": cell["header"],
+                "tmp_type": "full",
+                "capacity": capacity,
+                "lock": lock_script,
+                "type": type_script,
+                "tmp_data": outputs_data
+            }),
+            None,
+        )
+    }
+
+    /// Cell structure:
+    ///
+    /// ```json
+    /// json!({
+    ///     "capacity": u64,
+    ///     "lock": {
     ///         "owner_lock_args": "0x...",
     ///         "manager_lock_args": "0x...",
     ///     },
@@ -2636,7 +2678,7 @@ impl TemplateGenerator {
     /// json!({
     ///     "version": u32,
     ///     "action": "create" | "edit" | "renew" | "recycle",
-    ///     "signature": null | "0x...", // If this is null, it will be filled with 65 bytes of 0.
+    ///     "signature": null | "0x...", // If this is null, it will be filled with 65 bytes of 0xFF.
     ///     "sign_role": null | "0x...",
     ///     "sign_expired_at": null | u64, // If this is null, it will be filled with 0.
     ///     "new_root": null | "0x...", // If this is null, it will be calculated automatically from self.smt_with_history.
@@ -2737,7 +2779,7 @@ impl TemplateGenerator {
         let field_value = util::parse_json_hex_with_default(
             "witness.signature",
             &witness["signature"],
-            hex::decode("ffffffffffffffffffffffffffffffffffffffff").unwrap(),
+            vec![255u8; 65],
         );
         witness_bytes.extend(length_of(&field_value));
         witness_bytes.extend(field_value);

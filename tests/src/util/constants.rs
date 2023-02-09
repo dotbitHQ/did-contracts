@@ -173,6 +173,10 @@ lazy_static! {
             "0x573b1d865799c4bcb98ebd8b75bd87ed6a6c2449c99edf0f17142f527118201e",
         );
         map.insert(
+            "reverse-record-root-cell-type",
+            "0x49dc1d7f8c02869636f60b7eaea825cdc0d8daf68a3d902532fd8f24ecdd628a",
+        );
+        map.insert(
             "sub-account-cell-type",
             "0xf70fb11157496e73f30fc5e781d52725a74c9fba1e7a52115d75320d171759ec",
         );
