@@ -524,6 +524,7 @@ pub struct TemplateGenerator {
     pub inner_witnesses: Vec<String>,
     pub outer_witnesses: Vec<String>,
     pub sub_account_outer_witnesses: Vec<String>,
+    pub reverse_record_outer_witnesses: Vec<String>,
     pub prices: HashMap<u8, PriceConfig>,
     pub preserved_account_groups: HashMap<u32, (Vec<u8>, Vec<u8>)>,
     pub charsets: HashMap<u32, (Bytes, Vec<u8>)>,
@@ -554,6 +555,7 @@ impl TemplateGenerator {
             inner_witnesses: Vec::new(),
             outer_witnesses: vec![util::bytes_to_hex(&witness)],
             sub_account_outer_witnesses: Vec::new(),
+            reverse_record_outer_witnesses: Vec::new(),
             prices,
             preserved_account_groups: HashMap::new(),
             charsets: HashMap::new(),
@@ -581,9 +583,7 @@ impl TemplateGenerator {
         }
 
         self.inner_witnesses
-            .push(util::bytes_to_hex(&to_slice(witness_args_build(
-                witness_args_builder,
-            ))));
+            .push(util::bytes_to_hex(&to_slice(witness_args_build(witness_args_builder))));
     }
 
     pub fn push_empty_witness(&mut self) {
@@ -1022,6 +1022,31 @@ impl TemplateGenerator {
         (cell_data, raw)
     }
 
+    fn gen_config_cell_smt_node_white_list(&mut self) -> (Vec<u8>, Vec<u8>) {
+        // Load and group unavailable accounts
+        let mut white_list = Vec::new();
+        let lines = util::read_lines("smt_node_white_list.txt")
+            .expect("Expect file ./tests/data/smt_node_white_list.txt exist.");
+
+        for line in lines {
+            if let Ok(raw) = line {
+                let hash =
+                    hex::decode(raw).expect("All lines in smt_node_white_list.txt should be a valid hex of hash.");
+                assert!(hash.len() == 32);
+
+                white_list.push(hash);
+            }
+        }
+
+        white_list.sort();
+        let mut raw = white_list.into_iter().flatten().collect::<Vec<u8>>();
+        raw = util::prepend_molecule_like_length(raw);
+
+        let cell_data = blake2b_256(raw.as_slice()).to_vec();
+
+        (cell_data, raw)
+    }
+
     pub fn push_config_cell(&mut self, config_type: DataType, source: Source) {
         fn push_cell(
             generator: &mut TemplateGenerator,
@@ -1436,8 +1461,8 @@ impl TemplateGenerator {
         let index = self.push_cell_json(cell, source, since_opt);
 
         if let Some(entity) = entity_opt {
-            let witness = das_util::wrap_data_witness_v3(data_type, version, index, entity, source);
-            self.outer_witnesses.push(witness_bytes_to_hex(witness));
+            let witness = das_util::wrap_data_witness_v4(data_type, version, index, entity, source);
+            self.outer_witnesses.push(util::bytes_to_hex(&witness));
         }
 
         index
@@ -2583,8 +2608,6 @@ impl TemplateGenerator {
 
     /// Insert some leaves into the sparse-merkle-tree without pushing any witness
     pub fn restore_sub_account(&mut self, sub_account_jsons: Vec<Value>) {
-        use sparse_merkle_tree::H256;
-
         let mut leaves: Vec<(H256, H256)> = Vec::new();
 
         for sub_account_json in sub_account_jsons {
@@ -2660,7 +2683,7 @@ impl TemplateGenerator {
         witness_bytes.extend(root);
 
         // println!("witness_bytes = {:?}", util::bytes_to_hex(&witness_bytes));
-        witness_bytes = das_util::wrap_sub_account_witness(DataType::SubAccountMintSign, witness_bytes);
+        witness_bytes = das_util::wrap_raw_witness_v2(DataType::SubAccountMintSign, witness_bytes);
         self.sub_account_outer_witnesses
             .push(util::bytes_to_hex(&witness_bytes));
 
@@ -2776,11 +2799,8 @@ impl TemplateGenerator {
         witness_bytes.extend(length_of(action_str.as_bytes()));
         witness_bytes.extend(action_str.as_bytes());
 
-        let field_value = util::parse_json_hex_with_default(
-            "witness.signature",
-            &witness["signature"],
-            vec![255u8; 65],
-        );
+        let field_value =
+            util::parse_json_hex_with_default("witness.signature", &witness["signature"], vec![255u8; 65]);
         witness_bytes.extend(length_of(&field_value));
         witness_bytes.extend(field_value);
 
@@ -2872,20 +2892,147 @@ impl TemplateGenerator {
             }
         }
 
-        witness_bytes = das_util::wrap_sub_account_witness(DataType::SubAccount, witness_bytes);
+        witness_bytes = das_util::wrap_raw_witness_v2(DataType::SubAccount, witness_bytes);
         self.sub_account_outer_witnesses
+            .push(util::bytes_to_hex(&witness_bytes));
+    }
+
+    /// Insert some leaves into the sparse-merkle-tree without pushing any witness
+    pub fn restore_reverse_record(&mut self, reverse_record_jsons: Vec<Value>) {
+        let mut leaves: Vec<(H256, H256)> = Vec::new();
+
+        for reverse_record_json in reverse_record_jsons {
+            let address_payload = util::parse_json_hex("", &reverse_record_json["address_payload"]);
+            let key = blake2b_256(&address_payload);
+
+            let nonce = util::parse_json_u32("", &reverse_record_json["nonce"], None);
+            let account = parse_json_str("", &reverse_record_json["account"]).as_bytes();
+            let value = util::gen_smt_value_for_reverse_record_smt(nonce, account);
+            leaves.push((key.into(), value.into()));
+        }
+
+        self.smt_with_history.restore_state(leaves);
+    }
+
+    // Push sub-account witness
+    ///
+    /// The sub-account witnesses will always be the end of the whole witnesses array, so no matter when you need to call this function, you
+    /// can call it freely.
+    ///
+    /// Witness structure:
+    ///
+    /// ```json
+    /// json!({
+    ///     "version": null | u32, // The default value is 1 .
+    ///     "action": "update" | "remove",
+    ///     "signature": null | "0x...", // If this is null, it will be filled with 65 bytes of 0xFF.
+    ///     "sign_type": null | u8, // The default value is 1 .
+    ///     "sign_expired_at": null | u64, // If this is null, it will be filled with 0.
+    ///     "address_payload": "0x...",
+    ///     "prev_proof": null | "0x...", // If this is null, it will be calculated automatically from self.smt_with_history.
+    ///     "prev_nonce": null | u32, // If this is null, it will be filled with 0.
+    ///     "prev_account": "xxxxx.bit",
+    ///     "next_root": null | "0x...", // If this is null, it will be calculated automatically from self.smt_with_history.
+    ///     "next_proof": null | "0x...", // If this is null, it will be calculated automatically from self.smt_with_history.
+    ///     "next_account": "xxxxx.bit",
+    /// })
+    /// ```
+    pub fn push_reverse_record(&mut self, witness: Value) {
+        let mut witness_bytes = Vec::new();
+
+        let field_value = util::parse_json_u32("witness.version", &witness["version"], Some(1)).to_le_bytes();
+        witness_bytes.extend(length_of(&field_value));
+        witness_bytes.extend(field_value);
+
+        let action = ReverseRecordAction::from_str(
+            witness["action"]
+                .as_str()
+                .expect("witness.action should be a valid str."),
+        )
+        .expect("witness.action should be a valid ReverseRecordAction.");
+        let action_str = action.clone().to_string();
+        witness_bytes.extend(length_of(action_str.as_bytes()));
+        witness_bytes.extend(action_str.as_bytes());
+
+        let field_value =
+            util::parse_json_hex_with_default("witness.signature", &witness["signature"], vec![255u8; 65]);
+        witness_bytes.extend(length_of(&field_value));
+        witness_bytes.extend(field_value);
+
+        let field_value = util::parse_json_u8("witness.sign_type", &witness["sign_type"], Some(1)).to_le_bytes();
+        witness_bytes.extend(length_of(&field_value));
+        witness_bytes.extend(field_value);
+
+        let field_value =
+            util::parse_json_u64("witness.sign_expired_at", &witness["sign_expired_at"], Some(0)).to_le_bytes();
+        witness_bytes.extend(length_of(&field_value));
+        witness_bytes.extend(field_value);
+
+        let address_payload = util::parse_json_hex("witness.address_payload", &witness["address_payload"]);
+        witness_bytes.extend(length_of(&address_payload));
+        witness_bytes.extend(address_payload.clone());
+
+        let key = blake2b_256(&address_payload);
+
+        // fields of previous status
+        let prev_nonce = util::parse_json_u32("witness.prev_nonce", &witness["prev_nonce"], Some(0));
+        let prev_account = parse_json_str("witness.prev_account", &witness["prev_account"]).as_bytes();
+        let prev_proof = if witness["prev_proof"].is_null() {
+            let value = util::gen_smt_value_for_reverse_record_smt(prev_nonce, prev_account);
+            let proof = self.smt_with_history.get_proof(vec![key.clone().into()]);
+            let compiled_proof = proof.compile(vec![(key.into(), value)]).unwrap().0;
+            compiled_proof
+        } else {
+            util::parse_json_hex_with_default("witness.prev_proof", &witness["prev_proof"], vec![])
+        };
+        witness_bytes.extend(length_of(&prev_proof));
+        witness_bytes.extend(prev_proof);
+        witness_bytes.extend(length_of(&prev_nonce.to_le_bytes()));
+        witness_bytes.extend(prev_nonce.to_le_bytes());
+        witness_bytes.extend(length_of(&prev_account));
+        witness_bytes.extend(prev_account);
+
+        // fields of next status
+        let next_nonce = prev_nonce + 1;
+        let next_account = parse_json_str("witness.next_account", &witness["next_account"]).as_bytes();
+        let key = blake2b_256(&address_payload);
+        let value = util::gen_smt_value_for_reverse_record_smt(next_nonce, next_account);
+        let (_, root, proof) = self.smt_with_history.insert(key.clone().into(), value.clone());
+        let next_root = if witness["prev_root"].is_null() {
+            root.to_vec()
+        } else {
+            util::parse_json_hex_with_default("witness.prev_root", &witness["prev_root"], vec![])
+        };
+        let next_proof = if witness["prev_proof"].is_null() {
+            proof.compile(vec![(key.into(), value)]).unwrap().0
+        } else {
+            util::parse_json_hex_with_default("witness.prev_proof", &witness["prev_proof"], vec![])
+        };
+        witness_bytes.extend(length_of(&next_root));
+        witness_bytes.extend(next_root);
+        witness_bytes.extend(length_of(&next_proof));
+        witness_bytes.extend(next_proof);
+        witness_bytes.extend(length_of(&next_account));
+        witness_bytes.extend(next_account);
+
+        witness_bytes = das_util::wrap_raw_witness_v2(DataType::ReverseRecord, witness_bytes);
+        self.reverse_record_outer_witnesses
             .push(util::bytes_to_hex(&witness_bytes));
     }
 
     // ======
 
     pub fn as_json(&self) -> Value {
-        let witnesses = [
-            self.inner_witnesses.clone(),
-            self.outer_witnesses.clone(),
-            self.sub_account_outer_witnesses.clone(),
-        ]
-        .concat();
+        let mut witnesses = [self.inner_witnesses.clone(), self.outer_witnesses.clone()].concat();
+
+        if !self.sub_account_outer_witnesses.is_empty() {
+            witnesses.extend(self.sub_account_outer_witnesses.clone());
+        }
+
+        if !self.reverse_record_outer_witnesses.is_empty() {
+            witnesses.extend(self.reverse_record_outer_witnesses.clone());
+        }
+
         json!({
             "header_deps": self.header_deps,
             "cell_deps": self.cell_deps,

@@ -1,5 +1,8 @@
 use super::common::*;
-use crate::util::{template_generator::*, template_common_cell::*, template_parser::*, accounts::SUPER_LOCK_ARGS};
+use crate::util::accounts::SUPER_LOCK_ARGS;
+use crate::util::template_common_cell::*;
+use crate::util::template_generator::*;
+use crate::util::template_parser::*;
 
 fn before_each() -> TemplateGenerator {
     let template = init("create_reverse_record_root");
