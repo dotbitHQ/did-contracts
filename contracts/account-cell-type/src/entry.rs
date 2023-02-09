@@ -13,7 +13,7 @@ use das_dynamic_libs::constants::{DymLibSize, CKB_MULTI_LIB_CODE_HASH};
 use das_dynamic_libs::sign_lib::{SignLib, SignLibWith1Methods};
 use das_map::map::Map;
 use das_map::util as map_util;
-use das_types::constants::{AccountStatus, SubAccountEnableStatus};
+use das_types::constants::*;
 use das_types::mixer::*;
 use das_types::packed::*;
 

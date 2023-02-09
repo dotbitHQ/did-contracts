@@ -6,7 +6,6 @@ use alloc::vec::Vec;
 use alloc::{format, vec};
 use core::convert::TryInto;
 use core::fmt::Debug;
-
 use blake2b_ref::{Blake2b, Blake2bBuilder};
 use ckb_std::ckb_constants::{CellField, Source};
 use ckb_std::ckb_types::bytes;
@@ -16,7 +15,7 @@ use ckb_std::ckb_types::prelude::*;
 use ckb_std::cstr_core::CStr;
 use ckb_std::error::SysError;
 use ckb_std::{high_level, syscalls};
-use das_types::constants::{DataType, LockRole, WITNESS_HEADER};
+use das_types::constants::{DataType, LockRole, WITNESS_HEADER, DasLockType};
 use das_types::mixer::*;
 use das_types::packed::{self as das_packed};
 pub use das_types::util::{hex_string, is_entity_eq, is_reader_eq};

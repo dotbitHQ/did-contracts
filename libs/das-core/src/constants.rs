@@ -3,7 +3,6 @@ use alloc::vec::Vec;
 
 pub use ckb_std::ckb_types::core::ScriptHashType;
 use ckb_std::ckb_types::packed::*;
-pub use das_dynamic_libs::constants::DasLockType;
 
 use super::types::ScriptLiteral;
 use super::util;
