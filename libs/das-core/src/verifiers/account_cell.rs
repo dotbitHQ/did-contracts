@@ -11,7 +11,7 @@ use das_types::mixer::AccountCellDataReaderMixer;
 use das_types::packed::*;
 use das_types::util as das_types_util;
 
-use crate::constants::{DasLockType, *};
+use crate::constants::{*};
 use crate::error::*;
 use crate::witness_parser::WitnessesParser;
 use crate::{assert as das_assert, code_to_error, data_parser, util, warn};

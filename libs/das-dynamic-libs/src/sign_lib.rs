@@ -1,8 +1,8 @@
 use alloc::vec::Vec;
 
 use ckb_std::dynamic_loading_c_impl::Symbol;
+use das_types::constants::DasLockType;
 
-use super::constants::*;
 use super::error::Error;
 use super::util;
 

@@ -7,7 +7,6 @@ use core::str::FromStr;
 use ckb_std::ckb_constants::Source;
 use ckb_std::error::SysError;
 use ckb_std::syscalls;
-use das_dynamic_libs::constants::DasLockType;
 use das_types::constants::*;
 use das_types::packed::*;
 use das_types::prelude::*;
