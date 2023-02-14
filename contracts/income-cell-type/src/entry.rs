@@ -10,7 +10,7 @@ use das_core::constants::*;
 use das_core::error::*;
 use das_core::witness_parser::WitnessesParser;
 use das_core::{assert, code_to_error, util, verifiers, warn};
-use das_types::constants::{DataType, DasLockType};
+use das_types::constants::{DasLockType, DataType};
 use das_types::packed::*;
 use das_types::prelude::*;
 
