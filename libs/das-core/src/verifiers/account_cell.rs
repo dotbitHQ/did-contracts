@@ -14,7 +14,7 @@ use das_types::util as das_types_util;
 use crate::constants::*;
 use crate::error::*;
 use crate::witness_parser::WitnessesParser;
-use crate::{assert as das_assert, code_to_error, data_parser, util, warn};
+use crate::{data_parser, util};
 
 pub fn verify_unlock_role(action: &[u8], params: &[Bytes]) -> Result<(), Box<dyn ScriptError>> {
     let required_role_opt = util::get_action_required_role(action);

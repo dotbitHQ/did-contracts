@@ -19,7 +19,7 @@ use crate::sub_account_witness_parser::{
     SubAccountEditValue, SubAccountMintSignWitness, SubAccountWitness, SubAccountWitnessesParser,
 };
 use crate::witness_parser::WitnessesParser;
-use crate::{assert as das_assert, code_to_error, data_parser, debug, util, warn};
+use crate::{data_parser, util};
 
 pub fn verify_unlock_role(witness: &SubAccountWitness) -> Result<(), Box<dyn ScriptError>> {
     debug!(

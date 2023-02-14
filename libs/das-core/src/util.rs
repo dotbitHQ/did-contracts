@@ -24,10 +24,10 @@ pub use das_types::util::{hex_string, is_entity_eq, is_reader_eq};
 use hex::FromHexError;
 
 use super::constants::*;
+use super::data_parser;
 use super::error::*;
 use super::types::ScriptLiteral;
 use super::witness_parser::WitnessesParser;
-use super::{assert as das_assert, code_to_error, data_parser, debug, warn};
 
 #[cfg(test)]
 pub fn hex_to_unpacked_bytes(input: &str) -> Result<bytes::Bytes, FromHexError> {

@@ -7,7 +7,7 @@ use ckb_std::high_level;
 
 use crate::constants::{das_wallet_lock, ScriptType};
 use crate::error::*;
-use crate::{assert as das_assert, code_to_error, debug, util};
+use crate::util;
 
 pub fn verify_cell_dep_number(
     cell_name: &str,

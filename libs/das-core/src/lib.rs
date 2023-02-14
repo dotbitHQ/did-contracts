@@ -5,6 +5,7 @@ extern crate alloc;
 
 #[macro_use]
 pub mod macros;
+
 pub mod constants;
 pub mod data_parser;
 pub mod error;
