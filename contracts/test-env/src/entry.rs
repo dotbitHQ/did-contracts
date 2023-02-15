@@ -1,11 +1,13 @@
 use alloc::boxed::Box;
+use alloc::string::ToString;
 use core::result::Result;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::debug;
-use das_core::constants::{DasLockType, ScriptType};
+use das_core::constants::ScriptType;
 use das_core::error::*;
-use das_core::sub_account_witness_parser::{SubAccountEditValue, SubAccountWitnessesParser};
+use das_core::witness_parser::reverse_record::*;
+use das_core::witness_parser::sub_account::*;
 use das_core::witness_parser::WitnessesParser;
 use das_core::{assert, code_to_error, data_parser, util, warn};
 use das_types::constants::*;
@@ -20,6 +22,11 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
         Some((action, _)) => action,
         None => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
     };
+
+    debug!(
+        "Route to {:?} action ...",
+        alloc::string::String::from_utf8(action.to_vec()).map_err(|_| ErrorCode::ActionNotSupported)?
+    );
 
     match action {
         b"test_parse_witness_entity_config" => {
@@ -73,9 +80,9 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             );
 
             assert!(
-                sub_account_mint_sign_witness.sign_type == Some(DasLockType::ETH),
+                sub_account_mint_sign_witness.sign_type == Some(DasLockType::CKBSingle),
                 ErrorCode::UnittestError,
-                "The SubAccountMintSignWitness.sign_type should be Some(DasLockType::ETH)."
+                "The SubAccountMintSignWitness.sign_type should be Some(DasLockType::CKBSingle)."
             );
 
             assert!(
@@ -366,6 +373,88 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                         );
                     }
                 }
+            }
+        }
+        b"test_parse_reverse_record_witness_empty" => {
+            ReverseRecordWitnessesParser::new()?;
+        }
+        b"test_parse_reverse_record_witness_update_only" => {
+            let witness_parser = ReverseRecordWitnessesParser::new()?;
+            for witness_ret in witness_parser.iter() {
+                let witness = witness_ret.expect("Should be Ok");
+
+                assert!(
+                    witness.version == 1,
+                    ErrorCode::UnittestError,
+                    "The ReverseRecordWitness.veresion should be 2."
+                );
+
+                assert!(
+                    witness.action == ReverseRecordAction::Update,
+                    ErrorCode::UnittestError,
+                    "The ReverseRecordWitness.action should be {}.",
+                    ReverseRecordAction::Update.to_string()
+                );
+
+                assert!(
+                    witness.sign_type == DasLockType::CKBSingle,
+                    ErrorCode::UnittestError,
+                    "The ReverseRecordWitness.action should be {}.",
+                    DasLockType::CKBSingle.to_string()
+                );
+            }
+        }
+        b"test_parse_reverse_record_witness_remove_only" => {
+            let witness_parser = ReverseRecordWitnessesParser::new()?;
+            for witness_ret in witness_parser.iter() {
+                let witness = witness_ret.expect("Should be Ok");
+
+                assert!(
+                    witness.version == 1,
+                    ErrorCode::UnittestError,
+                    "The ReverseRecordWitness.veresion should be 2."
+                );
+
+                assert!(
+                    witness.action == ReverseRecordAction::Remove,
+                    ErrorCode::UnittestError,
+                    "The ReverseRecordWitness.action should be {}.",
+                    ReverseRecordAction::Remove.to_string()
+                );
+
+                assert!(
+                    witness.sign_type == DasLockType::CKBSingle,
+                    ErrorCode::UnittestError,
+                    "The ReverseRecordWitness.action should be {}.",
+                    DasLockType::CKBSingle.to_string()
+                );
+            }
+        }
+        b"test_parse_reverse_record_witness_mixed" => {
+            let witness_parser = ReverseRecordWitnessesParser::new()?;
+            for witness_ret in witness_parser.iter() {
+                let witness = witness_ret.expect("Should be Ok");
+
+                assert!(
+                    witness.version == 1,
+                    ErrorCode::UnittestError,
+                    "The ReverseRecordWitness.veresion should be 2."
+                );
+
+                assert!(
+                    witness.action == ReverseRecordAction::Update || witness.action == ReverseRecordAction::Remove,
+                    ErrorCode::UnittestError,
+                    "The ReverseRecordWitness.action should be {} or {}.",
+                    ReverseRecordAction::Update.to_string(),
+                    ReverseRecordAction::Remove.to_string()
+                );
+
+                assert!(
+                    witness.sign_type == DasLockType::CKBSingle,
+                    ErrorCode::UnittestError,
+                    "The ReverseRecordWitness.action should be {}.",
+                    DasLockType::CKBSingle.to_string()
+                );
             }
         }
         _ => return Err(code_to_error!(ErrorCode::ActionNotSupported)),

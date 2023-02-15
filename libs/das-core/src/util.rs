@@ -733,6 +733,7 @@ fn get_type_id(
         TypeScript::ProposalCellType => config.type_id_table().proposal_cell(),
         TypeScript::ReverseRecordCellType => config.type_id_table().reverse_record_cell(),
         TypeScript::SubAccountCellType => config.type_id_table().sub_account_cell(),
+        TypeScript::ReverseRecordRootCellType => config.type_id_table().reverse_record_root_cell(),
         TypeScript::EIP712Lib => config.type_id_table().eip712_lib(),
     };
 

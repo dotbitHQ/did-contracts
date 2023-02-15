@@ -15,9 +15,7 @@ use sparse_merkle_tree::H256;
 
 use crate::constants::*;
 use crate::error::*;
-use crate::sub_account_witness_parser::{
-    SubAccountEditValue, SubAccountMintSignWitness, SubAccountWitness, SubAccountWitnessesParser,
-};
+use crate::witness_parser::sub_account::*;
 use crate::witness_parser::WitnessesParser;
 use crate::{data_parser, util};
 

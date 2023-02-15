@@ -12,7 +12,6 @@ pub mod error;
 pub mod inspect;
 pub mod sign_util;
 pub mod since_util;
-pub mod sub_account_witness_parser;
 pub mod types;
 pub mod util;
 pub mod verifiers;
