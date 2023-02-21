@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::str::FromStr;
@@ -16,6 +16,7 @@ use serde_json::{json, Value};
 use sparse_merkle_tree::H256;
 
 use super::super::ckb_types_relay::*;
+use super::accounts::*;
 use super::constants::*;
 use super::since_util::SinceFlag;
 use super::smt::*;
@@ -746,6 +747,7 @@ impl TemplateGenerator {
             .pre_account_cell(Hash::try_from(util::get_type_id_bytes("pre-account-cell-type")).unwrap())
             .proposal_cell(Hash::try_from(util::get_type_id_bytes("proposal-cell-type")).unwrap())
             .reverse_record_cell(Hash::try_from(util::get_type_id_bytes("reverse-record-cell-type")).unwrap())
+            .reverse_record_root_cell(Hash::try_from(util::get_type_id_bytes("reverse-record-root-cell-type")).unwrap())
             .sub_account_cell(Hash::try_from(util::get_type_id_bytes("sub-account-cell-type")).unwrap())
             .eip712_lib(Hash::try_from(util::get_type_id_bytes("eip712-lib")).unwrap())
             .build();
@@ -1023,18 +1025,23 @@ impl TemplateGenerator {
     }
 
     fn gen_config_cell_smt_node_white_list(&mut self) -> (Vec<u8>, Vec<u8>) {
+        // Generate a default lock hash
+        let lock = gen_fake_signhash_all_lock(OWNER_1_WITHOUT_TYPE);
+        let lock_hash = blake2b_256(lock.as_slice()).to_vec();
+        // dbg!(hex::encode(lock.as_slice()));
+        // dbg!(hex::encode(&lock_hash));
+
         // Load and group unavailable accounts
-        let mut white_list = Vec::new();
+        let mut white_list = vec![lock_hash];
         let lines = util::read_lines("smt_node_white_list.txt")
             .expect("Expect file ./tests/data/smt_node_white_list.txt exist.");
 
         for line in lines {
             if let Ok(raw) = line {
-                let hash =
-                    hex::decode(raw).expect("All lines in smt_node_white_list.txt should be a valid hex of hash.");
+                let hash = util::hex_to_bytes_2(&raw);
                 assert!(hash.len() == 32);
 
-                white_list.push(hash);
+                white_list.push(hash.to_vec());
             }
         }
 
@@ -2927,13 +2934,11 @@ impl TemplateGenerator {
     ///     "action": "update" | "remove",
     ///     "signature": null | "0x...", // If this is null, it will be filled with 65 bytes of 0xFF.
     ///     "sign_type": null | u8, // The default value is 1 .
-    ///     "sign_expired_at": null | u64, // If this is null, it will be filled with 0.
     ///     "address_payload": "0x...",
-    ///     "prev_proof": null | "0x...", // If this is null, it will be calculated automatically from self.smt_with_history.
-    ///     "prev_nonce": null | u32, // If this is null, it will be filled with 0.
+    ///     "proof": null | "0x...", // If this is null, it will be calculated automatically from self.smt_with_history.
+    ///     "prev_nonce": null | u32, // If this is null, it will not be 0 but null.
     ///     "prev_account": "xxxxx.bit",
     ///     "next_root": null | "0x...", // If this is null, it will be calculated automatically from self.smt_with_history.
-    ///     "next_proof": null | "0x...", // If this is null, it will be calculated automatically from self.smt_with_history.
     ///     "next_account": "xxxxx.bit",
     /// })
     /// ```
@@ -2963,57 +2968,86 @@ impl TemplateGenerator {
         witness_bytes.extend(length_of(&field_value));
         witness_bytes.extend(field_value);
 
-        let field_value =
-            util::parse_json_u64("witness.sign_expired_at", &witness["sign_expired_at"], Some(0)).to_le_bytes();
-        witness_bytes.extend(length_of(&field_value));
-        witness_bytes.extend(field_value);
-
         let address_payload = util::parse_json_hex("witness.address_payload", &witness["address_payload"]);
         witness_bytes.extend(length_of(&address_payload));
         witness_bytes.extend(address_payload.clone());
 
-        let key = blake2b_256(&address_payload);
+        let key = H256::from(blake2b_256(&address_payload));
+
+        println!("key: {:?}", util::bytes_to_hex(key.as_slice()));
 
         // fields of previous status
-        let prev_nonce = util::parse_json_u32("witness.prev_nonce", &witness["prev_nonce"], Some(0));
-        let prev_account = parse_json_str("witness.prev_account", &witness["prev_account"]).as_bytes();
-        let prev_proof = if witness["prev_proof"].is_null() {
-            let value = util::gen_smt_value_for_reverse_record_smt(prev_nonce, prev_account);
-            let proof = self.smt_with_history.get_proof(vec![key.clone().into()]);
-            let compiled_proof = proof.compile(vec![(key.into(), value)]).unwrap().0;
+        let (prev_nonce, prev_nonce_bytes) = if witness["prev_nonce"].is_null() {
+            (None, vec![])
+        } else {
+            let prev_nonce = util::parse_json_u32("witness.prev_nonce", &witness["prev_nonce"], None);
+            (Some(prev_nonce), prev_nonce.to_le_bytes().to_vec())
+        };
+        let prev_account = parse_json_str_with_default("witness.prev_account", &witness["prev_account"], "").as_bytes();
+        let proof = if witness["proof"].is_null() {
+            let prev_value = if prev_nonce.is_none() {
+                H256::zero()
+            } else {
+                util::gen_smt_value_for_reverse_record_smt(prev_nonce.unwrap(), prev_account)
+            };
+            let proof = self.smt_with_history.get_proof(vec![key.clone()]);
+            let compiled_proof = proof.clone().compile(vec![(key.into(), prev_value)]).unwrap().0;
+
+            let ret = self.smt_with_history.verify(&compiled_proof, vec![(&key, &prev_value)]);
+            println!(
+                "  prev_root: {}",
+                util::bytes_to_hex(&self.smt_with_history.current_root())
+            );
+            println!(
+                "  prev_value(verified: {}): {}",
+                ret,
+                util::bytes_to_hex(prev_value.as_slice())
+            );
+
             compiled_proof
         } else {
             util::parse_json_hex_with_default("witness.prev_proof", &witness["prev_proof"], vec![])
         };
-        witness_bytes.extend(length_of(&prev_proof));
-        witness_bytes.extend(prev_proof);
-        witness_bytes.extend(length_of(&prev_nonce.to_le_bytes()));
-        witness_bytes.extend(prev_nonce.to_le_bytes());
+        witness_bytes.extend(length_of(&proof));
+        witness_bytes.extend(proof.clone());
+        witness_bytes.extend(length_of(&prev_nonce_bytes));
+        witness_bytes.extend(prev_nonce_bytes);
         witness_bytes.extend(length_of(&prev_account));
         witness_bytes.extend(prev_account);
 
         // fields of next status
-        let next_nonce = prev_nonce + 1;
+        let next_nonce = if prev_nonce.is_none() {
+            1
+        } else {
+            prev_nonce.unwrap() + 1
+        };
         let next_account = parse_json_str("witness.next_account", &witness["next_account"]).as_bytes();
-        let key = blake2b_256(&address_payload);
         let value = util::gen_smt_value_for_reverse_record_smt(next_nonce, next_account);
-        let (_, root, proof) = self.smt_with_history.insert(key.clone().into(), value.clone());
-        let next_root = if witness["prev_root"].is_null() {
+        let (_, root, _) = self.smt_with_history.insert(key.clone().into(), value.clone());
+        let next_root = if witness["next_root"].is_null() {
+            let next_value = if prev_nonce.is_none() {
+                util::gen_smt_value_for_reverse_record_smt(1, next_account)
+            } else {
+                util::gen_smt_value_for_reverse_record_smt(prev_nonce.unwrap() + 1, next_account)
+            };
+            let ret = self.smt_with_history.verify(&proof, vec![(&key, &next_value)]);
+            println!("  next_root: {}", util::bytes_to_hex(&root));
+            println!(
+                "  next_value(verified: {}): {}",
+                ret,
+                util::bytes_to_hex(next_value.as_slice())
+            );
+
             root.to_vec()
         } else {
-            util::parse_json_hex_with_default("witness.prev_root", &witness["prev_root"], vec![])
-        };
-        let next_proof = if witness["prev_proof"].is_null() {
-            proof.compile(vec![(key.into(), value)]).unwrap().0
-        } else {
-            util::parse_json_hex_with_default("witness.prev_proof", &witness["prev_proof"], vec![])
+            util::parse_json_hex_with_default("witness.next_root", &witness["next_root"], vec![])
         };
         witness_bytes.extend(length_of(&next_root));
         witness_bytes.extend(next_root);
-        witness_bytes.extend(length_of(&next_proof));
-        witness_bytes.extend(next_proof);
         witness_bytes.extend(length_of(&next_account));
         witness_bytes.extend(next_account);
+
+        println!("  proof: {:?}", util::bytes_to_hex(&proof));
 
         witness_bytes = das_util::wrap_raw_witness_v2(DataType::ReverseRecord, witness_bytes);
         self.reverse_record_outer_witnesses

@@ -17,7 +17,6 @@ mod proposal_cell_type;
 mod reverse_record_cell_type;
 mod reverse_record_root_cell_type;
 mod sub_account_cell_type;
-mod sub_account_witness_parser;
 mod witness_parser;
 
 mod gen_type_id_table;

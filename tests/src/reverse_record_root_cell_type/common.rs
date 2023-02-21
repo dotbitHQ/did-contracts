@@ -15,7 +15,6 @@ pub fn init(action: &str) -> TemplateGenerator {
 
     template.push_config_cell(DataType::ConfigCellMain, Source::CellDep);
     template.push_config_cell(DataType::ConfigCellReverseResolution, Source::CellDep);
-    template.push_config_cell(DataType::ConfigCellSMTNodeWhitelist, Source::CellDep);
 
     template
 }
