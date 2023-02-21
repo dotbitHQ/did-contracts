@@ -9,7 +9,6 @@ use core::result::Result;
 use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::packed;
 use ckb_std::cstr_core::CStr;
-use ckb_std::dynamic_loading_c_impl::CKBDLContext;
 use ckb_std::error::SysError;
 use ckb_std::high_level;
 use das_core::constants::*;
@@ -18,8 +17,7 @@ use das_core::util::{self, blake2b_256};
 use das_core::witness_parser::sub_account::*;
 use das_core::witness_parser::WitnessesParser;
 use das_core::{assert as das_assert, code_to_error, data_parser, debug, verifiers, warn};
-use das_dynamic_libs::constants::{DymLibSize, ETH_LIB_CODE_HASH, TRON_LIB_CODE_HASH};
-use das_dynamic_libs::sign_lib::{SignLib, SignLibWith2Methods};
+use das_dynamic_libs::sign_lib::SignLib;
 use das_types::constants::{AccountStatus, LockRole, SubAccountAction};
 use das_types::packed::*;
 use das_types::prelude::{Builder, Entity};
@@ -254,48 +252,11 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             debug!("Initiate the dynamic signing libraries ...");
 
-            let mut eth_lib = unsafe { CKBDLContext::<DymLibSize>::new() };
-            let mut tron_lib = unsafe { CKBDLContext::<DymLibSize>::new() };
-            let mut eth = None;
-            let mut tron = None;
-
+            let mut sign_lib = SignLib::new();
             if cfg!(not(feature = "dev")) {
-                // CAREFUL Proof verification has been skipped in development mode.
-                // TODO Refactor the temporary solution of dynamic library loading ...
-
-                debug!("Loading ETH dynamic library ...");
-
-                let lib = eth_lib
-                    .load(&ETH_LIB_CODE_HASH)
-                    .expect("The shared lib should be loaded successfully.");
-                eth = Some(SignLibWith2Methods {
-                    c_validate: unsafe {
-                        lib.get(b"validate")
-                            .expect("Load function 'validate' from library failed.")
-                    },
-                    c_validate_str: unsafe {
-                        lib.get(b"validate_str")
-                            .expect("Load function 'validate_str' from library failed.")
-                    },
-                });
-
-                debug!("Loading TRON dynamic library ...");
-
-                let lib = tron_lib
-                    .load(&TRON_LIB_CODE_HASH)
-                    .expect("The shared lib should be loaded successfully.");
-                tron = Some(SignLibWith2Methods {
-                    c_validate: unsafe {
-                        lib.get(b"validate")
-                            .expect("Load function 'validate' from library failed.")
-                    },
-                    c_validate_str: unsafe {
-                        lib.get(b"validate_str")
-                            .expect("Load function 'validate_str' from library failed.")
-                    },
-                });
+                sign_lib.load_eth_lib(SignLib::new_context());
+                sign_lib.load_tron_lib(SignLib::new_context());
             }
-            let sign_lib = SignLib::new(eth, tron, None);
 
             // Initiate some variables used again and again in the following codes.
             let mut account_list_smt_root = None;
