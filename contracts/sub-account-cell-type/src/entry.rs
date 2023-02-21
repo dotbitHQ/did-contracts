@@ -1050,7 +1050,7 @@ fn smt_verify_sub_account_is_in_signed_list(
         util::hex_string(&key)
     );
 
-    verifiers::sub_account_cell::verify_smt_proof(key, value, root, proof)?;
+    verifiers::common::verify_smt_proof(key, value, root, proof)?;
 
     Ok(())
 }
@@ -1068,7 +1068,7 @@ fn smt_verify_sub_account_is_creatable(
         util::hex_string(&key)
     );
     let zero_val = [0u8; 32];
-    verifiers::sub_account_cell::verify_smt_proof(key, zero_val, prev_root.try_into().unwrap(), proof)?;
+    verifiers::common::verify_smt_proof(key, zero_val, prev_root.try_into().unwrap(), proof)?;
 
     debug!(
         "witnesses[{}] Verify if the sub-account is in the SMT now.",
@@ -1076,7 +1076,7 @@ fn smt_verify_sub_account_is_creatable(
     );
     let current_root = witness.new_root.as_slice();
     let current_val = blake2b_256(witness.sub_account.as_slice()).to_vec().try_into().unwrap();
-    verifiers::sub_account_cell::verify_smt_proof(key, current_val, current_root.try_into().unwrap(), proof)?;
+    verifiers::common::verify_smt_proof(key, current_val, current_root.try_into().unwrap(), proof)?;
 
     Ok(())
 }
@@ -1098,7 +1098,7 @@ fn smt_verify_sub_account_is_editable(
     // debug!("prev_val = 0x{}", util::hex_string(&prev_val));
     // debug!("prev_val_raw = 0x{}", util::hex_string(witness.sub_account.as_slice()));
     // debug!("prev_val_prettier = {}", witness.sub_account.as_prettier());
-    verifiers::sub_account_cell::verify_smt_proof(key, prev_val, prev_root.try_into().unwrap(), proof)?;
+    verifiers::common::verify_smt_proof(key, prev_val, prev_root.try_into().unwrap(), proof)?;
 
     debug!(
         "witnesses[{}] Verify if the new state of the sub-account is in the SMT now.",
@@ -1109,7 +1109,7 @@ fn smt_verify_sub_account_is_editable(
     // debug!("current_val = 0x{}", util::hex_string(&current_val));
     // debug!("current_val_raw = 0x{}", util::hex_string(new_sub_account.as_slice()));
     // debug!("current_val_prettier = {}", new_sub_account.as_prettier());
-    verifiers::sub_account_cell::verify_smt_proof(key, current_val, current_root.try_into().unwrap(), proof)?;
+    verifiers::common::verify_smt_proof(key, current_val, current_root.try_into().unwrap(), proof)?;
 
     Ok(())
 }

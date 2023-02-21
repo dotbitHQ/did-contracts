@@ -14,3 +14,5 @@ ckb-std = "0.10.0"
 hex = { default-features = false, version = "0.4.2"}
 das-core = { path = "../../libs/das-core", default-features = false }
 das-types = { path = "../../../das-types/rust", default-features = false }
+sparse-merkle-tree = { git = "https://github.com/nervosnetwork/sparse-merkle-tree.git", default-features = false }
+das-dynamic-libs = { path = "../../libs/das-dynamic-libs" }

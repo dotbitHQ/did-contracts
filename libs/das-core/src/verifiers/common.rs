@@ -6,6 +6,8 @@ use core::cmp::Ordering;
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
 use das_types::packed;
+use sparse_merkle_tree::ckb_smt::SMTBuilder;
+use sparse_merkle_tree::H256;
 
 use crate::constants::{das_wallet_lock, CellField, ScriptType};
 use crate::error::*;
@@ -319,5 +321,25 @@ pub fn verify_das_get_change(expected_change: u64) -> Result<(), Box<dyn ScriptE
         total_capacity
     );
 
+    Ok(())
+}
+
+pub fn verify_smt_proof(
+    key: [u8; 32],
+    val: [u8; 32],
+    root: [u8; 32],
+    proof: &[u8],
+) -> Result<(), Box<dyn ScriptError>> {
+    let builder = SMTBuilder::new();
+    let builder = builder.insert(&H256::from(key), &H256::from(val)).unwrap();
+
+    let smt = builder.build().unwrap();
+    let ret = smt.verify(&H256::from(root), &proof);
+    if let Err(_e) = ret {
+        debug!("  verify_smt_proof verification failed. Err: {:?}", _e);
+        return Err(code_to_error!(ErrorCode::SubAccountWitnessSMTRootError));
+    } else {
+        debug!("  verify_smt_proof verification passed.");
+    }
     Ok(())
 }

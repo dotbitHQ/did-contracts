@@ -10,7 +10,7 @@ use ckb_std::syscalls;
 use das_types::constants::*;
 
 use super::super::error::*;
-use super::super::{data_parser, util};
+use super::super::util;
 use super::lv_parser::*;
 
 // Binary format: 'das'(3) + DATA_TYPE(4) + binary_data
@@ -25,9 +25,9 @@ pub struct ReverseRecordWitness {
     pub sign_type: DasLockType,
     pub address_payload: Vec<u8>,
     pub proof: Vec<u8>,
-    pub prev_nonce: u32,
+    pub prev_nonce: Option<u32>,
     pub prev_account: String,
-    pub next_root: Vec<u8>,
+    pub next_root: [u8; 32],
     pub next_account: String,
 }
 
@@ -209,17 +209,31 @@ impl ReverseRecordWitnessesParser {
             ErrorCode::WitnessStructureError
         })?;
 
-        let prev_nonce = u32::from_le_bytes(prev_nonce.try_into().map_err(|_| {
+        let prev_nonce = if prev_nonce.is_empty() {
+            None
+        } else {
+            Some(u32::from_le_bytes(prev_nonce.try_into().map_err(|_| {
+                warn!(
+                    "  witnesses[{:>2}] ReverseRecordWitness.prev_nonce should be 4 bytes.",
+                    index
+                );
+                ErrorCode::WitnessStructureError
+            })?))
+        };
+        let prev_account = if prev_nonce.is_none() {
+            String::from("")
+        } else {
+            String::from_utf8(prev_account.to_vec()).map_err(|_| {
+                warn!(
+                    "  witnesses[{:>2}] ReverseRecordWitness.prev_account should be a valid string.",
+                    index
+                );
+                ErrorCode::WitnessStructureError
+            })?
+        };
+        let next_root: [u8; 32] = next_root.try_into().map_err(|_| {
             warn!(
-                "  witnesses[{:>2}] ReverseRecordWitness.prev_nonce should be 4 bytes.",
-                index
-            );
-            ErrorCode::WitnessStructureError
-        })?);
-
-        let prev_account = String::from_utf8(prev_account.to_vec()).map_err(|_| {
-            warn!(
-                "  witnesses[{:>2}] ReverseRecordWitness.prev_account should be a valid string.",
+                "  witnesses[{:>2}] ReverseRecordWitness.next_root should be 32 bytes.",
                 index
             );
             ErrorCode::WitnessStructureError
@@ -233,7 +247,7 @@ impl ReverseRecordWitnessesParser {
         })?;
 
         debug!(
-            "  ReverseRecord witnesses[{:>2}]: {{ version: {}, action: {}, signature: 0x{}, sign_type: {}, address_payload: 0x{}, proof: 0x{}, prev_nonce: {}, prev_account: {}, next_root: 0x{}, next_account: {} }}",
+            "  ReverseRecord witnesses[{:>2}]: {{ version: {}, action: {}, signature: 0x{}, sign_type: {}, address_payload: 0x{}, proof: 0x{}, prev_nonce: {:?}, prev_account: {}, next_root: 0x{}, next_account: {} }}",
             index,
             version,
             action.to_string(),
@@ -243,7 +257,7 @@ impl ReverseRecordWitnessesParser {
             util::hex_string(proof),
             prev_nonce,
             prev_account,
-            util::hex_string(next_root),
+            util::hex_string(&next_root),
             next_account,
         );
 
@@ -257,7 +271,7 @@ impl ReverseRecordWitnessesParser {
             proof: proof.to_vec(),
             prev_nonce,
             prev_account,
-            next_root: next_root.to_vec(),
+            next_root,
             next_account,
         })
     }

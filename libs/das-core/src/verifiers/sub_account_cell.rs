@@ -10,8 +10,6 @@ use das_types::constants::*;
 use das_types::packed::*;
 use das_types::prelude::Entity;
 use das_types::prettier::Prettier;
-use sparse_merkle_tree::ckb_smt::SMTBuilder;
-use sparse_merkle_tree::H256;
 
 use crate::constants::*;
 use crate::error::*;
@@ -255,26 +253,6 @@ pub fn verify_initial_properties(
     Ok(())
 }
 
-pub fn verify_smt_proof(
-    key: [u8; 32],
-    val: [u8; 32],
-    root: [u8; 32],
-    proof: &[u8],
-) -> Result<(), Box<dyn ScriptError>> {
-    let builder = SMTBuilder::new();
-    let builder = builder.insert(&H256::from(key), &H256::from(val)).unwrap();
-
-    let smt = builder.build().unwrap();
-    let ret = smt.verify(&H256::from(root), &proof);
-    if let Err(_e) = ret {
-        debug!("verify_smt_proof verification failed. Err: {:?}", _e);
-        return Err(code_to_error!(ErrorCode::SubAccountWitnessSMTRootError));
-    } else {
-        debug!("verify_smt_proof verification passed.");
-    }
-    Ok(())
-}
-
 pub fn verify_sub_account_mint_sign(
     witness: &SubAccountMintSignWitness,
     sign_lib: &SignLib,
@@ -404,7 +382,7 @@ pub fn verify_sub_account_edit_sign(
     }
 
     debug!(
-        "  witnesses[{:>2}] Verify if the witness.sub_account.sig is valid.",
+        "  witnesses[{:>2}] Verify if the witness.sub_account.signature is valid.",
         witness.index
     );
 

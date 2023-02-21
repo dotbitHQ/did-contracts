@@ -65,6 +65,7 @@ pub enum ErrorCode {
     WitnessArgsInvalid,
     WitnessArgsDecodingError,
     WitnessVersionOrTypeInvalid,
+    SMTWhiteListTheLockIsNotFound,
     ApplyRegisterNeedWaitLonger = 60,
     ApplyRegisterHasTimeout,
     ApplyLockMustBeUnique,
@@ -312,6 +313,7 @@ pub enum ReverseRecordRootCellErrorCode {
     // Customized errors:
     InitialCapacityError = 50,
     InitialOutputsDataError,
+    SMTNewRootMismatch,
 }
 
 impl From<SysError> for ReverseRecordRootCellErrorCode {

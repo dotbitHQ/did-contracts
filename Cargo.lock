@@ -1310,8 +1310,10 @@ version = "1.0.0"
 dependencies = [
  "ckb-std",
  "das-core",
+ "das-dynamic-libs",
  "das-types",
  "hex",
+ "sparse-merkle-tree",
 ]
 
 [[package]]
