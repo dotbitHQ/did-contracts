@@ -574,7 +574,7 @@ pub fn is_cell_capacity_equal(cell_a: (usize, Source), cell_b: (usize, Source)) 
 
     das_assert!(
         a_capacity == b_capacity,
-        ErrorCode::CellCapacityMustConsistent,
+        ErrorCode::CellCapacityMustBeConsistent,
         "The capacity of {:?}[{}]({}) should be equal to {:?}[{}]({}).",
         cell_a.1,
         cell_a.0,

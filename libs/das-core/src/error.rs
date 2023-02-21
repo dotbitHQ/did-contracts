@@ -37,7 +37,7 @@ pub enum ErrorCode {
     CellDataCanNotBeModified,
     CellCapacityMustReduced,
     CellCapacityMustIncreased,
-    CellCapacityMustConsistent, // 25
+    CellCapacityMustBeConsistent, // 25
     CellsMustHaveSameOrderAndNumber,
     ActionNotSupported,
     ParamsDecodingError,

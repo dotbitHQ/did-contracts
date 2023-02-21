@@ -54,6 +54,15 @@ pub enum SignType {
     EIP712Custom,
 }
 
+#[derive(Eq, PartialEq, Debug, Clone, Copy)]
+#[repr(u8)]
+pub enum CellField {
+    Capacity,
+    Lock,
+    Type,
+    Data,
+}
+
 pub const CKB_HASH_DIGEST: usize = 32;
 pub const CKB_HASH_PERSONALIZATION: &[u8] = b"ckb-default-hash";
 

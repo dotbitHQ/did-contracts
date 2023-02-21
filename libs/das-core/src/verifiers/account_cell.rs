@@ -242,7 +242,6 @@ pub fn verify_account_capacity_not_decrease(
     let output =
         high_level::load_cell_capacity(output_account_index, Source::Output).map_err(Error::<ErrorCode>::from)?;
 
-    // ⚠️ Equal is not allowed here because we want to avoid abuse cell.
     das_assert!(
         input <= output,
         AccountCellErrorCode::AccountCellChangeCapacityError,
