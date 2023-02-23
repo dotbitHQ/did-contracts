@@ -100,7 +100,7 @@ impl ReverseRecordWitnessesParser {
                             reverse_record_indexes.push(i);
 
                             let start = WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES;
-                            // Every sub-account witness has the next fields, here we parse it one by one.
+                            // Every ReverseRecord witness has the next fields, here we parse it one by one.
                             let (start, _) = parse_field("version", &buf, start)?;
                             let (_, action_bytes) = parse_field("action", &buf, start)?;
                             if action_bytes == ReverseRecordAction::Update.to_string().as_bytes() {
@@ -147,7 +147,7 @@ impl ReverseRecordWitnessesParser {
         let raw = util::load_das_witnesses(index)?;
         let start = WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES;
 
-        // Every sub-account witness has the next fields, here we parse it one by one.
+        // Every ReverseRecord witness has the next fields, here we parse it one by one.
         let (start, version) = parse_field("version", &raw, start)?;
         let (start, action) = parse_field("action", &raw, start)?;
         let (start, signature) = parse_field("signature", &raw, start)?;

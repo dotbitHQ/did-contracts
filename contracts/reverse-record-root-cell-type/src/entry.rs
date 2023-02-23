@@ -1,6 +1,7 @@
 use alloc::boxed::Box;
-use alloc::string::ToString;
+use alloc::string::{String, ToString};
 use alloc::vec;
+use alloc::vec::Vec;
 use core::result::Result;
 
 use ckb_std::ckb_constants::Source;
@@ -135,11 +136,21 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 fn verify_has_some_lock_in_white_list(start_from: usize, white_list: &[[u8; 32]]) -> Result<(), Box<dyn ScriptError>> {
     debug!("Verify if there is any lock in the inputs exist in the SMT white list.");
 
+    // debug!(
+    //     "white_list = {:?}",
+    //     white_list.iter().map(|v| util::hex_string(v)).collect::<Vec<String>>()
+    // );
+
     let mut i = start_from;
     loop {
         let result = high_level::load_cell_lock_hash(i, Source::Input);
         match result {
             Ok(input_lock_hash) => {
+                debug!(
+                    "Verify if the lock hash 0x{} in white list.",
+                    util::hex_string(&input_lock_hash)
+                );
+
                 if white_list.contains(&input_lock_hash) {
                     return Ok(());
                 }

@@ -37,7 +37,11 @@ macro_rules! load_fn_for_2_methods_lib {
                 );
                 return;
             } else {
-                debug_log!("Loading {} dynamic library ...", $name_str);
+                debug_log!(
+                    "Loading {} dynamic library with code_hash 0x{} ...",
+                    $name_str,
+                    util::hex_string(&$code_hash)
+                );
             }
 
             let lib = context

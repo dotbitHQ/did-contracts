@@ -15,7 +15,7 @@ pub fn parse_field<'a>(
             assert!(
                 bytes.len() == 4,
                 ErrorCode::WitnessStructureError,
-                "  [{}] Sub-account witness structure error, expect {}..{} to be bytes of LE uint32.",
+                "  [{}] witness structure error, expect {}..{} to be bytes of LE uint32.",
                 field_name,
                 start,
                 start + WITNESS_LENGTH_BYTES
@@ -25,7 +25,7 @@ pub fn parse_field<'a>(
         }
         None => {
             warn!(
-                "  [{}] Sub-account witness structure error, expect 4 bytes in {}..{} .",
+                "  [{}] witness structure error, expect 4 bytes in {}..{} .",
                 field_name,
                 start,
                 start + WITNESS_LENGTH_BYTES
@@ -41,7 +41,7 @@ pub fn parse_field<'a>(
         Some(bytes) => bytes,
         None => {
             warn!(
-                "  [{}] Sub-account witness structure error, expect {} bytes in {}..{} .",
+                "  [{}] witness structure error, expect {} bytes in {}..{} .",
                 field_name, length, from, to
             );
             return Err(code_to_error!(ErrorCode::WitnessStructureError));
