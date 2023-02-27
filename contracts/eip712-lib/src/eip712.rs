@@ -342,7 +342,7 @@ pub fn to_semantic_address(
 
                     address = format!(
                         "{}",
-                        to_full_address(code_hash, hash_type, pubkey_hash)
+                        to_short_address(vec![0], pubkey_hash)
                             .map_err(|_| Error::new(ErrorCode::EIP712SematicError, String::new()))?
                     )
                 }
@@ -366,6 +366,15 @@ pub fn to_semantic_address(
                 }
                 _ => return Err(code_to_error!(ErrorCode::EIP712SematicError)),
             }
+        }
+        Some(LockScript::Secp256k1Blake160SignhashLock) => {
+            // If this is a secp256k1_blake160_signhash_all lock, convert it to short address.
+            let args = lock_reader.args().raw_data().to_vec();
+            address = format!(
+                "{}",
+                to_short_address(vec![0], args)
+                    .map_err(|_| Error::new(ErrorCode::EIP712SematicError, String::new()))?
+            )
         }
         _ => {
             // If this is a other lock, convert it to full address.
