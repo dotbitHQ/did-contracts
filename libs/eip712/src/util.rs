@@ -26,6 +26,13 @@ const HRP: &str = "ckb";
 #[cfg(not(feature = "mainnet"))]
 const HRP: &str = "ckt";
 
+pub fn to_short_address(code_hash_index: Vec<u8>, args: Vec<u8>) -> Result<String, bech32::Error> {
+    // This is the payload of legacy address.
+    let data = [vec![1], code_hash_index, args].concat();
+
+    bech32::encode(&HRP.to_string(), data.to_base32(), Variant::Bech32)
+}
+
 pub fn to_full_address(code_hash: Vec<u8>, hash_type: Vec<u8>, args: Vec<u8>) -> Result<String, bech32::Error> {
     // This is the payload of full address.
     let data = [vec![0u8], code_hash, hash_type, args].concat();
