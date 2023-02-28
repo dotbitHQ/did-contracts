@@ -1,7 +1,6 @@
 use alloc::boxed::Box;
-use alloc::string::{String, ToString};
+use alloc::string::{ToString};
 use alloc::vec;
-use alloc::vec::Vec;
 use core::result::Result;
 
 use ckb_std::ckb_constants::Source;

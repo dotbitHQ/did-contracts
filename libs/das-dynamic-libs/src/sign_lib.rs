@@ -28,18 +28,18 @@ pub struct SignLibWith1Methods {
 }
 
 macro_rules! load_fn_for_2_methods_lib {
-    ($name:ident, $name_str:expr, $property:ident, $code_hash:expr) => {
+    ($name:ident, $property:ident, $code_hash:expr) => {
         pub fn $name(&mut self, mut context: CKBDLContext<DymLibSize>) {
             if self.$property.is_some() {
                 debug_log!(
                     "The dynamic library of {} has been loaded, skip loading.",
-                    $name_str
+                    stringify!($property)
                 );
                 return;
             } else {
                 debug_log!(
                     "Loading {} dynamic library with code_hash 0x{} ...",
-                    $name_str,
+                    stringify!($property),
                     util::hex_string(&$code_hash)
                 );
             }
@@ -62,16 +62,16 @@ macro_rules! load_fn_for_2_methods_lib {
 }
 
 macro_rules! load_fn_for_1_method_lib {
-    ($name:ident, $name_str:expr, $property:ident, $code_hash:expr) => {
+    ($name:ident, $property:ident, $code_hash:expr) => {
         pub fn $name(&mut self, mut context: CKBDLContext<DymLibSize>) {
             if self.$property.is_some() {
                 debug_log!(
                     "The dynamic library of {} has been loaded, skip loading.",
-                    $name_str
+                    stringify!($property)
                 );
                 return;
             } else {
-                debug_log!("Loading {} dynamic library ...", $name_str);
+                debug_log!("Loading {} dynamic library ...", stringify!($property));
             }
 
             let lib = context
@@ -90,7 +90,7 @@ macro_rules! load_fn_for_1_method_lib {
 pub struct SignLib {
     eth: Option<SignLibWith2Methods>,
     tron: Option<SignLibWith2Methods>,
-    multi: Option<SignLibWith1Methods>,
+    ckb_multi: Option<SignLibWith1Methods>,
 }
 
 impl SignLib {
@@ -100,7 +100,7 @@ impl SignLib {
             // ckb_multi_sig_all: OnceCell::new(),
             eth: None,
             tron: None,
-            multi: None,
+            ckb_multi: None,
         }
     }
 
@@ -111,9 +111,9 @@ impl SignLib {
         unsafe { CKBDLContext::<DymLibSize>::new() }
     }
 
-    load_fn_for_2_methods_lib!(load_eth_lib, "ETH", eth, ETH_LIB_CODE_HASH);
-    load_fn_for_2_methods_lib!(load_tron_lib, "TRON", tron, TRON_LIB_CODE_HASH);
-    load_fn_for_1_method_lib!(load_multi_lib, "CKB_MULTI_SIGN", multi, CKB_MULTI_LIB_CODE_HASH);
+    load_fn_for_2_methods_lib!(load_eth_lib, eth, ETH_LIB_CODE_HASH);
+    load_fn_for_2_methods_lib!(load_tron_lib, tron, TRON_LIB_CODE_HASH);
+    load_fn_for_1_method_lib!(load_multi_lib, ckb_multi, CKB_MULTI_LIB_CODE_HASH);
 
     /// Validate signatures
     ///
@@ -134,24 +134,24 @@ impl SignLib {
             util::hex_string(&lock_args)
         );
 
-        let error_code: i32 = match das_lock_type {
+        let func;
+        match das_lock_type {
             DasLockType::ETH | DasLockType::ETHTypedData => {
                 let lib = self.eth.as_ref().unwrap();
-                let func = &lib.c_validate;
-                unsafe { func(type_no, digest.as_ptr(), lock_bytes.as_ptr(), lock_args.as_ptr()) }
+                func = &lib.c_validate;
             }
             DasLockType::TRON => {
                 let lib = self.tron.as_ref().unwrap();
-                let func = &lib.c_validate;
-                unsafe { func(type_no, digest.as_ptr(), lock_bytes.as_ptr(), lock_args.as_ptr()) }
+                func = &lib.c_validate;
             }
             DasLockType::CKBMulti => {
-                let lib = self.multi.as_ref().unwrap();
-                let func = &lib.c_validate;
-                unsafe { func(type_no, digest.as_ptr(), lock_bytes.as_ptr(), lock_args.as_ptr()) }
+                let lib = self.ckb_multi.as_ref().unwrap();
+                func = &lib.c_validate;
             }
             _ => return Err(Error::UndefinedDasLockType as i32),
-        };
+        }
+
+        let error_code: i32 = unsafe { func(type_no, digest.as_ptr(), lock_bytes.as_ptr(), lock_args.as_ptr()) };
 
         if error_code != 0 {
             return Err(error_code);
@@ -180,34 +180,28 @@ impl SignLib {
             util::hex_string(&lock_args)
         );
 
-        let error_code: i32 = match das_lock_type {
+        let func;
+        match das_lock_type {
             DasLockType::ETH | DasLockType::ETHTypedData => {
                 let lib = self.eth.as_ref().unwrap();
-                let func = &lib.c_validate_str;
-                unsafe {
-                    func(
-                        type_no,
-                        digest.as_ptr(),
-                        digest_len,
-                        lock_bytes.as_ptr(),
-                        lock_args.as_ptr(),
-                    )
-                }
+                func = &lib.c_validate_str;
+
             }
             DasLockType::TRON => {
                 let lib = self.tron.as_ref().unwrap();
-                let func = &lib.c_validate_str;
-                unsafe {
-                    func(
-                        type_no,
-                        digest.as_ptr(),
-                        digest_len,
-                        lock_bytes.as_ptr(),
-                        lock_args.as_ptr(),
-                    )
-                }
+                func = &lib.c_validate_str;
             }
             _ => return Err(Error::UndefinedDasLockType as i32),
+        }
+
+        let error_code: i32 = unsafe {
+            func(
+                type_no,
+                digest.as_ptr(),
+                digest_len,
+                lock_bytes.as_ptr(),
+                lock_args.as_ptr(),
+            )
         };
 
         if error_code != 0 {
