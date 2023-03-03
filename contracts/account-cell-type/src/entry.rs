@@ -8,7 +8,9 @@ use das_core::constants::*;
 use das_core::error::*;
 use das_core::witness_parser::WitnessesParser;
 use das_core::{assert as das_assert, code_to_error, data_parser, debug, sign_util, util, verifiers, warn};
+use das_dynamic_libs::constants::DynLibName;
 use das_dynamic_libs::sign_lib::SignLib;
+use das_dynamic_libs::{load_1_method, load_lib, log_loading, new_context};
 use das_map::map::Map;
 use das_map::util as map_util;
 use das_types::constants::*;
@@ -1367,7 +1369,10 @@ fn verify_multi_sign(input_account_index: usize) -> Result<(), Box<dyn ScriptErr
 
     if cfg!(not(feature = "dev")) {
         let mut sign_lib = SignLib::new();
-        sign_lib.load_multi_lib(SignLib::new_context());
+        log_loading!(DynLibName::CKBMulti);
+        let mut ckb_multi_context = new_context!();
+        let ckb_multi_lib = load_lib!(ckb_multi_context, DynLibName::CKBMulti);
+        sign_lib.ckb_multi = load_1_method!(ckb_multi_lib);
 
         sign_lib
             .validate(DasLockType::CKBMulti, 0i32, digest.to_vec(), witness_args_lock, args)

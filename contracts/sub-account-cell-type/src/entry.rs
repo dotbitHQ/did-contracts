@@ -17,7 +17,9 @@ use das_core::util::{self, blake2b_256};
 use das_core::witness_parser::sub_account::*;
 use das_core::witness_parser::WitnessesParser;
 use das_core::{assert as das_assert, code_to_error, data_parser, debug, verifiers, warn};
+use das_dynamic_libs::constants::DynLibName;
 use das_dynamic_libs::sign_lib::SignLib;
+use das_dynamic_libs::{load_2_methods, load_lib, log_loading, new_context};
 use das_types::constants::{AccountStatus, LockRole, SubAccountAction};
 use das_types::packed::*;
 use das_types::prelude::{Builder, Entity};
@@ -254,8 +256,15 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             let mut sign_lib = SignLib::new();
             if cfg!(not(feature = "dev")) {
-                sign_lib.load_eth_lib(SignLib::new_context());
-                sign_lib.load_tron_lib(SignLib::new_context());
+                log_loading!(DynLibName::ETH);
+                let mut eth_context = new_context!();
+                let eth_lib = load_lib!(eth_context, DynLibName::ETH);
+                sign_lib.eth = load_2_methods!(eth_lib);
+
+                log_loading!(DynLibName::TRON);
+                let mut tron_context = new_context!();
+                let tron_lib = load_lib!(tron_context, DynLibName::TRON);
+                sign_lib.tron = load_2_methods!(tron_lib);
             }
 
             // Initiate some variables used again and again in the following codes.

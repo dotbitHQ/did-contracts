@@ -1,11 +1,10 @@
 use alloc::vec::Vec;
 
-use ckb_std::dynamic_loading_c_impl::{CKBDLContext, Symbol};
+use ckb_std::dynamic_loading_c_impl::Symbol;
 use das_types::constants::DasLockType;
 
 use super::error::Error;
 use super::util;
-use crate::constants::*;
 
 // int validate(int type, uint8_t* message, uint8_t* lock_bytes, uint8_t* eth_address)
 type ValidateFunction =
@@ -27,93 +26,20 @@ pub struct SignLibWith1Methods {
     pub c_validate: Symbol<ValidateFunction>,
 }
 
-macro_rules! load_fn_for_2_methods_lib {
-    ($name:ident, $property:ident, $code_hash:expr) => {
-        pub fn $name(&mut self, mut context: CKBDLContext<DymLibSize>) {
-            if self.$property.is_some() {
-                debug_log!(
-                    "The dynamic library of {} has been loaded, skip loading.",
-                    stringify!($property)
-                );
-                return;
-            } else {
-                debug_log!(
-                    "Loading {} dynamic library with code_hash 0x{} ...",
-                    stringify!($property),
-                    util::hex_string(&$code_hash)
-                );
-            }
-
-            let lib = context
-                .load(&$code_hash)
-                .expect("The shared lib should be loaded successfully.");
-            self.$property = Some(SignLibWith2Methods {
-                c_validate: unsafe {
-                    lib.get(b"validate")
-                        .expect("Load function 'validate' from library failed.")
-                },
-                c_validate_str: unsafe {
-                    lib.get(b"validate_str")
-                        .expect("Load function 'validate_str' from library failed.")
-                },
-            });
-        }
-    };
-}
-
-macro_rules! load_fn_for_1_method_lib {
-    ($name:ident, $property:ident, $code_hash:expr) => {
-        pub fn $name(&mut self, mut context: CKBDLContext<DymLibSize>) {
-            if self.$property.is_some() {
-                debug_log!(
-                    "The dynamic library of {} has been loaded, skip loading.",
-                    stringify!($property)
-                );
-                return;
-            } else {
-                debug_log!("Loading {} dynamic library ...", stringify!($property));
-            }
-
-            let lib = context
-                .load(&$code_hash)
-                .expect("The shared lib should be loaded successfully.");
-            self.$property = Some(SignLibWith1Methods {
-                c_validate: unsafe {
-                    lib.get(b"validate")
-                        .expect("Load function 'validate' from library failed.")
-                },
-            });
-        }
-    };
-}
-
 pub struct SignLib {
-    eth: Option<SignLibWith2Methods>,
-    tron: Option<SignLibWith2Methods>,
-    ckb_multi: Option<SignLibWith1Methods>,
+    pub ckb_multi: Option<SignLibWith1Methods>,
+    pub eth: Option<SignLibWith2Methods>,
+    pub tron: Option<SignLibWith2Methods>,
 }
 
 impl SignLib {
     pub fn new() -> Self {
         SignLib {
-            // ckb_sign_hash_all: OnceCell::new(),
-            // ckb_multi_sig_all: OnceCell::new(),
+            ckb_multi: None,
             eth: None,
             tron: None,
-            ckb_multi: None,
         }
     }
-
-    /// New context for loading dynamic library
-    ///
-    /// CAREFUL: This must be called in the entry.rs.
-    pub fn new_context() -> CKBDLContext<DymLibSize> {
-        unsafe { CKBDLContext::<DymLibSize>::new() }
-    }
-
-    load_fn_for_2_methods_lib!(load_eth_lib, eth, ETH_LIB_CODE_HASH);
-    load_fn_for_2_methods_lib!(load_tron_lib, tron, TRON_LIB_CODE_HASH);
-    load_fn_for_1_method_lib!(load_multi_lib, ckb_multi, CKB_MULTI_LIB_CODE_HASH);
 
     /// Validate signatures
     ///
@@ -185,7 +111,6 @@ impl SignLib {
             DasLockType::ETH | DasLockType::ETHTypedData => {
                 let lib = self.eth.as_ref().unwrap();
                 func = &lib.c_validate_str;
-
             }
             DasLockType::TRON => {
                 let lib = self.tron.as_ref().unwrap();

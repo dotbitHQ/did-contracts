@@ -1,4 +1,29 @@
-pub type DymLibSize = [u8; 128 * 1024];
+use core::fmt::Display;
+
+pub type DynLibSize = [u8; 128 * 1024];
+
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub enum DynLibName {
+    CKBMulti,
+    ETH,
+    TRON,
+}
+
+impl DynLibName {
+    pub fn get_code_hash(&self) -> &'static [u8] {
+        match &self {
+            &DynLibName::CKBMulti => &CKB_MULTI_LIB_CODE_HASH,
+            &DynLibName::ETH => &ETH_LIB_CODE_HASH,
+            &DynLibName::TRON => &TRON_LIB_CODE_HASH,
+        }
+    }
+}
+
+impl Display for DynLibName {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
 
 #[cfg(feature = "mainnet")]
 pub const CKB_MULTI_LIB_CODE_HASH: [u8; 32] = [

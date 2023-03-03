@@ -1,5 +1,5 @@
 use alloc::boxed::Box;
-use alloc::string::{ToString};
+use alloc::string::ToString;
 use alloc::vec;
 use core::result::Result;
 
@@ -10,8 +10,10 @@ use das_core::error::*;
 use das_core::witness_parser::reverse_record::{ReverseRecordWitness, ReverseRecordWitnessesParser};
 use das_core::witness_parser::WitnessesParser;
 use das_core::{assert as das_assert, code_to_error, debug, util, verifiers, warn};
+use das_dynamic_libs::constants::DynLibName;
 use das_dynamic_libs::error::Error as DasDynamicLibError;
 use das_dynamic_libs::sign_lib::SignLib;
+use das_dynamic_libs::{load_2_methods, load_lib, log_loading, new_context};
 use das_types::constants::DasLockType;
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
@@ -95,8 +97,15 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             let mut sign_lib = SignLib::new();
             if cfg!(not(feature = "dev")) {
-                sign_lib.load_eth_lib(SignLib::new_context());
-                sign_lib.load_tron_lib(SignLib::new_context());
+                log_loading!(DynLibName::ETH);
+                let mut eth_context = new_context!();
+                let eth_lib = load_lib!(eth_context, DynLibName::ETH);
+                sign_lib.eth = load_2_methods!(eth_lib);
+
+                log_loading!(DynLibName::TRON);
+                let mut tron_context = new_context!();
+                let tron_lib = load_lib!(tron_context, DynLibName::TRON);
+                sign_lib.tron = load_2_methods!(tron_lib);
             }
 
             debug!("Start iterating ReverseRecord witnesses ...");
