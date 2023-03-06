@@ -1,6 +1,7 @@
 use std::prelude::v1::*;
 
 use bech32::{ToBase32, Variant};
+use sha2::{Digest, Sha256};
 use tiny_keccak::{Hasher, Keccak};
 
 pub fn keccak256(data: &[u8]) -> Vec<u8> {
@@ -40,6 +41,39 @@ pub fn to_full_address(code_hash: Vec<u8>, hash_type: Vec<u8>, args: Vec<u8>) ->
     bech32::encode(&HRP.to_string(), data.to_base32(), Variant::Bech32m)
 }
 
+const TRON_ADDR_PREFIX: u8 = 0x41;
+
+pub fn to_tron_address(pubkey_hash: impl AsRef<[u8]>) -> String {
+    let mut payload = vec![TRON_ADDR_PREFIX];
+    payload.extend(pubkey_hash.as_ref());
+    b58encode_check(payload)
+}
+
+const DOGE_ADDR_PREFIX: u8 = 0x1E;
+
+pub fn to_doge_address(pubkey_hash: impl AsRef<[u8]>) -> String {
+    let mut payload = vec![DOGE_ADDR_PREFIX];
+    payload.extend(pubkey_hash.as_ref());
+    b58encode_check(payload)
+}
+
+fn b58encode_check<T: AsRef<[u8]>>(raw: T) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(raw.as_ref());
+    let digest1 = hasher.finalize();
+
+    let mut hasher = Sha256::new();
+    hasher.update(&digest1);
+    let digest = hasher.finalize();
+
+    let mut input = raw.as_ref().to_owned();
+    input.extend(&digest[..4]);
+    let mut output = String::new();
+    bs58::encode(&input).into(&mut output).unwrap();
+
+    output
+}
+
 pub fn to_semantic_capacity(capacity: u64) -> String {
     let capacity_str = capacity.to_string();
     let length = capacity_str.len();
@@ -71,21 +105,46 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_eip712_to_semantic_address() {
+    fn test_eip712_to_short_address() {
         // Copy from https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0021-ckb-address-format/0021-ckb-address-format.md
-        let code_hash = vec![
-            155, 215, 224, 111, 62, 207, 75, 224, 242, 252, 210, 24, 139, 35, 241, 185, 252, 200, 142, 93, 75, 101,
-            168, 99, 123, 23, 114, 59, 189, 163, 204, 232,
-        ];
+        let code_hash_index = vec![0];
+        let args = hex::decode("b39bbc0b3673c7d36450bc14cfcdad2d559c6c64").unwrap();
+
+        let expected = "ckt1qyqt8xaupvm8837nv3gtc9x0ekkj64vud3jq5t63cs";
+        let address = to_short_address(code_hash_index, args).unwrap();
+        assert_eq!(&address, expected);
+    }
+
+    #[test]
+    fn test_eip712_to_full_address() {
+        // Copy from https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0021-ckb-address-format/0021-ckb-address-format.md
+        let code_hash = hex::decode("9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8").unwrap();
         let hash_type = vec![1];
-        // b39bbc0b3673c7d36450bc14cfcdad2d559c6c64
-        let args = vec![
-            179, 155, 188, 11, 54, 115, 199, 211, 100, 80, 188, 20, 207, 205, 173, 45, 85, 156, 108, 100,
-        ];
+        let args = hex::decode("b39bbc0b3673c7d36450bc14cfcdad2d559c6c64").unwrap();
 
         let expected =
             "ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqdnnw7qkdnnclfkg59uzn8umtfd2kwxceqgutnjd";
         let address = to_full_address(code_hash, hash_type, args).unwrap();
+        assert_eq!(&address, expected);
+    }
+
+    #[test]
+    fn test_eip712_to_tron_address() {
+        let payload = hex::decode("8840E6C55B9ADA326D211D818C34A994AECED808").unwrap();
+
+        let expected = "TNPeeaaFB7K9cmo4uQpcU32zGK8G1NYqeL";
+        let address = to_tron_address(payload);
+
+        assert_eq!(&address, expected);
+    }
+
+    #[test]
+    fn test_eip712_to_doge_address() {
+        let payload = hex::decode("faeb6478ecfdb01e00409130fd51c46e8e04ef01").unwrap();
+
+        let expected = "DU1qTa77uRizv4JGR8Ydj6Yrs73GVT2pFR";
+        let address = to_doge_address(payload);
+
         assert_eq!(&address, expected);
     }
 

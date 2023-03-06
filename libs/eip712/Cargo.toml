@@ -16,4 +16,6 @@ mainnet = []
 no-std-compat = { version = "0.4", features = [ "alloc", "compat_macros" ] }
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 hex = { version = "0.4", default-features = false }
-bech32 = { version = "0.8.1", default-features = false }
+bech32 = { version = "0.9.1", default-features = false }
+bs58 = { version = "0.4.0", default-features = false, features = [ "alloc" ] }
+sha2 = { version = "0.10.6", default-features = false }

@@ -5,7 +5,6 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::convert::{TryFrom, TryInto};
 
-use bs58;
 use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::packed as ckb_packed;
 use ckb_std::ckb_types::prelude::{Entity, Pack, Unpack};
@@ -22,9 +21,7 @@ use das_types::prelude::*;
 use eip712::eip712::*;
 use eip712::util::*;
 use eip712::{hash_data, typed_data_v4};
-use sha2::{Digest, Sha256};
 
-const TRX_ADDR_PREFIX: u8 = 0x41;
 const DATA_OMIT_SIZE: usize = 20;
 const PARAM_OMIT_SIZE: usize = 10;
 
@@ -346,16 +343,6 @@ pub fn to_semantic_address(
                             .map_err(|_| Error::new(ErrorCode::EIP712SematicError, String::new()))?
                     )
                 }
-                DasLockType::TRON => {
-                    let mut raw = [0u8; 21];
-                    raw[0] = TRX_ADDR_PREFIX;
-                    if role == LockRole::Owner {
-                        raw[1..21].copy_from_slice(data_parser::das_lock_args::get_owner_lock_args(args_in_bytes));
-                    } else {
-                        raw[1..21].copy_from_slice(data_parser::das_lock_args::get_manager_lock_args(args_in_bytes));
-                    }
-                    address = format!("{}", b58encode_check(&raw));
-                }
                 DasLockType::ETH | DasLockType::ETHTypedData => {
                     let pubkey_hash = if role == LockRole::Owner {
                         data_parser::das_lock_args::get_owner_lock_args(args_in_bytes).to_vec()
@@ -363,6 +350,19 @@ pub fn to_semantic_address(
                         data_parser::das_lock_args::get_manager_lock_args(args_in_bytes).to_vec()
                     };
                     address = format!("0x{}", util::hex_string(&pubkey_hash));
+                }
+                DasLockType::TRON | DasLockType::Doge => {
+                    let pubkey_hash = if role == LockRole::Owner {
+                        data_parser::das_lock_args::get_owner_lock_args(args_in_bytes)
+                    } else {
+                        data_parser::das_lock_args::get_manager_lock_args(args_in_bytes)
+                    };
+
+                    address = match das_lock_type {
+                        DasLockType::TRON => format!("{}", to_tron_address(pubkey_hash)),
+                        DasLockType::Doge => format!("{}", to_doge_address(pubkey_hash)),
+                        _ => unreachable!(),
+                    };
                 }
                 _ => return Err(code_to_error!(ErrorCode::EIP712SematicError)),
             }
@@ -388,23 +388,6 @@ pub fn to_semantic_address(
 
     // debug!("lock: {} => address: {}", lock_reader, address);
     Ok(address)
-}
-
-fn b58encode_check<T: AsRef<[u8]>>(raw: T) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(raw.as_ref());
-    let digest1 = hasher.finalize();
-
-    let mut hasher = Sha256::new();
-    hasher.update(&digest1);
-    let digest = hasher.finalize();
-
-    let mut input = raw.as_ref().to_owned();
-    input.extend(&digest[..4]);
-    let mut output = String::new();
-    bs58::encode(&input).into(&mut output).unwrap();
-
-    output
 }
 
 fn to_typed_action(parser: &WitnessesParser) -> Result<Value, Box<dyn ScriptError>> {
