@@ -29,7 +29,7 @@ pub enum ErrorCode {
     CellDataCanNotBeModified,
     CellCapacityMustReduced,
     CellCapacityMustIncreased,
-    CellCapacityMustConsistent, // 25
+    CellCapacityMustBeConsistent, // 25
     CellsMustHaveSameOrderAndNumber,
     ActionNotSupported,
     ParamsDecodingError,
@@ -57,6 +57,9 @@ pub enum ErrorCode {
     WitnessArgsInvalid,
     WitnessArgsDecodingError,
     WitnessVersionOrTypeInvalid,
+    SMTWhiteListTheLockIsNotFound,
+    SMTNewRootMismatch,
+    SMTProofVerifyFailed,
     ApplyRegisterNeedWaitLonger = 60,
     ApplyRegisterHasTimeout,
     ApplyLockMustBeUnique,
@@ -121,8 +124,6 @@ pub enum ErrorCode {
     OfferCellFieldCanNotModified,
     OfferCellAccountMismatch,
     SubAccountFeatureNotEnabled = -50,
-    SubAccountCellSMTRootError,
-    SubAccountWitnessSMTRootError,
     SubAccountWitnessMismatched,
     SubAccountSignMintExpiredAtTooLarge,
     SubAccountSignMintExpiredAtReached,

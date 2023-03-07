@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryFrom;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::str::FromStr;
@@ -2974,7 +2974,7 @@ impl TemplateGenerator {
 
         let key = H256::from(blake2b_256(&address_payload));
 
-        println!("key: {:?}", util::bytes_to_hex(key.as_slice()));
+        // println!("key: {:?}", util::bytes_to_hex(key.as_slice()));
 
         // fields of previous status
         let (prev_nonce, prev_nonce_bytes) = if witness["prev_nonce"].is_null() {
@@ -2994,15 +2994,18 @@ impl TemplateGenerator {
             let compiled_proof = proof.clone().compile(vec![(key.into(), prev_value)]).unwrap().0;
 
             let ret = self.smt_with_history.verify(&compiled_proof, vec![(&key, &prev_value)]);
-            println!(
-                "  prev_root: {}",
-                util::bytes_to_hex(&self.smt_with_history.current_root())
-            );
-            println!(
-                "  prev_value(verified: {}): {}",
-                ret,
-                util::bytes_to_hex(prev_value.as_slice())
-            );
+            if !ret {
+                panic!("The generated proof of SMT is invalid for prev_root unexpectly.");
+            }
+            // println!(
+            //     "  prev_root: {}",
+            //     util::bytes_to_hex(&self.smt_with_history.current_root())
+            // );
+            // println!(
+            //     "  prev_value(verified: {}): {}",
+            //     ret,
+            //     util::bytes_to_hex(prev_value.as_slice())
+            // );
 
             compiled_proof
         } else {
@@ -3031,12 +3034,15 @@ impl TemplateGenerator {
                 util::gen_smt_value_for_reverse_record_smt(prev_nonce.unwrap() + 1, next_account)
             };
             let ret = self.smt_with_history.verify(&proof, vec![(&key, &next_value)]);
-            println!("  next_root: {}", util::bytes_to_hex(&root));
-            println!(
-                "  next_value(verified: {}): {}",
-                ret,
-                util::bytes_to_hex(next_value.as_slice())
-            );
+            if !ret {
+                panic!("The generated proof of SMT is invalid for next_root unexpectly.");
+            }
+            // println!("  next_root: {}", util::bytes_to_hex(&root));
+            // println!(
+            //     "  next_value(verified: {}): {}",
+            //     ret,
+            //     util::bytes_to_hex(next_value.as_slice())
+            // );
 
             root.to_vec()
         } else {
@@ -3047,7 +3053,7 @@ impl TemplateGenerator {
         witness_bytes.extend(length_of(&next_account));
         witness_bytes.extend(next_account);
 
-        println!("  proof: {:?}", util::bytes_to_hex(&proof));
+        // println!("  proof: {:?}", util::bytes_to_hex(&proof));
 
         witness_bytes = das_util::wrap_raw_witness_v2(DataType::ReverseRecord, witness_bytes);
         self.reverse_record_outer_witnesses
