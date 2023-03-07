@@ -1,9 +1,9 @@
 use serde_json::{json, Value};
 
 use super::common::*;
-use crate::sub_account_witness_parser::TIMESTAMP;
 use crate::util;
 use crate::util::accounts::*;
+use crate::util::constants::*;
 use crate::util::error::*;
 use crate::util::template_common_cell::*;
 use crate::util::template_generator::TemplateGenerator;

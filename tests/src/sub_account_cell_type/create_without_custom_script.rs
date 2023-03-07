@@ -256,7 +256,7 @@ fn challenge_sub_account_create_id_not_match() {
     }));
     push_common_output_cells(&mut template, 1);
 
-    challenge_tx(template.as_json(), ErrorCode::SubAccountWitnessSMTRootError);
+    challenge_tx(template.as_json(), ErrorCode::SMTProofVerifyFailed);
 }
 
 #[test]
