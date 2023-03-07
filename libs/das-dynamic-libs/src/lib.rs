@@ -8,4 +8,4 @@ mod macros;
 pub mod constants;
 pub mod error;
 pub mod sign_lib;
-mod util;
+pub mod util;

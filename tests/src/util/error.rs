@@ -29,7 +29,7 @@ pub enum ErrorCode {
     CellDataCanNotBeModified,
     CellCapacityMustReduced,
     CellCapacityMustIncreased,
-    CellCapacityMustConsistent, // 25
+    CellCapacityMustBeConsistent, // 25
     CellsMustHaveSameOrderAndNumber,
     ActionNotSupported,
     ParamsDecodingError,
@@ -57,6 +57,9 @@ pub enum ErrorCode {
     WitnessArgsInvalid,
     WitnessArgsDecodingError,
     WitnessVersionOrTypeInvalid,
+    SMTWhiteListTheLockIsNotFound,
+    SMTNewRootMismatch,
+    SMTProofVerifyFailed,
     ApplyRegisterNeedWaitLonger = 60,
     ApplyRegisterHasTimeout,
     ApplyLockMustBeUnique,
@@ -120,13 +123,7 @@ pub enum ErrorCode {
     OfferCellNewOwnerError,
     OfferCellFieldCanNotModified,
     OfferCellAccountMismatch,
-    ReverseRecordCellLockError = -60,
-    ReverseRecordCellCapacityError,
-    ReverseRecordCellAccountError,
-    ReverseRecordCellChangeError,
     SubAccountFeatureNotEnabled = -50,
-    SubAccountCellSMTRootError,
-    SubAccountWitnessSMTRootError,
     SubAccountWitnessMismatched,
     SubAccountSignMintExpiredAtTooLarge,
     SubAccountSignMintExpiredAtReached,
@@ -241,6 +238,31 @@ pub enum PreAccountCellErrorCode {
 }
 
 impl Into<i8> for PreAccountCellErrorCode {
+    fn into(self) -> i8 {
+        self as i8
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+#[repr(i8)]
+pub enum ReverseRecordRootCellErrorCode {
+    // WARNING Reserved errors:
+    IndexOutOfBound = 1,
+    ItemMissing = 2,
+    LengthNotEnough = 3,
+    Encoding = 4,
+    IncomeCellConsolidateConditionNotSatisfied = -126,
+    AccountCellMissingPrevAccount = -114,
+    AccountCellThrottle = -102,
+    AccountCellInExpirationGracePeriod = -99,
+    SubAccountNormalCellLockLimit = -37,
+    SystemOff = -1,
+    // Customized errors:
+    InitialCapacityError = 50,
+    InitialOutputsDataError,
+}
+
+impl Into<i8> for ReverseRecordRootCellErrorCode {
     fn into(self) -> i8 {
         self as i8
     }

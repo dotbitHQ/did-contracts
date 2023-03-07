@@ -3,14 +3,14 @@ use alloc::vec;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::prelude::*;
-use ckb_std::dynamic_loading_c_impl::CKBDLContext;
 use ckb_std::high_level;
 use das_core::constants::*;
 use das_core::error::*;
 use das_core::witness_parser::WitnessesParser;
 use das_core::{assert as das_assert, code_to_error, data_parser, debug, sign_util, util, verifiers, warn};
-use das_dynamic_libs::constants::{DymLibSize, CKB_MULTI_LIB_CODE_HASH};
-use das_dynamic_libs::sign_lib::{SignLib, SignLibWith1Methods};
+use das_dynamic_libs::constants::DynLibName;
+use das_dynamic_libs::sign_lib::SignLib;
+use das_dynamic_libs::{load_1_method, load_lib, log_loading, new_context};
 use das_map::map::Map;
 use das_map::util as map_util;
 use das_types::constants::*;
@@ -887,7 +887,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             das_assert!(
                 expected_default_data == sub_account_outputs_data,
-                ErrorCode::SubAccountCellSMTRootError,
+                ErrorCode::SMTProofVerifyFailed,
                 "The default outputs_data of SubAccountCell should be [0u8; 48] ."
             );
 
@@ -1368,23 +1368,12 @@ fn verify_multi_sign(input_account_index: usize) -> Result<(), Box<dyn ScriptErr
     // It is the signature validation requirement.
     args.extend_from_slice(&since.to_le_bytes());
 
-    debug!(
-        "Loading dynamic library by code_hash: 0x{}",
-        util::hex_string(&CKB_MULTI_LIB_CODE_HASH)
-    );
-
     if cfg!(not(feature = "dev")) {
-        let mut context = unsafe { CKBDLContext::<DymLibSize>::new() };
-        let lib = context
-            .load(&CKB_MULTI_LIB_CODE_HASH)
-            .expect("The shared lib should be loaded successfully.");
-        let methods = SignLibWith1Methods {
-            c_validate: unsafe {
-                lib.get(b"validate")
-                    .expect("Load function 'validate' from library failed.")
-            },
-        };
-        let sign_lib = SignLib::new(None, None, Some(methods));
+        let mut sign_lib = SignLib::new();
+        log_loading!(DynLibName::CKBMulti);
+        let mut ckb_multi_context = new_context!();
+        let ckb_multi_lib = load_lib!(ckb_multi_context, DynLibName::CKBMulti);
+        sign_lib.ckb_multi = load_1_method!(ckb_multi_lib);
 
         sign_lib
             .validate(DasLockType::CKBMulti, 0i32, digest.to_vec(), witness_args_lock, args)

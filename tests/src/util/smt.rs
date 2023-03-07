@@ -2,7 +2,7 @@ use ckb_hash::{Blake2b, Blake2bBuilder};
 use sparse_merkle_tree::default_store::DefaultStore;
 use sparse_merkle_tree::traits::Hasher;
 pub use sparse_merkle_tree::MerkleProof;
-use sparse_merkle_tree::{SparseMerkleTree, H256};
+use sparse_merkle_tree::{SMTBuilder, SparseMerkleTree, H256};
 
 type SMT = SparseMerkleTree<Blake2bHasher, H256, DefaultStore<H256>>;
 
@@ -113,6 +113,18 @@ impl SMTWithHistory {
             .compile(leaves)
             .expect("Proof should be compiled successfully")
             .into()
+    }
+
+    pub fn verify(&self, compiled_proof: &[u8], leaves: Vec<(&H256, &H256)>) -> bool {
+        let root = H256::from(self.current_root());
+        let mut builder = SMTBuilder::new();
+
+        for (key, val) in leaves {
+            builder = builder.insert(key, val).unwrap();
+        }
+
+        let smt = builder.build().unwrap();
+        smt.verify(&root, compiled_proof).is_ok()
     }
 }
 

@@ -1340,6 +1340,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "reverse-record-root-cell-type"
+version = "1.0.0"
+dependencies = [
+ "ckb-std",
+ "das-core",
+ "das-dynamic-libs",
+ "das-types",
+ "hex",
+ "sparse-merkle-tree",
+]
+
+[[package]]
 name = "rustversion"
 version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -27,23 +27,17 @@ pub struct SignLibWith1Methods {
 }
 
 pub struct SignLib {
-    eth: Option<SignLibWith2Methods>,
-    tron: Option<SignLibWith2Methods>,
-    multi: Option<SignLibWith1Methods>,
+    pub ckb_multi: Option<SignLibWith1Methods>,
+    pub eth: Option<SignLibWith2Methods>,
+    pub tron: Option<SignLibWith2Methods>,
 }
 
 impl SignLib {
-    pub fn new(
-        eth: Option<SignLibWith2Methods>,
-        tron: Option<SignLibWith2Methods>,
-        multi: Option<SignLibWith1Methods>,
-    ) -> Self {
+    pub fn new() -> Self {
         SignLib {
-            // ckb_sign_hash_all: OnceCell::new(),
-            // ckb_multi_sig_all: OnceCell::new(),
-            eth,
-            tron,
-            multi,
+            ckb_multi: None,
+            eth: None,
+            tron: None,
         }
     }
 
@@ -66,24 +60,24 @@ impl SignLib {
             util::hex_string(&lock_args)
         );
 
-        let error_code: i32 = match das_lock_type {
+        let func;
+        match das_lock_type {
             DasLockType::ETH | DasLockType::ETHTypedData => {
                 let lib = self.eth.as_ref().unwrap();
-                let func = &lib.c_validate;
-                unsafe { func(type_no, digest.as_ptr(), lock_bytes.as_ptr(), lock_args.as_ptr()) }
+                func = &lib.c_validate;
             }
             DasLockType::TRON => {
                 let lib = self.tron.as_ref().unwrap();
-                let func = &lib.c_validate;
-                unsafe { func(type_no, digest.as_ptr(), lock_bytes.as_ptr(), lock_args.as_ptr()) }
+                func = &lib.c_validate;
             }
             DasLockType::CKBMulti => {
-                let lib = self.multi.as_ref().unwrap();
-                let func = &lib.c_validate;
-                unsafe { func(type_no, digest.as_ptr(), lock_bytes.as_ptr(), lock_args.as_ptr()) }
+                let lib = self.ckb_multi.as_ref().unwrap();
+                func = &lib.c_validate;
             }
             _ => return Err(Error::UndefinedDasLockType as i32),
-        };
+        }
+
+        let error_code: i32 = unsafe { func(type_no, digest.as_ptr(), lock_bytes.as_ptr(), lock_args.as_ptr()) };
 
         if error_code != 0 {
             return Err(error_code);
@@ -112,34 +106,27 @@ impl SignLib {
             util::hex_string(&lock_args)
         );
 
-        let error_code: i32 = match das_lock_type {
+        let func;
+        match das_lock_type {
             DasLockType::ETH | DasLockType::ETHTypedData => {
                 let lib = self.eth.as_ref().unwrap();
-                let func = &lib.c_validate_str;
-                unsafe {
-                    func(
-                        type_no,
-                        digest.as_ptr(),
-                        digest_len,
-                        lock_bytes.as_ptr(),
-                        lock_args.as_ptr(),
-                    )
-                }
+                func = &lib.c_validate_str;
             }
             DasLockType::TRON => {
                 let lib = self.tron.as_ref().unwrap();
-                let func = &lib.c_validate_str;
-                unsafe {
-                    func(
-                        type_no,
-                        digest.as_ptr(),
-                        digest_len,
-                        lock_bytes.as_ptr(),
-                        lock_args.as_ptr(),
-                    )
-                }
+                func = &lib.c_validate_str;
             }
             _ => return Err(Error::UndefinedDasLockType as i32),
+        }
+
+        let error_code: i32 = unsafe {
+            func(
+                type_no,
+                digest.as_ptr(),
+                digest_len,
+                lock_bytes.as_ptr(),
+                lock_args.as_ptr(),
+            )
         };
 
         if error_code != 0 {
@@ -193,7 +180,7 @@ impl SignLib {
         }
     }
 
-    fn gen_digest(&self, das_lock_type: DasLockType, data: Vec<u8>) -> Result<Vec<u8>, i32> {
+    pub fn gen_digest(&self, das_lock_type: DasLockType, data: Vec<u8>) -> Result<Vec<u8>, i32> {
         let mut blake2b = util::new_blake2b();
         blake2b.update(&data);
         let mut h = [0u8; 32];

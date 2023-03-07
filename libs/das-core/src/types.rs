@@ -73,6 +73,7 @@ pub struct Configs {
     pub preserved_account: OnceCell<Vec<u8>>,
     pub unavailable_account: OnceCell<Vec<u8>>,
     pub sub_account_beta_list: OnceCell<Vec<u8>>,
+    pub smt_node_white_list: OnceCell<Vec<[u8; 32]>>,
 }
 
 impl Configs {
@@ -95,6 +96,7 @@ impl Configs {
             preserved_account: OnceCell::new(),
             unavailable_account: OnceCell::new(),
             sub_account_beta_list: OnceCell::new(),
+            smt_node_white_list: OnceCell::new(),
         }
     }
 
@@ -288,6 +290,50 @@ impl Configs {
 
                 Ok(char_set)
             })
+        })
+    }
+
+    pub fn smt_node_white_list(&self) -> Result<&Vec<[u8; 32]>, Box<dyn ScriptError>> {
+        self.smt_node_white_list.get_or_try_init(|| {
+            let data_type = DataType::ConfigCellSMTNodeWhitelist;
+            let (i, raw) = Self::parse_witness(&self.config_witnesses, data_type)?;
+            let data = match raw.get(WITNESS_LENGTH_BYTES..) {
+                Some(data) => {
+                    let mut ret = vec![];
+
+                    let mut from: usize = 0;
+                    let mut to: usize = 32;
+                    loop {
+                        match data.get(from..to) {
+                            Some(val) => {
+                                das_assert!(
+                                    val.len() == 32,
+                                    ErrorCode::ConfigCellWitnessDecodingError,
+                                    "witnesses[{:>2}] The data of {:?} should be a multiple of 32 bytes.",
+                                    i,
+                                    data_type
+                                );
+
+                                let mut tmp = [0u8; 32];
+                                tmp.copy_from_slice(val);
+                                ret.push(tmp);
+
+                                from = to;
+                                to += 32;
+                            }
+                            None => break,
+                        }
+                    }
+
+                    ret
+                }
+                None => {
+                    warn!("witnesses[{:>2}] The data of {:?} is empty.", i, data_type);
+                    return Err(code_to_error!(ErrorCode::ConfigIsPartialMissing).into());
+                }
+            };
+
+            Ok(data)
         })
     }
 }

@@ -13,8 +13,8 @@ use das_types::prelude::*;
 #[cfg(all(debug_assertions))]
 use das_types::prettier::Prettier;
 
-use super::error::*;
-use super::{assert, code_to_error, data_parser, debug, util, warn};
+use super::super::error::*;
+use super::super::{data_parser, util};
 
 // Binary format: 'das'(3) + DATA_TYPE(4) + binary_data
 

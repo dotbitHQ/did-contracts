@@ -27,6 +27,7 @@ pub enum TypeScript {
     ProposalCellType,
     ReverseRecordCellType,
     SubAccountCellType,
+    ReverseRecordRootCellType,
     EIP712Lib,
 }
 
@@ -52,6 +53,15 @@ pub enum SignType {
     Secp256k1Blake160SignhashAll,
     Secp256k1Blake160MultiSigAll,
     EIP712Custom,
+}
+
+#[derive(Eq, PartialEq, Debug, Clone, Copy)]
+#[repr(u8)]
+pub enum CellField {
+    Capacity,
+    Lock,
+    Type,
+    Data,
 }
 
 pub const CKB_HASH_DIGEST: usize = 32;
@@ -122,9 +132,14 @@ pub fn super_lock() -> Script {
 
     #[cfg(feature = "mainnet")]
     let super_lock = ScriptLiteral {
-        code_hash: [0; 32],
+        code_hash: [
+            92, 80, 105, 235, 8, 87, 239, 198, 94, 27, 202, 12, 7, 223, 52, 195, 22, 99, 179, 98, 47, 211, 135, 108,
+            135, 99, 32, 252, 150, 52, 226, 168,
+        ],
         hash_type: ScriptHashType::Type,
-        args: vec![],
+        args: vec![
+            193, 38, 99, 94, 206, 86, 124, 113, 197, 15, 116, 130, 197, 219, 128, 96, 56, 82, 195, 6,
+        ],
     };
 
     util::script_literal_to_script(super_lock)

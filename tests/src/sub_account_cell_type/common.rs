@@ -45,6 +45,7 @@ pub fn init_update() -> TemplateGenerator {
 
     template.push_contract_cell("eth_sign.so", ContractType::SharedLib);
     template.push_contract_cell("ckb_sign.so", ContractType::SharedLib);
+    template.push_contract_cell("tron_sign.so", ContractType::SharedLib);
     template.push_contract_cell("secp256k1_data", ContractType::DeployedSharedLib);
 
     template.push_config_cell(DataType::ConfigCellCharSetEmoji, Source::CellDep);
