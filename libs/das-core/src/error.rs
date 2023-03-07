@@ -66,6 +66,8 @@ pub enum ErrorCode {
     WitnessArgsDecodingError,
     WitnessVersionOrTypeInvalid,
     SMTWhiteListTheLockIsNotFound,
+    SMTNewRootMismatch,
+    SMTProofVerifyFailed,
     ApplyRegisterNeedWaitLonger = 60,
     ApplyRegisterHasTimeout,
     ApplyLockMustBeUnique,
@@ -130,8 +132,6 @@ pub enum ErrorCode {
     OfferCellFieldCanNotModified,
     OfferCellAccountMismatch,
     SubAccountFeatureNotEnabled = -50,
-    SubAccountCellSMTRootError,
-    SubAccountWitnessSMTRootError,
     SubAccountWitnessMismatched,
     SubAccountSignMintExpiredAtTooLarge,
     SubAccountSignMintExpiredAtReached,
@@ -313,7 +313,6 @@ pub enum ReverseRecordRootCellErrorCode {
     // Customized errors:
     InitialCapacityError = 50,
     InitialOutputsDataError,
-    SMTNewRootMismatch,
 }
 
 impl From<SysError> for ReverseRecordRootCellErrorCode {

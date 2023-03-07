@@ -886,7 +886,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             das_assert!(
                 expected_default_data == sub_account_outputs_data,
-                ErrorCode::SubAccountCellSMTRootError,
+                ErrorCode::SMTProofVerifyFailed,
                 "The default outputs_data of SubAccountCell should be [0u8; 48] ."
             );
 

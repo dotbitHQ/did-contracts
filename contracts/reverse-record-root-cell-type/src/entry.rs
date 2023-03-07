@@ -128,7 +128,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             das_assert!(
                 latest_root == prev_root,
-                ReverseRecordRootCellErrorCode::SMTNewRootMismatch,
+                ErrorCode::SMTNewRootMismatch,
                 "outputs[{}] The SMT root in the ReverseRecordRootCell is mismatched.(expected: 0x{}, result: 0x{})",
                 output_cells[0],
                 util::hex_string(&prev_root),

@@ -337,7 +337,7 @@ pub fn verify_smt_proof(
     let ret = smt.verify(&H256::from(root), &proof);
     if let Err(_e) = ret {
         debug!("  verify_smt_proof verification failed. Err: {:?}", _e);
-        return Err(code_to_error!(ErrorCode::SubAccountWitnessSMTRootError));
+        return Err(code_to_error!(ErrorCode::SMTProofVerifyFailed));
     } else {
         debug!("  verify_smt_proof verification passed.");
     }
