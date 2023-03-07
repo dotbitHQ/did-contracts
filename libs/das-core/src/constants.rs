@@ -47,14 +47,6 @@ pub enum OracleCellType {
     Height = 2,
 }
 
-#[derive(Debug, PartialEq, Copy, Clone)]
-#[repr(u8)]
-pub enum SignType {
-    Secp256k1Blake160SignhashAll,
-    Secp256k1Blake160MultiSigAll,
-    EIP712Custom,
-}
-
 #[derive(Eq, PartialEq, Debug, Clone, Copy)]
 #[repr(u8)]
 pub enum CellField {

@@ -1360,7 +1360,7 @@ fn verify_multi_sign(input_account_index: usize) -> Result<(), Box<dyn ScriptErr
     debug!("Verify the signatures of secp256k1-blake160-multisig-all ...");
 
     let (digest, _, witness_args_lock) =
-        sign_util::calc_digest_by_input_group(SignType::Secp256k1Blake160MultiSigAll, vec![input_account_index])?;
+        sign_util::calc_digest_by_input_group(DasLockType::CKBMulti, vec![input_account_index])?;
     let lock_script = cross_chain_lock();
     let mut args = lock_script.as_reader().args().raw_data().to_vec();
     let since = high_level::load_input_since(input_account_index, Source::Input)?;

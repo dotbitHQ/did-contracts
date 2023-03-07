@@ -66,8 +66,9 @@ pub enum ErrorCode {
     WitnessArgsDecodingError,
     WitnessVersionOrTypeInvalid,
     SMTWhiteListTheLockIsNotFound,
-    SMTNewRootMismatch,
+    SMTNewRootMismatch, // 55
     SMTProofVerifyFailed,
+    SignMethodUnsupported,
     ApplyRegisterNeedWaitLonger = 60,
     ApplyRegisterHasTimeout,
     ApplyLockMustBeUnique,
@@ -101,7 +102,6 @@ pub enum ErrorCode {
     ProposalSliceItemMustBeUniqueAccount,
     ProposalRecycleNeedWaitLonger,
     ProposalRecycleRefundAmountError,
-    // 120
     PrevProposalItemNotFound,
     IncomeCellConsolidateConditionNotSatisfied = -126,
     IncomeCellConsolidateError,

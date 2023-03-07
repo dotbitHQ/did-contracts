@@ -7,8 +7,9 @@ use ckb_std::ckb_types::packed::*;
 use ckb_std::ckb_types::prelude::*;
 use ckb_std::error::SysError;
 use ckb_std::{high_level, syscalls};
+use das_types::constants::DasLockType;
 
-use super::constants::{SignType, SECP_SIGNATURE_SIZE};
+use super::constants::SECP_SIGNATURE_SIZE;
 use super::error::*;
 use super::{code_to_error, util};
 use crate::constants::ScriptType;
@@ -39,7 +40,7 @@ fn find_input_size() -> Result<usize, Box<dyn ScriptError>> {
 }
 
 pub fn calc_digest_by_lock(
-    sign_type: SignType,
+    sign_type: DasLockType,
     script: ScriptReader,
 ) -> Result<([u8; 32], Vec<u8>, Vec<u8>), Box<dyn ScriptError>> {
     let input_group_idxs = util::find_cells_by_script(ScriptType::Lock, script, Source::Input)?;
@@ -49,7 +50,7 @@ pub fn calc_digest_by_lock(
 }
 
 pub fn calc_digest_by_input_group(
-    sign_type: SignType,
+    sign_type: DasLockType,
     input_group_idxs: Vec<usize>,
 ) -> Result<([u8; 32], Vec<u8>, Vec<u8>), Box<dyn ScriptError>> {
     debug!(
@@ -81,7 +82,7 @@ pub fn calc_digest_by_input_group(
 
             let signatures;
             let witness_args_lock_without_sig = match sign_type {
-                SignType::Secp256k1Blake160MultiSigAll => {
+                DasLockType::CKBMulti => {
                     let bytes = witness_args_lock.raw_data();
                     let _reserved_byte = bytes[0];
                     let _require_first_n = bytes[1];
@@ -105,9 +106,12 @@ pub fn calc_digest_by_input_group(
 
                     data
                 }
-                SignType::Secp256k1Blake160SignhashAll | SignType::EIP712Custom => {
+                DasLockType::CKBSingle | DasLockType::ETHTypedData => {
                     signatures = witness_args_lock.raw_data().to_vec();
                     vec![0u8; SECP_SIGNATURE_SIZE]
+                }
+                _ => {
+                    return Err(code_to_error!(ErrorCode::SignMethodUnsupported));
                 }
             };
 
