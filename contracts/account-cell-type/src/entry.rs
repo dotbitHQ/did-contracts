@@ -740,15 +740,12 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let config_sub_account = parser.configs.sub_account()?;
 
             let (input_account_cells, output_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
-            das_assert!(
-                input_account_cells.len() == 1 && input_account_cells[0] == 0,
-                ErrorCode::InvalidTransactionStructure,
-                "There should be one AccountCell at inputs[0]."
-            );
-            das_assert!(
-                output_account_cells.len() == 1 && output_account_cells[0] == 0,
-                ErrorCode::InvalidTransactionStructure,
-                "There should bze one AccountCell at outputs[0]."
+            verifiers::common::verify_cell_number_and_position(
+                "AccountCell",
+                &input_account_cells,
+                &[0],
+                &output_account_cells,
+                &[0],
             );
 
             let input_account_witness =
@@ -759,7 +756,11 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let output_account_witness_reader = output_account_witness.as_reader();
 
             let account = util::get_account_from_reader(&input_account_witness_reader);
-            verifiers::sub_account_cell::verify_beta_list(&parser, account.as_bytes())?;
+            if input_account_witness_reader.account().len() < 8 {
+                verifiers::sub_account_cell::verify_beta_list(&parser, account.as_bytes())?;
+            } else {
+                debug!("Skip verifying the beta list because the account contains more than 8 characters.")
+            }
 
             debug!("Verify if the AccountCell is locked or expired.");
 
