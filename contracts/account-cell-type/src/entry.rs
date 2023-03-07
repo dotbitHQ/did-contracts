@@ -746,7 +746,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 &[0],
                 &output_account_cells,
                 &[0],
-            );
+            )?;
 
             let input_account_witness =
                 util::parse_account_cell_witness(&parser, input_account_cells[0], Source::Input)?;
