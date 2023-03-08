@@ -96,14 +96,15 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             )?;
 
             let mut sign_lib = SignLib::new();
+            // ⚠️ This must be exist in the top level, because we need to use the libraries later.
+            let mut eth_context = new_context!();
+            let mut tron_context = new_context!();
             if cfg!(not(feature = "dev")) {
                 log_loading!(DynLibName::ETH);
-                let mut eth_context = new_context!();
                 let eth_lib = load_lib!(eth_context, DynLibName::ETH);
                 sign_lib.eth = load_2_methods!(eth_lib);
 
                 log_loading!(DynLibName::TRON);
-                let mut tron_context = new_context!();
                 let tron_lib = load_lib!(tron_context, DynLibName::TRON);
                 sign_lib.tron = load_2_methods!(tron_lib);
             }

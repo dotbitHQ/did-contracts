@@ -1368,10 +1368,10 @@ fn verify_multi_sign(input_account_index: usize) -> Result<(), Box<dyn ScriptErr
     // It is the signature validation requirement.
     args.extend_from_slice(&since.to_le_bytes());
 
+    let mut sign_lib = SignLib::new();
+    let mut ckb_multi_context = new_context!();
     if cfg!(not(feature = "dev")) {
-        let mut sign_lib = SignLib::new();
         log_loading!(DynLibName::CKBMulti);
-        let mut ckb_multi_context = new_context!();
         let ckb_multi_lib = load_lib!(ckb_multi_context, DynLibName::CKBMulti);
         sign_lib.ckb_multi = load_1_method!(ckb_multi_lib);
 
