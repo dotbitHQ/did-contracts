@@ -22,7 +22,7 @@ macro_rules! get_or_try_init {
             .$property
             .get_or_try_init(|| {
                 let (i, raw) = Configs::parse_witness(&$self.config_witnesses, $data_type)?;
-                let entity = <$entity_type>::from_slice(&raw).map_err(|e| {
+                let entity = <$entity_type>::from_compatible_slice(&raw).map_err(|e| {
                     warn!("witnesses[{:>2}] Decoding {:?} failed: {}", i, $data_type, e);
                     ErrorCode::ConfigCellWitnessDecodingError
                 })?;
