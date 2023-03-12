@@ -508,6 +508,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                         let account_chars_reader = account_chars.as_reader();
 
                         verifiers::account_cell::verify_account_chars(&parser, account_chars_reader)?;
+                        verifiers::account_cell::verify_account_chars_min_length(account_chars_reader)?;
                         verifiers::account_cell::verify_account_chars_max_length(&parser, account_chars_reader)?;
 
                         verifiers::sub_account_cell::verify_initial_properties(
