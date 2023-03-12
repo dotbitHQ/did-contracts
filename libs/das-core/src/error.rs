@@ -73,6 +73,7 @@ pub enum ErrorCode {
     CharSetIsConflict,
     CharSetIsUndefined,
     AccountCharIsInvalid,
+    AccountIsTooShort,
     AccountIsTooLong,
     ProposalSliceIsNotSorted = 90,
     ProposalSliceIsDiscontinuity,

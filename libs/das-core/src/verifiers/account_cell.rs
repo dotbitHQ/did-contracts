@@ -659,6 +659,23 @@ pub fn verify_account_chars_max_length(
     Ok(())
 }
 
+pub fn verify_account_chars_min_length(
+    chars_reader: AccountCharsReader,
+) -> Result<(), Box<dyn ScriptError>> {
+    let minimum_length = 1;
+    let account_chars_length = chars_reader.len() as u32;
+
+    das_assert!(
+        account_chars_length >= minimum_length,
+        ErrorCode::AccountIsTooLong,
+        "The minimum length of account is {}, but {} found.",
+        minimum_length,
+        account_chars_length
+    );
+
+    Ok(())
+}
+
 pub fn verify_records_keys(parser: &WitnessesParser, records: RecordsReader) -> Result<(), Box<dyn ScriptError>> {
     debug!("Check if records keys are available.");
 
