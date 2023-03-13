@@ -30,7 +30,7 @@ pub struct SignLib {
     pub ckb_multi: Option<SignLibWith1Methods>,
     pub eth: Option<SignLibWith2Methods>,
     pub tron: Option<SignLibWith2Methods>,
-    pub doge: Option<SignLibWith1Methods>,
+    pub doge: Option<SignLibWith2Methods>,
 }
 
 impl SignLib {
@@ -121,6 +121,10 @@ impl SignLib {
             }
             DasLockType::TRON => {
                 let lib = self.tron.as_ref().unwrap();
+                func = &lib.c_validate_str;
+            }
+            DasLockType::Doge => {
+                let lib = self.doge.as_ref().unwrap();
                 func = &lib.c_validate_str;
             }
             _ => return Err(Error::UndefinedDasLockType as i32),

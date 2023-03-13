@@ -268,7 +268,16 @@ pub fn verify_sub_account_mint_sign(
     );
 
     let das_lock_type = match witness.sign_type {
-        Some(val) if val == DasLockType::ETH || val == DasLockType::ETHTypedData || val == DasLockType::TRON => val,
+        Some(val) => {
+            assert!(
+                [DasLockType::ETH, DasLockType::TRON, DasLockType::Doge].contains(&val),
+                ErrorCode::InvalidTransactionStructure,
+                "  witnesses[{:>2}] Parsing das-lock(witness.sub_account.lock.args) algorithm failed (maybe not supported for now), but it is required in this transaction.",
+                witness.index
+            );
+
+            val
+        }
         _ => {
             warn!(
                 "  witnesses[{:>2}] Parsing das-lock(witness.sub_account.lock.args) algorithm failed (maybe not supported for now), but it is required in this transaction.",
@@ -387,7 +396,16 @@ pub fn verify_sub_account_edit_sign(
     );
 
     let das_lock_type = match witness.sign_type {
-        Some(val) if val == DasLockType::ETH || val == DasLockType::ETHTypedData || val == DasLockType::TRON => val,
+        Some(val) => {
+            assert!(
+                [DasLockType::ETH, DasLockType::TRON, DasLockType::Doge].contains(&val),
+                ErrorCode::InvalidTransactionStructure,
+                "  witnesses[{:>2}] Parsing das-lock(witness.sub_account.lock.args) algorithm failed (maybe not supported for now), but it is required in this transaction.",
+                witness.index
+            );
+
+            val
+        }
         _ => {
             warn!(
                 "  witnesses[{:>2}] Parsing das-lock(witness.sub_account.lock.args) algorithm failed (maybe not supported for now), but it is required in this transaction.",

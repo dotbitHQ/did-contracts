@@ -111,7 +111,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
                 log_loading!(DynLibName::DOGE);
                 let doge_lib = load_lib!(doge_context, DynLibName::DOGE);
-                sign_lib.tron = load_2_methods!(doge_lib);
+                sign_lib.doge = load_2_methods!(doge_lib);
             }
 
             debug!("Start iterating ReverseRecord witnesses ...");
@@ -194,7 +194,7 @@ fn verify_sign(sign_lib: &SignLib, witness: &ReverseRecordWitness) -> Result<(),
     );
 
     let das_lock_type = match witness.sign_type {
-        DasLockType::ETH | DasLockType::ETHTypedData | DasLockType::TRON => witness.sign_type,
+        DasLockType::ETH | DasLockType::ETHTypedData | DasLockType::TRON | DasLockType::Doge => witness.sign_type,
         _ => {
             warn!(
                 "  witnesses[{:>2}] Parsing das-lock(witness.reverse_record.lock.args) algorithm failed (maybe not supported for now), but it is required in this transaction.",

@@ -270,7 +270,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
                 log_loading!(DynLibName::DOGE);
                 let doge_lib = load_lib!(doge_context, DynLibName::DOGE);
-                sign_lib.tron = load_2_methods!(doge_lib);
+                sign_lib.doge = load_2_methods!(doge_lib);
             }
 
             // Initiate some variables used again and again in the following codes.
