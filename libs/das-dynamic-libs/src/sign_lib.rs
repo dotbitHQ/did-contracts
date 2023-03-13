@@ -30,6 +30,7 @@ pub struct SignLib {
     pub ckb_multi: Option<SignLibWith1Methods>,
     pub eth: Option<SignLibWith2Methods>,
     pub tron: Option<SignLibWith2Methods>,
+    pub doge: Option<SignLibWith1Methods>,
 }
 
 impl SignLib {
@@ -38,6 +39,7 @@ impl SignLib {
             ckb_multi: None,
             eth: None,
             tron: None,
+            doge: None,
         }
     }
 
@@ -61,6 +63,7 @@ impl SignLib {
         );
 
         let func;
+
         match das_lock_type {
             DasLockType::ETH | DasLockType::ETHTypedData => {
                 let lib = self.eth.as_ref().unwrap();
@@ -68,6 +71,10 @@ impl SignLib {
             }
             DasLockType::TRON => {
                 let lib = self.tron.as_ref().unwrap();
+                func = &lib.c_validate;
+            }
+            DasLockType::Doge => {
+                let lib = self.doge.as_ref().unwrap();
                 func = &lib.c_validate;
             }
             DasLockType::CKBMulti => {
@@ -187,7 +194,7 @@ impl SignLib {
         blake2b.finalize(&mut h);
 
         match das_lock_type {
-            DasLockType::ETH | DasLockType::ETHTypedData | DasLockType::TRON => {
+            DasLockType::ETH | DasLockType::ETHTypedData | DasLockType::TRON | DasLockType::Doge => {
                 let prefix = "from did: ".as_bytes();
                 Ok([prefix, &h].concat())
             }

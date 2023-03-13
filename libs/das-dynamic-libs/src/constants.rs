@@ -7,6 +7,7 @@ pub enum DynLibName {
     CKBMulti,
     ETH,
     TRON,
+    DOGE,
 }
 
 impl DynLibName {
@@ -15,6 +16,7 @@ impl DynLibName {
             &DynLibName::CKBMulti => &CKB_MULTI_LIB_CODE_HASH,
             &DynLibName::ETH => &ETH_LIB_CODE_HASH,
             &DynLibName::TRON => &TRON_LIB_CODE_HASH,
+            &DynLibName::DOGE => &DOGE_LIB_CODE_HASH,
         }
     }
 }
@@ -45,8 +47,8 @@ pub const ETH_LIB_CODE_HASH: [u8; 32] = [
 
 #[cfg(not(feature = "mainnet"))]
 pub const ETH_LIB_CODE_HASH: [u8; 32] = [
-    114, 136, 18, 7, 241, 131, 151, 251, 114, 137, 71, 94, 28, 208, 216, 64, 104, 55, 4, 5, 126, 140, 166, 6, 43, 114,
-    139, 209, 174, 122, 155, 68,
+    113, 85, 76, 7, 207, 188, 229, 208, 73, 143, 139, 128, 153, 12, 151, 100, 85, 98, 130, 92, 125, 180, 218, 11, 157,
+    3, 109, 244, 96, 111, 177, 112,
 ];
 
 #[cfg(feature = "mainnet")]
@@ -59,4 +61,16 @@ pub const TRON_LIB_CODE_HASH: [u8; 32] = [
 pub const TRON_LIB_CODE_HASH: [u8; 32] = [
     170, 97, 164, 212, 192, 24, 68, 18, 215, 238, 129, 129, 59, 215, 28, 198, 72, 222, 68, 16, 49, 230, 111, 167, 153,
     172, 66, 113, 180, 208, 117, 131,
+];
+
+#[cfg(feature = "mainnet")]
+pub const DOGE_LIB_CODE_HASH: [u8; 32] = [
+    122, 177, 176, 109, 81, 197, 121, 213, 40, 57, 93, 127, 71, 37, 130, 191, 29, 61, 206, 69, 186, 150, 194, 191, 242,
+    193, 158, 48, 240, 217, 2, 129,
+];
+
+#[cfg(not(feature = "mainnet"))]
+pub const DOGE_LIB_CODE_HASH: [u8; 32] = [
+    122, 177, 176, 109, 81, 197, 121, 213, 40, 57, 93, 127, 71, 37, 130, 191, 29, 61, 206, 69, 186, 150, 194, 191, 242,
+    193, 158, 48, 240, 217, 2, 129,
 ];

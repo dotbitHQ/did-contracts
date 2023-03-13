@@ -99,6 +99,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             // ⚠️ This must be exist in the top level, because we need to use the libraries later.
             let mut eth_context = new_context!();
             let mut tron_context = new_context!();
+            let mut doge_context = new_context!();
             if cfg!(not(feature = "dev")) {
                 log_loading!(DynLibName::ETH);
                 let eth_lib = load_lib!(eth_context, DynLibName::ETH);
@@ -107,6 +108,10 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 log_loading!(DynLibName::TRON);
                 let tron_lib = load_lib!(tron_context, DynLibName::TRON);
                 sign_lib.tron = load_2_methods!(tron_lib);
+
+                log_loading!(DynLibName::DOGE);
+                let doge_lib = load_lib!(doge_context, DynLibName::DOGE);
+                sign_lib.tron = load_2_methods!(doge_lib);
             }
 
             debug!("Start iterating ReverseRecord witnesses ...");
