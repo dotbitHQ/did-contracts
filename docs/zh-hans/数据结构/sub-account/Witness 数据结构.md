@@ -1,14 +1,4 @@
-# 子账户数据存储方案
-
-## 约束条件
-
-在设计子账户时，我们预先定义了几个约束条件需要满足：
-
-- 创建子账户时必须避免产生链上的存储费；
-- 必须支持链上验证；
-
-由此可以得出的，并且目前已得到大量实践验证的方案就是基于 Merkle Tree 进行链下的数据存储，通过 Merkle Proof 进行链上验证。
-
+# Witness 数据结构
 
 ## witness 存储结构
 
@@ -22,20 +12,22 @@
   ...
   [das, type, raw/entity/table],
   [das, type, raw/entity/table],
-  [das, type, sub_account],
+  [das, type, sub_account_mint_sign],
+  [das, type, sub_account_price_rule],
   [das, type, sub_account],
   ...
 ]
 ```
 
-其中 [3:7] 4 个 bytes 为小端编码的 u32 整型，它标明了第 8 bytes 之后的数据类型是子账户类型，具体值详见 [Cell 结构协议.md/Type 常量列表/SubAccount](Cell-结构协议.md)；
+其中 [3:7] 4 个 bytes 为小端编码的 u32 整型，它标明了第 8 bytes 之后的数据类型是子账户类型，具体值详见 [Cell 结构协议.md/Type 常量列表/SubAccount](../%E7%B3%BB%E7%BB%9F%E6%9E%9A%E4%B8%BE%E5%80%BC.md)；
 
-最后一段数据 `sub_account` 分为了两类：
+最后一段数据 `sub_account` 分为了三类：
 
 - 为了批量 Mint 子账户而设计的 `SubAccountMintSign` ；
-- 为了编辑子账户 SMT 而设计的 `SubAccount` ；
+- 为了定义子账户定价而设计的 `SubAccountPriceRule` ；
+- 为了创建、编辑子账户 SMT 而设计的 `SubAccount` ；
 
-由于数据量较大，且在之前的实践中我们发现 molecule 编码在处理较长数据时在合约中性能不佳的问题存在，所以采用了以下**基于 LV 编码(Length-Value)的二进制**：
+由于数据量较大，且在之前的实践中我们发现 molecule 编码在处理较长数据时在合约中性能不佳的问题存在，所以部分类型采用了以下**基于 LV 编码(Length-Value)的二进制**：
 
 ```
 [ length ][ field_1 ][ length ][ field_2 ] ...
@@ -106,6 +98,10 @@ account hash ，value 为子账户创建成功后的 `SubAccountData.lock.args` 
   - `sign_expired_at`
   - `account_list_smt_root`
 
+### SubAccountPriceRule 数据结构
+
+由于此类数据是一个有较为复杂层级关系的结构，因此依然采用了 molecule 编码，具体的数据结构 `SubAccountPriceRules` 类型，关于此类型的定义及其对应的 JSON 描述详见 [自定义价格数据结构](./%E8%87%AA%E5%AE%9A%E4%B9%89%E4%BB%B7%E6%A0%BC%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84.md) 。
+
 ### SubAccount 数据结构
 
 对子账户的所有增删改操作，最终都可以归纳为对 `SubAccountCell.data.smt_root` 的修改。因此这种 witness 的数据结构，每一条就可以理解为一条 `SubAccountCell.data.smt_root` 的修改记录。
@@ -164,7 +160,7 @@ account hash ，value 为子账户创建成功后的 `SubAccountData.lock.args` 
 
 #### sub_account 字段数据结构
 
-在整个子账户的 witness 中，`sub_account` 则是一个子账户的 molecule 编码的数据结构(**最新结构请以 [das-types](https://github.com/DeAccountSystems/das-types) 中定义为准**)：
+在整个子账户的 witness 中，`sub_account` 则是一个子账户的 molecule 编码的数据结构(**最新结构请以 [das-types](https://github.com/dotbitHQ/das-types) 中定义为准**)：
 
 ```
 table SubAccountData {
