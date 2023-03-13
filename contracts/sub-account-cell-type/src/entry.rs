@@ -268,7 +268,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 let tron_lib = load_lib!(tron_context, DynLibName::TRON);
                 sign_lib.tron = load_2_methods!(tron_lib);
 
-                log_loading!(DynLibName::Doge);
+                log_loading!(DynLibName::DOGE);
                 let doge_lib = load_lib!(doge_context, DynLibName::DOGE);
                 sign_lib.tron = load_2_methods!(doge_lib);
             }
