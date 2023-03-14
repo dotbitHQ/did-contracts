@@ -42,7 +42,7 @@ fn parse_reverse_record_witness_update_only() {
         "prev_nonce": 0,
         "prev_account": "",
         "next_account": ACCOUNT_1,
-    }));
+    }), false);
     template.push_reverse_record(json!({
         "action": "update",
         "sign_type": DasLockType::CKBSingle as u8,
@@ -50,7 +50,7 @@ fn parse_reverse_record_witness_update_only() {
         "prev_nonce": 5,
         "prev_account": ACCOUNT_1,
         "next_account": ACCOUNT_2,
-    }));
+    }), false);
 
     test_tx(template.as_json());
 }
@@ -81,7 +81,7 @@ fn parse_reverse_record_witness_remove_only() {
         "prev_nonce": 5,
         "prev_account": ACCOUNT_2,
         "next_account": "",
-    }));
+    }), false);
     template.push_reverse_record(json!({
         "action": "remove",
         "sign_type": DasLockType::CKBSingle as u8,
@@ -89,7 +89,7 @@ fn parse_reverse_record_witness_remove_only() {
         "prev_nonce": 99,
         "prev_account": ACCOUNT_3,
         "next_account": "",
-    }));
+    }), false);
 
     test_tx(template.as_json());
 }
@@ -120,7 +120,7 @@ fn parse_reverse_record_witness_mixed() {
         "prev_nonce": 0,
         "prev_account": "",
         "next_account": ACCOUNT_1,
-    }));
+    }), false);
     template.push_reverse_record(json!({
         "action": "update",
         "sign_type": DasLockType::CKBSingle as u8,
@@ -128,7 +128,7 @@ fn parse_reverse_record_witness_mixed() {
         "prev_nonce": 5,
         "prev_account": ACCOUNT_1,
         "next_account": ACCOUNT_2,
-    }));
+    }), false);
     template.push_reverse_record(json!({
         "action": "remove",
         "sign_type": DasLockType::CKBSingle as u8,
@@ -136,7 +136,7 @@ fn parse_reverse_record_witness_mixed() {
         "prev_nonce": 99,
         "prev_account": ACCOUNT_1,
         "next_account": "",
-    }));
+    }), false);
 
     test_tx(template.as_json());
 }

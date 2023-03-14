@@ -54,7 +54,7 @@ fn test_reverse_record_root_update() {
         // "prev_nonce": 0,
         // "prev_account": "",
         "next_account": ACCOUNT_1,
-    }));
+    }), false);
     template.push_reverse_record(json!({
         "action": "update",
         "sign_type": DasLockType::CKBSingle as u8,
@@ -62,7 +62,7 @@ fn test_reverse_record_root_update() {
         "prev_nonce": 5,
         "prev_account": ACCOUNT_1,
         "next_account": ACCOUNT_2,
-    }));
+    }), false);
     template.push_reverse_record(json!({
         "action": "remove",
         "sign_type": DasLockType::CKBSingle as u8,
@@ -70,7 +70,7 @@ fn test_reverse_record_root_update() {
         "prev_nonce": 99,
         "prev_account": ACCOUNT_1,
         "next_account": "",
-    }));
+    }), false);
     push_output_reverse_record_root_cell(&mut template);
 
     test_tx(template.as_json());
@@ -90,7 +90,7 @@ fn challenge_reverse_record_root_update_change_capacity() {
         "sign_type": DasLockType::CKBSingle as u8,
         "address_payload": OWNER_1_WITHOUT_TYPE,
         "next_account": ACCOUNT_1,
-    }));
+    }), false);
     let current_root = template.smt_with_history.current_root();
     template.push_output(
         json!({
@@ -126,7 +126,7 @@ fn challenge_reverse_record_root_update_change_lock() {
         "sign_type": DasLockType::CKBSingle as u8,
         "address_payload": OWNER_1_WITHOUT_TYPE,
         "next_account": ACCOUNT_1,
-    }));
+    }), false);
     let current_root = template.smt_with_history.current_root();
     template.push_output(
         json!({
@@ -163,7 +163,7 @@ fn challenge_reverse_record_root_update_store_mismatched_smt_root() {
         "sign_type": DasLockType::CKBSingle as u8,
         "address_payload": OWNER_1_WITHOUT_TYPE,
         "next_account": ACCOUNT_1,
-    }));
+    }), false);
     // Simulate storing a mismatched SMT root in the ReverseRecordRootCell.data in outputs.
     let current_root = [1u8; 32];
     template.push_output(
@@ -198,11 +198,11 @@ fn challenge_reverse_record_root_update_witness_prev_nonce_error() {
         "action": "update",
         "sign_type": DasLockType::CKBSingle as u8,
         "address_payload": OWNER_2_WITHOUT_TYPE,
-        // TODO
+        // Simulate providing a invalid prev_nonce.
         "prev_nonce": 6,
         "prev_account": ACCOUNT_1,
         "next_account": ACCOUNT_2,
-    }));
+    }), true);
     let current_root = template.smt_with_history.current_root();
     template.push_output(
         json!({

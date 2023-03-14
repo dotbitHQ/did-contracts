@@ -2952,7 +2952,7 @@ impl TemplateGenerator {
     ///     "next_account": "xxxxx.bit",
     /// })
     /// ```
-    pub fn push_reverse_record(&mut self, witness: Value) {
+    pub fn push_reverse_record(&mut self, witness: Value, ignore_smt_check: bool) {
         let mut witness_bytes = Vec::new();
 
         let field_value = util::parse_json_u32("witness.version", &witness["version"], Some(1)).to_le_bytes();
@@ -2995,6 +2995,8 @@ impl TemplateGenerator {
         };
         let prev_account = parse_json_str_with_default("witness.prev_account", &witness["prev_account"], "").as_bytes();
         let proof = if witness["proof"].is_null() {
+            println!("  prev_nonce: {:?}, prev_account: {:?}", prev_nonce, String::from_utf8(prev_account.to_vec()));
+
             let prev_value = if prev_nonce.is_none() {
                 H256::zero()
             } else {
@@ -3004,7 +3006,7 @@ impl TemplateGenerator {
             let compiled_proof = proof.clone().compile(vec![(key.into(), prev_value)]).unwrap().0;
 
             let ret = self.smt_with_history.verify(&compiled_proof, vec![(&key, &prev_value)]);
-            if !ret {
+            if !ignore_smt_check && !ret {
                 panic!("The generated proof of SMT is invalid for prev_root unexpectly.");
             }
             // println!(
@@ -3044,7 +3046,7 @@ impl TemplateGenerator {
                 util::gen_smt_value_for_reverse_record_smt(prev_nonce.unwrap() + 1, next_account)
             };
             let ret = self.smt_with_history.verify(&proof, vec![(&key, &next_value)]);
-            if !ret {
+            if !ignore_smt_check && !ret {
                 panic!("The generated proof of SMT is invalid for next_root unexpectly.");
             }
             // println!("  next_root: {}", util::bytes_to_hex(&root));
