@@ -9,7 +9,6 @@ use ckb_std::error::SysError;
 use ckb_std::{high_level, syscalls};
 use das_types::constants::DasLockType;
 
-use super::constants::SECP_SIGNATURE_SIZE;
 use super::error::*;
 use super::{code_to_error, util};
 use crate::constants::ScriptType;
@@ -42,7 +41,7 @@ fn find_input_size() -> Result<usize, Box<dyn ScriptError>> {
 pub fn calc_digest_by_lock(
     sign_type: DasLockType,
     script: ScriptReader,
-) -> Result<([u8; 32], Vec<u8>, Vec<u8>), Box<dyn ScriptError>> {
+) -> Result<([u8; 32], Vec<u8>), Box<dyn ScriptError>> {
     let input_group_idxs = util::find_cells_by_script(ScriptType::Lock, script, Source::Input)?;
     let ret = calc_digest_by_input_group(sign_type, input_group_idxs)?;
 
@@ -52,7 +51,7 @@ pub fn calc_digest_by_lock(
 pub fn calc_digest_by_input_group(
     sign_type: DasLockType,
     input_group_idxs: Vec<usize>,
-) -> Result<([u8; 32], Vec<u8>, Vec<u8>), Box<dyn ScriptError>> {
+) -> Result<([u8; 32], Vec<u8>), Box<dyn ScriptError>> {
     debug!(
         "Calculate digest by input group ... (sign_type: {:?}, input_group: {:?})",
         sign_type, input_group_idxs
@@ -80,65 +79,24 @@ pub fn calc_digest_by_input_group(
                 util::first_n_bytes_to_hex(witness_args_lock.raw_data(), 20)
             );
 
-            let signatures;
-            let witness_args_lock_without_sig = match sign_type {
-                DasLockType::CKBMulti => {
-                    let bytes = witness_args_lock.raw_data();
-                    let _reserved_byte = bytes[0];
-                    let _require_first_n = bytes[1];
-                    let threshold = bytes[2] as usize;
-                    let signature_addresses_len = bytes[3];
-                    let slice_point = (4 + 20 * signature_addresses_len) as usize;
-
-                    signatures = bytes[slice_point..].to_vec();
-
-                    debug!(
-                        "  inputs[{}] Slice WitnessArgs.lock at {} .(header: 0x{}, args: 0x{}, signatures: {})",
-                        init_witness_idx,
-                        slice_point,
-                        util::hex_string(&bytes[..4]),
-                        util::hex_string(&bytes[4..slice_point]),
-                        util::first_n_bytes_to_hex(&signatures, 10)
-                    );
-
-                    let mut data = bytes[..slice_point].to_vec();
-                    data.extend_from_slice(&vec![0u8; SECP_SIGNATURE_SIZE * threshold]);
-
-                    data
-                }
-                DasLockType::CKBSingle | DasLockType::ETHTypedData => {
-                    signatures = witness_args_lock.raw_data().to_vec();
-                    vec![0u8; SECP_SIGNATURE_SIZE]
-                }
-                _ => {
-                    return Err(code_to_error!(ErrorCode::SignMethodUnsupported));
-                }
-            };
-
-            let lock = BytesOpt::new_builder()
-                .set(Some(witness_args_lock_without_sig.pack()))
-                .build();
-            let mut witness_args_builder = init_witness.clone().as_builder();
-            witness_args_builder = witness_args_builder.lock(lock);
-
-            let witness_args_without_sig = witness_args_builder.build();
+            let empty_signature = BytesOpt::new_builder()
+                    .set(Some(vec![0u8; witness_args_lock.len()].pack()))
+                    .build();
+            let empty_witness = init_witness.clone().as_builder().lock(empty_signature).build();
             let tx_hash = high_level::load_tx_hash().map_err(|_| ErrorCode::ItemMissing)?;
 
-            let mut blake2b = util::new_blake2b();
             debug!(
-                "  inputs[{}] calculating digest, concat tx_hash: 0x{}",
+                "  inputs[{}] calculating digest, concat tx_hash: 0x{}, concat witness_args.len(): 0x{} witness_args: 0x{}",
                 init_witness_idx,
                 util::hex_string(&tx_hash),
+                util::hex_string(&(empty_witness.as_bytes().len() as u64).to_le_bytes()),
+                util::hex_string(&empty_witness.as_bytes())
             );
+
+            let mut blake2b = util::new_blake2b();
             blake2b.update(&tx_hash);
-            debug!(
-                "  inputs[{}] calculating digest, concat witness_args.len(): 0x{} witness_args: 0x{}",
-                init_witness_idx,
-                util::hex_string(&(witness_args_without_sig.as_bytes().len() as u64).to_le_bytes()),
-                util::hex_string(&witness_args_without_sig.as_bytes())
-            );
-            blake2b.update(&(witness_args_without_sig.as_bytes().len() as u64).to_le_bytes());
-            blake2b.update(&witness_args_without_sig.as_bytes());
+            blake2b.update(&(empty_witness.as_bytes().len() as u64).to_le_bytes());
+            blake2b.update(&empty_witness.as_bytes());
             for idx in input_group_idxs.iter().skip(1).cloned() {
                 let other_witness_bytes = util::load_witnesses(idx)?;
                 blake2b.update(&(other_witness_bytes.len() as u64).to_le_bytes());
@@ -189,8 +147,7 @@ pub fn calc_digest_by_input_group(
                 util::hex_string(&digest)
             );
 
-            // Some validation requires signatures, some validation requires the whole WitnessArgs.lock .
-            Ok((digest, signatures, witness_args_lock.raw_data().to_vec()))
+            Ok((digest, witness_args_lock.raw_data().to_vec()))
         }
     }
 }

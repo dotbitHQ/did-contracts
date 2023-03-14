@@ -1359,7 +1359,7 @@ fn verify_account_is_unlocked_for_cross_chain<'a>(
 fn verify_multi_sign(input_account_index: usize) -> Result<(), Box<dyn ScriptError>> {
     debug!("Verify the signatures of secp256k1-blake160-multisig-all ...");
 
-    let (digest, _, witness_args_lock) =
+    let (digest, witness_args_lock) =
         sign_util::calc_digest_by_input_group(DasLockType::CKBMulti, vec![input_account_index])?;
     let lock_script = cross_chain_lock();
     let mut args = lock_script.as_reader().args().raw_data().to_vec();

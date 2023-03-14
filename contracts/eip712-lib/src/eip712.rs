@@ -3,11 +3,11 @@ use alloc::collections::btree_map::BTreeMap;
 use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
+use das_core::sign_util::calc_digest_by_input_group;
 use core::convert::{TryFrom, TryInto};
 
 use ckb_std::ckb_constants::Source;
-use ckb_std::ckb_types::packed as ckb_packed;
-use ckb_std::ckb_types::prelude::{Entity, Pack, Unpack};
+use ckb_std::ckb_types::prelude::{Entity, Unpack};
 use ckb_std::error::SysError;
 use ckb_std::high_level;
 use das_core::constants::*;
@@ -83,9 +83,7 @@ pub fn verify_eip712_hashes(
     } else {
         debug!("Check if hashes of typed data in witnesses is correct ...");
 
-        // The variable `i` has added 1 at the end of loop above, so do not add 1 again here.
-        let input_size = i;
-        let (digest_and_hash, eip712_chain_id) = tx_to_digest(input_groups_idxs, input_size)?;
+        let (digest_and_hash, eip712_chain_id) = tx_to_digest(input_groups_idxs)?;
         let mut typed_data = tx_to_eip712_typed_data(&parser, eip712_chain_id, tx_to_das_message)?;
         for index in digest_and_hash.keys() {
             let item = digest_and_hash.get(index).unwrap();
@@ -137,101 +135,38 @@ struct DigestAndHash {
 
 fn tx_to_digest(
     input_groups_idxs: BTreeMap<Vec<u8>, Vec<usize>>,
-    input_size: usize,
 ) -> Result<(BTreeMap<usize, DigestAndHash>, Vec<u8>), Box<dyn ScriptError>> {
     let mut ret: BTreeMap<usize, DigestAndHash> = BTreeMap::new();
     let mut eip712_chain_id = Vec::new();
     for (_key, input_group_idxs) in input_groups_idxs {
         let init_witness_idx = input_group_idxs[0];
-        let witness_bytes = util::load_witnesses(init_witness_idx)?;
-        // CAREFUL: This is only works for secp256k1_blake160_sighash_all, cause das-lock does not support secp256k1_blake160_multisig_all currently.
-        let init_witness = ckb_packed::WitnessArgs::from_slice(&witness_bytes).map_err(|_| {
-            warn!(
-                "Inputs[{}] Witness can not be decoded as WitnessArgs.(data: 0x{})",
-                init_witness_idx,
-                util::hex_string(&witness_bytes)
-            );
-            ErrorCode::EIP712DecodingWitnessArgsError
-        })?;
 
-        // Reset witness_args to empty status for calculation of digest.
-        match init_witness.as_reader().lock().to_opt() {
-            Some(lock_of_witness) => {
-                // TODO Do not create empty_witness, this is an incorrect way.
-                // The right way is loading it from witnesses array, and set the bytes in its lock to 0u8.
-                let empty_signature = ckb_packed::BytesOpt::new_builder()
-                    .set(Some(vec![0u8; SECP_SIGNATURE_SIZE].pack()))
-                    .build();
-                let empty_witness = ckb_packed::WitnessArgs::new_builder().lock(empty_signature).build();
-                let tx_hash = high_level::load_tx_hash().map_err(|_| ErrorCode::ItemMissing)?;
+        let (message, witness_args_lock) = calc_digest_by_input_group(DasLockType::ETHTypedData, input_group_idxs)?;
 
-                let mut blake2b = util::new_blake2b();
-                blake2b.update(&tx_hash);
-                blake2b.update(&(empty_witness.as_bytes().len() as u64).to_le_bytes());
-                blake2b.update(&empty_witness.as_bytes());
-                for idx in input_group_idxs.iter().skip(1).cloned() {
-                    let other_witness_bytes = util::load_witnesses(idx)?;
-                    blake2b.update(&(other_witness_bytes.len() as u64).to_le_bytes());
-                    blake2b.update(&other_witness_bytes);
-                }
-                let mut i = input_size;
-                loop {
-                    let ret = util::load_witnesses(i);
-                    match ret {
-                        Ok(outter_witness_bytes) => {
-                            blake2b.update(&(outter_witness_bytes.len() as u64).to_le_bytes());
-                            blake2b.update(&outter_witness_bytes);
-                        }
-                        Err(err) => {
-                            if err.as_i8() == ErrorCode::IndexOutOfBound as i8 {
-                                break;
-                            } else {
-                                return Err(err);
-                            }
-                        }
-                    }
+        das_assert!(
+            witness_args_lock.len() == SECP_SIGNATURE_SIZE + CKB_HASH_DIGEST + EIP712_CHAINID_SIZE,
+            ErrorCode::EIP712SignatureError,
+            "Inputs[{}] The length of signature is invalid.(current: {}, expected: {})",
+            init_witness_idx,
+            witness_args_lock.len(),
+            SECP_SIGNATURE_SIZE + CKB_HASH_DIGEST + EIP712_CHAINID_SIZE
+        );
 
-                    i += 1;
-                }
-                let mut message = [0u8; 32];
-                blake2b.finalize(&mut message);
-
-                debug!(
-                    "Inputs[{}] Generate digest.(args: 0x{}, result: 0x{})",
-                    init_witness_idx,
-                    util::hex_string(&_key),
-                    util::hex_string(&message)
-                );
-
-                das_assert!(
-                    lock_of_witness.len() == SECP_SIGNATURE_SIZE + CKB_HASH_DIGEST + EIP712_CHAINID_SIZE,
-                    ErrorCode::EIP712SignatureError,
-                    "Inputs[{}] The length of signature is invalid.(current: {}, expected: {})",
-                    init_witness_idx,
-                    lock_of_witness.len(),
-                    SECP_SIGNATURE_SIZE + CKB_HASH_DIGEST + EIP712_CHAINID_SIZE
-                );
-
-                if eip712_chain_id.is_empty() {
-                    let from = SECP_SIGNATURE_SIZE + CKB_HASH_DIGEST;
-                    let to = from + EIP712_CHAINID_SIZE;
-                    eip712_chain_id = lock_of_witness.raw_data()[from..to].to_vec();
-                }
-
-                let typed_data_hash =
-                    &lock_of_witness.raw_data()[SECP_SIGNATURE_SIZE..SECP_SIGNATURE_SIZE + CKB_HASH_DIGEST];
-                ret.insert(
-                    init_witness_idx,
-                    DigestAndHash {
-                        digest: message,
-                        typed_data_hash: typed_data_hash.try_into().unwrap(),
-                    },
-                );
-            }
-            None => {
-                return Err(code_to_error!(ErrorCode::EIP712SignatureError));
-            }
+        if eip712_chain_id.is_empty() {
+            let from = SECP_SIGNATURE_SIZE + CKB_HASH_DIGEST;
+            let to = from + EIP712_CHAINID_SIZE;
+            eip712_chain_id = witness_args_lock[from..to].to_vec();
         }
+
+        let typed_data_hash =
+            &witness_args_lock[SECP_SIGNATURE_SIZE..SECP_SIGNATURE_SIZE + CKB_HASH_DIGEST];
+        ret.insert(
+            init_witness_idx,
+            DigestAndHash {
+                digest: message,
+                typed_data_hash: typed_data_hash.try_into().unwrap(),
+            },
+        );
     }
 
     Ok((ret, eip712_chain_id))
@@ -308,6 +243,8 @@ pub fn tx_to_eip712_typed_data(
     });
 
     #[cfg(debug_assertions)]
+    // WARNING The keys in output may be in wrong camecase, it is OK, it is just cause by the `debug!` macro
+    // print all keys base on the struct in Rust.
     debug!("Extracted typed data: {}", typed_data);
 
     Ok(typed_data)
