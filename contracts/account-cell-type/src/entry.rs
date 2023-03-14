@@ -914,6 +914,8 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
         b"unlock_account_for_cross_chain" => {
             parser.parse_cell()?;
 
+            let config_main = parser.configs.main()?;
+
             debug!("Verify if there is no redundant AccountCells.");
 
             let (input_account_cells, output_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
@@ -1009,7 +1011,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             verify_account_is_unlocked_for_cross_chain(output_account_cells[0], &output_cell_witness_reader)?;
 
-            verify_multi_sign(input_account_cells[0])?;
+            verify_multi_sign(input_account_cells[0], config_main.das_lock_type_id_table())?;
         }
         b"confirm_expired_account_auction" => {
             parser.parse_cell()?;
@@ -1094,7 +1096,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 Source::Output,
             )?;
 
-            verify_multi_sign(input_account_cells[0])?;
+            verify_multi_sign(input_account_cells[0], config_main.das_lock_type_id_table())?;
 
             debug!("Verify if the SubAccountCell has been refund properly.");
 
@@ -1356,7 +1358,7 @@ fn verify_account_is_unlocked_for_cross_chain<'a>(
     Ok(())
 }
 
-fn verify_multi_sign(input_account_index: usize) -> Result<(), Box<dyn ScriptError>> {
+fn verify_multi_sign(input_account_index: usize, type_id_table: DasLockTypeIdTableReader) -> Result<(), Box<dyn ScriptError>> {
     debug!("Verify the signatures of secp256k1-blake160-multisig-all ...");
 
     let (digest, witness_args_lock) =
@@ -1371,9 +1373,9 @@ fn verify_multi_sign(input_account_index: usize) -> Result<(), Box<dyn ScriptErr
     let mut sign_lib = SignLib::new();
     let mut ckb_multi_context = new_context!();
     if cfg!(not(feature = "dev")) {
-        log_loading!(DynLibName::CKBMulti);
-        let ckb_multi_lib = load_lib!(ckb_multi_context, DynLibName::CKBMulti);
-        sign_lib.ckb_multi = load_1_method!(ckb_multi_lib);
+        log_loading!(DynLibName::CKBMultisig, type_id_table);
+        let ckb_multi_lib = load_lib!(ckb_multi_context, DynLibName::CKBMultisig, type_id_table);
+        sign_lib.ckb_multisig = load_1_method!(ckb_multi_lib);
 
         sign_lib
             .validate(DasLockType::CKBMulti, 0i32, digest.to_vec(), witness_args_lock, args)

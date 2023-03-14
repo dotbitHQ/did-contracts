@@ -22,20 +22,20 @@ macro_rules! new_context {
 
 #[macro_export]
 macro_rules! log_loading {
-    ($name:expr) => {
+    ($name:expr, $type_id_table:expr) => {
         $crate::debug_log!(
-            "Loading {} dynamic library with code_hash 0x{} ...",
+            "Loading {} dynamic library with type ID 0x{} ...",
             $name,
-            $crate::util::hex_string($name.get_code_hash())
+            $crate::util::hex_string($name.get_code_hash($type_id_table))
         );
     };
 }
 
 #[macro_export]
 macro_rules! load_lib {
-    ($context:expr, $name:expr) => {
+    ($context:expr, $name:expr, $type_id_table:expr) => {
         $context
-            .load($name.get_code_hash())
+            .load_by_type_id($name.get_code_hash($type_id_table))
             .expect("The shared lib should be loaded successfully.")
     };
 }

@@ -49,12 +49,12 @@ pub fn calc_digest_by_lock(
 }
 
 pub fn calc_digest_by_input_group(
-    sign_type: DasLockType,
+    _sign_type: DasLockType,
     input_group_idxs: Vec<usize>,
 ) -> Result<([u8; 32], Vec<u8>), Box<dyn ScriptError>> {
     debug!(
         "Calculate digest by input group ... (sign_type: {:?}, input_group: {:?})",
-        sign_type, input_group_idxs
+        _sign_type, input_group_idxs
     );
 
     let init_witness_idx = input_group_idxs[0];
@@ -75,7 +75,7 @@ pub fn calc_digest_by_input_group(
             debug!(
                 "  inputs[{}] Generating digest ... (sign_type: {:?}, witness_args.lock: 0x{}",
                 init_witness_idx,
-                sign_type,
+                _sign_type,
                 util::first_n_bytes_to_hex(witness_args_lock.raw_data(), 20)
             );
 

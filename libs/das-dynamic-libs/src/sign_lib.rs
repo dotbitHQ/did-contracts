@@ -27,7 +27,9 @@ pub struct SignLibWith1Methods {
 }
 
 pub struct SignLib {
-    pub ckb_multi: Option<SignLibWith1Methods>,
+    pub ckb_signhash: Option<SignLibWith1Methods>,
+    pub ckb_multisig: Option<SignLibWith1Methods>,
+    pub ed25519: Option<SignLibWith2Methods>,
     pub eth: Option<SignLibWith2Methods>,
     pub tron: Option<SignLibWith2Methods>,
     pub doge: Option<SignLibWith2Methods>,
@@ -36,7 +38,9 @@ pub struct SignLib {
 impl SignLib {
     pub fn new() -> Self {
         SignLib {
-            ckb_multi: None,
+            ckb_signhash: None,
+            ckb_multisig: None,
+            ed25519: None,
             eth: None,
             tron: None,
             doge: None,
@@ -65,6 +69,14 @@ impl SignLib {
         let func;
 
         match das_lock_type {
+            DasLockType::CKBSingle => {
+                let lib = self.ckb_signhash.as_ref().unwrap();
+                func = &lib.c_validate;
+            }
+            DasLockType::CKBMulti => {
+                let lib = self.ckb_multisig.as_ref().unwrap();
+                func = &lib.c_validate;
+            }
             DasLockType::ETH | DasLockType::ETHTypedData => {
                 let lib = self.eth.as_ref().unwrap();
                 func = &lib.c_validate;
@@ -75,10 +87,6 @@ impl SignLib {
             }
             DasLockType::Doge => {
                 let lib = self.doge.as_ref().unwrap();
-                func = &lib.c_validate;
-            }
-            DasLockType::CKBMulti => {
-                let lib = self.ckb_multi.as_ref().unwrap();
                 func = &lib.c_validate;
             }
             _ => return Err(Error::UndefinedDasLockType as i32),
@@ -115,6 +123,10 @@ impl SignLib {
 
         let func;
         match das_lock_type {
+            // DasLockType::CKBSingle => {
+            //     let lib = self.ckb_signhash.as_ref().unwrap();
+            //     func = &lib.c_validate_str;
+            // }
             DasLockType::ETH | DasLockType::ETHTypedData => {
                 let lib = self.eth.as_ref().unwrap();
                 func = &lib.c_validate_str;
@@ -156,6 +168,11 @@ impl SignLib {
         sig: Vec<u8>,
         args: Vec<u8>,
     ) -> Result<(), i32> {
+        // TODO 测试环境跳过验签
+        if cfg!(feature = "dev") {
+            return Ok(())
+        }
+
         let data = [expired_at, account_list_smt_root].concat();
         let message = self.gen_digest(das_lock_type, data)?;
         let type_no = 0i32;
@@ -179,6 +196,10 @@ impl SignLib {
         args: Vec<u8>,
         sign_expired_at: Vec<u8>,
     ) -> Result<(), i32> {
+        if cfg!(feature = "dev") {
+            return Ok(())
+        }
+
         let data = [account_id, edit_key, edit_value, nonce, sign_expired_at].concat();
         let message = self.gen_digest(das_lock_type, data)?;
         let type_no = 0i32;

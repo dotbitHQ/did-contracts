@@ -4,11 +4,11 @@ use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
 use core::convert::TryInto;
+use core::ffi::CStr;
 use core::result::Result;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::packed;
-use ckb_std::cstr_core::CStr;
 use ckb_std::error::SysError;
 use ckb_std::high_level;
 use das_core::constants::*;
@@ -260,16 +260,16 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let mut tron_context = new_context!();
             let mut doge_context = new_context!();
             if cfg!(not(feature = "dev")) {
-                log_loading!(DynLibName::ETH);
-                let eth_lib = load_lib!(eth_context, DynLibName::ETH);
+                log_loading!(DynLibName::ETH, config_main.das_lock_type_id_table());
+                let eth_lib = load_lib!(eth_context, DynLibName::ETH, config_main.das_lock_type_id_table());
                 sign_lib.eth = load_2_methods!(eth_lib);
 
-                log_loading!(DynLibName::TRON);
-                let tron_lib = load_lib!(tron_context, DynLibName::TRON);
+                log_loading!(DynLibName::TRON, config_main.das_lock_type_id_table());
+                let tron_lib = load_lib!(tron_context, DynLibName::TRON, config_main.das_lock_type_id_table());
                 sign_lib.tron = load_2_methods!(tron_lib);
 
-                log_loading!(DynLibName::DOGE);
-                let doge_lib = load_lib!(doge_context, DynLibName::DOGE);
+                log_loading!(DynLibName::DOGE, config_main.das_lock_type_id_table());
+                let doge_lib = load_lib!(doge_context, DynLibName::DOGE, config_main.das_lock_type_id_table());
                 sign_lib.doge = load_2_methods!(doge_lib);
             }
 

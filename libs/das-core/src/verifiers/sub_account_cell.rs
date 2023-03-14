@@ -257,11 +257,6 @@ pub fn verify_sub_account_mint_sign(
     witness: &SubAccountMintSignWitness,
     sign_lib: &SignLib,
 ) -> Result<(), Box<dyn ScriptError>> {
-    if cfg!(feature = "dev") {
-        // CAREFUL Signature verification has been skipped in development mode.
-        return Ok(());
-    }
-
     debug!(
         "  witnesses[{:>2}] Verify if the SubAccountMintSignWitness.signature is valid.",
         witness.index
@@ -270,7 +265,7 @@ pub fn verify_sub_account_mint_sign(
     let das_lock_type = match witness.sign_type {
         Some(val) => {
             assert!(
-                [DasLockType::ETH, DasLockType::TRON, DasLockType::Doge].contains(&val),
+                [DasLockType::CKBSingle, DasLockType::ETH, DasLockType::ETHTypedData, DasLockType::TRON, DasLockType::Doge].contains(&val),
                 ErrorCode::InvalidTransactionStructure,
                 "  witnesses[{:>2}] Parsing das-lock(witness.sub_account.lock.args) algorithm failed (maybe not supported for now), but it is required in this transaction.",
                 witness.index
@@ -398,7 +393,7 @@ pub fn verify_sub_account_edit_sign(
     let das_lock_type = match witness.sign_type {
         Some(val) => {
             assert!(
-                [DasLockType::ETH, DasLockType::TRON, DasLockType::Doge].contains(&val),
+                [DasLockType::CKBSingle, DasLockType::ETH, DasLockType::ETHTypedData, DasLockType::TRON, DasLockType::Doge].contains(&val),
                 ErrorCode::InvalidTransactionStructure,
                 "  witnesses[{:>2}] Parsing das-lock(witness.sub_account.lock.args) algorithm failed (maybe not supported for now), but it is required in this transaction.",
                 witness.index

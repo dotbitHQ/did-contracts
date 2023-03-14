@@ -10,7 +10,7 @@ testnet = ["das-core/testnet", "eip712/testnet"]
 mainnet = ["das-core/mainnet", "eip712/mainnet"]
 
 [dependencies]
-ckb-std = "0.10.0"
+ckb-std = { git = "https://github.com/XuJiandong/ckb-std.git", branch = "load-library-typeid" }
 das-core = { path = "../../libs/das-core", default-features = false }
 das-types = { path = "../../../das-types/rust", default-features = false }
 das-map = { path = "../../libs/das-map", default-features = false }

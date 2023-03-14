@@ -5,6 +5,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use alloc::{format, vec};
 use core::convert::TryInto;
+use core::ffi::CStr;
 use core::fmt::Debug;
 
 use blake2b_ref::{Blake2b, Blake2bBuilder};
@@ -13,7 +14,6 @@ use ckb_std::ckb_types::bytes;
 use ckb_std::ckb_types::core::ScriptHashType;
 use ckb_std::ckb_types::packed::*;
 use ckb_std::ckb_types::prelude::*;
-use ckb_std::cstr_core::CStr;
 use ckb_std::error::SysError;
 use ckb_std::{high_level, syscalls};
 use das_types::constants::{DasLockType, DataType, LockRole, WITNESS_HEADER};
