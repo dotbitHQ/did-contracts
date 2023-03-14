@@ -14,6 +14,7 @@
   [das, type, raw/entity/table],
   [das, type, sub_account_mint_sign],
   [das, type, sub_account_price_rule],
+  [das, type, sub_account_preserved_rule],
   [das, type, sub_account],
   ...
 ]
@@ -25,6 +26,7 @@
 
 - 为了批量 Mint 子账户而设计的 `SubAccountMintSign` ；
 - 为了定义子账户定价而设计的 `SubAccountPriceRule` ；
+- 为了定义子账户保留名单而设计的 `SubAccountPreservedRule` ；
 - 为了创建、编辑子账户 SMT 而设计的 `SubAccount` ；
 
 由于数据量较大，且在之前的实践中我们发现 molecule 编码在处理较长数据时在合约中性能不佳的问题存在，所以部分类型采用了以下**基于 LV 编码(Length-Value)的二进制**：
@@ -98,9 +100,9 @@ account hash ，value 为子账户创建成功后的 `SubAccountData.lock.args` 
   - `sign_expired_at`
   - `account_list_smt_root`
 
-### SubAccountPriceRule 数据结构
+### SubAccountPriceRule 与 SubAccountPreservedRule 数据结构
 
-由于此类数据是一个有较为复杂层级关系的结构，因此依然采用了 molecule 编码，具体的数据结构 `SubAccountPriceRules` 类型，关于此类型的定义及其对应的 JSON 描述详见 [自定义价格数据结构](./%E8%87%AA%E5%AE%9A%E4%B9%89%E4%BB%B7%E6%A0%BC%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84.md) 。
+这两类数据是一个有较为复杂层级关系的结构，因此依然采用了 molecule 编码，具体的数据结构为 `SubAccountPriceRules` 和 `SubAccountPreservedRule` 类型，关于这两种类型的定义及其对应的 JSON 描述详见 [自定义规则](./%E8%87%AA%E5%AE%9A%E4%B9%89%E8%A7%84%E5%88%99.md) 。
 
 ### SubAccount 数据结构
 

@@ -162,7 +162,7 @@ CKB 年费 = CKB 年费 - (CKB 年费 * 折扣率 / 10000) // 折扣率是以 10
 
 - 年份需要大于等于 1 ，实际计算时按照 365 \* 86400 秒为一年来计算；
 - **账户注册年费** 保存在 [ConfigCellPrice.prices](#ConfigCell) 中，单位为 **美元**；
-- **CKB 汇率**从 QuoteCell 获取，单位为 **美元/CKB**，前面在 [数据存储方案.md](#数据存储方案.md) 的 **美元的单位** 一节我们约定了 1 美元记为 `1_000_000` ，因此如果 QuoteCell 中记录的是 `1_000`
+- **CKB 汇率**从 QuoteCell 获取，单位为 **美元/CKB**，前面在 [数据存储方案.md](./数据存储方案.md) 的 **美元的单位** 一节我们约定了 1 美元记为 `1_000_000` ，因此如果 QuoteCell 中记录的是 `1_000`
   那么也就意味着 CKB 汇率就是 `0.001 美元/CKB`；
 - **AccountCell 基础成本** 只在调整 Cell 数据结构时会发生变化，可以认为是固定的常量，查看对应 Cell 的 **体积** 即可获得；
 - **Account 字节长度**，由于 AccountCell 会在 data 字段保存完整的账户，比如 `das.bit` 那么保存的就是 `0x6461732E626974` ，因此需要再加上这部分体积；
@@ -569,20 +569,23 @@ type:
   type: type,
   args: [account_id], // 账户 ID ，也就是和 AccountCell.data.id 相同的值
 
-data: [ smt_root ][ das_profit ][ owner_profit ][ custom_script ][ script_args ]
+data: [ smt_root ][ das_profit ][ owner_profit ][ custom_script ][ script_args ][ price_rules_hash ][ preserved_rules_hash ]
 ```
 
-- smt_root ，也就是对应主账户下的所有子账户的 merkle root ；
-- das_profit ，由于 SubAccountCell 也负责存放属于 DAS 官方的利润，这个值就是指明 capacity 当中有多少 DAS 官方的利润利润；
-- owner_profit ，由于 SubAccountCell 也负责存放属于父账户 AccountCell 的 owner 的利润，这个值就是指明 capacity 当中有多少 owner 的利润；
-- custom_script ，总共 33 字节，第 1 字节指明自定义脚本的 hash_type ，后 32 字节指明自定义脚本的 type script 的 args，缺少该字段或者该字段全 0 就说明用户未设置自定义脚本；
-- script_args ，传递给自定义脚本的自定义参数，具体解析方式由自定义脚本自己决定；
+- smt_root ， 32 bytes ，也就是对应主账户下的所有子账户的 merkle root ；
+- das_profit ，8 bytes ， 由于 SubAccountCell 也负责存放属于 DAS 官方的利润，这个值就是指明 capacity 当中有多少 DAS 官方的利润利润；
+- owner_profit ，8 bytes ，由于 SubAccountCell 也负责存放属于父账户 AccountCell 的 owner 的利润，这个值就是指明 capacity 当中有多少 owner 的利润；
+- custom_script ，总共 33 bytes，`custom_script[0]` 指明了后面的数据如何解析：
+  - 当 `custom_script[0] == 0`，或不存在时，指明了用户没有设计自定义价格，只有父账户可以创建子账户；
+  - 当 `custom_script[0] == 1`，指明用户使用了基于动态库的自定义价格，而 `custom_script[1 .. 33]` 就是动态库的 `type.args` ；
+  - 当 `custom_script[0] == 255` ，指明用户使用了基于配置的自定义价格，而 `custom_script[1 .. 33]` 必定全部填充 0x00 ，script_args 长度为 0 bytes；
+- script_args ，当 `custom_script[0] == 1` 时用于存放传递给自定义脚本的自定义参数，具体解析方式由自定义脚本自己决定；
+- price_rules_hash ，32 bytes 的 hash ，计算自价格规则 SubAccountPriceRule witness ；
+- preserved_rules_hash ， 32 bytes 的 hash ，计算自保留账户名规则 SubAccountPreservedRule witness ；
 
-#### custom_script 的解析方法
+#### custom_script 推导动态库 Type ID
 
-`custom_script` 字段共有 33 字节，其中 `custom_script[0]` 代表 Script 结构体的 hash_type 字段，根据 `custom_script[0]` 的不同来解析后面的 32 个字节：
-
-- 目前仅支持的情况为 `custom_script[0] == 1`，也就是 `hash_type == "type"` ，这种情况下需要将 `custom_script[1..33]` 作为 Script 结构体的 args 来使用：
+当 `custom_script[0] == 1` 时，需要将 `custom_script[1..33]` 作为 `type.args` 来使用组成以下 Script 结构：
 
 ```
 {
@@ -1062,106 +1065,3 @@ data:
 #### 体积
 
 `105` Bytes
-
-## 其他
-
-### Hash 算法
-
-如无特殊说明，本文均使用 `blake2b` 算法，并配合 CKB 指定的默认参数：
-
-- **output digest size**: `32`
-- **personalization**: `ckb-default-hash`
-
-> 本文中的 hash 值除非特别说明都是通过上述 `blake2b` 算法得出。
-
-### 系统状态枚举值 Status
-
-```
-enum SystemStatus {
-    Off,
-    On,
-}
-```
-
-### Witness 类型枚举值 DataType
-
-```
-enum DataType {
-    ActionData = 0,
-    AccountCellData,
-    AccountSaleCellData,
-    AccountAuctionCellData,
-    ProposalCellData,
-    PreAccountCellData,
-    IncomeCellData,
-    OfferCellData,
-    SubAccount,
-    SubAccountMintSign,
-    ReverseRecord,
-    ConfigCellAccount = 100,              // args: 0x64000000
-    ConfigCellApply = 101,                // args: 0x65000000
-    ConfigCellIncome = 103,               // args: 0x67000000
-    ConfigCellMain,                       // args: 0x68000000
-    ConfigCellPrice,                      // args: 0x69000000
-    ConfigCellProposal,                   // args: 0x6a000000
-    ConfigCellProfitRate,                 // args: 0x6b000000
-    ConfigCellRecordKeyNamespace,         // args: 0x6c000000
-    ConfigCellRelease,                    // args: 0x6d000000
-    ConfigCellUnAvailableAccount,         // args: 0x6e000000
-    ConfigCellSecondaryMarket,            // args: 0x6f000000
-    ConfigCellReverseResolution,          // args: 0x70000000
-    ConfigCellSubAccount,                 // args: 0x71000000
-    ConfigCellSubAccountBetaList,         // args: 0x72000000
-    ConfigCellSystemStatus,               // args: 0x73000000
-    ConfigCellSMTNodeWhitelist,           // args: 0x74000000
-    ConfigCellPreservedAccount00 = 10000, // args: 0x10270000
-    ConfigCellPreservedAccount01,
-    ConfigCellPreservedAccount02,
-    ConfigCellPreservedAccount03,
-    ConfigCellPreservedAccount04,
-    ConfigCellPreservedAccount05,
-    ConfigCellPreservedAccount06,
-    ConfigCellPreservedAccount07,
-    ConfigCellPreservedAccount08,
-    ConfigCellPreservedAccount09,
-    ConfigCellPreservedAccount10,
-    ConfigCellPreservedAccount11,
-    ConfigCellPreservedAccount12,
-    ConfigCellPreservedAccount13,
-    ConfigCellPreservedAccount14,
-    ConfigCellPreservedAccount15,
-    ConfigCellPreservedAccount16,
-    ConfigCellPreservedAccount17,
-    ConfigCellPreservedAccount18,
-    ConfigCellPreservedAccount19,     // args: 0x23270000
-    ConfigCellCharSetEmoji = 100000,  // args: 0xa0860100
-    ConfigCellCharSetDigit = 100001,  // args: 0xa1860100
-    ConfigCellCharSetEn = 100002,     // args: 0xa2860100
-    ConfigCellCharSetZhHans = 100003, // args: 0xa3860100, not available yet
-    ConfigCellCharSetZhHant = 100004, // args: 0xa4860100, not available yet
-    ConfigCellCharSetJp,              // args: 0xa5860100
-    ConfigCellCharSetKo,              // args: 0xa6860100
-    ConfigCellCharSetRu,              // args: 0xa7860100
-    ConfigCellCharSetTr,              // args: 0xa8860100
-    ConfigCellCharSetTh,              // args: 0xa9860100
-    ConfigCellCharSetVi,              // args: 0xaa860100
-}
-```
-
-> ⚠️ 为了方便维护， ConfigCellXXX 的编号空间为 100 ~ 199999 之间，既 args >= 100 && args <= 199999 .
-
-### 字符集枚举值 CharSet
-
-```
-enum CharSetType {
-    Emoji,
-    Digit,
-    En,
-    ZhHans,
-    ZhHant,
-}
-```
-
-> ⚠️ 为了方便维护， ConfigCellCharSetXXX 总是保持减去 100000 就等于下面 CharSet 常量的形式，所以可以直接采用下面的转换方法：
->
-> `ConfigCellCharSetEmoji - 100000 = EMOJI`
