@@ -198,6 +198,31 @@ lazy_static! {
             "playground",
             "0xca4d966895b1467702bad4038396b037d8c8f045cae9cf5a7db4eadefa347887",
         );
+        // das-lock
+        map.insert(
+            "ckb_sign.so",
+            "0x84797b60caf864addda007c6e16f570a8709d6fa27b32f4a093e82a6b7565817",
+        );
+        map.insert(
+            "ckb_multi_sign.so",
+            "0x0000000000000000000000000000000000000000000000000000000000000000",
+        );
+        map.insert(
+            "ed25519_sign.so",
+            "0x0000000000000000000000000000000000000000000000000000000000000000",
+        );
+        map.insert(
+            "eth_sign.so",
+            "0xb16a069e007b20528efeb0c0c7742bfee94d6e0e15eb07b5f7e2343dcecce768",
+        );
+        map.insert(
+            "tron_sign.so",
+            "0xed45ad69b0ee84b7b8f0181f75eda16948682438a40a0f7597667bfab5fd89e5",
+        );
+        map.insert(
+            "doge_sign.so",
+            "0x0000000000000000000000000000000000000000000000000000000000000000",
+        );
         map
     };
     pub static ref RE_VARIABLE: Regex = Regex::new(r"\{\{([\w\-\.]+)\}\}").unwrap();

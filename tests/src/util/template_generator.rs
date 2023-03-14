@@ -752,10 +752,20 @@ impl TemplateGenerator {
             .eip712_lib(Hash::try_from(util::get_type_id_bytes("eip712-lib")).unwrap())
             .build();
 
+            let das_lock_type_id_table = DasLockTypeIdTable::new_builder()
+            .ckb_signhash(Hash::try_from(util::get_type_id_bytes("ckb_sign.so")).unwrap())
+            .ckb_multisig(Hash::try_from(util::get_type_id_bytes("ckb_multi_sign.so")).unwrap())
+            .ed25519(Hash::try_from(util::get_type_id_bytes("ed25519_sign.so")).unwrap())
+            .eth(Hash::try_from(util::get_type_id_bytes("eth_sign.so")).unwrap())
+            .tron(Hash::try_from(util::get_type_id_bytes("tron_sign.so")).unwrap())
+            .doge(Hash::try_from(util::get_type_id_bytes("doge_sign.so")).unwrap())
+            .build();
+
         let entity = ConfigCellMain::new_builder()
             .status(Uint8::from(1))
             .type_id_table(type_id_table)
             .das_lock_out_point_table(DasLockOutPointTable::default())
+            .das_lock_type_id_table(das_lock_type_id_table)
             .build();
 
         let cell_data = blake2b_256(entity.as_slice()).to_vec();

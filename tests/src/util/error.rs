@@ -58,8 +58,9 @@ pub enum ErrorCode {
     WitnessArgsDecodingError,
     WitnessVersionOrTypeInvalid,
     SMTWhiteListTheLockIsNotFound,
-    SMTNewRootMismatch,
+    SMTNewRootMismatch, // 55
     SMTProofVerifyFailed,
+    SignMethodUnsupported,
     ApplyRegisterNeedWaitLonger = 60,
     ApplyRegisterHasTimeout,
     ApplyLockMustBeUnique,
@@ -68,6 +69,7 @@ pub enum ErrorCode {
     CharSetIsConflict,
     CharSetIsUndefined,
     AccountCharIsInvalid,
+    AccountIsTooShort,
     AccountIsTooLong,
     ProposalSliceIsNotSorted = 90,
     ProposalSliceIsDiscontinuity,
