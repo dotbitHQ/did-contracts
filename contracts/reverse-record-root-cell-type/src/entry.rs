@@ -97,23 +97,21 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             )?;
 
             let mut sign_lib = SignLib::new();
-            // ⚠️ This must be exist in the top level, because we need to use the libraries later.
+            // ⚠️ This must be present at the top level, as we will need to use the libraries later.
             let mut eth_context = new_context!();
+            log_loading!(DynLibName::ETH, config_main.das_lock_type_id_table());
+            let eth_lib = load_lib!(eth_context, DynLibName::ETH, config_main.das_lock_type_id_table());
+            sign_lib.eth = load_2_methods!(eth_lib);
+
             let mut tron_context = new_context!();
+            log_loading!(DynLibName::TRON, config_main.das_lock_type_id_table());
+            let tron_lib = load_lib!(tron_context, DynLibName::TRON, config_main.das_lock_type_id_table());
+            sign_lib.tron = load_2_methods!(tron_lib);
+
             let mut doge_context = new_context!();
-            if cfg!(not(feature = "dev")) {
-                log_loading!(DynLibName::ETH, config_main.das_lock_type_id_table());
-                let eth_lib = load_lib!(eth_context, DynLibName::ETH, config_main.das_lock_type_id_table());
-                sign_lib.eth = load_2_methods!(eth_lib);
-
-                log_loading!(DynLibName::TRON, config_main.das_lock_type_id_table());
-                let tron_lib = load_lib!(tron_context, DynLibName::TRON, config_main.das_lock_type_id_table());
-                sign_lib.tron = load_2_methods!(tron_lib);
-
-                log_loading!(DynLibName::DOGE, config_main.das_lock_type_id_table());
-                let doge_lib = load_lib!(doge_context, DynLibName::DOGE, config_main.das_lock_type_id_table());
-                sign_lib.doge = load_2_methods!(doge_lib);
-            }
+            log_loading!(DynLibName::DOGE, config_main.das_lock_type_id_table());
+            let doge_lib = load_lib!(doge_context, DynLibName::DOGE, config_main.das_lock_type_id_table());
+            sign_lib.doge = load_2_methods!(doge_lib);
 
             debug!("Start iterating ReverseRecord witnesses ...");
 

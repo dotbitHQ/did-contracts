@@ -1372,11 +1372,11 @@ fn verify_multi_sign(input_account_index: usize, type_id_table: DasLockTypeIdTab
 
     let mut sign_lib = SignLib::new();
     let mut ckb_multi_context = new_context!();
-    if cfg!(not(feature = "dev")) {
-        log_loading!(DynLibName::CKBMultisig, type_id_table);
-        let ckb_multi_lib = load_lib!(ckb_multi_context, DynLibName::CKBMultisig, type_id_table);
-        sign_lib.ckb_multisig = load_1_method!(ckb_multi_lib);
+    log_loading!(DynLibName::CKBMultisig, type_id_table);
+    let ckb_multi_lib = load_lib!(ckb_multi_context, DynLibName::CKBMultisig, type_id_table);
+    sign_lib.ckb_multisig = load_1_method!(ckb_multi_lib);
 
+    if cfg!(not(feature = "dev")) {
         sign_lib
             .validate(DasLockType::CKBMulti, 0i32, digest.to_vec(), witness_args_lock, args)
             .map_err(|err_code| {

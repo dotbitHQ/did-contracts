@@ -702,6 +702,8 @@ impl TemplateParser {
 
         file_path.push(name);
 
+        println!("Loading binary {} from {} ...", name, file_path.as_path().display());
+
         fs::read(file_path.as_path())
             .expect(&format!(
                 "Can not load binary of {} from path {}.",

@@ -12,9 +12,10 @@ use crate::util::template_parser::*;
 fn before_each() -> TemplateGenerator {
     let mut template = init("update_reverse_record_root");
 
-    template.push_contract_cell("eth_sign.so", ContractType::SharedLib);
     template.push_contract_cell("ckb_sign.so", ContractType::SharedLib);
+    template.push_contract_cell("eth_sign.so", ContractType::SharedLib);
     template.push_contract_cell("tron_sign.so", ContractType::SharedLib);
+    template.push_contract_cell("doge_sign.so", ContractType::SharedLib);
 
     template.push_config_cell(DataType::ConfigCellSMTNodeWhitelist, Source::CellDep);
 
