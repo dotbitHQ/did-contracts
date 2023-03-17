@@ -1,13 +1,17 @@
 use alloc::boxed::Box;
 use alloc::format;
+use alloc::vec::Vec;
 use core::cmp::Ordering;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
+use das_types::packed;
+use sparse_merkle_tree::ckb_smt::SMTBuilder;
+use sparse_merkle_tree::H256;
 
-use crate::constants::{das_wallet_lock, ScriptType};
+use crate::constants::{das_wallet_lock, CellField, ScriptType};
 use crate::error::*;
-use crate::{assert as das_assert, code_to_error, debug, util};
+use crate::util;
 
 pub fn verify_cell_dep_number(
     cell_name: &str,
@@ -166,6 +170,83 @@ pub fn verify_cell_number_and_position(
     Ok(())
 }
 
+/// WARNING! The witness will not be compared.
+pub fn verify_cell_consistent_with_exception(
+    cell_name: &str,
+    input_cell_index: usize,
+    output_cell_index: usize,
+    except_fields: Vec<CellField>,
+) -> Result<(), Box<dyn ScriptError>> {
+    let input_cell = high_level::load_cell(input_cell_index, Source::Input).map_err(Error::<ErrorCode>::from)?;
+    let output_cell = high_level::load_cell(output_cell_index, Source::Output).map_err(Error::<ErrorCode>::from)?;
+
+    if !except_fields.contains(&CellField::Capacity) {
+        debug!("Verify if the capacity of the {} is consistent ...", cell_name);
+
+        let input_capacity = u64::from(packed::Uint64::from(input_cell.capacity()));
+        let output_capacity = u64::from(packed::Uint64::from(output_cell.capacity()));
+
+        das_assert!(
+            input_capacity <= output_capacity,
+            ErrorCode::CellCapacityMustBeConsistent,
+            "The capacity of the {} should be consistent or increased.(input: {}, output: {})",
+            cell_name,
+            input_capacity,
+            output_capacity
+        );
+    }
+
+    if !except_fields.contains(&CellField::Lock) {
+        debug!("Verify if the lock script of the {} is consistent ...", cell_name);
+
+        let input_lock = input_cell.lock();
+        let output_lock = output_cell.lock();
+
+        das_assert!(
+            util::is_entity_eq(&input_lock, &output_lock),
+            ErrorCode::CellLockCanNotBeModified,
+            "The lock of the {} should be consistent.(input: {}, output: {})",
+            cell_name,
+            input_lock,
+            output_lock
+        );
+    }
+
+    if !except_fields.contains(&CellField::Type) {
+        debug!("Verify if the type script of the {} is consistent ...", cell_name);
+
+        let input_type = input_cell.type_();
+        let output_type = output_cell.type_();
+
+        das_assert!(
+            util::is_entity_eq(&input_type, &output_type),
+            ErrorCode::CellLockCanNotBeModified,
+            "The lock of the {} should be consistent.(input: {}, output: {})",
+            cell_name,
+            input_type,
+            output_type
+        );
+    }
+
+    if !except_fields.contains(&CellField::Data) {
+        debug!("Verify if the data of the {} is consistent ...", cell_name);
+
+        let input_data = util::load_cell_data(input_cell_index, Source::Input)?;
+        let output_data = util::load_cell_data(output_cell_index, Source::Output)?;
+
+        das_assert!(
+            input_data == output_data,
+            ErrorCode::CellLockCanNotBeModified,
+            "The lock of the {} should be consistent.(input: {}, output: {})",
+            cell_name,
+            util::hex_string(&input_data),
+            util::hex_string(&output_data)
+        );
+    }
+
+    Ok(())
+}
+
 // The tx fee is from a specific cell (like AccountCell/AccountSaleCell), here to verify the validity of the fee spent
 pub fn verify_tx_fee_spent_correctly(
     cell_name: &str,
@@ -240,5 +321,25 @@ pub fn verify_das_get_change(expected_change: u64) -> Result<(), Box<dyn ScriptE
         total_capacity
     );
 
+    Ok(())
+}
+
+pub fn verify_smt_proof(
+    key: [u8; 32],
+    val: [u8; 32],
+    root: [u8; 32],
+    proof: &[u8],
+) -> Result<(), Box<dyn ScriptError>> {
+    let builder = SMTBuilder::new();
+    let builder = builder.insert(&H256::from(key), &H256::from(val)).unwrap();
+
+    let smt = builder.build().unwrap();
+    let ret = smt.verify(&H256::from(root), &proof);
+    if let Err(_e) = ret {
+        debug!("  verify_smt_proof verification failed. Err: {:?}", _e);
+        return Err(code_to_error!(ErrorCode::SMTProofVerifyFailed));
+    } else {
+        debug!("  verify_smt_proof verification passed.");
+    }
     Ok(())
 }

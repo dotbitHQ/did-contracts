@@ -54,7 +54,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             assert!(
                 // Because the ReverseRecordCell will store account in data, it's capacity is dynamic.
                 current_capacity >= reverse_record_cell_capacity,
-                ErrorCode::ReverseRecordCellCapacityError,
+                ErrorCode::CellCapacityMustBeConsistent,
                 "The ReverseRecordCell.capacity should be at least {} shannon.(current: {})",
                 reverse_record_cell_capacity,
                 current_capacity
@@ -76,7 +76,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             assert_lock_equal!(
                 (balance_cells[0], Source::Input),
                 (output_cells[0], Source::Output),
-                ErrorCode::ReverseRecordCellLockError,
+                ErrorCode::CellLockCanNotBeModified,
                 "The ReverseRecordCell.lock should be the same as the lock of inputs[0]."
             );
 
@@ -86,7 +86,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let current_lock = high_level::load_cell_lock(output_cells[0], Source::Output)?;
             assert!(
                 util::is_type_id_equal(expected_lock.as_reader(), current_lock.as_reader()),
-                ErrorCode::ReverseRecordCellLockError,
+                ErrorCode::InvalidTransactionStructure,
                 "The ReverseRecordCell.lock should be the das-lock."
             );
 
@@ -113,7 +113,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let output_capacity = high_level::load_cell_capacity(0, Source::Output)?;
             assert!(
                 output_capacity >= input_capacity - expected_fee,
-                ErrorCode::ReverseRecordCellCapacityError,
+                ErrorCode::CellCapacityMustBeConsistent,
                 "The ReverseRecordCell.capacity should remain equal to or more than {} shannon.(available_fee: {})",
                 input_capacity - expected_fee,
                 expected_fee
@@ -124,7 +124,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             assert_lock_equal!(
                 (input_cells[0], Source::Input),
                 (output_cells[0], Source::Output),
-                ErrorCode::ReverseRecordCellLockError,
+                ErrorCode::CellLockCanNotBeModified,
                 "The ReverseRecordCell.lock should be consistent in inputs and outputs."
             );
 

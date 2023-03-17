@@ -10,10 +10,10 @@ use das_types::constants::{DataType, WITNESS_HEADER, WITNESS_HEADER_BYTES, WITNE
 use das_types::packed::*;
 use das_types::prelude::*;
 
-use super::constants::*;
-use super::error::*;
-use super::types::{Configs, LockScriptTypeIdTable};
-use super::{assert, code_to_error, debug, util, warn};
+use super::super::constants::*;
+use super::super::error::*;
+use super::super::types::{Configs, LockScriptTypeIdTable};
+use super::super::util;
 
 #[derive(Debug)]
 pub struct WitnessesParser {
@@ -75,8 +75,12 @@ impl WitnessesParser {
                     );
                     match DataType::try_from(data_type_in_int) {
                         Ok(DataType::SubAccount | DataType::SubAccountMintSign) => {
-                            // Ignore sub-account witnesses in this parser.
-                            debug!("witnesses[{:>2}] Found sub-account witness skip parsing.", i);
+                            // Ignore SubAccount witnesses in this parser.
+                            debug!("witnesses[{:>2}] Found SubAccount witness skip parsing.", i);
+                        }
+                        Ok(DataType::ReverseRecord) => {
+                            // Ignore ReverseRecord witnesses in this parser.
+                            debug!("witnesses[{:>2}] Found ReverseRecorw witness skip parsing.", i);
                         }
                         Ok(data_type) => {
                             if !das_witnesses_started {
@@ -323,6 +327,9 @@ impl WitnessesParser {
                 Some(TypeScript::ReverseRecordCellType)
             }
             x if util::is_reader_eq(x, type_id_table_reader.sub_account_cell()) => Some(TypeScript::SubAccountCellType),
+            x if util::is_reader_eq(x, type_id_table_reader.reverse_record_root_cell()) => {
+                Some(TypeScript::ReverseRecordRootCellType)
+            }
             x if util::is_reader_eq(x, self.config_cell_type_id.as_reader()) => Some(TypeScript::ConfigCellType),
             _ => None,
         }

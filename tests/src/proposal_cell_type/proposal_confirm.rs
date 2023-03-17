@@ -602,7 +602,7 @@ fn challenge_proposal_confirm_account_cell_modified_2() {
     push_output_income_cell_with_profit(&mut template);
     push_output_normal_cell_with_refund(&mut template);
 
-    challenge_tx(template.as_json(), ErrorCode::CellCapacityMustConsistent);
+    challenge_tx(template.as_json(), ErrorCode::CellCapacityMustBeConsistent);
 }
 
 #[test]

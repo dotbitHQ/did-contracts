@@ -28,7 +28,7 @@ fn init(action: &str) -> TemplateGenerator {
     template
 }
 
-fn gen_config_cell_account() -> (Value, Value, Bytes, ConfigCellAccount) {
+fn gen_config_cell_account() -> (Value, Value, Vec<u8>, ConfigCellAccount) {
     let entity = ConfigCellAccount::new_builder()
         .max_length(Uint32::from(42))
         .basic_capacity(Uint64::from(ACCOUNT_BASIC_CAPACITY))
@@ -43,7 +43,7 @@ fn gen_config_cell_account() -> (Value, Value, Bytes, ConfigCellAccount) {
         .edit_manager_throttle(Uint32::from(3600))
         .edit_records_throttle(Uint32::from(600))
         .build();
-    let cell_data = Bytes::from(blake2b_256(entity.as_slice()).to_vec());
+    let cell_data = blake2b_256(entity.as_slice()).to_vec();
     let config_id_hex = hex::encode(&(DataType::ConfigCellAccount as u32).to_le_bytes());
     let lock_script = json!({
       "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
@@ -64,8 +64,8 @@ fn parse_witness_entity_config() {
     let (lock_script, type_script, cell_data, entity) = gen_config_cell_account();
     template.push_cell(0, lock_script, type_script, Some(cell_data), Source::CellDep);
 
-    let witness = das_util::wrap_entity_witness(DataType::ConfigCellAccount, entity);
-    template.outer_witnesses.push(util::bytes_to_hex(&witness.raw_data()));
+    let witness = das_util::wrap_entity_witness_v2(DataType::ConfigCellAccount, entity);
+    template.outer_witnesses.push(util::bytes_to_hex(&witness));
 
     push_input_normal_cell(&mut template, 0, CONFIG_LOCK_ARGS);
     push_input_test_env_cell(&mut template);
@@ -96,7 +96,7 @@ fn parse_witness_raw_config() {
     }
     let raw = util::prepend_molecule_like_length(raw);
 
-    let cell_data = Bytes::from(blake2b_256(raw.as_slice()).to_vec());
+    let cell_data = blake2b_256(raw.as_slice()).to_vec();
     let config_id_hex = hex::encode(&(DataType::ConfigCellRecordKeyNamespace as u32).to_le_bytes());
     let lock_script = json!({
       "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
@@ -108,8 +108,8 @@ fn parse_witness_raw_config() {
     });
     template.push_cell(0, lock_script, type_script, Some(cell_data), Source::CellDep);
 
-    let witness = das_util::wrap_raw_witness(DataType::ConfigCellRecordKeyNamespace, raw);
-    template.outer_witnesses.push(util::bytes_to_hex(&witness.raw_data()));
+    let witness = das_util::wrap_raw_witness_v2(DataType::ConfigCellRecordKeyNamespace, raw);
+    template.outer_witnesses.push(util::bytes_to_hex(&witness));
 
     push_input_test_env_cell(&mut template);
     test_tx(template.as_json());
@@ -123,8 +123,8 @@ fn parse_witness_error_entity_config_data_type() {
     template.push_cell(0, lock_script, type_script, Some(cell_data), Source::CellDep);
 
     // Simulate put the witness of the ConfigCell with wrong data type.
-    let witness = das_util::wrap_entity_witness(DataType::ConfigCellProposal, entity);
-    template.outer_witnesses.push(util::bytes_to_hex(&witness.raw_data()));
+    let witness = das_util::wrap_entity_witness_v2(DataType::ConfigCellProposal, entity);
+    template.outer_witnesses.push(util::bytes_to_hex(&witness));
 
     push_input_test_env_cell(&mut template);
     challenge_tx(template.as_json(), ErrorCode::ConfigIsPartialMissing);
@@ -136,11 +136,11 @@ fn parse_witness_error_entity_config_entity_hash() {
 
     let (lock_script, type_script, _, entity) = gen_config_cell_account();
     // Simulate put the witness of the ConfigCell with wrong hash.
-    let fake_cell_data = Bytes::from(vec![0; 32]);
+    let fake_cell_data = vec![0; 32];
     template.push_cell(0, lock_script, type_script, Some(fake_cell_data), Source::CellDep);
 
-    let witness = das_util::wrap_entity_witness(DataType::ConfigCellAccount, entity);
-    template.outer_witnesses.push(util::bytes_to_hex(&witness.raw_data()));
+    let witness = das_util::wrap_entity_witness_v2(DataType::ConfigCellAccount, entity);
+    template.outer_witnesses.push(util::bytes_to_hex(&witness));
 
     push_input_test_env_cell(&mut template);
     challenge_tx(template.as_json(), ErrorCode::ConfigCellWitnessIsCorrupted);

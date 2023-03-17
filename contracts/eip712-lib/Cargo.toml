@@ -1,20 +1,17 @@
 [package]
 name = "eip712-lib"
-version = "1.0.0"
-edition = "2018"
+version = "1.1.0"
+edition = "2021"
 
 [features]
-dev = ["das-core/dev"]
-local = ["das-core/local"]
-testnet = ["das-core/testnet"]
-mainnet = ["das-core/mainnet"]
+dev = ["das-core/dev", "eip712/dev"]
+local = ["das-core/local", "eip712/local"]
+testnet = ["das-core/testnet", "eip712/testnet"]
+mainnet = ["das-core/mainnet", "eip712/mainnet"]
 
 [dependencies]
-ckb-std = "0.10.0"
+ckb-std = { git = "https://github.com/XuJiandong/ckb-std.git", branch = "load-library-typeid" }
 das-core = { path = "../../libs/das-core", default-features = false }
 das-types = { path = "../../../das-types/rust", default-features = false }
 das-map = { path = "../../libs/das-map", default-features = false }
 eip712 = { path = "../../libs/eip712" }
-bech32 = { version = "0.8.1", default-features = false }
-bs58 = { version = "0.4.0", default-features = false, features = [ "alloc" ] }
-sha2 = { version = "0.9.6", default-features = false }

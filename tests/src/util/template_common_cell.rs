@@ -367,6 +367,10 @@ pub fn push_input_account_cell_v2(template: &mut TemplateGenerator, cell_partial
 }
 
 pub fn push_input_sub_account_cell(template: &mut TemplateGenerator, cell_partial: Value) {
+    push_input_sub_account_cell_v2(template, cell_partial, ACCOUNT_1);
+}
+
+pub fn push_input_sub_account_cell_v2(template: &mut TemplateGenerator, cell_partial: Value, account: &str) {
     let das_profit = match cell_partial["data"]["das_profit"].as_u64() {
         Some(val) => val,
         _ => 0,
@@ -383,7 +387,7 @@ pub fn push_input_sub_account_cell(template: &mut TemplateGenerator, cell_partia
         },
         "type": {
             "code_hash": "{{sub-account-cell-type}}",
-            "args": ACCOUNT_1
+            "args": account
         },
         "data": {
             "root": "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -397,6 +401,10 @@ pub fn push_input_sub_account_cell(template: &mut TemplateGenerator, cell_partia
 }
 
 pub fn push_output_sub_account_cell(template: &mut TemplateGenerator, cell_partial: Value) {
+    push_output_sub_account_cell_v2(template, cell_partial, ACCOUNT_1);
+}
+
+pub fn push_output_sub_account_cell_v2(template: &mut TemplateGenerator, cell_partial: Value, account: &str) {
     let das_profit = match cell_partial["data"]["das_profit"].as_u64() {
         Some(val) => val,
         _ => 0,
@@ -413,7 +421,7 @@ pub fn push_output_sub_account_cell(template: &mut TemplateGenerator, cell_parti
         },
         "type": {
             "code_hash": "{{sub-account-cell-type}}",
-            "args": ACCOUNT_1
+            "args": account
         },
         "data": {
             "root": "0x0000000000000000000000000000000000000000000000000000000000000000",

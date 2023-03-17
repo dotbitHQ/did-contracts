@@ -173,6 +173,10 @@ lazy_static! {
             "0x573b1d865799c4bcb98ebd8b75bd87ed6a6c2449c99edf0f17142f527118201e",
         );
         map.insert(
+            "reverse-record-root-cell-type",
+            "0x49dc1d7f8c02869636f60b7eaea825cdc0d8daf68a3d902532fd8f24ecdd628a",
+        );
+        map.insert(
             "sub-account-cell-type",
             "0xf70fb11157496e73f30fc5e781d52725a74c9fba1e7a52115d75320d171759ec",
         );
@@ -193,6 +197,31 @@ lazy_static! {
         map.insert(
             "playground",
             "0xca4d966895b1467702bad4038396b037d8c8f045cae9cf5a7db4eadefa347887",
+        );
+        // das-lock
+        map.insert(
+            "ckb_sign.so",
+            "0x84797b60caf864addda007c6e16f570a8709d6fa27b32f4a093e82a6b7565817",
+        );
+        map.insert(
+            "ckb_multi_sign.so",
+            "0x0edf7093a5202d33ae1083947823f706a68e7af4b7641b5d88bbf3fd6af15153",
+        );
+        map.insert(
+            "ed25519_sign.so",
+            "0x0000000000000000000000000000000000000000000000000000000000000000",
+        );
+        map.insert(
+            "eth_sign.so",
+            "0xb16a069e007b20528efeb0c0c7742bfee94d6e0e15eb07b5f7e2343dcecce768",
+        );
+        map.insert(
+            "tron_sign.so",
+            "0xed45ad69b0ee84b7b8f0181f75eda16948682438a40a0f7597667bfab5fd89e5",
+        );
+        map.insert(
+            "doge_sign.so",
+            "0x0480767c09c1c26abe4e180d08238ed551f11dc293ab1286d8a7b7cac95e55a7",
         );
         map
     };

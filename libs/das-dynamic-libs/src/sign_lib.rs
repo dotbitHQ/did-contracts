@@ -1,8 +1,8 @@
 use alloc::vec::Vec;
 
 use ckb_std::dynamic_loading_c_impl::Symbol;
+use das_types::constants::DasLockType;
 
-use super::constants::*;
 use super::error::Error;
 use super::util;
 
@@ -27,23 +27,23 @@ pub struct SignLibWith1Methods {
 }
 
 pub struct SignLib {
-    eth: Option<SignLibWith2Methods>,
-    tron: Option<SignLibWith2Methods>,
-    multi: Option<SignLibWith1Methods>,
+    pub ckb_signhash: Option<SignLibWith1Methods>,
+    pub ckb_multisig: Option<SignLibWith1Methods>,
+    pub ed25519: Option<SignLibWith2Methods>,
+    pub eth: Option<SignLibWith2Methods>,
+    pub tron: Option<SignLibWith2Methods>,
+    pub doge: Option<SignLibWith2Methods>,
 }
 
 impl SignLib {
-    pub fn new(
-        eth: Option<SignLibWith2Methods>,
-        tron: Option<SignLibWith2Methods>,
-        multi: Option<SignLibWith1Methods>,
-    ) -> Self {
+    pub fn new() -> Self {
         SignLib {
-            // ckb_sign_hash_all: OnceCell::new(),
-            // ckb_multi_sig_all: OnceCell::new(),
-            eth,
-            tron,
-            multi,
+            ckb_signhash: None,
+            ckb_multisig: None,
+            ed25519: None,
+            eth: None,
+            tron: None,
+            doge: None,
         }
     }
 
@@ -66,24 +66,33 @@ impl SignLib {
             util::hex_string(&lock_args)
         );
 
-        let error_code: i32 = match das_lock_type {
+        let func;
+
+        match das_lock_type {
+            DasLockType::CKBSingle => {
+                let lib = self.ckb_signhash.as_ref().unwrap();
+                func = &lib.c_validate;
+            }
+            DasLockType::CKBMulti => {
+                let lib = self.ckb_multisig.as_ref().unwrap();
+                func = &lib.c_validate;
+            }
             DasLockType::ETH | DasLockType::ETHTypedData => {
                 let lib = self.eth.as_ref().unwrap();
-                let func = &lib.c_validate;
-                unsafe { func(type_no, digest.as_ptr(), lock_bytes.as_ptr(), lock_args.as_ptr()) }
+                func = &lib.c_validate;
             }
             DasLockType::TRON => {
                 let lib = self.tron.as_ref().unwrap();
-                let func = &lib.c_validate;
-                unsafe { func(type_no, digest.as_ptr(), lock_bytes.as_ptr(), lock_args.as_ptr()) }
+                func = &lib.c_validate;
             }
-            DasLockType::CKBMulti => {
-                let lib = self.multi.as_ref().unwrap();
-                let func = &lib.c_validate;
-                unsafe { func(type_no, digest.as_ptr(), lock_bytes.as_ptr(), lock_args.as_ptr()) }
+            DasLockType::Doge => {
+                let lib = self.doge.as_ref().unwrap();
+                func = &lib.c_validate;
             }
             _ => return Err(Error::UndefinedDasLockType as i32),
-        };
+        }
+
+        let error_code: i32 = unsafe { func(type_no, digest.as_ptr(), lock_bytes.as_ptr(), lock_args.as_ptr()) };
 
         if error_code != 0 {
             return Err(error_code);
@@ -112,34 +121,35 @@ impl SignLib {
             util::hex_string(&lock_args)
         );
 
-        let error_code: i32 = match das_lock_type {
+        let func;
+        match das_lock_type {
+            // DasLockType::CKBSingle => {
+            //     let lib = self.ckb_signhash.as_ref().unwrap();
+            //     func = &lib.c_validate_str;
+            // }
             DasLockType::ETH | DasLockType::ETHTypedData => {
                 let lib = self.eth.as_ref().unwrap();
-                let func = &lib.c_validate_str;
-                unsafe {
-                    func(
-                        type_no,
-                        digest.as_ptr(),
-                        digest_len,
-                        lock_bytes.as_ptr(),
-                        lock_args.as_ptr(),
-                    )
-                }
+                func = &lib.c_validate_str;
             }
             DasLockType::TRON => {
                 let lib = self.tron.as_ref().unwrap();
-                let func = &lib.c_validate_str;
-                unsafe {
-                    func(
-                        type_no,
-                        digest.as_ptr(),
-                        digest_len,
-                        lock_bytes.as_ptr(),
-                        lock_args.as_ptr(),
-                    )
-                }
+                func = &lib.c_validate_str;
+            }
+            DasLockType::Doge => {
+                let lib = self.doge.as_ref().unwrap();
+                func = &lib.c_validate_str;
             }
             _ => return Err(Error::UndefinedDasLockType as i32),
+        }
+
+        let error_code: i32 = unsafe {
+            func(
+                type_no,
+                digest.as_ptr(),
+                digest_len,
+                lock_bytes.as_ptr(),
+                lock_args.as_ptr(),
+            )
         };
 
         if error_code != 0 {
@@ -158,6 +168,11 @@ impl SignLib {
         sig: Vec<u8>,
         args: Vec<u8>,
     ) -> Result<(), i32> {
+        // TODO 测试环境跳过验签
+        if cfg!(feature = "dev") {
+            return Ok(())
+        }
+
         let data = [expired_at, account_list_smt_root].concat();
         let message = self.gen_digest(das_lock_type, data)?;
         let type_no = 0i32;
@@ -181,6 +196,10 @@ impl SignLib {
         args: Vec<u8>,
         sign_expired_at: Vec<u8>,
     ) -> Result<(), i32> {
+        if cfg!(feature = "dev") {
+            return Ok(())
+        }
+
         let data = [account_id, edit_key, edit_value, nonce, sign_expired_at].concat();
         let message = self.gen_digest(das_lock_type, data)?;
         let type_no = 0i32;
@@ -193,14 +212,14 @@ impl SignLib {
         }
     }
 
-    fn gen_digest(&self, das_lock_type: DasLockType, data: Vec<u8>) -> Result<Vec<u8>, i32> {
+    pub fn gen_digest(&self, das_lock_type: DasLockType, data: Vec<u8>) -> Result<Vec<u8>, i32> {
         let mut blake2b = util::new_blake2b();
         blake2b.update(&data);
         let mut h = [0u8; 32];
         blake2b.finalize(&mut h);
 
         match das_lock_type {
-            DasLockType::ETH | DasLockType::ETHTypedData | DasLockType::TRON => {
+            DasLockType::ETH | DasLockType::ETHTypedData | DasLockType::TRON | DasLockType::Doge => {
                 let prefix = "from did: ".as_bytes();
                 Ok([prefix, &h].concat())
             }

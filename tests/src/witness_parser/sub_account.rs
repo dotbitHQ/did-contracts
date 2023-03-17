@@ -3,8 +3,8 @@ use das_types_std::prelude::*;
 use serde_json::json;
 use sparse_merkle_tree::H256;
 
+use crate::util;
 use crate::util::accounts::*;
-use crate::util::blake2b_smt;
 use crate::util::constants::*;
 use crate::util::error::*;
 use crate::util::smt::SMTWithHistory;
@@ -20,8 +20,6 @@ fn init(action: &str) -> TemplateGenerator {
     template.push_contract_cell("always_success", ContractType::DeployedContract);
     template.push_contract_cell("fake-secp256k1-blake160-signhash-all", ContractType::DeployedContract);
     template.push_contract_cell("test-env", ContractType::Contract);
-
-    template.push_config_cell(DataType::ConfigCellMain, Source::CellDep);
 
     template
 }
@@ -311,8 +309,8 @@ fn parse_sub_account_witness_mixed() {
     test_tx(template.as_json());
 }
 
-fn get_compiled_proof(smt: &SMTWithHistory, key: &str) -> String {
-    let key = H256::from(blake2b_smt(key.as_bytes()));
+fn get_compiled_proof(smt: &SMTWithHistory, account: &str) -> String {
+    let key = H256::from(util::gen_smt_key_from_account(account));
     let proof = smt.get_compiled_proof(vec![key]);
 
     format!("0x{}", hex::encode(proof))

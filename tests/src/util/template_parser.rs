@@ -10,7 +10,6 @@ use std::str::FromStr;
 use std::{env, fs};
 
 use ckb_chain_spec::consensus::TYPE_ID_CODE_HASH;
-use ckb_hash::blake2b_256;
 use ckb_mock_tx_types::*;
 use ckb_script::TransactionScriptsVerifier;
 use ckb_types::core::cell::{resolve_transaction, ResolvedTransaction};
@@ -293,7 +292,7 @@ impl TemplateParser {
                     let name = item["tmp_file_name"].as_str().unwrap();
                     let (_type_id, _out_point, cell_dep, cell_output, cell_data) =
                         self.mock_contract(name, is_deployed, is_shared_lib, Some(i));
-                    // println!("{:>30}: {}", name, type_id);
+                    // println!("{:>30}: {}", name, _type_id);
 
                     let header_hash_opt = if !item["tmp_header"].is_null() {
                         let header = self.mock_block_header(&format!("cell_deps[{}]", i), &item["tmp_header"])?;
@@ -631,61 +630,45 @@ impl TemplateParser {
         &self,
         binary_name: &str,
         is_deployed: bool,
-        is_shared_lib: bool,
+        _is_shared_lib: bool,
         index_opt: Option<usize>,
     ) -> (Byte32, OutPoint, CellDep, CellOutput, bytes::Bytes) {
         let file = self.load_binary(binary_name, is_deployed);
 
-        let code_hash;
-        let cell_output;
-        if is_shared_lib {
-            let hash = blake2b_256(file.clone());
-            let mut inner = [Byte::new(0); 32];
-            for (i, item) in hash.iter().enumerate() {
-                inner[i] = Byte::new(*item);
+        let args = {
+            // Padding args to 32 bytes, because it is convenient to use 32 bytes as the real args are also 32 bytes.
+            let mut buf = [0u8; 32];
+            let len = buf.len();
+            let bytes = binary_name.as_bytes();
+            if bytes.len() >= len {
+                buf.copy_from_slice(&bytes[..32]);
+            } else {
+                let (_, right) = buf.split_at_mut(len - bytes.len());
+                right.copy_from_slice(bytes);
             }
-            code_hash = Byte32::new_builder().set(inner).build();
-            cell_output = CellOutput::new_builder()
-                .capacity(0u64.pack())
-                .lock(Script::default())
-                .type_(ScriptOpt::new_builder().set(None).build())
-                .build();
-        } else {
-            let args = {
-                // Padding args to 32 bytes, because it is convenient to use 32 bytes as the real args are also 32 bytes.
-                let mut buf = [0u8; 32];
-                let len = buf.len();
-                let bytes = binary_name.as_bytes();
-                if bytes.len() >= len {
-                    buf.copy_from_slice(&bytes[..32]);
-                } else {
-                    let (_, right) = buf.split_at_mut(len - bytes.len());
-                    right.copy_from_slice(bytes);
-                }
 
-                buf
-            };
-            let args_bytes = args.iter().map(|v| Byte::new(*v)).collect::<Vec<_>>();
-            let type_ = Script::new_builder()
-                .code_hash(Byte32::new_unchecked(bytes::Bytes::from(TYPE_ID_CODE_HASH.as_bytes())))
-                .hash_type(ScriptHashType::Type.into())
-                .args(Bytes::new_builder().set(args_bytes).build())
-                .build();
+            buf
+        };
+        let args_bytes = args.iter().map(|v| Byte::new(*v)).collect::<Vec<_>>();
+        let type_ = Script::new_builder()
+            .code_hash(Byte32::new_unchecked(bytes::Bytes::from(TYPE_ID_CODE_HASH.as_bytes())))
+            .hash_type(ScriptHashType::Type.into())
+            .args(Bytes::new_builder().set(args_bytes).build())
+            .build();
 
-            code_hash = type_.calc_script_hash();
-            cell_output = CellOutput::new_builder()
-                .capacity(0u64.pack())
-                .lock(Script::default())
-                .type_(ScriptOpt::new_builder().set(Some(type_)).build())
-                .build();
-            // Uncomment the line below can print type ID of each script in unit tests.
-            // println!(
-            //     "script: {}, type_id: {}, args: {}",
-            //     binary_name,
-            //     code_hash,
-            //     hex_string(binary_name.as_bytes())
-            // );
-        }
+        let code_hash = type_.calc_script_hash();
+        let cell_output = CellOutput::new_builder()
+            .capacity(0u64.pack())
+            .lock(Script::default())
+            .type_(ScriptOpt::new_builder().set(Some(type_)).build())
+            .build();
+        // Uncomment the line below can print type ID of each script in unit tests.
+        // println!(
+        //     "script: {}, type_id: {}, args: {}",
+        //     binary_name,
+        //     code_hash,
+        //     hex_string(binary_name.as_bytes())
+        // );
 
         let out_point = self.mock_out_point(index_opt.unwrap_or(rand::random::<usize>()));
         let cell_dep = CellDep::new_builder().out_point(out_point.clone()).build();
@@ -718,6 +701,8 @@ impl TemplateParser {
         }
 
         file_path.push(name);
+
+        println!("Loading binary {} from {} ...", name, file_path.as_path().display());
 
         fs::read(file_path.as_path())
             .expect(&format!(

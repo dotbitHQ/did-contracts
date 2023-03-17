@@ -5,6 +5,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use alloc::{format, vec};
 use core::convert::TryInto;
+use core::ffi::CStr;
 use core::fmt::Debug;
 
 use blake2b_ref::{Blake2b, Blake2bBuilder};
@@ -13,10 +14,9 @@ use ckb_std::ckb_types::bytes;
 use ckb_std::ckb_types::core::ScriptHashType;
 use ckb_std::ckb_types::packed::*;
 use ckb_std::ckb_types::prelude::*;
-use ckb_std::cstr_core::CStr;
 use ckb_std::error::SysError;
 use ckb_std::{high_level, syscalls};
-use das_types::constants::{DataType, LockRole, WITNESS_HEADER};
+use das_types::constants::{DasLockType, DataType, LockRole, WITNESS_HEADER};
 use das_types::mixer::*;
 use das_types::packed::{self as das_packed};
 pub use das_types::util::{hex_string, is_entity_eq, is_reader_eq};
@@ -24,10 +24,10 @@ pub use das_types::util::{hex_string, is_entity_eq, is_reader_eq};
 use hex::FromHexError;
 
 use super::constants::*;
+use super::data_parser;
 use super::error::*;
 use super::types::ScriptLiteral;
 use super::witness_parser::WitnessesParser;
-use super::{assert as das_assert, code_to_error, data_parser, debug, warn};
 
 #[cfg(test)]
 pub fn hex_to_unpacked_bytes(input: &str) -> Result<bytes::Bytes, FromHexError> {
@@ -574,7 +574,7 @@ pub fn is_cell_capacity_equal(cell_a: (usize, Source), cell_b: (usize, Source)) 
 
     das_assert!(
         a_capacity == b_capacity,
-        ErrorCode::CellCapacityMustConsistent,
+        ErrorCode::CellCapacityMustBeConsistent,
         "The capacity of {:?}[{}]({}) should be equal to {:?}[{}]({}).",
         cell_a.1,
         cell_a.0,
@@ -733,6 +733,7 @@ fn get_type_id(
         TypeScript::ProposalCellType => config.type_id_table().proposal_cell(),
         TypeScript::ReverseRecordCellType => config.type_id_table().reverse_record_cell(),
         TypeScript::SubAccountCellType => config.type_id_table().sub_account_cell(),
+        TypeScript::ReverseRecordRootCellType => config.type_id_table().reverse_record_root_cell(),
         TypeScript::EIP712Lib => config.type_id_table().eip712_lib(),
     };
 
