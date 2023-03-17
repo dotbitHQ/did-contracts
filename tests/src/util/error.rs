@@ -95,7 +95,6 @@ pub enum ErrorCode {
     ProposalSliceItemMustBeUniqueAccount,
     ProposalRecycleNeedWaitLonger,
     ProposalRecycleRefundAmountError,
-    // 120
     PrevProposalItemNotFound,
     IncomeCellConsolidateConditionNotSatisfied = -126,
     IncomeCellConsolidateError,
