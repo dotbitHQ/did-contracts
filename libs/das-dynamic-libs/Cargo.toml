@@ -1,7 +1,7 @@
 [package]
 name = "das-dynamic-libs"
 version = "1.0.0"
-edition = "2018"
+edition = "2021"
 
 [features]
 default = ["dev"]
@@ -11,6 +11,6 @@ testnet = []
 mainnet = []
 
 [dependencies]
-ckb-std = "0.10.0"
+ckb-std = { git = "https://github.com/XuJiandong/ckb-std.git", branch = "load-library-typeid" }
 blake2b-ref = "0.3"
 das-types = { path = "../../../das-types/rust", default-features = false }

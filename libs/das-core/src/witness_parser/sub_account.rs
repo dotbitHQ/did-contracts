@@ -7,15 +7,14 @@ use core::str::FromStr;
 use ckb_std::ckb_constants::Source;
 use ckb_std::error::SysError;
 use ckb_std::syscalls;
-use das_dynamic_libs::constants::DasLockType;
 use das_types::constants::*;
 use das_types::packed::*;
 use das_types::prelude::*;
 #[cfg(all(debug_assertions))]
 use das_types::prettier::Prettier;
 
-use super::error::*;
-use super::{assert, code_to_error, data_parser, debug, util, warn};
+use super::super::error::*;
+use super::super::{data_parser, util};
 
 // Binary format: 'das'(3) + DATA_TYPE(4) + binary_data
 

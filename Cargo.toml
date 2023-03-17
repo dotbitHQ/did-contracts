@@ -19,6 +19,7 @@ members = [
     "contracts/pre-account-cell-type",
     "contracts/proposal-cell-type",
     "contracts/reverse-record-cell-type",
+    "contracts/reverse-record-root-cell-type",
     "contracts/sub-account-cell-type",
     "contracts/eip712-lib",
     # Only for unit tests

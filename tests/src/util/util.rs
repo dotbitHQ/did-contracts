@@ -11,6 +11,7 @@ use ckb_types::packed::*;
 use ckb_types::prelude::*;
 use lazy_static::lazy_static;
 use serde_json::Value;
+use sparse_merkle_tree::H256;
 
 use super::super::ckb_types_relay::*;
 use super::constants::*;
@@ -103,6 +104,11 @@ pub fn gen_smt_key_from_account(account: &str) -> [u8; 32] {
     let key_pre = [account_id, vec![0u8; 12]].concat();
     key.copy_from_slice(&key_pre);
     key
+}
+
+pub fn gen_smt_value_for_reverse_record_smt(nonce: u32, account: &[u8]) -> H256 {
+    let raw = [nonce.to_le_bytes().to_vec(), account.to_vec()].concat();
+    blake2b_256(raw).into()
 }
 
 pub fn get_type_id_bytes(name: &str) -> Vec<u8> {

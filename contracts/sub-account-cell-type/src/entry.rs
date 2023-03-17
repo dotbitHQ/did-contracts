@@ -4,22 +4,22 @@ use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
 use core::convert::TryInto;
+use core::ffi::CStr;
 use core::result::Result;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::packed;
-use ckb_std::cstr_core::CStr;
-use ckb_std::dynamic_loading_c_impl::CKBDLContext;
 use ckb_std::error::SysError;
 use ckb_std::high_level;
 use das_core::constants::*;
 use das_core::error::*;
-use das_core::sub_account_witness_parser::{SubAccountEditValue, SubAccountWitness, SubAccountWitnessesParser};
 use das_core::util::{self, blake2b_256};
+use das_core::witness_parser::sub_account::*;
 use das_core::witness_parser::WitnessesParser;
 use das_core::{assert as das_assert, code_to_error, data_parser, debug, verifiers, warn};
-use das_dynamic_libs::constants::{DymLibSize, ETH_LIB_CODE_HASH, TRON_LIB_CODE_HASH};
-use das_dynamic_libs::sign_lib::{SignLib, SignLibWith2Methods};
+use das_dynamic_libs::constants::DynLibName;
+use das_dynamic_libs::sign_lib::SignLib;
+use das_dynamic_libs::{load_2_methods, load_lib, log_loading, new_context};
 use das_types::constants::{AccountStatus, LockRole, SubAccountAction};
 use das_types::packed::*;
 use das_types::prelude::{Builder, Entity};
@@ -254,48 +254,28 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             debug!("Initiate the dynamic signing libraries ...");
 
-            let mut eth_lib = unsafe { CKBDLContext::<DymLibSize>::new() };
-            let mut tron_lib = unsafe { CKBDLContext::<DymLibSize>::new() };
-            let mut eth = None;
-            let mut tron = None;
+            let mut sign_lib = SignLib::new();
+            // ⚠️ This must be present at the top level, as we will need to use the libraries later.
 
-            if cfg!(not(feature = "dev")) {
-                // CAREFUL Proof verification has been skipped in development mode.
-                // TODO Refactor the temporary solution of dynamic library loading ...
+            // let mut ckb_context = new_context!();
+            // log_loading!(DynLibName::CKBSignhash, config_main.das_lock_type_id_table());
+            // let ckb_lib = load_lib!(ckb_context, DynLibName::CKBSignhash, config_main.das_lock_type_id_table());
+            // sign_lib.ckb_signhash = load_2_methods!(ckb_lib);
 
-                debug!("Loading ETH dynamic library ...");
+            let mut eth_context = new_context!();
+            log_loading!(DynLibName::ETH, config_main.das_lock_type_id_table());
+            let eth_lib = load_lib!(eth_context, DynLibName::ETH, config_main.das_lock_type_id_table());
+            sign_lib.eth = load_2_methods!(eth_lib);
 
-                let lib = eth_lib
-                    .load(&ETH_LIB_CODE_HASH)
-                    .expect("The shared lib should be loaded successfully.");
-                eth = Some(SignLibWith2Methods {
-                    c_validate: unsafe {
-                        lib.get(b"validate")
-                            .expect("Load function 'validate' from library failed.")
-                    },
-                    c_validate_str: unsafe {
-                        lib.get(b"validate_str")
-                            .expect("Load function 'validate_str' from library failed.")
-                    },
-                });
+            let mut tron_context = new_context!();
+            log_loading!(DynLibName::TRON, config_main.das_lock_type_id_table());
+            let tron_lib = load_lib!(tron_context, DynLibName::TRON, config_main.das_lock_type_id_table());
+            sign_lib.tron = load_2_methods!(tron_lib);
 
-                debug!("Loading TRON dynamic library ...");
-
-                let lib = tron_lib
-                    .load(&TRON_LIB_CODE_HASH)
-                    .expect("The shared lib should be loaded successfully.");
-                tron = Some(SignLibWith2Methods {
-                    c_validate: unsafe {
-                        lib.get(b"validate")
-                            .expect("Load function 'validate' from library failed.")
-                    },
-                    c_validate_str: unsafe {
-                        lib.get(b"validate_str")
-                            .expect("Load function 'validate_str' from library failed.")
-                    },
-                });
-            }
-            let sign_lib = SignLib::new(eth, tron, None);
+            let mut doge_context = new_context!();
+            log_loading!(DynLibName::DOGE, config_main.das_lock_type_id_table());
+            let doge_lib = load_lib!(doge_context, DynLibName::DOGE, config_main.das_lock_type_id_table());
+            sign_lib.doge = load_2_methods!(doge_lib);
 
             // Initiate some variables used again and again in the following codes.
             let mut account_list_smt_root = None;
@@ -1090,7 +1070,7 @@ fn smt_verify_sub_account_is_in_signed_list(
         util::hex_string(&key)
     );
 
-    verifiers::sub_account_cell::verify_smt_proof(key, value, root, proof)?;
+    verifiers::common::verify_smt_proof(key, value, root, proof)?;
 
     Ok(())
 }
@@ -1108,7 +1088,7 @@ fn smt_verify_sub_account_is_creatable(
         util::hex_string(&key)
     );
     let zero_val = [0u8; 32];
-    verifiers::sub_account_cell::verify_smt_proof(key, zero_val, prev_root.try_into().unwrap(), proof)?;
+    verifiers::common::verify_smt_proof(key, zero_val, prev_root.try_into().unwrap(), proof)?;
 
     debug!(
         "witnesses[{}] Verify if the sub-account is in the SMT now.",
@@ -1116,7 +1096,7 @@ fn smt_verify_sub_account_is_creatable(
     );
     let current_root = witness.new_root.as_slice();
     let current_val = blake2b_256(witness.sub_account.as_slice()).to_vec().try_into().unwrap();
-    verifiers::sub_account_cell::verify_smt_proof(key, current_val, current_root.try_into().unwrap(), proof)?;
+    verifiers::common::verify_smt_proof(key, current_val, current_root.try_into().unwrap(), proof)?;
 
     Ok(())
 }
@@ -1138,7 +1118,7 @@ fn smt_verify_sub_account_is_editable(
     // debug!("prev_val = 0x{}", util::hex_string(&prev_val));
     // debug!("prev_val_raw = 0x{}", util::hex_string(witness.sub_account.as_slice()));
     // debug!("prev_val_prettier = {}", witness.sub_account.as_prettier());
-    verifiers::sub_account_cell::verify_smt_proof(key, prev_val, prev_root.try_into().unwrap(), proof)?;
+    verifiers::common::verify_smt_proof(key, prev_val, prev_root.try_into().unwrap(), proof)?;
 
     debug!(
         "witnesses[{}] Verify if the new state of the sub-account is in the SMT now.",
@@ -1149,7 +1129,7 @@ fn smt_verify_sub_account_is_editable(
     // debug!("current_val = 0x{}", util::hex_string(&current_val));
     // debug!("current_val_raw = 0x{}", util::hex_string(new_sub_account.as_slice()));
     // debug!("current_val_prettier = {}", new_sub_account.as_prettier());
-    verifiers::sub_account_cell::verify_smt_proof(key, current_val, current_root.try_into().unwrap(), proof)?;
+    verifiers::common::verify_smt_proof(key, current_val, current_root.try_into().unwrap(), proof)?;
 
     Ok(())
 }

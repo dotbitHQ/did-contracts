@@ -1,7 +1,7 @@
 [package]
 name = "proposal-cell-type"
 version = "1.3.0"
-edition = "2018"
+edition = "2021"
 
 [features]
 dev = ["das-core/dev"]
@@ -10,7 +10,7 @@ testnet = ["das-core/testnet"]
 mainnet = ["das-core/mainnet"]
 
 [dependencies]
-ckb-std = "0.10.0"
+ckb-std = { git = "https://github.com/XuJiandong/ckb-std.git", branch = "load-library-typeid" }
 das-core = { path = "../../libs/das-core", default-features = false }
 das-sorted-list = { path = "../../libs/das-sorted-list" }
 das-map = { path = "../../libs/das-map" }

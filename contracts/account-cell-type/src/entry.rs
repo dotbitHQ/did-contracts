@@ -3,17 +3,17 @@ use alloc::vec;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::prelude::*;
-use ckb_std::dynamic_loading_c_impl::CKBDLContext;
 use ckb_std::high_level;
 use das_core::constants::*;
 use das_core::error::*;
 use das_core::witness_parser::WitnessesParser;
 use das_core::{assert as das_assert, code_to_error, data_parser, debug, sign_util, util, verifiers, warn};
-use das_dynamic_libs::constants::{DymLibSize, CKB_MULTI_LIB_CODE_HASH};
-use das_dynamic_libs::sign_lib::{SignLib, SignLibWith1Methods};
+use das_dynamic_libs::constants::DynLibName;
+use das_dynamic_libs::sign_lib::SignLib;
+use das_dynamic_libs::{load_1_method, load_lib, log_loading, new_context};
 use das_map::map::Map;
 use das_map::util as map_util;
-use das_types::constants::{AccountStatus, SubAccountEnableStatus};
+use das_types::constants::*;
 use das_types::mixer::*;
 use das_types::packed::*;
 
@@ -740,16 +740,13 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let config_sub_account = parser.configs.sub_account()?;
 
             let (input_account_cells, output_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
-            das_assert!(
-                input_account_cells.len() == 1 && input_account_cells[0] == 0,
-                ErrorCode::InvalidTransactionStructure,
-                "There should be one AccountCell at inputs[0]."
-            );
-            das_assert!(
-                output_account_cells.len() == 1 && output_account_cells[0] == 0,
-                ErrorCode::InvalidTransactionStructure,
-                "There should bze one AccountCell at outputs[0]."
-            );
+            verifiers::common::verify_cell_number_and_position(
+                "AccountCell",
+                &input_account_cells,
+                &[0],
+                &output_account_cells,
+                &[0],
+            )?;
 
             let input_account_witness =
                 util::parse_account_cell_witness(&parser, input_account_cells[0], Source::Input)?;
@@ -759,7 +756,11 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let output_account_witness_reader = output_account_witness.as_reader();
 
             let account = util::get_account_from_reader(&input_account_witness_reader);
-            verifiers::sub_account_cell::verify_beta_list(&parser, account.as_bytes())?;
+            if input_account_witness_reader.account().len() < 8 {
+                verifiers::sub_account_cell::verify_beta_list(&parser, account.as_bytes())?;
+            } else {
+                debug!("Skip verifying the beta list because the account contains more than 8 characters.")
+            }
 
             debug!("Verify if the AccountCell is locked or expired.");
 
@@ -886,7 +887,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             das_assert!(
                 expected_default_data == sub_account_outputs_data,
-                ErrorCode::SubAccountCellSMTRootError,
+                ErrorCode::SMTProofVerifyFailed,
                 "The default outputs_data of SubAccountCell should be [0u8; 48] ."
             );
 
@@ -912,6 +913,8 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
         }
         b"unlock_account_for_cross_chain" => {
             parser.parse_cell()?;
+
+            let config_main = parser.configs.main()?;
 
             debug!("Verify if there is no redundant AccountCells.");
 
@@ -1008,7 +1011,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             verify_account_is_unlocked_for_cross_chain(output_account_cells[0], &output_cell_witness_reader)?;
 
-            verify_multi_sign(input_account_cells[0])?;
+            verify_multi_sign(input_account_cells[0], config_main.das_lock_type_id_table())?;
         }
         b"confirm_expired_account_auction" => {
             parser.parse_cell()?;
@@ -1093,7 +1096,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 Source::Output,
             )?;
 
-            verify_multi_sign(input_account_cells[0])?;
+            verify_multi_sign(input_account_cells[0], config_main.das_lock_type_id_table())?;
 
             debug!("Verify if the SubAccountCell has been refund properly.");
 
@@ -1355,11 +1358,11 @@ fn verify_account_is_unlocked_for_cross_chain<'a>(
     Ok(())
 }
 
-fn verify_multi_sign(input_account_index: usize) -> Result<(), Box<dyn ScriptError>> {
+fn verify_multi_sign(input_account_index: usize, type_id_table: DasLockTypeIdTableReader) -> Result<(), Box<dyn ScriptError>> {
     debug!("Verify the signatures of secp256k1-blake160-multisig-all ...");
 
-    let (digest, _, witness_args_lock) =
-        sign_util::calc_digest_by_input_group(SignType::Secp256k1Blake160MultiSigAll, vec![input_account_index])?;
+    let (digest, witness_args_lock) =
+        sign_util::calc_digest_by_input_group(DasLockType::CKBMulti, vec![input_account_index])?;
     let lock_script = cross_chain_lock();
     let mut args = lock_script.as_reader().args().raw_data().to_vec();
     let since = high_level::load_input_since(input_account_index, Source::Input)?;
@@ -1367,24 +1370,13 @@ fn verify_multi_sign(input_account_index: usize) -> Result<(), Box<dyn ScriptErr
     // It is the signature validation requirement.
     args.extend_from_slice(&since.to_le_bytes());
 
-    debug!(
-        "Loading dynamic library by code_hash: 0x{}",
-        util::hex_string(&CKB_MULTI_LIB_CODE_HASH)
-    );
+    let mut sign_lib = SignLib::new();
+    let mut ckb_multi_context = new_context!();
+    log_loading!(DynLibName::CKBMultisig, type_id_table);
+    let ckb_multi_lib = load_lib!(ckb_multi_context, DynLibName::CKBMultisig, type_id_table);
+    sign_lib.ckb_multisig = load_1_method!(ckb_multi_lib);
 
     if cfg!(not(feature = "dev")) {
-        let mut context = unsafe { CKBDLContext::<DymLibSize>::new() };
-        let lib = context
-            .load(&CKB_MULTI_LIB_CODE_HASH)
-            .expect("The shared lib should be loaded successfully.");
-        let methods = SignLibWith1Methods {
-            c_validate: unsafe {
-                lib.get(b"validate")
-                    .expect("Load function 'validate' from library failed.")
-            },
-        };
-        let sign_lib = SignLib::new(None, None, Some(methods));
-
         sign_lib
             .validate(DasLockType::CKBMulti, 0i32, digest.to_vec(), witness_args_lock, args)
             .map_err(|err_code| {

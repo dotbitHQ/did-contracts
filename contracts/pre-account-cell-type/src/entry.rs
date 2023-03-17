@@ -96,9 +96,11 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 "The ApplyRegisterCell.outputs_data should be 32 bytes or 48 bytes long."
             );
             match verify_apply_height_with_since(index.to_owned(), config_apply_reader) {
-                Ok(_) => {},
+                Ok(_) => {}
                 Err(err) => {
-                    if err.as_i8() == PreAccountCellErrorCode::ApplySinceMismatch as i8 && cells_with_super_lock.len() > 0 {
+                    if err.as_i8() == PreAccountCellErrorCode::ApplySinceMismatch as i8
+                        && cells_with_super_lock.len() > 0
+                    {
                         debug!("Skip ErrorCode::ApplySinceMismatch because of super lock.");
                         // Ok
                     } else {
