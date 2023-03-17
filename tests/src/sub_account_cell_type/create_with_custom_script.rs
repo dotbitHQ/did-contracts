@@ -334,3 +334,26 @@ fn challenge_sub_account_create_with_custom_script_spend_balance_cell_2() {
 
     challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure);
 }
+
+#[test]
+fn challenge_sub_account_create_with_custom_script_create_empty() {
+    let mut template = before_each();
+
+    // outputs
+    template.push_sub_account_witness_v2(json!({
+        "action": SubAccountAction::Create.to_string(),
+        "sub_account": {
+            "lock": {
+                "owner_lock_args": OWNER_1,
+                "manager_lock_args": MANAGER_1
+            },
+            "account": ".xxxxx.bit",
+            "suffix": SUB_ACCOUNT_SUFFIX,
+            "registered_at": TIMESTAMP,
+            "expired_at": TIMESTAMP + YEAR_SEC,
+        },
+    }));
+    push_common_output_cells_with_custom_script(&mut template, 3);
+
+    challenge_tx(template.as_json(), ErrorCode::AccountIsTooShort)
+}

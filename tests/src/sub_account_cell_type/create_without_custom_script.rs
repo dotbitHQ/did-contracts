@@ -194,6 +194,39 @@ fn challenge_sub_account_create_too_long() {
 }
 
 #[test]
+fn challenge_sub_account_create_empty() {
+    let mut template = before_each();
+    let account = ".xxxxx.bit";
+
+    // outputs
+    let smt = template.push_sub_account_mint_sign_witness(json!({
+        "version": 1,
+        "expired_at": TIMESTAMP + DAY_SEC,
+        "account_list_smt_root": [
+            [account, gen_das_lock_args(OWNER_1, Some(MANAGER_1))],
+        ]
+    }));
+    template.push_sub_account_witness_v2(json!({
+        "action": SubAccountAction::Create.to_string(),
+        "sub_account": {
+            "lock": {
+                "owner_lock_args": OWNER_1,
+                "manager_lock_args": MANAGER_1
+            },
+            // Simulate the sub-account is too long.
+            "account": account,
+            "suffix": SUB_ACCOUNT_SUFFIX,
+            "registered_at": TIMESTAMP,
+            "expired_at": TIMESTAMP + YEAR_SEC,
+        },
+        "edit_value": get_compiled_proof(&smt, account)
+    }));
+    push_common_output_cells(&mut template, 1);
+
+    challenge_tx(template.as_json(), ErrorCode::AccountIsTooShort);
+}
+
+#[test]
 fn challenge_sub_account_create_suffix_not_match() {
     let mut template = before_each();
     let account = "00000.a.bit";
