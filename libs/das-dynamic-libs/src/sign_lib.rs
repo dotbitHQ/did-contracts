@@ -170,7 +170,7 @@ impl SignLib {
     ) -> Result<(), i32> {
         // TODO 测试环境跳过验签
         if cfg!(feature = "dev") {
-            return Ok(())
+            return Ok(());
         }
 
         let data = [expired_at, account_list_smt_root].concat();
@@ -197,7 +197,7 @@ impl SignLib {
         sign_expired_at: Vec<u8>,
     ) -> Result<(), i32> {
         if cfg!(feature = "dev") {
-            return Ok(())
+            return Ok(());
         }
 
         let data = [account_id, edit_key, edit_value, nonce, sign_expired_at].concat();

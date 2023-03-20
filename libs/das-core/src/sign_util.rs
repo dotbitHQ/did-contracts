@@ -87,15 +87,15 @@ pub fn calc_digest_by_input_group(
                     let threshold = bytes[2] as usize;
                     let signature_addresses_len = bytes[3];
                     let slice_point = (4 + 20 * signature_addresses_len) as usize;
-                    let signatures = bytes[slice_point..].to_vec();
 
+                    let _signatures = bytes[slice_point..].to_vec();
                     debug!(
                         "  inputs[{}] Slice WitnessArgs.lock at {} .(header: 0x{}, args: 0x{}, signatures: {})",
                         init_witness_idx,
                         slice_point,
                         util::hex_string(&bytes[..4]),
                         util::hex_string(&bytes[4..slice_point]),
-                        util::first_n_bytes_to_hex(&signatures, 10)
+                        util::first_n_bytes_to_hex(&_signatures, 10)
                     );
 
                     let mut data = bytes[..slice_point].to_vec();
