@@ -3,7 +3,6 @@ use alloc::collections::btree_map::BTreeMap;
 use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
-use das_core::sign_util::calc_digest_by_input_group;
 use core::convert::{TryFrom, TryInto};
 
 use ckb_std::ckb_constants::Source;
@@ -12,6 +11,7 @@ use ckb_std::error::SysError;
 use ckb_std::high_level;
 use das_core::constants::*;
 use das_core::error::*;
+use das_core::sign_util::calc_digest_by_input_group;
 use das_core::witness_parser::WitnessesParser;
 use das_core::{assert as das_assert, code_to_error, data_parser, debug, util, warn};
 use das_types::constants::{DasLockType, DataType, LockRole};
@@ -158,8 +158,7 @@ fn tx_to_digest(
             eip712_chain_id = witness_args_lock[from..to].to_vec();
         }
 
-        let typed_data_hash =
-            &witness_args_lock[SECP_SIGNATURE_SIZE..SECP_SIGNATURE_SIZE + CKB_HASH_DIGEST];
+        let typed_data_hash = &witness_args_lock[SECP_SIGNATURE_SIZE..SECP_SIGNATURE_SIZE + CKB_HASH_DIGEST];
         ret.insert(
             init_witness_idx,
             DigestAndHash {

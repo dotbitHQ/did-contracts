@@ -1358,7 +1358,10 @@ fn verify_account_is_unlocked_for_cross_chain<'a>(
     Ok(())
 }
 
-fn verify_multi_sign(input_account_index: usize, type_id_table: DasLockTypeIdTableReader) -> Result<(), Box<dyn ScriptError>> {
+fn verify_multi_sign(
+    input_account_index: usize,
+    type_id_table: DasLockTypeIdTableReader,
+) -> Result<(), Box<dyn ScriptError>> {
     debug!("Verify the signatures of secp256k1-blake160-multisig-all ...");
 
     let (digest, witness_args_lock) =
