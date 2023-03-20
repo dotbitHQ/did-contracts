@@ -753,7 +753,7 @@ impl TemplateGenerator {
             .eip712_lib(Hash::try_from(util::get_type_id_bytes("eip712-lib")).unwrap())
             .build();
 
-            let das_lock_type_id_table = DasLockTypeIdTable::new_builder()
+        let das_lock_type_id_table = DasLockTypeIdTable::new_builder()
             .ckb_signhash(Hash::try_from(util::get_type_id_bytes("ckb_sign.so")).unwrap())
             .ckb_multisig(Hash::try_from(util::get_type_id_bytes("ckb_multi_sign.so")).unwrap())
             .ed25519(Hash::try_from(util::get_type_id_bytes("ed25519_sign.so")).unwrap())
@@ -2996,7 +2996,11 @@ impl TemplateGenerator {
         };
         let prev_account = parse_json_str_with_default("witness.prev_account", &witness["prev_account"], "").as_bytes();
         let proof = if witness["proof"].is_null() {
-            println!("  prev_nonce: {:?}, prev_account: {:?}", prev_nonce, String::from_utf8(prev_account.to_vec()));
+            println!(
+                "  prev_nonce: {:?}, prev_account: {:?}",
+                prev_nonce,
+                String::from_utf8(prev_account.to_vec())
+            );
 
             let prev_value = if prev_nonce.is_none() {
                 H256::zero()

@@ -11,7 +11,7 @@ use das_types::constants::DasLockType;
 
 use super::error::*;
 use super::{code_to_error, util};
-use crate::constants::ScriptType;
+use crate::constants::{ScriptType, SECP_SIGNATURE_SIZE};
 
 fn find_input_size() -> Result<usize, Box<dyn ScriptError>> {
     let mut i = 1;
@@ -49,12 +49,12 @@ pub fn calc_digest_by_lock(
 }
 
 pub fn calc_digest_by_input_group(
-    _sign_type: DasLockType,
+    sign_type: DasLockType,
     input_group_idxs: Vec<usize>,
 ) -> Result<([u8; 32], Vec<u8>), Box<dyn ScriptError>> {
     debug!(
         "Calculate digest by input group ... (sign_type: {:?}, input_group: {:?})",
-        _sign_type, input_group_idxs
+        sign_type, input_group_idxs
     );
 
     let init_witness_idx = input_group_idxs[0];
@@ -75,14 +75,41 @@ pub fn calc_digest_by_input_group(
             debug!(
                 "  inputs[{}] Generating digest ... (sign_type: {:?}, witness_args.lock: 0x{}",
                 init_witness_idx,
-                _sign_type,
+                sign_type,
                 util::first_n_bytes_to_hex(witness_args_lock.raw_data(), 20)
             );
 
-            let empty_signature = BytesOpt::new_builder()
-                    .set(Some(vec![0u8; witness_args_lock.len()].pack()))
-                    .build();
+            let empty_lock_bytes = match sign_type {
+                DasLockType::CKBMulti => {
+                    let bytes = witness_args_lock.raw_data();
+                    let _reserved_byte = bytes[0];
+                    let _require_first_n = bytes[1];
+                    let threshold = bytes[2] as usize;
+                    let signature_addresses_len = bytes[3];
+                    let slice_point = (4 + 20 * signature_addresses_len) as usize;
+
+                    let _signatures = bytes[slice_point..].to_vec();
+                    debug!(
+                        "  inputs[{}] Slice WitnessArgs.lock at {} .(header: 0x{}, args: 0x{}, signatures: {})",
+                        init_witness_idx,
+                        slice_point,
+                        util::hex_string(&bytes[..4]),
+                        util::hex_string(&bytes[4..slice_point]),
+                        util::first_n_bytes_to_hex(&_signatures, 10)
+                    );
+
+                    let mut data = bytes[..slice_point].to_vec();
+                    data.extend_from_slice(&vec![0u8; SECP_SIGNATURE_SIZE * threshold]);
+
+                    data
+                }
+                _ => {
+                    vec![0u8; witness_args_lock.len()]
+                }
+            };
+            let empty_signature = BytesOpt::new_builder().set(Some(empty_lock_bytes.pack())).build();
             let empty_witness = init_witness.clone().as_builder().lock(empty_signature).build();
+
             let tx_hash = high_level::load_tx_hash().map_err(|_| ErrorCode::ItemMissing)?;
 
             debug!(

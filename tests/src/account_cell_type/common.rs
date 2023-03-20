@@ -16,7 +16,6 @@ pub fn init(action: &str, params_opt: Option<&str>) -> TemplateGenerator {
     template.push_contract_cell("balance-cell-type", ContractType::Contract);
     template.push_contract_cell("ckb_multi_sign.so", ContractType::SharedLib);
 
-
     template.push_oracle_cell(1, OracleCellType::Time, TIMESTAMP);
 
     template.push_config_cell(DataType::ConfigCellMain, Source::CellDep);
