@@ -569,29 +569,32 @@ type:
   type: type,
   args: [account_id], // 账户 ID ，也就是和 AccountCell.data.id 相同的值
 
-data: [ smt_root ][ das_profit ][ owner_profit ][ custom_script ][ script_args ][ price_rules_hash ][ preserved_rules_hash ]
+data: [ smt_root ][ das_profit ][ owner_profit ][ flag ][ custom_script ][ script_args ]
+// OR
+data: [ smt_root ][ das_profit ][ owner_profit ][ flag ][ price_rules_hash ][ preserved_rules_hash ]
 ```
 
 - smt_root ， 32 bytes ，也就是对应主账户下的所有子账户的 merkle root ；
 - das_profit ，8 bytes ， 由于 SubAccountCell 也负责存放属于 DAS 官方的利润，这个值就是指明 capacity 当中有多少 DAS 官方的利润利润；
 - owner_profit ，8 bytes ，由于 SubAccountCell 也负责存放属于父账户 AccountCell 的 owner 的利润，这个值就是指明 capacity 当中有多少 owner 的利润；
-- custom_script ，总共 33 bytes，`custom_script[0]` 指明了后面的数据如何解析：
-  - 当 `custom_script[0] == 0`，或不存在时，指明了用户没有设计自定义价格，只有父账户可以创建子账户；
-  - 当 `custom_script[0] == 1`，指明用户使用了基于动态库的自定义价格，而 `custom_script[1 .. 33]` 就是动态库的 `type.args` ；
-  - 当 `custom_script[0] == 255` ，指明用户使用了基于配置的自定义价格，而 `custom_script[1 .. 33]` 必定全部填充 0x00 ，script_args 长度为 0 bytes；
-- script_args ，当 `custom_script[0] == 1` 时用于存放传递给自定义脚本的自定义参数，具体解析方式由自定义脚本自己决定；
-- price_rules_hash ，32 bytes 的 hash ，计算自价格规则 SubAccountPriceRule witness ；
-- preserved_rules_hash ， 32 bytes 的 hash ，计算自保留账户名规则 SubAccountPreservedRule witness ；
+- flag ，1 byte，标识后面几个字段如何解析：
+  - 当 `flag == 0` 时，指明了用户没有设计自定义价格，只有父账户可以创建子账户；
+  - 当 `flag == 1`，指明用户使用了基于动态库的自定义价格，省略 `price_rules_hash` 和 `preserved_rules_hash` 两个字段，而 `custom_script` 就是动态库的 `type.args` ，此时 `script_args` 必须为 10 bytes；
+  - 当 `flag == 255` ，指明用户使用了基于配置的自定义价格，省略 `custom_script` 和 `script_args` 两个字段；
+- custom_script ，32 bytes ，就是动态库的 `type.args` ；
+- script_args ，10 bytes ，存放由自定义脚本使用的 witness 的 hash 的前 10 bytes；
+- price_rules_hash ， 10 bytes 的 hash ，将所有 SubAccountPriceRule witness 按顺序拼接并计算 hash 后取前 10 bytes；
+- preserved_rules_hash ， 10 bytes 的 hash ，将所有 SubAccountPreservedRule witness 按顺序拼接并计算 hash 后取前 10 bytes；
 
 #### custom_script 推导动态库 Type ID
 
-当 `custom_script[0] == 1` 时，需要将 `custom_script[1..33]` 作为 `type.args` 来使用组成以下 Script 结构：
+当 `flag == 1` 时，需要将 `custom_script` 作为 `type.args` 来使用组成以下 Script 结构：
 
 ```
 {
   code_hash: "0x00000000000000000000000000000000000000000000000000545950455f4944",
-  hash_type: custom_script[0],
-  args: custom_script[1..33]
+  hash_type: flag,
+  args: custom_script
 }
 ```
 
