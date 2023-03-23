@@ -569,20 +569,23 @@ type:
   type: type,
   args: [account_id], // 账户 ID ，也就是和 AccountCell.data.id 相同的值
 
+data: [ smt_root ][ das_profit ][ owner_profit ][ flag ]
+// OR
 data: [ smt_root ][ das_profit ][ owner_profit ][ flag ][ custom_script ][ script_args ]
 // OR
-data: [ smt_root ][ das_profit ][ owner_profit ][ flag ][ price_rules_hash ][ preserved_rules_hash ]
+data: [ smt_root ][ das_profit ][ owner_profit ][ flag ][ status_flag ][ price_rules_hash ][ preserved_rules_hash ]
 ```
 
 - smt_root ， 32 bytes ，也就是对应主账户下的所有子账户的 merkle root ；
 - das_profit ，8 bytes ， 由于 SubAccountCell 也负责存放属于 DAS 官方的利润，这个值就是指明 capacity 当中有多少 DAS 官方的利润利润；
 - owner_profit ，8 bytes ，由于 SubAccountCell 也负责存放属于父账户 AccountCell 的 owner 的利润，这个值就是指明 capacity 当中有多少 owner 的利润；
 - flag ，1 byte，标识后面几个字段如何解析：
-  - 当 `flag == 0` 时，指明了用户没有设计自定义价格，只有父账户可以创建子账户；
-  - 当 `flag == 1`，指明用户使用了基于动态库的自定义价格，省略 `price_rules_hash` 和 `preserved_rules_hash` 两个字段，而 `custom_script` 就是动态库的 `type.args` ，此时 `script_args` 必须为 10 bytes；
-  - 当 `flag == 255` ，指明用户使用了基于配置的自定义价格，省略 `custom_script` 和 `script_args` 两个字段；
+  - 当 `flag == 0x00` 或不存在时，指明用户仅使用手工分发，省略所有之后的字段，只有父账户可以创建子账户；
+  - 当 `flag == 0x01`，指明用户使用了基于动态库的自定义价格，省略 `price_rules_hash` 和 `preserved_rules_hash` 两个字段，而 `custom_script` 就是动态库的 `type.args` ，此时 `script_args` 必须为 10 bytes；
+  - 当 `flag == 0xff` ，指明用户启用了基于配置的自动分发特性，省略 `custom_script` 和 `script_args` 两个字段，默认 `status_flag = 0x00` 且 `price_rules_hash` 和 `preserved_rules_hash` 需要全部填充 `0x00`；
 - custom_script ，32 bytes ，就是动态库的 `type.args` ；
 - script_args ，10 bytes ，存放由自定义脚本使用的 witness 的 hash 的前 10 bytes；
+- status_flag ，1 byte ，标识是否开启基于配置的自动分发特性，为了兼容现存用户，开启为 0x00 ，关闭为 0x01，默认为开启状态；
 - price_rules_hash ， 10 bytes 的 hash ，将所有 SubAccountPriceRule witness 按顺序拼接并计算 hash 后取前 10 bytes；
 - preserved_rules_hash ， 10 bytes 的 hash ，将所有 SubAccountPreservedRule witness 按顺序拼接并计算 hash 后取前 10 bytes；
 
@@ -604,7 +607,9 @@ data: [ smt_root ][ das_profit ][ owner_profit ][ flag ][ price_rules_hash ][ pr
 
 #### 体积
 
-`175 + n` Bytes，`n` 取决于 `script_args` 的长度，也就是自定义脚本的自定义参数长度。
+- 当 `flag == 0` 时为 `143` Bytes
+- 当 `flag == 1` 时为 `143 + 42` Bytes
+- 当 `flag == 255` 时为 `143 + 20` bytes
 
 ### ExpiredAccountAuctionCell
 
