@@ -1,3 +1,5 @@
+use core::cmp::Ordering;
+
 use alloc::boxed::Box;
 
 use ckb_std::ckb_constants::Source;
@@ -97,19 +99,32 @@ pub fn verify_income_cells(
         }
     }
 
+    let total_profit = if profit_map.items.len() == 0 {
+        0
+    } else {
+        profit_map.items
+            .iter()
+            .map(|v| v.1)
+            .reduce(|acc, v| acc + v)
+            .unwrap()
+    };
     let config_main = parser.configs.main()?;
-    let config_income = parser.configs.income()?;
 
     let (input_income_cells, output_income_cells) =
         util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, config_main.type_id_table().income_cell())?;
+    if profit_map.items.len() == 0 || total_profit == 0 {
+        debug!("Since the profit is empty, there should be no IncomeCell in either the inputs or outputs.");
 
-    assert!(
-        input_income_cells.len() <= 1 && output_income_cells.len() == 1,
-        ErrorCode::InvalidTransactionStructure,
-        "There should be 0 or 1 IncomeCell in inputs and 1 IncomeCell in outputs.(inputs: {:?}, outputs: {:?})",
-        input_income_cells,
-        output_income_cells
-    );
+        super::common::verify_cell_number("IncomeCell", &input_income_cells, 0, &output_income_cells, 0)?;
+
+        return Ok(());
+    } else {
+        debug!("Since the profit is not empty, there should be 1 IncomeCell in both the inputs and outputs.");
+
+        super::common::verify_cell_number_range("IncomeCell", &input_income_cells, (Ordering::Less, 2), &output_income_cells, (Ordering::Equal, 1))?;
+    }
+
+    let config_income = parser.configs.income()?;
 
     // If an existing IncomeCell is used, collect all its records for later usage.
     let mut exist_records_opt = None;
