@@ -243,6 +243,56 @@ pub fn find_cells_by_script_and_filter<F: Fn(usize, Source) -> Result<bool, Box<
     Ok(ret)
 }
 
+pub fn payload_to_das_lock(
+    lock_type: DasLockType,
+    payload: &[u8],
+) -> Script {
+    let mut compatible_args = vec![lock_type as u8];
+    compatible_args.extend(payload.iter());
+    compatible_args.extend(compatible_args.clone().iter());
+
+    let compatible_lock = das_lock()
+        .as_builder()
+        .args(das_packed::Bytes::from(compatible_args).into())
+        .build();
+
+    compatible_lock
+}
+
+pub fn find_cells_by_das_lock_payload(
+    lock_type: DasLockType,
+    payload: &[u8],
+    source: Source,
+) -> Result<Vec<usize>, Box<dyn ScriptError>> {
+    let cells = match lock_type {
+        // The two types of ETH args are compatible and can be used simultaneously.
+        DasLockType::ETH | DasLockType::ETHTypedData => {
+            let compatible_lock = payload_to_das_lock(DasLockType::ETHTypedData, payload);
+            let mut eth_type_data_cells =
+                find_cells_by_script(ScriptType::Lock, compatible_lock.as_reader(), source)?;
+
+            let compatible_lock = payload_to_das_lock(DasLockType::ETH, payload);
+            let mut eth_cells =
+                find_cells_by_script(ScriptType::Lock, compatible_lock.as_reader(), source)?;
+
+            eth_cells.append(&mut eth_type_data_cells);
+            eth_cells.sort();
+            eth_cells.dedup();
+
+            eth_cells
+        }
+        _ => {
+            let compatible_lock = payload_to_das_lock(lock_type, payload);
+            let cells =
+                find_cells_by_script(ScriptType::Lock, compatible_lock.as_reader(), source)?;
+
+            cells
+        }
+    };
+
+    Ok(cells)
+}
+
 pub fn find_balance_cells(
     config_main: das_packed::ConfigCellMainReader,
     user_lock_reader: ScriptReader,
@@ -251,43 +301,14 @@ pub fn find_balance_cells(
     let das_lock = das_lock();
     if is_type_id_equal(das_lock.as_reader(), user_lock_reader) {
         let args = user_lock_reader.args().raw_data();
-        let lock_type = data_parser::das_lock_args::get_owner_type(args);
-        let lock_args = data_parser::das_lock_args::get_owner_lock_args(args);
-
-        let all_cells;
-        if lock_type == DasLockType::ETH as u8 || lock_type == DasLockType::ETHTypedData as u8 {
-            // If the lock type is DasLockType::ETH or DasLockType::ETHTypedData treat the different types as the same lock.
-            let cells = find_cells_by_script(ScriptType::Lock, user_lock_reader, source)?;
-            let compatible_args;
-            if lock_type == DasLockType::ETH as u8 {
-                compatible_args = [
-                    vec![DasLockType::ETHTypedData as u8],
-                    lock_args.to_vec(),
-                    vec![DasLockType::ETHTypedData as u8],
-                    lock_args.to_vec(),
-                ]
-                .concat();
-            } else {
-                compatible_args = [
-                    vec![DasLockType::ETH as u8],
-                    lock_args.to_vec(),
-                    vec![DasLockType::ETH as u8],
-                    lock_args.to_vec(),
-                ]
-                .concat();
+        let lock_type = match DasLockType::try_from(data_parser::das_lock_args::get_owner_type(args)) {
+            Ok(val) => val,
+            Err(_) => {
+                return Err(code_to_error!(ErrorCode::DasLockArgsInvalid));
             }
-            let compatible_lock = user_lock_reader
-                .to_entity()
-                .as_builder()
-                .args(das_packed::Bytes::from(compatible_args).into())
-                .build();
-            let cells_with_compatible_lock =
-                find_cells_by_script(ScriptType::Lock, compatible_lock.as_reader(), source)?;
-
-            all_cells = [cells, cells_with_compatible_lock].concat();
-        } else {
-            all_cells = find_cells_by_script(ScriptType::Lock, user_lock_reader, source)?;
-        }
+        };
+        let payload = data_parser::das_lock_args::get_owner_lock_args(args);
+        let all_cells = find_cells_by_das_lock_payload(lock_type, payload, source)?;
 
         let balance_cell_type_script = type_id_to_script(config_main.type_id_table().balance_cell());
         let mut cells = Vec::new();
