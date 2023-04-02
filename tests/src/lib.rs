@@ -15,7 +15,7 @@ mod playground;
 mod pre_account_cell_type;
 mod proposal_cell_type;
 mod reverse_record_cell_type;
-// mod reverse_record_root_cell_type;
+mod reverse_record_root_cell_type;
 mod sub_account_cell_type;
 mod witness_parser;
 

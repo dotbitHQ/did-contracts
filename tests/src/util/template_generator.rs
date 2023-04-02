@@ -817,7 +817,7 @@ impl TemplateGenerator {
             .income_consolidate(Uint32::from(CONSOLIDATING_FEE as u32))
             .sale_buyer_inviter(Uint32::from(SALE_BUYER_INVITER_PROFIT_RATE as u32))
             .sale_buyer_channel(Uint32::from(SALE_BUYER_CHANNEL_PROFIT_RATE as u32))
-            .sale_das(Uint32::from(100))
+            .sale_das(Uint32::from(SALE_DAS_PROFIT_RATE as u32))
             .auction_bidder_inviter(Uint32::from(100))
             .auction_bidder_channel(Uint32::from(100))
             .auction_das(Uint32::from(100))

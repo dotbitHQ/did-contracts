@@ -1,6 +1,7 @@
 use das_types_std::constants::*;
 use das_types_std::packed::*;
 use das_types_std::prelude::*;
+use serde_json::Value;
 use serde_json::json;
 
 use super::common::*;
@@ -12,44 +13,85 @@ use crate::util::template_generator::*;
 use crate::util::template_parser::*;
 use crate::util::{self};
 
-fn push_simple_output_income_cell(template: &mut TemplateGenerator) {
-    push_output_income_cell(
-        template,
-        json!({
-            "witness": {
-                "records": [
-                    {
-                        "belong_to": {
-                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
-                            "args": COMMON_INCOME_CREATOR
-                        },
-                        "capacity": "20_000_000_000"
-                    },
-                    {
-                        "belong_to": {
-                            "code_hash": "{{fake-das-lock}}",
-                            "args": gen_das_lock_args(INVITER, None)
-                        },
-                        "capacity": 2_000_000_000.to_string()
-                    },
-                    {
-                        "belong_to": {
-                            "code_hash": "{{fake-das-lock}}",
-                            "args": gen_das_lock_args(CHANNEL, None)
-                        },
-                        "capacity": 2_000_000_000.to_string()
-                    },
-                    {
-                        "belong_to": {
-                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
-                            "args": DAS_WALLET_LOCK_ARGS
-                        },
-                        "capacity": 2_000_000_000.to_string()
-                    }
-                ]
-            }
-        }),
-    );
+fn push_simple_output_income_cell(template: &mut TemplateGenerator) -> u64 {
+    push_dynmic_output_income_cell(template, PRICE, true, true)
+}
+
+fn push_dynmic_output_income_cell(template: &mut TemplateGenerator, price: u64, has_inviter: bool, has_channel: bool) -> u64 {
+    let mut records = vec![];
+
+    let inviter_profit = if has_inviter {
+        price * SALE_BUYER_INVITER_PROFIT_RATE / RATE_BASE
+    } else {
+        0
+    };
+    if inviter_profit > 0 {
+        records.push(json!({
+            "belong_to": {
+                "code_hash": "{{fake-das-lock}}",
+                "args": gen_das_lock_args(INVITER, None)
+            },
+            "capacity": inviter_profit
+        }))
+    }
+
+    let channel_profit = if has_channel {
+        price * SALE_BUYER_CHANNEL_PROFIT_RATE / RATE_BASE
+    } else {
+        0
+    };
+    if channel_profit > 0 {
+        records.push(json!({
+            "belong_to": {
+                "code_hash": "{{fake-das-lock}}",
+                "args": gen_das_lock_args(CHANNEL, None)
+            },
+            "capacity": channel_profit
+        }))
+    }
+
+    let mut das_profit_rate = SALE_DAS_PROFIT_RATE;
+    if !has_inviter {
+        das_profit_rate += SALE_BUYER_INVITER_PROFIT_RATE;
+    }
+    if !has_channel {
+        das_profit_rate += SALE_BUYER_CHANNEL_PROFIT_RATE
+    }
+
+    let das_profit = price * das_profit_rate / RATE_BASE;
+    if das_profit > 0 {
+        records.push(json!({
+            "belong_to": {
+                "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                "args": DAS_WALLET_LOCK_ARGS
+            },
+            "capacity": das_profit
+        }))
+    }
+
+    let total_profit = inviter_profit + channel_profit + das_profit;
+    if total_profit <= INCOME_BASIC_CAPACITY && total_profit > 0 {
+        records.insert(0, json!({
+            "belong_to": {
+                "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                "args": COMMON_INCOME_CREATOR
+            },
+            "capacity": INCOME_BASIC_CAPACITY
+        }));
+    }
+
+    if !records.is_empty() {
+        push_output_income_cell(
+            template,
+            json!({
+                "witness": {
+                    "records": records
+                }
+            }),
+        );
+    }
+
+    total_profit
 }
 
 fn push_common_outputs(template: &mut TemplateGenerator) {
@@ -69,10 +111,10 @@ fn push_common_outputs(template: &mut TemplateGenerator) {
         }),
     );
 
-    push_simple_output_income_cell(template);
+    let total_profit = push_simple_output_income_cell(template);
     push_output_balance_cell(
         template,
-        PRICE - 6_000_000_000 + ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY
+        PRICE - total_profit + ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY
             - SECONDARY_MARKET_COMMON_FEE,
         SELLER,
     );
@@ -200,40 +242,10 @@ fn test_account_sale_buy_not_create_income_cell() {
         }),
     );
 
-    push_output_income_cell(
-        &mut template,
-        json!({
-            "witness": {
-                "records": [
-                    {
-                        "belong_to": {
-                            "code_hash": "{{fake-das-lock}}",
-                            "args": gen_das_lock_args(INVITER, None)
-                        },
-                        "capacity": "10_000_000_000"
-                    },
-                    {
-                        "belong_to": {
-                            "code_hash": "{{fake-das-lock}}",
-                            "args": gen_das_lock_args(CHANNEL, None)
-                        },
-                        "capacity": "10_000_000_000"
-                    },
-                    {
-                        "belong_to": {
-                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
-                            "args": DAS_WALLET_LOCK_ARGS
-                        },
-                        "capacity": "10_000_000_000"
-                    }
-                ]
-            }
-        }),
-    );
-
+    let total_profit = push_dynmic_output_income_cell(&mut template, price, true, true);
     push_output_balance_cell(
         &mut template,
-        1_000_000_000_000 - 30_000_000_000 + ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY
+        1_000_000_000_000 - total_profit + ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY
             - SECONDARY_MARKET_COMMON_FEE,
         SELLER,
     );
@@ -297,26 +309,10 @@ fn test_account_sale_buy_no_inviter_and_channel() {
         }),
     );
 
-    push_output_income_cell(
-        &mut template,
-        json!({
-            "witness": {
-                "records": [
-                    {
-                        "belong_to": {
-                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
-                            "args": DAS_WALLET_LOCK_ARGS
-                        },
-                        "capacity": "30_000_000_000"
-                    }
-                ]
-            }
-        }),
-    );
-
+    let total_profit = push_dynmic_output_income_cell(&mut template, price, false, false);
     push_output_balance_cell(
         &mut template,
-        1_000_000_000_000 - 30_000_000_000 + ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY
+        1_000_000_000_000 - total_profit + ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY
             - SECONDARY_MARKET_COMMON_FEE,
         SELLER,
     );
@@ -404,13 +400,6 @@ fn test_account_sale_buy_create_with_custom_buyer_inviter_profit_rate() {
                         "belong_to": {
                             "code_hash": "{{fake-das-lock}}",
                             "args": gen_das_lock_args(CHANNEL, None)
-                        },
-                        "capacity": 2_000_000_000.to_string()
-                    },
-                    {
-                        "belong_to": {
-                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
-                            "args": DAS_WALLET_LOCK_ARGS
                         },
                         "capacity": 2_000_000_000.to_string()
                     }
@@ -542,10 +531,10 @@ fn challenge_account_sale_buy_account_capacity() {
         }),
     );
 
-    push_simple_output_income_cell(&mut template);
+    let total_profit = push_simple_output_income_cell(&mut template);
     push_output_balance_cell(
         &mut template,
-        PRICE - 6_000_000_000 + ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY
+        PRICE - total_profit + ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY
             - SECONDARY_MARKET_COMMON_FEE,
         SELLER,
     );
@@ -618,10 +607,10 @@ fn challenge_account_sale_buy_output_account_status() {
             }
         }),
     );
-    push_simple_output_income_cell(&mut template);
+    let total_profit = push_simple_output_income_cell(&mut template);
     push_output_balance_cell(
         &mut template,
-        PRICE - 6_000_000_000 + ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY
+        PRICE - total_profit + ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY
             - SECONDARY_MARKET_COMMON_FEE,
         SELLER,
     );
@@ -695,10 +684,10 @@ fn challenge_account_sale_buy_wrong_owner() {
             }
         }),
     );
-    push_simple_output_income_cell(&mut template);
+    let total_profit = push_simple_output_income_cell(&mut template);
     push_output_balance_cell(
         &mut template,
-        PRICE - 6_000_000_000 + ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY
+        PRICE - total_profit + ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY
             - SECONDARY_MARKET_COMMON_FEE,
         SELLER,
     );
@@ -728,10 +717,10 @@ fn challenge_account_sale_buy_change_owner() {
             }
         }),
     );
-    push_simple_output_income_cell(&mut template);
+    let total_profit = push_simple_output_income_cell(&mut template);
     push_output_balance_cell(
         &mut template,
-        PRICE - 6_000_000_000 + ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY
+        PRICE - total_profit + ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY
             - SECONDARY_MARKET_COMMON_FEE,
         SELLER,
     );
@@ -767,10 +756,10 @@ fn challenge_account_sale_buy_change_capacity() {
             }
         }),
     );
-    push_simple_output_income_cell(&mut template);
+    let total_profit = push_simple_output_income_cell(&mut template);
     push_output_balance_cell(
         &mut template,
-        PRICE - 6_000_000_000 + ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY
+        PRICE - total_profit + ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY
             - SECONDARY_MARKET_COMMON_FEE,
         SELLER,
     );
@@ -801,11 +790,11 @@ fn challenge_account_sale_buy_seller_profit_owner() {
             }
         }),
     );
-    push_simple_output_income_cell(&mut template);
+    let total_profit = push_simple_output_income_cell(&mut template);
     // Simulate transfer profit to another lock.
     push_output_balance_cell(
         &mut template,
-        PRICE - 6_000_000_000 + ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY
+        PRICE - total_profit + ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY
             - SECONDARY_MARKET_COMMON_FEE,
         "0x051111000000000000000000000000000000001111",
     );
@@ -834,11 +823,11 @@ fn challenge_account_sale_buy_seller_profit_capacity() {
             }
         }),
     );
-    push_simple_output_income_cell(&mut template);
+    let total_profit = push_simple_output_income_cell(&mut template);
     // Simulate transfer profit less than the SELLER should get.
     push_output_balance_cell(
         &mut template,
-        PRICE - 6_000_000_000 + ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY
+        PRICE - total_profit + ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY
             - SECONDARY_MARKET_COMMON_FEE
             - 1,
         SELLER,
@@ -922,10 +911,10 @@ fn challenge_account_sale_buy_not_clear_records() {
             }
         }),
     );
-    push_simple_output_income_cell(&mut template);
+    let total_profit = push_simple_output_income_cell(&mut template);
     push_output_balance_cell(
         &mut template,
-        PRICE - 6_000_000_000 + ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY
+        PRICE - total_profit + ACCOUNT_SALE_BASIC_CAPACITY + ACCOUNT_SALE_PREPARED_FEE_CAPACITY
             - SECONDARY_MARKET_COMMON_FEE,
         SELLER,
     );
