@@ -103,15 +103,15 @@ pub fn verify_cell_number_range(
         "{}",
         match expected_outputs_range.0 {
             Ordering::Less => format!(
-                "There should be less than {} {}s in inputs.",
+                "There should be less than {} {}s in outputs.",
                 expected_outputs_range.1, cell_name
             ),
             Ordering::Greater => format!(
-                "There should be more than {} {}s in inputs.",
+                "There should be more than {} {}s in outputs.",
                 expected_outputs_range.1, cell_name
             ),
             Ordering::Equal => format!(
-                "There should be exactly {} {}s in inputs.",
+                "There should be exactly {} {}s in outputs.",
                 expected_outputs_range.1, cell_name
             ),
         }

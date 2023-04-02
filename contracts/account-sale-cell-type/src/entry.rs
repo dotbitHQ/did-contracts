@@ -651,8 +651,10 @@ fn verify_profit_distribution<'a>(
         };
         let profit = price / RATE_BASE * profit_rate;
 
-        map_util::add(&mut profit_map, inviter_lock_reader.as_slice().to_vec(), profit);
-        profit_of_seller -= profit;
+        if profit > 0 {
+            map_util::add(&mut profit_map, inviter_lock_reader.as_slice().to_vec(), profit);
+            profit_of_seller -= profit;
+        }
         debug!("  The profit of the invitor: {}", profit);
     } else {
         profit_rate_of_das += u32::from(config_profit_rate.sale_buyer_inviter()) as u64;
@@ -662,19 +664,23 @@ fn verify_profit_distribution<'a>(
         let profit_rate = u32::from(config_profit_rate.sale_buyer_channel()) as u64;
         let profit = price / RATE_BASE * profit_rate;
 
-        map_util::add(&mut profit_map, channel_lock_reader.as_slice().to_vec(), profit);
-        profit_of_seller -= profit;
+        if profit > 0 {
+            map_util::add(&mut profit_map, channel_lock_reader.as_slice().to_vec(), profit);
+            profit_of_seller -= profit;
+        }
         debug!("  The profit of the channel: {}", profit);
     } else {
         profit_rate_of_das += u32::from(config_profit_rate.sale_buyer_channel()) as u64;
     }
 
     let profit = price / RATE_BASE * profit_rate_of_das;
-    let das_wallet_lock = das_wallet_lock();
-
-    map_util::add(&mut profit_map, das_wallet_lock.as_slice().to_vec(), profit);
-    profit_of_seller -= profit;
     debug!("  The profit of DAS: {}", profit);
+    if profit > 0 {
+        let das_wallet_lock = das_wallet_lock();
+
+        map_util::add(&mut profit_map, das_wallet_lock.as_slice().to_vec(), profit);
+        profit_of_seller -= profit;
+    }
 
     debug!("Check if seller get their profit properly.");
 

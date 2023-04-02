@@ -19,8 +19,6 @@ use das_types::constants::DasLockType;
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running reverse-record-root-cell-type ======");
 
-    return Err(code_to_error!(ErrorCode::ActionNotSupported));
-
     let mut parser = WitnessesParser::new()?;
     let action_cp = match parser.parse_action_with_params()? {
         Some((action, _)) => action.to_vec(),
