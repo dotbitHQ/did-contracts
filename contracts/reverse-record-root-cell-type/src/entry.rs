@@ -26,8 +26,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
     };
     let action = action_cp.as_slice();
 
-    util::is_system_off(&parser)?;
-
     debug!(
         "Route to {:?} action ...",
         alloc::string::String::from_utf8(action.to_vec()).map_err(|_| ErrorCode::ActionNotSupported)?
@@ -75,6 +73,8 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             );
         }
         b"update_reverse_record_root" => {
+            util::is_system_off(&parser)?;
+
             let config_main = parser.configs.main()?;
             let config_smt_white_list = parser.configs.smt_node_white_list()?;
             verify_has_some_lock_in_white_list(1, config_smt_white_list)?;
