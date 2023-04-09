@@ -14,7 +14,11 @@
   [das, type, raw/entity/table],
   [das, type, sub_account_mint_sign],
   [das, type, sub_account_price_rule],
+  [das, type, sub_account_price_rule],
+  ...
   [das, type, sub_account_preserved_rule],
+  [das, type, sub_account_preserved_rule],
+  ...
   [das, type, sub_account],
   ...
 ]
@@ -102,7 +106,7 @@ account hash ，value 为子账户创建成功后的 `SubAccountData.lock.args` 
 
 ### SubAccountPriceRule 与 SubAccountPreservedRule 数据结构
 
-这两类数据是一个有较为复杂层级关系的结构，因此依然采用了 molecule 编码，具体的数据结构为 `SubAccountPriceRules` 和 `SubAccountPreservedRule` 类型，关于这两种类型的定义及其对应的 JSON 描述详见 [自定义规则](./%E8%87%AA%E5%AE%9A%E4%B9%89%E8%A7%84%E5%88%99.md) 。
+这两类数据是一个有较为复杂层级关系的结构，因此依然采用了 molecule 编码，具体的数据结构采用了共用的 `SubAccountRules` 类型，区别在于 SubAccountPreservedRule 数据结构种的 `SubAccountRule.price` 会被忽略，关于这两种类型的定义及其对应的 JSON 描述详见 [自定义规则](./%E8%87%AA%E5%AE%9A%E4%B9%89%E8%A7%84%E5%88%99.md) 。
 
 ### SubAccount 数据结构
 
