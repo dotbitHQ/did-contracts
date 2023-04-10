@@ -219,9 +219,12 @@ impl SignLib {
         blake2b.finalize(&mut h);
 
         match das_lock_type {
+            // DasLockType::ETHTypedData => {
+            //     let prefix = "from did: ".as_bytes();
+            //     Ok([prefix, &h].concat())
+            // }
             DasLockType::ETH | DasLockType::ETHTypedData | DasLockType::TRON | DasLockType::Doge => {
-                let prefix = "from did: ".as_bytes();
-                Ok([prefix, &h].concat())
+                Ok(h.to_vec())
             }
             _ => Err(Error::UndefinedDasLockType as i32),
         }
