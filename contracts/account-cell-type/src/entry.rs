@@ -864,7 +864,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             das_assert!(
                 sub_account_cell_capacity == expected_capacity,
-                ErrorCode::SubAccountCellCapacityError,
+                SubAccountCellErrorCode::SubAccountCellCapacityError,
                 "The initial capacity of SubAccountCell should be equal to ConfigCellSubAccount.basic_capacity + ConfigCellSubAccount.prepared_fee_capacity .(expected: {}, current: {})",
                 expected_capacity,
                 sub_account_cell_capacity
@@ -876,19 +876,23 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             das_assert!(
                 account_id == expected_account_id,
-                ErrorCode::SubAccountCellAccountIdError,
+                SubAccountCellErrorCode::SubAccountCellAccountIdError,
                 "The type.args of SubAccountCell should be the same with the AccountCell.witness.id .(expected: {}, current: {})",
                 util::hex_string(expected_account_id),
                 util::hex_string(account_id)
             );
 
             let sub_account_outputs_data = high_level::load_cell_data(output_sub_account_cells[0], Source::Output)?;
-            let expected_default_data = vec![0u8; 48];
+            let expected_default_data = vec![
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0,
+            ];
 
             das_assert!(
                 expected_default_data == sub_account_outputs_data,
                 ErrorCode::SMTProofVerifyFailed,
-                "The default outputs_data of SubAccountCell should be [0u8; 48] ."
+                "The default outputs_data of SubAccountCell should enable custom rules ."
             );
 
             debug!("Verify if sender get their change properly.");
