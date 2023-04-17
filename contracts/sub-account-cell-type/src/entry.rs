@@ -1,6 +1,6 @@
 use alloc::borrow::ToOwned;
 use alloc::boxed::Box;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
 use core::convert::TryInto;
@@ -20,11 +20,12 @@ use das_core::{assert as das_assert, code_to_error, data_parser, debug, verifier
 use das_dynamic_libs::constants::DynLibName;
 use das_dynamic_libs::sign_lib::SignLib;
 use das_dynamic_libs::{load_2_methods, load_lib, log_loading, new_context};
-use das_types::constants::{AccountStatus, LockRole, SubAccountAction};
+use das_types::constants::{AccountStatus, DataType, SubAccountAction, SubAccountConfigFlag};
 use das_types::packed::*;
 use das_types::prelude::{Builder, Entity};
 #[cfg(debug_assertions)]
 use das_types::prettier::Prettier;
+use simple_ast::executor::match_rule_with_account_chars;
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running sub-account-cell-type ======");
@@ -57,6 +58,173 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 Source::Input,
                 ErrorCode::InvalidTransactionStructure,
             )?;
+        }
+        b"config_sub_account" => {
+            parser.parse_cell()?;
+            let config_main = parser.configs.main()?;
+            let config_account = parser.configs.account()?;
+            let config_sub_account = parser.configs.sub_account()?;
+
+            let timestamp = util::load_oracle_data(OracleCellType::Time)?;
+
+            debug!("Verify if the AccountCell is consistent and not expired ...");
+
+            let (input_account_cells, output_account_cells) = util::find_cells_by_type_id_in_inputs_and_outputs(
+                ScriptType::Type,
+                config_main.type_id_table().account_cell(),
+            )?;
+            verifiers::common::verify_cell_number_and_position(
+                "AccountCell",
+                &input_account_cells,
+                &[0],
+                &output_account_cells,
+                &[0],
+            )?;
+
+            let sender_lock = util::derive_owner_lock_from_cell(input_account_cells[0], Source::Input)?;
+            verifiers::misc::verify_no_more_cells_with_same_lock(
+                sender_lock.as_reader(),
+                &input_account_cells,
+                Source::Input,
+            )?;
+
+            let input_account_cell_witness =
+                util::parse_account_cell_witness(&parser, input_account_cells[0], Source::Input)?;
+            let input_account_cell_reader = input_account_cell_witness.as_reader();
+            let output_account_cell_witness =
+                util::parse_account_cell_witness(&parser, output_account_cells[0], Source::Output)?;
+            let output_account_cell_reader = output_account_cell_witness.as_reader();
+
+            verifiers::account_cell::verify_status(
+                &input_account_cell_reader,
+                AccountStatus::Normal,
+                input_account_cells[0],
+                Source::Input,
+            )?;
+
+            verifiers::account_cell::verify_account_expiration(
+                config_account,
+                input_account_cells[0],
+                Source::Input,
+                timestamp,
+            )?;
+
+            verifiers::account_cell::verify_account_capacity_not_decrease(
+                input_account_cells[0],
+                output_account_cells[0],
+            )?;
+
+            verifiers::account_cell::verify_account_cell_consistent_with_exception(
+                input_account_cells[0],
+                output_account_cells[0],
+                &input_account_cell_reader,
+                &output_account_cell_reader,
+                None,
+                vec![],
+                vec![],
+            )?;
+
+            debug!("Verify if the SubAccountCell is consistent and only the appropriate fee was charged ...");
+
+            let (input_sub_account_cells, output_sub_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
+            verifiers::common::verify_cell_number_and_position(
+                "SubAccountCell",
+                &input_sub_account_cells,
+                &[1],
+                &output_sub_account_cells,
+                &[1],
+            )?;
+
+            verifiers::sub_account_cell::verify_sub_account_parent_id(
+                input_sub_account_cells[0],
+                Source::Input,
+                input_account_cell_reader.id().raw_data(),
+            )?;
+
+            let input_sub_account_capacity = high_level::load_cell_capacity(input_sub_account_cells[0], Source::Input)?;
+            let output_sub_account_capacity =
+                high_level::load_cell_capacity(output_sub_account_cells[0], Source::Output)?;
+            let input_sub_account_data = high_level::load_cell_data(input_sub_account_cells[0], Source::Input)?;
+            let output_sub_account_data = high_level::load_cell_data(output_sub_account_cells[0], Source::Output)?;
+
+            verify_sub_account_transaction_fee(
+                config_sub_account,
+                input_sub_account_capacity,
+                &input_sub_account_data,
+                output_sub_account_capacity,
+                &output_sub_account_data,
+            )?;
+
+            verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
+                input_sub_account_cells[0],
+                output_sub_account_cells[0],
+                vec!["custom_script", "custom_script_args"],
+            )?;
+
+            debug!("Verify if the config fields is updated appropriately ...");
+
+            let sub_account_cell_data = util::load_cell_data(output_sub_account_cells[0], Source::Output)?;
+            let flag = data_parser::sub_account_cell::get_flag(&sub_account_cell_data);
+
+            match flag {
+                Some(SubAccountConfigFlag::CustomRule) => {
+                    verifiers::sub_account_cell::verify_config_is_custom_rule(
+                        output_sub_account_cells[0],
+                        Source::Output,
+                    )?;
+
+                    let sub_account_witness_parser = SubAccountWitnessesParser::new()?;
+                    let mut price_rules_empty = true;
+                    for data_type in [DataType::SubAccountPriceRule, DataType::SubAccountPreservedRule] {
+                        let field = match data_type {
+                            DataType::SubAccountPriceRule => String::from("price_rules"),
+                            DataType::SubAccountPreservedRule => String::from("preserved_rules"),
+                            _ => unreachable!(),
+                        };
+
+                        let rules = match sub_account_witness_parser.get_rules(&sub_account_cell_data, data_type) {
+                            Ok(rules) => {
+                                if data_type == DataType::SubAccountPriceRule {
+                                    price_rules_empty = false;
+                                }
+                                rules
+                            }
+                            Err(err) => {
+                                if err.as_i8() == (ErrorCode::WitnessEmpty as i8) {
+                                    continue;
+                                } else {
+                                    return Err(err);
+                                }
+                            }
+                        };
+
+                        let mut dummy_account_chars_builder = AccountChars::new_builder();
+                        dummy_account_chars_builder = dummy_account_chars_builder.push(AccountChar::default());
+                        let dummy_account_chars = dummy_account_chars_builder.build();
+                        let dummy_account = "";
+
+                        match_rule_with_account_chars(&rules, dummy_account_chars.as_reader(), dummy_account).map_err(
+                            |err| {
+                                warn!(
+                                    "The SubAccountCell.witness.{} has some syntax error: {}",
+                                    field,
+                                    err.to_string()
+                                );
+                                code_to_error!(SubAccountCellErrorCode::ConfigRulesHasSyntaxError)
+                            },
+                        )?;
+                    }
+
+                    das_assert!(
+                        !price_rules_empty,
+                        SubAccountCellErrorCode::ConfigRulesPriceRulesCanNotEmpty,
+                        "The SubAccountCell.witness.price_rules can not be empty."
+                    );
+                }
+                _ => {
+                    verifiers::sub_account_cell::verify_config_is_manual(output_sub_account_cells[0], Source::Output)?;
+                }
+            }
         }
         b"config_sub_account_custom_script" => {
             parser.parse_cell()?;

@@ -459,7 +459,7 @@ pub fn verify_sub_account_enabled<'a>(
         // CAREFUL! The early versions will no longer be supported.
         return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
     } else if account_cell_witness_reader.version() == 2 {
-        return Err(code_to_error!(ErrorCode::SubAccountFeatureNotEnabled));
+        return Err(code_to_error!(SubAccountCellErrorCode::SubAccountFeatureNotEnabled));
     } else {
         let reader = account_cell_witness_reader
             .try_into_latest()
@@ -468,7 +468,7 @@ pub fn verify_sub_account_enabled<'a>(
 
         das_assert!(
             enable_sub_account == 1,
-            ErrorCode::SubAccountFeatureNotEnabled,
+            SubAccountCellErrorCode::SubAccountFeatureNotEnabled,
             "{:?}[{}]The AccountCell.witness.enable_sub_account should be 1.",
             source,
             index
@@ -556,8 +556,6 @@ pub fn verify_account_chars(
     parser: &WitnessesParser,
     chars_reader: AccountCharsReader,
 ) -> Result<(), Box<dyn ScriptError>> {
-    debug!("Verify if account chars is available.");
-
     let mut prev_char_set_name: Option<_> = None;
     for account_char in chars_reader.iter() {
         // Loading different charset configs on demand.

@@ -118,7 +118,7 @@ pub fn verify_suffix_with_parent_account(
 
     das_assert!(
         expected_suffix == suffix,
-        ErrorCode::SubAccountInitialValueError,
+        SubAccountCellErrorCode::SubAccountInitialValueError,
         "  witnesses[{:>2}] The witness.sub_account.suffix of {} should come from the parent account.(expected: {:?}, current: {:?})",
         sub_account_index,
         util::get_sub_account_name_from_reader(sub_account_reader),
@@ -138,7 +138,7 @@ fn verify_initial_lock(
 
     das_assert!(
         util::is_type_id_equal(expected_lock.as_reader(), current_lock.into()),
-        ErrorCode::SubAccountInitialValueError,
+        SubAccountCellErrorCode::SubAccountInitialValueError,
         "  witnesses[{:>2}] The witness.sub_account.lock of {} must be a das-lock.",
         sub_account_index,
         util::get_sub_account_name_from_reader(sub_account_reader)
@@ -159,7 +159,7 @@ fn verify_initial_id(
 
     das_assert!(
         &expected_account_id == account_id,
-        ErrorCode::SubAccountInitialValueError,
+        SubAccountCellErrorCode::SubAccountInitialValueError,
         "  witnesses[{:>2}] The witness.sub_account.id of {} do not match.(expected: 0x{}, current: 0x{})",
         sub_account_index,
         account,
@@ -179,7 +179,7 @@ fn verify_initial_registered_at(
 
     das_assert!(
         registered_at == timestamp,
-        ErrorCode::SubAccountInitialValueError,
+        SubAccountCellErrorCode::SubAccountInitialValueError,
         "  witnesses[{:>2}] The witness.sub_account.registered_at of {} should be the same as the timestamp in TimeCell.(expected: {}, current: {})",
         sub_account_index,
         util::get_sub_account_name_from_reader(sub_account_reader),
@@ -195,11 +195,6 @@ pub fn verify_initial_properties(
     sub_account_reader: SubAccountReader,
     current_timestamp: u64,
 ) -> Result<(), Box<dyn ScriptError>> {
-    debug!(
-        "  witnesses[{:>2}] Verify if the initial properties of sub-account is filled properly.",
-        sub_account_index
-    );
-
     verify_initial_lock(sub_account_index, sub_account_reader)?;
     verify_initial_id(sub_account_index, sub_account_reader)?;
     verify_initial_registered_at(sub_account_index, sub_account_reader, current_timestamp)?;
@@ -216,7 +211,7 @@ pub fn verify_initial_properties(
     let enable_sub_account = u8::from(sub_account_reader.enable_sub_account());
     das_assert!(
         enable_sub_account == 0,
-        ErrorCode::SubAccountInitialValueError,
+        SubAccountCellErrorCode::SubAccountInitialValueError,
         "  witnesses[{:>2}] The witness.sub_account.enable_sub_account of {} should be 0 .",
         sub_account_index,
         util::get_sub_account_name_from_reader(sub_account_reader)
@@ -225,7 +220,7 @@ pub fn verify_initial_properties(
     let renew_sub_account_price = u64::from(sub_account_reader.renew_sub_account_price());
     das_assert!(
         renew_sub_account_price == 0,
-        ErrorCode::SubAccountInitialValueError,
+        SubAccountCellErrorCode::SubAccountInitialValueError,
         "  witnesses[{:>2}] The witness.sub_account.renew_sub_account_price of {} should be 0 .",
         sub_account_index,
         util::get_sub_account_name_from_reader(sub_account_reader)
@@ -234,7 +229,7 @@ pub fn verify_initial_properties(
     let nonce = u64::from(sub_account_reader.nonce());
     das_assert!(
         nonce == 0,
-        ErrorCode::SubAccountInitialValueError,
+        SubAccountCellErrorCode::SubAccountInitialValueError,
         "  witnesses[{:>2}] The witness.sub_account.nonce of {} should be 0 .",
         sub_account_index,
         util::get_sub_account_name_from_reader(sub_account_reader)
@@ -243,7 +238,7 @@ pub fn verify_initial_properties(
     let expired_at = u64::from(sub_account_reader.expired_at());
     das_assert!(
         expired_at >= current_timestamp + YEAR_SEC,
-        ErrorCode::SubAccountInitialValueError,
+        SubAccountCellErrorCode::SubAccountInitialValueError,
         "  witnesses[{:>2}] The witness.sub_account.expired_at should be at least one year.(expected: >= {}, current: {})",
         sub_account_index,
         current_timestamp + YEAR_SEC,
@@ -301,7 +296,7 @@ pub fn verify_sub_account_mint_sign(
                 "  witnesses[{:>2}] The witness.signature is invalid, the error_code returned by dynamic library is: {}",
                 witness.index, _error_code
             );
-            Err(code_to_error!(ErrorCode::SubAccountSigVerifyError))
+            Err(code_to_error!(SubAccountCellErrorCode::SubAccountSigVerifyError))
         }
         _ => {
             debug!("  witnesses[{:>2}] The witness.signature is valid.", witness.index);
@@ -353,7 +348,7 @@ pub fn verify_sub_account_mint_sign_not_expired(
 
     das_assert!(
         expired_at <= limit_expired_at,
-        ErrorCode::SubAccountSignMintExpiredAtTooLarge,
+        SubAccountCellErrorCode::SubAccountSignMintExpiredAtTooLarge,
         "  witnesses[{:>2}] SubAccountMintSign.expired_at should be less than the minimal expired_at of AccountCell and all sub-accounts'. (current: {}, limit: {})",
         witness.index,
         expired_at,
@@ -362,7 +357,7 @@ pub fn verify_sub_account_mint_sign_not_expired(
 
     das_assert!(
         sub_account_last_updated_at <= expired_at,
-        ErrorCode::SubAccountSignMintExpiredAtReached,
+        SubAccountCellErrorCode::SubAccountSignMintExpiredAtReached,
         "  witnesses[{:>2}] The signature in SubAccountMintSign is expired. (current: {}, expired_at: {})",
         witness.index,
         sub_account_last_updated_at,
@@ -442,7 +437,7 @@ pub fn verify_sub_account_edit_sign(
                 "  witnesses[{:>2}] The witness.signature is invalid, the error_code returned by dynamic library is: {}",
                 witness.index, _error_code
             );
-            Err(code_to_error!(ErrorCode::SubAccountSigVerifyError))
+            Err(code_to_error!(SubAccountCellErrorCode::SubAccountSigVerifyError))
         }
         _ => {
             debug!("  witnesses[{:>2}] The witness.signature is valid.", witness.index);
@@ -470,7 +465,7 @@ pub fn verify_sub_account_edit_sign_not_expired(
 
     das_assert!(
         expired_at <= limit_expired_at,
-        ErrorCode::SubAccountSignMintExpiredAtTooLarge,
+        SubAccountCellErrorCode::SubAccountSignMintExpiredAtTooLarge,
         "  witnesses[{:>2}] SubAccount.expired_at should be less than the minimal expired_at of AccountCell and all sub-accounts'. (current: {}, limit: {})",
         witness.index,
         expired_at,
@@ -479,7 +474,7 @@ pub fn verify_sub_account_edit_sign_not_expired(
 
     das_assert!(
         expired_at >= sub_account_last_updated_at,
-        ErrorCode::SubAccountSignMintExpiredAtReached,
+        SubAccountCellErrorCode::SubAccountSignMintExpiredAtReached,
         "  witnesses[{:>2}] The signature in SubAccount is expired. (current: {}, expired_at: {})",
         witness.index,
         sub_account_last_updated_at,
@@ -530,7 +525,7 @@ pub fn verify_beta_list(parser: &WitnessesParser, account: &[u8]) -> Result<(), 
             String::from_utf8(account.to_vec()).unwrap(),
             util::hex_string(account_id)
         );
-        return Err(code_to_error!(ErrorCode::SubAccountJoinBetaError));
+        return Err(code_to_error!(SubAccountCellErrorCode::SubAccountJoinBetaError));
     }
 
     debug!(
@@ -556,7 +551,7 @@ pub fn verify_sub_account_cell_is_consistent(
 
     das_assert!(
         util::is_entity_eq(&input_sub_account_cell_lock, &output_sub_account_cell_lock),
-        ErrorCode::SubAccountCellConsistencyError,
+        SubAccountCellErrorCode::SubAccountCellConsistencyError,
         "The SubAccountCell.lock should be consistent in inputs and outputs."
     );
 
@@ -567,7 +562,7 @@ pub fn verify_sub_account_cell_is_consistent(
 
     das_assert!(
         util::is_entity_eq(&input_sub_account_cell_type, &output_sub_account_cell_type),
-        ErrorCode::SubAccountCellConsistencyError,
+        SubAccountCellErrorCode::SubAccountCellConsistencyError,
         "The SubAccountCell.type should be consistent in inputs and outputs."
     );
 
@@ -582,7 +577,7 @@ pub fn verify_sub_account_cell_is_consistent(
 
                 das_assert!(
                     input_value == output_value,
-                    ErrorCode::SubAccountCellConsistencyError,
+                    SubAccountCellErrorCode::SubAccountCellConsistencyError,
                     "The SubAccountCell.data.{} should be consistent in inputs and outputs.",
                     $field_name
                 );
@@ -595,6 +590,41 @@ pub fn verify_sub_account_cell_is_consistent(
     das_assert_field_consistent_if_not_except!("owner_profit", get_owner_profit);
     das_assert_field_consistent_if_not_except!("custom_script", get_custom_script);
     das_assert_field_consistent_if_not_except!("custom_script_args", get_custom_script_args);
+
+    Ok(())
+}
+
+pub fn verify_config_is_manual(sub_account_index: usize, source: Source) -> Result<(), Box<dyn ScriptError>> {
+    debug!("Verify if the SubAccountCell.data.flag is config to 0x00 properly.");
+
+    let data = util::load_cell_data(sub_account_index, source)?;
+    let flag = data_parser::sub_account_cell::get_flag(&data);
+    let rest_bytes = data_parser::sub_account_cell::get_custom_script(&data);
+
+    das_assert!(
+        flag == Some(SubAccountConfigFlag::Manual) && (rest_bytes.is_none() || rest_bytes.unwrap().is_empty()),
+        SubAccountCellErrorCode::ConfigManualInvalid,
+        "The SubAccountCell.data.flag should be 0x00 and the rest bytes should be empty."
+    );
+
+    Ok(())
+}
+
+pub fn verify_config_is_custom_rule(sub_account_index: usize, source: Source) -> Result<(), Box<dyn ScriptError>> {
+    debug!("Verify if the SubAccountCell.data.flag is config to 0xff properly.");
+
+    let data = util::load_cell_data(sub_account_index, source)?;
+    let flag = data_parser::sub_account_cell::get_flag(&data);
+    let price_rules_hash = data_parser::sub_account_cell::get_price_rules_hash(&data);
+    let preserved_rules_hash = data_parser::sub_account_cell::get_preserved_rules_hash(&data);
+
+    das_assert!(
+        flag == Some(SubAccountConfigFlag::CustomRule) &&
+        price_rules_hash.is_some() &&
+        preserved_rules_hash.is_some(),
+        SubAccountCellErrorCode::ConfigCustomRuleInvalid,
+        "The SubAccountCell.data.flag should be 0xff, the SubAccountCell.data.price_rules_hash and the SubAccountCell.data.preserved_rules_hash should be exist."
+    );
 
     Ok(())
 }

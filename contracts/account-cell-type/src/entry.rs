@@ -915,6 +915,14 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 ErrorCode::InvalidTransactionStructure,
             )?;
         }
+        b"config_sub_account" => {
+            util::require_type_script(
+                &parser,
+                TypeScript::SubAccountCellType,
+                Source::Input,
+                ErrorCode::InvalidTransactionStructure,
+            )?;
+        }
         b"unlock_account_for_cross_chain" => {
             parser.parse_cell()?;
 
@@ -1160,7 +1168,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
                         das_assert!(
                             output_das_profit == 0 && output_owner_profit == 0,
-                            ErrorCode::SubAccountCollectProfitError,
+                            SubAccountCellErrorCode::SubAccountCollectProfitError,
                             "All profit in the SubAccountCell should be collected."
                         );
 
