@@ -152,6 +152,7 @@ start)
       -v ${dir}/das-contracts:/code \
       -v ${dir}/das-types:/das-types \
       -v ${dir}/das-types-std:/das-types-std \
+      -v ${dir}/simple-ast:/simple-ast \
       -v $CACHE_VOLUME:/root/.cargo \
       $DOCKER_IMAGE bin/bash &>/dev/null
   else
@@ -161,6 +162,7 @@ start)
       -v ${dir}/das-contracts:/code \
       -v ${dir}/das-types:/das-types \
       -v ${dir}/das-types-std:/das-types-std \
+      -v ${dir}/simple-ast:/simple-ast \
       -v $CACHE_VOLUME:/root/.cargo \
       $DOCKER_IMAGE bin/bash
   fi
