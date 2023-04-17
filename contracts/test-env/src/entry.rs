@@ -1,5 +1,5 @@
 use alloc::boxed::Box;
-use alloc::string::ToString;
+use alloc::string::{String, ToString};
 use core::result::Result;
 
 use ckb_std::ckb_constants::Source;
@@ -13,6 +13,7 @@ use das_core::{assert, code_to_error, data_parser, util, warn};
 use das_types::constants::*;
 use das_types::packed::*;
 use das_types::prelude::*;
+use simple_ast::types as ast_types;
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running test-env ======");
@@ -374,6 +375,35 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                     }
                 }
             }
+        }
+        b"test_parser_sub_account_rules_witness_empty" => {
+            let sub_account_witness_parser = SubAccountWitnessesParser::new()?;
+            sub_account_witness_parser.get_rules(DataType::SubAccountPriceRule)?;
+        }
+        b"test_parser_sub_account_rules_witness" => {
+            let sub_account_witness_parser = SubAccountWitnessesParser::new()?;
+            let rules = sub_account_witness_parser.get_rules(DataType::SubAccountPriceRule)?;
+
+            matches!(rules[0].clone(), ast_types::SubAccountRule {
+                index: 0,
+                name: x,
+                note: y,
+                price: 100_000_000,
+                ast: ast_types::Expression::Operator(ast_types::OperatorExpression {
+                    symbol: ast_types::SymbolType::And,
+                    expressions: _
+                })
+            } if x == String::from("Price of 1 Charactor Emoji DID") && y == String::new());
+
+            // let expressions = match rules[0].ast.clone() {
+            //     ast_types::Expression::Operator(ast_types::OperatorExpression {
+            //         symbol: ast_types::SymbolType::And,
+            //         expressions: expressions
+            //     }) => {
+            //         // TODO
+            //     },
+            //     _ => panic!("The rules[0].ast should be OperatorExpression.")
+            // };
         }
         b"test_parse_reverse_record_witness_empty" => {
             ReverseRecordWitnessesParser::new()?;

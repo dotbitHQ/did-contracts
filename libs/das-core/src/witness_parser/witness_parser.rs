@@ -74,7 +74,12 @@ impl WitnessesParser {
                             .unwrap(),
                     );
                     match DataType::try_from(data_type_in_int) {
-                        Ok(DataType::SubAccount | DataType::SubAccountMintSign) => {
+                        Ok(
+                            DataType::SubAccount
+                            | DataType::SubAccountMintSign
+                            | DataType::SubAccountPriceRule
+                            | DataType::SubAccountPreservedRule,
+                        ) => {
                             // Ignore SubAccount witnesses in this parser.
                             debug!("witnesses[{:>2}] Found SubAccount witness skip parsing.", i);
                         }
