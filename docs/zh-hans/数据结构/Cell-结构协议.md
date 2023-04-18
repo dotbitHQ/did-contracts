@@ -1,4 +1,4 @@
-# Cell 协议 v1
+# Cell 结构协议
 
 ## 协议符号约定
 
@@ -585,7 +585,7 @@ data: [ smt_root ][ das_profit ][ owner_profit ][ flag ][ status_flag ][ price_r
   - 当 `flag == 0xff` ，指明用户启用了基于配置的自动分发特性，省略 `custom_script` 和 `script_args` 两个字段，默认 `status_flag = 0x00` 且 `price_rules_hash` 和 `preserved_rules_hash` 需要全部填充 `0x00`；
 - custom_script ，32 bytes ，就是动态库的 `type.args` ；
 - script_args ，10 bytes ，存放由自定义脚本使用的 witness 的 hash 的前 10 bytes；
-- status_flag ，1 byte ，标识是否开启基于配置的自动分发特性，为了兼容现存用户，开启为 0x00 ，关闭为 0x01，默认为开启状态；
+- status_flag ，1 byte ，标识是否开启基于配置的自动分发特性，开启为 0x01 ，关闭为 0x00，默认为开启状态；
 - price_rules_hash ， 10 bytes 的 hash ，将所有 witness 类型为 SubAccountPriceRule 的 SubAccountRule 按顺序拼接为 SubAccountRules 并计算 hash 后取前 10 bytes；
 - preserved_rules_hash ， 10 bytes 的 hash ，将所有  witness 类型为 SubAccountPreservedRule 的 SubAccountRule 按顺序拼接并为 SubAccountRules 并计算 hash 后取前 10 bytes；
 
@@ -653,37 +653,22 @@ table ConfigCellAccount {
     prepared_fee_capacity: Uint64,
     // The grace period for account expiration in seconds
     expiration_grace_period: Uint32,
-    // The initial price of auction in USD
-    exipred_auction_start_price: Uint32,
-    // The auction period for expired account in seconds
-    expired_auction_period: Uint32,
     // The minimum ttl of record in seconds
     record_min_ttl: Uint32,
-    // The maximum size of all records in molecule encoding
+    // The maximum size of all records in molecule encoding.
     record_size_limit: Uint32,
-    // The fee of each action
+    // The transaction fee of each action.
     transfer_account_fee: Uint64,
     edit_manager_fee: Uint64,
     edit_records_fee: Uint64,
     common_fee: Uint64,
-    // The frequency limit of actions which manipulating account
+    // The action frequency limit for managing an account.
     transfer_account_throttle: Uint32,
     edit_manager_throttle: Uint32,
     edit_records_throttle: Uint32,
     common_throttle: Uint32,
-    // The period for expired account auction in seconds
-    expiration_auction_period: Uint32,
-    // The period for the confirmation of expired account auction in seconds
-    expiration_auction_confirmation_period: Uint32,
 }
 ```
-
-- max_length ，账户的最大**字符**长度；
-- basic_capacity ，账户的存储空间，可能比 cell 占用的存储更大；
-- expiration_grace_period ，账户到期后的宽限期，单位 秒；
-- expired_auction_period ，账户到期后的拍卖期限，在此期限内原用户已对账户丧失所有权，但 Keeper 无法回收已到期的账户，单位 秒；
-- expiration_auction_confirmation_period ，账户到期后的拍卖结束后的确认等待期，在此期限内原用户已对账户丧失所有权，但 Keeper 无法回收已到期的账户，单位 秒；
-- record_min_ttl ，解析记录的最小 TTL 值，单位 秒；
 
 #### ConfigCellApply
 
@@ -691,15 +676,12 @@ table ConfigCellAccount {
 
 ```
 table ConfigCellApply {
-    // The minimum waiting block number before apply_register_cell can be converted to pre_account_cell.
+    // The minimum number of waiting blocks before an ApplyRegisterCell can be converted into a PreAccountCell.
     apply_min_waiting_block_number: Uint32,
-    // The maximum waiting block number which apply_register_cell can be converted to pre_account_cell.
+    // The maximum number of waiting blocks before an ApplyRegisterCell can be converted into a PreAccountCell.
     apply_max_waiting_block_number: Uint32,
 }
 ```
-
-- apply_min_waiting_block_number ，ApplyRegisterCell 可以用于预注册的最小等待区块数；
-- apply_max_waiting_block_number ，ApplyRegisterCell 可以用于预注册的最大等待区块数；
 
 #### ConfigCellCharSetXXXX
 
@@ -726,15 +708,14 @@ length|global|char|char|char ...
 
 ```
 table ConfigCellIncome {
-    // The basic capacity IncomeCell required, it is bigger than or equal to IncomeCell occupied capacity.
+    // The required basic capacity for an IncomeCell, which must be greater than or equal to the occupied capacity of the IncomeCell.
     basic_capacity: Uint64,
-    // The maximum records one IncomeCell can hold.
+    // The maximum number of records an IncomeCell can hold.
     max_records: Uint32,
+    // The minimum capacity required to determine if a record should be transferred.
+    min_transfer_capacity: Uint64,
 }
 ```
-
-- basic_capacity ，IncomeCell 的存储空间，可能比 cell 占用的存储更大；
-- max_records ，单个 IncomeCell 的最大存储账目记录数，当记录数超出此上限时应该拆分多个 IncomeCell 存储账目记录；
 
 #### ConfigCellMain
 
@@ -742,12 +723,14 @@ table ConfigCellIncome {
 
 ```
 table ConfigCellMain {
-    // Global DAS system switch, 0x01 means system on, 0x00 means system off.
+    // Global DAS system switch: 0x01 indicates system on, 0x00 indicates system off.
     status: Uint8,
-    // table of type ID of all kinds of cells
+    // The table of type ID for type scripts.
     type_id_table: TypeIdTable,
-    // table code_hash of dynamic libs of das-lock
+    // The table of code_hash for lock scripts.
     das_lock_out_point_table: DasLockOutPointTable,
+    // The table of type ID for lock scripts.
+    das_lock_type_id_table: DasLockTypeIdTable,
 }
 
 table TypeIdTable {
@@ -761,6 +744,9 @@ table TypeIdTable {
     account_auction_cell: Hash,
     offer_cell: Hash,
     reverse_record_cell: Hash,
+    sub_account_cell: Hash,
+    eip712_lib: Hash,
+    reverse_record_root_cell: Hash,
 }
 
 table DasLockOutPointTable {
@@ -771,10 +757,16 @@ table DasLockOutPointTable {
     tron: OutPoint,
     ed25519: OutPoint,
 }
-```
 
-- status ，DAS 系统全局开关，具体值的范围见 [系统状态枚举值 Status](#系统状态枚举值 Status)；
-- type_id_table ，各个 type 脚本对应的 type ID;
+table DasLockTypeIdTable {
+    ckb_signhash: Hash,
+    ckb_multisig: Hash,
+    ed25519: Hash,
+    eth: Hash,
+    tron: Hash,
+    doge: Hash,
+}
+```
 
 #### ConfigCellPrice
 

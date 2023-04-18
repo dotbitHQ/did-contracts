@@ -1,5 +1,28 @@
 # Witness 数据结构
 
+
+## Mint 方式与 flag 标识符
+
+子账户的 Mint 方式主要有 3 种：
+
+- 由 Owner 或 Manager 签名的 **Sign Mint**；
+- 由用户支付一定 USD 自助 Mint ，这种 Mint 方式又根据定价来源细分为以下两种：
+  - 根据自定义脚本计算定价的 **Custom Script Mint** ；
+  - 根据自定义规则计算定价的 **Custom Rule Mint** ；
+
+这些不同的 Mint 方式和 SubAccountCell.data.flag 状态标识符有以下对应关系：
+
+|    状态名    | 状态值 |       可选的 Mint 方式        |
+|:------------:|:------:|:-----------------------------:|
+|    Manual    |  0x00  |           Sign Mint           |
+| CustomScript |  0x01  | Sign Mint, Custom Script Mint |
+|  CustomRule  |  0xff  |  Sign Mint, Custom Rule Mint  |
+
+> 当 **Sign Mint** 和其他 Mint 方式混合在一笔交易中时，会优先根据 `SubAccountMintSign` 去匹配新账户：
+> - 如果匹配成功那么注册费就按照 `ConfigCellSubAccount.new_sub_account_price` 中给出的最低值计算；
+> - 如果匹配失败，那么就继续根据 **Custom Script Mint** 或 **Custom Rule Mint** 的逻辑去计算注册费；
+
+
 ## witness 存储结构
 
 当交易中涉及子账户的新增、修改、删除操作时，每个子账户需要有一条对应自己的 witness 记录，其基本结构和 DAS 的其他 witness 结构相同：
