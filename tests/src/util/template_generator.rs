@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::convert::TryFrom;
+use std::error::Error;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::str::FromStr;
@@ -14,6 +15,7 @@ use das_types_std::util as das_util;
 use das_types_std::util::EntityWrapper;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use simple_ast::{types as ast_types, util as ast_util};
 use sparse_merkle_tree::H256;
 
 use super::super::ckb_types_relay::*;
@@ -519,6 +521,7 @@ pub struct IncomeRecordParam {
 
 pub struct TemplateGenerator {
     loaded_contracts: Vec<String>,
+    // Transaction fields
     pub header_deps: Vec<Value>,
     pub cell_deps: Vec<Value>,
     pub inputs: Vec<Value>,
@@ -527,6 +530,9 @@ pub struct TemplateGenerator {
     pub outer_witnesses: Vec<String>,
     pub sub_account_outer_witnesses: Vec<String>,
     pub reverse_record_outer_witnesses: Vec<String>,
+    // Other fields
+    pub sub_account_price_rules: Vec<ast_types::SubAccountRule>,
+    pub sub_account_preserved_rules: Vec<ast_types::SubAccountRule>,
     pub prices: HashMap<u8, PriceConfig>,
     pub preserved_account_groups: HashMap<u32, (Vec<u8>, Vec<u8>)>,
     pub charsets: HashMap<u32, (Bytes, Vec<u8>)>,
@@ -558,6 +564,8 @@ impl TemplateGenerator {
             outer_witnesses: vec![util::bytes_to_hex(&witness)],
             sub_account_outer_witnesses: Vec::new(),
             reverse_record_outer_witnesses: Vec::new(),
+            sub_account_price_rules: Vec::new(),
+            sub_account_preserved_rules: Vec::new(),
             prices,
             preserved_account_groups: HashMap::new(),
             charsets: HashMap::new(),
@@ -2426,8 +2434,14 @@ impl TemplateGenerator {
     ///         "root": null | "0x..." // If this is null, it will be an invalid cell.
     ///         "das_profit": 0,
     ///         "owner_profit": 0,
+    ///         "flag": 0,
+    ///         // flag == 1
     ///         "custom_script": null | "0x...",
     ///         "script_args": null | "0x...",
+    ///         // flag == 255
+    ///         "status_flag": 0,
+    ///         "price_rules_hash": null | "0x...",
+    ///         "preserved_rules_hash": null | "0x...",
     ///     }
     /// })
     /// ```
@@ -2460,7 +2474,12 @@ impl TemplateGenerator {
             String::from("")
         } else {
             let data = &cell["data"];
-            let mut root = util::parse_json_hex("cell.data.root", &data["root"]);
+            let mut root = if data["root"].is_null() {
+                let current_root = self.smt_with_history.current_root();
+                current_root.to_vec()
+            } else {
+                util::parse_json_hex("cell.data.root", &data["root"])
+            };
             let mut das_profit = if data["das_profit"].is_null() {
                 Vec::new()
             } else {
@@ -2475,19 +2494,70 @@ impl TemplateGenerator {
                     .to_le_bytes()
                     .to_vec()
             };
-            let mut custom_script =
-                util::parse_json_hex_with_default("cell.data.custom_script", &data["custom_script"], Vec::new());
-            let mut script_args =
-                util::parse_json_hex_with_default("cell.data.script_args", &data["script_args"], Vec::new());
+            let flag = if data["flag"].is_null() {
+                Vec::new()
+            } else {
+                util::parse_json_u8("cell.data.flag", &data["flag"], None)
+                    .to_le_bytes()
+                    .to_vec()
+            };
 
             // println!("das_profit = {:?}", util::bytes_to_hex(&das_profit));
             // println!("owner_profit = {:?}", util::bytes_to_hex(&owner_profit));
-            // println!("custom_script = {:?}", util::bytes_to_hex(&custom_script));
-            // println!("script_args = {:?}", util::bytes_to_hex(&script_args));
+            // println!("flag = {:?}", util::bytes_to_hex(&flag));
+
             root.append(&mut das_profit);
             root.append(&mut owner_profit);
-            root.append(&mut custom_script);
-            root.append(&mut script_args);
+
+            if !flag.is_empty() {
+                root.append(&mut flag.clone());
+
+                let flag = SubAccountConfigFlag::try_from(flag[0])
+                    .expect("The cell.data.flag should be a valid SubAccountConfigFlag.");
+                match flag {
+                    SubAccountConfigFlag::Manual => {
+                        // It is manual distribution mode, so no more configs.
+                    }
+                    SubAccountConfigFlag::CustomScript => {
+                        let mut custom_script = util::parse_json_hex_with_default(
+                            "cell.data.custom_script",
+                            &data["custom_script"],
+                            Vec::new(),
+                        );
+                        let mut script_args = util::parse_json_hex_with_default(
+                            "cell.data.script_args",
+                            &data["script_args"],
+                            Vec::new(),
+                        );
+                        root.append(&mut custom_script);
+                        root.append(&mut script_args);
+                    }
+                    SubAccountConfigFlag::CustomRule => {
+                        let mut status_flag =
+                            util::parse_json_u8("cell.data.status_flag", &data["status_flag"], Some(0))
+                                .to_le_bytes()
+                                .to_vec();
+                        let mut price_rules_hash = if data["price_rules_hash"].is_null() {
+                            let hash = self.calc_sub_account_rules_witness_hash(DataType::SubAccountPriceRule);
+                            hash[0..10].to_vec()
+                        } else {
+                            util::parse_json_hex("cell.data.price_rules_hash", &data["price_rules_hash"])
+                        };
+                        let mut preserved_rules_hash = if data["preserved_rules_hash"].is_null() {
+                            let hash = self.calc_sub_account_rules_witness_hash(DataType::SubAccountPreservedRule);
+                            hash[0..10].to_vec()
+                        } else {
+                            util::parse_json_hex("cell.data.preserved_rules_hash", &data["preserved_rules_hash"])
+                        };
+
+                        root.append(&mut status_flag);
+                        root.append(&mut price_rules_hash);
+                        root.append(&mut preserved_rules_hash);
+                    }
+                }
+            }
+
+            // println!("root = {:?}", util::bytes_to_hex(&root));
             util::bytes_to_hex(&root)
         };
 
@@ -2706,6 +2776,77 @@ impl TemplateGenerator {
             .push(util::bytes_to_hex(&witness_bytes));
 
         smt
+    }
+
+    /// Push SubAccountRules witness
+    ///
+    /// Witness structure:
+    ///
+    /// ```json
+    /// json!([
+    ///     {
+    ///         "index": u32,
+    ///         "name": "...",
+    ///         "note": "...",
+    ///         "price": u64,
+    ///         "ast": [
+    ///             Expression, // simple-ast expression
+    ///             ...
+    ///         ]
+    ///     },
+    ///     ...
+    /// ])
+    /// ```
+    pub fn push_sub_account_rules_witness(&mut self, data_type: DataType, version: u32, rules: Value) {
+        let sub_account_rules = ast_util::json_to_sub_account_rules(String::from("."), &rules)
+            .expect("Failed to convert json to SubAccountRules");
+
+        match data_type {
+            DataType::SubAccountPriceRule => {
+                self.sub_account_price_rules
+                    .extend(sub_account_rules.clone().into_iter());
+            }
+            DataType::SubAccountPreservedRule => {
+                self.sub_account_preserved_rules
+                    .extend(sub_account_rules.clone().into_iter());
+            }
+            _ => panic!("Invalid DataType"),
+        }
+
+        let mut witness_bytes = Vec::new();
+
+        let version = version.to_le_bytes();
+        witness_bytes.extend(length_of(&version));
+        witness_bytes.extend(version);
+
+        let entity = ast_util::sub_account_rules_to_mol_entity(sub_account_rules)
+            .expect("Failed to convert SubAccountRules to molecule entity");
+        witness_bytes.extend(length_of(entity.as_slice()));
+        witness_bytes.extend(entity.as_slice());
+
+        self.sub_account_outer_witnesses
+            .push(util::bytes_to_hex(&das_util::wrap_raw_witness_v2(
+                data_type,
+                witness_bytes,
+            )));
+    }
+
+    fn calc_sub_account_rules_witness_hash(&mut self, data_type: DataType) -> Vec<u8> {
+        let rules = match data_type {
+            DataType::SubAccountPriceRule => &self.sub_account_price_rules,
+            DataType::SubAccountPreservedRule => &self.sub_account_preserved_rules,
+            _ => panic!("Invalid DataType"),
+        };
+
+        let hash = if rules.is_empty() {
+            [0u8; 32]
+        } else {
+            let entity = ast_util::sub_account_rules_to_mol_entity(rules.to_vec())
+                .expect("Failed to convert SubAccountRules to molecule entity");
+            blake2b_256(entity.as_slice())
+        };
+
+        hash.to_vec()
     }
 
     // Push sub-account witness

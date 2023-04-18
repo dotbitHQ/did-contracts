@@ -57,6 +57,7 @@ pub enum ErrorCode {
     WitnessArgsInvalid,
     WitnessArgsDecodingError,
     WitnessVersionOrTypeInvalid,
+    WitnessVersionUndefined, // 50
     SMTWhiteListTheLockIsNotFound,
     SMTNewRootMismatch, // 55
     SMTProofVerifyFailed,
@@ -124,24 +125,6 @@ pub enum ErrorCode {
     OfferCellNewOwnerError,
     OfferCellFieldCanNotModified,
     OfferCellAccountMismatch,
-    SubAccountFeatureNotEnabled = -50,
-    SubAccountWitnessMismatched,
-    SubAccountSignMintExpiredAtTooLarge,
-    SubAccountSignMintExpiredAtReached,
-    SubAccountSignMintSignatureRequired,
-    SubAccountCellCapacityError,
-    SubAccountCellAccountIdError,
-    SubAccountCellConsistencyError,
-    SubAccountInitialValueError,
-    SubAccountSigVerifyError,
-    SubAccountFieldNotEditable,
-    SubAccountNormalCellLockLimit = -37,
-    SubAccountEditLockError,
-    SubAccountJoinBetaError,
-    SubAccountProfitError,
-    SubAccountCustomScriptError,
-    SubAccountCollectProfitError,
-    SubAccountBalanceManagerError,
     // -40
     UpgradeForWitnessIsRequired,
     UpgradeDefaultValueOfNewFieldIsError,
@@ -152,6 +135,46 @@ pub enum ErrorCode {
 }
 
 impl Into<i8> for ErrorCode {
+    fn into(self) -> i8 {
+        self as i8
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+#[repr(i8)]
+pub enum PreAccountCellErrorCode {
+    // WARNING Reserved errors:
+    IndexOutOfBound = 1,
+    ItemMissing = 2,
+    LengthNotEnough = 3,
+    Encoding = 4,
+    IncomeCellConsolidateConditionNotSatisfied = -126,
+    AccountCellMissingPrevAccount = -114,
+    AccountCellThrottle = -102,
+    AccountCellInExpirationGracePeriod = -99,
+    SubAccountNormalCellLockLimit = -37,
+    SystemOff = -1,
+    // Customized errors:
+    ApplyHashMismatch = 50,
+    ApplySinceMismatch,
+    AccountIdIsInvalid,
+    AccountAlreadyExistOrProofInvalid,
+    CreateAtIsInvalid,
+    PriceIsInvalid,
+    CharSetIsUndefined,
+    CKBIsInsufficient,
+    QuoteIsInvalid,
+    OwnerLockArgsIsInvalid,
+    RefundLockMustBeUnique,
+    RefundCapacityError,
+    SinceMismatch,
+    InviterIdShouldBeEmpty,
+    InviterIdIsInvalid,
+    InviteeDiscountShouldBeEmpty,
+    InviteeDiscountIsInvalid,
+}
+
+impl Into<i8> for PreAccountCellErrorCode {
     fn into(self) -> i8 {
         self as i8
     }
@@ -206,7 +229,7 @@ impl Into<i8> for AccountCellErrorCode {
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[repr(i8)]
-pub enum PreAccountCellErrorCode {
+pub enum SubAccountCellErrorCode {
     // WARNING Reserved errors:
     IndexOutOfBound = 1,
     ItemMissing = 2,
@@ -219,26 +242,37 @@ pub enum PreAccountCellErrorCode {
     SubAccountNormalCellLockLimit = -37,
     SystemOff = -1,
     // Customized errors:
-    ApplyHashMismatch = 50,
-    ApplySinceMismatch,
-    AccountIdIsInvalid,
-    AccountAlreadyExistOrProofInvalid,
-    CreateAtIsInvalid,
-    PriceIsInvalid,
-    CharSetIsUndefined,
-    CKBIsInsufficient,
-    QuoteIsInvalid,
-    OwnerLockArgsIsInvalid,
-    RefundLockMustBeUnique,
-    RefundCapacityError,
-    SinceMismatch,
-    InviterIdShouldBeEmpty,
-    InviterIdIsInvalid,
-    InviteeDiscountShouldBeEmpty,
-    InviteeDiscountIsInvalid,
+    SubAccountFeatureNotEnabled = 50,
+    ConfigManualInvalid,
+    ConfigCustomRuleInvalid,
+    ConfigRulesHashMismatch,
+    ConfigRulesHasSyntaxError,
+    ConfigRulesPriceRulesCanNotEmpty,
+    CanNotMint,
+    AccountIsPreserved,
+    AccountHasNoPrice,
+    BytesToStringFailed,
+    SubAccountWitnessMismatched,
+    SubAccountRulesToWitnessFailed,
+    SubAccountSignMintExpiredAtTooLarge,
+    SubAccountSignMintExpiredAtReached,
+    SubAccountSignMintSignatureRequired,
+    SubAccountCellCapacityError,
+    SubAccountCellAccountIdError,
+    SubAccountCellConsistencyError,
+    SubAccountInitialValueError,
+    SubAccountSigVerifyError,
+    SubAccountFieldNotEditable,
+    SubAccountEditLockError,
+    SubAccountJoinBetaError,
+    SubAccountProfitError,
+    SubAccountCustomScriptEmpty,
+    SubAccountCustomScriptError,
+    SubAccountCollectProfitError,
+    SubAccountBalanceManagerError,
 }
 
-impl Into<i8> for PreAccountCellErrorCode {
+impl Into<i8> for SubAccountCellErrorCode {
     fn into(self) -> i8 {
         self as i8
     }

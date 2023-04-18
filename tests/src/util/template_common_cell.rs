@@ -390,9 +390,8 @@ pub fn push_input_sub_account_cell_v2(template: &mut TemplateGenerator, cell_par
             "args": account
         },
         "data": {
-            "root": "0x0000000000000000000000000000000000000000000000000000000000000000",
-            "das_profit": 0,
-            "owner_profit": 0,
+            "das_profit": 1,
+            "owner_profit": 1,
         }
     });
     util::merge_json(&mut cell, cell_partial);
@@ -424,9 +423,8 @@ pub fn push_output_sub_account_cell_v2(template: &mut TemplateGenerator, cell_pa
             "args": account
         },
         "data": {
-            "root": "0x0000000000000000000000000000000000000000000000000000000000000000",
-            "das_profit": 0,
-            "owner_profit": 0,
+            "das_profit": 1,
+            "owner_profit": 1,
         }
     });
     util::merge_json(&mut cell, cell_partial);

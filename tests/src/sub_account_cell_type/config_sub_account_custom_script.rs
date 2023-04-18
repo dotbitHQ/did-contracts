@@ -1,3 +1,4 @@
+use das_types_std::constants::SubAccountConfigFlag;
 use serde_json::json;
 
 use super::common::*;
@@ -45,6 +46,7 @@ fn push_simple_input_sub_account_cell(template: &mut TemplateGenerator, custom_s
             "data": {
                 "root": String::from("0x") + &hex::encode(&current_root),
                 "profit": 0,
+                "flag": SubAccountConfigFlag::CustomScript as u8,
                 "custom_script": custom_script,
                 "script_args": script_args
             }
@@ -78,6 +80,7 @@ fn push_simple_output_sub_account_cell(template: &mut TemplateGenerator, custom_
             "data": {
                 "root": String::from("0x") + &hex::encode(&current_root),
                 "profit": 0,
+                "flag": SubAccountConfigFlag::CustomScript as u8,
                 "custom_script": custom_script,
                 "script_args": script_args
             }
@@ -93,7 +96,7 @@ fn test_sub_account_config_custom_script_without_args() {
     push_simple_output_account_cell(&mut template);
     push_simple_output_sub_account_cell(
         &mut template,
-        "0x010000000000000000000000000000746573742d637573746f6d2d736372697074",
+        "0x0000000000000000000000000000746573742d637573746f6d2d736372697074",
         "",
     );
 
@@ -108,7 +111,7 @@ fn challenge_sub_account_config_custom_script_not_change() {
     push_simple_input_account_cell(&mut template);
     push_simple_input_sub_account_cell(
         &mut template,
-        "0x010000000000000000000000000000746573742d637573746f6d2d736372697074",
+        "0x0000000000000000000000000000746573742d637573746f6d2d736372697074",
         "",
     );
 
@@ -116,11 +119,11 @@ fn challenge_sub_account_config_custom_script_not_change() {
     push_simple_output_account_cell(&mut template);
     push_simple_output_sub_account_cell(
         &mut template,
-        "0x010000000000000000000000000000746573742d637573746f6d2d736372697074",
+        "0x0000000000000000000000000000746573742d637573746f6d2d736372697074",
         "",
     );
 
-    challenge_tx(template.as_json(), ErrorCode::SubAccountCustomScriptError)
+    challenge_tx(template.as_json(), SubAccountCellErrorCode::SubAccountCustomScriptError)
 }
 
 #[test]
@@ -131,7 +134,7 @@ fn test_sub_account_config_custom_script_args_change() {
     push_simple_input_account_cell(&mut template);
     push_simple_input_sub_account_cell(
         &mut template,
-        "0x010000000000000000000000000000746573742d637573746f6d2d736372697074",
+        "0x0000000000000000000000000000746573742d637573746f6d2d736372697074",
         "0x0011223300",
     );
 
@@ -139,7 +142,7 @@ fn test_sub_account_config_custom_script_args_change() {
     push_simple_output_account_cell(&mut template);
     push_simple_output_sub_account_cell(
         &mut template,
-        "0x010000000000000000000000000000746573742d637573746f6d2d736372697074",
+        "0x0000000000000000000000000000746573742d637573746f6d2d736372697074",
         "0x0044556600",
     );
 
@@ -154,7 +157,7 @@ fn challenge_sub_account_config_custom_script_args_not_change() {
     push_simple_input_account_cell(&mut template);
     push_simple_input_sub_account_cell(
         &mut template,
-        "0x010000000000000000000000000000746573742d637573746f6d2d736372697074",
+        "0x0000000000000000000000000000746573742d637573746f6d2d736372697074",
         "0x0011223300",
     );
 
@@ -162,9 +165,9 @@ fn challenge_sub_account_config_custom_script_args_not_change() {
     push_simple_output_account_cell(&mut template);
     push_simple_output_sub_account_cell(
         &mut template,
-        "0x010000000000000000000000000000746573742d637573746f6d2d736372697074",
+        "0x0000000000000000000000000000746573742d637573746f6d2d736372697074",
         "0x0011223300",
     );
 
-    challenge_tx(template.as_json(), ErrorCode::SubAccountCustomScriptError)
+    challenge_tx(template.as_json(), SubAccountCellErrorCode::SubAccountCustomScriptError)
 }

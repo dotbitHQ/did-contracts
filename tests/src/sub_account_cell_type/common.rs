@@ -7,7 +7,8 @@ use crate::util::accounts::*;
 use crate::util::constants::*;
 use crate::util::smt::SMTWithHistory;
 use crate::util::template_common_cell::{
-    push_dep_account_cell, push_input_sub_account_cell, push_output_normal_cell, push_output_sub_account_cell,
+    push_dep_account_cell, push_input_sub_account_cell, push_input_sub_account_cell_v2, push_output_normal_cell,
+    push_output_sub_account_cell, push_output_sub_account_cell_v2,
 };
 use crate::util::template_generator::*;
 use crate::util::{self};
@@ -23,6 +24,7 @@ pub fn init(action: &str, params_opt: Option<&str>) -> TemplateGenerator {
     template.push_contract_cell("balance-cell-type", ContractType::Contract);
     template.push_contract_cell("sub-account-cell-type", ContractType::Contract);
 
+    template.push_oracle_cell(1, OracleCellType::Quote, CKB_QUOTE);
     template.push_oracle_cell(1, OracleCellType::Time, TIMESTAMP);
     template.push_config_cell(DataType::ConfigCellMain, Source::CellDep);
 
@@ -82,41 +84,39 @@ pub fn push_simple_dep_account_cell(template: &mut TemplateGenerator) {
 
 pub fn push_simple_input_sub_account_cell(template: &mut TemplateGenerator, das_profit: u64, owner_profit: u64) {
     let current_root = template.smt_with_history.current_root();
-    push_input_sub_account_cell(
+    push_input_sub_account_cell_v2(
         template,
         json!({
             "header": {
                 "height": HEIGHT - 1,
                 "timestamp": TIMESTAMP - DAY_SEC,
             },
-            "type": {
-                "args": ACCOUNT_1
-            },
             "data": {
                 "root": String::from("0x") + &hex::encode(&current_root),
                 "das_profit": das_profit,
                 "owner_profit": owner_profit,
-                "custom_script": "0x000000000000000000000000000000000000000000000000000000000000000000"
+                "flag": SubAccountConfigFlag::Manual as u8,
+                "custom_script": "0x0000000000000000000000000000000000000000000000000000000000000000"
             }
         }),
+        ACCOUNT_1,
     );
 }
 
 pub fn push_simple_output_sub_account_cell(template: &mut TemplateGenerator, das_profit: u64, owner_profit: u64) {
     let current_root = template.smt_with_history.current_root();
-    push_output_sub_account_cell(
+    push_output_sub_account_cell_v2(
         template,
         json!({
-            "type": {
-                "args": ACCOUNT_1
-            },
             "data": {
                 "root": String::from("0x") + &hex::encode(&current_root),
                 "das_profit": das_profit,
                 "owner_profit": owner_profit,
-                "custom_script": "0x000000000000000000000000000000000000000000000000000000000000000000"
+                "flag": SubAccountConfigFlag::Manual as u8,
+                "custom_script": "0x0000000000000000000000000000000000000000000000000000000000000000"
             }
         }),
+        ACCOUNT_1,
     );
 }
 
@@ -159,26 +159,24 @@ pub fn push_simple_input_sub_account_cell_with_custom_script(
     script_args: &str,
 ) {
     let current_root = template.smt_with_history.current_root();
-    push_input_sub_account_cell(
+    push_input_sub_account_cell_v2(
         template,
         json!({
             "header": {
                 "height": HEIGHT - 1,
                 "timestamp": TIMESTAMP - DAY_SEC,
             },
-            "type": {
-                "args": ACCOUNT_1
-            },
             "data": {
                 "root": String::from("0x") + &hex::encode(&current_root),
                 "das_profit": das_profit,
                 "owner_profit": owner_profit,
-                // 01 means hash type is type.
+                "flag": SubAccountConfigFlag::CustomScript as u8,
                 // 0x0000000000000000000000000000746573742d637573746f6d2d7363726970740011223300 means args of type ID 0x0c133a395b06d1bdb953f4a7f02bbd0d2eba99d3eb50de9de80ac7c741ed11e7 of custom script.
-                "custom_script": "0x010000000000000000000000000000746573742d637573746f6d2d736372697074",
+                "custom_script": "0x0000000000000000000000000000746573742d637573746f6d2d736372697074",
                 "script_args": script_args
             }
         }),
+        ACCOUNT_1,
     );
 }
 
@@ -189,22 +187,20 @@ pub fn push_simple_output_sub_account_cell_with_custom_script(
     script_args: &str,
 ) {
     let current_root = template.smt_with_history.current_root();
-    push_output_sub_account_cell(
+    push_output_sub_account_cell_v2(
         template,
         json!({
-            "type": {
-                "args": ACCOUNT_1
-            },
             "data": {
                 "root": String::from("0x") + &hex::encode(&current_root),
                 "das_profit": das_profit,
                 "owner_profit": owner_profit,
-                // 01 means hash type is type.
+                "flag": SubAccountConfigFlag::CustomScript as u8,
                 // 0x0000000000000000000000000000746573742d637573746f6d2d7363726970740011223300 means args of type ID 0x0c133a395b06d1bdb953f4a7f02bbd0d2eba99d3eb50de9de80ac7c741ed11e7 of custom script.
-                "custom_script": "0x010000000000000000000000000000746573742d637573746f6d2d736372697074",
+                "custom_script": "0x0000000000000000000000000000746573742d637573746f6d2d736372697074",
                 "script_args": script_args
             }
         }),
+        ACCOUNT_1,
     );
 }
 

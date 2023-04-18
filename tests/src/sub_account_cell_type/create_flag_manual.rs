@@ -24,7 +24,7 @@ fn before_each() -> TemplateGenerator {
 }
 
 #[test]
-fn test_sub_account_create_without_custom_script() {
+fn test_sub_account_create_flag_manual() {
     let mut template = before_each();
 
     // outputs
@@ -77,7 +77,7 @@ fn test_sub_account_create_without_custom_script() {
 }
 
 #[test]
-fn challenge_sub_account_create_invalid_char() {
+fn challenge_sub_account_create_flag_manual_invalid_char() {
     let mut template = before_each();
     let account = "✨das🇫🇮001.xxxxx.bit";
 
@@ -119,7 +119,7 @@ fn challenge_sub_account_create_invalid_char() {
 }
 
 #[test]
-fn challenge_sub_account_create_undefined_char() {
+fn challenge_sub_account_create_flag_manual_undefined_char() {
     let mut template = before_each();
     let account = "✨das大001.xxxxx.bit";
 
@@ -161,7 +161,7 @@ fn challenge_sub_account_create_undefined_char() {
 }
 
 #[test]
-fn challenge_sub_account_create_too_long() {
+fn challenge_sub_account_create_flag_manual_too_long() {
     let mut template = before_each();
     let account = "1234567890123456789012345678901234567890123.xxxxx.bit";
 
@@ -194,7 +194,7 @@ fn challenge_sub_account_create_too_long() {
 }
 
 #[test]
-fn challenge_sub_account_create_empty() {
+fn challenge_sub_account_create_flag_manual_empty() {
     let mut template = before_each();
     let account = ".xxxxx.bit";
 
@@ -227,7 +227,7 @@ fn challenge_sub_account_create_empty() {
 }
 
 #[test]
-fn challenge_sub_account_create_suffix_not_match() {
+fn challenge_sub_account_create_flag_manual_suffix_not_match() {
     let mut template = before_each();
     let account = "00000.a.bit";
 
@@ -256,11 +256,11 @@ fn challenge_sub_account_create_suffix_not_match() {
     }));
     push_common_output_cells(&mut template, 1);
 
-    challenge_tx(template.as_json(), ErrorCode::SubAccountInitialValueError);
+    challenge_tx(template.as_json(), SubAccountCellErrorCode::SubAccountInitialValueError);
 }
 
 #[test]
-fn challenge_sub_account_create_id_not_match() {
+fn challenge_sub_account_create_flag_manual_id_not_match() {
     let mut template = before_each();
 
     // outputs
@@ -293,7 +293,7 @@ fn challenge_sub_account_create_id_not_match() {
 }
 
 #[test]
-fn challenge_sub_account_create_registered_at_is_invalid() {
+fn challenge_sub_account_create_flag_manual_registered_at_is_invalid() {
     let mut template = before_each();
 
     // outputs
@@ -315,11 +315,11 @@ fn challenge_sub_account_create_registered_at_is_invalid() {
     }));
     push_common_output_cells(&mut template, 1);
 
-    challenge_tx(template.as_json(), ErrorCode::SubAccountInitialValueError);
+    challenge_tx(template.as_json(), SubAccountCellErrorCode::SubAccountInitialValueError);
 }
 
 #[test]
-fn challenge_sub_account_create_expired_at_less_than_one_year() {
+fn challenge_sub_account_create_flag_manual_expired_at_less_than_one_year() {
     let mut template = before_each();
 
     // outputs
@@ -341,11 +341,11 @@ fn challenge_sub_account_create_expired_at_less_than_one_year() {
     }));
     push_common_output_cells(&mut template, 1);
 
-    challenge_tx(template.as_json(), ErrorCode::SubAccountInitialValueError);
+    challenge_tx(template.as_json(), SubAccountCellErrorCode::SubAccountInitialValueError);
 }
 
 #[test]
-fn challenge_sub_account_create_no_profit_record() {
+fn challenge_sub_account_create_flag_manual_no_profit_record() {
     let mut template = before_each();
 
     // outputs
@@ -370,11 +370,11 @@ fn challenge_sub_account_create_no_profit_record() {
     push_simple_output_sub_account_cell(&mut template, 0, 0);
     push_output_normal_cell(&mut template, 10_000_000_000 - das_profit, OWNER);
 
-    challenge_tx(template.as_json(), ErrorCode::SubAccountProfitError);
+    challenge_tx(template.as_json(), SubAccountCellErrorCode::SubAccountProfitError);
 }
 
 #[test]
-fn challenge_sub_account_create_profit_not_match_capacity() {
+fn challenge_sub_account_create_flag_manual_profit_not_match_capacity() {
     let mut template = before_each();
 
     // outputs
@@ -413,11 +413,11 @@ fn challenge_sub_account_create_profit_not_match_capacity() {
 
     push_output_normal_cell(&mut template, 10_000_000_000 - das_profit, OWNER);
 
-    challenge_tx(template.as_json(), ErrorCode::SubAccountCellCapacityError);
+    challenge_tx(template.as_json(), SubAccountCellErrorCode::SubAccountCellCapacityError);
 }
 
 #[test]
-fn challenge_sub_account_create_mint_sign_expired() {
+fn challenge_sub_account_create_flag_manual_mint_sign_expired() {
     let mut template = before_each();
 
     // outputs
@@ -448,11 +448,14 @@ fn challenge_sub_account_create_mint_sign_expired() {
     }));
     push_common_output_cells(&mut template, 1);
 
-    challenge_tx(template.as_json(), ErrorCode::SubAccountSignMintExpiredAtTooLarge);
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::SubAccountSignMintExpiredAtTooLarge,
+    );
 }
 
 #[test]
-fn challenge_sub_account_create_sign_expired_at_less_than_the_minimal_expired_at_1() {
+fn challenge_sub_account_create_flag_manual_sign_expired_at_less_than_the_minimal_expired_at_1() {
     let mut template = before_each();
 
     // outputs
@@ -483,11 +486,14 @@ fn challenge_sub_account_create_sign_expired_at_less_than_the_minimal_expired_at
     }));
     push_common_output_cells(&mut template, 1);
 
-    challenge_tx(template.as_json(), ErrorCode::SubAccountSignMintExpiredAtTooLarge);
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::SubAccountSignMintExpiredAtTooLarge,
+    );
 }
 
 #[test]
-fn challenge_sub_account_create_sign_expired_at_less_than_the_minimal_expired_at_2() {
+fn challenge_sub_account_create_flag_manual_sign_expired_at_less_than_the_minimal_expired_at_2() {
     let mut template = before_each();
 
     // outputs
@@ -518,87 +524,8 @@ fn challenge_sub_account_create_sign_expired_at_less_than_the_minimal_expired_at
     }));
     push_common_output_cells(&mut template, 1);
 
-    challenge_tx(template.as_json(), ErrorCode::SubAccountSignMintExpiredAtReached);
-}
-
-#[test]
-fn challenge_sub_account_create_balance_cell_capacity_not_match() {
-    let mut template = init_update();
-
-    // cell_deps
-    push_simple_dep_account_cell(&mut template);
-
-    // inputs
-    push_simple_input_sub_account_cell(&mut template, 0, 0);
-    push_input_balance_cell(&mut template, 10_000_000_000, OWNER);
-
-    // outputs
-    let smt = push_commen_sign_witness(&mut template);
-    template.push_sub_account_witness_v2(json!({
-        "action": SubAccountAction::Create.to_string(),
-        "sub_account": {
-            "lock": {
-                "owner_lock_args": OWNER_1,
-                "manager_lock_args": MANAGER_1
-            },
-            "account": SUB_ACCOUNT_1,
-            "suffix": SUB_ACCOUNT_SUFFIX,
-            "registered_at": TIMESTAMP,
-            "expired_at": TIMESTAMP + YEAR_SEC,
-        },
-        "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_1)
-    }));
-
-    let das_profit = calculate_sub_account_cost(1);
-    push_simple_output_sub_account_cell(&mut template, das_profit, 0);
-
-    // Simulate spending more capacity than really needed in the new account creation.
-    push_output_balance_cell(
-        &mut template,
-        10_000_000_000 - SUB_ACCOUNT_COMMON_FEE - das_profit - 1,
-        OWNER,
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::SubAccountSignMintExpiredAtReached,
     );
-
-    challenge_tx(template.as_json(), ErrorCode::SubAccountBalanceManagerError);
-}
-
-#[test]
-fn challenge_sub_account_create_spend_others_balance_cell() {
-    let mut template = init_update();
-
-    // cell_deps
-    push_simple_dep_account_cell(&mut template);
-
-    // inputs
-    push_simple_input_sub_account_cell(&mut template, 0, 0);
-    // Simulate spending others BalanceCells in the transaction.
-    push_input_balance_cell(&mut template, 10_000_000_000, OWNER_4);
-
-    // outputs
-    let smt = push_commen_sign_witness(&mut template);
-    template.push_sub_account_witness_v2(json!({
-        "action": SubAccountAction::Create.to_string(),
-        "sub_account": {
-            "lock": {
-                "owner_lock_args": OWNER_1,
-                "manager_lock_args": MANAGER_1
-            },
-            "account": SUB_ACCOUNT_1,
-            "suffix": SUB_ACCOUNT_SUFFIX,
-            "registered_at": TIMESTAMP,
-            "expired_at": TIMESTAMP + YEAR_SEC,
-        },
-        "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_1)
-    }));
-
-    let das_profit = calculate_sub_account_cost(1);
-    push_simple_output_sub_account_cell(&mut template, das_profit, 0);
-
-    push_output_balance_cell(
-        &mut template,
-        10_000_000_000 - SUB_ACCOUNT_COMMON_FEE - das_profit,
-        OWNER,
-    );
-
-    challenge_tx(template.as_json(), ErrorCode::BalanceCellCanNotBeSpent);
 }

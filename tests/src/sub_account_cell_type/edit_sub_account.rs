@@ -155,7 +155,7 @@ fn challenge_sub_account_edit_owner_not_change() {
     );
     push_simple_output_sub_account_cell(&mut template, 0, 0);
 
-    challenge_tx(template.as_json(), ErrorCode::SubAccountEditLockError);
+    challenge_tx(template.as_json(), SubAccountCellErrorCode::SubAccountEditLockError);
 }
 
 #[test]
@@ -180,7 +180,7 @@ fn challenge_sub_account_edit_owner_changed_when_edit_manager() {
     );
     push_simple_output_sub_account_cell(&mut template, 0, 0);
 
-    challenge_tx(template.as_json(), ErrorCode::SubAccountEditLockError);
+    challenge_tx(template.as_json(), SubAccountCellErrorCode::SubAccountEditLockError);
 }
 
 /// If the transaction only contains edit action, then the das_profit must be consistent.
@@ -205,7 +205,10 @@ fn challenge_sub_account_edit_modify_das_profit() {
     );
     push_simple_output_sub_account_cell(&mut template, 1, 0);
 
-    challenge_tx(template.as_json(), ErrorCode::SubAccountCellConsistencyError);
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::SubAccountCellConsistencyError,
+    );
 }
 
 /// If the transaction only contains edit action, then the owner_profit must be consistent.
@@ -230,7 +233,10 @@ fn challenge_sub_account_edit_modify_owner_profit() {
     );
     push_simple_output_sub_account_cell(&mut template, 0, 1);
 
-    challenge_tx(template.as_json(), ErrorCode::SubAccountCellConsistencyError);
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::SubAccountCellConsistencyError,
+    );
 }
 
 #[test]
@@ -354,7 +360,10 @@ fn challenge_sub_account_custom_script_changed() {
         }),
     );
 
-    challenge_tx(template.as_json(), ErrorCode::SubAccountCellConsistencyError);
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::SubAccountCellConsistencyError,
+    );
 }
 
 #[test]
@@ -379,7 +388,7 @@ fn challenge_sub_account_edit_manager_not_change() {
     );
     push_simple_output_sub_account_cell(&mut template, 0, 0);
 
-    challenge_tx(template.as_json(), ErrorCode::SubAccountEditLockError);
+    challenge_tx(template.as_json(), SubAccountCellErrorCode::SubAccountEditLockError);
 }
 
 #[test]

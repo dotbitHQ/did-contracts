@@ -13,7 +13,6 @@ fn before_each() -> TemplateGenerator {
     let mut template = init_update();
 
     template.push_contract_cell("test-custom-script", ContractType::Contract);
-    template.push_oracle_cell(1, OracleCellType::Quote, CKB_QUOTE);
     push_simple_dep_account_cell(&mut template);
 
     // inputs
@@ -24,7 +23,7 @@ fn before_each() -> TemplateGenerator {
 }
 
 #[test]
-fn test_sub_account_create_with_custom_script_and_script_args() {
+fn test_sub_account_create_flag_custom_script_with_args() {
     let mut template = before_each();
 
     // outputs
@@ -73,11 +72,10 @@ fn test_sub_account_create_with_custom_script_and_script_args() {
 }
 
 #[test]
-fn test_sub_account_create_with_custom_script_and_empty_args() {
+fn test_sub_account_create_flag_custom_script_without_args() {
     let mut template = init_update();
 
     template.push_contract_cell("test-custom-script", ContractType::Contract);
-    template.push_oracle_cell(1, OracleCellType::Quote, CKB_QUOTE);
     push_simple_dep_account_cell(&mut template);
 
     // inputs
@@ -134,7 +132,7 @@ fn test_sub_account_create_with_custom_script_and_empty_args() {
 }
 
 #[test]
-fn challenge_sub_account_create_with_custom_script_modified_script_code_hash() {
+fn challenge_sub_account_create_flag_custom_script_modified_script_code_hash() {
     let mut template = before_each();
 
     // outputs
@@ -174,11 +172,14 @@ fn challenge_sub_account_create_with_custom_script_modified_script_code_hash() {
     );
     push_output_normal_cell(&mut template, 100_000_000_000 - total_profit, OWNER);
 
-    challenge_tx(template.as_json(), ErrorCode::SubAccountCellConsistencyError);
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::SubAccountCellConsistencyError,
+    );
 }
 
 #[test]
-fn challenge_sub_account_create_with_custom_script_modified_script_args() {
+fn challenge_sub_account_create_flag_custom_script_modified_script_args() {
     let mut template = before_each();
 
     // outputs
@@ -202,11 +203,14 @@ fn challenge_sub_account_create_with_custom_script_modified_script_args() {
     push_simple_output_sub_account_cell_with_custom_script(&mut template, das_profit, owner_profit, "");
     push_output_normal_cell(&mut template, 100_000_000_000 - total_profit, OWNER);
 
-    challenge_tx(template.as_json(), ErrorCode::SubAccountCellConsistencyError);
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::SubAccountCellConsistencyError,
+    );
 }
 
 #[test]
-fn challenge_sub_account_create_with_custom_script_different_lock_for_normal_cells() {
+fn challenge_sub_account_create_flag_custom_script_different_lock_for_normal_cells() {
     let mut template = before_each();
 
     // outputs
@@ -231,11 +235,14 @@ fn challenge_sub_account_create_with_custom_script_different_lock_for_normal_cel
     // Simulate change to a different lock which is not the same as the lock in inputs.
     push_output_normal_cell(&mut template, 100_000_000_000 - total_profit, OWNER_1);
 
-    challenge_tx(template.as_json(), ErrorCode::SubAccountNormalCellLockLimit);
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::SubAccountNormalCellLockLimit,
+    );
 }
 
 #[test]
-fn challenge_sub_account_create_with_custom_script_das_profit_not_enough() {
+fn challenge_sub_account_create_flag_custom_script_das_profit_not_enough() {
     let mut template = before_each();
 
     // outputs
@@ -260,15 +267,14 @@ fn challenge_sub_account_create_with_custom_script_das_profit_not_enough() {
     push_simple_output_sub_account_cell_with_custom_script(&mut template, das_profit, owner_profit, SCRIPT_ARGS);
     push_output_normal_cell(&mut template, 100_000_000_000 - total_profit, OWNER);
 
-    challenge_tx(template.as_json(), ErrorCode::SubAccountProfitError);
+    challenge_tx(template.as_json(), SubAccountCellErrorCode::SubAccountProfitError);
 }
 
 #[test]
-fn challenge_sub_account_create_with_custom_script_spend_balance_cell_1() {
+fn challenge_sub_account_create_flag_custom_script_spend_balance_cell_1() {
     let mut template = init_update();
 
     template.push_contract_cell("test-custom-script", ContractType::Contract);
-    template.push_oracle_cell(1, OracleCellType::Quote, CKB_QUOTE);
     push_simple_dep_account_cell(&mut template);
 
     // inputs
@@ -300,11 +306,10 @@ fn challenge_sub_account_create_with_custom_script_spend_balance_cell_1() {
 }
 
 #[test]
-fn challenge_sub_account_create_with_custom_script_spend_balance_cell_2() {
+fn challenge_sub_account_create_flag_custom_script_spend_balance_cell_2() {
     let mut template = init_update();
 
     template.push_contract_cell("test-custom-script", ContractType::Contract);
-    template.push_oracle_cell(1, OracleCellType::Quote, CKB_QUOTE);
     push_simple_dep_account_cell(&mut template);
 
     // inputs
@@ -336,7 +341,7 @@ fn challenge_sub_account_create_with_custom_script_spend_balance_cell_2() {
 }
 
 #[test]
-fn challenge_sub_account_create_with_custom_script_create_empty() {
+fn challenge_sub_account_create_flag_custom_script_create_empty() {
     let mut template = before_each();
 
     // outputs

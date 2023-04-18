@@ -1,3 +1,4 @@
+use das_types_std::constants::{SubAccountConfigFlag, SubAccountCustomRuleFlag};
 use serde_json::{json, Value};
 
 use super::common::*;
@@ -27,6 +28,23 @@ fn before_each() -> TemplateGenerator {
     template
 }
 
+fn push_simple_output_sub_account_cell(template: &mut TemplateGenerator, account: &str) {
+    push_output_sub_account_cell_v2(
+        template,
+        json!({
+            "data": {
+                "das_profit": 0,
+                "owner_profit": 0,
+                "flag": SubAccountConfigFlag::CustomRule as u8,
+                "status_flag": SubAccountCustomRuleFlag::On as u8,
+                "price_rules_hash": "0x00000000000000000000",
+                "preserved_rules_hash": "0x00000000000000000000",
+            }
+        }),
+        account,
+    );
+}
+
 #[test]
 fn test_enable_sub_account_no_skip() {
     let mut template = before_each();
@@ -44,7 +62,7 @@ fn test_enable_sub_account_no_skip() {
             }
         }),
     );
-    push_output_sub_account_cell(&mut template, Value::Null);
+    push_simple_output_sub_account_cell(&mut template, ACCOUNT_1);
     push_output_balance_cell(&mut template, 479_000_000_000, SENDER);
 
     test_tx(template.as_json())
@@ -90,7 +108,7 @@ fn test_enable_sub_account_skip_verification() {
             }
         }),
     );
-    push_output_sub_account_cell_v2(&mut template, Value::Null, account);
+    push_simple_output_sub_account_cell(&mut template, account);
     push_output_balance_cell(&mut template, 479_000_000_000, SENDER);
 
     test_tx(template.as_json())
@@ -137,10 +155,10 @@ fn challenge_enable_sub_account_beta_limit() {
             }
         }),
     );
-    push_output_sub_account_cell_v2(&mut template, Value::Null, account);
+    push_simple_output_sub_account_cell(&mut template, account);
     push_output_balance_cell(&mut template, 479_000_000_000, SENDER);
 
-    challenge_tx(template.as_json(), ErrorCode::SubAccountJoinBetaError);
+    challenge_tx(template.as_json(), SubAccountCellErrorCode::SubAccountJoinBetaError);
 }
 
 #[test]
@@ -176,7 +194,7 @@ fn challenge_enable_sub_account_account_expired() {
             }
         }),
     );
-    push_output_sub_account_cell(&mut template, Value::Null);
+    push_simple_output_sub_account_cell(&mut template, ACCOUNT_1);
     push_output_balance_cell(&mut template, 479_000_000_000, SENDER);
 
     challenge_tx(
@@ -204,7 +222,7 @@ fn challenge_enable_sub_account_account_capacity_decreased() {
             }
         }),
     );
-    push_output_sub_account_cell(&mut template, Value::Null);
+    push_simple_output_sub_account_cell(&mut template, ACCOUNT_1);
     push_output_balance_cell(&mut template, 479_000_000_000, SENDER);
 
     challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellChangeCapacityError)
@@ -229,7 +247,7 @@ fn challenge_enable_sub_account_account_modified() {
             }
         }),
     );
-    push_output_sub_account_cell(&mut template, Value::Null);
+    push_simple_output_sub_account_cell(&mut template, ACCOUNT_1);
     push_output_balance_cell(&mut template, 479_000_000_000, SENDER);
 
     challenge_tx(
