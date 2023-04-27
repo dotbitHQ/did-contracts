@@ -188,12 +188,15 @@ account hash ，value 为子账户创建成功后的 `SubAccountData.lock.args` 
 
 比较重要的一点是，当 `action` 不同时，`edit_key` 和 `edit_value` 的含义也有所不同：
 
-- 如果 `action == create`，那么 `edit_key` 就是空，`edit_value` 必须是 `SubAccountMintSign.account_list_smt_root` 的有效 `proof` ，其要能够证明当前的创建的账户名确实存在于 `SubAccountMintSign.account_list_smt_root` 中；
+- 如果 `action == create && (edit_key == manual || edit_key is empty)`，则 `edit_value` 必须是 `SubAccountMintSign.account_list_smt_root` 的有效 `proof` ，其要能够证明当前的创建的账户名确实存在于 `SubAccountMintSign.account_list_smt_root` 中；
+- 如果 `action == create && edit_key == custom_rule`，`edit_value` 前 20 Bytes 为渠道商的识别 ID，后 8 Bytes 为此账号注册时所支付的金额；
 - 如果 `action == edit`，那么 `edit_key` 就是 utf-8 编码的字符串，用于指明需要修改的字段，`edit_value` 就是具体修改后的值，根据字段的不同有以下类型：
   - `edit_key` 为 `expired_at`，那么 `edit_value` 必须为一个 molecule 编码的 `Uint64` 类型数据；
   - `edit_key` 为 `owner`，那么 `edit_value` 必须为一个合法的 das-lock 的 args 数据，并且出于安全考虑，新状态的子账户的 records 字段会被视为已清空；
   - `edit_key` 为 `manager`，那么 `edit_value` 必须为一个合法的 das-lock 的 args 数据；
   - `edit_key` 为 `records`，那么 `edit_value` 必须为一个 molecule 编码的 `Records` 类型数据；
+
+> 为了支持第三方渠道通过自定义规则分发子账户，因此每个通过第三方渠道注册的子账户的 witness 中需要带上渠道商的识别 ID 和注册金额，后续在 dotbit 以此为依据和第三方渠道进行利润分配。
 
 #### sub_account 字段数据结构
 
@@ -242,9 +245,3 @@ table SubAccountData {
   - `edit_value`
   - `nonce`
   - `sign_expired_at`
-
-#### 渠道商标记
-
-当通过自定义规则分发子账户时，我们使用以下的字段存放渠道商的 account ID ，以便后续进行统计和分账：
-
-- `signature`
