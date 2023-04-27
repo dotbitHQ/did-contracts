@@ -196,7 +196,9 @@ account hash ，value 为子账户创建成功后的 `SubAccountData.lock.args` 
   - `edit_key` 为 `manager`，那么 `edit_value` 必须为一个合法的 das-lock 的 args 数据；
   - `edit_key` 为 `records`，那么 `edit_value` 必须为一个 molecule 编码的 `Records` 类型数据；
 
-> 为了支持第三方渠道通过自定义规则分发子账户，因此每个通过第三方渠道注册的子账户的 witness 中需要带上渠道商的识别 ID 和注册金额，后续在 dotbit 以此为依据和第三方渠道进行利润分配。
+> 为了支持第三方渠道通过自定义规则分发子账户，因此每个通过第三方渠道注册的子账户的 witness 中需要带上渠道商的识别 ID 和注册金额，后续在 dotbit 团队以此为依据和第三方渠道进行利润分配。
+>
+> 没有任何第三方渠道时，渠道标识就使用 20 Bytes 的 `0x00` 进行填充，所有利润归属 dotbit 团队。
 
 #### sub_account 字段数据结构
 
