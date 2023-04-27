@@ -165,6 +165,8 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             let sub_account_cell_data = util::load_cell_data(output_sub_account_cells[0], Source::Output)?;
             let flag = data_parser::sub_account_cell::get_flag(&sub_account_cell_data);
+            let price_rules_hash = data_parser::sub_account_cell::get_price_rules_hash(&sub_account_cell_data);
+            let preserved_rules_hash = data_parser::sub_account_cell::get_preserved_rules_hash(&sub_account_cell_data);
 
             match flag {
                 Some(SubAccountConfigFlag::CustomRule) => {
@@ -174,27 +176,25 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                     )?;
 
                     let sub_account_witness_parser = SubAccountWitnessesParser::new()?;
-                    let mut price_rules_empty = true;
                     for data_type in [DataType::SubAccountPriceRule, DataType::SubAccountPreservedRule] {
-                        let field = match data_type {
-                            DataType::SubAccountPriceRule => String::from("price_rules"),
-                            DataType::SubAccountPreservedRule => String::from("preserved_rules"),
+                        let (hash, field) = match data_type {
+                            DataType::SubAccountPriceRule => (price_rules_hash, String::from("price_rules")),
+                            DataType::SubAccountPreservedRule => (preserved_rules_hash, String::from("preserved_rules")),
                             _ => unreachable!(),
                         };
 
-                        let rules = match sub_account_witness_parser.get_rules(&sub_account_cell_data, data_type) {
-                            Ok(rules) => {
-                                if data_type == DataType::SubAccountPriceRule {
-                                    price_rules_empty = false;
-                                }
-                                rules
-                            }
-                            Err(err) => {
-                                if err.as_i8() == (ErrorCode::WitnessEmpty as i8) {
-                                    continue;
-                                } else {
-                                    return Err(err);
-                                }
+                        let rules = match sub_account_witness_parser.get_rules(&sub_account_cell_data, data_type)? {
+                            Some(rules) => rules,
+                            None => {
+                                das_assert!(
+                                    hash == Some(&[0u8; 10]),
+                                    SubAccountCellErrorCode::ConfigRulesHashMismatch,
+                                    "The {}Witness is empty, but the SubAccountCell.data.{}_hash is not 0x00000000000000000000",
+                                    data_type.to_string(),
+                                    field
+                                );
+
+                                continue;
                             }
                         };
 
@@ -214,12 +214,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                             },
                         )?;
                     }
-
-                    das_assert!(
-                        !price_rules_empty,
-                        SubAccountCellErrorCode::ConfigRulesPriceRulesCanNotEmpty,
-                        "The SubAccountCell.witness.price_rules can not be empty."
-                    );
                 }
                 _ => {
                     verifiers::sub_account_cell::verify_config_is_manual(output_sub_account_cells[0], Source::Output)?;
@@ -560,20 +554,8 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                             SubAccountConfigFlag::CustomRule
                         );
 
-                        custom_price_rules =
-                            Some(sub_account_parser.get_rules(&input_sub_account_data, DataType::SubAccountPriceRule)?);
-                        custom_preserved_rules = match sub_account_parser
-                            .get_rules(&input_sub_account_data, DataType::SubAccountPreservedRule)
-                        {
-                            Ok(rules) => Some(rules),
-                            Err(err) => {
-                                if err.as_i8() == (ErrorCode::WitnessEmpty as i8) {
-                                    None
-                                } else {
-                                    return Err(err);
-                                }
-                            }
-                        };
+                        custom_price_rules = sub_account_parser.get_rules(&input_sub_account_data, DataType::SubAccountPriceRule)?;
+                        custom_preserved_rules = sub_account_parser.get_rules(&input_sub_account_data, DataType::SubAccountPreservedRule)?;
                     }
                     _ => {
                         debug!("The SubAccountCell.data.flag is {} ...", SubAccountConfigFlag::Manual);
@@ -694,6 +676,12 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                         let registered_at = u64::from(sub_account_reader.registered_at());
                         let expiration_years = (expired_at - registered_at) / YEAR_SEC;
 
+                        debug!(
+                            "  witnesses[{:>2}] The account is registered for {} years.",
+                            witness.index,
+                            expiration_years
+                        );
+
                         let mut manually_minted = false;
                         if let Some(root) = manual_mint_list_smt_root.clone() {
                             match smt_verify_sub_account_is_in_signed_list(root, &witness) {
@@ -763,7 +751,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                                         {
                                             let profit = util::calc_yearly_capacity(rule.price, quote, 0) * expiration_years;
                                             profit_total += profit;
-                                            profit_to_das += profit * u32::from(config_sub_account.new_sub_account_custom_price_das_profit_rate()) as u64 / RATE_BASE;;
+                                            profit_to_das += profit * u32::from(config_sub_account.new_sub_account_custom_price_das_profit_rate()) as u64 / RATE_BASE;
 
                                             debug!(
                                                 "  witnesses[{:>2}] account: {}, matched rule: {}, profit: {} in shannon",
@@ -777,6 +765,13 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                                             );
                                             return Err(code_to_error!(SubAccountCellErrorCode::AccountHasNoPrice));
                                         }
+                                    } else {
+                                        warn!(
+                                            "  witnesses[{:>2}] The account {} is can not be registered, no price rule found(price_rules_hash is 0x0000...).",
+                                            witness.index,
+                                            account
+                                        );
+                                        return Err(code_to_error!(SubAccountCellErrorCode::AccountHasNoPrice));
                                     }
                                 }
                                 _ => {
@@ -958,6 +953,14 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                             .map_err(Error::<ErrorCode>::from)?;
                     }
                     Some(SubAccountConfigFlag::CustomRule) => {
+                        das_assert!(
+                            profit_total >= profit_to_das + profit_to_das_manual_mint,
+                            SubAccountCellErrorCode::MinimalProfitToDASNotReached,
+                            "The minimal profit to DAS is not reached.(expected: {}, total: {})",
+                            profit_to_das,
+                            profit_total + profit_to_das_manual_mint
+                        );
+
                         verify_profit_to_das_and_owner(
                             config_sub_account,
                             &input_sub_account_data,

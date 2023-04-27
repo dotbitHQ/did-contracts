@@ -17,6 +17,34 @@ use crate::witness_parser::sub_account::*;
 use crate::witness_parser::WitnessesParser;
 use crate::{data_parser, util};
 
+pub fn verify_cell_initial_properties(data: &[u8]) -> Result<(), Box<dyn ScriptError>> {
+    debug!("Verify if the SubAccountCell's initial properties is correct.");
+
+    macro_rules! compare_property {
+        ($field: ident, $expected: expr) => {
+            paste::paste! {
+                let current = data_parser::sub_account_cell::[<get_ $field>](data);
+                das_assert!(
+                    current == $expected,
+                    SubAccountCellErrorCode::SubAccountInitialValueError,
+                    "The SubAccountCell.data.{} should be {:?} .",
+                    stringify!($field),
+                    $expected
+                );
+            }
+        };
+    }
+
+    compare_property!(smt_root, Some(&[0u8; 32]));
+    compare_property!(das_profit, Some(0));
+    compare_property!(owner_profit, Some(0));
+    compare_property!(flag, Some(SubAccountConfigFlag::CustomRule));
+    compare_property!(price_rules_hash, Some(&[0u8; 10]));
+    compare_property!(preserved_rules_hash, Some(&[0u8; 10]));
+
+    Ok(())
+}
+
 pub fn verify_unlock_role(witness: &SubAccountWitness) -> Result<(), Box<dyn ScriptError>> {
     debug!(
         "  witnesses[{:>2}] Verify if the witness is unlocked by expected role.",

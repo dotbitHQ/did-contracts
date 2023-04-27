@@ -883,17 +883,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             );
 
             let sub_account_outputs_data = high_level::load_cell_data(output_sub_account_cells[0], Source::Output)?;
-            let expected_default_data = vec![
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0,
-            ];
-
-            das_assert!(
-                expected_default_data == sub_account_outputs_data,
-                ErrorCode::SMTProofVerifyFailed,
-                "The default outputs_data of SubAccountCell should enable custom rules ."
-            );
+            verifiers::sub_account_cell::verify_cell_initial_properties(&sub_account_outputs_data)?;
 
             debug!("Verify if sender get their change properly.");
 

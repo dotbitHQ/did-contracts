@@ -23,6 +23,7 @@ das-types = { path = "../../../das-types/rust", default-features = false }
 simple-ast = { path = "../../../simple-ast", features = ["no_std"], default-features = false }
 eip712 = { path = "../../libs/eip712" }
 das-dynamic-libs = { path = "../../libs/das-dynamic-libs" }
+paste = "1.0"
 
 [dev-dependencies]
 hex = { version = "0.4", default-features = false }
