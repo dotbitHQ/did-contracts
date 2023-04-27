@@ -242,3 +242,9 @@ table SubAccountData {
   - `edit_value`
   - `nonce`
   - `sign_expired_at`
+
+#### 渠道商标记
+
+当通过自定义规则分发子账户时，我们使用以下的字段存放渠道商的 account ID ，以便后续进行统计和分账：
+
+- `signature`
