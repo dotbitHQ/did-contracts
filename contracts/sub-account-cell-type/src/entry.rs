@@ -20,7 +20,7 @@ use das_core::{assert as das_assert, code_to_error, data_parser, debug, verifier
 use das_dynamic_libs::constants::DynLibName;
 use das_dynamic_libs::sign_lib::SignLib;
 use das_dynamic_libs::{load_2_methods, load_lib, log_loading, new_context};
-use das_types::constants::{AccountStatus, DataType, SubAccountAction, SubAccountConfigFlag};
+use das_types::constants::{AccountStatus, DataType, LockRole, SubAccountAction, SubAccountConfigFlag};
 use das_types::packed::*;
 use das_types::prelude::{Builder, Entity};
 #[cfg(debug_assertions)]
@@ -179,7 +179,9 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                     for data_type in [DataType::SubAccountPriceRule, DataType::SubAccountPreservedRule] {
                         let (hash, field) = match data_type {
                             DataType::SubAccountPriceRule => (price_rules_hash, String::from("price_rules")),
-                            DataType::SubAccountPreservedRule => (preserved_rules_hash, String::from("preserved_rules")),
+                            DataType::SubAccountPreservedRule => {
+                                (preserved_rules_hash, String::from("preserved_rules"))
+                            }
                             _ => unreachable!(),
                         };
 
@@ -427,12 +429,12 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let mut sign_lib = SignLib::new();
             // ⚠️ This must be present at the top level, as we will need to use the libraries later.
 
-            // let mut ckb_context = new_context!();
-            // log_loading!(DynLibName::CKBSignhash, config_main.das_lock_type_id_table());
-            // let ckb_lib = load_lib!(ckb_context, DynLibName::CKBSignhash, config_main.das_lock_type_id_table());
-            // sign_lib.ckb_signhash = load_2_methods!(ckb_lib);
-
             if cfg!(not(feature = "dev")) {
+                // let mut ckb_context = new_context!();
+                // log_loading!(DynLibName::CKBSignhash, config_main.das_lock_type_id_table());
+                // let ckb_lib = load_lib!(ckb_context, DynLibName::CKBSignhash, config_main.das_lock_type_id_table());
+                // sign_lib.ckb_signhash = load_2_methods!(ckb_lib);
+
                 let mut eth_context = new_context!();
                 log_loading!(DynLibName::ETH, config_main.das_lock_type_id_table());
                 let eth_lib = load_lib!(eth_context, DynLibName::ETH, config_main.das_lock_type_id_table());
@@ -457,6 +459,8 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let sub_account_last_updated_at = util::get_timestamp_from_header(header.as_reader());
 
             let mut manual_mint_list_smt_root = None;
+            let mut sender_lock = packed::Script::default();
+            let mut sender_total_input_capacity = 0;
 
             let mut custom_script_params = Vec::new();
             let mut custom_script_type_id = None;
@@ -483,6 +487,29 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                         let mut tmp = [0u8; 32];
                         tmp.copy_from_slice(&witness.account_list_smt_root);
                         manual_mint_list_smt_root = Some(tmp);
+
+                        sender_lock = if witness.sign_role == Some(LockRole::Manager) {
+                            debug!("Found SubAccountWitness.sign_role is manager, use manager lock as sender_lock.");
+                            util::derive_manager_lock_from_cell(account_cell_index, account_cell_source)?
+                        } else {
+                            debug!("Found SubAccountWitness.sign_role is owner, use owner lock as sender_lock.");
+                            util::derive_owner_lock_from_cell(account_cell_index, account_cell_source)?
+                        };
+
+                        let input_sender_balance_cells =
+                            util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Input)?;
+
+                        verifiers::misc::verify_no_more_cells_with_same_lock(
+                            sender_lock.as_reader(),
+                            &input_sender_balance_cells,
+                            Source::Input,
+                        )?;
+
+                        sender_total_input_capacity = if input_sender_balance_cells.is_empty() {
+                            0
+                        } else {
+                            util::load_cells_capacity(&input_sender_balance_cells, Source::Input)?
+                        };
                     }
                     Some(Err(err)) => {
                         return Err(err);
@@ -554,8 +581,10 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                             SubAccountConfigFlag::CustomRule
                         );
 
-                        custom_price_rules = sub_account_parser.get_rules(&input_sub_account_data, DataType::SubAccountPriceRule)?;
-                        custom_preserved_rules = sub_account_parser.get_rules(&input_sub_account_data, DataType::SubAccountPreservedRule)?;
+                        custom_price_rules =
+                            sub_account_parser.get_rules(&input_sub_account_data, DataType::SubAccountPriceRule)?;
+                        custom_preserved_rules =
+                            sub_account_parser.get_rules(&input_sub_account_data, DataType::SubAccountPreservedRule)?;
                     }
                     _ => {
                         debug!("The SubAccountCell.data.flag is {} ...", SubAccountConfigFlag::Manual);
@@ -580,15 +609,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
                 verifiers::common::verify_cell_number("BalanceCell", &all_inputs_balance_cells, 0, &[], 0)?;
             }
-
-            // 以前这里好像是为了安全或者便于计算才限制了只能使用 owner 的 cell
-            // das_assert!(
-            //     &input_balance_cells == &all_inputs_balance_cells,
-            //     ErrorCode::BalanceCellCanNotBeSpent,
-            //     "Only BalanceCells which belong to the parent AccountCell's owner can be spent in this transaction."
-            // );
-
-            // das_assert!(false, ErrorCode::HardCodedError, "");
 
             if sub_account_parser.contains_edition {
                 debug!("Found `edit` action in this transaction, do some common verfications ...");
@@ -629,8 +649,8 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 }
             };
 
-            let mut profit_to_das_manual_mint = 0;
-            let mut profit_to_das = 0;
+            let mut minimal_required_das_profit = 0;
+            let mut profit_from_manual_mint = 0;
             let mut profit_total = 0;
             for (i, witness_ret) in sub_account_parser.iter().enumerate() {
                 if let Err(e) = witness_ret {
@@ -676,10 +696,15 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                         let registered_at = u64::from(sub_account_reader.registered_at());
                         let expiration_years = (expired_at - registered_at) / YEAR_SEC;
 
+                        das_assert!(
+                            expiration_years >= 1,
+                            SubAccountCellErrorCode::ExpirationYearsTooShort,
+                            "The expiration years should be at least 1 year."
+                        );
+
                         debug!(
                             "  witnesses[{:>2}] The account is registered for {} years.",
-                            witness.index,
-                            expiration_years
+                            witness.index, expiration_years
                         );
 
                         let mut manually_minted = false;
@@ -691,8 +716,12 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                                         witness.index
                                     );
                                     manually_minted = true;
-                                    profit_to_das_manual_mint +=
+
+                                    let profit =
                                         u64::from(config_sub_account.new_sub_account_price()) * expiration_years;
+                                    profit_from_manual_mint += profit;
+                                    profit_total += profit;
+                                    minimal_required_das_profit += profit;
                                 }
                                 Err(_) => {}
                             }
@@ -717,7 +746,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                                     custom_script_params.push(util::hex_string(&custom_script_param));
 
                                     // This variable will be treat as the minimal profit to DAS no matter the custom script exist or not.
-                                    profit_to_das +=
+                                    minimal_required_das_profit +=
                                         u64::from(config_sub_account.new_sub_account_price()) * expiration_years;
                                 }
                                 Some(SubAccountConfigFlag::CustomRule) => {
@@ -728,10 +757,11 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                                     );
 
                                     if let Some(rules) = custom_preserved_rules.as_ref() {
-                                        if let Some(rule) = match_rule_with_account_chars(&rules, account_chars_reader, &account)
-                                            .map_err(|_| {
-                                                code_to_error!(SubAccountCellErrorCode::ConfigRulesHasSyntaxError)
-                                            })?
+                                        if let Some(rule) =
+                                            match_rule_with_account_chars(&rules, account_chars_reader, &account)
+                                                .map_err(|_| {
+                                                    code_to_error!(SubAccountCellErrorCode::ConfigRulesHasSyntaxError)
+                                                })?
                                         {
                                             warn!(
                                                 "  witnesses[{:>2}] The new SubAccount should be preserved.(matched rule: {})",
@@ -749,9 +779,13 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                                                     code_to_error!(SubAccountCellErrorCode::ConfigRulesHasSyntaxError)
                                                 })?
                                         {
-                                            let profit = util::calc_yearly_capacity(rule.price, quote, 0) * expiration_years;
+                                            let profit =
+                                                util::calc_yearly_capacity(rule.price, quote, 0) * expiration_years;
                                             profit_total += profit;
-                                            profit_to_das += profit * u32::from(config_sub_account.new_sub_account_custom_price_das_profit_rate()) as u64 / RATE_BASE;
+
+                                            minimal_required_das_profit +=
+                                                u64::from(config_sub_account.new_sub_account_price())
+                                                    * expiration_years;
 
                                             debug!(
                                                 "  witnesses[{:>2}] account: {}, matched rule: {}, profit: {} in shannon",
@@ -912,6 +946,29 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             if sub_account_parser.contains_creation {
                 debug!("Verify if the profit distribution is correct.");
 
+                if sender_total_input_capacity > 0 {
+                    debug!("Verify if the sender capacity cost is correct.");
+
+                    let output_sender_balance_cells =
+                        util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Output)?;
+                    let sender_total_output_capacity =
+                        util::load_cells_capacity(&output_sender_balance_cells, Source::Output)?;
+
+                    if sender_total_input_capacity > sender_total_output_capacity {
+                        let available_fee = u64::from(config_sub_account.common_fee());
+
+                        das_assert!(
+                            sender_total_input_capacity - sender_total_output_capacity <= profit_from_manual_mint + available_fee,
+                            SubAccountCellErrorCode::SenderCapacityOverCost,
+                            "The sender capacity cost should be less than or equal to the cost for manual mint.(should less than: {}, actual: {})",
+                            profit_from_manual_mint,
+                            sender_total_input_capacity - sender_total_output_capacity
+                        );
+                    }
+                } else {
+                    debug!("The sender does not have any capacity cost, skip verification.");
+                }
+
                 match flag {
                     Some(SubAccountConfigFlag::CustomScript) => {
                         verify_there_is_only_one_lock_for_normal_cells(
@@ -921,7 +978,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
                         verify_profit_to_das_with_custom_script(
                             config_sub_account,
-                            profit_to_das + profit_to_das_manual_mint,
+                            minimal_required_das_profit,
                             &input_sub_account_data,
                             &output_sub_account_data,
                         )?;
@@ -954,19 +1011,20 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                     }
                     Some(SubAccountConfigFlag::CustomRule) => {
                         das_assert!(
-                            profit_total >= profit_to_das + profit_to_das_manual_mint,
+                            profit_total >= minimal_required_das_profit,
                             SubAccountCellErrorCode::MinimalProfitToDASNotReached,
                             "The minimal profit to DAS is not reached.(expected: {}, total: {})",
-                            profit_to_das,
-                            profit_total + profit_to_das_manual_mint
+                            minimal_required_das_profit,
+                            profit_total
                         );
 
                         verify_profit_to_das_and_owner(
                             config_sub_account,
                             &input_sub_account_data,
                             &output_sub_account_data,
-                            profit_to_das + profit_to_das_manual_mint,
-                            profit_total - (profit_to_das + profit_to_das_manual_mint),
+                            // All the profit should be distributed to DAS to wait further distribution.
+                            profit_total,
+                            0,
                         )?;
                     }
                     _ => {
@@ -974,18 +1032,32 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                             output_sub_account_cells[0],
                             &input_sub_account_data,
                             &output_sub_account_data,
-                            profit_to_das + profit_to_das_manual_mint,
+                            profit_from_manual_mint,
                         )?;
                     }
                 }
             }
         }
-        b"collect_sub_account_profit" => {
+        b"collect_sub_account_profit" | b"collect_sub_account_channel_profit" => {
             parser.parse_cell()?;
             let config_main = parser.configs.main()?;
             let config_sub_account = parser.configs.sub_account()?;
 
-            debug!("Try to find the SubAccountCells from cell_deps ...");
+            debug!("Try to find the AccountCell from cell_deps ...");
+
+            let dep_account_cells = util::find_cells_by_type_id(
+                ScriptType::Type,
+                config_main.type_id_table().account_cell(),
+                Source::CellDep,
+            )?;
+
+            verifiers::common::verify_cell_dep_number("AccountCell", &dep_account_cells, 1)?;
+
+            let account_cell_witness =
+                util::parse_account_cell_witness(&parser, dep_account_cells[0], Source::CellDep)?;
+            let account_cell_reader = account_cell_witness.as_reader();
+
+            debug!("Try to find the SubAccountCells from inputs and outputs ...");
 
             let (input_sub_account_cells, output_sub_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
 
@@ -995,6 +1067,12 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 &[0],
                 &output_sub_account_cells,
                 &[0],
+            )?;
+
+            verifiers::sub_account_cell::verify_sub_account_parent_id(
+                input_sub_account_cells[0],
+                Source::Input,
+                account_cell_reader.id().raw_data(),
             )?;
 
             let input_sub_account_capacity = high_level::load_cell_capacity(input_sub_account_cells[0], Source::Input)?;
@@ -1013,87 +1091,95 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 &output_sub_account_data,
             )?;
 
-            verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
-                input_sub_account_cells[0],
-                output_sub_account_cells[0],
-                vec!["das_profit", "owner_profit"],
-            )?;
-
-            debug!("Try to find the AccountCell from cell_deps ...");
-
-            let dep_account_cells = util::find_cells_by_type_id(
-                ScriptType::Type,
-                config_main.type_id_table().account_cell(),
-                Source::CellDep,
-            )?;
-
-            verifiers::common::verify_cell_dep_number("AccountCell", &dep_account_cells, 1)?;
-
-            let account_cell_witness =
-                util::parse_account_cell_witness(&parser, dep_account_cells[0], Source::CellDep)?;
-            let account_cell_reader = account_cell_witness.as_reader();
-
-            verifiers::sub_account_cell::verify_sub_account_parent_id(
-                input_sub_account_cells[0],
-                Source::Input,
-                account_cell_reader.id().raw_data(),
-            )?;
-
             let input_das_profit = data_parser::sub_account_cell::get_das_profit(&input_sub_account_data).unwrap();
             let output_das_profit = data_parser::sub_account_cell::get_das_profit(&output_sub_account_data).unwrap();
-            let input_owner_profit = data_parser::sub_account_cell::get_owner_profit(&input_sub_account_data).unwrap();
-            let output_owner_profit =
-                data_parser::sub_account_cell::get_owner_profit(&output_sub_account_data).unwrap();
 
-            das_assert!(
-                input_das_profit != 0 || input_owner_profit != 0,
-                ErrorCode::InvalidTransactionStructure,
-                "Either the profit of DAS or the profit of owner should not be 0 ."
-            );
-
-            let mut collected = false;
-            let mut expected_remain_capacity = input_sub_account_capacity;
             let transaction_fee = u64::from(config_sub_account.common_fee());
 
-            if input_das_profit > 0 && output_das_profit == 0 {
-                debug!("The profit of DAS has been collected.");
+            match action {
+                b"collect_sub_account_profit" => {
+                    verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
+                        input_sub_account_cells[0],
+                        output_sub_account_cells[0],
+                        vec!["das_profit", "owner_profit"],
+                    )?;
 
-                collected = true;
-                expected_remain_capacity -= input_das_profit;
+                    let input_owner_profit =
+                        data_parser::sub_account_cell::get_owner_profit(&input_sub_account_data).unwrap();
+                    let output_owner_profit =
+                        data_parser::sub_account_cell::get_owner_profit(&output_sub_account_data).unwrap();
 
-                verifiers::common::verify_das_get_change(input_das_profit)?;
-            } else {
-                debug!("The profit of DAS is not collected completely, so skip counting it.")
+                    das_assert!(
+                        input_das_profit > 0 || input_owner_profit > 0,
+                        ErrorCode::InvalidTransactionStructure,
+                        "Either the profit of DAS or the profit of owner should not be 0 ."
+                    );
+
+                    let mut collected = false;
+                    let mut expected_remain_capacity = input_sub_account_capacity;
+
+                    if input_das_profit > 0 && output_das_profit == 0 {
+                        debug!("The profit of DAS has been collected.");
+
+                        collected = true;
+                        expected_remain_capacity -= input_das_profit;
+
+                        verifiers::common::verify_das_get_change(input_das_profit)?;
+                    } else {
+                        debug!("The profit of DAS is not collected completely, so skip counting it.")
+                    }
+
+                    if input_owner_profit > 0 && output_owner_profit == 0 {
+                        debug!("The profit of owner has been collected.");
+
+                        collected = true;
+                        expected_remain_capacity -= input_owner_profit;
+
+                        let owner_lock = util::derive_owner_lock_from_cell(dep_account_cells[0], Source::CellDep)?;
+                        verifiers::misc::verify_user_get_change(
+                            config_main,
+                            owner_lock.as_reader(),
+                            input_owner_profit,
+                        )?;
+                    } else {
+                        debug!("The profit of owner is not collected completely, so skip counting it.")
+                    }
+
+                    debug!("Verify if the collection is completed properly.");
+
+                    das_assert!(
+                        collected,
+                        ErrorCode::InvalidTransactionStructure,
+                        "All profit should be collected at one time, either from DAS or the owner."
+                    );
+
+                    // manual::verify_remain_capacity
+                    das_assert!(
+                        output_sub_account_capacity >= expected_remain_capacity - transaction_fee,
+                        SubAccountCellErrorCode::SubAccountCollectProfitError,
+                        "The capacity of SubAccountCell in outputs should be at least {}, but only {} found.",
+                        expected_remain_capacity - transaction_fee,
+                        output_sub_account_capacity
+                    );
+                }
+                b"collect_sub_account_channel_profit" => {
+                    verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
+                        input_sub_account_cells[0],
+                        output_sub_account_cells[0],
+                        vec!["das_profit"],
+                    )?;
+
+                    das_assert!(
+                        input_das_profit > 0 && input_das_profit > output_das_profit,
+                        ErrorCode::InvalidTransactionStructure,
+                        "There should be some profit of DAS be collected."
+                    );
+
+                    // manual::verify_remain_capacity
+                    // This verification has been done by calling the function verify_sub_account_capacity_is_enough above.
+                }
+                _ => unreachable!()
             }
-
-            if input_owner_profit > 0 && output_owner_profit == 0 {
-                debug!("The profit of owner has been collected.");
-
-                collected = true;
-                expected_remain_capacity -= input_owner_profit;
-
-                let owner_lock = util::derive_owner_lock_from_cell(dep_account_cells[0], Source::CellDep)?;
-                verifiers::misc::verify_user_get_change(config_main, owner_lock.as_reader(), input_owner_profit)?;
-            } else {
-                debug!("The profit of owner is not collected completely, so skip counting it.")
-            }
-
-            debug!("Verify if the collection is completed properly.");
-
-            das_assert!(
-                collected,
-                ErrorCode::InvalidTransactionStructure,
-                "All profit should be collected at one time, either from DAS or the owner."
-            );
-
-            // manual::verify_remain_capacity
-            das_assert!(
-                output_sub_account_capacity >= expected_remain_capacity - transaction_fee,
-                SubAccountCellErrorCode::SubAccountCollectProfitError,
-                "The capacity of SubAccountCell in outputs should be at least {}, but only {} found.",
-                expected_remain_capacity - transaction_fee,
-                output_sub_account_capacity
-            );
         }
         b"confirm_expired_account_auction" => {
             util::require_type_script(

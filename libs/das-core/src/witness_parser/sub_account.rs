@@ -278,7 +278,7 @@ impl SubAccountWitnessesParser {
                             e.to_string()
                         );
 
-                        ErrorCode::WitnessEntityDecodingError
+                        code_to_error!(ErrorCode::WitnessEntityDecodingError)
                     })?;
 
                     ast_util::mol_reader_to_sub_account_rules(String::new(), mol_rules.as_reader()).map_err(|err| {
@@ -288,8 +288,7 @@ impl SubAccountWitnessesParser {
                             err.to_string()
                         );
 
-                        // TODO create a new error code for this case
-                        ErrorCode::WitnessEntityDecodingError
+                        code_to_error!(SubAccountCellErrorCode::WitnessParsingError)
                     })?
                 }
                 _ => {
@@ -575,7 +574,7 @@ impl SubAccountWitnessesParser {
         &self,
         sub_account_cell_data: &[u8],
         data_type: DataType,
-    ) -> Result<Vec<ast_types::SubAccountRule>, Box<dyn ScriptError>> {
+    ) -> Result<Option<Vec<ast_types::SubAccountRule>>, Box<dyn ScriptError>> {
         let (indexes, expected_hash) = match data_type {
             DataType::SubAccountPriceRule => (
                 &self.price_rule_indexes,
@@ -589,20 +588,24 @@ impl SubAccountWitnessesParser {
         };
 
         if indexes.is_empty() {
-            warn!("The {:?} is required, but not found in witnesses.", data_type);
-            return Err(code_to_error!(ErrorCode::WitnessEmpty));
+            if expected_hash.is_none() || expected_hash == Some(&[0u8; 10]) {
+                return Ok(None);
+            } else {
+                warn!("The {:?} is required, but not found in witnesses.", data_type);
+                return Err(code_to_error!(ErrorCode::WitnessEmpty));
+            }
         }
 
         let rules = self.parse_rule_witnesses(data_type)?;
-        let hash = if rules.is_empty() {
-            [0u8; 32]
-        } else {
+        let hash = if !rules.is_empty() {
             let entity = ast_util::sub_account_rules_to_mol_entity(rules.clone()).map_err(|e| {
                 warn!("Parse sub-account rules to molecule entity failed: {}", e.to_string());
                 code_to_error!(SubAccountCellErrorCode::SubAccountRulesToWitnessFailed)
             })?;
 
             util::blake2b_256(entity.as_slice())
+        } else {
+            unreachable!();
         };
 
         das_assert!(
@@ -614,7 +617,7 @@ impl SubAccountWitnessesParser {
             hash.get(0..10).map(|v| util::hex_string(v))
         );
 
-        Ok(rules)
+        Ok(Some(rules))
     }
 
     pub fn get(&self, index: usize) -> Option<Result<SubAccountWitness, Box<dyn ScriptError>>> {
