@@ -1,8 +1,7 @@
 use alloc::vec;
 use core::convert::TryInto;
 
-use ckb_std::debug;
-use ckb_std::env;
+use ckb_std::{debug, env};
 use das_types::packed::AccountChars;
 use das_types::prelude::Entity;
 #[cfg(debug_assertions)]
