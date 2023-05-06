@@ -59,990 +59,1072 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 ErrorCode::InvalidTransactionStructure,
             )?;
         }
-        b"config_sub_account" => {
-            parser.parse_cell()?;
-            let config_main = parser.configs.main()?;
-            let config_account = parser.configs.account()?;
-            let config_sub_account = parser.configs.sub_account()?;
-
-            let timestamp = util::load_oracle_data(OracleCellType::Time)?;
-
-            debug!("Verify if the AccountCell is consistent and not expired ...");
-
-            let (input_account_cells, output_account_cells) = util::find_cells_by_type_id_in_inputs_and_outputs(
-                ScriptType::Type,
-                config_main.type_id_table().account_cell(),
-            )?;
-            verifiers::common::verify_cell_number_and_position(
-                "AccountCell",
-                &input_account_cells,
-                &[0],
-                &output_account_cells,
-                &[0],
-            )?;
-
-            let sender_lock = util::derive_owner_lock_from_cell(input_account_cells[0], Source::Input)?;
-            verifiers::misc::verify_no_more_cells_with_same_lock(
-                sender_lock.as_reader(),
-                &input_account_cells,
-                Source::Input,
-            )?;
-
-            let input_account_cell_witness =
-                util::parse_account_cell_witness(&parser, input_account_cells[0], Source::Input)?;
-            let input_account_cell_reader = input_account_cell_witness.as_reader();
-            let output_account_cell_witness =
-                util::parse_account_cell_witness(&parser, output_account_cells[0], Source::Output)?;
-            let output_account_cell_reader = output_account_cell_witness.as_reader();
-
-            verifiers::account_cell::verify_status(
-                &input_account_cell_reader,
-                AccountStatus::Normal,
-                input_account_cells[0],
-                Source::Input,
-            )?;
-
-            verifiers::account_cell::verify_account_expiration(
-                config_account,
-                input_account_cells[0],
-                Source::Input,
-                timestamp,
-            )?;
-
-            verifiers::account_cell::verify_account_capacity_not_decrease(
-                input_account_cells[0],
-                output_account_cells[0],
-            )?;
-
-            verifiers::account_cell::verify_account_cell_consistent_with_exception(
-                input_account_cells[0],
-                output_account_cells[0],
-                &input_account_cell_reader,
-                &output_account_cell_reader,
-                None,
-                vec![],
-                vec![],
-            )?;
-
-            debug!("Verify if the SubAccountCell is consistent and only the appropriate fee was charged ...");
-
-            let (input_sub_account_cells, output_sub_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
-            verifiers::common::verify_cell_number_and_position(
-                "SubAccountCell",
-                &input_sub_account_cells,
-                &[1],
-                &output_sub_account_cells,
-                &[1],
-            )?;
-
-            verifiers::sub_account_cell::verify_sub_account_parent_id(
-                input_sub_account_cells[0],
-                Source::Input,
-                input_account_cell_reader.id().raw_data(),
-            )?;
-
-            let input_sub_account_capacity = high_level::load_cell_capacity(input_sub_account_cells[0], Source::Input)?;
-            let output_sub_account_capacity =
-                high_level::load_cell_capacity(output_sub_account_cells[0], Source::Output)?;
-            let input_sub_account_data = high_level::load_cell_data(input_sub_account_cells[0], Source::Input)?;
-            let output_sub_account_data = high_level::load_cell_data(output_sub_account_cells[0], Source::Output)?;
-
-            verify_sub_account_transaction_fee(
-                config_sub_account,
-                input_sub_account_capacity,
-                &input_sub_account_data,
-                output_sub_account_capacity,
-                &output_sub_account_data,
-            )?;
-
-            verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
-                input_sub_account_cells[0],
-                output_sub_account_cells[0],
-                vec!["custom_script", "custom_script_args"],
-            )?;
-
-            debug!("Verify if the config fields is updated appropriately ...");
-
-            let sub_account_cell_data = util::load_cell_data(output_sub_account_cells[0], Source::Output)?;
-            let flag = data_parser::sub_account_cell::get_flag(&sub_account_cell_data);
-            let price_rules_hash = data_parser::sub_account_cell::get_price_rules_hash(&sub_account_cell_data);
-            let preserved_rules_hash = data_parser::sub_account_cell::get_preserved_rules_hash(&sub_account_cell_data);
-
-            match flag {
-                Some(SubAccountConfigFlag::CustomRule) => {
-                    verifiers::sub_account_cell::verify_config_is_custom_rule(
-                        output_sub_account_cells[0],
-                        Source::Output,
-                    )?;
-
-                    let sub_account_witness_parser = SubAccountWitnessesParser::new()?;
-                    for data_type in [DataType::SubAccountPriceRule, DataType::SubAccountPreservedRule] {
-                        let (hash, field) = match data_type {
-                            DataType::SubAccountPriceRule => (price_rules_hash, String::from("price_rules")),
-                            DataType::SubAccountPreservedRule => {
-                                (preserved_rules_hash, String::from("preserved_rules"))
-                            }
-                            _ => unreachable!(),
-                        };
-
-                        let rules = match sub_account_witness_parser.get_rules(&sub_account_cell_data, data_type)? {
-                            Some(rules) => rules,
-                            None => {
-                                das_assert!(
-                                    hash == Some(&[0u8; 10]),
-                                    SubAccountCellErrorCode::ConfigRulesHashMismatch,
-                                    "The {}Witness is empty, but the SubAccountCell.data.{}_hash is not 0x00000000000000000000",
-                                    data_type.to_string(),
-                                    field
-                                );
-
-                                continue;
-                            }
-                        };
-
-                        let mut dummy_account_chars_builder = AccountChars::new_builder();
-                        dummy_account_chars_builder = dummy_account_chars_builder.push(AccountChar::default());
-                        let dummy_account_chars = dummy_account_chars_builder.build();
-                        let dummy_account = "";
-
-                        match_rule_with_account_chars(&rules, dummy_account_chars.as_reader(), dummy_account).map_err(
-                            |err| {
-                                warn!(
-                                    "The SubAccountCell.witness.{} has some syntax error: {}",
-                                    field,
-                                    err.to_string()
-                                );
-                                code_to_error!(SubAccountCellErrorCode::ConfigRulesHasSyntaxError)
-                            },
-                        )?;
-                    }
-                }
-                _ => {
-                    verifiers::sub_account_cell::verify_config_is_manual(output_sub_account_cells[0], Source::Output)?;
-                }
-            }
+        b"config_sub_account" => action_config_sub_account(action, &mut parser)?,
+        b"config_sub_account_custom_script" => action_config_sub_account_custom_script(action, &mut parser)?,
+        b"update_sub_account" => action_update_sub_account(action, &mut parser)?,
+        b"collect_sub_account_profit" | b"collect_sub_account_channel_profit" => {
+            action_collect_sub_account_profit(action, &mut parser)?
         }
-        b"config_sub_account_custom_script" => {
-            parser.parse_cell()?;
-            let config_main = parser.configs.main()?;
-            let config_account = parser.configs.account()?;
-            let config_sub_account = parser.configs.sub_account()?;
-
-            let timestamp = util::load_oracle_data(OracleCellType::Time)?;
-
-            let (input_account_cells, output_account_cells) = util::find_cells_by_type_id_in_inputs_and_outputs(
-                ScriptType::Type,
-                config_main.type_id_table().account_cell(),
-            )?;
-            verifiers::common::verify_cell_number_and_position(
-                "AccountCell",
-                &input_account_cells,
-                &[0],
-                &output_account_cells,
-                &[0],
-            )?;
-
-            let sender_lock = util::derive_owner_lock_from_cell(input_account_cells[0], Source::Input)?;
-            verifiers::misc::verify_no_more_cells_with_same_lock(
-                sender_lock.as_reader(),
-                &input_account_cells,
+        b"confirm_expired_account_auction" => {
+            util::require_type_script(
+                &parser,
+                TypeScript::AccountCellType,
                 Source::Input,
-            )?;
-
-            let input_account_cell_witness =
-                util::parse_account_cell_witness(&parser, input_account_cells[0], Source::Input)?;
-            let input_account_cell_reader = input_account_cell_witness.as_reader();
-            let output_account_cell_witness =
-                util::parse_account_cell_witness(&parser, output_account_cells[0], Source::Output)?;
-            let output_account_cell_reader = output_account_cell_witness.as_reader();
-
-            verifiers::account_cell::verify_status(
-                &input_account_cell_reader,
-                AccountStatus::Normal,
-                input_account_cells[0],
-                Source::Input,
-            )?;
-
-            verifiers::account_cell::verify_account_expiration(
-                config_account,
-                input_account_cells[0],
-                Source::Input,
-                timestamp,
-            )?;
-
-            verifiers::account_cell::verify_account_capacity_not_decrease(
-                input_account_cells[0],
-                output_account_cells[0],
-            )?;
-
-            verifiers::account_cell::verify_account_cell_consistent_with_exception(
-                input_account_cells[0],
-                output_account_cells[0],
-                &input_account_cell_reader,
-                &output_account_cell_reader,
-                None,
-                vec![],
-                vec![],
-            )?;
-
-            let (input_sub_account_cells, output_sub_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
-            verifiers::common::verify_cell_number_and_position(
-                "SubAccountCell",
-                &input_sub_account_cells,
-                &[1],
-                &output_sub_account_cells,
-                &[1],
-            )?;
-
-            verifiers::sub_account_cell::verify_sub_account_parent_id(
-                input_sub_account_cells[0],
-                Source::Input,
-                input_account_cell_reader.id().raw_data(),
-            )?;
-
-            let input_sub_account_capacity = high_level::load_cell_capacity(input_sub_account_cells[0], Source::Input)?;
-            let output_sub_account_capacity =
-                high_level::load_cell_capacity(output_sub_account_cells[0], Source::Output)?;
-            let input_sub_account_data = high_level::load_cell_data(input_sub_account_cells[0], Source::Input)?;
-            let output_sub_account_data = high_level::load_cell_data(output_sub_account_cells[0], Source::Output)?;
-
-            verify_sub_account_transaction_fee(
-                config_sub_account,
-                input_sub_account_capacity,
-                &input_sub_account_data,
-                output_sub_account_capacity,
-                &output_sub_account_data,
-            )?;
-
-            let input_sub_account_custom_script =
-                data_parser::sub_account_cell::get_custom_script(&input_sub_account_data);
-            let output_sub_account_custom_script =
-                data_parser::sub_account_cell::get_custom_script(&output_sub_account_data);
-            let input_sub_account_script_args =
-                data_parser::sub_account_cell::get_custom_script_args(&input_sub_account_data);
-            let output_sub_account_script_args =
-                data_parser::sub_account_cell::get_custom_script_args(&output_sub_account_data);
-
-            // manual::verify_custom_script_changed
-            das_assert!(
-                input_sub_account_custom_script != output_sub_account_custom_script
-                    || input_sub_account_script_args != output_sub_account_script_args,
-                SubAccountCellErrorCode::SubAccountCustomScriptError,
-                "outputs[{}] The custom script of SubAccountCell should be different in inputs and outputs.",
-                output_sub_account_cells[0]
-            );
-
-            verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
-                input_sub_account_cells[0],
-                output_sub_account_cells[0],
-                vec!["custom_script", "custom_script_args"],
+                ErrorCode::InvalidTransactionStructure,
             )?;
         }
-        b"update_sub_account" => {
-            parser.parse_cell()?;
-            let config_main = parser.configs.main()?;
-            let config_account = parser.configs.account()?;
-            let config_sub_account = parser.configs.sub_account()?;
+        _ => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
+    }
 
-            let timestamp = util::load_oracle_data(OracleCellType::Time)?;
-            let quote = util::load_oracle_data(OracleCellType::Quote)?;
+    Ok(())
+}
 
-            debug!("Verify if the AccountCell in cell_deps has sub-account feature enabled and not expired ...");
+fn action_config_sub_account(_action: &[u8], parser: &mut WitnessesParser) -> Result<(), Box<dyn ScriptError>> {
+    parser.parse_cell()?;
+    let config_main = parser.configs.main()?;
+    let config_account = parser.configs.account()?;
+    let config_sub_account = parser.configs.sub_account()?;
 
-            let dep_account_cells = util::find_cells_by_type_id(
-                ScriptType::Type,
-                config_main.type_id_table().account_cell(),
-                Source::CellDep,
-            )?;
+    let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
-            verifiers::common::verify_cell_dep_number("AccountCell", &dep_account_cells, 1)?;
+    debug!("Verify if the AccountCell is consistent and not expired ...");
 
-            let account_cell_index = dep_account_cells[0];
-            let account_cell_source = Source::CellDep;
-            let account_cell_witness =
-                util::parse_account_cell_witness(&parser, dep_account_cells[0], Source::CellDep)?;
-            let account_cell_reader = account_cell_witness.as_reader();
-            let account_cell_data = util::load_cell_data(account_cell_index, account_cell_source)?;
-            let account_lock = high_level::load_cell_lock(account_cell_index, account_cell_source)?;
-            let account_lock_args = account_lock.as_reader().args().raw_data();
+    let (input_account_cells, output_account_cells) = util::find_cells_by_type_id_in_inputs_and_outputs(
+        ScriptType::Type,
+        config_main.type_id_table().account_cell(),
+    )?;
+    verifiers::common::verify_cell_number_and_position(
+        "AccountCell",
+        &input_account_cells,
+        &[0],
+        &output_account_cells,
+        &[0],
+    )?;
 
-            verifiers::account_cell::verify_sub_account_enabled(
-                &account_cell_reader,
-                account_cell_index,
-                account_cell_source,
-            )?;
+    let sender_lock = util::derive_owner_lock_from_cell(input_account_cells[0], Source::Input)?;
+    verifiers::misc::verify_no_more_cells_with_same_lock(sender_lock.as_reader(), &input_account_cells, Source::Input)?;
 
-            verifiers::account_cell::verify_account_expiration(
-                config_account,
-                account_cell_index,
-                account_cell_source,
-                timestamp,
-            )?;
+    let input_account_cell_witness = util::parse_account_cell_witness(&parser, input_account_cells[0], Source::Input)?;
+    let input_account_cell_reader = input_account_cell_witness.as_reader();
+    let output_account_cell_witness =
+        util::parse_account_cell_witness(&parser, output_account_cells[0], Source::Output)?;
+    let output_account_cell_reader = output_account_cell_witness.as_reader();
 
-            let mut parent_account = account_cell_reader.account().as_readable();
-            parent_account.extend(ACCOUNT_SUFFIX.as_bytes());
+    verifiers::account_cell::verify_status(
+        &input_account_cell_reader,
+        AccountStatus::Normal,
+        input_account_cells[0],
+        Source::Input,
+    )?;
 
-            debug!("Verify if the SubAccountCells in inputs and outputs have sufficient capacity and paid transaction fees properly ...");
+    verifiers::account_cell::verify_account_expiration(
+        config_account,
+        input_account_cells[0],
+        Source::Input,
+        timestamp,
+    )?;
 
-            let (input_sub_account_cells, output_sub_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
+    verifiers::account_cell::verify_account_capacity_not_decrease(input_account_cells[0], output_account_cells[0])?;
 
-            verifiers::common::verify_cell_number_and_position(
-                "SubAccountCell",
-                &input_sub_account_cells,
-                &[0],
-                &output_sub_account_cells,
-                &[0],
-            )?;
+    verifiers::account_cell::verify_account_cell_consistent_with_exception(
+        input_account_cells[0],
+        output_account_cells[0],
+        &input_account_cell_reader,
+        &output_account_cell_reader,
+        None,
+        vec![],
+        vec![],
+    )?;
 
-            let input_sub_account_capacity = high_level::load_cell_capacity(input_sub_account_cells[0], Source::Input)?;
-            let output_sub_account_capacity =
-                high_level::load_cell_capacity(output_sub_account_cells[0], Source::Output)?;
-            let input_sub_account_data = high_level::load_cell_data(input_sub_account_cells[0], Source::Input)?;
-            let output_sub_account_data = high_level::load_cell_data(output_sub_account_cells[0], Source::Output)?;
+    debug!("Verify if the SubAccountCell is consistent and only the appropriate fee was charged ...");
 
-            verify_sub_account_capacity_is_enough(
-                config_sub_account,
-                input_sub_account_cells[0],
-                input_sub_account_capacity,
-                &input_sub_account_data,
-                output_sub_account_cells[0],
-                output_sub_account_capacity,
-                &output_sub_account_data,
-            )?;
+    let (input_sub_account_cells, output_sub_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
+    verifiers::common::verify_cell_number_and_position(
+        "SubAccountCell",
+        &input_sub_account_cells,
+        &[1],
+        &output_sub_account_cells,
+        &[1],
+    )?;
 
-            verify_sub_account_transaction_fee(
-                config_sub_account,
-                input_sub_account_capacity,
-                &input_sub_account_data,
-                output_sub_account_capacity,
-                &output_sub_account_data,
-            )?;
+    verifiers::sub_account_cell::verify_sub_account_parent_id(
+        input_sub_account_cells[0],
+        Source::Input,
+        input_account_cell_reader.id().raw_data(),
+    )?;
 
-            verifiers::sub_account_cell::verify_sub_account_parent_id(
-                input_sub_account_cells[0],
-                Source::Input,
-                account_cell_reader.id().raw_data(),
-            )?;
+    let input_sub_account_capacity = high_level::load_cell_capacity(input_sub_account_cells[0], Source::Input)?;
+    let output_sub_account_capacity = high_level::load_cell_capacity(output_sub_account_cells[0], Source::Output)?;
+    let input_sub_account_data = high_level::load_cell_data(input_sub_account_cells[0], Source::Input)?;
+    let output_sub_account_data = high_level::load_cell_data(output_sub_account_cells[0], Source::Output)?;
 
-            debug!("Initialize the dynamic signing libraries ...");
+    verify_sub_account_transaction_fee(
+        config_sub_account,
+        input_sub_account_capacity,
+        &input_sub_account_data,
+        output_sub_account_capacity,
+        &output_sub_account_data,
+    )?;
 
-            let mut sign_lib = SignLib::new();
-            // ⚠️ This must be present at the top level, as we will need to use the libraries later.
+    verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
+        input_sub_account_cells[0],
+        output_sub_account_cells[0],
+        vec!["flag", "price_rules", "preserved_rules"],
+    )?;
 
-            if cfg!(not(feature = "dev")) {
-                // let mut ckb_context = new_context!();
-                // log_loading!(DynLibName::CKBSignhash, config_main.das_lock_type_id_table());
-                // let ckb_lib = load_lib!(ckb_context, DynLibName::CKBSignhash, config_main.das_lock_type_id_table());
-                // sign_lib.ckb_signhash = load_2_methods!(ckb_lib);
+    debug!("Verify if the config fields is updated appropriately ...");
 
-                let mut eth_context = new_context!();
-                log_loading!(DynLibName::ETH, config_main.das_lock_type_id_table());
-                let eth_lib = load_lib!(eth_context, DynLibName::ETH, config_main.das_lock_type_id_table());
-                sign_lib.eth = load_2_methods!(eth_lib);
+    let sub_account_cell_data = util::load_cell_data(output_sub_account_cells[0], Source::Output)?;
+    let flag = match data_parser::sub_account_cell::get_flag(&output_sub_account_data) {
+        Some(val) => val,
+        None => {
+            warn!("The flag should always be some for now.");
+            return Err(code_to_error!(ErrorCode::HardCodedError));
+        }
+    };
+    let price_rules_hash = data_parser::sub_account_cell::get_price_rules_hash(&sub_account_cell_data);
+    let preserved_rules_hash = data_parser::sub_account_cell::get_preserved_rules_hash(&sub_account_cell_data);
 
-                let mut tron_context = new_context!();
-                log_loading!(DynLibName::TRON, config_main.das_lock_type_id_table());
-                let tron_lib = load_lib!(tron_context, DynLibName::TRON, config_main.das_lock_type_id_table());
-                sign_lib.tron = load_2_methods!(tron_lib);
+    match flag {
+        SubAccountConfigFlag::CustomRule => {
+            verifiers::sub_account_cell::verify_config_is_custom_rule(output_sub_account_cells[0], Source::Output)?;
 
-                let mut doge_context = new_context!();
-                log_loading!(DynLibName::DOGE, config_main.das_lock_type_id_table());
-                let doge_lib = load_lib!(doge_context, DynLibName::DOGE, config_main.das_lock_type_id_table());
-                sign_lib.doge = load_2_methods!(doge_lib);
+            let sub_account_witness_parser = SubAccountWitnessesParser::new(flag)?;
+            for data_type in [DataType::SubAccountPriceRule, DataType::SubAccountPreservedRule] {
+                let (hash, field) = match data_type {
+                    DataType::SubAccountPriceRule => (price_rules_hash, String::from("price_rules")),
+                    DataType::SubAccountPreservedRule => (preserved_rules_hash, String::from("preserved_rules")),
+                    _ => unreachable!(),
+                };
+
+                let rules = match sub_account_witness_parser.get_rules(&sub_account_cell_data, data_type)? {
+                    Some(rules) => rules,
+                    None => {
+                        das_assert!(
+                            hash == Some(&[0u8; 10]),
+                            SubAccountCellErrorCode::ConfigRulesHashMismatch,
+                            "The {}Witness is empty, but the SubAccountCell.data.{}_hash is not 0x00000000000000000000",
+                            data_type.to_string(),
+                            field
+                        );
+
+                        continue;
+                    }
+                };
+
+                let mut dummy_account_chars_builder = AccountChars::new_builder();
+                dummy_account_chars_builder = dummy_account_chars_builder.push(AccountChar::default());
+                let dummy_account_chars = dummy_account_chars_builder.build();
+                let dummy_account = "";
+
+                match_rule_with_account_chars(&rules, dummy_account_chars.as_reader(), dummy_account).map_err(
+                    |err| {
+                        warn!(
+                            "The SubAccountCell.witness.{} has some syntax error: {}",
+                            field,
+                            err.to_string()
+                        );
+                        code_to_error!(SubAccountCellErrorCode::ConfigRulesHasSyntaxError)
+                    },
+                )?;
             }
+        }
+        SubAccountConfigFlag::Manual => {
+            verifiers::sub_account_cell::verify_config_is_manual(output_sub_account_cells[0], Source::Output)?;
+        }
+        _ => {
+            warn!("The flag should be either CustomRule or Manual for now.");
+            return Err(code_to_error!(SubAccountCellErrorCode::ConfigFlagInvalid));
+        }
+    }
 
-            // Initiate some variables used again and again in the following codes.
-            let sub_account_parser = SubAccountWitnessesParser::new()?;
-            let flag = data_parser::sub_account_cell::get_flag(&output_sub_account_data);
-            let parent_expired_at = data_parser::account_cell::get_expired_at(&account_cell_data);
-            let header = util::load_header(input_sub_account_cells[0], Source::Input)?;
-            let sub_account_last_updated_at = util::get_timestamp_from_header(header.as_reader());
+    Ok(())
+}
 
-            let mut manual_mint_list_smt_root = None;
-            let mut sender_lock = packed::Script::default();
-            let mut sender_total_input_capacity = 0;
+fn action_config_sub_account_custom_script(
+    _action: &[u8],
+    parser: &mut WitnessesParser,
+) -> Result<(), Box<dyn ScriptError>> {
+    parser.parse_cell()?;
+    let config_main = parser.configs.main()?;
+    let config_account = parser.configs.account()?;
+    let config_sub_account = parser.configs.sub_account()?;
 
-            let mut custom_script_params = Vec::new();
-            let mut custom_script_type_id = None;
+    let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
-            let mut custom_price_rules = None;
-            let mut custom_preserved_rules = None;
+    let (input_account_cells, output_account_cells) = util::find_cells_by_type_id_in_inputs_and_outputs(
+        ScriptType::Type,
+        config_main.type_id_table().account_cell(),
+    )?;
+    verifiers::common::verify_cell_number_and_position(
+        "AccountCell",
+        &input_account_cells,
+        &[0],
+        &output_account_cells,
+        &[0],
+    )?;
 
-            let all_inputs_balance_cells = util::find_all_balance_cells(config_main, Source::Input)?;
-            if sub_account_parser.contains_creation {
-                debug!("Found `create` action in this transaction, do some common verfications ...");
+    let sender_lock = util::derive_owner_lock_from_cell(input_account_cells[0], Source::Input)?;
+    verifiers::misc::verify_no_more_cells_with_same_lock(sender_lock.as_reader(), &input_account_cells, Source::Input)?;
 
-                match sub_account_parser.get_mint_sign(account_lock_args) {
-                    Some(Ok(witness)) => {
-                        debug!("The SubAccountMintSignWitness is exist, verifying the signature for manual mint ...",);
+    let input_account_cell_witness = util::parse_account_cell_witness(&parser, input_account_cells[0], Source::Input)?;
+    let input_account_cell_reader = input_account_cell_witness.as_reader();
+    let output_account_cell_witness =
+        util::parse_account_cell_witness(&parser, output_account_cells[0], Source::Output)?;
+    let output_account_cell_reader = output_account_cell_witness.as_reader();
 
-                        verifiers::sub_account_cell::verify_sub_account_mint_sign_not_expired(
-                            &sub_account_parser,
-                            &witness,
-                            parent_expired_at,
-                            sub_account_last_updated_at,
-                        )?;
-                        verifiers::sub_account_cell::verify_sub_account_mint_sign(&witness, &sign_lib)?;
+    verifiers::account_cell::verify_status(
+        &input_account_cell_reader,
+        AccountStatus::Normal,
+        input_account_cells[0],
+        Source::Input,
+    )?;
 
-                        let mut tmp = [0u8; 32];
-                        tmp.copy_from_slice(&witness.account_list_smt_root);
-                        manual_mint_list_smt_root = Some(tmp);
+    verifiers::account_cell::verify_account_expiration(
+        config_account,
+        input_account_cells[0],
+        Source::Input,
+        timestamp,
+    )?;
 
-                        sender_lock = if witness.sign_role == Some(LockRole::Manager) {
-                            debug!("Found SubAccountWitness.sign_role is manager, use manager lock as sender_lock.");
-                            util::derive_manager_lock_from_cell(account_cell_index, account_cell_source)?
-                        } else {
-                            debug!("Found SubAccountWitness.sign_role is owner, use owner lock as sender_lock.");
-                            util::derive_owner_lock_from_cell(account_cell_index, account_cell_source)?
-                        };
+    verifiers::account_cell::verify_account_capacity_not_decrease(input_account_cells[0], output_account_cells[0])?;
 
-                        let input_sender_balance_cells =
-                            util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Input)?;
+    verifiers::account_cell::verify_account_cell_consistent_with_exception(
+        input_account_cells[0],
+        output_account_cells[0],
+        &input_account_cell_reader,
+        &output_account_cell_reader,
+        None,
+        vec![],
+        vec![],
+    )?;
 
-                        verifiers::misc::verify_no_more_cells_with_same_lock(
-                            sender_lock.as_reader(),
-                            &input_sender_balance_cells,
-                            Source::Input,
-                        )?;
+    let (input_sub_account_cells, output_sub_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
+    verifiers::common::verify_cell_number_and_position(
+        "SubAccountCell",
+        &input_sub_account_cells,
+        &[1],
+        &output_sub_account_cells,
+        &[1],
+    )?;
 
-                        sender_total_input_capacity = if input_sender_balance_cells.is_empty() {
-                            0
-                        } else {
-                            util::load_cells_capacity(&input_sender_balance_cells, Source::Input)?
-                        };
-                    }
-                    Some(Err(err)) => {
-                        return Err(err);
-                    }
-                    None => {}
-                }
+    verifiers::sub_account_cell::verify_sub_account_parent_id(
+        input_sub_account_cells[0],
+        Source::Input,
+        input_account_cell_reader.id().raw_data(),
+    )?;
 
-                match flag {
-                    Some(SubAccountConfigFlag::CustomScript) => {
-                        debug!(
-                            "The SubAccountCell.data.flag is {}, skip prepare the custom script params ...",
-                            SubAccountConfigFlag::CustomScript
-                        );
+    let input_sub_account_capacity = high_level::load_cell_capacity(input_sub_account_cells[0], Source::Input)?;
+    let output_sub_account_capacity = high_level::load_cell_capacity(output_sub_account_cells[0], Source::Output)?;
+    let input_sub_account_data = high_level::load_cell_data(input_sub_account_cells[0], Source::Input)?;
+    let output_sub_account_data = high_level::load_cell_data(output_sub_account_cells[0], Source::Output)?;
 
-                        debug!("Push action into custom_script_params.");
+    verify_sub_account_transaction_fee(
+        config_sub_account,
+        input_sub_account_capacity,
+        &input_sub_account_data,
+        output_sub_account_capacity,
+        &output_sub_account_data,
+    )?;
 
-                        // TODO This can be removed now, but we need update the custom script first.
-                        let action_str = String::from_utf8(action.to_vec()).unwrap();
-                        custom_script_params.push(action_str);
+    let input_sub_account_custom_script = data_parser::sub_account_cell::get_custom_script(&input_sub_account_data);
+    let output_sub_account_custom_script = data_parser::sub_account_cell::get_custom_script(&output_sub_account_data);
+    let input_sub_account_script_args = data_parser::sub_account_cell::get_custom_script_args(&input_sub_account_data);
+    let output_sub_account_script_args =
+        data_parser::sub_account_cell::get_custom_script_args(&output_sub_account_data);
 
-                        debug!("Try to find the QuoteCell from cell_deps and push quote into custom_script_params.");
+    // manual::verify_custom_script_changed
+    das_assert!(
+        input_sub_account_custom_script != output_sub_account_custom_script
+            || input_sub_account_script_args != output_sub_account_script_args,
+        SubAccountCellErrorCode::SubAccountCustomScriptError,
+        "outputs[{}] The custom script of SubAccountCell should be different in inputs and outputs.",
+        output_sub_account_cells[0]
+    );
 
-                        let quote = util::load_oracle_data(OracleCellType::Quote)?;
-                        custom_script_params.push(util::hex_string(&quote.to_le_bytes()));
+    verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
+        input_sub_account_cells[0],
+        output_sub_account_cells[0],
+        vec!["custom_script", "custom_script_args"],
+    )?;
 
-                        let input_das_profit =
-                            data_parser::sub_account_cell::get_das_profit(&input_sub_account_data).unwrap();
-                        let output_das_profit =
-                            data_parser::sub_account_cell::get_das_profit(&output_sub_account_data).unwrap();
-                        let input_owner_profit =
-                            data_parser::sub_account_cell::get_owner_profit(&input_sub_account_data).unwrap();
-                        let output_owner_profit =
-                            data_parser::sub_account_cell::get_owner_profit(&output_sub_account_data).unwrap();
-                        let owner_profit = output_owner_profit - input_owner_profit;
-                        let das_profit = output_das_profit - input_das_profit;
+    Ok(())
+}
 
-                        custom_script_params.push(util::hex_string(&owner_profit.to_le_bytes()));
-                        custom_script_params.push(util::hex_string(&das_profit.to_le_bytes()));
+fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Result<(), Box<dyn ScriptError>> {
+    parser.parse_cell()?;
+    let config_main = parser.configs.main()?;
+    let config_account = parser.configs.account()?;
+    let config_sub_account = parser.configs.sub_account()?;
 
-                        let custom_script_args =
-                            data_parser::sub_account_cell::get_custom_script_args(&input_sub_account_data).unwrap();
-                        custom_script_params.push(util::hex_string(custom_script_args));
+    let timestamp = util::load_oracle_data(OracleCellType::Time)?;
+    let quote = util::load_oracle_data(OracleCellType::Quote)?;
 
-                        let args = match data_parser::sub_account_cell::get_custom_script(&input_sub_account_data) {
-                            Some(val) => val,
-                            None => {
-                                return Err(code_to_error!(SubAccountCellErrorCode::SubAccountCustomScriptEmpty));
-                            }
-                        };
-                        let type_of_custom_script = Script::new_builder()
-                            .code_hash(Hash::from(TYPE_ID_CODE_HASH))
-                            .hash_type(Byte::from(1))
-                            .args(Bytes::from(args))
-                            .build();
-                        let type_id = util::blake2b_256(type_of_custom_script.as_slice());
+    debug!("Verify if the AccountCell in cell_deps has sub-account feature enabled and not expired ...");
 
-                        debug!("The type ID of custom script is: 0x{}", util::hex_string(&type_id));
+    let dep_account_cells = util::find_cells_by_type_id(
+        ScriptType::Type,
+        config_main.type_id_table().account_cell(),
+        Source::CellDep,
+    )?;
 
-                        custom_script_type_id = Some(type_id);
+    verifiers::common::verify_cell_dep_number("AccountCell", &dep_account_cells, 1)?;
 
-                        // CAREFUL This is very important, only update it with fully understanding the requirements.
-                        debug!("Verify if there is no BalanceCells of the parent AccountCell's owner is spent.");
+    let account_cell_index = dep_account_cells[0];
+    let account_cell_source = Source::CellDep;
+    let account_cell_witness = util::parse_account_cell_witness(&parser, dep_account_cells[0], Source::CellDep)?;
+    let account_cell_reader = account_cell_witness.as_reader();
+    let account_cell_data = util::load_cell_data(account_cell_index, account_cell_source)?;
+    let account_lock = high_level::load_cell_lock(account_cell_index, account_cell_source)?;
+    let account_lock_args = account_lock.as_reader().args().raw_data();
 
-                        verifiers::common::verify_cell_number("BalanceCell", &all_inputs_balance_cells, 0, &[], 0)?;
-                    }
-                    Some(SubAccountConfigFlag::CustomRule) => {
-                        debug!(
-                            "The SubAccountCell.data.flag is {}, pasing custom rules ...",
-                            SubAccountConfigFlag::CustomRule
-                        );
+    verifiers::account_cell::verify_sub_account_enabled(&account_cell_reader, account_cell_index, account_cell_source)?;
 
-                        custom_price_rules =
-                            sub_account_parser.get_rules(&input_sub_account_data, DataType::SubAccountPriceRule)?;
-                        custom_preserved_rules =
-                            sub_account_parser.get_rules(&input_sub_account_data, DataType::SubAccountPreservedRule)?;
-                    }
-                    _ => {
-                        debug!("The SubAccountCell.data.flag is {} ...", SubAccountConfigFlag::Manual);
-                    }
-                }
+    verifiers::account_cell::verify_account_expiration(
+        config_account,
+        account_cell_index,
+        account_cell_source,
+        timestamp,
+    )?;
 
-                verifiers::account_cell::verify_status(
-                    &account_cell_reader,
-                    AccountStatus::Normal,
-                    account_cell_index,
-                    account_cell_source,
+    let mut parent_account = account_cell_reader.account().as_readable();
+    parent_account.extend(ACCOUNT_SUFFIX.as_bytes());
+
+    debug!("Verify if the SubAccountCells in inputs and outputs have sufficient capacity and paid transaction fees properly ...");
+
+    let (input_sub_account_cells, output_sub_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
+
+    verifiers::common::verify_cell_number_and_position(
+        "SubAccountCell",
+        &input_sub_account_cells,
+        &[0],
+        &output_sub_account_cells,
+        &[0],
+    )?;
+
+    let input_sub_account_capacity = high_level::load_cell_capacity(input_sub_account_cells[0], Source::Input)?;
+    let output_sub_account_capacity = high_level::load_cell_capacity(output_sub_account_cells[0], Source::Output)?;
+    let input_sub_account_data = high_level::load_cell_data(input_sub_account_cells[0], Source::Input)?;
+    let output_sub_account_data = high_level::load_cell_data(output_sub_account_cells[0], Source::Output)?;
+
+    verify_sub_account_capacity_is_enough(
+        config_sub_account,
+        input_sub_account_cells[0],
+        input_sub_account_capacity,
+        &input_sub_account_data,
+        output_sub_account_cells[0],
+        output_sub_account_capacity,
+        &output_sub_account_data,
+    )?;
+
+    verify_sub_account_transaction_fee(
+        config_sub_account,
+        input_sub_account_capacity,
+        &input_sub_account_data,
+        output_sub_account_capacity,
+        &output_sub_account_data,
+    )?;
+
+    verifiers::sub_account_cell::verify_sub_account_parent_id(
+        input_sub_account_cells[0],
+        Source::Input,
+        account_cell_reader.id().raw_data(),
+    )?;
+
+    debug!("Initialize the dynamic signing libraries ...");
+
+    let mut sign_lib = SignLib::new();
+    // ⚠️ This must be present at the top level, as we will need to use the libraries later.
+
+    if cfg!(not(feature = "dev")) {
+        // let mut ckb_context = new_context!();
+        // log_loading!(DynLibName::CKBSignhash, config_main.das_lock_type_id_table());
+        // let ckb_lib = load_lib!(ckb_context, DynLibName::CKBSignhash, config_main.das_lock_type_id_table());
+        // sign_lib.ckb_signhash = load_2_methods!(ckb_lib);
+
+        let mut eth_context = new_context!();
+        log_loading!(DynLibName::ETH, config_main.das_lock_type_id_table());
+        let eth_lib = load_lib!(eth_context, DynLibName::ETH, config_main.das_lock_type_id_table());
+        sign_lib.eth = load_2_methods!(eth_lib);
+
+        let mut tron_context = new_context!();
+        log_loading!(DynLibName::TRON, config_main.das_lock_type_id_table());
+        let tron_lib = load_lib!(tron_context, DynLibName::TRON, config_main.das_lock_type_id_table());
+        sign_lib.tron = load_2_methods!(tron_lib);
+
+        let mut doge_context = new_context!();
+        log_loading!(DynLibName::DOGE, config_main.das_lock_type_id_table());
+        let doge_lib = load_lib!(doge_context, DynLibName::DOGE, config_main.das_lock_type_id_table());
+        sign_lib.doge = load_2_methods!(doge_lib);
+    }
+
+    // Initiate some variables used again and again in the following codes.
+    let flag = match data_parser::sub_account_cell::get_flag(&input_sub_account_data) {
+        Some(val) => val,
+        None => {
+            warn!("The flag should always be some for now.");
+            return Err(code_to_error!(ErrorCode::HardCodedError));
+        }
+    };
+    let sub_account_parser = SubAccountWitnessesParser::new(flag)?;
+    let parent_expired_at = data_parser::account_cell::get_expired_at(&account_cell_data);
+    let header = util::load_header(input_sub_account_cells[0], Source::Input)?;
+    let sub_account_last_updated_at = util::get_timestamp_from_header(header.as_reader());
+
+    let mut manual_mint_list_smt_root = None;
+    let mut sender_lock = packed::Script::default();
+    let mut sender_total_input_capacity = 0;
+
+    let mut custom_script_params = Vec::new();
+    let mut custom_script_type_id = None;
+
+    let mut custom_price_rules = None;
+    let mut custom_preserved_rules = None;
+
+    let all_inputs_balance_cells = util::find_all_balance_cells(config_main, Source::Input)?;
+    if sub_account_parser.contains_creation {
+        debug!("Found `create` action in this transaction, do some common verfications ...");
+
+        match sub_account_parser.get_mint_sign(account_lock_args) {
+            Some(Ok(witness)) => {
+                debug!("The SubAccountMintSignWitness is exist, verifying the signature for manual mint ...",);
+
+                verifiers::sub_account_cell::verify_sub_account_mint_sign_not_expired(
+                    &sub_account_parser,
+                    &witness,
+                    parent_expired_at,
+                    sub_account_last_updated_at,
+                )?;
+                verifiers::sub_account_cell::verify_sub_account_mint_sign(&witness, &sign_lib)?;
+
+                let mut tmp = [0u8; 32];
+                tmp.copy_from_slice(&witness.account_list_smt_root);
+                manual_mint_list_smt_root = Some(tmp);
+
+                sender_lock = if witness.sign_role == Some(LockRole::Manager) {
+                    debug!("Found SubAccountWitness.sign_role is manager, use manager lock as sender_lock.");
+                    util::derive_manager_lock_from_cell(account_cell_index, account_cell_source)?
+                } else {
+                    debug!("Found SubAccountWitness.sign_role is owner, use owner lock as sender_lock.");
+                    util::derive_owner_lock_from_cell(account_cell_index, account_cell_source)?
+                };
+
+                let input_sender_balance_cells =
+                    util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Input)?;
+
+                verifiers::misc::verify_no_more_cells_with_same_lock(
+                    sender_lock.as_reader(),
+                    &input_sender_balance_cells,
+                    Source::Input,
                 )?;
 
+                sender_total_input_capacity = if input_sender_balance_cells.is_empty() {
+                    0
+                } else {
+                    util::load_cells_capacity(&input_sender_balance_cells, Source::Input)?
+                };
+            }
+            Some(Err(err)) => {
+                return Err(err);
+            }
+            None => {}
+        }
+
+        debug!("The SubAccountCell.data.flag is {} .", flag.to_string());
+
+        match flag {
+            SubAccountConfigFlag::CustomScript => {
                 verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
                     input_sub_account_cells[0],
                     output_sub_account_cells[0],
                     vec!["smt_root", "das_profit", "owner_profit"],
                 )?;
-            } else {
+
+                debug!("Push action into custom_script_params.");
+
+                // TODO This can be removed now, but we need update the custom script first.
+                let action_str = String::from_utf8(action.to_vec()).unwrap();
+                custom_script_params.push(action_str);
+
+                debug!("Try to find the QuoteCell from cell_deps and push quote into custom_script_params.");
+
+                let quote = util::load_oracle_data(OracleCellType::Quote)?;
+                custom_script_params.push(util::hex_string(&quote.to_le_bytes()));
+
+                let input_das_profit = data_parser::sub_account_cell::get_das_profit(&input_sub_account_data).unwrap();
+                let output_das_profit =
+                    data_parser::sub_account_cell::get_das_profit(&output_sub_account_data).unwrap();
+                let input_owner_profit =
+                    data_parser::sub_account_cell::get_owner_profit(&input_sub_account_data).unwrap();
+                let output_owner_profit =
+                    data_parser::sub_account_cell::get_owner_profit(&output_sub_account_data).unwrap();
+                let owner_profit = output_owner_profit - input_owner_profit;
+                let das_profit = output_das_profit - input_das_profit;
+
+                custom_script_params.push(util::hex_string(&owner_profit.to_le_bytes()));
+                custom_script_params.push(util::hex_string(&das_profit.to_le_bytes()));
+
+                let custom_script_args =
+                    data_parser::sub_account_cell::get_custom_script_args(&input_sub_account_data).unwrap();
+                custom_script_params.push(util::hex_string(custom_script_args));
+
+                let args = match data_parser::sub_account_cell::get_custom_script(&input_sub_account_data) {
+                    Some(val) => val,
+                    None => {
+                        return Err(code_to_error!(SubAccountCellErrorCode::SubAccountCustomScriptEmpty));
+                    }
+                };
+                let type_of_custom_script = Script::new_builder()
+                    .code_hash(Hash::from(TYPE_ID_CODE_HASH))
+                    .hash_type(Byte::from(1))
+                    .args(Bytes::from(args))
+                    .build();
+                let type_id = util::blake2b_256(type_of_custom_script.as_slice());
+
+                debug!("The type ID of custom script is: 0x{}", util::hex_string(&type_id));
+
+                custom_script_type_id = Some(type_id);
+
                 // CAREFUL This is very important, only update it with fully understanding the requirements.
-                debug!("Verify if there is no BalanceCells are spent.");
+                debug!("Verify if there is no BalanceCells of the parent AccountCell's owner is spent.");
 
                 verifiers::common::verify_cell_number("BalanceCell", &all_inputs_balance_cells, 0, &[], 0)?;
             }
-
-            if sub_account_parser.contains_edition {
-                debug!("Found `edit` action in this transaction, do some common verfications ...");
-
-                if !sub_account_parser.contains_creation {
-                    debug!("There is no `create` action found, verify the SubAccountCell is consistent in inputs and outputs.");
-
-                    verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
-                        input_sub_account_cells[0],
-                        output_sub_account_cells[0],
-                        vec!["smt_root"],
-                    )?;
-                }
-            }
-
-            debug!("Start iterating sub-account witnesses ...");
-
-            // The first smt root is in the outputs_data of the SubAccountCell in inputs.
-            let mut prev_root = match data_parser::sub_account_cell::get_smt_root(&input_sub_account_data) {
-                Some(val) => val.to_vec(),
-                None => {
-                    warn!(
-                        "inputs[{}] The outputs_data.smt_root should be exist.",
-                        input_sub_account_cells[0]
-                    );
-                    return Err(code_to_error!(ErrorCode::InvalidCellData));
-                }
-            };
-            // The latest smt root is in the outputs_data of the SubAccountCell in outputs.
-            let latest_root = match data_parser::sub_account_cell::get_smt_root(&output_sub_account_data) {
-                Some(val) => val.to_vec(),
-                None => {
-                    warn!(
-                        "outputs[{}] The outputs_data.smt_root should be exist.",
-                        output_sub_account_cells[0]
-                    );
-                    return Err(code_to_error!(ErrorCode::InvalidCellData));
-                }
-            };
-
-            let mut minimal_required_das_profit = 0;
-            let mut profit_from_manual_mint = 0;
-            let mut profit_total = 0;
-            for (i, witness_ret) in sub_account_parser.iter().enumerate() {
-                if let Err(e) = witness_ret {
-                    return Err(e);
-                }
-
-                let witness = witness_ret.unwrap();
-                let sub_account_reader = witness.sub_account.as_reader();
-
-                verifiers::sub_account_cell::verify_suffix_with_parent_account(
-                    witness.index,
-                    sub_account_reader,
-                    &parent_account,
+            SubAccountConfigFlag::CustomRule => {
+                verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
+                    input_sub_account_cells[0],
+                    output_sub_account_cells[0],
+                    vec!["smt_root", "das_profit"],
                 )?;
 
-                match witness.action {
-                    SubAccountAction::Create => {
-                        smt_verify_sub_account_is_creatable(&prev_root, &witness)?;
+                debug!("Parsing custom rules from witness ...");
 
-                        debug!(
-                            "  witnesses[{:>2}] Verify if the account is registrable.",
-                            witness.index
-                        );
+                custom_price_rules =
+                    sub_account_parser.get_rules(&input_sub_account_data, DataType::SubAccountPriceRule)?;
+                custom_preserved_rules =
+                    sub_account_parser.get_rules(&input_sub_account_data, DataType::SubAccountPreservedRule)?;
+            }
+            _ => {
+                verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
+                    input_sub_account_cells[0],
+                    output_sub_account_cells[0],
+                    vec!["smt_root", "das_profit"],
+                )?;
+            }
+        }
 
-                        let account_chars = witness.sub_account.account();
-                        let account_chars_reader = account_chars.as_reader();
-                        let mut account_bytes = account_chars.as_readable();
-                        account_bytes.extend(sub_account_reader.suffix().raw_data());
-                        let account = String::from_utf8(account_bytes)
-                            .map_err(|_| code_to_error!(SubAccountCellErrorCode::BytesToStringFailed))?;
+        verifiers::account_cell::verify_status(
+            &account_cell_reader,
+            AccountStatus::Normal,
+            account_cell_index,
+            account_cell_source,
+        )?;
+    } else {
+        // CAREFUL This is very important, only update it with fully understanding the requirements.
+        debug!("Verify if there is no BalanceCells are spent.");
 
-                        verifiers::account_cell::verify_account_chars(&parser, account_chars_reader)?;
-                        verifiers::account_cell::verify_account_chars_min_length(account_chars_reader)?;
-                        verifiers::account_cell::verify_account_chars_max_length(&parser, account_chars_reader)?;
+        verifiers::common::verify_cell_number("BalanceCell", &all_inputs_balance_cells, 0, &[], 0)?;
 
-                        verifiers::sub_account_cell::verify_initial_properties(
-                            witness.index,
-                            sub_account_reader,
-                            timestamp,
-                        )?;
+        if sub_account_parser.contains_edition {
+            debug!(
+                "Found `edit` action in this transaction but no `create` action, so do some common verfications ..."
+            );
 
-                        let expired_at = u64::from(sub_account_reader.expired_at());
-                        let registered_at = u64::from(sub_account_reader.registered_at());
-                        let expiration_years = (expired_at - registered_at) / YEAR_SEC;
+            verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
+                input_sub_account_cells[0],
+                output_sub_account_cells[0],
+                vec!["smt_root"],
+            )?;
+        } else {
+            debug!("No writing action found, the SubAccountCell must be consistent ...");
 
-                        das_assert!(
-                            expiration_years >= 1,
-                            SubAccountCellErrorCode::ExpirationYearsTooShort,
-                            "The expiration years should be at least 1 year."
-                        );
+            verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
+                input_sub_account_cells[0],
+                output_sub_account_cells[0],
+                vec![],
+            )?;
+        }
+    }
 
-                        debug!(
-                            "  witnesses[{:>2}] The account is registered for {} years.",
-                            witness.index, expiration_years
-                        );
+    debug!("Start iterating sub-account witnesses ...");
 
-                        let mut manually_minted = false;
-                        if let Some(root) = manual_mint_list_smt_root.clone() {
-                            match smt_verify_sub_account_is_in_signed_list(root, &witness) {
-                                Ok(()) => {
-                                    debug!(
-                                        "  witnesses[{:>2}] The account is in the signed mint list, it can be register without payment.",
-                                        witness.index
-                                    );
-                                    manually_minted = true;
+    // The first smt root is in the outputs_data of the SubAccountCell in inputs.
+    let mut prev_root = match data_parser::sub_account_cell::get_smt_root(&input_sub_account_data) {
+        Some(val) => val.to_vec(),
+        None => {
+            warn!(
+                "inputs[{}] The outputs_data.smt_root should be exist.",
+                input_sub_account_cells[0]
+            );
+            return Err(code_to_error!(ErrorCode::InvalidCellData));
+        }
+    };
+    // The latest smt root is in the outputs_data of the SubAccountCell in outputs.
+    let latest_root = match data_parser::sub_account_cell::get_smt_root(&output_sub_account_data) {
+        Some(val) => val.to_vec(),
+        None => {
+            warn!(
+                "outputs[{}] The outputs_data.smt_root should be exist.",
+                output_sub_account_cells[0]
+            );
+            return Err(code_to_error!(ErrorCode::InvalidCellData));
+        }
+    };
 
-                                    let profit =
-                                        u64::from(config_sub_account.new_sub_account_price()) * expiration_years;
-                                    profit_from_manual_mint += profit;
-                                    profit_total += profit;
-                                    minimal_required_das_profit += profit;
-                                }
-                                Err(_) => {}
-                            }
-                        }
+    let mut minimal_required_das_profit = 0;
+    let mut profit_from_manual_mint = 0;
+    let mut profit_total = 0;
+    for (i, witness_ret) in sub_account_parser.iter().enumerate() {
+        if let Err(e) = witness_ret {
+            return Err(e);
+        }
 
-                        if !manually_minted {
-                            debug!(
-                                "  witnesses[{:>2}] The account is not in the signed mint list, calculating its price ...",
-                                witness.index
-                            );
+        let witness = witness_ret.unwrap();
+        let sub_account_reader = witness.sub_account.as_reader();
 
-                            match flag {
-                                Some(SubAccountConfigFlag::CustomScript) => {
-                                    debug!(
-                                        "  witnesses[{:>2}] The SubAccountCell.data.flag is {}, record registered years and pass to custom scripts later ...",
-                                        witness.index,
-                                        SubAccountConfigFlag::CustomScript
-                                    );
+        verifiers::sub_account_cell::verify_suffix_with_parent_account(
+            witness.index,
+            sub_account_reader,
+            &parent_account,
+        )?;
 
-                                    let mut custom_script_param = expiration_years.to_le_bytes().to_vec();
-                                    custom_script_param.append(&mut sub_account_reader.account().as_slice().to_vec());
-                                    custom_script_params.push(util::hex_string(&custom_script_param));
+        match witness.action {
+            SubAccountAction::Create => {
+                smt_verify_sub_account_is_creatable(&prev_root, &witness)?;
 
-                                    // This variable will be treat as the minimal profit to DAS no matter the custom script exist or not.
-                                    minimal_required_das_profit +=
-                                        u64::from(config_sub_account.new_sub_account_price()) * expiration_years;
-                                }
-                                Some(SubAccountConfigFlag::CustomRule) => {
-                                    debug!(
-                                        "  witnesses[{:>2}] The SubAccountCell.data.flag is {}, execute the custome rules to check if the account is preserved and calculate its price ...",
-                                        witness.index,
-                                        SubAccountConfigFlag::CustomRule
-                                    );
+                debug!(
+                    "  witnesses[{:>2}] Verify if the account is registrable.",
+                    witness.index
+                );
 
-                                    if let Some(rules) = custom_preserved_rules.as_ref() {
-                                        if let Some(rule) =
-                                            match_rule_with_account_chars(&rules, account_chars_reader, &account)
-                                                .map_err(|_| {
-                                                    code_to_error!(SubAccountCellErrorCode::ConfigRulesHasSyntaxError)
-                                                })?
-                                        {
-                                            warn!(
-                                                "  witnesses[{:>2}] The new SubAccount should be preserved.(matched rule: {})",
-                                                witness.index,
-                                                rule.index
-                                            );
-                                            return Err(code_to_error!(SubAccountCellErrorCode::AccountIsPreserved));
-                                        }
-                                    }
+                let account_chars = witness.sub_account.account();
+                let account_chars_reader = account_chars.as_reader();
+                let mut account_bytes = account_chars.as_readable();
+                account_bytes.extend(sub_account_reader.suffix().raw_data());
+                let account = String::from_utf8(account_bytes)
+                    .map_err(|_| code_to_error!(SubAccountCellErrorCode::BytesToStringFailed))?;
 
-                                    if let Some(rules) = custom_price_rules.as_ref() {
-                                        if let Some(rule) =
-                                            match_rule_with_account_chars(&rules, account_chars_reader, &account)
-                                                .map_err(|_| {
-                                                    code_to_error!(SubAccountCellErrorCode::ConfigRulesHasSyntaxError)
-                                                })?
-                                        {
-                                            let profit =
-                                                util::calc_yearly_capacity(rule.price, quote, 0) * expiration_years;
-                                            profit_total += profit;
+                verifiers::account_cell::verify_account_chars(&parser, account_chars_reader)?;
+                verifiers::account_cell::verify_account_chars_min_length(account_chars_reader)?;
+                verifiers::account_cell::verify_account_chars_max_length(&parser, account_chars_reader)?;
 
-                                            minimal_required_das_profit +=
-                                                u64::from(config_sub_account.new_sub_account_price())
-                                                    * expiration_years;
+                verifiers::sub_account_cell::verify_initial_properties(witness.index, sub_account_reader, timestamp)?;
 
-                                            debug!(
-                                                "  witnesses[{:>2}] account: {}, matched rule: {}, profit: {} in shannon",
-                                                witness.index, account, rule.index, profit
-                                            );
-                                        } else {
-                                            warn!(
-                                                "  witnesses[{:>2}] The account {} has no price, it is can not be registered.",
-                                                witness.index,
-                                                account
-                                            );
-                                            return Err(code_to_error!(SubAccountCellErrorCode::AccountHasNoPrice));
-                                        }
-                                    } else {
-                                        warn!(
-                                            "  witnesses[{:>2}] The account {} is can not be registered, no price rule found(price_rules_hash is 0x0000...).",
-                                            witness.index,
-                                            account
-                                        );
-                                        return Err(code_to_error!(SubAccountCellErrorCode::AccountHasNoPrice));
-                                    }
-                                }
-                                _ => {
-                                    warn!(
-                                        "  witnesses[{:>2}] The new SubAccount should be in the signed mint list.",
-                                        witness.index
-                                    );
-                                    return Err(code_to_error!(SubAccountCellErrorCode::CanNotMint));
-                                }
-                            }
-                        }
-                    }
-                    SubAccountAction::Edit => {
-                        let new_sub_account =
-                            generate_new_sub_account_by_edit_value(witness.sub_account.clone(), &witness.edit_value)?;
-                        let new_sub_account_reader = new_sub_account.as_reader();
+                let expired_at = u64::from(sub_account_reader.expired_at());
+                let registered_at = u64::from(sub_account_reader.registered_at());
+                let expiration_years = (expired_at - registered_at) / YEAR_SEC;
 
-                        debug!(
-                            "witnesses[{}] Calculated new sub-account structure is: {}",
-                            witness.index,
-                            new_sub_account_reader.as_prettier()
-                        );
+                das_assert!(
+                    expiration_years >= 1,
+                    SubAccountCellErrorCode::ExpirationYearsTooShort,
+                    "The expiration years should be at least 1 year."
+                );
 
-                        smt_verify_sub_account_is_editable(&prev_root, &witness, new_sub_account_reader)?;
+                debug!(
+                    "  witnesses[{:>2}] The account is registered for {} years.",
+                    witness.index, expiration_years
+                );
 
-                        verifiers::sub_account_cell::verify_unlock_role(&witness)?;
-                        verifiers::sub_account_cell::verify_sub_account_edit_sign_not_expired(
-                            &witness,
-                            parent_expired_at,
-                            sub_account_last_updated_at,
-                        )?;
-                        verifiers::sub_account_cell::verify_sub_account_edit_sign(&witness, &sign_lib)?;
-                        verifiers::sub_account_cell::verify_expiration(
-                            config_account,
-                            witness.index,
-                            sub_account_reader,
-                            timestamp,
-                        )?;
-                        verifiers::sub_account_cell::verify_status(
-                            witness.index,
-                            sub_account_reader,
-                            AccountStatus::Normal,
-                        )?;
-
-                        match &witness.edit_value {
-                            SubAccountEditValue::Owner(new_args) | SubAccountEditValue::Manager(new_args) => {
-                                let sub_account_reader = witness.sub_account.as_reader();
-                                let current_args = sub_account_reader.lock().args().raw_data();
-                                let (
-                                    current_owner_type,
-                                    current_owner_args,
-                                    current_manager_type,
-                                    current_manager_args,
-                                ) = data_parser::das_lock_args::get_owner_and_manager(current_args)?;
-                                let (new_owner_type, new_owner_args, new_manager_type, new_manager_args) =
-                                    data_parser::das_lock_args::get_owner_and_manager(new_args)?;
-
-                                if let SubAccountEditValue::Owner(_) = &witness.edit_value {
-                                    debug!(
-                                        "witnesses[{}] Verify if owner has been changed correctly.",
-                                        witness.index
-                                    );
-
-                                    das_assert!(
-                                        current_owner_type != new_owner_type || current_owner_args != new_owner_args,
-                                        SubAccountCellErrorCode::SubAccountEditLockError,
-                                        "witnesses[{}] The owner fields in args should be consistent.",
-                                        witness.index
-                                    );
-
-                                    // Skip verifying manger, because owner has been changed.
-                                } else {
-                                    debug!(
-                                        "witnesses[{}] Verify if manager has been changed correctly.",
-                                        witness.index
-                                    );
-
-                                    das_assert!(
-                                        current_owner_type == new_owner_type && current_owner_args == new_owner_args,
-                                        SubAccountCellErrorCode::SubAccountEditLockError,
-                                        "witnesses[{}] The owner fields in args should be consistent.",
-                                        witness.index
-                                    );
-
-                                    das_assert!(
-                                        current_manager_type != new_manager_type
-                                            || current_manager_args != new_manager_args,
-                                        SubAccountCellErrorCode::SubAccountEditLockError,
-                                        "witnesses[{}] The manager fields in args should be changed.",
-                                        witness.index
-                                    );
-                                }
-                            }
-                            SubAccountEditValue::Records(records) => {
-                                verifiers::account_cell::verify_records_keys(&parser, records.as_reader())?;
-                            }
-                            // manual::verify_expired_at_not_editable
-                            SubAccountEditValue::ExpiredAt(_) => {
-                                warn!(
-                                    "witnesses[{}] Can not edit witness.sub_account.expired_at in this transaction.",
-                                    witness.index
-                                );
-                                return Err(code_to_error!(SubAccountCellErrorCode::SubAccountFieldNotEditable));
-                            }
-                            // manual::verify_edit_value_not_empty
-                            SubAccountEditValue::None => {
-                                warn!(
-                                    "witnesses[{}] The witness.edit_value should not be empty.",
-                                    witness.index
-                                );
-                                return Err(code_to_error!(SubAccountCellErrorCode::SubAccountFieldNotEditable));
-                            }
-                        }
-                    }
-                    SubAccountAction::Renew => todo!(),
-                    SubAccountAction::Recycle => todo!(),
-                }
-
-                prev_root = witness.new_root.clone();
-
-                if i == sub_account_parser.len() - 1 {
-                    debug!(
-                        "witnesses[{}] Verify if the last witness.new_root is consistent with the latest SMT root in the SubAccountCell in the outputs..",
+                let mut is_manual_minted = false;
+                if witness.edit_key.is_empty() || matches!(witness.edit_value, SubAccountEditValue::Proof) {
+                    das_assert!(
+                        manual_mint_list_smt_root.is_some(),
+                        SubAccountCellErrorCode::WitnessSignMintIsRequired,
+                        "  witnesses[{:>2}] The account is marked as manual mint, but the manual mint list is empty.",
                         witness.index
                     );
 
-                    let latest_root_in_witness = witness.new_root.as_slice();
-                    das_assert!(
-                        latest_root_in_witness == latest_root,
-                        SubAccountCellErrorCode::SubAccountWitnessMismatched,
-                        "The latest SMT root in witnesses should be consistent with the latest SMT root in the SubAccountCell in the outputs.(in_witness: {}, in_data: {})",
-                        util::hex_string(latest_root_in_witness),
-                        util::hex_string(&latest_root)
-                    );
+                    let root = manual_mint_list_smt_root.as_ref().unwrap();
+                    match smt_verify_sub_account_is_in_signed_list(root.clone(), &witness) {
+                        Ok(()) => {
+                            debug!(
+                                "  witnesses[{:>2}] The account is in the signed mint list, it can be register without payment.",
+                                witness.index
+                            );
+
+                            let profit = u64::from(config_sub_account.new_sub_account_price()) * expiration_years;
+                            profit_from_manual_mint += profit;
+                            profit_total += profit;
+                            minimal_required_das_profit +=
+                                u64::from(config_sub_account.new_sub_account_price()) * expiration_years;
+
+                            is_manual_minted = true;
+                        }
+                        Err(_) => {
+                            if matches!(witness.edit_value, SubAccountEditValue::Proof) {
+                                warn!(
+                                    "  witnesses[{:>2}] The proof of account is invalid, but it is marked as manual mint.",
+                                    witness.index
+                                );
+
+                                return Err(code_to_error!(SubAccountCellErrorCode::AccountMissingProof));
+                            } else {
+                                debug!("  witnesses[{:>2}] The account is not in the signed mint list, continue try other mint methods.", witness.index);
+                            }
+                        }
+                    }
+                }
+
+                if !is_manual_minted {
+                    match flag {
+                        SubAccountConfigFlag::CustomScript => {
+                            debug!(
+                                "  witnesses[{:>2}] Record registered years and pass to custom scripts later ...",
+                                witness.index
+                            );
+
+                            let mut custom_script_param = expiration_years.to_le_bytes().to_vec();
+                            custom_script_param.append(&mut sub_account_reader.account().as_slice().to_vec());
+                            custom_script_params.push(util::hex_string(&custom_script_param));
+
+                            // This variable will be treat as the minimal profit to DAS no matter the custom script exist or not.
+                            minimal_required_das_profit +=
+                                u64::from(config_sub_account.new_sub_account_price()) * expiration_years;
+
+                            das_assert!(
+                                matches!(witness.edit_value, SubAccountEditValue::None),
+                                SubAccountCellErrorCode::WitnessEditValueError,
+                                "  witnesses[{:>2}] The edit_value should be none when the account is Custom Script Mint.",
+                                witness.index
+                            );
+                        }
+                        SubAccountConfigFlag::CustomRule => {
+                            debug!(
+                                "  witnesses[{:>2}] Execute the custome rules to check if the account is preserved and calculate its price ...",
+                                witness.index
+                            );
+
+                            if let Some(rules) = custom_preserved_rules.as_ref() {
+                                let matched_rule =
+                                    match_rule_with_account_chars(&rules, account_chars_reader, &account).map_err(
+                                        |err| {
+                                            warn!(
+                                                "  witnesses[{:>2}] The config rules has syntax error: {}",
+                                                witness.index, err
+                                            );
+                                            code_to_error!(SubAccountCellErrorCode::ConfigRulesHasSyntaxError)
+                                        },
+                                    )?;
+                                if let Some(rule) = matched_rule {
+                                    warn!(
+                                        "  witnesses[{:>2}] The new SubAccount should be preserved.(matched rule: {})",
+                                        witness.index, rule.index
+                                    );
+                                    return Err(code_to_error!(SubAccountCellErrorCode::AccountIsPreserved));
+                                }
+                            }
+
+                            if let Some(rules) = custom_price_rules.as_ref() {
+                                let matched_rule =
+                                    match_rule_with_account_chars(&rules, account_chars_reader, &account).map_err(
+                                        |err| {
+                                            warn!(
+                                                "  witnesses[{:>2}] The config rules has syntax error: {}",
+                                                witness.index, err
+                                            );
+                                            code_to_error!(SubAccountCellErrorCode::ConfigRulesHasSyntaxError)
+                                        },
+                                    )?;
+                                if let Some(rule) = matched_rule {
+                                    let profit = util::calc_yearly_capacity(rule.price, quote, 0) * expiration_years;
+                                    profit_total += profit;
+
+                                    minimal_required_das_profit +=
+                                        u64::from(config_sub_account.new_sub_account_price()) * expiration_years;
+
+                                    debug!(
+                                        "  witnesses[{:>2}] account: {}, matched rule: {}, profit: {} in shannon",
+                                        witness.index, account, rule.index, profit
+                                    );
+                                } else {
+                                    warn!(
+                                        "  witnesses[{:>2}] The account {} has no price, it is can not be registered.",
+                                        witness.index, account
+                                    );
+                                    return Err(code_to_error!(SubAccountCellErrorCode::AccountHasNoPrice));
+                                }
+                            } else {
+                                warn!(
+                                    "  witnesses[{:>2}] The account {} is can not be registered, no price rule found(price_rules_hash is 0x0000...).",
+                                    witness.index,
+                                    account
+                                );
+                                return Err(code_to_error!(SubAccountCellErrorCode::AccountHasNoPrice));
+                            }
+
+                            das_assert!(
+                                matches!(witness.edit_value, SubAccountEditValue::Channel(_, _)),
+                                SubAccountCellErrorCode::WitnessEditValueError,
+                                "  witnesses[{:>2}] The edit_value should be contains channel info when the account is Custom Rule Mint.",
+                                witness.index
+                            );
+                        }
+                        _ => {
+                            if !is_manual_minted {
+                                warn!(
+                                    "  witnesses[{:>2}] The new SubAccount should be either manual mint or custom rule/script mint.",
+                                    witness.index
+                                );
+                                return Err(code_to_error!(SubAccountCellErrorCode::CanNotMint));
+                            }
+                        }
+                    }
                 }
             }
+            SubAccountAction::Edit => {
+                let new_sub_account =
+                    generate_new_sub_account_by_edit_value(witness.sub_account.clone(), &witness.edit_value)?;
+                let new_sub_account_reader = new_sub_account.as_reader();
 
-            if sub_account_parser.contains_creation {
-                debug!("Verify if the profit distribution is correct.");
+                debug!(
+                    "witnesses[{}] Calculated new sub-account structure is: {}",
+                    witness.index,
+                    new_sub_account_reader.as_prettier()
+                );
 
-                if sender_total_input_capacity > 0 {
-                    debug!("Verify if the sender capacity cost is correct.");
+                smt_verify_sub_account_is_editable(&prev_root, &witness, new_sub_account_reader)?;
 
-                    let output_sender_balance_cells =
-                        util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Output)?;
-                    let sender_total_output_capacity =
-                        util::load_cells_capacity(&output_sender_balance_cells, Source::Output)?;
+                verifiers::sub_account_cell::verify_unlock_role(&witness)?;
+                verifiers::sub_account_cell::verify_sub_account_edit_sign_not_expired(
+                    &witness,
+                    parent_expired_at,
+                    sub_account_last_updated_at,
+                )?;
+                verifiers::sub_account_cell::verify_sub_account_edit_sign(&witness, &sign_lib)?;
+                verifiers::sub_account_cell::verify_expiration(
+                    config_account,
+                    witness.index,
+                    sub_account_reader,
+                    timestamp,
+                )?;
+                verifiers::sub_account_cell::verify_status(witness.index, sub_account_reader, AccountStatus::Normal)?;
 
-                    if sender_total_input_capacity > sender_total_output_capacity {
-                        let available_fee = u64::from(config_sub_account.common_fee());
+                match &witness.edit_value {
+                    SubAccountEditValue::Owner(new_args) | SubAccountEditValue::Manager(new_args) => {
+                        let sub_account_reader = witness.sub_account.as_reader();
+                        let current_args = sub_account_reader.lock().args().raw_data();
+                        let (current_owner_type, current_owner_args, current_manager_type, current_manager_args) =
+                            data_parser::das_lock_args::get_owner_and_manager(current_args)?;
+                        let (new_owner_type, new_owner_args, new_manager_type, new_manager_args) =
+                            data_parser::das_lock_args::get_owner_and_manager(new_args)?;
 
-                        das_assert!(
-                            sender_total_input_capacity - sender_total_output_capacity <= profit_from_manual_mint + available_fee,
-                            SubAccountCellErrorCode::SenderCapacityOverCost,
-                            "The sender capacity cost should be less than or equal to the cost for manual mint.(should less than: {}, actual: {})",
-                            profit_from_manual_mint,
-                            sender_total_input_capacity - sender_total_output_capacity
+                        if let SubAccountEditValue::Owner(_) = &witness.edit_value {
+                            debug!(
+                                "witnesses[{}] Verify if owner has been changed correctly.",
+                                witness.index
+                            );
+
+                            das_assert!(
+                                current_owner_type != new_owner_type || current_owner_args != new_owner_args,
+                                SubAccountCellErrorCode::SubAccountEditLockError,
+                                "witnesses[{}] The owner fields in args should be consistent.",
+                                witness.index
+                            );
+
+                            // Skip verifying manger, because owner has been changed.
+                        } else {
+                            debug!(
+                                "witnesses[{}] Verify if manager has been changed correctly.",
+                                witness.index
+                            );
+
+                            das_assert!(
+                                current_owner_type == new_owner_type && current_owner_args == new_owner_args,
+                                SubAccountCellErrorCode::SubAccountEditLockError,
+                                "witnesses[{}] The owner fields in args should be consistent.",
+                                witness.index
+                            );
+
+                            das_assert!(
+                                current_manager_type != new_manager_type || current_manager_args != new_manager_args,
+                                SubAccountCellErrorCode::SubAccountEditLockError,
+                                "witnesses[{}] The manager fields in args should be changed.",
+                                witness.index
+                            );
+                        }
+                    }
+                    SubAccountEditValue::Records(records) => {
+                        verifiers::account_cell::verify_records_keys(&parser, records.as_reader())?;
+                    }
+                    // manual::verify_expired_at_not_editable
+                    SubAccountEditValue::ExpiredAt(_) => {
+                        warn!(
+                            "witnesses[{}] Can not edit witness.sub_account.expired_at in this transaction.",
+                            witness.index
                         );
+                        return Err(code_to_error!(SubAccountCellErrorCode::SubAccountFieldNotEditable));
                     }
-                } else {
-                    debug!("The sender does not have any capacity cost, skip verification.");
-                }
-
-                match flag {
-                    Some(SubAccountConfigFlag::CustomScript) => {
-                        verify_there_is_only_one_lock_for_normal_cells(
-                            input_sub_account_cells[0],
-                            output_sub_account_cells[0],
-                        )?;
-
-                        verify_profit_to_das_with_custom_script(
-                            config_sub_account,
-                            minimal_required_das_profit,
-                            &input_sub_account_data,
-                            &output_sub_account_data,
-                        )?;
-
-                        let type_id = custom_script_type_id.unwrap();
-
-                        debug!("Execute custom script by type ID: 0x{}", util::hex_string(&type_id));
-
-                        let params_with_nul = custom_script_params
-                            .iter()
-                            .map(|val| {
-                                let mut ret = val.as_bytes().to_vec();
-                                ret.push(0);
-                                ret
-                            })
-                            .collect::<Vec<_>>();
-                        let mut total_size = 0;
-                        let params = params_with_nul
-                            .iter()
-                            .map(|val| unsafe {
-                                total_size += val.len();
-                                CStr::from_bytes_with_nul_unchecked(val.as_slice())
-                            })
-                            .collect::<Vec<_>>();
-
-                        debug!("The total size of custom script params: {} bytes", total_size);
-
-                        high_level::exec_cell(&type_id, ScriptHashType::Type, 0, 0, &params)
-                            .map_err(Error::<ErrorCode>::from)?;
-                    }
-                    Some(SubAccountConfigFlag::CustomRule) => {
-                        das_assert!(
-                            profit_total >= minimal_required_das_profit,
-                            SubAccountCellErrorCode::MinimalProfitToDASNotReached,
-                            "The minimal profit to DAS is not reached.(expected: {}, total: {})",
-                            minimal_required_das_profit,
-                            profit_total
+                    // manual::verify_edit_value_not_empty
+                    SubAccountEditValue::None | _ => {
+                        warn!(
+                            "witnesses[{}] The witness.edit_value should not be empty.",
+                            witness.index
                         );
-
-                        verify_profit_to_das_and_owner(
-                            config_sub_account,
-                            &input_sub_account_data,
-                            &output_sub_account_data,
-                            // All the profit should be distributed to DAS to wait further distribution.
-                            profit_total,
-                            0,
-                        )?;
-                    }
-                    _ => {
-                        verify_profit_to_das(
-                            output_sub_account_cells[0],
-                            &input_sub_account_data,
-                            &output_sub_account_data,
-                            profit_from_manual_mint,
-                        )?;
+                        return Err(code_to_error!(SubAccountCellErrorCode::SubAccountFieldNotEditable));
                     }
                 }
+            }
+            SubAccountAction::Renew => todo!(),
+            SubAccountAction::Recycle => todo!(),
+        }
+
+        prev_root = witness.new_root.clone();
+
+        if i == sub_account_parser.len() - 1 {
+            debug!(
+                "witnesses[{}] Verify if the last witness.new_root is consistent with the latest SMT root in the SubAccountCell in the outputs..",
+                witness.index
+            );
+
+            let latest_root_in_witness = witness.new_root.as_slice();
+            das_assert!(
+                latest_root_in_witness == latest_root,
+                SubAccountCellErrorCode::SubAccountWitnessMismatched,
+                "The latest SMT root in witnesses should be consistent with the latest SMT root in the SubAccountCell in the outputs.(in_witness: {}, in_data: {})",
+                util::hex_string(latest_root_in_witness),
+                util::hex_string(&latest_root)
+            );
+        }
+    }
+
+    if sub_account_parser.contains_creation {
+        debug!("Verify if the profit distribution is correct.");
+
+        if sender_total_input_capacity > 0 {
+            debug!("Verify if the sender capacity cost is correct.");
+
+            let output_sender_balance_cells =
+                util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Output)?;
+            let sender_total_output_capacity = util::load_cells_capacity(&output_sender_balance_cells, Source::Output)?;
+
+            if sender_total_input_capacity > sender_total_output_capacity {
+                let available_fee = u64::from(config_sub_account.common_fee());
+
+                das_assert!(
+                    sender_total_input_capacity - sender_total_output_capacity <= profit_from_manual_mint + available_fee,
+                    SubAccountCellErrorCode::SenderCapacityOverCost,
+                    "The sender capacity cost should be less than or equal to the cost for manual mint.(should less than: {}, actual: {})",
+                    profit_from_manual_mint,
+                    sender_total_input_capacity - sender_total_output_capacity
+                );
+            }
+        } else {
+            debug!("The sender does not have any capacity cost, skip verification.");
+        }
+
+        match flag {
+            SubAccountConfigFlag::CustomScript => {
+                verify_there_is_only_one_lock_for_normal_cells(
+                    input_sub_account_cells[0],
+                    output_sub_account_cells[0],
+                )?;
+
+                verify_profit_to_das_with_custom_script(
+                    config_sub_account,
+                    minimal_required_das_profit,
+                    &input_sub_account_data,
+                    &output_sub_account_data,
+                )?;
+
+                let type_id = custom_script_type_id.unwrap();
+
+                debug!("Execute custom script by type ID: 0x{}", util::hex_string(&type_id));
+
+                let params_with_nul = custom_script_params
+                    .iter()
+                    .map(|val| {
+                        let mut ret = val.as_bytes().to_vec();
+                        ret.push(0);
+                        ret
+                    })
+                    .collect::<Vec<_>>();
+                let mut total_size = 0;
+                let params = params_with_nul
+                    .iter()
+                    .map(|val| unsafe {
+                        total_size += val.len();
+                        CStr::from_bytes_with_nul_unchecked(val.as_slice())
+                    })
+                    .collect::<Vec<_>>();
+
+                debug!("The total size of custom script params: {} bytes", total_size);
+
+                high_level::exec_cell(&type_id, ScriptHashType::Type, 0, 0, &params)
+                    .map_err(Error::<ErrorCode>::from)?;
+            }
+            SubAccountConfigFlag::CustomRule => {
+                debug!("Verify if all the profit have been accounted for .bit ...");
+
+                das_assert!(
+                    profit_total >= minimal_required_das_profit,
+                    SubAccountCellErrorCode::MinimalProfitToDASNotReached,
+                    "The minimal profit to DAS is not reached.(expected: {}, total: {})",
+                    minimal_required_das_profit,
+                    profit_total
+                );
+
+                verify_profit_to_das_and_owner(
+                    config_sub_account,
+                    &input_sub_account_data,
+                    &output_sub_account_data,
+                    // All the profit should be distributed to DAS to wait further distribution.
+                    profit_total,
+                    0,
+                )?;
+            }
+            _ => {
+                verify_profit_to_das(
+                    output_sub_account_cells[0],
+                    &input_sub_account_data,
+                    &output_sub_account_data,
+                    profit_from_manual_mint,
+                )?;
             }
         }
-        b"collect_sub_account_profit" | b"collect_sub_account_channel_profit" => {
-            parser.parse_cell()?;
-            let config_main = parser.configs.main()?;
-            let config_sub_account = parser.configs.sub_account()?;
+    }
 
+    Ok(())
+}
+
+fn action_collect_sub_account_profit(action: &[u8], parser: &mut WitnessesParser) -> Result<(), Box<dyn ScriptError>> {
+    parser.parse_cell()?;
+    let config_main = parser.configs.main()?;
+    let config_sub_account = parser.configs.sub_account()?;
+
+    debug!("Try to find the SubAccountCells from inputs and outputs ...");
+
+    let (input_sub_account_cells, output_sub_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
+
+    verifiers::common::verify_cell_number_and_position(
+        "SubAccountCell",
+        &input_sub_account_cells,
+        &[0],
+        &output_sub_account_cells,
+        &[0],
+    )?;
+
+    let input_sub_account_capacity = high_level::load_cell_capacity(input_sub_account_cells[0], Source::Input)?;
+    let output_sub_account_capacity = high_level::load_cell_capacity(output_sub_account_cells[0], Source::Output)?;
+    let input_sub_account_data = high_level::load_cell_data(input_sub_account_cells[0], Source::Input)?;
+    let output_sub_account_data = high_level::load_cell_data(output_sub_account_cells[0], Source::Output)?;
+
+    verify_sub_account_capacity_is_enough(
+        config_sub_account,
+        input_sub_account_cells[0],
+        input_sub_account_capacity,
+        &input_sub_account_data,
+        output_sub_account_cells[0],
+        output_sub_account_capacity,
+        &output_sub_account_data,
+    )?;
+
+    let input_das_profit = data_parser::sub_account_cell::get_das_profit(&input_sub_account_data).unwrap();
+    let output_das_profit = data_parser::sub_account_cell::get_das_profit(&output_sub_account_data).unwrap();
+
+    let transaction_fee = u64::from(config_sub_account.common_fee());
+
+    match action {
+        b"collect_sub_account_profit" => {
             debug!("Try to find the AccountCell from cell_deps ...");
 
             let dep_account_cells = util::find_cells_by_type_id(
@@ -1057,139 +1139,102 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 util::parse_account_cell_witness(&parser, dep_account_cells[0], Source::CellDep)?;
             let account_cell_reader = account_cell_witness.as_reader();
 
-            debug!("Try to find the SubAccountCells from inputs and outputs ...");
-
-            let (input_sub_account_cells, output_sub_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
-
-            verifiers::common::verify_cell_number_and_position(
-                "SubAccountCell",
-                &input_sub_account_cells,
-                &[0],
-                &output_sub_account_cells,
-                &[0],
-            )?;
-
             verifiers::sub_account_cell::verify_sub_account_parent_id(
                 input_sub_account_cells[0],
                 Source::Input,
                 account_cell_reader.id().raw_data(),
             )?;
 
-            let input_sub_account_capacity = high_level::load_cell_capacity(input_sub_account_cells[0], Source::Input)?;
-            let output_sub_account_capacity =
-                high_level::load_cell_capacity(output_sub_account_cells[0], Source::Output)?;
-            let input_sub_account_data = high_level::load_cell_data(input_sub_account_cells[0], Source::Input)?;
-            let output_sub_account_data = high_level::load_cell_data(output_sub_account_cells[0], Source::Output)?;
-
-            verify_sub_account_capacity_is_enough(
-                config_sub_account,
+            verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
                 input_sub_account_cells[0],
-                input_sub_account_capacity,
-                &input_sub_account_data,
                 output_sub_account_cells[0],
-                output_sub_account_capacity,
-                &output_sub_account_data,
+                vec!["das_profit", "owner_profit"],
             )?;
 
-            let input_das_profit = data_parser::sub_account_cell::get_das_profit(&input_sub_account_data).unwrap();
-            let output_das_profit = data_parser::sub_account_cell::get_das_profit(&output_sub_account_data).unwrap();
+            let input_owner_profit = data_parser::sub_account_cell::get_owner_profit(&input_sub_account_data).unwrap();
+            let output_owner_profit =
+                data_parser::sub_account_cell::get_owner_profit(&output_sub_account_data).unwrap();
 
-            let transaction_fee = u64::from(config_sub_account.common_fee());
-
-            match action {
-                b"collect_sub_account_profit" => {
-                    verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
-                        input_sub_account_cells[0],
-                        output_sub_account_cells[0],
-                        vec!["das_profit", "owner_profit"],
-                    )?;
-
-                    let input_owner_profit =
-                        data_parser::sub_account_cell::get_owner_profit(&input_sub_account_data).unwrap();
-                    let output_owner_profit =
-                        data_parser::sub_account_cell::get_owner_profit(&output_sub_account_data).unwrap();
-
-                    das_assert!(
-                        input_das_profit > 0 || input_owner_profit > 0,
-                        ErrorCode::InvalidTransactionStructure,
-                        "Either the profit of DAS or the profit of owner should not be 0 ."
-                    );
-
-                    let mut collected = false;
-                    let mut expected_remain_capacity = input_sub_account_capacity;
-
-                    if input_das_profit > 0 && output_das_profit == 0 {
-                        debug!("The profit of DAS has been collected.");
-
-                        collected = true;
-                        expected_remain_capacity -= input_das_profit;
-
-                        verifiers::common::verify_das_get_change(input_das_profit)?;
-                    } else {
-                        debug!("The profit of DAS is not collected completely, so skip counting it.")
-                    }
-
-                    if input_owner_profit > 0 && output_owner_profit == 0 {
-                        debug!("The profit of owner has been collected.");
-
-                        collected = true;
-                        expected_remain_capacity -= input_owner_profit;
-
-                        let owner_lock = util::derive_owner_lock_from_cell(dep_account_cells[0], Source::CellDep)?;
-                        verifiers::misc::verify_user_get_change(
-                            config_main,
-                            owner_lock.as_reader(),
-                            input_owner_profit,
-                        )?;
-                    } else {
-                        debug!("The profit of owner is not collected completely, so skip counting it.")
-                    }
-
-                    debug!("Verify if the collection is completed properly.");
-
-                    das_assert!(
-                        collected,
-                        ErrorCode::InvalidTransactionStructure,
-                        "All profit should be collected at one time, either from DAS or the owner."
-                    );
-
-                    // manual::verify_remain_capacity
-                    das_assert!(
-                        output_sub_account_capacity >= expected_remain_capacity - transaction_fee,
-                        SubAccountCellErrorCode::SubAccountCollectProfitError,
-                        "The capacity of SubAccountCell in outputs should be at least {}, but only {} found.",
-                        expected_remain_capacity - transaction_fee,
-                        output_sub_account_capacity
-                    );
-                }
-                b"collect_sub_account_channel_profit" => {
-                    verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
-                        input_sub_account_cells[0],
-                        output_sub_account_cells[0],
-                        vec!["das_profit"],
-                    )?;
-
-                    das_assert!(
-                        input_das_profit > 0 && input_das_profit > output_das_profit,
-                        ErrorCode::InvalidTransactionStructure,
-                        "There should be some profit of DAS be collected."
-                    );
-
-                    // manual::verify_remain_capacity
-                    // This verification has been done by calling the function verify_sub_account_capacity_is_enough above.
-                }
-                _ => unreachable!()
-            }
-        }
-        b"confirm_expired_account_auction" => {
-            util::require_type_script(
-                &parser,
-                TypeScript::AccountCellType,
-                Source::Input,
+            das_assert!(
+                input_das_profit > 0 || input_owner_profit > 0,
                 ErrorCode::InvalidTransactionStructure,
-            )?;
+                "Either the profit of DAS or the profit of owner should not be 0 ."
+            );
+
+            let mut collected = false;
+            let mut expected_remain_capacity = input_sub_account_capacity;
+
+            if input_das_profit > 0 && output_das_profit == 0 {
+                debug!("The profit of DAS has been collected.");
+
+                collected = true;
+                expected_remain_capacity -= input_das_profit;
+
+                verifiers::common::verify_das_get_change(input_das_profit)?;
+            } else {
+                debug!("The profit of DAS is not collected completely, so skip counting it.")
+            }
+
+            if input_owner_profit > 0 && output_owner_profit == 0 {
+                debug!("The profit of owner has been collected.");
+
+                collected = true;
+                expected_remain_capacity -= input_owner_profit;
+
+                let owner_lock = util::derive_owner_lock_from_cell(dep_account_cells[0], Source::CellDep)?;
+                verifiers::misc::verify_user_get_change(config_main, owner_lock.as_reader(), input_owner_profit)?;
+            } else {
+                debug!("The profit of owner is not collected completely, so skip counting it.")
+            }
+
+            debug!("Verify if the collection is completed properly.");
+
+            das_assert!(
+                collected,
+                ErrorCode::InvalidTransactionStructure,
+                "All profit should be collected at one time, either from DAS or the owner."
+            );
+
+            // manual::verify_remain_capacity
+            das_assert!(
+                output_sub_account_capacity >= expected_remain_capacity - transaction_fee,
+                SubAccountCellErrorCode::SubAccountCollectProfitError,
+                "The capacity of SubAccountCell in outputs should be at least {}, but only {} found.",
+                expected_remain_capacity - transaction_fee,
+                output_sub_account_capacity
+            );
         }
-        _ => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
+        b"collect_sub_account_channel_profit" => {
+            let profit_manage_lock = profit_manager_lock();
+            let input_profit_manage_cells =
+                util::find_cells_by_script(ScriptType::Lock, profit_manage_lock.as_reader(), Source::Input)?;
+
+            das_assert!(
+                !input_profit_manage_cells.is_empty(),
+                SubAccountCellErrorCode::ProfitManagerLockIsRequired,
+                "There should be some cells with specific lock in inputs. (expected_lock: {})",
+                profit_manage_lock.as_reader()
+            );
+
+            verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
+                input_sub_account_cells[0],
+                output_sub_account_cells[0],
+                vec!["das_profit"],
+            )?;
+
+            das_assert!(
+                input_das_profit > 0,
+                SubAccountCellErrorCode::ProfitIsEmpty,
+                "The profit of DAS is empty, nothing can be collected."
+            );
+
+            das_assert!(
+                input_das_profit > output_das_profit,
+                SubAccountCellErrorCode::ProfitMustBeCollected,
+                "There should be some profit of DAS be collected."
+            );
+        }
+        _ => unreachable!(),
     }
 
     Ok(())

@@ -616,8 +616,38 @@ pub fn verify_sub_account_cell_is_consistent(
     das_assert_field_consistent_if_not_except!("smt_root", get_smt_root);
     das_assert_field_consistent_if_not_except!("das_profit", get_das_profit);
     das_assert_field_consistent_if_not_except!("owner_profit", get_owner_profit);
-    das_assert_field_consistent_if_not_except!("custom_script", get_custom_script);
-    das_assert_field_consistent_if_not_except!("custom_script_args", get_custom_script_args);
+
+    let input_flag = data_parser::sub_account_cell::get_flag(&input_sub_account_data);
+    let output_flag = data_parser::sub_account_cell::get_flag(&output_sub_account_data);
+
+    if !except.contains(&"flag") {
+        debug!("The SubAccountCell.data.flag should be consistent, so verify if it is consistent and the consistency of the reset fields.");
+
+        das_assert!(
+            input_flag == output_flag,
+            SubAccountCellErrorCode::SubAccountCellConsistencyError,
+            "The SubAccountCell.data.flag should be consistent in inputs and outputs."
+        );
+
+        match input_flag {
+            Some(SubAccountConfigFlag::CustomScript) => {
+                das_assert_field_consistent_if_not_except!("custom_script", get_custom_script);
+                das_assert_field_consistent_if_not_except!("custom_script_args", get_custom_script_args);
+            }
+            Some(SubAccountConfigFlag::CustomRule) => {
+                das_assert_field_consistent_if_not_except!("price_rules_hash", get_price_rules_hash);
+                das_assert_field_consistent_if_not_except!("preserved_rules_hash", get_preserved_rules_hash);
+            }
+            _ => {
+                let output_rest_bytes = data_parser::sub_account_cell::get_price_rules_hash(&output_sub_account_data);
+                das_assert!(
+                    output_rest_bytes.is_none(),
+                    SubAccountCellErrorCode::SubAccountCellConsistencyError,
+                    "The SubAccountCell.data.flag is empty or manual, so the rest bytes the SubAccountCell.data should be empty."
+                );
+            }
+        }
+    }
 
     Ok(())
 }

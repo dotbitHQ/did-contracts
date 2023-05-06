@@ -21,7 +21,7 @@ pub fn get_owner_profit(data: &[u8]) -> Option<u64> {
 pub fn get_flag(data: &[u8]) -> Option<SubAccountConfigFlag> {
     match data.get(48) {
         Some(v) => SubAccountConfigFlag::try_from(*v).ok(),
-        None => None,
+        None => Some(SubAccountConfigFlag::Manual),
     }
 }
 

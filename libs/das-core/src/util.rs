@@ -243,10 +243,7 @@ pub fn find_cells_by_script_and_filter<F: Fn(usize, Source) -> Result<bool, Box<
     Ok(ret)
 }
 
-pub fn payload_to_das_lock(
-    lock_type: DasLockType,
-    payload: &[u8],
-) -> Script {
+pub fn payload_to_das_lock(lock_type: DasLockType, payload: &[u8]) -> Script {
     let mut compatible_args = vec![lock_type as u8];
     compatible_args.extend(payload.iter());
     compatible_args.extend(compatible_args.clone().iter());
@@ -268,12 +265,10 @@ pub fn find_cells_by_das_lock_payload(
         // The two types of ETH args are compatible and can be used simultaneously.
         DasLockType::ETH | DasLockType::ETHTypedData => {
             let compatible_lock = payload_to_das_lock(DasLockType::ETHTypedData, payload);
-            let mut eth_type_data_cells =
-                find_cells_by_script(ScriptType::Lock, compatible_lock.as_reader(), source)?;
+            let mut eth_type_data_cells = find_cells_by_script(ScriptType::Lock, compatible_lock.as_reader(), source)?;
 
             let compatible_lock = payload_to_das_lock(DasLockType::ETH, payload);
-            let mut eth_cells =
-                find_cells_by_script(ScriptType::Lock, compatible_lock.as_reader(), source)?;
+            let mut eth_cells = find_cells_by_script(ScriptType::Lock, compatible_lock.as_reader(), source)?;
 
             eth_cells.append(&mut eth_type_data_cells);
             eth_cells.sort();
@@ -283,8 +278,7 @@ pub fn find_cells_by_das_lock_payload(
         }
         _ => {
             let compatible_lock = payload_to_das_lock(lock_type, payload);
-            let cells =
-                find_cells_by_script(ScriptType::Lock, compatible_lock.as_reader(), source)?;
+            let cells = find_cells_by_script(ScriptType::Lock, compatible_lock.as_reader(), source)?;
 
             cells
         }

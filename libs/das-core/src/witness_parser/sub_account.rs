@@ -58,6 +58,8 @@ pub enum SubAccountEditValue {
     Owner(Vec<u8>),
     Manager(Vec<u8>),
     Records(Records),
+    Proof,
+    Channel(Vec<u8>, u64),
 }
 
 pub struct SubAccountWitnessesIter<'a> {
@@ -78,6 +80,7 @@ impl<'a> Iterator for SubAccountWitnessesIter<'a> {
 
 #[derive(Debug)]
 pub struct SubAccountWitnessesParser {
+    pub flag: SubAccountConfigFlag,
     pub contains_creation: bool,
     pub contains_edition: bool,
     pub mint_sign_index: Option<usize>,
@@ -87,7 +90,7 @@ pub struct SubAccountWitnessesParser {
 }
 
 impl SubAccountWitnessesParser {
-    pub fn new() -> Result<Self, Box<dyn ScriptError>> {
+    pub fn new(flag: SubAccountConfigFlag) -> Result<Self, Box<dyn ScriptError>> {
         let mut contains_creation = false;
         let mut contains_edition = false;
         let mut mint_sign_index = None;
@@ -182,6 +185,7 @@ impl SubAccountWitnessesParser {
         }
 
         Ok(SubAccountWitnessesParser {
+            flag,
             contains_creation,
             contains_edition,
             mint_sign_index,
@@ -307,7 +311,7 @@ impl SubAccountWitnessesParser {
         Ok(rules)
     }
 
-    fn parse_witness(i: usize) -> Result<SubAccountWitness, Box<dyn ScriptError>> {
+    fn parse_witness(flag: SubAccountConfigFlag, i: usize) -> Result<SubAccountWitness, Box<dyn ScriptError>> {
         debug!("  witnesses[{:>2}] Parsing SubAccountWitness ...", i);
 
         let raw = util::load_das_witnesses(i)?;
@@ -379,13 +383,65 @@ impl SubAccountWitnessesParser {
         let mut sign_args = vec![];
         let mut sign_expired_at = 0;
         let mut _lock_args = vec![];
-        let mut edit_value = SubAccountEditValue::None;
+        let edit_value;
         match action {
             SubAccountAction::Create => {
                 debug!(
                     "  witnesses[{:>2}] SubAccountWitness.action is Create, skip signature related fields.",
                     i
                 );
+
+                edit_value = match edit_key {
+                    b"manual" => {
+                        das_assert!(
+                            !edit_value_bytes.is_empty(),
+                            SubAccountCellErrorCode::WitnessParsingError,
+                            "  witnesses[{:>2}] SubAccountMintSignWitness.edit_value_bytes should not be empty.",
+                            i
+                        );
+
+                        SubAccountEditValue::Proof
+                    }
+                    b"custom_script" => {
+                        das_assert!(
+                            flag == SubAccountConfigFlag::CustomScript,
+                            SubAccountCellErrorCode::WitnessEditKeyInvalid,
+                            "  witnesses[{:>2}] The flag is {}, so the 'custom_script' is not allowed in edit_key.",
+                            i,
+                            flag.to_string()
+                        );
+
+                        das_assert!(
+                            edit_value_bytes.is_empty(),
+                            SubAccountCellErrorCode::WitnessParsingError,
+                            "  witnesses[{:>2}] SubAccountMintSignWitness.edit_value_bytes should be empty.",
+                            i
+                        );
+
+                        SubAccountEditValue::None
+                    }
+                    b"custom_rule" => {
+                        das_assert!(
+                            flag == SubAccountConfigFlag::CustomRule,
+                            SubAccountCellErrorCode::WitnessEditKeyInvalid,
+                            "  witnesses[{:>2}] The flag is {}, so the 'custom_rule' is not allowed in edit_key.",
+                            i,
+                            flag.to_string()
+                        );
+
+                        das_assert!(
+                            edit_value_bytes.len() == 28,
+                            SubAccountCellErrorCode::WitnessParsingError,
+                            "  witnesses[{:>2}] SubAccountMintSignWitness.edit_value_bytes should be 4 bytes.",
+                            i
+                        );
+
+                        let value = u64::from_le_bytes(edit_value_bytes[20..].try_into().unwrap());
+
+                        SubAccountEditValue::Channel(edit_value_bytes[..20].to_vec(), value)
+                    }
+                    _ => SubAccountEditValue::None,
+                };
             }
             SubAccountAction::Edit => {
                 das_assert!(
@@ -401,40 +457,37 @@ impl SubAccountWitnessesParser {
                 (sign_role, sign_type, sign_args) = Self::parse_sign_info(i, sign_role_byte, &_lock_args)?;
 
                 // The actual type of the edit_value field is base what the edit_key field is.
-                edit_value = match action {
-                    SubAccountAction::Edit => match edit_key {
-                        b"expired_at" => {
-                            let expired_at = match Uint64::from_slice(edit_value_bytes) {
-                                Ok(val) => val,
-                                Err(e) => {
-                                    warn!(
-                                        "  witnesses[{:>2}] Sub-account witness structure error, decoding expired_at failed: {}",
-                                        i, e
-                                    );
-                                    return Err(code_to_error!(ErrorCode::WitnessStructureError));
-                                }
-                            };
+                edit_value = match edit_key {
+                    b"expired_at" => {
+                        let expired_at = match Uint64::from_slice(edit_value_bytes) {
+                            Ok(val) => val,
+                            Err(e) => {
+                                warn!(
+                                    "  witnesses[{:>2}] Sub-account witness structure error, decoding expired_at failed: {}",
+                                    i, e
+                                );
+                                return Err(code_to_error!(ErrorCode::WitnessStructureError));
+                            }
+                        };
 
-                            SubAccountEditValue::ExpiredAt(expired_at)
-                        }
-                        b"owner" => SubAccountEditValue::Owner(edit_value_bytes.to_vec()),
-                        b"manager" => SubAccountEditValue::Manager(edit_value_bytes.to_vec()),
-                        b"records" => {
-                            let records = match Records::from_slice(edit_value_bytes) {
-                                Ok(val) => val,
-                                Err(e) => {
-                                    warn!(
-                                        "  witnesses[{:>2}] Sub-account witness structure error, decoding records failed: {}",
-                                        i, e
-                                    );
-                                    return Err(code_to_error!(ErrorCode::WitnessStructureError));
-                                }
-                            };
+                        SubAccountEditValue::ExpiredAt(expired_at)
+                    }
+                    b"owner" => SubAccountEditValue::Owner(edit_value_bytes.to_vec()),
+                    b"manager" => SubAccountEditValue::Manager(edit_value_bytes.to_vec()),
+                    b"records" => {
+                        let records = match Records::from_slice(edit_value_bytes) {
+                            Ok(val) => val,
+                            Err(e) => {
+                                warn!(
+                                    "  witnesses[{:>2}] Sub-account witness structure error, decoding records failed: {}",
+                                    i, e
+                                );
+                                return Err(code_to_error!(ErrorCode::WitnessStructureError));
+                            }
+                        };
 
-                            SubAccountEditValue::Records(records)
-                        }
-                        _ => SubAccountEditValue::None,
-                    },
+                        SubAccountEditValue::Records(records)
+                    }
                     _ => SubAccountEditValue::None,
                 };
             }
@@ -623,7 +676,7 @@ impl SubAccountWitnessesParser {
     pub fn get(&self, index: usize) -> Option<Result<SubAccountWitness, Box<dyn ScriptError>>> {
         match self.indexes.get(index) {
             None => return None,
-            Some(&i) => Some(Self::parse_witness(i)),
+            Some(&i) => Some(Self::parse_witness(self.flag, i)),
         }
     }
 }
