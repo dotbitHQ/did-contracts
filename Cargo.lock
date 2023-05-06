@@ -632,6 +632,7 @@ dependencies = [
  "das-types",
  "eip712",
  "hex",
+ "paste",
  "sha2 0.9.6",
  "simple-ast",
  "sparse-merkle-tree",

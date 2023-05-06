@@ -39,6 +39,7 @@ fn test_sub_account_create_flag_custom_script_with_args() {
             "registered_at": TIMESTAMP,
             "expired_at": TIMESTAMP + YEAR_SEC,
         },
+        "edit_key": "custom_script",
     }));
     template.push_sub_account_witness_v2(json!({
         "action": SubAccountAction::Create.to_string(),
@@ -52,6 +53,7 @@ fn test_sub_account_create_flag_custom_script_with_args() {
             "registered_at": TIMESTAMP,
             "expired_at": TIMESTAMP + YEAR_SEC,
         },
+        "edit_key": "custom_script",
     }));
     template.push_sub_account_witness_v2(json!({
         "action": SubAccountAction::Create.to_string(),
@@ -65,6 +67,7 @@ fn test_sub_account_create_flag_custom_script_with_args() {
             "registered_at": TIMESTAMP,
             "expired_at": TIMESTAMP + YEAR_SEC,
         },
+        "edit_key": "custom_script",
     }));
     push_common_output_cells_with_custom_script(&mut template, 3);
 
@@ -95,6 +98,7 @@ fn test_sub_account_create_flag_custom_script_without_args() {
             "registered_at": TIMESTAMP,
             "expired_at": TIMESTAMP + YEAR_SEC,
         },
+        "edit_key": "custom_script",
     }));
     template.push_sub_account_witness_v2(json!({
         "action": SubAccountAction::Create.to_string(),
@@ -108,6 +112,7 @@ fn test_sub_account_create_flag_custom_script_without_args() {
             "registered_at": TIMESTAMP,
             "expired_at": TIMESTAMP + YEAR_SEC,
         },
+        "edit_key": "custom_script",
     }));
     template.push_sub_account_witness_v2(json!({
         "action": SubAccountAction::Create.to_string(),
@@ -121,6 +126,7 @@ fn test_sub_account_create_flag_custom_script_without_args() {
             "registered_at": TIMESTAMP,
             "expired_at": TIMESTAMP + YEAR_SEC,
         },
+        "edit_key": "custom_script",
     }));
     let total_profit = calculate_sub_account_custom_price(3);
     let das_profit = total_profit * SUB_ACCOUNT_NEW_CUSTOM_PRICE_DAS_PROFIT_RATE / RATE_BASE;
@@ -132,7 +138,7 @@ fn test_sub_account_create_flag_custom_script_without_args() {
 }
 
 #[test]
-fn challenge_sub_account_create_flag_custom_script_modified_script_code_hash() {
+fn challenge_sub_account_create_flag_custom_script_flag_not_consistent() {
     let mut template = before_each();
 
     // outputs
@@ -148,12 +154,12 @@ fn challenge_sub_account_create_flag_custom_script_modified_script_code_hash() {
             "registered_at": TIMESTAMP,
             "expired_at": TIMESTAMP + YEAR_SEC,
         },
+        "edit_key": "custom_script",
     }));
 
     let total_profit = calculate_sub_account_custom_price(1);
     let das_profit = total_profit * SUB_ACCOUNT_NEW_CUSTOM_PRICE_DAS_PROFIT_RATE / RATE_BASE;
     let owner_profit = total_profit - das_profit;
-    let current_root = template.smt_with_history.current_root();
     push_output_sub_account_cell(
         &mut template,
         json!({
@@ -161,7 +167,51 @@ fn challenge_sub_account_create_flag_custom_script_modified_script_code_hash() {
                 "args": ACCOUNT_1
             },
             "data": {
-                "root": String::from("0x") + &hex::encode(&current_root),
+                "das_profit": das_profit,
+                "owner_profit": owner_profit,
+                // Simulate modifying the flag of the SubAccountCell.
+                "flag": SubAccountConfigFlag::Manual as u8,
+            }
+        }),
+    );
+    push_output_normal_cell(&mut template, 100_000_000_000 - total_profit, OWNER);
+
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::SubAccountCellConsistencyError,
+    );
+}
+
+#[test]
+fn challenge_sub_account_create_flag_custom_script_script_code_hash_not_consistent() {
+    let mut template = before_each();
+
+    // outputs
+    template.push_sub_account_witness_v2(json!({
+        "action": SubAccountAction::Create.to_string(),
+        "sub_account": {
+            "lock": {
+                "owner_lock_args": OWNER_1,
+                "manager_lock_args": MANAGER_1
+            },
+            "account": SUB_ACCOUNT_1,
+            "suffix": SUB_ACCOUNT_SUFFIX,
+            "registered_at": TIMESTAMP,
+            "expired_at": TIMESTAMP + YEAR_SEC,
+        },
+        "edit_key": "custom_script",
+    }));
+
+    let total_profit = calculate_sub_account_custom_price(1);
+    let das_profit = total_profit * SUB_ACCOUNT_NEW_CUSTOM_PRICE_DAS_PROFIT_RATE / RATE_BASE;
+    let owner_profit = total_profit - das_profit;
+    push_output_sub_account_cell(
+        &mut template,
+        json!({
+            "type": {
+                "args": ACCOUNT_1
+            },
+            "data": {
                 "das_profit": das_profit,
                 "owner_profit": owner_profit,
                 // Simulate modifying the custom script of the SubAccountCell.
@@ -179,7 +229,7 @@ fn challenge_sub_account_create_flag_custom_script_modified_script_code_hash() {
 }
 
 #[test]
-fn challenge_sub_account_create_flag_custom_script_modified_script_args() {
+fn challenge_sub_account_create_flag_custom_script_script_args_not_consistent() {
     let mut template = before_each();
 
     // outputs
@@ -195,6 +245,7 @@ fn challenge_sub_account_create_flag_custom_script_modified_script_args() {
             "registered_at": TIMESTAMP,
             "expired_at": TIMESTAMP + YEAR_SEC,
         },
+        "edit_key": "custom_script",
     }));
 
     let total_profit = calculate_sub_account_custom_price(1);
@@ -207,6 +258,37 @@ fn challenge_sub_account_create_flag_custom_script_modified_script_args() {
         template.as_json(),
         SubAccountCellErrorCode::SubAccountCellConsistencyError,
     );
+}
+
+#[test]
+fn challenge_sub_account_create_flag_custom_script_mix_custom_rule() {
+    let mut template = before_each();
+
+    // outputs
+    template.push_sub_account_witness_v2(json!({
+        "action": SubAccountAction::Create.to_string(),
+        "sub_account": {
+            "lock": {
+                "owner_lock_args": OWNER_1,
+                "manager_lock_args": MANAGER_1
+            },
+            "account": SUB_ACCOUNT_1,
+            "suffix": SUB_ACCOUNT_SUFFIX,
+            "registered_at": TIMESTAMP,
+            "expired_at": TIMESTAMP + YEAR_SEC,
+        },
+        // Simulate mix custom rule mint into custom script mint.
+        "edit_key": "custom_rule",
+        "edit_value": "0x00000000000000000000000000000000000000000000000000000000"
+    }));
+
+    let total_profit = calculate_sub_account_custom_price(1);
+    let das_profit = total_profit * SUB_ACCOUNT_NEW_CUSTOM_PRICE_DAS_PROFIT_RATE / RATE_BASE;
+    let owner_profit = total_profit - das_profit;
+    push_simple_output_sub_account_cell_with_custom_script(&mut template, das_profit, owner_profit, SCRIPT_ARGS);
+    push_output_normal_cell(&mut template, 100_000_000_000 - total_profit, OWNER);
+
+    challenge_tx(template.as_json(), SubAccountCellErrorCode::WitnessEditKeyInvalid);
 }
 
 #[test]
@@ -226,6 +308,7 @@ fn challenge_sub_account_create_flag_custom_script_different_lock_for_normal_cel
             "registered_at": TIMESTAMP,
             "expired_at": TIMESTAMP + YEAR_SEC,
         },
+        "edit_key": "custom_script",
     }));
 
     let total_profit = calculate_sub_account_custom_price(1);
@@ -258,6 +341,7 @@ fn challenge_sub_account_create_flag_custom_script_das_profit_not_enough() {
             "registered_at": TIMESTAMP,
             "expired_at": TIMESTAMP + YEAR_SEC,
         },
+        "edit_key": "custom_script",
     }));
 
     let total_profit = calculate_sub_account_custom_price(1);
@@ -295,6 +379,7 @@ fn challenge_sub_account_create_flag_custom_script_spend_balance_cell_1() {
             "registered_at": TIMESTAMP,
             "expired_at": TIMESTAMP + YEAR_SEC,
         },
+        "edit_key": "custom_script",
     }));
     let total_profit = calculate_sub_account_custom_price(1);
     let das_profit = total_profit * SUB_ACCOUNT_NEW_CUSTOM_PRICE_DAS_PROFIT_RATE / RATE_BASE;
@@ -330,6 +415,7 @@ fn challenge_sub_account_create_flag_custom_script_spend_balance_cell_2() {
             "registered_at": TIMESTAMP,
             "expired_at": TIMESTAMP + YEAR_SEC,
         },
+        "edit_key": "custom_script",
     }));
     let total_profit = calculate_sub_account_custom_price(1);
     let das_profit = total_profit * SUB_ACCOUNT_NEW_CUSTOM_PRICE_DAS_PROFIT_RATE / RATE_BASE;
@@ -357,6 +443,7 @@ fn challenge_sub_account_create_flag_custom_script_create_empty() {
             "registered_at": TIMESTAMP,
             "expired_at": TIMESTAMP + YEAR_SEC,
         },
+        "edit_key": "custom_script",
     }));
     push_common_output_cells_with_custom_script(&mut template, 3);
 

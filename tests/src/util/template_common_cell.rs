@@ -404,14 +404,8 @@ pub fn push_output_sub_account_cell(template: &mut TemplateGenerator, cell_parti
 }
 
 pub fn push_output_sub_account_cell_v2(template: &mut TemplateGenerator, cell_partial: Value, account: &str) {
-    let das_profit = match cell_partial["data"]["das_profit"].as_u64() {
-        Some(val) => val,
-        _ => 0,
-    };
-    let owner_profit = match cell_partial["data"]["owner_profit"].as_u64() {
-        Some(val) => val,
-        _ => 0,
-    };
+    let das_profit = util::parse_json_u64("data.das_profit", &cell_partial["data"]["das_profit"], Some(0));
+    let owner_profit = util::parse_json_u64("data.owner_profit", &cell_partial["data"]["owner_profit"], Some(0));
 
     let mut cell = json!({
         "capacity": SUB_ACCOUNT_BASIC_CAPACITY + SUB_ACCOUNT_PREPARED_FEE_CAPACITY + das_profit + owner_profit,

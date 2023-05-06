@@ -10,7 +10,6 @@ use ckb_hash::blake2b_256;
 use das_types_std::constants::*;
 use das_types_std::packed::*;
 use das_types_std::prelude::*;
-use das_types_std::prettier::Prettier;
 use das_types_std::util as das_util;
 use das_types_std::util::EntityWrapper;
 use serde::{Deserialize, Serialize};
@@ -2887,7 +2886,7 @@ impl TemplateGenerator {
     ///         "enable_sub_account": u8,
     ///         "renew_sub_account_price": u64
     ///     },
-    ///     "edit_key": null | "expired_at" | "owner" | "manager" | "records",
+    ///     "edit_key": null | "expired_at" | "owner" | "manager" | "records" | "manual" | "custom_script" | "custom_rule"
     ///     "edit_value": null | ..., // A JSON object which expired_at
     /// })
     /// ```

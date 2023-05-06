@@ -1,5 +1,5 @@
 use das_types_std::constants::{SubAccountConfigFlag, SubAccountCustomRuleFlag};
-use serde_json::{json, Value};
+use serde_json::json;
 
 use super::common::*;
 use crate::util;

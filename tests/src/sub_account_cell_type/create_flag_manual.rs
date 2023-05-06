@@ -41,6 +41,7 @@ fn test_sub_account_create_flag_manual() {
             "registered_at": TIMESTAMP,
             "expired_at": TIMESTAMP + YEAR_SEC,
         },
+        "edit_key": "manual",
         "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_1)
     }));
     template.push_sub_account_witness_v2(json!({
@@ -55,6 +56,7 @@ fn test_sub_account_create_flag_manual() {
             "registered_at": TIMESTAMP,
             "expired_at": TIMESTAMP + YEAR_SEC,
         },
+        "edit_key": "manual",
         "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_2)
     }));
     template.push_sub_account_witness_v2(json!({
@@ -69,11 +71,166 @@ fn test_sub_account_create_flag_manual() {
             "registered_at": TIMESTAMP,
             "expired_at": TIMESTAMP + YEAR_SEC,
         },
+        // edit_key should be optional
+        // "edit_key": "manual",
         "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_3)
     }));
     push_common_output_cells(&mut template, 3);
 
     test_tx(template.as_json())
+}
+
+#[test]
+fn challenge_sub_account_create_flag_manual_flag_not_consistent() {
+    let mut template = before_each();
+
+    // outputs
+    let smt = template.push_sub_account_mint_sign_witness(json!({
+        "version": 1,
+        "expired_at": TIMESTAMP + DAY_SEC,
+        "account_list_smt_root": [
+            [SUB_ACCOUNT_1, gen_das_lock_args(OWNER_1, Some(MANAGER_1))],
+        ]
+    }));
+    template.push_sub_account_witness_v2(json!({
+        "action": SubAccountAction::Create.to_string(),
+        "sub_account": {
+            "lock": {
+                "owner_lock_args": OWNER_1,
+                "manager_lock_args": MANAGER_1
+            },
+            "account": SUB_ACCOUNT_2,
+            "suffix": SUB_ACCOUNT_SUFFIX,
+            "registered_at": TIMESTAMP,
+            "expired_at": TIMESTAMP + YEAR_SEC,
+        },
+        "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_1)
+    }));
+    let das_profit = calculate_sub_account_cost(1);
+    push_output_sub_account_cell_v2(
+        &mut template,
+        json!({
+            "data": {
+                "das_profit": das_profit,
+                "owner_profit": 0,
+                // Simulate the flag is not consistent.
+                "flag": SubAccountConfigFlag::CustomRule as u8,
+            }
+        }),
+        ACCOUNT_1,
+    );
+    push_output_normal_cell(&mut template, 10_000_000_000 - das_profit, OWNER);
+
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::SubAccountCellConsistencyError,
+    );
+}
+
+#[test]
+fn challenge_sub_account_create_flag_manual_profit_not_consistent() {
+    let mut template = before_each();
+
+    // outputs
+    let smt = template.push_sub_account_mint_sign_witness(json!({
+        "version": 1,
+        "expired_at": TIMESTAMP + DAY_SEC,
+        "account_list_smt_root": [
+            [SUB_ACCOUNT_1, gen_das_lock_args(OWNER_1, Some(MANAGER_1))],
+        ]
+    }));
+    template.push_sub_account_witness_v2(json!({
+        "action": SubAccountAction::Create.to_string(),
+        "sub_account": {
+            "lock": {
+                "owner_lock_args": OWNER_1,
+                "manager_lock_args": MANAGER_1
+            },
+            "account": SUB_ACCOUNT_2,
+            "suffix": SUB_ACCOUNT_SUFFIX,
+            "registered_at": TIMESTAMP,
+            "expired_at": TIMESTAMP + YEAR_SEC,
+        },
+        "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_1)
+    }));
+    let das_profit = calculate_sub_account_cost(1);
+    push_output_sub_account_cell_v2(
+        &mut template,
+        json!({
+            "data": {
+                "das_profit": das_profit,
+                // Simulate the owner_profit is not consistent.
+                "owner_profit": 999,
+                "flag": SubAccountConfigFlag::Manual as u8,
+            }
+        }),
+        ACCOUNT_1,
+    );
+    push_output_normal_cell(&mut template, 10_000_000_000 - das_profit, OWNER);
+
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::SubAccountCellConsistencyError,
+    );
+}
+
+#[test]
+fn challenge_sub_account_create_flag_manual_mix_custom_rule() {
+    let mut template = before_each();
+
+    // outputs
+    let smt = template.push_sub_account_mint_sign_witness(json!({
+        "version": 1,
+        "expired_at": TIMESTAMP + DAY_SEC,
+        "account_list_smt_root": [
+            [SUB_ACCOUNT_1, gen_das_lock_args(OWNER_1, Some(MANAGER_1))],
+        ]
+    }));
+    template.push_sub_account_witness_v2(json!({
+        "action": SubAccountAction::Create.to_string(),
+        "sub_account": {
+            "lock": {
+                "owner_lock_args": OWNER_1,
+                "manager_lock_args": MANAGER_1
+            },
+            "account": SUB_ACCOUNT_1,
+            "suffix": SUB_ACCOUNT_SUFFIX,
+            "registered_at": TIMESTAMP,
+            "expired_at": TIMESTAMP + YEAR_SEC,
+        },
+        "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_1)
+    }));
+    template.push_sub_account_witness_v2(json!({
+        "action": SubAccountAction::Create.to_string(),
+        "sub_account": {
+            "lock": {
+                "owner_lock_args": OWNER_2,
+                "manager_lock_args": MANAGER_2
+            },
+            "account": SUB_ACCOUNT_2,
+            "suffix": SUB_ACCOUNT_SUFFIX,
+            "registered_at": TIMESTAMP,
+            "expired_at": TIMESTAMP + YEAR_SEC,
+        },
+        "edit_key": "custom_rule",
+        "edit_value": DUMMY_CHANNEL
+    }));
+
+    let das_profit = calculate_sub_account_cost(1);
+    push_output_sub_account_cell_v2(
+        &mut template,
+        json!({
+            "data": {
+                "das_profit": das_profit,
+                "owner_profit": 0,
+                "flag": SubAccountConfigFlag::Manual as u8,
+            }
+        }),
+        ACCOUNT_1,
+    );
+    push_output_normal_cell(&mut template, 10_000_000_000 - das_profit, OWNER);
+
+    challenge_tx(template.as_json(), SubAccountCellErrorCode::WitnessEditKeyInvalid);
 }
 
 #[test]

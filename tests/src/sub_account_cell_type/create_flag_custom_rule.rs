@@ -2,13 +2,13 @@ use das_types_std::constants::*;
 use serde_json::json;
 
 use super::common::*;
+use crate::util;
 use crate::util::accounts::*;
 use crate::util::constants::*;
 use crate::util::error::*;
 use crate::util::template_common_cell::*;
 use crate::util::template_generator::*;
 use crate::util::template_parser::*;
-use crate::util;
 
 const USD_1: u64 = 1_000_000;
 const USD_5: u64 = 5 * USD_1;
@@ -39,7 +39,7 @@ fn before_each() -> TemplateGenerator {
                 "status_flags": SubAccountCustomRuleFlag::On as u8,
             }
         }),
-        ACCOUNT_1
+        ACCOUNT_1,
     );
     push_input_normal_cell(&mut template, TOTAL_PAID, OWNER);
 
@@ -47,20 +47,17 @@ fn before_each() -> TemplateGenerator {
 }
 
 fn push_simple_outputs(template: &mut TemplateGenerator, total_profit: u64) {
-    let das_profit = total_profit * SUB_ACCOUNT_NEW_CUSTOM_PRICE_DAS_PROFIT_RATE / RATE_BASE;
-    let owner_profit = total_profit - das_profit;
-
     push_output_sub_account_cell_v2(
         template,
         json!({
             "data": {
-                "das_profit": das_profit,
-                "owner_profit": owner_profit,
+                "das_profit": total_profit,
+                "owner_profit": 0,
                 "flag": SubAccountConfigFlag::CustomRule as u8,
                 "status_flags": SubAccountCustomRuleFlag::On as u8,
             }
         }),
-        ACCOUNT_1
+        ACCOUNT_1,
     );
     push_output_normal_cell(template, TOTAL_PAID - total_profit, OWNER);
 }
@@ -177,7 +174,7 @@ fn push_simple_rules(template: &mut TemplateGenerator) {
                         "arguments": [
                             {
                                 "type": "variable",
-                                "name": "account_chars",
+                                "name": "account",
                             },
                             {
                                 "type": "value",
@@ -212,6 +209,8 @@ fn test_sub_account_create_flag_custom_rule() {
             "registered_at": TIMESTAMP,
             "expired_at": TIMESTAMP + YEAR_SEC,
         },
+        "edit_key": "custom_rule",
+        "edit_value": "0x00000000000000000000000000000000000000000000000000000000"
     }));
     template.push_sub_account_witness_v2(json!({
         "action": SubAccountAction::Create.to_string(),
@@ -225,6 +224,8 @@ fn test_sub_account_create_flag_custom_rule() {
             "registered_at": TIMESTAMP,
             "expired_at": TIMESTAMP + YEAR_SEC,
         },
+        "edit_key": "custom_rule",
+        "edit_value": "0x00000000000000000000000000000000000000000000000000000000"
     }));
     template.push_sub_account_witness_v2(json!({
         "action": SubAccountAction::Create.to_string(),
@@ -237,7 +238,11 @@ fn test_sub_account_create_flag_custom_rule() {
             "suffix": SUB_ACCOUNT_SUFFIX,
             "registered_at": TIMESTAMP,
             "expired_at": TIMESTAMP + YEAR_SEC,
+            "edit_key": "manual",
+            "edit_value": gen_das_lock_args(OWNER_1, Some(MANAGER_1))
         },
+        "edit_key": "custom_rule",
+        "edit_value": DUMMY_CHANNEL
     }));
 
     let total_profit = util::usd_to_ckb(USD_5 * 3);
@@ -247,7 +252,88 @@ fn test_sub_account_create_flag_custom_rule() {
 }
 
 #[test]
-fn challenge_sub_account_create_flag_custom_rule_preserved() {
+fn test_sub_account_create_flag_custom_rule_manual_mint() {
+    let mut template = before_each();
+
+    // outputs
+    let smt = template.push_sub_account_mint_sign_witness(json!({
+        "version": 1,
+        "expired_at": TIMESTAMP + DAY_SEC,
+        "account_list_smt_root": [
+            [SUB_ACCOUNT_1, gen_das_lock_args(OWNER_1, Some(MANAGER_1))],
+        ]
+    }));
+    template.push_sub_account_witness_v2(json!({
+        "action": SubAccountAction::Create.to_string(),
+        "sub_account": {
+            "lock": {
+                "owner_lock_args": OWNER_1,
+                "manager_lock_args": MANAGER_1
+            },
+            "account": SUB_ACCOUNT_1,
+            "suffix": SUB_ACCOUNT_SUFFIX,
+            "registered_at": TIMESTAMP,
+            "expired_at": TIMESTAMP + YEAR_SEC,
+        },
+        "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_1)
+    }));
+    let total_profit = calculate_sub_account_cost(1);
+    push_simple_outputs(&mut template, total_profit);
+
+    test_tx(template.as_json())
+}
+
+#[test]
+fn test_sub_account_create_flag_custom_rule_mix_mint() {
+    let mut template = before_each();
+
+    // outputs
+    let smt = template.push_sub_account_mint_sign_witness(json!({
+        "version": 1,
+        "expired_at": TIMESTAMP + DAY_SEC,
+        "account_list_smt_root": [
+            [SUB_ACCOUNT_1, gen_das_lock_args(OWNER_1, Some(MANAGER_1))],
+        ]
+    }));
+    template.push_sub_account_witness_v2(json!({
+        "action": SubAccountAction::Create.to_string(),
+        "sub_account": {
+            "lock": {
+                "owner_lock_args": OWNER_1,
+                "manager_lock_args": MANAGER_1
+            },
+            "account": SUB_ACCOUNT_1,
+            "suffix": SUB_ACCOUNT_SUFFIX,
+            "registered_at": TIMESTAMP,
+            "expired_at": TIMESTAMP + YEAR_SEC,
+        },
+        "edit_key": "manual",
+        "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_1)
+    }));
+    template.push_sub_account_witness_v2(json!({
+        "action": SubAccountAction::Create.to_string(),
+        "sub_account": {
+            "lock": {
+                "owner_lock_args": OWNER_2,
+                "manager_lock_args": MANAGER_2
+            },
+            "account": SUB_ACCOUNT_2,
+            "suffix": SUB_ACCOUNT_SUFFIX,
+            "registered_at": TIMESTAMP,
+            "expired_at": TIMESTAMP + YEAR_SEC,
+        },
+        "edit_key": "custom_rule",
+        "edit_value": "0x00000000000000000000000000000000000000000000000000000000"
+    }));
+    let mut total_profit = calculate_sub_account_cost(1);
+    total_profit += util::usd_to_ckb(USD_5 * 1);
+    push_simple_outputs(&mut template, total_profit);
+
+    test_tx(template.as_json())
+}
+
+#[test]
+fn challenge_sub_account_create_flag_custom_rule_flag_not_consistent() {
     let mut template = before_each();
 
     // outputs
@@ -258,13 +344,270 @@ fn challenge_sub_account_create_flag_custom_rule_preserved() {
                 "owner_lock_args": OWNER_1,
                 "manager_lock_args": MANAGER_1
             },
-            "account": ".xxxxx.bit",
+            "account": SUB_ACCOUNT_1,
             "suffix": SUB_ACCOUNT_SUFFIX,
             "registered_at": TIMESTAMP,
             "expired_at": TIMESTAMP + YEAR_SEC,
         },
+        "edit_key": "custom_rule",
+        "edit_value": DUMMY_CHANNEL
     }));
-    push_common_output_cells_with_custom_script(&mut template, 3);
 
-    challenge_tx(template.as_json(), ErrorCode::AccountIsTooShort)
+    let total_profit = util::usd_to_ckb(USD_5 * 1);
+    push_output_sub_account_cell_v2(
+        &mut template,
+        json!({
+            "data": {
+                "das_profit": total_profit,
+                "owner_profit": 0,
+                // Simulate the flag is not consistent.
+                "flag": SubAccountConfigFlag::CustomScript as u8,
+            }
+        }),
+        ACCOUNT_1,
+    );
+    push_output_normal_cell(&mut template, TOTAL_PAID - total_profit, OWNER);
+
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::SubAccountCellConsistencyError,
+    );
+}
+
+#[test]
+fn challenge_sub_account_create_flag_custom_rule_owner_profit_not_consistent() {
+    let mut template = before_each();
+
+    // outputs
+    template.push_sub_account_witness_v2(json!({
+        "action": SubAccountAction::Create.to_string(),
+        "sub_account": {
+            "lock": {
+                "owner_lock_args": OWNER_1,
+                "manager_lock_args": MANAGER_1
+            },
+            "account": SUB_ACCOUNT_1,
+            "suffix": SUB_ACCOUNT_SUFFIX,
+            "registered_at": TIMESTAMP,
+            "expired_at": TIMESTAMP + YEAR_SEC,
+        },
+        "edit_key": "custom_rule",
+        "edit_value": DUMMY_CHANNEL
+    }));
+
+    let total_profit = util::usd_to_ckb(USD_5 * 1);
+    push_output_sub_account_cell_v2(
+        &mut template,
+        json!({
+            "data": {
+                // Simulate the owner profit is not consistent.
+                "owner_profit": 1,
+                "flag": SubAccountConfigFlag::CustomRule as u8,
+                "status_flags": SubAccountCustomRuleFlag::On as u8,
+            }
+        }),
+        ACCOUNT_1,
+    );
+    push_output_normal_cell(&mut template, TOTAL_PAID - total_profit, OWNER);
+
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::SubAccountCellConsistencyError,
+    );
+}
+
+#[test]
+fn challenge_sub_account_create_flag_custom_rule_price_rules_hash_not_consistent() {
+    let mut template = before_each();
+
+    // outputs
+    template.push_sub_account_witness_v2(json!({
+        "action": SubAccountAction::Create.to_string(),
+        "sub_account": {
+            "lock": {
+                "owner_lock_args": OWNER_1,
+                "manager_lock_args": MANAGER_1
+            },
+            "account": SUB_ACCOUNT_1,
+            "suffix": SUB_ACCOUNT_SUFFIX,
+            "registered_at": TIMESTAMP,
+            "expired_at": TIMESTAMP + YEAR_SEC,
+        },
+        "edit_key": "custom_rule",
+        "edit_value": DUMMY_CHANNEL
+    }));
+
+    let total_profit = util::usd_to_ckb(USD_5 * 1);
+    push_output_sub_account_cell_v2(
+        &mut template,
+        json!({
+            "data": {
+                "owner_profit": 0,
+                "flag": SubAccountConfigFlag::CustomRule as u8,
+                "status_flags": SubAccountCustomRuleFlag::On as u8,
+                // Simulate the price_rules_hash is not consistent.
+                "price_rules_hash": BLACK_HOLE_HASH
+            }
+        }),
+        ACCOUNT_1,
+    );
+    push_output_normal_cell(&mut template, TOTAL_PAID - total_profit, OWNER);
+
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::SubAccountCellConsistencyError,
+    );
+}
+
+#[test]
+fn challenge_sub_account_create_flag_custom_rule_preserve_rules_hash_not_consistent() {
+    let mut template = before_each();
+
+    // outputs
+    template.push_sub_account_witness_v2(json!({
+        "action": SubAccountAction::Create.to_string(),
+        "sub_account": {
+            "lock": {
+                "owner_lock_args": OWNER_1,
+                "manager_lock_args": MANAGER_1
+            },
+            "account": SUB_ACCOUNT_1,
+            "suffix": SUB_ACCOUNT_SUFFIX,
+            "registered_at": TIMESTAMP,
+            "expired_at": TIMESTAMP + YEAR_SEC,
+        },
+        "edit_key": "custom_rule",
+        "edit_value": DUMMY_CHANNEL
+    }));
+
+    let total_profit = util::usd_to_ckb(USD_5 * 1);
+    push_output_sub_account_cell_v2(
+        &mut template,
+        json!({
+            "data": {
+                "owner_profit": 0,
+                "flag": SubAccountConfigFlag::CustomRule as u8,
+                "status_flags": SubAccountCustomRuleFlag::On as u8,
+                // Simulate the preserve_rules_hash is not consistent.
+                "preserve_rules_hash": BLACK_HOLE_HASH
+            }
+        }),
+        ACCOUNT_1,
+    );
+    push_output_normal_cell(&mut template, TOTAL_PAID - total_profit, OWNER);
+
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::SubAccountCellConsistencyError,
+    );
+}
+
+#[test]
+fn challenge_sub_account_create_flag_custom_script_mix_custom_script() {
+    let mut template = before_each();
+
+    // outputs
+    template.push_sub_account_witness_v2(json!({
+        "action": SubAccountAction::Create.to_string(),
+        "sub_account": {
+            "lock": {
+                "owner_lock_args": OWNER_1,
+                "manager_lock_args": MANAGER_1
+            },
+            "account": SUB_ACCOUNT_1,
+            "suffix": SUB_ACCOUNT_SUFFIX,
+            "registered_at": TIMESTAMP,
+            "expired_at": TIMESTAMP + YEAR_SEC,
+        },
+        "edit_key": "custom_script",
+    }));
+
+    let total_profit = util::usd_to_ckb(USD_5 * 1);
+    push_simple_outputs(&mut template, total_profit);
+
+    challenge_tx(template.as_json(), SubAccountCellErrorCode::WitnessEditKeyInvalid);
+}
+
+#[test]
+fn challenge_sub_account_create_flag_custom_rule_account_preserved() {
+    let mut template = before_each();
+
+    // outputs
+    template.push_sub_account_witness_v2(json!({
+        "action": SubAccountAction::Create.to_string(),
+        "sub_account": {
+            "lock": {
+                "owner_lock_args": OWNER_1,
+                "manager_lock_args": MANAGER_1
+            },
+            // Simulate try to register a preserved account.
+            "account": SUB_ACCOUNT_4,
+            "suffix": SUB_ACCOUNT_SUFFIX,
+            "registered_at": TIMESTAMP,
+            "expired_at": TIMESTAMP + YEAR_SEC,
+        },
+        "edit_key": "custom_rule",
+        "edit_value": DUMMY_CHANNEL
+    }));
+
+    let total_profit = util::usd_to_ckb(USD_5 * 1);
+    push_simple_outputs(&mut template, total_profit);
+
+    challenge_tx(template.as_json(), SubAccountCellErrorCode::AccountIsPreserved);
+}
+
+#[test]
+fn challenge_sub_account_create_flag_custom_rule_account_has_no_price() {
+    let mut template = before_each();
+
+    // outputs
+    template.push_sub_account_witness_v2(json!({
+        "action": SubAccountAction::Create.to_string(),
+        "sub_account": {
+            "lock": {
+                "owner_lock_args": OWNER_1,
+                "manager_lock_args": MANAGER_1
+            },
+            // Simulate try to register an account with no price.
+            "account": "aaa.xxxxx.bit",
+            "suffix": SUB_ACCOUNT_SUFFIX,
+            "registered_at": TIMESTAMP,
+            "expired_at": TIMESTAMP + YEAR_SEC,
+        },
+        "edit_key": "custom_rule",
+        "edit_value": DUMMY_CHANNEL
+    }));
+
+    let total_profit = util::usd_to_ckb(USD_5 * 1);
+    push_simple_outputs(&mut template, total_profit);
+
+    challenge_tx(template.as_json(), SubAccountCellErrorCode::AccountHasNoPrice);
+}
+
+#[test]
+fn challenge_sub_account_create_flag_custom_rule_das_profit_incorrect() {
+    let mut template = before_each();
+
+    // outputs
+    template.push_sub_account_witness_v2(json!({
+        "action": SubAccountAction::Create.to_string(),
+        "sub_account": {
+            "lock": {
+                "owner_lock_args": OWNER_1,
+                "manager_lock_args": MANAGER_1
+            },
+            "account": SUB_ACCOUNT_1,
+            "suffix": SUB_ACCOUNT_SUFFIX,
+            "registered_at": TIMESTAMP,
+            "expired_at": TIMESTAMP + YEAR_SEC,
+        },
+        "edit_key": "custom_rule",
+        "edit_value": DUMMY_CHANNEL
+    }));
+
+    let total_profit = util::usd_to_ckb(USD_5 * 1);
+    // Simulate record incorrect das profit.
+    push_simple_outputs(&mut template, total_profit - 1);
+
+    challenge_tx(template.as_json(), SubAccountCellErrorCode::SubAccountProfitError);
 }

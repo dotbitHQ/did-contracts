@@ -7,13 +7,15 @@ use crate::util::accounts::*;
 use crate::util::constants::*;
 use crate::util::smt::SMTWithHistory;
 use crate::util::template_common_cell::{
-    push_dep_account_cell, push_input_sub_account_cell, push_input_sub_account_cell_v2, push_output_normal_cell,
-    push_output_sub_account_cell, push_output_sub_account_cell_v2,
+    push_dep_account_cell, push_input_sub_account_cell_v2, push_output_normal_cell, push_output_sub_account_cell_v2,
 };
 use crate::util::template_generator::*;
 use crate::util::{self};
 
+pub const SCRIPT_CODE_HASH: &str = "0x0000000000000000000000000000746573742d637573746f6d2d736372697074";
 pub const SCRIPT_ARGS: &str = "0x0011223300";
+
+pub const DUMMY_CHANNEL: &str = "0x00000000000000000000000000000000000000000000000000000000";
 
 pub fn init(action: &str, params_opt: Option<&str>) -> TemplateGenerator {
     let mut template = TemplateGenerator::new(action, params_opt.map(|raw| Bytes::from(util::hex_to_bytes(raw))));
@@ -96,7 +98,6 @@ pub fn push_simple_input_sub_account_cell(template: &mut TemplateGenerator, das_
                 "das_profit": das_profit,
                 "owner_profit": owner_profit,
                 "flag": SubAccountConfigFlag::Manual as u8,
-                "custom_script": "0x0000000000000000000000000000000000000000000000000000000000000000"
             }
         }),
         ACCOUNT_1,
@@ -113,7 +114,6 @@ pub fn push_simple_output_sub_account_cell(template: &mut TemplateGenerator, das
                 "das_profit": das_profit,
                 "owner_profit": owner_profit,
                 "flag": SubAccountConfigFlag::Manual as u8,
-                "custom_script": "0x0000000000000000000000000000000000000000000000000000000000000000"
             }
         }),
         ACCOUNT_1,
@@ -158,7 +158,6 @@ pub fn push_simple_input_sub_account_cell_with_custom_script(
     owner_profit: u64,
     script_args: &str,
 ) {
-    let current_root = template.smt_with_history.current_root();
     push_input_sub_account_cell_v2(
         template,
         json!({
@@ -167,7 +166,6 @@ pub fn push_simple_input_sub_account_cell_with_custom_script(
                 "timestamp": TIMESTAMP - DAY_SEC,
             },
             "data": {
-                "root": String::from("0x") + &hex::encode(&current_root),
                 "das_profit": das_profit,
                 "owner_profit": owner_profit,
                 "flag": SubAccountConfigFlag::CustomScript as u8,

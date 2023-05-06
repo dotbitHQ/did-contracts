@@ -13,7 +13,7 @@ fn before_each() -> TemplateGenerator {
 
     // inputs
     push_simple_input_account_cell(&mut template);
-    push_simple_input_sub_account_cell(&mut template);
+    push_input_sub_account_cell_v2(&mut template, json!({}), ACCOUNT_1);
 
     template
 }
@@ -27,10 +27,6 @@ fn push_simple_input_account_cell(template: &mut TemplateGenerator) {
             }
         }),
     );
-}
-
-fn push_simple_input_sub_account_cell(template: &mut TemplateGenerator) {
-    push_input_sub_account_cell_v2(template, json!({}), ACCOUNT_1);
 }
 
 fn push_simple_output_account_cell(template: &mut TemplateGenerator) {
@@ -51,7 +47,6 @@ fn push_simple_output_sub_account_cell(template: &mut TemplateGenerator) {
             "data": {
                 "flag": SubAccountConfigFlag::CustomRule as u8,
                 "status_flag": SubAccountCustomRuleFlag::On as u8,
-
             }
         }),
         ACCOUNT_1,
@@ -140,9 +135,64 @@ fn test_sub_account_config_custom_rule() {
     test_tx(template.as_json())
 }
 
-// #[test]
-// fn challenge_sub_account_config_custom_script_not_change() {
-//     let mut template = init_config("config_sub_account", Some("0x00"));
+#[test]
+fn challenge_sub_account_config_change_custom_script() {
+    let mut template = before_each();
 
-//     challenge_tx(template.as_json(), SubAccountCellErrorCode::SubAccountCustomScriptError)
-// }
+    // outputs
+    push_simple_output_account_cell(&mut template);
+    push_output_sub_account_cell_v2(
+        &mut template,
+        json!({
+            "data": {
+                "flag": SubAccountConfigFlag::CustomScript as u8,
+                "custom_script": SCRIPT_CODE_HASH,
+                "script_args": "",
+            }
+        }),
+        ACCOUNT_1,
+    );
+
+    challenge_tx(template.as_json(), SubAccountCellErrorCode::ConfigFlagInvalid)
+}
+
+#[test]
+fn challenge_sub_account_config_custom_rule_invalid_syntax() {
+    let mut template = before_each();
+
+    // outputs
+    push_simple_output_account_cell(&mut template);
+
+    template.push_sub_account_rules_witness(
+        DataType::SubAccountPriceRule,
+        1,
+        json!(
+            [
+                {
+                    "index": 0,
+                    "name": "Dummy rule",
+                    "note": "",
+                    "price": 100_000_000,
+                    "ast": {
+                        "type": "value",
+                        "value_type": "bool",
+                        "value": false,
+                    }
+                }
+            ]
+        ),
+    );
+    push_output_sub_account_cell_v2(
+        &mut template,
+        json!({
+            "data": {
+                "flag": SubAccountConfigFlag::CustomRule as u8,
+                "status_flag": SubAccountCustomRuleFlag::On as u8,
+
+            }
+        }),
+        ACCOUNT_1,
+    );
+
+    challenge_tx(template.as_json(), SubAccountCellErrorCode::ConfigRulesHasSyntaxError);
+}

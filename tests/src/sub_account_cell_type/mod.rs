@@ -1,3 +1,4 @@
+mod collect_sub_account_channel_profit;
 mod collect_sub_account_profit;
 mod common;
 mod config_sub_account;
