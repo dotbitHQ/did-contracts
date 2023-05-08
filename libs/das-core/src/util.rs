@@ -516,12 +516,12 @@ pub fn load_das_witnesses(index: usize) -> Result<Vec<u8>, Box<dyn ScriptError>>
 
             if actual_size > 32000 {
                 warn!("The witnesses[{}] should be less than 32KB because the signall lock do not support more than that.", index);
-                Err(SysError::LengthNotEnough(actual_size).into())
-            } else {
-                let mut buf = vec![0u8; actual_size];
-                syscalls::load_witness(&mut buf, 0, index, Source::Input)?;
-                Ok(buf)
+                return Err(SysError::LengthNotEnough(actual_size).into());
             }
+
+            let mut buf = vec![0u8; actual_size];
+            syscalls::load_witness(&mut buf, 0, index, Source::Input)?;
+            Ok(buf)
         }
         Err(e) => {
             warn!("Load witness[{}] failed: {:?}", index, e);

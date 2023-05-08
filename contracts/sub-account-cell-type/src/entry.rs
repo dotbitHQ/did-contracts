@@ -189,44 +189,56 @@ fn action_config_sub_account(_action: &[u8], parser: &mut WitnessesParser) -> Re
         SubAccountConfigFlag::CustomRule => {
             verifiers::sub_account_cell::verify_config_is_custom_rule(output_sub_account_cells[0], Source::Output)?;
 
-            let sub_account_witness_parser = SubAccountWitnessesParser::new(flag)?;
-            for data_type in [DataType::SubAccountPriceRule, DataType::SubAccountPreservedRule] {
-                let (hash, field) = match data_type {
-                    DataType::SubAccountPriceRule => (price_rules_hash, String::from("price_rules")),
-                    DataType::SubAccountPreservedRule => (preserved_rules_hash, String::from("preserved_rules")),
-                    _ => unreachable!(),
-                };
+            let mut rules_to_verify = vec![];
+            if price_rules_hash != Some(&[0u8; 10]) {
+                rules_to_verify.push(DataType::SubAccountPriceRule);
+            }
+            if preserved_rules_hash != Some(&[0u8; 10]) {
+                rules_to_verify.push(DataType::SubAccountPreservedRule);
+            }
 
-                let rules = match sub_account_witness_parser.get_rules(&sub_account_cell_data, data_type)? {
-                    Some(rules) => rules,
-                    None => {
-                        das_assert!(
-                            hash == Some(&[0u8; 10]),
-                            SubAccountCellErrorCode::ConfigRulesHashMismatch,
-                            "The {}Witness is empty, but the SubAccountCell.data.{}_hash is not 0x00000000000000000000",
-                            data_type.to_string(),
-                            field
-                        );
+            if !rules_to_verify.is_empty() {
+                let sub_account_witness_parser = SubAccountWitnessesParser::new(flag)?;
+                for data_type in rules_to_verify {
+                    let (hash, field) = match data_type {
+                        DataType::SubAccountPriceRule => (price_rules_hash, String::from("price_rules")),
+                        DataType::SubAccountPreservedRule => (preserved_rules_hash, String::from("preserved_rules")),
+                        _ => unreachable!(),
+                    };
 
-                        continue;
-                    }
-                };
+                    let rules = match sub_account_witness_parser.get_rules(&sub_account_cell_data, data_type)? {
+                        Some(rules) => rules,
+                        None => {
+                            das_assert!(
+                                hash == Some(&[0u8; 10]),
+                                SubAccountCellErrorCode::ConfigRulesHashMismatch,
+                                "The {}Witness is empty, but the SubAccountCell.data.{}_hash is not 0x00000000000000000000",
+                                data_type.to_string(),
+                                field
+                            );
 
-                let mut dummy_account_chars_builder = AccountChars::new_builder();
-                dummy_account_chars_builder = dummy_account_chars_builder.push(AccountChar::default());
-                let dummy_account_chars = dummy_account_chars_builder.build();
-                let dummy_account = "";
+                            continue;
+                        }
+                    };
 
-                match_rule_with_account_chars(&rules, dummy_account_chars.as_reader(), dummy_account).map_err(
-                    |err| {
-                        warn!(
-                            "The SubAccountCell.witness.{} has some syntax error: {}",
-                            field,
-                            err.to_string()
-                        );
-                        code_to_error!(SubAccountCellErrorCode::ConfigRulesHasSyntaxError)
-                    },
-                )?;
+                    let mut dummy_account_chars_builder = AccountChars::new_builder();
+                    dummy_account_chars_builder = dummy_account_chars_builder.push(AccountChar::default());
+                    let dummy_account_chars = dummy_account_chars_builder.build();
+                    let dummy_account = "";
+
+                    match_rule_with_account_chars(&rules, dummy_account_chars.as_reader(), dummy_account).map_err(
+                        |err| {
+                            warn!(
+                                "The SubAccountCell.witness.{} has some syntax error: {}",
+                                field,
+                                err.to_string()
+                            );
+                            code_to_error!(SubAccountCellErrorCode::ConfigRulesHasSyntaxError)
+                        },
+                    )?;
+                }
+            } else {
+                debug!("No rules configured, skip the syntax check ...");
             }
         }
         SubAccountConfigFlag::Manual => {
@@ -1055,25 +1067,17 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
             SubAccountConfigFlag::CustomRule => {
                 debug!("Verify if all the profit have been accounted for .bit ...");
 
-                das_assert!(
-                    profit_total >= minimal_required_das_profit,
-                    SubAccountCellErrorCode::MinimalProfitToDASNotReached,
-                    "The minimal profit to DAS is not reached.(expected: {}, total: {})",
-                    minimal_required_das_profit,
-                    profit_total
-                );
-
-                verify_profit_to_das_and_owner(
+                verify_profit_to_das_with_custom_rule(
                     config_sub_account,
                     &input_sub_account_data,
                     &output_sub_account_data,
                     // All the profit should be distributed to DAS to wait further distribution.
+                    minimal_required_das_profit,
                     profit_total,
-                    0,
                 )?;
             }
             _ => {
-                verify_profit_to_das(
+                verify_profit_to_das_with_manual(
                     output_sub_account_cells[0],
                     &input_sub_account_data,
                     &output_sub_account_data,
@@ -1308,7 +1312,7 @@ fn verify_sub_account_transaction_fee(
     Ok(())
 }
 
-fn verify_profit_to_das(
+fn verify_profit_to_das_with_manual(
     cell_index: usize,
     input_data: &[u8],
     output_data: &[u8],
@@ -1374,52 +1378,29 @@ fn verify_profit_to_das_with_custom_script(
     Ok(())
 }
 
-fn verify_profit_to_das_and_owner(
-    config_sub_account: ConfigCellSubAccountReader,
+fn verify_profit_to_das_with_custom_rule(
+    _config_sub_account: ConfigCellSubAccountReader,
     input_data: &[u8],
     output_data: &[u8],
-    minimal_profit_to_das: u64,
-    expected_profit_to_owner: u64,
+    minimal_required_das_profit: u64,
+    mut expected_total_profit: u64,
 ) -> Result<(), Box<dyn ScriptError>> {
     debug!("Verify the profit to DAS is calculated from rate of config properly.");
 
     let input_das_profit = data_parser::sub_account_cell::get_das_profit(&input_data).unwrap();
     let output_das_profit = data_parser::sub_account_cell::get_das_profit(&output_data).unwrap();
-    let input_owner_profit = data_parser::sub_account_cell::get_owner_profit(&input_data).unwrap();
-    let output_owner_profit = data_parser::sub_account_cell::get_owner_profit(&output_data).unwrap();
-    let owner_profit = output_owner_profit - input_owner_profit;
     let das_profit = output_das_profit - input_das_profit;
-    let total_profit = owner_profit + das_profit;
-    let profit_rate = u32::from(config_sub_account.new_sub_account_custom_price_das_profit_rate());
 
-    das_assert!(
-        das_profit >= minimal_profit_to_das,
-        SubAccountCellErrorCode::SubAccountProfitError,
-        "The profit to DAS should be greater than or equal to the minimal profit which is 1 CKB per account. (das_profit: {}, minimal_profit_to_das: {})",
-        das_profit,
-        minimal_profit_to_das
-    );
-
-    // CAREFUL: Overflow risk
-    let mut expected_das_profit = total_profit * profit_rate as u64 / RATE_BASE;
-    if expected_das_profit < minimal_profit_to_das {
-        expected_das_profit = minimal_profit_to_das;
+    if expected_total_profit <= minimal_required_das_profit {
+        expected_total_profit = minimal_required_das_profit;
     }
 
     das_assert!(
-        expected_das_profit == das_profit,
+        expected_total_profit == das_profit,
         SubAccountCellErrorCode::SubAccountProfitError,
         "The profit to DAS should be calculated from rate of config properly. (expected_das_profit: {}, das_profit: {})",
-        expected_das_profit,
+        expected_total_profit,
         das_profit
-    );
-
-    das_assert!(
-        expected_profit_to_owner == owner_profit,
-        SubAccountCellErrorCode::SubAccountProfitError,
-        "The profit to owner should be exactly follow the price rules. (expected_owner_profit: {}, owner_profit: {})",
-        expected_profit_to_owner,
-        owner_profit
     );
 
     Ok(())

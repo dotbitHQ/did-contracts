@@ -246,7 +246,7 @@ impl SubAccountWitnessesParser {
     fn parse_rule_witnesses(
         &self,
         data_type: DataType,
-    ) -> Result<Vec<ast_types::SubAccountRule>, Box<dyn ScriptError>> {
+    ) -> Result<([u8; 32], Vec<ast_types::SubAccountRule>), Box<dyn ScriptError>> {
         let indexes = match data_type {
             DataType::SubAccountPriceRule => &self.price_rule_indexes,
             DataType::SubAccountPreservedRule => &self.preserved_rule_indexes,
@@ -255,6 +255,7 @@ impl SubAccountWitnessesParser {
 
         debug!("Start parsing {:?}Witness ...", data_type);
 
+        let mut concat_bytes = Vec::new();
         let mut rules = Vec::new();
         for index in indexes {
             debug!("  witnesses[{:>2}] Parsing bytes to {:?}Witness ...", index, data_type);
@@ -263,7 +264,9 @@ impl SubAccountWitnessesParser {
             let start = WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES;
 
             let (start, version_bytes) = Self::parse_field("version", &raw, start)?;
-            let (_, rules_bytes) = Self::parse_field("signature", &raw, start)?;
+            let (_, rules_bytes) = Self::parse_field("rules", &raw, start)?;
+
+            concat_bytes.extend(rules_bytes);
 
             das_assert!(
                 version_bytes.len() == 4,
@@ -308,7 +311,18 @@ impl SubAccountWitnessesParser {
             rules.extend(sub_rules.into_iter());
         }
 
-        Ok(rules)
+        for (i, rule) in rules.iter().enumerate() {
+            das_assert!(
+                rule.index == i as u32,
+                SubAccountCellErrorCode::WitnessParsingError,
+                "  rules[{:>2}] SubAccountMintSignWitness.index should be ordered.",
+                rule.index
+            );
+        }
+
+        let hash = util::blake2b_256(&concat_bytes);
+
+        Ok((hash, rules))
     }
 
     fn parse_witness(flag: SubAccountConfigFlag, i: usize) -> Result<SubAccountWitness, Box<dyn ScriptError>> {
@@ -649,18 +663,7 @@ impl SubAccountWitnessesParser {
             }
         }
 
-        let rules = self.parse_rule_witnesses(data_type)?;
-        let hash = if !rules.is_empty() {
-            let entity = ast_util::sub_account_rules_to_mol_entity(rules.clone()).map_err(|e| {
-                warn!("Parse sub-account rules to molecule entity failed: {}", e.to_string());
-                code_to_error!(SubAccountCellErrorCode::SubAccountRulesToWitnessFailed)
-            })?;
-
-            util::blake2b_256(entity.as_slice())
-        } else {
-            unreachable!();
-        };
-
+        let (hash, rules) = self.parse_rule_witnesses(data_type)?;
         das_assert!(
             expected_hash == hash.get(0..10),
             SubAccountCellErrorCode::ConfigRulesHashMismatch,
