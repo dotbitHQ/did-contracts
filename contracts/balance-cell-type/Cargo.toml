@@ -10,7 +10,7 @@ testnet = ["das-core/testnet"]
 mainnet = ["das-core/mainnet"]
 
 [dependencies]
-ckb-std = { git = "https://github.com/XuJiandong/ckb-std.git", branch = "load-library-typeid" }
-das-core = { path = "../../libs/das-core", default-features = false }
-das-types = { path = "../../../das-types/rust", default-features = false }
-das-map = { path = "../../libs/das-map" }
+ckb-std = { workspace = true }
+das-core = { workspace = true, default-features = false }
+das-types = { workspace = true, default-features = false }
+das-map = { workspace = true }
