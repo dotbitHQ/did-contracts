@@ -209,6 +209,12 @@ test-release)
   docker exec -it -w /code -e BINARY_VERSION=release $DOCKER_CONTAINER bash -c "cargo test -p tests $2"
   switch_target_dir host
   ;;
+perf-release)
+  switch_target_dir docker
+  echo "Run test with name: $2"
+  docker exec -it -w /code -e BINARY_VERSION=release $DOCKER_CONTAINER bash -c "cargo test -p tests $2 -- --nocapture"
+  switch_target_dir host
+  ;;
 *)
   echo "Unsupported docker.sh command."
   exit 0
