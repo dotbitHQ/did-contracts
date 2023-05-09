@@ -85,7 +85,6 @@ pub fn push_simple_dep_account_cell(template: &mut TemplateGenerator) {
 }
 
 pub fn push_simple_input_sub_account_cell(template: &mut TemplateGenerator, das_profit: u64, owner_profit: u64) {
-    let current_root = template.smt_with_history.current_root();
     push_input_sub_account_cell_v2(
         template,
         json!({
@@ -94,7 +93,6 @@ pub fn push_simple_input_sub_account_cell(template: &mut TemplateGenerator, das_
                 "timestamp": TIMESTAMP - DAY_SEC,
             },
             "data": {
-                "root": String::from("0x") + &hex::encode(&current_root),
                 "das_profit": das_profit,
                 "owner_profit": owner_profit,
                 "flag": SubAccountConfigFlag::Manual as u8,
@@ -105,12 +103,10 @@ pub fn push_simple_input_sub_account_cell(template: &mut TemplateGenerator, das_
 }
 
 pub fn push_simple_output_sub_account_cell(template: &mut TemplateGenerator, das_profit: u64, owner_profit: u64) {
-    let current_root = template.smt_with_history.current_root();
     push_output_sub_account_cell_v2(
         template,
         json!({
             "data": {
-                "root": String::from("0x") + &hex::encode(&current_root),
                 "das_profit": das_profit,
                 "owner_profit": owner_profit,
                 "flag": SubAccountConfigFlag::Manual as u8,

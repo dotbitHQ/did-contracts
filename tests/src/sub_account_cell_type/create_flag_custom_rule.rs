@@ -73,6 +73,7 @@ fn push_simple_rules(template: &mut TemplateGenerator) {
                     "name": "No emoji accounts",
                     "note": "",
                     "price": 0,
+                    "status": 1,
                     "ast": {
                         "type": "function",
                         "name": "only_include_charset",
@@ -94,6 +95,7 @@ fn push_simple_rules(template: &mut TemplateGenerator) {
                     "name": "No preserved accounts",
                     "note": "",
                     "price": 0,
+                    "status": 1,
                     "ast": {
                         "type": "function",
                         "name": "in_list",
@@ -126,6 +128,7 @@ fn push_simple_rules(template: &mut TemplateGenerator) {
                     "name": "4 charactor account",
                     "note": "",
                     "price": USD_20, // 20 USD
+                    "status": 0,
                     "ast": {
                         "type": "operator",
                         "symbol": "==",
@@ -147,6 +150,7 @@ fn push_simple_rules(template: &mut TemplateGenerator) {
                     "name": "5 or more charactor account",
                     "note": "",
                     "price": USD_5, // 5 USD
+                    "status": 1,
                     "ast": {
                         "type": "operator",
                         "symbol": ">=",
@@ -168,6 +172,7 @@ fn push_simple_rules(template: &mut TemplateGenerator) {
                     "name": "special account",
                     "note": "",
                     "price": USD_10, // 10 USD
+                    "status": 1,
                     "ast": {
                         "type": "function",
                         "name": "include_chars",
@@ -193,7 +198,7 @@ fn push_simple_rules(template: &mut TemplateGenerator) {
 }
 
 #[test]
-fn test_sub_account_create_flag_custom_rule() {
+fn test_sub_account_create_flag_custom_rule_basic() {
     let mut template = before_each();
 
     // outputs
@@ -489,7 +494,7 @@ fn challenge_sub_account_create_flag_custom_rule_preserve_rules_hash_not_consist
                 "flag": SubAccountConfigFlag::CustomRule as u8,
                 "status_flags": SubAccountCustomRuleFlag::On as u8,
                 // Simulate the preserve_rules_hash is not consistent.
-                "preserve_rules_hash": BLACK_HOLE_HASH
+                "preserved_rules_hash": BLACK_HOLE_HASH
             }
         }),
         ACCOUNT_1,
@@ -610,4 +615,32 @@ fn challenge_sub_account_create_flag_custom_rule_das_profit_incorrect() {
     push_simple_outputs(&mut template, total_profit - 1);
 
     challenge_tx(template.as_json(), SubAccountCellErrorCode::SubAccountProfitError);
+}
+
+#[test]
+fn challenge_sub_account_create_flag_custom_rule_skipped() {
+    let mut template = before_each();
+
+    // outputs
+    template.push_sub_account_witness_v2(json!({
+        "action": SubAccountAction::Create.to_string(),
+        "sub_account": {
+            "lock": {
+                "owner_lock_args": OWNER_1,
+                "manager_lock_args": MANAGER_1
+            },
+            // Simulate try to register an account which only match the disabled rule.w
+            "account": "0000.xxxxx.bit",
+            "suffix": SUB_ACCOUNT_SUFFIX,
+            "registered_at": TIMESTAMP,
+            "expired_at": TIMESTAMP + YEAR_SEC,
+        },
+        "edit_key": "custom_rule",
+        "edit_value": "0x00000000000000000000000000000000000000000000000000000000"
+    }));
+
+    let total_profit = util::usd_to_ckb(USD_5 * 1);
+    push_simple_outputs(&mut template, total_profit);
+
+    challenge_tx(template.as_json(), SubAccountCellErrorCode::AccountHasNoPrice)
 }

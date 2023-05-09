@@ -530,8 +530,8 @@ pub struct TemplateGenerator {
     pub sub_account_outer_witnesses: Vec<String>,
     pub reverse_record_outer_witnesses: Vec<String>,
     // Other fields
-    pub sub_account_price_rules: Vec<ast_types::SubAccountRule>,
-    pub sub_account_preserved_rules: Vec<ast_types::SubAccountRule>,
+    pub sub_account_price_rules_bytes: Vec<u8>,
+    pub sub_account_preserved_rules_bytes: Vec<u8>,
     pub prices: HashMap<u8, PriceConfig>,
     pub preserved_account_groups: HashMap<u32, (Vec<u8>, Vec<u8>)>,
     pub charsets: HashMap<u32, (Bytes, Vec<u8>)>,
@@ -563,8 +563,8 @@ impl TemplateGenerator {
             outer_witnesses: vec![util::bytes_to_hex(&witness)],
             sub_account_outer_witnesses: Vec::new(),
             reverse_record_outer_witnesses: Vec::new(),
-            sub_account_price_rules: Vec::new(),
-            sub_account_preserved_rules: Vec::new(),
+            sub_account_price_rules_bytes: Vec::new(),
+            sub_account_preserved_rules_bytes: Vec::new(),
             prices,
             preserved_account_groups: HashMap::new(),
             charsets: HashMap::new(),
@@ -2800,18 +2800,6 @@ impl TemplateGenerator {
         let sub_account_rules = ast_util::json_to_sub_account_rules(String::from("."), &rules)
             .expect("Failed to convert json to SubAccountRules");
 
-        match data_type {
-            DataType::SubAccountPriceRule => {
-                self.sub_account_price_rules
-                    .extend(sub_account_rules.clone().into_iter());
-            }
-            DataType::SubAccountPreservedRule => {
-                self.sub_account_preserved_rules
-                    .extend(sub_account_rules.clone().into_iter());
-            }
-            _ => panic!("Invalid DataType"),
-        }
-
         let mut witness_bytes = Vec::new();
 
         let version = version.to_le_bytes();
@@ -2823,6 +2811,16 @@ impl TemplateGenerator {
         witness_bytes.extend(length_of(entity.as_slice()));
         witness_bytes.extend(entity.as_slice());
 
+        match data_type {
+            DataType::SubAccountPriceRule => {
+                self.sub_account_price_rules_bytes.extend(entity.as_slice());
+            }
+            DataType::SubAccountPreservedRule => {
+                self.sub_account_preserved_rules_bytes.extend(entity.as_slice());
+            }
+            _ => panic!("Invalid DataType"),
+        }
+
         self.sub_account_outer_witnesses
             .push(util::bytes_to_hex(&das_util::wrap_raw_witness_v2(
                 data_type,
@@ -2832,17 +2830,15 @@ impl TemplateGenerator {
 
     fn calc_sub_account_rules_witness_hash(&mut self, data_type: DataType) -> Vec<u8> {
         let rules = match data_type {
-            DataType::SubAccountPriceRule => &self.sub_account_price_rules,
-            DataType::SubAccountPreservedRule => &self.sub_account_preserved_rules,
+            DataType::SubAccountPriceRule => &self.sub_account_price_rules_bytes,
+            DataType::SubAccountPreservedRule => &self.sub_account_preserved_rules_bytes,
             _ => panic!("Invalid DataType"),
         };
 
         let hash = if rules.is_empty() {
             [0u8; 32]
         } else {
-            let entity = ast_util::sub_account_rules_to_mol_entity(rules.to_vec())
-                .expect("Failed to convert SubAccountRules to molecule entity");
-            blake2b_256(entity.as_slice())
+            blake2b_256(&rules)
         };
 
         hash.to_vec()

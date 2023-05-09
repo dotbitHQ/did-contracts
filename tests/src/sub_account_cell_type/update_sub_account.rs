@@ -138,6 +138,7 @@ fn test_sub_account_update_with_custom_script() {
     let mut template = before_each();
 
     // outputs
+    let smt = push_commen_sign_witness(&mut template);
     template.push_sub_account_witness_v2(json!({
         "action": SubAccountAction::Edit.to_string(),
         "sign_role": "0x00",
@@ -168,6 +169,7 @@ fn test_sub_account_update_with_custom_script() {
             "registered_at": TIMESTAMP,
             "expired_at": TIMESTAMP + YEAR_SEC,
         },
+        "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_2)
     }));
 
     let total_profit = calculate_sub_account_custom_price(1);
