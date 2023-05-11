@@ -381,7 +381,7 @@ impl SubAccountWitnessesParser {
             }
         };
 
-        let sub_account = match SubAccount::from_slice(sub_account_bytes) {
+        let sub_account = match SubAccount::from_compatible_slice(sub_account_bytes) {
             Ok(val) => val,
             Err(e) => {
                 warn!(
