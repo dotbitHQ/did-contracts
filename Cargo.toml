@@ -30,21 +30,19 @@ members = [
 ]
 
 [workspace.dependencies]
-# das-types = { path = "../../das-types/rust", default-features = false }
-das-types = { git = "ssh://git@github.com/dotbitHQ/das-types-private.git", default-features = false, rev = "ef1855177f2b5aada11c6802e2d28a127826a0d3" }
-# das-types-std = { path = "../../das-types-std/rust" }
-das-types-std = { git = "ssh://git@github.com/dotbitHQ/das-types-private.git", rev = "ff313f9f95d496032f3100ecc6be28a95ec5c5b3" }
-# simple-ast = { path = "../../../simple-ast", features = ["no_std"], default-features = false }
-simple-ast = { git = "ssh://git@github.com/dotbitHQ/simple-ast.git", features = [
-    "no_std",
-], default-features = false, rev = "1b1532661e04a6f509f7a8a1c01d8dd1d23cbe1b" }
+das-types = { git = "ssh://git@github.com/dotbitHQ/das-types-private.git", default-features = false, rev = "cccfabfe2e" }
+simple-ast = { git = "ssh://git@github.com/dotbitHQ/simple-ast.git", features = [ "no_std" ], default-features = false, rev = "6250d4dbe6" }
 das-map = { path = "libs/das-map", default-features = false }
 das-core = { path = "libs/das-core", default-features = false }
+das-sorted-list = { path = "libs/das-sorted-list", default-features = false }
 ckb-std = { git = "https://github.com/XuJiandong/ckb-std.git", rev = "872cd13b9b1974edb87418bc1b93ed970282aaa8" }
 
+# Uncomment the patches below for local development
 [patch."ssh://git@github.com/dotbitHQ/simple-ast.git"]
-das-types = { git = "ssh://git@github.com/dotbitHQ/das-types-private.git", rev = "ef1855177f2b5aada11c6802e2d28a127826a0d3", optional = true }
-das-types-std = { git = "ssh://git@github.com/dotbitHQ/das-types-private.git", rev = "ff313f9f95d496032f3100ecc6be28a95ec5c5b3", optional = true }
+simple-ast = { path = "../simple-ast", features = ["no_std"], default-features = false }
+
+[patch."ssh://git@github.com/dotbitHQ/das-types-private.git"]
+das-types = { path = "../das-types/rust", default-features = false }
 
 [profile.release]
 overflow-checks = true

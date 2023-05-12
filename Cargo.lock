@@ -676,7 +676,6 @@ dependencies = [
 [[package]]
 name = "das-types"
 version = "1.11.0"
-source = "git+ssh://git@github.com/dotbitHQ/das-types-private.git?rev=ef1855177f2b5aada11c6802e2d28a127826a0d3#ef1855177f2b5aada11c6802e2d28a127826a0d3"
 dependencies = [
  "ckb-std 0.11.0 (git+https://github.com/XuJiandong/ckb-std.git?branch=load-library-typeid)",
  "molecule",
@@ -687,7 +686,7 @@ dependencies = [
 [[package]]
 name = "das-types-std"
 version = "1.11.0"
-source = "git+ssh://git@github.com/dotbitHQ/das-types-private.git?rev=ff313f9f95d496032f3100ecc6be28a95ec5c5b3#ff313f9f95d496032f3100ecc6be28a95ec5c5b3"
+source = "git+ssh://git@github.com/dotbitHQ/das-types-private.git?rev=1ea3f0dc52#1ea3f0dc52e3d1bccd498d5bd2e1d4f41b023586"
 dependencies = [
  "ckb-types",
  "molecule",
@@ -1043,6 +1042,7 @@ version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3e51dcc6bafb7f3ac88b65d2ad21f4b53d878e496712060e23011862ebd2d2d1"
 dependencies = [
+ "proc-macro-crate",
  "proc-macro2",
  "quote",
  "syn 2.0.13",
@@ -1219,6 +1219,16 @@ dependencies = [
  "das-sorted-list",
  "das-types",
  "hex",
+]
+
+[[package]]
+name = "proc-macro-crate"
+version = "1.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f4c021e1093a56626774e81216a4ce732a735e5bad4868a03f3ed65ca0c3919"
+dependencies = [
+ "once_cell",
+ "toml_edit",
 ]
 
 [[package]]
@@ -1522,15 +1532,19 @@ dependencies = [
 [[package]]
 name = "simple-ast"
 version = "1.0.0"
-source = "git+ssh://git@github.com/dotbitHQ/simple-ast.git?rev=1b1532661e04a6f509f7a8a1c01d8dd1d23cbe1b#1b1532661e04a6f509f7a8a1c01d8dd1d23cbe1b"
 dependencies = [
  "blake2b-ref 0.3.1",
+ "blake2b-rs",
  "das-types",
+ "das-types-std",
  "hex",
  "log",
  "num_enum 0.6.0",
  "paste",
+ "serde",
+ "serde_json",
  "strum",
+ "thiserror",
  "thiserror-no-std",
 ]
 
@@ -1732,6 +1746,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "toml_datetime"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ab8ed2edee10b50132aed5f331333428b011c99402b5a534154ed15746f9622"
+
+[[package]]
+name = "toml_edit"
+version = "0.19.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "239410c8609e8125456927e6707163a3b1fdb40561e4b803bc041f466ccfdc13"
+dependencies = [
+ "indexmap",
+ "toml_datetime",
+ "winnow",
+]
+
+[[package]]
 name = "typenum"
 version = "1.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1859,3 +1890,12 @@ name = "windows_x86_64_msvc"
 version = "0.42.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9aec5da331524158c6d1a4ac0ab1541149c0b9505fde06423b02f5ef0106b9f0"
+
+[[package]]
+name = "winnow"
+version = "0.4.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "61de7bac303dc551fe038e2b3cef0f571087a47571ea6e79a87692ac99b99699"
+dependencies = [
+ "memchr",
+]

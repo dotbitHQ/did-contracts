@@ -12,7 +12,7 @@ mainnet = ["das-core/mainnet"]
 [dependencies]
 ckb-std = { workspace = true }
 das-core = { workspace = true, default-features = false }
-das-sorted-list = { path = "../../libs/das-sorted-list" }
+das-sorted-list = { workspace = true, default-features = false }
 das-map = { workspace = true }
 das-types = { workspace = true, default-features = false }
 chrono = { version = "0.4", default-features = false }

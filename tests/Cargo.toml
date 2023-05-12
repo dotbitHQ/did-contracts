@@ -15,9 +15,10 @@ ckb-chain-spec = "=0.105.1"
 ckb-types = "=0.105.1"
 ckb-hash = "=0.105.1"
 ckb-jsonrpc-types = "=0.105.1"
-das-sorted-list = { path = "../libs/das-sorted-list", features = ["std"] }
-das-types-std = { workspace = true }
-simple-ast = { workspace = true }
+das-sorted-list = { workspace = true, features = ["std"] }
+# das-types-std = { path = "../../das-types-std/rust" }
+das-types-std = { git = "ssh://git@github.com/dotbitHQ/das-types-private.git", rev = "1ea3f0dc52" }
+simple-ast = { git = "ssh://git@github.com/dotbitHQ/simple-ast.git", rev = "6250d4dbe6" }
 # Other
 hex = "0.4.3"
 thiserror = { version = "1.0" }
@@ -30,3 +31,10 @@ walkdir = "2"
 rand = "0.8.3"
 chrono = { version = "0.4" }
 sparse-merkle-tree = { git = "https://github.com/nervosnetwork/sparse-merkle-tree.git", default-features = false }
+
+# Uncomment the patches below for local development
+[patch."ssh://git@github.com/dotbitHQ/simple-ast.git"]
+simple-ast = { path = "../../simple-ast" }
+
+[patch."ssh://git@github.com/dotbitHQ/das-types-private.git"]
+das-types-std = { path = "../das-types/rust" }

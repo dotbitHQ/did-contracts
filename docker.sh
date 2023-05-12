@@ -143,13 +143,25 @@ function join_by {
 }
 
 case $1 in
+start-ci)
+  docker run -d -t --rm \
+    --name $DOCKER_CONTAINER \
+    --network host \
+    -v .:/code \
+    -v $CACHE_VOLUME:/root/.cargo \
+    -v ~/.ssh:/root/.ssh_tmp:ro \
+    $DOCKER_IMAGE /bin/bash -c 'cp -r /root/.ssh_tmp ~/.ssh; chown -R $(id -u):$(id -g) ~/.ssh; chmod 700 ~/.ssh; chmod 600 ~/.ssh/*; /bin/bash' &>/dev/null
+  ;;
 start)
   dir="$(dirname $PWD)"
   if [[ $2 == "-b" || $2 == "--background" ]]; then
     docker run -d -t --rm \
       --name $DOCKER_CONTAINER \
       --network host \
-      -v .:/code \
+      -v ${dir}/das-contracts:/code \
+      -v ${dir}/das-types:/das-types \
+      -v ${dir}/das-types-std:/das-types-std \
+      -v ${dir}/simple-ast:/simple-ast \
       -v $CACHE_VOLUME:/root/.cargo \
       -v ~/.ssh:/root/.ssh_tmp:ro \
       $DOCKER_IMAGE /bin/bash -c 'cp -r /root/.ssh_tmp ~/.ssh; chown -R $(id -u):$(id -g) ~/.ssh; chmod 700 ~/.ssh; chmod 600 ~/.ssh/*; /bin/bash' &>/dev/null
@@ -157,7 +169,10 @@ start)
     docker run -it --rm \
       --name $DOCKER_CONTAINER \
       --network host \
-      -v .:/code \
+      -v ${dir}/das-contracts:/code \
+      -v ${dir}/das-types:/das-types \
+      -v ${dir}/das-types-std:/das-types-std \
+      -v ${dir}/simple-ast:/simple-ast \
       -v ~/.ssh:/root/.ssh_tmp:ro \
       -v $CACHE_VOLUME:/root/.cargo \
       $DOCKER_IMAGE \
