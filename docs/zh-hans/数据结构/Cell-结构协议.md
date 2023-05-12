@@ -1009,6 +1009,41 @@ length|hash|hash|hash ...
 这个 cell 的 witness 在其 entity 部分**存储的是纯二进制数据**，未进行 molecule 编码。其中前 4 bytes 是 uint32 的数据总长度，**包括这 4 bytes 自身**，之后就是各个账户名不含后缀的部分 hash 后前 20
 bytes 拼接而成的数据，因为每段数据固定为 20 bytes 所以**无分隔符等字节**。
 
+### KeylistConfigCell
+
+当用户选择“增强安全"后，创建这个 cell 用来存储用户的多设备的 `WebAuthn` 授权信息， 其中包括用户的 `Credential ID` 和 `Public key` 。
+
+当用户添加更多的设备进来，会在 witness 里添加设备的 `Credential ID` 和 `Public Key` ；
+
+#### 结构：
+
+```
+lock: <das-lock>
+type: <key-list-config-cell-type>
+data:
+  hash(witness: WebAuthnKeyList)
+
+witness:
+  vector WebAuthnKeyList <WebAuthnKey>;
+  
+======
+struct WebAuthnKey {
+    alg: Uint8,  //algorithm id
+    cid: Byte10, //credential id sha256
+    pubkey: Byte10,
+}
+```
+
+WebAuthnKey 中的主要字段如下：
+
+* alg：子算法 ID，表明使用 WebAuthn 的哪个算法进行公钥的生成以及验证；
+* cid：WebAuthn 生成的 credential ID 进行 sha256 5次后，取前10字节；
+* pubKey: WebAuthn 生成的 public key 进行 sha256 5次后，取前10字节；
+
+体积：
+
+
+
 ### TimeCell、HeightCell、QuoteCell
 
 这是 folk 自 Nervina 团队开发的 [ckb-time-scripts](https://github.com/nervina-labs/ckb-time-scripts) 合约脚本，它定义了一系列实现类似预言机功能的 Cell。
