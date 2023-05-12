@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Docker image name
-DOCKER_IMAGE="yuluyi/ckb-dev-all-in-one:0.0.1-arm64"
+DOCKER_IMAGE="dotbitteam/ckb-dev-all-in-one:0.0.1"
 COMPILING_TARGET="riscv64imac-unknown-none-elf"
 COMPILING_FLAGS="-Z pre-link-arg=-zseparate-code -Z pre-link-arg=-zseparate-loadable-segments"
 COMPILING_RELEASE_FLAGS="-C link-arg=-s"
