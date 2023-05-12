@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Docker image name
-DOCKER_IMAGE="thewawar/ckb-capsule:2022-08-01"
+DOCKER_IMAGE="dotbitteam/ckb-dev-all-in-one:0.0.1"
 COMPILING_TARGET="riscv64imac-unknown-none-elf"
 COMPILING_FLAGS="-Z pre-link-arg=-zseparate-code -Z pre-link-arg=-zseparate-loadable-segments"
 COMPILING_RELEASE_FLAGS="-C link-arg=-s"
@@ -149,22 +149,17 @@ start)
     docker run -d -t --rm \
       --name $DOCKER_CONTAINER \
       --network host \
-      -v ${dir}/das-contracts:/code \
-      -v ${dir}/das-types:/das-types \
-      -v ${dir}/das-types-std:/das-types-std \
-      -v ${dir}/simple-ast:/simple-ast \
+      -v .:/code \
       -v $CACHE_VOLUME:/root/.cargo \
+      -v ~/.ssh:/root/.ssh:ro \
       $DOCKER_IMAGE bin/bash &>/dev/null
   else
     docker run -it --rm \
       --name $DOCKER_CONTAINER \
       --network host \
-      -v ${dir}/das-contracts:/code \
-      -v ${dir}/das-types:/das-types \
-      -v ${dir}/das-types-std:/das-types-std \
-      -v ${dir}/simple-ast:/simple-ast \
-      -v $CACHE_VOLUME:/root/.cargo \
-      $DOCKER_IMAGE bin/bash
+      -v .:/code \
+      -v ~/.ssh:/root/.ssh:ro \
+      -v $CACHE_VOLUME:/root/.cargo \      $DOCKER_IMAGE bin/bash
   fi
   ;;
 stop)

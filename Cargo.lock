@@ -7,7 +7,7 @@ name = "account-auction-cell-type"
 version = "1.0.0"
 dependencies = [
  "chrono",
- "ckb-std",
+ "ckb-std 0.11.0 (git+https://github.com/XuJiandong/ckb-std.git?rev=872cd13b9b1974edb87418bc1b93ed970282aaa8)",
  "das-core",
  "das-map",
  "das-types",
@@ -17,7 +17,7 @@ dependencies = [
 name = "account-cell-type"
 version = "1.7.0"
 dependencies = [
- "ckb-std",
+ "ckb-std 0.11.0 (git+https://github.com/XuJiandong/ckb-std.git?rev=872cd13b9b1974edb87418bc1b93ed970282aaa8)",
  "das-core",
  "das-dynamic-libs",
  "das-map",
@@ -29,7 +29,7 @@ name = "account-sale-cell-type"
 version = "1.1.1"
 dependencies = [
  "chrono",
- "ckb-std",
+ "ckb-std 0.11.0 (git+https://github.com/XuJiandong/ckb-std.git?rev=872cd13b9b1974edb87418bc1b93ed970282aaa8)",
  "das-core",
  "das-map",
  "das-types",
@@ -54,20 +54,20 @@ dependencies = [
 name = "always-success"
 version = "1.0.0"
 dependencies = [
- "ckb-std",
+ "ckb-std 0.11.0 (git+https://github.com/XuJiandong/ckb-std.git?rev=872cd13b9b1974edb87418bc1b93ed970282aaa8)",
 ]
 
 [[package]]
 name = "anyhow"
-version = "1.0.38"
+version = "1.0.71"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "afddf7f520a80dbf76e6f50a35bca42a2331ef227a28b3b6dc5c2e2338d114b1"
+checksum = "9c7d0618f0e0b7e8ff11427422b64564d5fb0be1940354bfe2e0529b18a9d9b8"
 
 [[package]]
 name = "apply-register-cell-type"
 version = "1.1.0"
 dependencies = [
- "ckb-std",
+ "ckb-std 0.11.0 (git+https://github.com/XuJiandong/ckb-std.git?rev=872cd13b9b1974edb87418bc1b93ed970282aaa8)",
  "das-core",
  "das-types",
  "hex",
@@ -83,7 +83,7 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 name = "balance-cell-type"
 version = "1.3.0"
 dependencies = [
- "ckb-std",
+ "ckb-std 0.11.0 (git+https://github.com/XuJiandong/ckb-std.git?rev=872cd13b9b1974edb87418bc1b93ed970282aaa8)",
  "das-core",
  "das-map",
  "das-types",
@@ -182,9 +182,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.0.41"
+version = "1.0.79"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8dae9c4b8fedcae85592ba623c4fd08cfdab3e3b72d6df780c6ead964a69bfff"
+checksum = "50d30906286121d95be3d479533b458f87493b30a4b5f79a607db8f5d11aa91f"
 
 [[package]]
 name = "cfg-if"
@@ -469,6 +469,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ckb-std"
+version = "0.11.0"
+source = "git+https://github.com/XuJiandong/ckb-std.git?rev=872cd13b9b1974edb87418bc1b93ed970282aaa8#872cd13b9b1974edb87418bc1b93ed970282aaa8"
+dependencies = [
+ "buddy-alloc",
+ "cc",
+ "ckb-standalone-types",
+]
+
+[[package]]
 name = "ckb-system-scripts"
 version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -552,7 +562,7 @@ checksum = "14739bf59648c169de9257ec7dd6aba1aeb6a41725d636005f1c91853df58fcc"
 name = "config-cell-type"
 version = "1.1.2"
 dependencies = [
- "ckb-std",
+ "ckb-std 0.11.0 (git+https://github.com/XuJiandong/ckb-std.git?rev=872cd13b9b1974edb87418bc1b93ed970282aaa8)",
  "das-core",
  "das-types",
  "hex",
@@ -626,7 +636,7 @@ dependencies = [
  "blake2b-ref 0.3.1",
  "bs58",
  "chrono",
- "ckb-std",
+ "ckb-std 0.11.0 (git+https://github.com/XuJiandong/ckb-std.git?rev=872cd13b9b1974edb87418bc1b93ed970282aaa8)",
  "das-dynamic-libs",
  "das-map",
  "das-types",
@@ -643,7 +653,7 @@ name = "das-dynamic-libs"
 version = "1.0.0"
 dependencies = [
  "blake2b-ref 0.3.1",
- "ckb-std",
+ "ckb-std 0.11.0 (git+https://github.com/XuJiandong/ckb-std.git?rev=872cd13b9b1974edb87418bc1b93ed970282aaa8)",
  "das-types",
 ]
 
@@ -666,8 +676,9 @@ dependencies = [
 [[package]]
 name = "das-types"
 version = "1.11.0"
+source = "git+ssh://git@github.com/dotbitHQ/das-types-private.git?rev=ef1855177f2b5aada11c6802e2d28a127826a0d3#ef1855177f2b5aada11c6802e2d28a127826a0d3"
 dependencies = [
- "ckb-std",
+ "ckb-std 0.11.0 (git+https://github.com/XuJiandong/ckb-std.git?branch=load-library-typeid)",
  "molecule",
  "num_enum 0.5.11",
  "strum",
@@ -676,6 +687,7 @@ dependencies = [
 [[package]]
 name = "das-types-std"
 version = "1.11.0"
+source = "git+ssh://git@github.com/dotbitHQ/das-types-private.git?rev=ff313f9f95d496032f3100ecc6be28a95ec5c5b3#ff313f9f95d496032f3100ecc6be28a95ec5c5b3"
 dependencies = [
  "ckb-types",
  "molecule",
@@ -736,7 +748,7 @@ dependencies = [
 name = "eip712-lib"
 version = "1.1.0"
 dependencies = [
- "ckb-std",
+ "ckb-std 0.11.0 (git+https://github.com/XuJiandong/ckb-std.git?rev=872cd13b9b1974edb87418bc1b93ed970282aaa8)",
  "das-core",
  "das-map",
  "das-types",
@@ -763,9 +775,9 @@ dependencies = [
 
 [[package]]
 name = "generic-array"
-version = "0.14.4"
+version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "501466ecc8a30d1d3b7fc9229b122b2ce8ed6e9d9223f1138d4babb253e51817"
+checksum = "85649ca51fd72272d7821adaf274ad91c288277713d9c18820d8499a7ff69e9a"
 dependencies = [
  "typenum",
  "version_check",
@@ -867,7 +879,7 @@ dependencies = [
 name = "income-cell-type"
 version = "1.2.1"
 dependencies = [
- "ckb-std",
+ "ckb-std 0.11.0 (git+https://github.com/XuJiandong/ckb-std.git?rev=872cd13b9b1974edb87418bc1b93ed970282aaa8)",
  "das-core",
  "das-types",
  "hex",
@@ -897,9 +909,9 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "libc"
-version = "0.2.101"
+version = "0.2.144"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3cb00336871be5ed2c8ed44b60ae9959dc5b9f08539422ed43f09e34ecaeba21"
+checksum = "2b00cc1c228a6782d0f076e7b232802e0c5689d41bb5df366f2a6b6621cfdfe1"
 
 [[package]]
 name = "libm"
@@ -1031,7 +1043,6 @@ version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3e51dcc6bafb7f3ac88b65d2ad21f4b53d878e496712060e23011862ebd2d2d1"
 dependencies = [
- "proc-macro-crate",
  "proc-macro2",
  "quote",
  "syn 2.0.13",
@@ -1087,7 +1098,7 @@ dependencies = [
 name = "offer-cell-type"
 version = "1.0.1"
 dependencies = [
- "ckb-std",
+ "ckb-std 0.11.0 (git+https://github.com/XuJiandong/ckb-std.git?rev=872cd13b9b1974edb87418bc1b93ed970282aaa8)",
  "das-core",
  "das-map",
  "das-types",
@@ -1183,7 +1194,7 @@ name = "playground"
 version = "1.0.0"
 dependencies = [
  "blake2b-ref 0.3.1",
- "ckb-std",
+ "ckb-std 0.11.0 (git+https://github.com/XuJiandong/ckb-std.git?rev=872cd13b9b1974edb87418bc1b93ed970282aaa8)",
  "das-core",
  "das-dynamic-libs",
  "das-types",
@@ -1203,21 +1214,11 @@ name = "pre-account-cell-type"
 version = "1.4.0"
 dependencies = [
  "chrono",
- "ckb-std",
+ "ckb-std 0.11.0 (git+https://github.com/XuJiandong/ckb-std.git?rev=872cd13b9b1974edb87418bc1b93ed970282aaa8)",
  "das-core",
  "das-sorted-list",
  "das-types",
  "hex",
-]
-
-[[package]]
-name = "proc-macro-crate"
-version = "1.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f4c021e1093a56626774e81216a4ce732a735e5bad4868a03f3ed65ca0c3919"
-dependencies = [
- "once_cell",
- "toml_edit",
 ]
 
 [[package]]
@@ -1234,7 +1235,7 @@ name = "proposal-cell-type"
 version = "1.3.0"
 dependencies = [
  "chrono",
- "ckb-std",
+ "ckb-std 0.11.0 (git+https://github.com/XuJiandong/ckb-std.git?rev=872cd13b9b1974edb87418bc1b93ed970282aaa8)",
  "das-core",
  "das-map",
  "das-sorted-list",
@@ -1272,7 +1273,7 @@ checksum = "34af8d1a0e25924bc5b7c43c079c942339d8f0a8b57c39049bef581b46327404"
 dependencies = [
  "libc",
  "rand_chacha 0.3.0",
- "rand_core 0.6.2",
+ "rand_core 0.6.4",
 ]
 
 [[package]]
@@ -1292,7 +1293,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e12735cf05c9e10bf21534da50a147b924d555dc7a547c42e6bb2d5b6017ae0d"
 dependencies = [
  "ppv-lite86",
- "rand_core 0.6.2",
+ "rand_core 0.6.4",
 ]
 
 [[package]]
@@ -1306,9 +1307,9 @@ dependencies = [
 
 [[package]]
 name = "rand_core"
-version = "0.6.2"
+version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34cf66eb183df1c5876e2dcf6b13d57340741e8dc255b48e40a26de954d06ae7"
+checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
 dependencies = [
  "getrandom 0.2.2",
 ]
@@ -1361,7 +1362,7 @@ checksum = "49b3de9ec5dc0a3417da371aab17d729997c15010e7fd24ff707773a33bddb64"
 name = "reverse-record-cell-type"
 version = "1.0.1"
 dependencies = [
- "ckb-std",
+ "ckb-std 0.11.0 (git+https://github.com/XuJiandong/ckb-std.git?rev=872cd13b9b1974edb87418bc1b93ed970282aaa8)",
  "das-core",
  "das-types",
  "hex",
@@ -1371,7 +1372,7 @@ dependencies = [
 name = "reverse-record-root-cell-type"
 version = "1.0.0"
 dependencies = [
- "ckb-std",
+ "ckb-std 0.11.0 (git+https://github.com/XuJiandong/ckb-std.git?rev=872cd13b9b1974edb87418bc1b93ed970282aaa8)",
  "das-core",
  "das-dynamic-libs",
  "das-types",
@@ -1464,22 +1465,22 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.118"
+version = "1.0.163"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06c64263859d87aa2eb554587e2d23183398d617427327cf2b3d0ed8c69e4800"
+checksum = "2113ab51b87a539ae008b5c6c02dc020ffa39afd2d83cffcb3f4eb2722cebec2"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.118"
+version = "1.0.163"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c84d3526699cd55261af4b941e4e725444df67aa4f9e6a3564f18030d12672df"
+checksum = "8c805777e3930c8883389c602315a24224bcc738b63905ef87cd1420353ea93e"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 1.0.96",
+ "syn 2.0.13",
 ]
 
 [[package]]
@@ -1521,19 +1522,15 @@ dependencies = [
 [[package]]
 name = "simple-ast"
 version = "1.0.0"
+source = "git+ssh://git@github.com/dotbitHQ/simple-ast.git?rev=1b1532661e04a6f509f7a8a1c01d8dd1d23cbe1b#1b1532661e04a6f509f7a8a1c01d8dd1d23cbe1b"
 dependencies = [
  "blake2b-ref 0.3.1",
- "blake2b-rs",
  "das-types",
- "das-types-std",
  "hex",
  "log",
  "num_enum 0.6.0",
  "paste",
- "serde",
- "serde_json",
  "strum",
- "thiserror",
  "thiserror-no-std",
 ]
 
@@ -1586,7 +1583,7 @@ name = "sub-account-cell-type"
 version = "1.3.2"
 dependencies = [
  "blake2b-ref 0.3.1",
- "ckb-std",
+ "ckb-std 0.11.0 (git+https://github.com/XuJiandong/ckb-std.git?rev=872cd13b9b1974edb87418bc1b93ed970282aaa8)",
  "das-core",
  "das-dynamic-libs",
  "das-map",
@@ -1622,7 +1619,7 @@ dependencies = [
 name = "test-custom-script"
 version = "1.0.0"
 dependencies = [
- "ckb-std",
+ "ckb-std 0.11.0 (git+https://github.com/XuJiandong/ckb-std.git?rev=872cd13b9b1974edb87418bc1b93ed970282aaa8)",
  "das-core",
  "das-types",
  "hex",
@@ -1632,7 +1629,7 @@ dependencies = [
 name = "test-env"
 version = "1.0.0"
 dependencies = [
- "ckb-std",
+ "ckb-std 0.11.0 (git+https://github.com/XuJiandong/ckb-std.git?rev=872cd13b9b1974edb87418bc1b93ed970282aaa8)",
  "das-core",
  "das-types",
  "hex",
@@ -1735,23 +1732,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "toml_datetime"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ab8ed2edee10b50132aed5f331333428b011c99402b5a534154ed15746f9622"
-
-[[package]]
-name = "toml_edit"
-version = "0.19.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "239410c8609e8125456927e6707163a3b1fdb40561e4b803bc041f466ccfdc13"
-dependencies = [
- "indexmap",
- "toml_datetime",
- "winnow",
-]
-
-[[package]]
 name = "typenum"
 version = "1.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1840,51 +1820,42 @@ dependencies = [
 
 [[package]]
 name = "windows_aarch64_gnullvm"
-version = "0.42.0"
+version = "0.42.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41d2aa71f6f0cbe00ae5167d90ef3cfe66527d6f613ca78ac8024c3ccab9a19e"
+checksum = "597a5118570b68bc08d8d59125332c54f1ba9d9adeedeef5b99b02ba2b0698f8"
 
 [[package]]
 name = "windows_aarch64_msvc"
-version = "0.42.0"
+version = "0.42.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd0f252f5a35cac83d6311b2e795981f5ee6e67eb1f9a7f64eb4500fbc4dcdb4"
+checksum = "e08e8864a60f06ef0d0ff4ba04124db8b0fb3be5776a5cd47641e942e58c4d43"
 
 [[package]]
 name = "windows_i686_gnu"
-version = "0.42.0"
+version = "0.42.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fbeae19f6716841636c28d695375df17562ca208b2b7d0dc47635a50ae6c5de7"
+checksum = "c61d927d8da41da96a81f029489353e68739737d3beca43145c8afec9a31a84f"
 
 [[package]]
 name = "windows_i686_msvc"
-version = "0.42.0"
+version = "0.42.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "84c12f65daa39dd2babe6e442988fc329d6243fdce47d7d2d155b8d874862246"
+checksum = "44d840b6ec649f480a41c8d80f9c65108b92d89345dd94027bfe06ac444d1060"
 
 [[package]]
 name = "windows_x86_64_gnu"
-version = "0.42.0"
+version = "0.42.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf7b1b21b5362cbc318f686150e5bcea75ecedc74dd157d874d754a2ca44b0ed"
+checksum = "8de912b8b8feb55c064867cf047dda097f92d51efad5b491dfb98f6bbb70cb36"
 
 [[package]]
 name = "windows_x86_64_gnullvm"
-version = "0.42.0"
+version = "0.42.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "09d525d2ba30eeb3297665bd434a54297e4170c7f1a44cad4ef58095b4cd2028"
+checksum = "26d41b46a36d453748aedef1486d5c7a85db22e56aff34643984ea85514e94a3"
 
 [[package]]
 name = "windows_x86_64_msvc"
-version = "0.42.0"
+version = "0.42.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f40009d85759725a34da6d89a94e63d7bdc50a862acf0dbc7c8e488f1edcb6f5"
-
-[[package]]
-name = "winnow"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae8970b36c66498d8ff1d66685dc86b91b29db0c7739899012f63a63814b4b28"
-dependencies = [
- "memchr",
-]
+checksum = "9aec5da331524158c6d1a4ac0ab1541149c0b9505fde06423b02f5ef0106b9f0"

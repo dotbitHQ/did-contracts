@@ -10,4 +10,4 @@ testnet = []
 mainnet = []
 
 [dependencies]
-ckb-std = { git = "https://github.com/XuJiandong/ckb-std.git", branch = "load-library-typeid" }
+ckb-std = { workspace = true }

@@ -16,8 +16,8 @@ ckb-types = "=0.105.1"
 ckb-hash = "=0.105.1"
 ckb-jsonrpc-types = "=0.105.1"
 das-sorted-list = { path = "../libs/das-sorted-list", features = ["std"] }
-das-types-std = { path = "../../das-types-std/rust" }
-simple-ast = { path = "../../simple-ast" }
+das-types-std = { workspace = true }
+simple-ast = { workspace = true }
 # Other
 hex = "0.4.3"
 thiserror = { version = "1.0" }
