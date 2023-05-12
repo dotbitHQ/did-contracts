@@ -151,15 +151,17 @@ start)
       --network host \
       -v .:/code \
       -v $CACHE_VOLUME:/root/.cargo \
-      -v ~/.ssh:/root/.ssh:ro \
-      $DOCKER_IMAGE bin/bash &>/dev/null
+      -v ~/.ssh:/root/.ssh_tmp:ro \
+      $DOCKER_IMAGE /bin/bash -c 'cp -r /root/.ssh_tmp ~/.ssh; chown -R $(id -u):$(id -g) ~/.ssh; chmod 700 ~/.ssh; chmod 600 ~/.ssh/*; /bin/bash' &>/dev/null
   else
     docker run -it --rm \
       --name $DOCKER_CONTAINER \
       --network host \
       -v .:/code \
-      -v ~/.ssh:/root/.ssh:ro \
-      -v $CACHE_VOLUME:/root/.cargo \      $DOCKER_IMAGE bin/bash
+      -v ~/.ssh:/root/.ssh_tmp:ro \
+      -v $CACHE_VOLUME:/root/.cargo \
+      $DOCKER_IMAGE \
+      /bin/bash -c 'cp -r /root/.ssh_tmp ~/.ssh; chown -R $(id -u):$(id -g) ~/.ssh; chmod 700 ~/.ssh; chmod 600 ~/.ssh/*; /bin/bash'
   fi
   ;;
 stop)
