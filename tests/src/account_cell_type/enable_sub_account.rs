@@ -97,53 +97,6 @@ fn test_enable_sub_account_skip_verification() {
 }
 
 #[test]
-fn challenge_enable_sub_account_beta_limit() {
-    let mut template = init_for_sub_account("enable_sub_account", Some("0x00"));
-    // Simulate trying to enable sub-account feature for a account which is not in the beta list.
-    let account = "xxxx1.bit";
-
-    // inputs
-    push_input_account_cell(
-        &mut template,
-        json!({
-            "lock": {
-                "owner_lock_args": OWNER,
-                "manager_lock_args": MANAGER
-            },
-            "data": {
-                "account": account,
-            },
-            "witness": {
-                "account": account,
-            }
-        }),
-    );
-    push_input_balance_cell(&mut template, 500_000_000_000, SENDER);
-
-    // outputs
-    push_output_account_cell(
-        &mut template,
-        json!({
-            "lock": {
-                "owner_lock_args": OWNER,
-                "manager_lock_args": MANAGER
-            },
-            "data": {
-                "account": account,
-            },
-            "witness": {
-                "account": account,
-                "enable_sub_account": 1,
-            }
-        }),
-    );
-    push_output_sub_account_cell_v2(&mut template, Value::Null, account);
-    push_output_balance_cell(&mut template, 479_000_000_000, SENDER);
-
-    challenge_tx(template.as_json(), ErrorCode::SubAccountJoinBetaError);
-}
-
-#[test]
 fn challenge_enable_sub_account_account_expired() {
     let mut template = init_for_sub_account("enable_sub_account", Some("0x00"));
 

@@ -755,13 +755,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 util::parse_account_cell_witness(&parser, output_account_cells[0], Source::Output)?;
             let output_account_witness_reader = output_account_witness.as_reader();
 
-            let account = util::get_account_from_reader(&input_account_witness_reader);
-            if input_account_witness_reader.account().len() < 8 {
-                verifiers::sub_account_cell::verify_beta_list(&parser, account.as_bytes())?;
-            } else {
-                debug!("Skip verifying the beta list because the account contains more than 8 characters.")
-            }
-
             debug!("Verify if the AccountCell is locked or expired.");
 
             verifiers::account_cell::verify_status(
@@ -883,12 +876,15 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             );
 
             let sub_account_outputs_data = high_level::load_cell_data(output_sub_account_cells[0], Source::Output)?;
-            let expected_default_data = vec![0u8; 48];
+
+            // The default outputs_data of SubAccountCell should be [0u8; 70] and the 48th byte is 0xFF , which is preserved for the latest sub-account feature.
+            let mut expected_default_data = vec![0u8; 70];
+            expected_default_data[48] = 255;
 
             das_assert!(
                 expected_default_data == sub_account_outputs_data,
                 ErrorCode::SMTProofVerifyFailed,
-                "The default outputs_data of SubAccountCell should be [0u8; 48] ."
+                "The default outputs_data of SubAccountCell should be [0u8; 70] and the 48th byte is 0xFF ."
             );
 
             debug!("Verify if sender get their change properly.");

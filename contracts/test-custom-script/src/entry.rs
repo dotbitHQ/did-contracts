@@ -1,9 +1,8 @@
 use alloc::vec;
 use core::convert::TryInto;
-use core::slice::from_raw_parts;
 
-use ckb_std::cstr_core::CStr;
 use ckb_std::debug;
+use ckb_std::env;
 use das_types::packed::AccountChars;
 use das_types::prelude::Entity;
 #[cfg(debug_assertions)]
@@ -11,17 +10,17 @@ use das_types::prettier::Prettier;
 
 use super::error::Error;
 
-pub fn main(argc: usize, argv: *const *const u8) -> Result<(), Error> {
+pub fn main() -> Result<(), Error> {
     debug!("====== Running test-custom-script ======");
 
+    let args = env::argv();
     das_assert!(
-        argc >= 6,
+        args.len() >= 6,
         Error::InvalidArgument,
         "The param argc must be greater than or equal to 4."
     );
 
-    let args = unsafe { from_raw_parts(argv, argc as usize) };
-    let action = unsafe { CStr::from_ptr(args[0]).to_str().unwrap() };
+    let action = args[0].to_str().unwrap();
     let _quote = read_u64_param!(args[1]);
     let owner_profit = read_u64_param!(args[2]);
     let das_profit = read_u64_param!(args[3]);
@@ -60,8 +59,8 @@ pub fn main(argc: usize, argv: *const *const u8) -> Result<(), Error> {
         hex::encode(&script_args)
     );
 
-    for i in 5..argc {
-        let (expiration_years, sub_account_bytes) = read_sub_account_param!(args[i]);
+    for arg in &args[5..] {
+        let (expiration_years, sub_account_bytes) = read_sub_account_param!(arg);
         debug!("expiration_years = {:?}", expiration_years);
 
         das_assert!(
