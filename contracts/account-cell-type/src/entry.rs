@@ -755,13 +755,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 util::parse_account_cell_witness(&parser, output_account_cells[0], Source::Output)?;
             let output_account_witness_reader = output_account_witness.as_reader();
 
-            let account = util::get_account_from_reader(&input_account_witness_reader);
-            if input_account_witness_reader.account().len() < 8 {
-                verifiers::sub_account_cell::verify_beta_list(&parser, account.as_bytes())?;
-            } else {
-                debug!("Skip verifying the beta list because the account contains more than 8 characters.")
-            }
-
             debug!("Verify if the AccountCell is locked or expired.");
 
             verifiers::account_cell::verify_status(
