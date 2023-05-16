@@ -384,11 +384,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let sub_account_witness_parser = SubAccountWitnessesParser::new(SubAccountConfigFlag::CustomRule)?;
             let rules = sub_account_witness_parser.get_rules(&[0u8; 10], DataType::SubAccountPriceRule)?;
 
-            assert!(
-                rules.is_some(),
-                ErrorCode::UnittestError,
-                "This rules should be some."
-            );
+            assert!(rules.is_some(), ErrorCode::UnittestError, "This rules should be some.");
 
             let rules = rules.unwrap();
             matches!(rules[0].clone(), ast_types::SubAccountRule {

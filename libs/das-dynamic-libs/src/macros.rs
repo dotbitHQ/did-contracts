@@ -35,7 +35,10 @@ macro_rules! log_loading {
 macro_rules! load_lib {
     ($context:expr, $name:expr, $type_id_table:expr) => {
         $context
-            .load_by($name.get_code_hash($type_id_table), ckb_std::ckb_types::core::ScriptHashType::Type)
+            .load_by(
+                $name.get_code_hash($type_id_table),
+                ckb_std::ckb_types::core::ScriptHashType::Type,
+            )
             .expect("The shared lib should be loaded successfully.")
     };
 }

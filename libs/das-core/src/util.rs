@@ -624,7 +624,10 @@ pub fn get_length_in_price(account_length: u64) -> u8 {
 pub fn is_init_day(current_timestamp: u64) -> Result<(), Box<dyn ScriptError>> {
     use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 
-    let current = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp_opt(current_timestamp as i64, 0).unwrap(), Utc);
+    let current = DateTime::<Utc>::from_utc(
+        NaiveDateTime::from_timestamp_opt(current_timestamp as i64, 0).unwrap(),
+        Utc,
+    );
 
     // On CKB main net, AKA Lina, some actions can be only executed at or before the initialization day of DAS.
     if cfg!(feature = "mainnet") {

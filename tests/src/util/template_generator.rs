@@ -13,7 +13,7 @@ use das_types_std::util as das_util;
 use das_types_std::util::EntityWrapper;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use simple_ast::{util as ast_util};
+use simple_ast::util as ast_util;
 use sparse_merkle_tree::H256;
 
 use super::super::ckb_types_relay::*;

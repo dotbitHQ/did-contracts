@@ -4,7 +4,7 @@ use core::result::Result;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
-use das_core::constants::{TypeScript};
+use das_core::constants::TypeScript;
 use das_core::error::*;
 use das_core::witness_parser::WitnessesParser;
 use das_core::{assert, code_to_error, debug, util, verifiers};
