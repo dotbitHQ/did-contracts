@@ -40,7 +40,11 @@ pub const ACCOUNT_3: &str = "zzzzz.bit";
 pub const CROSS_CHAIN_BLACK_ACCOUNT: &str = "0x030000000000000000000000000000000000000000";
 
 pub const SUB_ACCOUNT_1: &str = "00000.xxxxx.bit";
+pub const SUB_ACCOUNT_1_ID: &str = "0xb5e8f063fe55e67fe87310ddde7d05fea4dbe282";
 pub const SUB_ACCOUNT_2: &str = "11111.xxxxx.bit";
+pub const SUB_ACCOUNT_2_ID: &str = "0xc8d20eee531b99896c5420a44a8cccec571a9b17";
 pub const SUB_ACCOUNT_3: &str = "22222.xxxxx.bit";
+pub const SUB_ACCOUNT_3_ID: &str = "0xf714500300780245491ade2231dd5b801a491adb";
 pub const SUB_ACCOUNT_4: &str = "33333.xxxxx.bit";
+pub const SUB_ACCOUNT_4_ID: &str = "0x6fd8993ca24a38bad53c5d0278e5c08843ba044e";
 pub const SUB_ACCOUNT_SUFFIX: &str = ".xxxxx.bit";

@@ -315,3 +315,97 @@ fn get_compiled_proof(smt: &SMTWithHistory, account: &str) -> String {
 
     format!("0x{}", hex::encode(proof))
 }
+
+#[test]
+fn parser_sub_account_rules_witness_empty() {
+    let mut template = init("test_parser_sub_account_rules_witness_empty");
+
+    push_input_test_env_cell(&mut template);
+
+    challenge_tx(template.as_json(), ErrorCode::WitnessEmpty);
+}
+
+#[test]
+fn parser_sub_account_rules_witness() {
+    let mut template = init("test_parser_sub_account_rules_witness");
+
+    push_input_test_env_cell(&mut template);
+
+    template.push_sub_account_rules_witness(
+        DataType::SubAccountPriceRule,
+        1,
+        json!(
+            [
+                {
+                    "index": 0,
+                    "name": "Price of 1 Charactor Emoji DID",
+                    "note": "",
+                    "price": 100_000_000,
+                    "ast": {
+                        "type": "operator",
+                        "symbol": "and",
+                        "expressions": [
+                            {
+                                "type": "operator",
+                                "symbol": "==",
+                                "expressions": [
+                                    {
+                                        "type": "variable",
+                                        "name": "account_length",
+                                    },
+                                    {
+                                        "type": "value",
+                                        "value_type": "uint8",
+                                        "value": 1,
+                                    },
+                                ],
+                            },
+                            {
+                                "type": "function",
+                                "name": "only_include_charset",
+                                "arguments": [
+                                    {
+                                        "type": "variable",
+                                        "name": "account_chars",
+                                    },
+                                    {
+                                        "type": "value",
+                                        "value_type": "charset_type",
+                                        "value": "Emoji",
+                                    }
+                                ],
+                            }
+                        ]
+                    }
+                }
+            ]
+        ),
+    );
+
+    let smt = template.push_sub_account_mint_sign_witness(json!({
+        "version": 1,
+        "expired_at": TIMESTAMP + DAY_SEC,
+        "account_list_smt_root": [
+            [SUB_ACCOUNT_1, OWNER_1_WITHOUT_TYPE],
+            [SUB_ACCOUNT_2, OWNER_2_WITHOUT_TYPE],
+            [SUB_ACCOUNT_3, OWNER_3_WITHOUT_TYPE],
+            [SUB_ACCOUNT_4, OWNER_4_WITHOUT_TYPE],
+        ]
+    }));
+    template.push_sub_account_witness_v2(json!({
+        "action": SubAccountAction::Create.to_string(),
+        "sub_account": {
+            "lock": {
+                "owner_lock_args": OWNER_1,
+                "manager_lock_args": MANAGER_1
+            },
+            "account": SUB_ACCOUNT_1,
+            "suffix": SUB_ACCOUNT_SUFFIX,
+            "registered_at": TIMESTAMP,
+            "expired_at": TIMESTAMP + YEAR_SEC,
+        },
+        "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_1)
+    }));
+
+    test_tx(template.as_json());
+}

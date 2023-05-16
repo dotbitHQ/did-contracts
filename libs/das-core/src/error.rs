@@ -65,6 +65,7 @@ pub enum ErrorCode {
     WitnessArgsInvalid,
     WitnessArgsDecodingError,
     WitnessVersionOrTypeInvalid,
+    WitnessVersionUndefined, // 50
     SMTWhiteListTheLockIsNotFound,
     SMTNewRootMismatch, // 55
     SMTProofVerifyFailed,
@@ -132,24 +133,6 @@ pub enum ErrorCode {
     OfferCellNewOwnerError,
     OfferCellFieldCanNotModified,
     OfferCellAccountMismatch,
-    SubAccountFeatureNotEnabled = -50,
-    SubAccountWitnessMismatched,
-    SubAccountSignMintExpiredAtTooLarge,
-    SubAccountSignMintExpiredAtReached,
-    SubAccountSignMintSignatureRequired,
-    SubAccountCellCapacityError,
-    SubAccountCellAccountIdError,
-    SubAccountCellConsistencyError,
-    SubAccountInitialValueError,
-    SubAccountSigVerifyError,
-    SubAccountFieldNotEditable,
-    SubAccountNormalCellLockLimit = -37,
-    SubAccountEditLockError,
-    SubAccountJoinBetaError,
-    SubAccountProfitError,
-    SubAccountCustomScriptError,
-    SubAccountCollectProfitError,
-    SubAccountBalanceManagerError,
     // -40
     UpgradeForWitnessIsRequired,
     UpgradeDefaultValueOfNewFieldIsError,
@@ -314,6 +297,7 @@ pub enum ReverseRecordRootCellErrorCode {
     // Customized errors:
     InitialCapacityError = 50,
     InitialOutputsDataError,
+    SignatureVerifyError,
 }
 
 impl From<SysError> for ReverseRecordRootCellErrorCode {
@@ -330,6 +314,81 @@ impl From<SysError> for ReverseRecordRootCellErrorCode {
 }
 
 impl Into<i8> for ReverseRecordRootCellErrorCode {
+    fn into(self) -> i8 {
+        self as i8
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+#[repr(i8)]
+pub enum SubAccountCellErrorCode {
+    // WARNING Reserved errors:
+    IndexOutOfBound = 1,
+    ItemMissing = 2,
+    LengthNotEnough = 3,
+    Encoding = 4,
+    IncomeCellConsolidateConditionNotSatisfied = -126,
+    AccountCellMissingPrevAccount = -114,
+    AccountCellThrottle = -102,
+    AccountCellInExpirationGracePeriod = -99,
+    SubAccountNormalCellLockLimit = -37,
+    SystemOff = -1,
+    // Customized errors:
+    SubAccountFeatureNotEnabled = 50,
+    ConfigManualInvalid,
+    ConfigCustomRuleInvalid,
+    ConfigFlagInvalid,
+    ConfigRulesHashMismatch,
+    ConfigRulesHasSyntaxError,
+    WitnessParsingError,
+    WitnessEditKeyInvalid,
+    WitnessEditValueError,
+    WitnessSignMintIsRequired,
+    CanNotMint,
+    AccountMissingProof,
+    AccountIsPreserved,
+    AccountHasNoPrice,
+    BytesToStringFailed,
+    MinimalProfitToDASNotReached,
+    ExpirationYearsTooShort,
+    SenderCapacityOverCost,
+    ProfitManagerLockIsRequired,
+    ProfitMustBeCollected,
+    ProfitIsEmpty,
+    SubAccountWitnessMismatched,
+    SubAccountRulesToWitnessFailed,
+    SubAccountSignMintExpiredAtTooLarge,
+    SubAccountSignMintExpiredAtReached,
+    SubAccountSignMintSignatureRequired,
+    SubAccountCellCapacityError,
+    SubAccountCellAccountIdError,
+    SubAccountCellConsistencyError,
+    SubAccountInitialValueError,
+    SubAccountSigVerifyError,
+    SubAccountFieldNotEditable,
+    SubAccountEditLockError,
+    SubAccountJoinBetaError,
+    SubAccountProfitError,
+    SubAccountCustomScriptEmpty,
+    SubAccountCustomScriptError,
+    SubAccountCollectProfitError,
+    SubAccountBalanceManagerError,
+}
+
+impl From<SysError> for SubAccountCellErrorCode {
+    fn from(err: SysError) -> Self {
+        use SysError::*;
+        match err {
+            IndexOutOfBound => Self::IndexOutOfBound,
+            ItemMissing => Self::ItemMissing,
+            LengthNotEnough(_) => Self::LengthNotEnough,
+            Encoding => Self::Encoding,
+            Unknown(err_code) => panic!("unexpected sys error {}", err_code),
+        }
+    }
+}
+
+impl Into<i8> for SubAccountCellErrorCode {
     fn into(self) -> i8 {
         self as i8
     }

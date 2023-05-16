@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Docker image name
-DOCKER_IMAGE="thewawar/ckb-capsule:2022-08-01"
+DOCKER_IMAGE="dotbitteam/ckb-dev-all-in-one:0.0.1"
 COMPILING_TARGET="riscv64imac-unknown-none-elf"
 COMPILING_FLAGS="-Z pre-link-arg=-zseparate-code -Z pre-link-arg=-zseparate-loadable-segments"
 COMPILING_RELEASE_FLAGS="-C link-arg=-s"
@@ -143,6 +143,15 @@ function join_by {
 }
 
 case $1 in
+start-ci)
+  docker run -d -t --rm \
+    --name $DOCKER_CONTAINER \
+    --network host \
+    -v .:/code \
+    -v $CACHE_VOLUME:/root/.cargo \
+    -v ~/.ssh:/root/.ssh_tmp:ro \
+    $DOCKER_IMAGE /bin/bash -c 'cp -r /root/.ssh_tmp ~/.ssh; chown -R $(id -u):$(id -g) ~/.ssh; chmod 700 ~/.ssh; chmod 600 ~/.ssh/*; /bin/bash' &>/dev/null
+  ;;
 start)
   dir="$(dirname $PWD)"
   if [[ $2 == "-b" || $2 == "--background" ]]; then
@@ -152,8 +161,10 @@ start)
       -v ${dir}/das-contracts:/code \
       -v ${dir}/das-types:/das-types \
       -v ${dir}/das-types-std:/das-types-std \
+      -v ${dir}/simple-ast:/simple-ast \
       -v $CACHE_VOLUME:/root/.cargo \
-      $DOCKER_IMAGE bin/bash &>/dev/null
+      -v ~/.ssh:/root/.ssh_tmp:ro \
+      $DOCKER_IMAGE /bin/bash -c 'cp -r /root/.ssh_tmp ~/.ssh; chown -R $(id -u):$(id -g) ~/.ssh; chmod 700 ~/.ssh; chmod 600 ~/.ssh/*; /bin/bash' &>/dev/null
   else
     docker run -it --rm \
       --name $DOCKER_CONTAINER \
@@ -161,8 +172,11 @@ start)
       -v ${dir}/das-contracts:/code \
       -v ${dir}/das-types:/das-types \
       -v ${dir}/das-types-std:/das-types-std \
+      -v ${dir}/simple-ast:/simple-ast \
+      -v ~/.ssh:/root/.ssh_tmp:ro \
       -v $CACHE_VOLUME:/root/.cargo \
-      $DOCKER_IMAGE bin/bash
+      $DOCKER_IMAGE \
+      /bin/bash -c 'cp -r /root/.ssh_tmp ~/.ssh; chown -R $(id -u):$(id -g) ~/.ssh; chmod 700 ~/.ssh; chmod 600 ~/.ssh/*; /bin/bash'
   fi
   ;;
 stop)
@@ -205,6 +219,12 @@ test-release)
   switch_target_dir docker
   echo "Run test with name: $2"
   docker exec -it -w /code -e BINARY_VERSION=release $DOCKER_CONTAINER bash -c "cargo test -p tests $2"
+  switch_target_dir host
+  ;;
+perf-release)
+  switch_target_dir docker
+  echo "Run test with name: $2"
+  docker exec -it -w /code -e BINARY_VERSION=release $DOCKER_CONTAINER bash -c "cargo test -p tests $2 -- --nocapture"
   switch_target_dir host
   ;;
 *)

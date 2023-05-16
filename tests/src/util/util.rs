@@ -68,6 +68,10 @@ pub fn hex_to_u64(input: &str) -> Result<u64, Box<dyn Error>> {
     }
 }
 
+pub fn usd_to_ckb(usd: u64) -> u64 {
+    usd / CKB_QUOTE * ONE_CKB
+}
+
 pub fn merge_json(target: &mut Value, source: Value) {
     if source.is_null() {
         return;
@@ -164,7 +168,7 @@ pub fn gen_register_fee(account_length: usize, has_inviter: bool) -> u64 {
         _ => ACCOUNT_PRICE_5_CHAR,
     };
 
-    let price_in_ckb = price_in_usd / CKB_QUOTE * 100_000_000;
+    let price_in_ckb = price_in_usd / CKB_QUOTE * ONE_CKB;
 
     if has_inviter {
         price_in_ckb * (RATE_BASE - INVITED_DISCOUNT) / RATE_BASE

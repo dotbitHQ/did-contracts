@@ -243,10 +243,7 @@ pub fn find_cells_by_script_and_filter<F: Fn(usize, Source) -> Result<bool, Box<
     Ok(ret)
 }
 
-pub fn payload_to_das_lock(
-    lock_type: DasLockType,
-    payload: &[u8],
-) -> Script {
+pub fn payload_to_das_lock(lock_type: DasLockType, payload: &[u8]) -> Script {
     let mut compatible_args = vec![lock_type as u8];
     compatible_args.extend(payload.iter());
     compatible_args.extend(compatible_args.clone().iter());
@@ -268,12 +265,10 @@ pub fn find_cells_by_das_lock_payload(
         // The two types of ETH args are compatible and can be used simultaneously.
         DasLockType::ETH | DasLockType::ETHTypedData => {
             let compatible_lock = payload_to_das_lock(DasLockType::ETHTypedData, payload);
-            let mut eth_type_data_cells =
-                find_cells_by_script(ScriptType::Lock, compatible_lock.as_reader(), source)?;
+            let mut eth_type_data_cells = find_cells_by_script(ScriptType::Lock, compatible_lock.as_reader(), source)?;
 
             let compatible_lock = payload_to_das_lock(DasLockType::ETH, payload);
-            let mut eth_cells =
-                find_cells_by_script(ScriptType::Lock, compatible_lock.as_reader(), source)?;
+            let mut eth_cells = find_cells_by_script(ScriptType::Lock, compatible_lock.as_reader(), source)?;
 
             eth_cells.append(&mut eth_type_data_cells);
             eth_cells.sort();
@@ -283,8 +278,7 @@ pub fn find_cells_by_das_lock_payload(
         }
         _ => {
             let compatible_lock = payload_to_das_lock(lock_type, payload);
-            let cells =
-                find_cells_by_script(ScriptType::Lock, compatible_lock.as_reader(), source)?;
+            let cells = find_cells_by_script(ScriptType::Lock, compatible_lock.as_reader(), source)?;
 
             cells
         }
@@ -522,12 +516,12 @@ pub fn load_das_witnesses(index: usize) -> Result<Vec<u8>, Box<dyn ScriptError>>
 
             if actual_size > 32000 {
                 warn!("The witnesses[{}] should be less than 32KB because the signall lock do not support more than that.", index);
-                Err(SysError::LengthNotEnough(actual_size).into())
-            } else {
-                let mut buf = vec![0u8; actual_size];
-                syscalls::load_witness(&mut buf, 0, index, Source::Input)?;
-                Ok(buf)
+                return Err(SysError::LengthNotEnough(actual_size).into());
             }
+
+            let mut buf = vec![0u8; actual_size];
+            syscalls::load_witness(&mut buf, 0, index, Source::Input)?;
+            Ok(buf)
         }
         Err(e) => {
             warn!("Load witness[{}] failed: {:?}", index, e);
@@ -630,11 +624,14 @@ pub fn get_length_in_price(account_length: u64) -> u8 {
 pub fn is_init_day(current_timestamp: u64) -> Result<(), Box<dyn ScriptError>> {
     use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 
-    let current = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(current_timestamp as i64, 0), Utc);
+    let current = DateTime::<Utc>::from_utc(
+        NaiveDateTime::from_timestamp_opt(current_timestamp as i64, 0).unwrap(),
+        Utc,
+    );
 
     // On CKB main net, AKA Lina, some actions can be only executed at or before the initialization day of DAS.
     if cfg!(feature = "mainnet") {
-        let init_day = Utc.ymd(2021, 7, 22).and_hms(12, 00, 00);
+        let init_day = Utc.with_ymd_and_hms(2021, 7, 22, 12, 0, 0).unwrap();
         // Otherwise, any account longer than two chars in length can be registered.
         das_assert!(
             current <= init_day,
@@ -1124,7 +1121,7 @@ pub fn exec_by_type_id(
     parser: &WitnessesParser,
     type_script: TypeScript,
     argv: &[&CStr],
-) -> Result<u64, Box<dyn ScriptError>> {
+) -> Result<(), Box<dyn ScriptError>> {
     let type_id = get_type_id(parser, type_script.clone())?;
 
     debug!(
@@ -1133,7 +1130,9 @@ pub fn exec_by_type_id(
         hex_string(type_id.raw_data())
     );
 
-    high_level::exec_cell(type_id.raw_data(), ScriptHashType::Type, 0, 0, argv).map_err(|err| err.into())
+    high_level::exec_cell(type_id.raw_data(), ScriptHashType::Type, 0, 0, argv)
+        .map_err(|err| err.into())
+        .map(|_| ())
 }
 
 pub fn get_timestamp_from_header(header: HeaderReader) -> u64 {

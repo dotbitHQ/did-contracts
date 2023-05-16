@@ -1,0 +1,14 @@
+[net]
+git-fetch-with-cli = true
+
+# [build]
+# target = "riscv64imac-unknown-none-elf"
+
+# Uncomment the following patches to use the local source codes
+# WARNING! Because the project is compiling in a container, so the .cargo must be put in here.
+# [patch."ssh://git@github.com/dotbitHQ/das-types-private.git"]
+# das-types-std = { path = "../das-types-std/rust" }
+# das-types = { path = "../das-types/rust" }
+
+# [patch."ssh://git@github.com/dotbitHQ/simple-ast.git"]
+# simple-ast = { path = "../simple-ast" }

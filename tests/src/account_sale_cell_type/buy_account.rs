@@ -1,7 +1,6 @@
 use das_types_std::constants::*;
 use das_types_std::packed::*;
 use das_types_std::prelude::*;
-use serde_json::Value;
 use serde_json::json;
 
 use super::common::*;
@@ -17,7 +16,12 @@ fn push_simple_output_income_cell(template: &mut TemplateGenerator) -> u64 {
     push_dynmic_output_income_cell(template, PRICE, true, true)
 }
 
-fn push_dynmic_output_income_cell(template: &mut TemplateGenerator, price: u64, has_inviter: bool, has_channel: bool) -> u64 {
+fn push_dynmic_output_income_cell(
+    template: &mut TemplateGenerator,
+    price: u64,
+    has_inviter: bool,
+    has_channel: bool,
+) -> u64 {
     let mut records = vec![];
 
     let inviter_profit = if has_inviter {
@@ -71,13 +75,16 @@ fn push_dynmic_output_income_cell(template: &mut TemplateGenerator, price: u64, 
 
     let total_profit = inviter_profit + channel_profit + das_profit;
     if total_profit <= INCOME_BASIC_CAPACITY && total_profit > 0 {
-        records.insert(0, json!({
-            "belong_to": {
-                "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
-                "args": COMMON_INCOME_CREATOR
-            },
-            "capacity": INCOME_BASIC_CAPACITY
-        }));
+        records.insert(
+            0,
+            json!({
+                "belong_to": {
+                    "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                    "args": COMMON_INCOME_CREATOR
+                },
+                "capacity": INCOME_BASIC_CAPACITY
+            }),
+        );
     }
 
     if !records.is_empty() {

@@ -221,7 +221,7 @@ impl TemplateParser {
         let tx = builder.build();
 
         let mock_info = MockInfo {
-            header_deps: self.mock_header_deps.drain(0..).collect(),
+            header_deps: self.mock_header_deps.clone(),
             cell_deps: self.mock_cell_deps.drain(0..).collect(),
             inputs: self.mock_inputs.drain(0..).collect(),
         };
@@ -236,7 +236,10 @@ impl TemplateParser {
             resolve_transaction(tx.clone(), &mut seen_inputs, &resource, &resource)
                 .map_err(|err| format!("Resolve transaction error: {:?}", err))?
         };
-        let mut verifier = TransactionScriptsVerifier::new(&rtx, &resource);
+        let data_loader = DummyContext {
+            headers: self.mock_header_deps.drain(0..).collect(),
+        };
+        let mut verifier = TransactionScriptsVerifier::new(&rtx, &data_loader);
         verifier.set_debug_printer(Box::new(|hash: &Byte32, message: &str| {
             println!("Script(0x{}): {}", hex::encode(&hash.as_slice()[..6]), message);
         }));
@@ -737,5 +740,26 @@ impl MockResourceLoader for DummyResourceLoader {
         out_point: OutPoint,
     ) -> Result<Option<(CellOutput, bytes::Bytes, Option<Byte32>)>, String> {
         return Err(format!("Cell: {:?} is missing!", out_point));
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct DummyContext {
+    headers: Vec<HeaderView>,
+}
+
+impl ckb_traits::CellDataProvider for DummyContext {
+    fn get_cell_data(&self, _out_point: &OutPoint) -> Option<ckb_types::bytes::Bytes> {
+        None
+    }
+
+    fn get_cell_data_hash(&self, _out_point: &OutPoint) -> Option<Byte32> {
+        None
+    }
+}
+
+impl ckb_traits::HeaderProvider for DummyContext {
+    fn get_header(&self, hash: &Byte32) -> Option<HeaderView> {
+        self.headers.iter().find(|header| header.hash() == *hash).cloned()
     }
 }
