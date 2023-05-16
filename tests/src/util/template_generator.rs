@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::convert::TryFrom;
-use std::error::Error;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::str::FromStr;
@@ -14,7 +13,7 @@ use das_types_std::util as das_util;
 use das_types_std::util::EntityWrapper;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use simple_ast::{types as ast_types, util as ast_util};
+use simple_ast::{util as ast_util};
 use sparse_merkle_tree::H256;
 
 use super::super::ckb_types_relay::*;
@@ -2985,7 +2984,7 @@ impl TemplateGenerator {
                 let sub_account_entity_bytes = sub_account_entity.as_slice().to_vec();
                 let value = util::blake2b_smt(&sub_account_entity_bytes);
                 let (_, current_root, proof) = self.smt_with_history.insert(key.clone().into(), value.clone().into());
-                let compiled_proof = proof.compile(vec![(key.into(), value.into())]).unwrap().0;
+                let compiled_proof = proof.compile(vec![key.into()]).unwrap().0;
 
                 extend_main_fields(
                     &mut witness_bytes,
@@ -3026,7 +3025,7 @@ impl TemplateGenerator {
                 let new_sub_account_entity_bytes = new_sub_account_entity.as_slice().to_vec();
                 let value = util::blake2b_smt(&new_sub_account_entity_bytes);
                 let (_, current_root, proof) = self.smt_with_history.insert(key.into(), value.into());
-                let compiled_proof = proof.compile(vec![(key.into(), value.into())]).unwrap().0;
+                let compiled_proof = proof.compile(vec![key.into()]).unwrap().0;
 
                 extend_main_fields(
                     &mut witness_bytes,
@@ -3144,9 +3143,9 @@ impl TemplateGenerator {
                 util::gen_smt_value_for_reverse_record_smt(prev_nonce.unwrap(), prev_account)
             };
             let proof = self.smt_with_history.get_proof(vec![key.clone()]);
-            let compiled_proof = proof.clone().compile(vec![(key.into(), prev_value)]).unwrap().0;
+            let compiled_proof = proof.clone().compile(vec![key.into()]).unwrap().0;
 
-            let ret = self.smt_with_history.verify(&compiled_proof, vec![(&key, &prev_value)]);
+            let ret = self.smt_with_history.verify(&compiled_proof, vec![(key, prev_value)]);
             if !ignore_smt_check && !ret {
                 panic!("The generated proof of SMT is invalid for prev_root unexpectly.");
             }
@@ -3186,7 +3185,7 @@ impl TemplateGenerator {
             } else {
                 util::gen_smt_value_for_reverse_record_smt(prev_nonce.unwrap() + 1, next_account)
             };
-            let ret = self.smt_with_history.verify(&proof, vec![(&key, &next_value)]);
+            let ret = self.smt_with_history.verify(&proof, vec![(key, next_value)]);
             if !ignore_smt_check && !ret {
                 panic!("The generated proof of SMT is invalid for next_root unexpectly.");
             }

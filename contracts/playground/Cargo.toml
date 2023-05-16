@@ -14,7 +14,7 @@ ckb-std = { workspace = true }
 hex = { default-features = false, version = "0.4.2"}
 das-core = { workspace = true, default-features = false }
 das-types = { workspace = true, default-features = false }
-sparse-merkle-tree = { git = "https://github.com/nervosnetwork/sparse-merkle-tree.git", default-features = false }
+sparse-merkle-tree = { workspace = true }
 das-dynamic-libs = { path = "../../libs/das-dynamic-libs" }
 blake2b-ref = "0.3"
 libm = "0.2"

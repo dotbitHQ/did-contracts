@@ -566,7 +566,7 @@ fn verify_account_length_and_years<'a>(
     use chrono::{DateTime, NaiveDateTime, Utc};
 
     let account_length = reader.account().len();
-    let _current = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(current_timestamp as i64, 0), Utc);
+    let _current = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp_opt(current_timestamp as i64, 0).unwrap(), Utc);
 
     debug!(
         "Check if the account is available for registration now. (length: {}, current: {:#?})",

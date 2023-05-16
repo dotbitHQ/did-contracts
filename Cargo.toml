@@ -35,14 +35,8 @@ simple-ast = { git = "ssh://git@github.com/dotbitHQ/simple-ast.git", features = 
 das-map = { path = "libs/das-map", default-features = false }
 das-core = { path = "libs/das-core", default-features = false }
 das-sorted-list = { path = "libs/das-sorted-list", default-features = false }
-ckb-std = { git = "https://github.com/XuJiandong/ckb-std.git", rev = "872cd13b9b1974edb87418bc1b93ed970282aaa8" }
-
-# Uncomment the patches below for local development
-[patch."ssh://git@github.com/dotbitHQ/simple-ast.git"]
-simple-ast = { path = "../simple-ast", features = ["no_std"], default-features = false }
-
-[patch."ssh://git@github.com/dotbitHQ/das-types-private.git"]
-das-types = { path = "../das-types/rust", default-features = false }
+sparse-merkle-tree = { version = "0.6.1", default-features = false, features = ["smtc"] }
+ckb-std = "0.13.0"
 
 [profile.release]
 overflow-checks = true

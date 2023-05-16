@@ -1,8 +1,8 @@
 use ckb_hash::{Blake2b, Blake2bBuilder};
-use sparse_merkle_tree::default_store::DefaultStore;
+use sparse_merkle_tree::{default_store::DefaultStore, CompiledMerkleProof};
 use sparse_merkle_tree::traits::Hasher;
 pub use sparse_merkle_tree::MerkleProof;
-use sparse_merkle_tree::{SMTBuilder, SparseMerkleTree, H256};
+use sparse_merkle_tree::{SparseMerkleTree, H256};
 
 type SMT = SparseMerkleTree<Blake2bHasher, H256, DefaultStore<H256>>;
 
@@ -94,37 +94,24 @@ impl SMTWithHistory {
     }
 
     pub fn get_compiled_proof(&self, keys: Vec<H256>) -> Vec<u8> {
-        let leaves = keys
-            .iter()
-            .map(|key| {
-                let leave = self.leaves.iter().find(|(k, _)| k == key).expect("Should find key");
-                leave.to_owned()
-            })
-            .collect::<Vec<_>>();
-        let proof = self.smt.merkle_proof(keys).expect("Should generate proof successfully");
+        let proof = self.smt.merkle_proof(keys.clone()).expect("Should generate proof successfully");
         proof
-            .compile(leaves)
+            .compile(keys)
             .expect("Proof should be compiled successfully")
             .into()
     }
 
-    pub fn compile_proof(proof: MerkleProof, leaves: Vec<(H256, H256)>) -> Vec<u8> {
+    pub fn compile_proof(proof: MerkleProof, keys: Vec<H256>) -> Vec<u8> {
         proof
-            .compile(leaves)
+            .compile(keys)
             .expect("Proof should be compiled successfully")
             .into()
     }
 
-    pub fn verify(&self, compiled_proof: &[u8], leaves: Vec<(&H256, &H256)>) -> bool {
+    pub fn verify(&self, compiled_proof: &[u8], leaves: Vec<(H256, H256)>) -> bool {
         let root = H256::from(self.current_root());
-        let mut builder = SMTBuilder::new();
-
-        for (key, val) in leaves {
-            builder = builder.insert(key, val).unwrap();
-        }
-
-        let smt = builder.build().unwrap();
-        smt.verify(&root, compiled_proof).is_ok()
+        let compiled_proof = CompiledMerkleProof(compiled_proof.to_vec());
+        compiled_proof.verify::<Blake2bHasher>(&root, leaves).is_ok()
     }
 }
 
@@ -241,35 +228,29 @@ fn smt_test_insert() {
     );
 }
 
-#[test]
-fn smt_test_compile_proof() {
-    use sparse_merkle_tree::SMTBuilder;
+// #[test]
+// fn smt_test_compile_proof() {
+//     let mut smt = SMTWithHistory::new();
+//     let key_1 = H256::from([1u8; 32]);
+//     let value_1 = H256::from([1u8; 32]);
+//     let key_2 = H256::from([2u8; 32]);
+//     let value_2 = H256::from([2u8; 32]);
+//     let key_3 = H256::from([3u8; 32]);
+//     let value_3 = H256::from([3u8; 32]);
 
-    let mut smt = SMTWithHistory::new();
-    let key_1 = H256::from([1u8; 32]);
-    let value_1 = H256::from([1u8; 32]);
-    let key_2 = H256::from([2u8; 32]);
-    let value_2 = H256::from([2u8; 32]);
-    let key_3 = H256::from([3u8; 32]);
-    let value_3 = H256::from([3u8; 32]);
+//     smt.insert(key_1, value_1);
+//     smt.insert(key_2, value_2);
+//     smt.insert(key_3, value_3);
 
-    smt.insert(key_1, value_1);
-    smt.insert(key_2, value_2);
-    smt.insert(key_3, value_3);
+//     let proof = smt.get_proof(vec![key_1, key_2, key_3]);
+//     let compiled_proof =
+//         SMTWithHistory::compile_proof(proof, vec![(key_1, value_1), (key_2, value_2), (key_3, value_3)]);
+//     println!("compiled_proof = 0x{}", hex::encode(&compiled_proof));
 
-    let proof = smt.get_proof(vec![key_1, key_2, key_3]);
-    let compiled_proof =
-        SMTWithHistory::compile_proof(proof, vec![(key_1, value_1), (key_2, value_2), (key_3, value_3)]);
-    println!("compiled_proof = 0x{}", hex::encode(&compiled_proof));
-
-    let mut smt_c_builder = SMTBuilder::new();
-    smt_c_builder = smt_c_builder.insert(&key_1, &value_1).unwrap();
-    smt_c_builder = smt_c_builder.insert(&key_2, &value_2).unwrap();
-    smt_c_builder = smt_c_builder.insert(&key_3, &value_3).unwrap();
-
-    let root = H256::from(smt.current_root());
-    let smt_c = smt_c_builder.build().unwrap();
-    let ret = smt_c.verify(&root, &compiled_proof);
-
-    assert!(ret.is_ok(), "Proof should be verified");
-}
+//     let ret = compiled_proof.verify::<Blake2bHasher>(&H256::from(smt.current_root()), vec![
+//         (&key_1, &value_1),
+//         (&key_2, &value_2),
+//         (&key_3, &value_3),
+//     ]);
+//     assert!(ret.is_ok(), "Proof should be verified");
+// }

@@ -624,11 +624,11 @@ pub fn get_length_in_price(account_length: u64) -> u8 {
 pub fn is_init_day(current_timestamp: u64) -> Result<(), Box<dyn ScriptError>> {
     use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 
-    let current = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(current_timestamp as i64, 0), Utc);
+    let current = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp_opt(current_timestamp as i64, 0).unwrap(), Utc);
 
     // On CKB main net, AKA Lina, some actions can be only executed at or before the initialization day of DAS.
     if cfg!(feature = "mainnet") {
-        let init_day = Utc.ymd(2021, 7, 22).and_hms(12, 00, 00);
+        let init_day = Utc.with_ymd_and_hms(2021, 7, 22, 12, 0, 0).unwrap();
         // Otherwise, any account longer than two chars in length can be registered.
         das_assert!(
             current <= init_day,
@@ -1118,7 +1118,7 @@ pub fn exec_by_type_id(
     parser: &WitnessesParser,
     type_script: TypeScript,
     argv: &[&CStr],
-) -> Result<u64, Box<dyn ScriptError>> {
+) -> Result<(), Box<dyn ScriptError>> {
     let type_id = get_type_id(parser, type_script.clone())?;
 
     debug!(
@@ -1127,7 +1127,9 @@ pub fn exec_by_type_id(
         hex_string(type_id.raw_data())
     );
 
-    high_level::exec_cell(type_id.raw_data(), ScriptHashType::Type, 0, 0, argv).map_err(|err| err.into())
+    high_level::exec_cell(type_id.raw_data(), ScriptHashType::Type, 0, 0, argv)
+        .map_err(|err| err.into())
+        .map(|_| ())
 }
 
 pub fn get_timestamp_from_header(header: HeaderReader) -> u64 {

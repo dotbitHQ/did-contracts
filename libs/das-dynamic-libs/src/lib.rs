@@ -1,4 +1,3 @@
-#![feature(once_cell)]
 #![no_std]
 
 extern crate alloc;
