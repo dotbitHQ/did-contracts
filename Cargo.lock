@@ -695,20 +695,22 @@ dependencies = [
 [[package]]
 name = "das-types"
 version = "1.11.0"
+source = "git+ssh://git@github.com/dotbitHQ/das-types-private.git?rev=c9c322b7dd#c9c322b7ddd25756adbbc90cb13381038e7866da"
 dependencies = [
  "ckb-std",
  "molecule",
- "num_enum 0.5.11",
+ "num_enum",
  "strum",
 ]
 
 [[package]]
 name = "das-types-std"
 version = "1.11.0"
+source = "git+ssh://git@github.com/dotbitHQ/das-types-private.git?rev=236db7906f#236db7906f7a95624731ea7f7be5528247598246"
 dependencies = [
  "ckb-types",
  "molecule",
- "num_enum 0.5.11",
+ "num_enum",
  "serde",
  "strum",
 ]
@@ -1058,31 +1060,11 @@ dependencies = [
 
 [[package]]
 name = "num_enum"
-version = "0.5.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f646caf906c20226733ed5b1374287eb97e3c2a5c227ce668c1f2ce20ae57c9"
-dependencies = [
- "num_enum_derive 0.5.11",
-]
-
-[[package]]
-name = "num_enum"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a015b430d3c108a207fd776d2e2196aaf8b1cf8cf93253e3a097ff3085076a1"
 dependencies = [
- "num_enum_derive 0.6.1",
-]
-
-[[package]]
-name = "num_enum_derive"
-version = "0.5.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dcbff9bc912032c62bf65ef1d5aea88983b420f4f839db1e9b0c281a25c9c799"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
+ "num_enum_derive",
 ]
 
 [[package]]
@@ -1596,6 +1578,7 @@ dependencies = [
 [[package]]
 name = "simple-ast"
 version = "1.0.0"
+source = "git+ssh://git@github.com/dotbitHQ/simple-ast.git?rev=96740feb4a#96740feb4af46eea6aeb246e07e250af10454aa4"
 dependencies = [
  "blake2b-ref 0.3.1",
  "blake2b-rs",
@@ -1603,7 +1586,7 @@ dependencies = [
  "das-types-std",
  "hex",
  "log",
- "num_enum 0.6.1",
+ "num_enum",
  "paste",
  "serde",
  "serde_json",
