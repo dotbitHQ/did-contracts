@@ -1024,9 +1024,22 @@ data:
   hash(witness: WebAuthnKeyList)
 
 witness:
-  vector WebAuthnKeyList <WebAuthnKey>;
+  table Data {
+    old: table DataEntityOpt {
+        index: Uint32,
+        version: Uint32,
+        entity: WebAuthnKeyList
+    },
+    new: table DataEntityOpt {
+      index: Uint32,
+      version: Uint32,
+      entity: WebAuthnKeyList
+    },
+  }
   
 ======
+vector WebAuthnKeyList <WebAuthnKey>;
+
 struct WebAuthnKey {
     alg: Uint8,  //algorithm id
     cid: Byte10, //credential id sha256
