@@ -1041,7 +1041,9 @@ witness:
 vector WebAuthnKeyList <WebAuthnKey>;
 
 struct WebAuthnKey {
-    alg: Uint8,  //algorithm id
+  
+    main_alg_id : Uint8,  //main algorithm id
+    sub_alg_id : Uini8, //sub algorithm id
     cid: Byte10, //credential id sha256
     pubkey: Byte10,
 }
@@ -1049,10 +1051,17 @@ struct WebAuthnKey {
 
 WebAuthnKey 中的主要字段如下：
 
-* alg：子算法 ID，表明使用 WebAuthn 的哪个算法进行公钥的生成以及验证；
+* main_alg_id：主算法 ID，08标识使用WebAuthn；
+* sub_alg_id：子算法 ID，表明使用 WebAuthn 的哪个算法进行公钥的生成以及验证；
 * cid：WebAuthn 生成的 credential ID 进行 sha256 5次后，取前10字节；
 * pubKey: WebAuthn 生成的 public key 进行 sha256 5次后，取前10字节；
 
+```c
+enum sub_alg_id {
+    Secp256r1,
+    ...
+};
+```
 体积：
 
 
