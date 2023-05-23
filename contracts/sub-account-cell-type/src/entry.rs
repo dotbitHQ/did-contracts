@@ -357,7 +357,7 @@ fn action_config_sub_account_custom_script(
     verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
         input_sub_account_cells[0],
         output_sub_account_cells[0],
-        vec!["custom_script", "custom_script_args"],
+        vec!["flag", "custom_script", "custom_script_args"],
     )?;
 
     Ok(())
