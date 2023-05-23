@@ -586,8 +586,8 @@ data: [ smt_root ][ das_profit ][ owner_profit ][ flag ][ status_flag ][ price_r
 - custom_script ，32 bytes ，就是动态库的 `type.args` ；
 - script_args ，10 bytes ，存放由自定义脚本使用的 witness 的 hash 的前 10 bytes；
 - status_flag ，1 byte ，标识是否开启基于配置的自动分发特性，开启为 0x01 ，关闭为 0x00，默认为开启状态；
-- price_rules_hash ， 10 bytes 的 hash ，将所有 witness 类型为 SubAccountPriceRule 的 `rules` 部分 bytes 直接拼接并计算 hash 后取前 10 bytes；
-- preserved_rules_hash ， 10 bytes 的 hash ，将所有 witness 类型为 SubAccountPreservedRule 的 `rules` 部分 bytes 直接拼接并计算 hash 后取前 10 bytes；
+- price_rules_hash ， 10 bytes 的 hash ，将所有 witness 类型为 SubAccountPriceRule 的 `rules` 部分 bytes 先计算 hash ，然后将这些 hash 按生成顺序拼接，对拼接后的 bytes 再次计算 hash 后取前 10 bytes；
+- preserved_rules_hash ， 10 bytes 的 hash ，将所有 witness 类型为 SubAccountPreservedRule 的 `rules` bytes 先计算 hash ，然后将这些 hash 按生成顺序拼接，对拼接后的 bytes 再次计算 hash 后取前 10 bytes；
 
 #### custom_script 推导动态库 Type ID
 
