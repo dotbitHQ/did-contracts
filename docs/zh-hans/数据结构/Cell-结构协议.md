@@ -615,6 +615,62 @@ data: [ smt_root ][ das_profit ][ owner_profit ][ flag ][ status_flag ][ price_r
 
 #### 结构
 
+### DeviceKeylistConfigCell
+
+当用户选择“增强安全"后，创建这个 cell 用来存储用户的多设备的 `WebAuthn` 授权信息， 其中包括用户的 `Credential ID` 和 `Public key` 。
+
+当用户添加更多的设备进来，会在 witness 里添加设备的 `Credential ID` 和 `Public Key` ；
+
+#### 结构：
+
+```
+lock: <das-lock>
+type: <device-key-list-config-cell-type>
+data:
+  hash(witness: DeviceKeyList)
+
+witness:
+  table Data {
+    old: table DataEntityOpt {
+        index: Uint32,
+        version: Uint32,
+        entity: DeviceKeyList
+    },
+    new: table DataEntityOpt {
+      index: Uint32,
+      version: Uint32,
+      entity: DeviceKeyList
+    },
+  }
+  
+======
+vector DeviceKeyList <DeviceKey>;
+
+struct DeviceKey {
+    main_alg_id : Uint8,  //main algorithm id
+    sub_alg_id : Uini8, //sub algorithm id
+    cid: Byte10, //credential id sha256
+    pubkey: Byte10,
+}
+```
+
+DeviceKey 中的主要字段如下：
+
+* main_alg_id：主算法 ID，08标识使用设备管理，目前主要子算法由 WebAuthn 提供；
+* sub_alg_id：子算法 ID，标识使用 WebAuthn 的哪个算法进行公钥的生成以及验证；
+* cid：WebAuthn 生成的 credential ID 进行 sha256 5次后，取前10字节；
+* pubKey: WebAuthn 生成的 public key 进行 sha256 5次后，取前10字节；
+
+```c
+enum sub_alg_id {
+    Secp256r1,
+    ...
+};
+```
+#### 体积： ToDo
+
+
+
 ## ConfigCell
 
 这是一个在链上保存 DAS 配置的 Cell，目前只通过 DAS 超级私钥手动更新。因为 CKB VM 在加载数据时存在性能存在数据越大开销急剧增大的问题，所以采用了将不同配置分散到多个 ConfigCell 中的保存方式。
@@ -1008,61 +1064,6 @@ length|hash|hash|hash ...
 
 这个 cell 的 witness 在其 entity 部分**存储的是纯二进制数据**，未进行 molecule 编码。其中前 4 bytes 是 uint32 的数据总长度，**包括这 4 bytes 自身**，之后就是各个账户名不含后缀的部分 hash 后前 20
 bytes 拼接而成的数据，因为每段数据固定为 20 bytes 所以**无分隔符等字节**。
-
-### KeylistConfigCell
-
-当用户选择“增强安全"后，创建这个 cell 用来存储用户的多设备的 `WebAuthn` 授权信息， 其中包括用户的 `Credential ID` 和 `Public key` 。
-
-当用户添加更多的设备进来，会在 witness 里添加设备的 `Credential ID` 和 `Public Key` ；
-
-#### 结构：
-
-```
-lock: <das-lock>
-type: <device-key-list-config-cell-type>
-data:
-  hash(witness: DeviceKeyList)
-
-witness:
-  table Data {
-    old: table DataEntityOpt {
-        index: Uint32,
-        version: Uint32,
-        entity: DeviceKeyList
-    },
-    new: table DataEntityOpt {
-      index: Uint32,
-      version: Uint32,
-      entity: DeviceKeyList
-    },
-  }
-  
-======
-vector DeviceKeyList <DeviceKey>;
-
-struct DeviceKey {
-    main_alg_id : Uint8,  //main algorithm id
-    sub_alg_id : Uini8, //sub algorithm id
-    cid: Byte10, //credential id sha256
-    pubkey: Byte10,
-}
-```
-
-DeviceKey 中的主要字段如下：
-
-* main_alg_id：主算法 ID，08标识使用设备管理，目前主要子算法由 WebAuthn 提供；
-* sub_alg_id：子算法 ID，标识使用 WebAuthn 的哪个算法进行公钥的生成以及验证；
-* cid：WebAuthn 生成的 credential ID 进行 sha256 5次后，取前10字节；
-* pubKey: WebAuthn 生成的 public key 进行 sha256 5次后，取前10字节；
-
-```c
-enum sub_alg_id {
-    Secp256r1,
-    ...
-};
-```
-#### 体积： ToDo
-
 
 
 ### TimeCell、HeightCell、QuoteCell
