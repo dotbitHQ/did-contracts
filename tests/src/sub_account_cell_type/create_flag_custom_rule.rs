@@ -338,6 +338,68 @@ fn test_sub_account_create_flag_custom_rule_mix_mint() {
 }
 
 #[test]
+fn challenge_sub_account_create_invalid_registered_at() {
+    let mut template = before_each();
+
+    // outputs
+    template.push_sub_account_witness_v2(json!({
+        "action": SubAccountAction::Create.to_string(),
+        "sub_account": {
+            "lock": {
+                "owner_lock_args": OWNER_1,
+                "manager_lock_args": MANAGER_1
+            },
+            "account": SUB_ACCOUNT_1,
+            "suffix": SUB_ACCOUNT_SUFFIX,
+            // Simulate providing a registered_at that is not equal to timestamp in the TimeCell.
+            "registered_at": TIMESTAMP - 1,
+            "expired_at": TIMESTAMP + YEAR_SEC,
+        },
+        "edit_key": "custom_rule",
+        "edit_value": DUMMY_CHANNEL
+    }));
+
+    let total_profit = util::usd_to_ckb(USD_5 * 1);
+    push_simple_outputs(&mut template, total_profit);
+
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::SubAccountInitialValueError,
+    );
+}
+
+#[test]
+fn challenge_sub_account_create_invalid_expired_at() {
+    let mut template = before_each();
+
+    // outputs
+    template.push_sub_account_witness_v2(json!({
+        "action": SubAccountAction::Create.to_string(),
+        "sub_account": {
+            "lock": {
+                "owner_lock_args": OWNER_1,
+                "manager_lock_args": MANAGER_1
+            },
+            "account": SUB_ACCOUNT_1,
+            "suffix": SUB_ACCOUNT_SUFFIX,
+            "registered_at": TIMESTAMP,
+            // Simulate providing a expired_at that earlier than the registered_at.
+            "expired_at": TIMESTAMP - 1,
+        },
+        "edit_key": "custom_rule",
+        "edit_value": DUMMY_CHANNEL
+    }));
+
+    let total_profit = util::usd_to_ckb(USD_5 * 1);
+    push_simple_outputs(&mut template, total_profit);
+
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::SubAccountInitialValueError,
+    );
+}
+
+#[test]
 fn challenge_sub_account_create_flag_custom_rule_flag_not_consistent() {
     let mut template = before_each();
 
@@ -643,4 +705,231 @@ fn challenge_sub_account_create_flag_custom_rule_skipped() {
     push_simple_outputs(&mut template, total_profit);
 
     challenge_tx(template.as_json(), SubAccountCellErrorCode::AccountHasNoPrice)
+}
+
+#[test]
+fn perf_create_with_custom_rules() {
+    let mut template = init_update();
+
+    push_simple_dep_account_cell(&mut template);
+
+    let chars = vec![serde_json::Value::String(String::from("0x0000000000000000000000000000000000000000")); 1001];
+    let value = serde_json::Value::Array(chars);
+
+    for i in 0..2 {
+        template.push_sub_account_rules_witness(
+            DataType::SubAccountPreservedRule,
+            1,
+            json!(
+                [
+                    {
+                        "index": i,
+                        "name": format!("Dummy rule {}", i),
+                        "note": "A name that is not priced will not be automatically distributed;  name that meets more than one price rule may be automatically distributed at any one of the multiple prices it meets.",
+                        "price": 0,
+                        "status": 1,
+                        "ast": {
+                            "type": "operator",
+                            "symbol": "and",
+                            "expressions": [
+                                {
+                                    "type": "value",
+                                    "value_type": "bool",
+                                    "value": true,
+                                },
+                                {
+                                    "type": "function",
+                                    "name": "in_list",
+                                    "arguments": [
+                                        {
+                                            "type": "variable",
+                                            "name": "account",
+                                        },
+                                        {
+                                            "type": "value",
+                                            "value_type": "binary[]",
+                                            "value": value
+                                        },
+                                    ]
+                                }
+                            ]
+                        }
+                    }
+                ]
+            ),
+        );
+    }
+
+    let mut last_i = 0;
+    let mut rules = vec![];
+    for i in 0..50 {
+        last_i = i;
+
+        // generate a witness for every 20 rules
+        if rules.len() > 20 {
+            template.push_sub_account_rules_witness(
+                DataType::SubAccountPriceRule,
+                1,
+                json!(rules),
+            );
+
+            rules = vec![];
+        }
+
+        rules.push(json!({
+            "index": i,
+            "name": format!("Dummy rule {}", i),
+            "note": "A name that is not priced will not be automatically distributed;  name that meets more than one price rule may be automatically distributed at any one of the multiple prices it meets.",
+            "price": 0,
+            "status": 1,
+            "ast": {
+                "type": "operator",
+                "symbol": "and",
+                "expressions": [
+                  {
+                    "type": "operator",
+                    "symbol": "==",
+                    "expressions": [
+                      {
+                        "type": "variable",
+                        "name": "account_length"
+                      },
+                      {
+                        "type": "value",
+                        "value_type": "uint32",
+                        "value": 147
+                      }
+                    ]
+                  },
+                  {
+                    "type": "function",
+                    "name": "only_include_charset",
+                    "arguments": [
+                      {
+                        "type": "variable",
+                        "name": "account_chars"
+                      },
+                      {
+                        "type": "value",
+                        "value_type": "charset_type",
+                        "value": "En"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "function",
+                    "name": "include_words",
+                    "arguments": [
+                      {
+                        "type": "variable",
+                        "name": "account"
+                      },
+                      {
+                        "type": "value",
+                        "value_type": "string[]",
+                        "value": [
+                          "test1",
+                          "test2",
+                          "test3"
+                        ]
+                      }
+                    ]
+                  }
+                ]
+            }
+        }))
+    }
+    template.push_sub_account_rules_witness(
+        DataType::SubAccountPriceRule,
+        1,
+        json!(rules),
+    );
+
+    template.push_sub_account_rules_witness(
+        DataType::SubAccountPriceRule,
+        1,
+        json!([
+            {
+                "index": last_i + 1,
+                "name": format!("Dummy rule last"),
+                "note": "A name that is not priced will not be automatically distributed;  name that meets more than one price rule may be automatically distributed at any one of the multiple prices it meets.",
+                "price": USD_5,
+                "status": 1,
+                "ast": {
+                    "type": "operator",
+                    "symbol": ">",
+                    "expressions": [
+                        {
+                            "type": "variable",
+                            "name": "account_length"
+                        },
+                        {
+                            "type": "value",
+                            "value_type": "uint8",
+                            "value": 4
+                        }
+                    ]
+                }
+            }
+        ]),
+    );
+
+    let total_paied = USD_5 * 100 / CKB_QUOTE * ONE_CKB;
+
+    // inputs
+    push_input_sub_account_cell_v2(
+        &mut template,
+        json!({
+            "header": {
+                "height": HEIGHT - 1,
+                "timestamp": TIMESTAMP - DAY_SEC,
+            },
+            "data": {
+                "das_profit": 0,
+                "owner_profit": 0,
+                "flag": SubAccountConfigFlag::CustomRule as u8,
+                "status_flags": SubAccountCustomRuleFlag::On as u8,
+            }
+        }),
+        ACCOUNT_1,
+    );
+    push_input_normal_cell(&mut template, TOTAL_PAID, OWNER);
+
+    // outputs
+    let account_count = 50;
+    for i in 0..account_count {
+        template.push_sub_account_witness_v2(json!({
+            "action": SubAccountAction::Create.to_string(),
+            "sub_account": {
+                "lock": {
+                    "owner_lock_args": OWNER_1,
+                    "manager_lock_args": MANAGER_1
+                },
+                "account": format!("test{}", i) + SUB_ACCOUNT_SUFFIX,
+                "suffix": SUB_ACCOUNT_SUFFIX,
+                "registered_at": TIMESTAMP,
+                "expired_at": TIMESTAMP + YEAR_SEC,
+            },
+            "edit_key": "custom_rule",
+            "edit_value": "0x00000000000000000000000000000000000000000000000000000000"
+        }));
+    }
+
+
+    let total_profit = util::usd_to_ckb(USD_5 * account_count);
+    push_output_sub_account_cell_v2(
+        &mut template,
+        json!({
+            "data": {
+                "das_profit": total_profit,
+                "owner_profit": 0,
+                "flag": SubAccountConfigFlag::CustomRule as u8,
+                "status_flags": SubAccountCustomRuleFlag::On as u8,
+            }
+        }),
+        ACCOUNT_1,
+    );
+    push_output_normal_cell(&mut template, total_paied - total_profit, OWNER);
+
+    test_tx(template.as_json())
 }

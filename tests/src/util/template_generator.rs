@@ -2812,10 +2812,10 @@ impl TemplateGenerator {
 
         match data_type {
             DataType::SubAccountPriceRule => {
-                self.sub_account_price_rules_bytes.extend(entity.as_slice());
+                self.sub_account_price_rules_bytes.extend(blake2b_256(entity.as_slice()));
             }
             DataType::SubAccountPreservedRule => {
-                self.sub_account_preserved_rules_bytes.extend(entity.as_slice());
+                self.sub_account_preserved_rules_bytes.extend(blake2b_256(entity.as_slice()));
             }
             _ => panic!("Invalid DataType"),
         }

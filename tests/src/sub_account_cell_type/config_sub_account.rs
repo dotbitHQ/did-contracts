@@ -219,45 +219,130 @@ fn perf_has_expression() {
     let chars = vec![serde_json::Value::String(String::from("0x0000000000000000000000000000000000000000")); 1001];
     let value = serde_json::Value::Array(chars);
 
+    for i in 0..2 {
+        template.push_sub_account_rules_witness(
+            DataType::SubAccountPriceRule,
+            1,
+            json!(
+                [
+                    {
+                        "index": i,
+                        "name": format!("Dummy rule {}", i),
+                        "note": "A name that is not priced will not be automatically distributed;  name that meets more than one price rule may be automatically distributed at any one of the multiple prices it meets.",
+                        "price": 0,
+                        "status": 1,
+                        "ast": {
+                            "type": "operator",
+                            "symbol": "and",
+                            "expressions": [
+                                {
+                                    "type": "value",
+                                    "value_type": "bool",
+                                    "value": true,
+                                },
+                                {
+                                    "type": "function",
+                                    "name": "in_list",
+                                    "arguments": [
+                                        {
+                                            "type": "variable",
+                                            "name": "account",
+                                        },
+                                        {
+                                            "type": "value",
+                                            "value_type": "binary[]",
+                                            "value": value
+                                        },
+                                    ]
+                                }
+                            ]
+                        }
+                    }
+                ]
+            ),
+        );
+    }
+
+    let mut rules = vec![];
+    for i in 2..101 {
+        // generate a witness for every 20 rules
+        if rules.len() > 20 {
+            template.push_sub_account_rules_witness(
+                DataType::SubAccountPriceRule,
+                1,
+                json!(rules),
+            );
+
+            rules = vec![];
+        }
+
+        rules.push(json!({
+            "index": i,
+            "name": format!("Dummy rule {}", i),
+            "note": "A name that is not priced will not be automatically distributed;  name that meets more than one price rule may be automatically distributed at any one of the multiple prices it meets.",
+            "price": 0,
+            "status": 1,
+            "ast": {
+                "type": "operator",
+                "symbol": "and",
+                "expressions": [
+                  {
+                    "type": "operator",
+                    "symbol": "==",
+                    "expressions": [
+                      {
+                        "type": "variable",
+                        "name": "account_length"
+                      },
+                      {
+                        "type": "value",
+                        "value_type": "uint32",
+                        "value": 147
+                      }
+                    ]
+                  },
+                  {
+                    "type": "function",
+                    "name": "only_include_charset",
+                    "arguments": [
+                      {
+                        "type": "variable",
+                        "name": "account_chars"
+                      },
+                      {
+                        "type": "value",
+                        "value_type": "charset_type",
+                        "value": "En"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "function",
+                    "name": "include_words",
+                    "arguments": [
+                      {
+                        "type": "variable",
+                        "name": "account"
+                      },
+                      {
+                        "type": "value",
+                        "value_type": "string[]",
+                        "value": [
+                          "test1",
+                          "test2",
+                          "test3"
+                        ]
+                      }
+                    ]
+                  }
+                ]
+            }
+        }))
+    }
     template.push_sub_account_rules_witness(
         DataType::SubAccountPriceRule,
         1,
-        json!(
-            [
-                {
-                    "index": 0,
-                    "name": "",
-                    "note": "",
-                    "price": 0,
-                    "ast": {
-                        "type": "operator",
-                        "symbol": "and",
-                        "expressions": [
-                            {
-                                "type": "value",
-                                "value_type": "bool",
-                                "value": true,
-                            },
-                            {
-                                "type": "function",
-                                "name": "in_list",
-                                "arguments": [
-                                    {
-                                        "type": "variable",
-                                        "name": "account",
-                                    },
-                                    {
-                                        "type": "value",
-                                        "value_type": "binary[]",
-                                        "value": value
-                                    },
-                                ]
-                            }
-                        ]
-                    }
-                }
-            ]
-        ),
+        json!(rules),
     );
 
     // outputs
