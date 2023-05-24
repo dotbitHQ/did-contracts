@@ -615,7 +615,7 @@ data: [ smt_root ][ das_profit ][ owner_profit ][ flag ][ status_flag ][ price_r
 
 #### 结构
 
-### DeviceKeylistConfigCell
+### DeviceKeylistCell
 
 当用户选择“增强安全"后，创建这个 cell 用来存储用户的多设备的 `WebAuthn` 授权信息， 其中包括用户的 `Credential ID` 和 `Public key` 。
 
@@ -625,7 +625,7 @@ data: [ smt_root ][ das_profit ][ owner_profit ][ flag ][ status_flag ][ price_r
 
 ```
 lock: <das-lock>
-type: <device-key-list-config-cell-type>
+type: <device-key-list-cell-type>
 data:
   hash(witness: DeviceKeyList)
 
@@ -649,17 +649,17 @@ vector DeviceKeyList <DeviceKey>;
 struct DeviceKey {
     main_alg_id : Uint8,  //main algorithm id
     sub_alg_id : Uini8, //sub algorithm id
-    cid: Byte10, //credential id sha256
+    cid: Byte10, //credential id in sha256
     pubkey: Byte10,
 }
 ```
 
 DeviceKey 中的主要字段如下：
 
-* main_alg_id：主算法 ID，08标识使用设备管理，目前主要子算法由 WebAuthn 提供；
+* main_alg_id：主算法 ID，08 标识使用设备管理，目前主要子算法由 WebAuthn 提供；
 * sub_alg_id：子算法 ID，标识使用 WebAuthn 的哪个算法进行公钥的生成以及验证；
-* cid：WebAuthn 生成的 credential ID 进行 sha256 5次后，取前10字节；
-* pubKey: WebAuthn 生成的 public key 进行 sha256 5次后，取前10字节；
+* cid：WebAuthn 的 credential ID 进行 hash(sha256) 5 次后，取前 10 字节；
+* pubkey: WebAuthn 的 public key 进行 hash(sha256) 5 次后，取前 10 字节；
 
 ```c
 enum sub_alg_id {
