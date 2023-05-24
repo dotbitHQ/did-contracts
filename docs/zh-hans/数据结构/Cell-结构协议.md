@@ -1019,29 +1019,28 @@ bytes 拼接而成的数据，因为每段数据固定为 20 bytes 所以**无�
 
 ```
 lock: <das-lock>
-type: <key-list-config-cell-type>
+type: <device-key-list-config-cell-type>
 data:
-  hash(witness: WebAuthnKeyList)
+  hash(witness: DeviceKeyList)
 
 witness:
   table Data {
     old: table DataEntityOpt {
         index: Uint32,
         version: Uint32,
-        entity: WebAuthnKeyList
+        entity: DeviceKeyList
     },
     new: table DataEntityOpt {
       index: Uint32,
       version: Uint32,
-      entity: WebAuthnKeyList
+      entity: DeviceKeyList
     },
   }
   
 ======
-vector WebAuthnKeyList <WebAuthnKey>;
+vector DeviceKeyList <DeviceKey>;
 
-struct WebAuthnKey {
-  
+struct DeviceKey {
     main_alg_id : Uint8,  //main algorithm id
     sub_alg_id : Uini8, //sub algorithm id
     cid: Byte10, //credential id sha256
@@ -1049,10 +1048,10 @@ struct WebAuthnKey {
 }
 ```
 
-WebAuthnKey 中的主要字段如下：
+DeviceKey 中的主要字段如下：
 
-* main_alg_id：主算法 ID，08标识使用WebAuthn；
-* sub_alg_id：子算法 ID，表明使用 WebAuthn 的哪个算法进行公钥的生成以及验证；
+* main_alg_id：主算法 ID，08标识使用设备管理，目前主要子算法由 WebAuthn 提供；
+* sub_alg_id：子算法 ID，标识使用 WebAuthn 的哪个算法进行公钥的生成以及验证；
 * cid：WebAuthn 生成的 credential ID 进行 sha256 5次后，取前10字节；
 * pubKey: WebAuthn 生成的 public key 进行 sha256 5次后，取前10字节；
 
@@ -1062,7 +1061,7 @@ enum sub_alg_id {
     ...
 };
 ```
-体积：
+#### 体积： ToDo
 
 
 
