@@ -1578,7 +1578,7 @@ dependencies = [
 [[package]]
 name = "simple-ast"
 version = "1.0.0"
-source = "git+ssh://git@github.com/dotbitHQ/simple-ast.git?rev=96740feb4a#96740feb4af46eea6aeb246e07e250af10454aa4"
+source = "git+ssh://git@github.com/dotbitHQ/simple-ast.git?rev=84f4259#84f42591f6d53a5563f65f939374dd6529fa5dd7"
 dependencies = [
  "blake2b-ref 0.3.1",
  "blake2b-rs",

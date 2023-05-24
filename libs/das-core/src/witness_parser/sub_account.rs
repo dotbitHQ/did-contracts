@@ -253,9 +253,28 @@ impl SubAccountWitnessesParser {
             _ => unreachable!(),
         };
 
+        debug!("Start calculating {:?}Witness ...", data_type);
+
+        // Hash the concat bytes first so that we can release the memory of concat_bytes.
+        let hash = {
+            let mut concat_bytes = Vec::new();
+            for index in indexes {
+                debug!("  witnesses[{:>2}] Parsing bytes to {:?}Witness ...", index, data_type);
+
+                let raw = util::load_das_witnesses(*index)?;
+                let start = WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES;
+
+                let (start, _) = Self::parse_field("version", &raw, start)?;
+                let (_, rules_bytes) = Self::parse_field("rules", &raw, start)?;
+
+                concat_bytes.extend(util::blake2b_256(rules_bytes));
+            }
+
+            util::blake2b_256(&concat_bytes)
+        };
+
         debug!("Start parsing {:?}Witness ...", data_type);
 
-        let mut concat_bytes = Vec::new();
         let mut rules = Vec::new();
         for index in indexes {
             debug!("  witnesses[{:>2}] Parsing bytes to {:?}Witness ...", index, data_type);
@@ -265,8 +284,6 @@ impl SubAccountWitnessesParser {
 
             let (start, version_bytes) = Self::parse_field("version", &raw, start)?;
             let (_, rules_bytes) = Self::parse_field("rules", &raw, start)?;
-
-            concat_bytes.extend(rules_bytes);
 
             das_assert!(
                 version_bytes.len() == 4,
@@ -319,8 +336,6 @@ impl SubAccountWitnessesParser {
                 rule.index
             );
         }
-
-        let hash = util::blake2b_256(&concat_bytes);
 
         Ok((hash, rules))
     }

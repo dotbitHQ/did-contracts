@@ -722,15 +722,10 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
 
                 verifiers::sub_account_cell::verify_initial_properties(witness.index, sub_account_reader, timestamp)?;
 
+                // The verifiers::sub_account_cell::verify_initial_properties has ensured the expiration_years is >= 1 year.
                 let expired_at = u64::from(sub_account_reader.expired_at());
                 let registered_at = u64::from(sub_account_reader.registered_at());
                 let expiration_years = (expired_at - registered_at) / YEAR_SEC;
-
-                das_assert!(
-                    expiration_years >= 1,
-                    SubAccountCellErrorCode::ExpirationYearsTooShort,
-                    "The expiration years should be at least 1 year."
-                );
 
                 debug!(
                     "  witnesses[{:>2}] The account is registered for {} years.",
@@ -837,12 +832,20 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
                                             code_to_error!(SubAccountCellErrorCode::ConfigRulesHasSyntaxError)
                                         },
                                     )?;
+                                // let matched_rule = rules.last();
+
                                 if let Some(rule) = matched_rule {
                                     let profit = util::calc_yearly_capacity(rule.price, quote, 0) * expiration_years;
-                                    profit_total += profit;
 
-                                    minimal_required_das_profit +=
-                                        u64::from(config_sub_account.new_sub_account_price()) * expiration_years;
+                                    das_assert!(
+                                        profit >= u64::from(config_sub_account.new_sub_account_price()) * expiration_years,
+                                        SubAccountCellErrorCode::MinimalProfitToDASNotReached,
+                                        "  witnesses[{:>2}] The minimal profit to .bit should be more than {} shannon.",
+                                        witness.index,
+                                        u64::from(config_sub_account.new_sub_account_price()) * expiration_years
+                                    );
+
+                                    profit_total += profit;
 
                                     debug!(
                                         "  witnesses[{:>2}] account: {}, matched rule: {}, profit: {} in shannon",
@@ -889,7 +892,7 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
                 let new_sub_account_reader = new_sub_account.as_reader();
 
                 debug!(
-                    "witnesses[{}] Calculated new sub-account structure is: {}",
+                    "  witnesses[{:>2}] Calculated new sub-account structure is: {}",
                     witness.index,
                     new_sub_account_reader.as_prettier()
                 );
@@ -922,35 +925,35 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
 
                         if let SubAccountEditValue::Owner(_) = &witness.edit_value {
                             debug!(
-                                "witnesses[{}] Verify if owner has been changed correctly.",
+                                "  witnesses[{:>2}] Verify if owner has been changed correctly.",
                                 witness.index
                             );
 
                             das_assert!(
                                 current_owner_type != new_owner_type || current_owner_args != new_owner_args,
                                 SubAccountCellErrorCode::SubAccountEditLockError,
-                                "witnesses[{}] The owner fields in args should be consistent.",
+                                "  witnesses[{:>2}] The owner fields in args should be consistent.",
                                 witness.index
                             );
 
                             // Skip verifying manger, because owner has been changed.
                         } else {
                             debug!(
-                                "witnesses[{}] Verify if manager has been changed correctly.",
+                                "  witnesses[{:>2}] Verify if manager has been changed correctly.",
                                 witness.index
                             );
 
                             das_assert!(
                                 current_owner_type == new_owner_type && current_owner_args == new_owner_args,
                                 SubAccountCellErrorCode::SubAccountEditLockError,
-                                "witnesses[{}] The owner fields in args should be consistent.",
+                                "  witnesses[{:>2}] The owner fields in args should be consistent.",
                                 witness.index
                             );
 
                             das_assert!(
                                 current_manager_type != new_manager_type || current_manager_args != new_manager_args,
                                 SubAccountCellErrorCode::SubAccountEditLockError,
-                                "witnesses[{}] The manager fields in args should be changed.",
+                                "  witnesses[{:>2}] The manager fields in args should be changed.",
                                 witness.index
                             );
                         }
@@ -961,7 +964,7 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
                     // manual::verify_expired_at_not_editable
                     SubAccountEditValue::ExpiredAt(_) => {
                         warn!(
-                            "witnesses[{}] Can not edit witness.sub_account.expired_at in this transaction.",
+                            "  witnesses[{:>2}] Can not edit witness.sub_account.expired_at in this transaction.",
                             witness.index
                         );
                         return Err(code_to_error!(SubAccountCellErrorCode::SubAccountFieldNotEditable));
@@ -969,7 +972,7 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
                     // manual::verify_edit_value_not_empty
                     SubAccountEditValue::None | _ => {
                         warn!(
-                            "witnesses[{}] The witness.edit_value should not be empty.",
+                            "  witnesses[{:>2}] The witness.edit_value should not be empty.",
                             witness.index
                         );
                         return Err(code_to_error!(SubAccountCellErrorCode::SubAccountFieldNotEditable));
@@ -984,7 +987,7 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
 
         if i == sub_account_parser.len() - 1 {
             debug!(
-                "witnesses[{}] Verify if the last witness.new_root is consistent with the latest SMT root in the SubAccountCell in the outputs..",
+                "  witnesses[{:>2}] Verify if the last witness.new_root is consistent with the latest SMT root in the SubAccountCell in the outputs..",
                 witness.index
             );
 
@@ -992,7 +995,8 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
             das_assert!(
                 latest_root_in_witness == latest_root,
                 SubAccountCellErrorCode::SubAccountWitnessMismatched,
-                "The latest SMT root in witnesses should be consistent with the latest SMT root in the SubAccountCell in the outputs.(in_witness: {}, in_data: {})",
+                "  witnesses[{:>2}] The latest SMT root in witnesses should be consistent with the latest SMT root in the SubAccountCell in the outputs.(in_witness: {}, in_data: {})",
+                witness.index,
                 util::hex_string(latest_root_in_witness),
                 util::hex_string(&latest_root)
             );
@@ -1013,7 +1017,7 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
                 let available_fee = u64::from(config_sub_account.common_fee());
 
                 das_assert!(
-                    sender_total_input_capacity - sender_total_output_capacity <= profit_from_manual_mint + available_fee,
+                    sender_total_input_capacity - sender_total_output_capacity == profit_from_manual_mint + available_fee,
                     SubAccountCellErrorCode::SenderCapacityOverCost,
                     "The sender capacity cost should be less than or equal to the cost for manual mint.(should less than: {}, actual: {})",
                     profit_from_manual_mint,
@@ -1071,8 +1075,6 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
                     config_sub_account,
                     &input_sub_account_data,
                     &output_sub_account_data,
-                    // All the profit should be distributed to DAS to wait further distribution.
-                    minimal_required_das_profit,
                     profit_total,
                 )?;
             }
@@ -1111,20 +1113,8 @@ fn action_collect_sub_account_profit(action: &[u8], parser: &mut WitnessesParser
     let output_sub_account_capacity = high_level::load_cell_capacity(output_sub_account_cells[0], Source::Output)?;
     let input_sub_account_data = high_level::load_cell_data(input_sub_account_cells[0], Source::Input)?;
     let output_sub_account_data = high_level::load_cell_data(output_sub_account_cells[0], Source::Output)?;
-
-    verify_sub_account_capacity_is_enough(
-        config_sub_account,
-        input_sub_account_cells[0],
-        input_sub_account_capacity,
-        &input_sub_account_data,
-        output_sub_account_cells[0],
-        output_sub_account_capacity,
-        &output_sub_account_data,
-    )?;
-
     let input_das_profit = data_parser::sub_account_cell::get_das_profit(&input_sub_account_data).unwrap();
     let output_das_profit = data_parser::sub_account_cell::get_das_profit(&output_sub_account_data).unwrap();
-
     let transaction_fee = u64::from(config_sub_account.common_fee());
 
     match action {
@@ -1240,6 +1230,16 @@ fn action_collect_sub_account_profit(action: &[u8], parser: &mut WitnessesParser
         }
         _ => unreachable!(),
     }
+
+    verify_sub_account_capacity_is_enough(
+        config_sub_account,
+        input_sub_account_cells[0],
+        input_sub_account_capacity,
+        &input_sub_account_data,
+        output_sub_account_cells[0],
+        output_sub_account_capacity,
+        &output_sub_account_data,
+    )?;
 
     Ok(())
 }
@@ -1382,18 +1382,13 @@ fn verify_profit_to_das_with_custom_rule(
     _config_sub_account: ConfigCellSubAccountReader,
     input_data: &[u8],
     output_data: &[u8],
-    minimal_required_das_profit: u64,
-    mut expected_total_profit: u64,
+    expected_total_profit: u64,
 ) -> Result<(), Box<dyn ScriptError>> {
     debug!("Verify the profit to DAS is calculated from rate of config properly.");
 
     let input_das_profit = data_parser::sub_account_cell::get_das_profit(&input_data).unwrap();
     let output_das_profit = data_parser::sub_account_cell::get_das_profit(&output_data).unwrap();
     let das_profit = output_das_profit - input_das_profit;
-
-    if expected_total_profit <= minimal_required_das_profit {
-        expected_total_profit = minimal_required_das_profit;
-    }
 
     das_assert!(
         expected_total_profit == das_profit,
