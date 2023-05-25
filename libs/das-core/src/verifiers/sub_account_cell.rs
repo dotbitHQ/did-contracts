@@ -635,6 +635,7 @@ pub fn verify_sub_account_cell_is_consistent(
                 das_assert_field_consistent_if_not_except!("custom_script_args", get_custom_script_args);
             }
             Some(SubAccountConfigFlag::CustomRule) => {
+                das_assert_field_consistent_if_not_except!("custom_rule_status_flag", get_custom_rule_status_flag);
                 das_assert_field_consistent_if_not_except!("price_rules_hash", get_price_rules_hash);
                 das_assert_field_consistent_if_not_except!("preserved_rules_hash", get_preserved_rules_hash);
             }
@@ -673,15 +674,17 @@ pub fn verify_config_is_custom_rule(sub_account_index: usize, source: Source) ->
 
     let data = util::load_cell_data(sub_account_index, source)?;
     let flag = data_parser::sub_account_cell::get_flag(&data);
+    let status_flag = data_parser::sub_account_cell::get_custom_rule_status_flag(&data);
     let price_rules_hash = data_parser::sub_account_cell::get_price_rules_hash(&data);
     let preserved_rules_hash = data_parser::sub_account_cell::get_preserved_rules_hash(&data);
 
     das_assert!(
         flag == Some(SubAccountConfigFlag::CustomRule) &&
+        status_flag.is_some() &&
         price_rules_hash.is_some() &&
         preserved_rules_hash.is_some(),
         SubAccountCellErrorCode::ConfigCustomRuleInvalid,
-        "The SubAccountCell.data.flag should be 0xff, the SubAccountCell.data.price_rules_hash and the SubAccountCell.data.preserved_rules_hash should be exist."
+        "The SubAccountCell.data.flag should be 0xff, the SubAccountCell.data.status_flag, the SubAccountCell.data.price_rules_hash and the SubAccountCell.data.preserved_rules_hash should be exist."
     );
 
     Ok(())

@@ -36,7 +36,7 @@ fn before_each() -> TemplateGenerator {
                 "das_profit": 0,
                 "owner_profit": 0,
                 "flag": SubAccountConfigFlag::CustomRule as u8,
-                "status_flags": SubAccountCustomRuleFlag::On as u8,
+                "status_flag": SubAccountCustomRuleFlag::On as u8,
             }
         }),
         ACCOUNT_1,
@@ -54,7 +54,7 @@ fn push_simple_outputs(template: &mut TemplateGenerator, total_profit: u64) {
                 "das_profit": total_profit,
                 "owner_profit": 0,
                 "flag": SubAccountConfigFlag::CustomRule as u8,
-                "status_flags": SubAccountCustomRuleFlag::On as u8,
+                "status_flag": SubAccountCustomRuleFlag::On as u8,
             }
         }),
         ACCOUNT_1,
@@ -442,6 +442,49 @@ fn challenge_sub_account_create_flag_custom_rule_flag_not_consistent() {
 }
 
 #[test]
+fn challenge_sub_account_create_status_flag_custom_rule_flag_not_consistent() {
+    let mut template = before_each();
+
+    // outputs
+    template.push_sub_account_witness_v2(json!({
+        "action": SubAccountAction::Create.to_string(),
+        "sub_account": {
+            "lock": {
+                "owner_lock_args": OWNER_1,
+                "manager_lock_args": MANAGER_1
+            },
+            "account": SUB_ACCOUNT_1,
+            "suffix": SUB_ACCOUNT_SUFFIX,
+            "registered_at": TIMESTAMP,
+            "expired_at": TIMESTAMP + YEAR_SEC,
+        },
+        "edit_key": "custom_rule",
+        "edit_value": DUMMY_CHANNEL
+    }));
+
+    let total_profit = util::usd_to_ckb(USD_5 * 1);
+    push_output_sub_account_cell_v2(
+        &mut template,
+        json!({
+            "data": {
+                "das_profit": total_profit,
+                "owner_profit": 0,
+                "flag": SubAccountConfigFlag::CustomRule as u8,
+                // Simulate the status_flag is not consistent.
+                "status_flag": SubAccountCustomRuleFlag::Off as u8,
+            }
+        }),
+        ACCOUNT_1,
+    );
+    push_output_normal_cell(&mut template, TOTAL_PAID - total_profit, OWNER);
+
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::SubAccountCellConsistencyError,
+    );
+}
+
+#[test]
 fn challenge_sub_account_create_flag_custom_rule_owner_profit_not_consistent() {
     let mut template = before_each();
 
@@ -470,7 +513,7 @@ fn challenge_sub_account_create_flag_custom_rule_owner_profit_not_consistent() {
                 // Simulate the owner profit is not consistent.
                 "owner_profit": 1,
                 "flag": SubAccountConfigFlag::CustomRule as u8,
-                "status_flags": SubAccountCustomRuleFlag::On as u8,
+                "status_flag": SubAccountCustomRuleFlag::On as u8,
             }
         }),
         ACCOUNT_1,
@@ -511,7 +554,7 @@ fn challenge_sub_account_create_flag_custom_rule_price_rules_hash_not_consistent
             "data": {
                 "owner_profit": 0,
                 "flag": SubAccountConfigFlag::CustomRule as u8,
-                "status_flags": SubAccountCustomRuleFlag::On as u8,
+                "status_flag": SubAccountCustomRuleFlag::On as u8,
                 // Simulate the price_rules_hash is not consistent.
                 "price_rules_hash": BLACK_HOLE_HASH
             }
@@ -554,7 +597,7 @@ fn challenge_sub_account_create_flag_custom_rule_preserve_rules_hash_not_consist
             "data": {
                 "owner_profit": 0,
                 "flag": SubAccountConfigFlag::CustomRule as u8,
-                "status_flags": SubAccountCustomRuleFlag::On as u8,
+                "status_flag": SubAccountCustomRuleFlag::On as u8,
                 // Simulate the preserve_rules_hash is not consistent.
                 "preserved_rules_hash": BLACK_HOLE_HASH
             }
@@ -566,6 +609,70 @@ fn challenge_sub_account_create_flag_custom_rule_preserve_rules_hash_not_consist
     challenge_tx(
         template.as_json(),
         SubAccountCellErrorCode::SubAccountCellConsistencyError,
+    );
+}
+
+#[test]
+fn challenge_sub_account_create_custom_rule_status_flag_is_off() {
+    let mut template = init_update();
+
+    push_simple_dep_account_cell(&mut template);
+
+    // inputs
+    push_simple_rules(&mut template);
+    push_input_sub_account_cell_v2(
+        &mut template,
+        json!({
+            "header": {
+                "height": HEIGHT - 1,
+                "timestamp": TIMESTAMP - DAY_SEC,
+            },
+            "data": {
+                "das_profit": 0,
+                "owner_profit": 0,
+                "flag": SubAccountConfigFlag::CustomRule as u8,
+                "status_flag": SubAccountCustomRuleFlag::Off as u8,
+            }
+        }),
+        ACCOUNT_1,
+    );
+    push_input_normal_cell(&mut template, TOTAL_PAID, OWNER);
+
+    // outputs
+    template.push_sub_account_witness_v2(json!({
+        "action": SubAccountAction::Create.to_string(),
+        "sub_account": {
+            "lock": {
+                "owner_lock_args": OWNER_1,
+                "manager_lock_args": MANAGER_1
+            },
+            "account": SUB_ACCOUNT_1,
+            "suffix": SUB_ACCOUNT_SUFFIX,
+            "registered_at": TIMESTAMP,
+            "expired_at": TIMESTAMP + YEAR_SEC,
+        },
+        "edit_key": "custom_rule",
+        "edit_value": DUMMY_CHANNEL
+    }));
+
+    let total_profit = util::usd_to_ckb(USD_5 * 1);
+    push_output_sub_account_cell_v2(
+        &mut template,
+        json!({
+            "data": {
+                "das_profit": total_profit,
+                "owner_profit": 0,
+                "flag": SubAccountConfigFlag::CustomRule as u8,
+                "status_flag": SubAccountCustomRuleFlag::Off as u8,
+            }
+        }),
+        ACCOUNT_1,
+    );
+    push_output_normal_cell(&mut template, TOTAL_PAID - total_profit, OWNER);
+
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::CustomRuleIsOff,
     );
 }
 
@@ -888,7 +995,7 @@ fn perf_create_with_custom_rules() {
                 "das_profit": 0,
                 "owner_profit": 0,
                 "flag": SubAccountConfigFlag::CustomRule as u8,
-                "status_flags": SubAccountCustomRuleFlag::On as u8,
+                "status_flag": SubAccountCustomRuleFlag::On as u8,
             }
         }),
         ACCOUNT_1,
@@ -924,7 +1031,7 @@ fn perf_create_with_custom_rules() {
                 "das_profit": total_profit,
                 "owner_profit": 0,
                 "flag": SubAccountConfigFlag::CustomRule as u8,
-                "status_flags": SubAccountCustomRuleFlag::On as u8,
+                "status_flag": SubAccountCustomRuleFlag::On as u8,
             }
         }),
         ACCOUNT_1,

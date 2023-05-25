@@ -263,6 +263,7 @@ pub enum SubAccountCellErrorCode {
     ProfitManagerLockIsRequired,
     ProfitMustBeCollected,
     ProfitIsEmpty, // 70
+    CustomRuleIsOff,
     SubAccountWitnessMismatched,
     SubAccountRulesToWitnessFailed,
     SubAccountSignMintExpiredAtTooLarge,
@@ -271,8 +272,8 @@ pub enum SubAccountCellErrorCode {
     SubAccountCellCapacityError,
     SubAccountCellAccountIdError,
     SubAccountCellConsistencyError,
-    SubAccountInitialValueError,
-    SubAccountSigVerifyError, // 80
+    SubAccountInitialValueError, // 80
+    SubAccountSigVerifyError,
     SubAccountFieldNotEditable,
     SubAccountEditLockError,
     SubAccountJoinBetaError,

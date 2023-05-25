@@ -20,7 +20,7 @@ use das_core::{assert as das_assert, code_to_error, data_parser, debug, verifier
 use das_dynamic_libs::constants::DynLibName;
 use das_dynamic_libs::sign_lib::SignLib;
 use das_dynamic_libs::{load_2_methods, load_lib, log_loading, new_context};
-use das_types::constants::{AccountStatus, DataType, LockRole, SubAccountAction, SubAccountConfigFlag};
+use das_types::constants::{AccountStatus, DataType, LockRole, SubAccountAction, SubAccountConfigFlag, SubAccountCustomRuleFlag};
 use das_types::packed::*;
 use das_types::prelude::{Builder, Entity};
 #[cfg(debug_assertions)]
@@ -169,7 +169,7 @@ fn action_config_sub_account(_action: &[u8], parser: &mut WitnessesParser) -> Re
     verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
         input_sub_account_cells[0],
         output_sub_account_cells[0],
-        vec!["flag", "price_rules", "preserved_rules"],
+        vec!["flag", "custom_rule_status_flag", "price_rules", "preserved_rules"],
     )?;
 
     debug!("Verify if the config fields is updated appropriately ...");
@@ -429,7 +429,7 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
         &output_sub_account_data,
     )?;
 
-    verify_sub_account_transaction_fee(
+    let is_fee_paied = verify_sub_account_transaction_fee(
         config_sub_account,
         input_sub_account_capacity,
         &input_sub_account_data,
@@ -490,6 +490,7 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
     let mut custom_script_params = Vec::new();
     let mut custom_script_type_id = None;
 
+    let mut custom_rule_status_flag = SubAccountCustomRuleFlag::Off;
     let mut custom_price_rules = None;
     let mut custom_preserved_rules = None;
 
@@ -611,6 +612,10 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
 
                 debug!("Parsing custom rules from witness ...");
 
+                custom_rule_status_flag = match data_parser::sub_account_cell::get_custom_rule_status_flag(&input_sub_account_data) {
+                    Some(val) => val,
+                    None => SubAccountCustomRuleFlag::Off,
+                };
                 custom_price_rules =
                     sub_account_parser.get_rules(&input_sub_account_data, DataType::SubAccountPriceRule)?;
                 custom_preserved_rules =
@@ -800,6 +805,14 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
                                 "  witnesses[{:>2}] Execute the custome rules to check if the account is preserved and calculate its price ...",
                                 witness.index
                             );
+
+                            if custom_rule_status_flag == SubAccountCustomRuleFlag::Off {
+                                warn!(
+                                    "  witnesses[{:>2}] The custom rules is off, the account can not be registered.",
+                                    witness.index
+                                );
+                                return Err(code_to_error!(SubAccountCellErrorCode::CustomRuleIsOff));
+                            }
 
                             if let Some(rules) = custom_preserved_rules.as_ref() {
                                 let matched_rule =
@@ -1014,13 +1027,17 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
             let sender_total_output_capacity = util::load_cells_capacity(&output_sender_balance_cells, Source::Output)?;
 
             if sender_total_input_capacity > sender_total_output_capacity {
-                let available_fee = u64::from(config_sub_account.common_fee());
+                let fee_to_pay = if is_fee_paied {
+                    0
+                } else {
+                    u64::from(config_sub_account.common_fee())
+                };
 
                 das_assert!(
-                    sender_total_input_capacity - sender_total_output_capacity == profit_from_manual_mint + available_fee,
+                    sender_total_input_capacity - sender_total_output_capacity <= profit_from_manual_mint + fee_to_pay,
                     SubAccountCellErrorCode::SenderCapacityOverCost,
-                    "The sender capacity cost should be less than or equal to the cost for manual mint.(should less than: {}, actual: {})",
-                    profit_from_manual_mint,
+                    "The sender capacity cost should be <= the cost for manual mint and fee(if not paied by SubAccountCell).(should <=: {}, actual: {})",
+                    profit_from_manual_mint + fee_to_pay,
                     sender_total_input_capacity - sender_total_output_capacity
                 );
             }
@@ -1289,7 +1306,7 @@ fn verify_sub_account_transaction_fee(
     input_data: &[u8],
     output_capacity: u64,
     output_data: &[u8],
-) -> Result<(), Box<dyn ScriptError>> {
+) -> Result<bool, Box<dyn ScriptError>> {
     let input_das_profit = data_parser::sub_account_cell::get_das_profit(&input_data).unwrap();
     let output_das_profit = data_parser::sub_account_cell::get_das_profit(&output_data).unwrap();
     let input_owner_profit = data_parser::sub_account_cell::get_owner_profit(&input_data).unwrap();
@@ -1309,7 +1326,7 @@ fn verify_sub_account_transaction_fee(
         input_remain_fees
     );
 
-    Ok(())
+    Ok(input_remain_fees > output_remain_fees)
 }
 
 fn verify_profit_to_das_with_manual(
