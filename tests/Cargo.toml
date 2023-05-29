@@ -17,8 +17,8 @@ ckb-types = "=0.108.0"
 ckb-hash = "=0.108.0"
 ckb-jsonrpc-types = "=0.108.0"
 das-sorted-list = { workspace = true, features = ["std"] }
-das-types-std = { git = "ssh://git@github.com/dotbitHQ/das-types-private.git", rev = "236db7906f" }
-simple-ast = { git = "ssh://git@github.com/dotbitHQ/simple-ast.git", rev = "84f4259" }
+das-types-std = { git = "ssh://git@github.com/dotbitHQ/das-types-private.git", rev = "ae7375f" }
+simple-ast = { git = "ssh://git@github.com/dotbitHQ/simple-ast.git", rev = "ca3e305" }
 # Other
 hex = "0.4.3"
 thiserror = { version = "1.0" }
