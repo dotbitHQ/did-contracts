@@ -1,4 +1,5 @@
-#![feature(once_cell)]
+// #![feature(once_cell)]
+#![feature(once_cell_try)]
 #![no_std]
 
 extern crate alloc;

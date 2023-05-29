@@ -1,6 +1,5 @@
-use core::cmp::Ordering;
-
 use alloc::boxed::Box;
+use core::cmp::Ordering;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
@@ -102,11 +101,7 @@ pub fn verify_income_cells(
     let total_profit = if profit_map.items.len() == 0 {
         0
     } else {
-        profit_map.items
-            .iter()
-            .map(|v| v.1)
-            .reduce(|acc, v| acc + v)
-            .unwrap()
+        profit_map.items.iter().map(|v| v.1).reduce(|acc, v| acc + v).unwrap()
     };
     let config_main = parser.configs.main()?;
 
@@ -121,7 +116,13 @@ pub fn verify_income_cells(
     } else {
         debug!("Since the profit is not empty, there should be 1 IncomeCell in both the inputs and outputs.");
 
-        super::common::verify_cell_number_range("IncomeCell", &input_income_cells, (Ordering::Less, 2), &output_income_cells, (Ordering::Equal, 1))?;
+        super::common::verify_cell_number_range(
+            "IncomeCell",
+            &input_income_cells,
+            (Ordering::Less, 2),
+            &output_income_cells,
+            (Ordering::Equal, 1),
+        )?;
     }
 
     let config_income = parser.configs.income()?;

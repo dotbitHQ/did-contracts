@@ -104,7 +104,10 @@ fn challenge_sub_account_collect_profit_modify_root() {
     push_output_normal_cell(&mut template, 1000_00_000_000, DAS_WALLET_LOCK_ARGS);
     push_output_balance_cell(&mut template, 1000_00_000_000, OWNER);
 
-    challenge_tx(template.as_json(), ErrorCode::SubAccountCellConsistencyError)
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::SubAccountCellConsistencyError,
+    )
 }
 
 #[test]
@@ -187,7 +190,10 @@ fn challenge_sub_account_collect_das_profit_incomplete() {
     push_output_normal_cell(&mut template, 1000_00_000_000 - 1, DAS_WALLET_LOCK_ARGS);
     push_output_balance_cell(&mut template, 1000_00_000_000, OWNER);
 
-    challenge_tx(template.as_json(), ErrorCode::SubAccountCollectProfitError)
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::SubAccountCollectProfitError,
+    )
 }
 
 #[test]
@@ -239,7 +245,10 @@ fn challenge_sub_account_collect_owner_profit_incomplete() {
     push_output_normal_cell(&mut template, 1000_00_000_000, DAS_WALLET_LOCK_ARGS);
     push_output_balance_cell(&mut template, 1000_00_000_000 - 1, OWNER);
 
-    challenge_tx(template.as_json(), ErrorCode::SubAccountCollectProfitError)
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::SubAccountCollectProfitError,
+    )
 }
 
 #[test]

@@ -857,7 +857,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             das_assert!(
                 sub_account_cell_capacity == expected_capacity,
-                ErrorCode::SubAccountCellCapacityError,
+                SubAccountCellErrorCode::SubAccountCellCapacityError,
                 "The initial capacity of SubAccountCell should be equal to ConfigCellSubAccount.basic_capacity + ConfigCellSubAccount.prepared_fee_capacity .(expected: {}, current: {})",
                 expected_capacity,
                 sub_account_cell_capacity
@@ -869,23 +869,14 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             das_assert!(
                 account_id == expected_account_id,
-                ErrorCode::SubAccountCellAccountIdError,
+                SubAccountCellErrorCode::SubAccountCellAccountIdError,
                 "The type.args of SubAccountCell should be the same with the AccountCell.witness.id .(expected: {}, current: {})",
                 util::hex_string(expected_account_id),
                 util::hex_string(account_id)
             );
 
             let sub_account_outputs_data = high_level::load_cell_data(output_sub_account_cells[0], Source::Output)?;
-
-            // The default outputs_data of SubAccountCell should be [0u8; 70] and the 48th byte is 0xFF , which is preserved for the latest sub-account feature.
-            let mut expected_default_data = vec![0u8; 70];
-            expected_default_data[48] = 255;
-
-            das_assert!(
-                expected_default_data == sub_account_outputs_data,
-                ErrorCode::SMTProofVerifyFailed,
-                "The default outputs_data of SubAccountCell should be [0u8; 70] and the 48th byte is 0xFF ."
-            );
+            verifiers::sub_account_cell::verify_cell_initial_properties(&sub_account_outputs_data)?;
 
             debug!("Verify if sender get their change properly.");
 
@@ -900,6 +891,14 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             }
         }
         b"config_sub_account_custom_script" => {
+            util::require_type_script(
+                &parser,
+                TypeScript::SubAccountCellType,
+                Source::Input,
+                ErrorCode::InvalidTransactionStructure,
+            )?;
+        }
+        b"config_sub_account" => {
             util::require_type_script(
                 &parser,
                 TypeScript::SubAccountCellType,
@@ -1152,7 +1151,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
                         das_assert!(
                             output_das_profit == 0 && output_owner_profit == 0,
-                            ErrorCode::SubAccountCollectProfitError,
+                            SubAccountCellErrorCode::SubAccountCollectProfitError,
                             "All profit in the SubAccountCell should be collected."
                         );
 

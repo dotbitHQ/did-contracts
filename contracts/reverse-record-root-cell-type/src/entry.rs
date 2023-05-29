@@ -218,7 +218,7 @@ fn verify_sign(sign_lib: &SignLib, witness: &ReverseRecordWitness) -> Result<(),
             witness.index,
             das_lock_type.to_string()
         );
-        code_to_error!(ErrorCode::SubAccountSigVerifyError)
+        code_to_error!(ReverseRecordRootCellErrorCode::SignatureVerifyError)
     })?;
     let ret = sign_lib.validate_str(das_lock_type, 0i32, message.clone(), message.len(), signature, args);
     match ret {
@@ -234,7 +234,7 @@ fn verify_sign(sign_lib: &SignLib, witness: &ReverseRecordWitness) -> Result<(),
                 "  witnesses[{:>2}] The witness.signature is invalid, the error_code returned by dynamic library is: {}",
                 witness.index, _error_code
             );
-            Err(code_to_error!(ErrorCode::SubAccountSigVerifyError))
+            Err(code_to_error!(ReverseRecordRootCellErrorCode::SignatureVerifyError))
         }
         _ => {
             debug!("  witnesses[{:>2}] The witness.signature is valid.", witness.index);

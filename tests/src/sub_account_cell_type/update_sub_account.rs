@@ -50,7 +50,6 @@ fn before_each() -> TemplateGenerator {
     let mut template = init_update();
 
     template.push_contract_cell("test-custom-script", ContractType::Contract);
-    template.push_oracle_cell(1, OracleCellType::Quote, CKB_QUOTE);
     push_simple_dep_account_cell(&mut template);
 
     // inputs
@@ -139,6 +138,7 @@ fn test_sub_account_update_with_custom_script() {
     let mut template = before_each();
 
     // outputs
+    let smt = push_commen_sign_witness(&mut template);
     template.push_sub_account_witness_v2(json!({
         "action": SubAccountAction::Edit.to_string(),
         "sign_role": "0x00",
@@ -169,6 +169,7 @@ fn test_sub_account_update_with_custom_script() {
             "registered_at": TIMESTAMP,
             "expired_at": TIMESTAMP + YEAR_SEC,
         },
+        "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_2)
     }));
 
     let total_profit = calculate_sub_account_custom_price(1);
@@ -340,39 +341,5 @@ fn challenge_sub_account_update_parent_not_enable_feature() {
     }));
     push_common_output_cells(&mut template, 1);
 
-    challenge_tx(template.as_json(), ErrorCode::SubAccountFeatureNotEnabled);
-}
-
-#[test]
-fn challenge_sub_account_create_spend_others_balance_cell() {
-    let mut template = init_update();
-
-    // cell_deps
-    push_simple_dep_account_cell(&mut template);
-
-    // inputs
-    push_simple_input_sub_account_cell(&mut template, 0, 0);
-    push_input_balance_cell(&mut template, 10_000_000_000, OWNER);
-    // Simulate spending BalanceCells from other owners.
-    push_input_balance_cell(&mut template, 10_000_000_000, OWNER_2);
-
-    // outputs
-    let smt = push_commen_sign_witness(&mut template);
-    template.push_sub_account_witness_v2(json!({
-        "action": SubAccountAction::Create.to_string(),
-        "sub_account": {
-            "lock": {
-                "owner_lock_args": OWNER_1,
-                "manager_lock_args": MANAGER_1
-            },
-            "account": SUB_ACCOUNT_1,
-            "suffix": SUB_ACCOUNT_SUFFIX,
-            "registered_at": TIMESTAMP,
-            "expired_at": TIMESTAMP + YEAR_SEC,
-        },
-        "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_1)
-    }));
-    push_common_output_cells(&mut template, 1);
-
-    challenge_tx(template.as_json(), ErrorCode::BalanceCellCanNotBeSpent);
+    challenge_tx(template.as_json(), SubAccountCellErrorCode::SubAccountFeatureNotEnabled);
 }
