@@ -6,6 +6,7 @@ members = [
     "libs/das-map",
     "libs/das-sorted-list",
     "libs/eip712",
+    "libs/simple-ast",
     # Contracts
     "contracts/always-success",
     "contracts/account-cell-type",
@@ -22,6 +23,7 @@ members = [
     "contracts/reverse-record-root-cell-type",
     "contracts/sub-account-cell-type",
     "contracts/eip712-lib",
+    "contracts/device-key-list-cell-type",
     # Only for unit tests
     "tests",
     "contracts/test-env",
@@ -30,8 +32,9 @@ members = [
 ]
 
 [workspace.dependencies]
-das-types = { git = "ssh://git@github.com/dotbitHQ/das-types-private.git", default-features = false, rev = "c9c322b7dd" }
-simple-ast = { git = "ssh://git@github.com/dotbitHQ/simple-ast.git", features = [ "no_std" ], default-features = false, rev = "84f4259" }
+das-types = { git = "https://github.com/dotbitHQ/das-types-private.git", default-features = false, rev = "37e79f3f2bd945fdc29ec9a61fa4577c8d575c8e" }
+das-types-std = { git = "https://github.com/dotbitHQ/das-types-private.git", rev = "236db7906f7a95624731ea7f7be5528247598246" }
+simple-ast = { path = "libs/simple-ast", default-features = false }
 das-map = { path = "libs/das-map", default-features = false }
 das-core = { path = "libs/das-core", default-features = false }
 das-sorted-list = { path = "libs/das-sorted-list", default-features = false }
