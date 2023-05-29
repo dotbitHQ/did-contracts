@@ -9,16 +9,19 @@ edition = "2018"
 #ckb-testtool = { git = "https://github.com/DA-Services/ckb-testtool", tag = "v0.7.3" }
 #ckb-testtool = { path = "../../ckb-testtool" }
 # CKB related dependencies
-ckb-mock-tx-types = "=0.105.1"
-ckb-script = { version="=0.105.1", default-features = false }
-ckb-chain-spec = "=0.105.1"
-ckb-types = "=0.105.1"
-ckb-hash = "=0.105.1"
-ckb-jsonrpc-types = "=0.105.1"
-das-sorted-list = { path = "../libs/das-sorted-list", features = ["std"] }
-das-types-std = { path = "../../das-types-std/rust" }
+ckb-mock-tx-types = "=0.108.0"
+ckb-script = { version="=0.108.0", default-features = false }
+ckb-traits = { version="=0.108.0" }
+ckb-chain-spec = "=0.108.0"
+ckb-types = "=0.108.0"
+ckb-hash = "=0.108.0"
+ckb-jsonrpc-types = "=0.108.0"
+das-sorted-list = { workspace = true, features = ["std"] }
+das-types-std = { git = "ssh://git@github.com/dotbitHQ/das-types-private.git", rev = "ae7375f" }
+simple-ast = { git = "ssh://git@github.com/dotbitHQ/simple-ast.git", rev = "ca3e305" }
 # Other
-hex = "0.4.2"
+hex = "0.4.3"
+thiserror = { version = "1.0" }
 lazy_static = "1.4.0"
 secp256k1 = { version = "0.25.0", features = ["recovery"] }
 serde = { version = "1.0", features = ["derive"] }
@@ -27,4 +30,4 @@ regex = "1.0"
 walkdir = "2"
 rand = "0.8.3"
 chrono = { version = "0.4" }
-sparse-merkle-tree = { git = "https://github.com/nervosnetwork/sparse-merkle-tree.git", default-features = false }
+sparse-merkle-tree = { version = "0.6.1" }

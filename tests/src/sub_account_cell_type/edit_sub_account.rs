@@ -49,7 +49,21 @@ fn before_each() -> TemplateGenerator {
             "expired_at": TIMESTAMP + YEAR_SEC,
         }),
     ]);
-    push_simple_input_sub_account_cell(&mut template, 0, 0);
+    push_input_sub_account_cell_v2(
+        &mut template,
+        json!({
+            "header": {
+                "height": HEIGHT - 1,
+                "timestamp": TIMESTAMP - DAY_SEC,
+            },
+            "data": {
+                "das_profit": 0,
+                "owner_profit": 0,
+                "flag": SubAccountConfigFlag::CustomScript as u8,
+            }
+        }),
+        ACCOUNT_1,
+    );
 
     template
 }
@@ -68,6 +82,20 @@ fn push_simple_sub_account_witness(template: &mut TemplateGenerator, sub_account
     util::merge_json(&mut sub_account, sub_account_partial);
 
     template.push_sub_account_witness_v2(sub_account);
+}
+
+pub fn push_simple_output_sub_account_cell(template: &mut TemplateGenerator, das_profit: u64, owner_profit: u64) {
+    push_output_sub_account_cell_v2(
+        template,
+        json!({
+            "data": {
+                "das_profit": das_profit,
+                "owner_profit": owner_profit,
+                "flag": SubAccountConfigFlag::CustomScript as u8,
+            }
+        }),
+        ACCOUNT_1,
+    );
 }
 
 #[test]
@@ -155,7 +183,7 @@ fn challenge_sub_account_edit_owner_not_change() {
     );
     push_simple_output_sub_account_cell(&mut template, 0, 0);
 
-    challenge_tx(template.as_json(), ErrorCode::SubAccountEditLockError);
+    challenge_tx(template.as_json(), SubAccountCellErrorCode::SubAccountEditLockError);
 }
 
 #[test]
@@ -180,7 +208,7 @@ fn challenge_sub_account_edit_owner_changed_when_edit_manager() {
     );
     push_simple_output_sub_account_cell(&mut template, 0, 0);
 
-    challenge_tx(template.as_json(), ErrorCode::SubAccountEditLockError);
+    challenge_tx(template.as_json(), SubAccountCellErrorCode::SubAccountEditLockError);
 }
 
 /// If the transaction only contains edit action, then the das_profit must be consistent.
@@ -205,7 +233,10 @@ fn challenge_sub_account_edit_modify_das_profit() {
     );
     push_simple_output_sub_account_cell(&mut template, 1, 0);
 
-    challenge_tx(template.as_json(), ErrorCode::SubAccountCellConsistencyError);
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::SubAccountCellConsistencyError,
+    );
 }
 
 /// If the transaction only contains edit action, then the owner_profit must be consistent.
@@ -230,7 +261,10 @@ fn challenge_sub_account_edit_modify_owner_profit() {
     );
     push_simple_output_sub_account_cell(&mut template, 0, 1);
 
-    challenge_tx(template.as_json(), ErrorCode::SubAccountCellConsistencyError);
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::SubAccountCellConsistencyError,
+    );
 }
 
 #[test]
@@ -354,7 +388,10 @@ fn challenge_sub_account_custom_script_changed() {
         }),
     );
 
-    challenge_tx(template.as_json(), ErrorCode::SubAccountCellConsistencyError);
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::SubAccountCellConsistencyError,
+    );
 }
 
 #[test]
@@ -379,7 +416,7 @@ fn challenge_sub_account_edit_manager_not_change() {
     );
     push_simple_output_sub_account_cell(&mut template, 0, 0);
 
-    challenge_tx(template.as_json(), ErrorCode::SubAccountEditLockError);
+    challenge_tx(template.as_json(), SubAccountCellErrorCode::SubAccountEditLockError);
 }
 
 #[test]

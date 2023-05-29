@@ -98,7 +98,7 @@ pub fn calc_digest_by_input_group(
                         util::first_n_bytes_to_hex(&_signatures, 10)
                     );
 
-                    let mut data = bytes[..slice_point].to_vec();
+                    let mut data: Vec<u8> = bytes[..slice_point].to_vec();
                     data.extend_from_slice(&vec![0u8; SECP_SIGNATURE_SIZE * threshold]);
 
                     data

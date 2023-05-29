@@ -257,17 +257,45 @@ pub fn cross_chain_lock() -> Script {
     util::script_literal_to_script(cross_chain_lock)
 }
 
-pub fn time_cell_type() -> Script {
-    #[cfg(feature = "dev")]
-    let time_cell_type = ScriptLiteral {
+pub fn profit_manager_lock() -> Script {
+    #[cfg(any(feature = "dev", feature = "local"))]
+    let lock = ScriptLiteral {
+        // CAREFUL: If you edit the code_hash here, you need also make the code_hash in fn das_wallet_lock() consistent.
         code_hash: [
-            1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            143, 45, 124, 176, 101, 18, 242, 119, 114, 7, 70, 29, 16, 11, 5, 98, 176, 33, 50, 50, 161, 189, 112, 38,
+            30, 87, 243, 127, 220, 97, 72, 61,
         ],
         hash_type: ScriptHashType::Type,
-        args: vec![1],
+        args: vec![4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     };
 
-    #[cfg(feature = "local")]
+    #[cfg(feature = "testnet")]
+    let lock = ScriptLiteral {
+        code_hash: [
+            155, 215, 224, 111, 62, 207, 75, 224, 242, 252, 210, 24, 139, 35, 241, 185, 252, 200, 142, 93, 75, 101,
+            168, 99, 123, 23, 114, 59, 189, 163, 204, 232,
+        ],
+        hash_type: ScriptHashType::Type,
+        args: vec![
+            208, 225, 249, 167, 154, 185, 54, 24, 33, 203, 195, 179, 31, 204, 238, 9, 76, 175, 172, 208,
+        ],
+    };
+
+    #[cfg(feature = "mainnet")]
+    let lock = ScriptLiteral {
+        code_hash: [
+            155, 215, 224, 111, 62, 207, 75, 224, 242, 252, 210, 24, 139, 35, 241, 185, 252, 200, 142, 93, 75, 101,
+            168, 99, 123, 23, 114, 59, 189, 163, 204, 232,
+        ],
+        hash_type: ScriptHashType::Type,
+        args: vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    };
+
+    util::script_literal_to_script(lock)
+}
+
+pub fn time_cell_type() -> Script {
+    #[cfg(any(feature = "dev", feature = "local"))]
     let time_cell_type = ScriptLiteral {
         code_hash: [
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,

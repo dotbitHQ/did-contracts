@@ -29,6 +29,15 @@ members = [
     "contracts/playground",
 ]
 
+[workspace.dependencies]
+das-types = { git = "ssh://git@github.com/dotbitHQ/das-types-private.git", default-features = false, rev = "85dd258" }
+simple-ast = { git = "ssh://git@github.com/dotbitHQ/simple-ast.git", features = [ "no_std" ], default-features = false, rev = "ca3e305" }
+das-map = { path = "libs/das-map", default-features = false }
+das-core = { path = "libs/das-core", default-features = false }
+das-sorted-list = { path = "libs/das-sorted-list", default-features = false }
+sparse-merkle-tree = { version = "0.6.1", default-features = false, features = ["smtc"] }
+ckb-std = "0.13.0"
+
 [profile.release]
 overflow-checks = true
 opt-level = 2

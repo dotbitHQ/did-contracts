@@ -1,8 +1,7 @@
 use alloc::vec;
 use core::convert::TryInto;
 
-use ckb_std::debug;
-use ckb_std::env;
+use ckb_std::{debug, env};
 use das_types::packed::AccountChars;
 use das_types::prelude::Entity;
 #[cfg(debug_assertions)]
@@ -15,9 +14,9 @@ pub fn main() -> Result<(), Error> {
 
     let args = env::argv();
     das_assert!(
-        args.len() >= 6,
+        args.len() >= 5,
         Error::InvalidArgument,
-        "The param argc must be greater than or equal to 4."
+        "The param argc must be greater than or equal to 5."
     );
 
     let action = args[0].to_str().unwrap();
