@@ -640,12 +640,7 @@ pub fn verify_sub_account_cell_is_consistent(
                 das_assert_field_consistent_if_not_except!("preserved_rules_hash", get_preserved_rules_hash);
             }
             _ => {
-                let output_rest_bytes = data_parser::sub_account_cell::get_price_rules_hash(&output_sub_account_data);
-                das_assert!(
-                    output_rest_bytes.is_none(),
-                    SubAccountCellErrorCode::SubAccountCellConsistencyError,
-                    "The SubAccountCell.data.flag is empty or manual, so the rest bytes the SubAccountCell.data should be empty."
-                );
+                debug!("The SubAccountCell.data.flag is not CustomScript or CustomRule, so skip the consistency verification of the reset fields.");
             }
         }
     }
