@@ -1,10 +1,11 @@
 use alloc::boxed::Box;
+use alloc::vec::Vec;
 
 use ckb_std::ckb_constants::Source;
 use das_core::constants::ScriptType;
 use das_core::error::ScriptError;
 use das_core::witness_parser::WitnessesParser;
-use das_core::{code_to_error, debug, util};
+use das_core::{code_to_error, debug, util, verifiers};
 use das_types::constants::DataType;
 use das_types::packed::{DeviceKey, DeviceKeyList};
 use das_types::prelude::Entity;
@@ -14,45 +15,35 @@ use crate::error::ErrorCode;
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running sub-account-cell-type ======");
     let mut parser = WitnessesParser::new()?;
-    let action_cp = match parser.parse_action_with_params()? {
+    let action = match parser.parse_action_with_params()? {
         Some((action, _)) => action.to_vec(),
         None => return Err(code_to_error!(das_core::error::ErrorCode::ActionNotSupported)),
     };
-    let action = action_cp.as_slice();
 
     debug!(
         "Route to {:?} action ...",
-        alloc::string::String::from_utf8(action.to_vec())
+        alloc::string::String::from_utf8(action.clone())
             .map_err(|_| das_core::error::ErrorCode::ActionNotSupported)?
     );
 
-    // ensure cell deps
     parser.parse_cell()?;
-    let config_main = parser.configs.main()?;
-    let type_id_table = config_main.type_id_table();
-    let device_key_list_cell_type_id = type_id_table.key_list_config_cell();
-    // Ensure device_key_list_cell_contract is in cell_deps
-    // ensure_unique_cell_deps([device_key_list_cell_type_id].as_slice())?;
+    let this_script = ckb_std::high_level::load_script()?;
 
-    match action {
+    match action.as_slice() {
         b"create_device_key_list" => {
-            das_core::assert!(
-                util::find_cells_by_type_id(ScriptType::Type, device_key_list_cell_type_id, Source::Input)?.len() == 0,
-                ErrorCode::FoundKeyListInInput,
-                "There should be 0 device_key_list_cell in input "
-            );
+            let (input_cells, output_cells) =
+                util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_script.as_reader())?;
 
-            let output_cells =
-                util::find_cells_by_type_id(ScriptType::Type, device_key_list_cell_type_id, Source::Output)?;
-
-            das_core::assert!(
-                output_cells.len() == 1,
-                ErrorCode::NoKeyListInOutput,
-                "There should be exactly 1 device_key_list_cell in output"
-            );
+            verifiers::common::verify_cell_number_and_position(
+                "device-key-list",
+                &input_cells,
+                &[],
+                &output_cells,
+                &[0],
+            )?;
 
             let (_, _, bytes) = parser.verify_and_get(DataType::DeviceKeyList, output_cells[0], Source::Output)?;
-            let key_list = DeviceKeyList::from_slice(bytes.as_slice())
+            let key_list = DeviceKeyList::from_compatible_slice(bytes.as_slice())
                 .map_err(|_e| code_to_error!(ErrorCode::KeyListParseError))?;
 
             das_core::assert!(
@@ -64,15 +55,15 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             verify_key_list_lock_arg(output_cells[0], key_list, Source::Output)?;
         }
         b"update_device_key_list" => {
-            let input_cells =
-                util::find_cells_by_type_id(ScriptType::Type, device_key_list_cell_type_id, Source::Input)?;
-            let output_cells =
-                util::find_cells_by_type_id(ScriptType::Type, device_key_list_cell_type_id, Source::Output)?;
-            das_core::assert!(
-                input_cells.len() == 1 && input_cells.len() == output_cells.len(),
-                ErrorCode::InvalidTransactionStructure,
-                "There should be exactly 1 device_key_list_cell in input and output"
-            );
+            let (input_cells, output_cells) =
+                util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_script.as_reader())?;
+            verifiers::common::verify_cell_number_and_position(
+                "device-key-list",
+                &input_cells,
+                &[0],
+                &output_cells,
+                &[0],
+            )?;
 
             das_core::assert!(
                 ckb_std::high_level::load_cell_lock(input_cells[0], Source::Input)?
@@ -89,9 +80,9 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 parser.verify_and_get(DataType::DeviceKeyList, input_cells[0], Source::Input)?;
             let (_, _, key_list_in_output) =
                 parser.verify_and_get(DataType::DeviceKeyList, output_cells[0], Source::Output)?;
-            let key_list_in_input = DeviceKeyList::from_slice(key_list_in_input.as_slice())
+            let key_list_in_input = DeviceKeyList::from_compatible_slice(key_list_in_input.as_slice())
                 .map_err(|_e| code_to_error!(ErrorCode::KeyListParseError))?;
-            let key_list_in_output = DeviceKeyList::from_slice(key_list_in_output.as_slice())
+            let key_list_in_output = DeviceKeyList::from_compatible_slice(key_list_in_output.as_slice())
                 .map_err(|_e| code_to_error!(ErrorCode::KeyListParseError))?;
 
             das_core::assert!(
@@ -100,68 +91,63 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 "The key list length should be from 1 to 10"
             );
 
-            let len_diff: i32 = key_list_in_input.len() as i32 - key_list_in_output.len() as i32;
+            let len_diff: i32 = key_list_in_input.item_count() as i32 - key_list_in_output.item_count() as i32;
             das_core::assert!(
                 len_diff == 1 || len_diff == -1,
                 ErrorCode::KeyListNumberIncorrect,
                 "There should be exactly 1 device key difference when update"
             );
 
-            let keys_in_input: alloc::collections::BTreeSet<DeviceKeyWrapped> =
-                key_list_in_input.into_iter().map(|key| DeviceKeyWrapped(key)).collect();
-            let keys_in_output: alloc::collections::BTreeSet<DeviceKeyWrapped> = key_list_in_output
-                .into_iter()
-                .map(|key| DeviceKeyWrapped(key))
-                .collect();
-
             match len_diff {
                 1 => {
-                    // add device key
-                    das_core::assert!(
-                        keys_in_output.is_superset(&keys_in_input),
-                        ErrorCode::UpdateParamsInvalid,
-                        "Output keys should be superset of input"
-                    );
-                    let mut added_device_key = keys_in_output.difference(&keys_in_input);
-                    let res = added_device_key.next().ok_or(ErrorCode::UpdateParamsInvalid)?;
-                    das_core::assert!(
-                        added_device_key.next().is_none(),
-                        ErrorCode::UpdateParamsInvalid,
-                        "Output key should be exactly 1 more than input"
-                    );
-
-                    res
+                    debug!("update_device_key_list: add key");
+                    // Should only append to the tail
+                    let mut input_iter = key_list_in_input.into_iter();
+                    let mut output_iter = key_list_in_output.into_iter();
+                    loop {
+                        match (input_iter.next(), output_iter.next()) {
+                            (Some(a), Some(b)) if a.as_slice() == b.as_slice() => continue,
+                            (Some(_), Some(_)) => Err(code_to_error!(ErrorCode::UpdateParamsInvalid))?,
+                            (None, Some(_)) => break,
+                            _ => unreachable!(),
+                        }
+                    }
                 }
                 -1 => {
-                    // Remove device key
+                    debug!("update_device_key_list: remove key");
+                    let keys_in_input: alloc::collections::BTreeSet<DeviceKeyWrapped> =
+                        key_list_in_input.into_iter().map(|key| DeviceKeyWrapped(key)).collect();
+                    let keys_in_output: alloc::collections::BTreeSet<DeviceKeyWrapped> = key_list_in_output
+                        .into_iter()
+                        .map(|key| DeviceKeyWrapped(key))
+                        .collect();
                     das_core::assert!(
                         keys_in_input.is_superset(&keys_in_output),
                         ErrorCode::UpdateParamsInvalid,
                         "Output keys should be superset of input"
                     );
-                    let mut removed_device_key = keys_in_input.difference(&keys_in_output);
-                    let res = removed_device_key.next().ok_or(ErrorCode::UpdateParamsInvalid)?;
+                    let removed_device_key: Vec<DeviceKeyWrapped> =
+                        keys_in_input.difference(&keys_in_output).cloned().collect();
                     das_core::assert!(
-                        removed_device_key.next().is_none(),
+                        removed_device_key.len() == 1,
                         ErrorCode::UpdateParamsInvalid,
                         "Output key should be exactly 1 less than input"
                     );
-                    res
                 }
                 _ => unreachable!(),
             };
-        },
+        }
         b"destroy_device_key_list" => {
-            let input_cells =
-                util::find_cells_by_type_id(ScriptType::Type, device_key_list_cell_type_id, Source::Input)?;
-            let output_cells =
-                util::find_cells_by_type_id(ScriptType::Type, device_key_list_cell_type_id, Source::Output)?;
-            das_core::assert!(
-                input_cells.len() == 1 && output_cells.len() == 0,
-                ErrorCode::DestroyParamsInvalid,
-                "Should have 1 key list in input and 0 in output"
-            )
-        },
+            let (input_cells, output_cells) =
+                util::find_cells_by_script_in_inputs_and_outputs(ScriptType::Type, this_script.as_reader())?;
+            verifiers::common::verify_cell_number_and_position(
+                "device-key-list",
+                &input_cells,
+                &[0],
+                &output_cells,
+                &[],
+            )?;
+        }
         _ => unimplemented!(),
     }
 
@@ -189,22 +175,8 @@ impl Ord for DeviceKeyWrapped {
     }
 }
 
-// fn ensure_unique_cell_dep(type_id: HashReader) -> Result<(), Box<dyn ScriptError>> {
-//     let res = util::find_cells_by_type_id(ScriptType::Type, type_id, Source::CellDep)?;
-//     if res.len() != 1 {
-//         return Err(code_to_error!(ErrorCode::IndexOutOfBound));
-//     }
-//     Ok(())
-// }
 
-// fn ensure_unique_cell_deps(type_ids: &[HashReader]) -> Result<(), Box<dyn ScriptError>> {
-//     for type_id in type_ids.into_iter() {
-//         ensure_unique_cell_dep(*type_id)?;
-//     }
-
-//     Ok(())
-// }
-
+// TODO: refactor the logic into common verifiers.
 fn verify_key_list_lock_arg(index: usize, key_list: DeviceKeyList, source: Source) -> Result<(), Box<dyn ScriptError>> {
     let device_key = key_list.get(0).unwrap();
     let lock = ckb_std::high_level::load_cell_lock(index, source)?;
