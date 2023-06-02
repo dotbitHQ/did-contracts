@@ -16,7 +16,11 @@ pub(crate) enum ErrorCode {
     NoKeyListInOutput,
     LockArgLengthIncorrect,
     InvalidLockArg,
-    KeyListParseError
+    KeyListParseError,
+    InvalidTransactionStructure,
+    KeyListNumberIncorrect,
+    UpdateParamsInvalid,
+    DestroyParamsInvalid
 }
 
 impl From<SysError> for ErrorCode {
