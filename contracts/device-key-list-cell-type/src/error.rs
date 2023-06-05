@@ -15,12 +15,16 @@ pub(crate) enum ErrorCode {
     WitnessArgsInvalid,
     NoKeyListInOutput,
     LockArgLengthIncorrect,
-    InvalidLockArg,
+    InvalidLock,
     KeyListParseError,
     InvalidTransactionStructure,
     KeyListNumberIncorrect,
     UpdateParamsInvalid,
-    DestroyParamsInvalid
+    DestroyParamsInvalid,
+    CapacityNotEnough,
+    MustUseDasLock,
+    InconsistentBalanceCellLocks,
+    CapacityReduceTooMuch
 }
 
 impl From<SysError> for ErrorCode {
