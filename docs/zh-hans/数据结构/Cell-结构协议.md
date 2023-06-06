@@ -627,19 +627,19 @@ data: [ smt_root ][ das_profit ][ owner_profit ][ flag ][ status_flag ][ price_r
 lock: <das-lock>
 type: <device-key-list-cell-type>
 data:
-  hash(witness: DeviceKeyList)
+  hash(witness: DeviceKeyListCellData)
 
 witness:
   table Data {
     old: table DataEntityOpt {
         index: Uint32,
         version: Uint32,
-        entity: DeviceKeyList
+        entity: DeviceKeyListCellData
     },
     new: table DataEntityOpt {
       index: Uint32,
       version: Uint32,
-      entity: DeviceKeyList
+      entity: DeviceKeyListCellData
     },
   }
   
@@ -652,6 +652,12 @@ struct DeviceKey {
     cid: Byte10, //credential id in sha256
     pubkey: Byte10,
 }
+
+table DeviceKeyListCellData {
+    keys: DeviceKeyList, // Device keys
+    refund_lock: Script, // On destroy-device-key-list, send the remaining capacity to refund_lock
+}
+
 ```
 
 DeviceKey 中的主要字段如下：
