@@ -1,13 +1,11 @@
 use alloc::boxed::Box;
 use alloc::vec::Vec;
-use core::any::Any;
 
-use ckb_std::ckb_constants::{self, Source};
+use ckb_std::ckb_constants::{Source};
 use ckb_std::ckb_types::packed::Script;
 use ckb_std::high_level::{load_cell, load_cell_lock, QueryIter};
-use das_core::constants::{das_lock, das_wallet_lock, ScriptHashType, ScriptType};
+use das_core::constants::{das_lock, ScriptHashType, ScriptType};
 use das_core::error::ScriptError;
-use das_core::util::find_all_balance_cells;
 use das_core::witness_parser::WitnessesParser;
 use das_core::{code_to_error, debug, util, verifiers};
 use das_types::constants::DataType;
@@ -15,6 +13,7 @@ use das_types::packed::{DeviceKey, DeviceKeyList, DeviceKeyListCellData};
 use das_types::prelude::Entity;
 
 use crate::error::ErrorCode;
+use crate::helpers::Comparable;
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running sub-account-cell-type ======");
@@ -154,18 +153,18 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 }
                 -1 => {
                     debug!("update_device_key_list: remove key");
-                    let keys_in_input: alloc::collections::BTreeSet<DeviceKeyWrapped> =
-                        key_list_in_input.into_iter().map(|key| DeviceKeyWrapped(key)).collect();
-                    let keys_in_output: alloc::collections::BTreeSet<DeviceKeyWrapped> = key_list_in_output
+                    let keys_in_input: alloc::collections::BTreeSet<Comparable<DeviceKey>> =
+                        key_list_in_input.into_iter().map(|key| Comparable(key)).collect();
+                    let keys_in_output: alloc::collections::BTreeSet<Comparable<DeviceKey>> = key_list_in_output
                         .into_iter()
-                        .map(|key| DeviceKeyWrapped(key))
+                        .map(|key| Comparable(key))
                         .collect();
                     das_core::assert!(
                         keys_in_input.is_superset(&keys_in_output),
                         ErrorCode::UpdateParamsInvalid,
                         "Output keys should be superset of input"
                     );
-                    let removed_device_key: Vec<DeviceKeyWrapped> =
+                    let removed_device_key: Vec<Comparable<DeviceKey>> =
                         keys_in_input.difference(&keys_in_output).cloned().collect();
                     das_core::assert!(
                         removed_device_key.len() == 1,
@@ -203,26 +202,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
     Ok(())
 }
 
-#[derive(Clone)]
-struct DeviceKeyWrapped(DeviceKey);
-impl Eq for DeviceKeyWrapped {}
-impl PartialEq for DeviceKeyWrapped {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.as_slice() == other.0.as_slice()
-    }
-}
-
-impl PartialOrd for DeviceKeyWrapped {
-    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
-        self.0.as_slice().partial_cmp(&other.0.as_slice())
-    }
-}
-
-impl Ord for DeviceKeyWrapped {
-    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
-        self.0.as_slice().cmp(&other.0.as_slice())
-    }
-}
 
 // TODO: refactor the logic into common verifiers.
 fn verify_key_list_lock_arg(lock: &Script, key_list: DeviceKeyList) -> Result<(), Box<dyn ScriptError>> {

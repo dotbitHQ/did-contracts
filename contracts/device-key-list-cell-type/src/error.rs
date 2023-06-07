@@ -1,7 +1,5 @@
 use ckb_std::syscalls::SysError;
-use das_core::error::ScriptError;
-use alloc::{boxed::Box, string::String};
-use das_core::error::Error;
+use das_types::VerificationError;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[repr(i8)]
@@ -24,7 +22,9 @@ pub(crate) enum ErrorCode {
     CapacityNotEnough,
     MustUseDasLock,
     InconsistentBalanceCellLocks,
-    CapacityReduceTooMuch
+    CapacityReduceTooMuch,
+    ActionNotSupported,
+    VerificationError
 }
 
 impl From<SysError> for ErrorCode {
@@ -37,12 +37,6 @@ impl From<SysError> for ErrorCode {
             Encoding => Self::Encoding,
             Unknown(err_code) => panic!("unexpected sys error {}", err_code),
         }
-    }
-}
-
-impl From<ErrorCode> for Box<dyn ScriptError> {
-    fn from(err: ErrorCode) -> Box<dyn ScriptError> {
-        Box::new(Error::new(err, String::new()))
     }
 }
 

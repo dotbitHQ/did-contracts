@@ -10,8 +10,14 @@
 #![feature(alloc_error_handler)]
 #![feature(panic_info_message)]
 // define modules
+mod create_device_key_list;
+mod destroy_device_key_list;
 mod entry;
+mod entry_new;
 mod error;
+mod helpers;
+mod traits;
+mod update_device_key_list;
 
 use ckb_std::default_alloc;
 
@@ -21,7 +27,7 @@ default_alloc!();
 /// program entry
 fn program_entry() -> i8 {
     // Call main function and return error code
-    match entry::main() {
+    match entry_new::main() {
         Ok(_) => 0,
         Err(err) => err.as_i8(),
     }
