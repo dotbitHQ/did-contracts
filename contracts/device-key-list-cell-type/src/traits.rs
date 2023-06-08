@@ -109,7 +109,7 @@ pub struct MyContract {
     pub output_outer_cells: Vec<CellWithMeta>,
 }
 
-type CellWithMeta = (usize, Source, CellOutput);
+pub struct CellWithMeta(pub usize, pub Source, pub CellOutput);
 
 impl Deref for CellWithMeta {
     type Target = CellOutput;
@@ -168,7 +168,7 @@ impl MyContract {
         parser.parse_cell()?;
 
         fn load_cell_with_meta(index: usize, source: Source) -> Result<CellWithMeta, SysError> {
-            load_cell(index, source).map(|cell| (index, source, cell))
+            load_cell(index, source).map(|cell|CellWithMeta(index, source, cell))
         }
         let this_script = ckb_std::high_level::load_script()?;
         let (input_inner_cells, input_outer_cells): (Vec<_>, Vec<_>) =

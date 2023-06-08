@@ -1,3 +1,6 @@
+use alloc::boxed::Box;
+use das_core::error::ScriptError;
+
 use crate::{traits::*, create_device_key_list, update_device_key_list, destroy_device_key_list};
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
     let mut contract = MyContract::new()?;

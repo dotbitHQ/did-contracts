@@ -9,6 +9,7 @@ use molecule::prelude::Entity;
 
 use crate::error::ErrorCode;
 use crate::traits::{Action, FSMContract, Rule};
+use crate::helpers::ToNum;
 
 pub fn action() -> Action {
     let mut create_action = Action::new("create_device_key_list");
@@ -53,7 +54,7 @@ pub fn action() -> Action {
 
     create_action.add_verification(Rule::new("Verify capacity", |contract| {
         assert!(
-            contract.output_inner_cells[0].capacity() > 161 * 10u64.pow(8),
+            contract.output_inner_cells[0].capacity().to_num() > 161 * 10u64.pow(8),
             ErrorCode::CapacityNotEnough,
             "There should be at least 160 CKB for capacity"
         );
