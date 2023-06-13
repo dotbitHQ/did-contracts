@@ -2,8 +2,11 @@
 git-fetch-with-cli = true
 
 [build]
-target = "riscv64imac-unknown-none-elf"
+# target = "riscv64imac-unknown-none-elf"
+incremental = true
 
+[target."riscv64imac-unknown-none-elf"]
+rustflags = ["-Z", "pre-link-arg=-zseparate-code", "-Z", "pre-link-arg=-zseparate-loadable-segments"]
 # [patch."ssh://git@github.com/dotbitHQ/simple-ast.git"]
 # das-types = { git = "ssh://git@github.com/dotbitHQ/das-types-private.git", rev = "37e79f3f2bd945fdc29ec9a61fa4577c8d575c8e", optional = true }
 # das-types-std = { git = "ssh://git@github.com/dotbitHQ/das-types-private.git", rev = "ff313f9f95d496032f3100ecc6be28a95ec5c5b3", optional = true }

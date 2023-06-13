@@ -32,14 +32,15 @@ members = [
 ]
 
 [workspace.dependencies]
-das-types = { git = "https://github.com/dotbitHQ/das-types-private.git", default-features = false, rev = "37e79f3f2bd945fdc29ec9a61fa4577c8d575c8e" }
-das-types-std = { git = "https://github.com/dotbitHQ/das-types-private.git", rev = "236db7906f7a95624731ea7f7be5528247598246" }
+das-types = { git = "https://github.com/dotbitHQ/das-types-private.git", default-features = false, rev = "82dde27d9a0436f8c8659b15de1114fc5aba2b8a" }
+das-types-std = { git = "https://github.com/dotbitHQ/das-types-private.git", rev = "d4d4169b404d33a138983cb055642fb8b683e8c4" }
 simple-ast = { path = "libs/simple-ast", default-features = false }
 das-map = { path = "libs/das-map", default-features = false }
 das-core = { path = "libs/das-core", default-features = false }
 das-sorted-list = { path = "libs/das-sorted-list", default-features = false }
 sparse-merkle-tree = { version = "0.6.1", default-features = false, features = ["smtc"] }
 ckb-std = "0.13.0"
+molecule = { version = "0.7", default-features = false }
 
 [profile.release]
 overflow-checks = true

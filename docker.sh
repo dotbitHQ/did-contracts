@@ -149,8 +149,8 @@ start-ci)
     --network host \
     -v .:/code \
     -v $CACHE_VOLUME:/root/.cargo \
-    -v ~/.ssh:/root/.ssh_tmp:ro \
-    $DOCKER_IMAGE /bin/bash -c 'cp -r /root/.ssh_tmp ~/.ssh; chown -R $(id -u):$(id -g) ~/.ssh; chmod 700 ~/.ssh; chmod 600 ~/.ssh/*; /bin/bash' &>/dev/null
+    -v ~/.gitconfig:/root/.gitconfig:ro \
+    $DOCKER_IMAGE /bin/bash &>/dev/null
   ;;
 start)
   dir="$(dirname $PWD)"
@@ -163,8 +163,8 @@ start)
       -v ${dir}/das-types-std:/das-types-std \
       -v ${dir}/simple-ast:/simple-ast \
       -v $CACHE_VOLUME:/root/.cargo \
-      -v ~/.ssh:/root/.ssh_tmp:ro \
-      $DOCKER_IMAGE /bin/bash -c 'cp -r /root/.ssh_tmp ~/.ssh; chown -R $(id -u):$(id -g) ~/.ssh; chmod 700 ~/.ssh; chmod 600 ~/.ssh/*; /bin/bash' &>/dev/null
+      -v ~/.gitconfig:/root/.gitconfig:ro \
+      $DOCKER_IMAGE /bin/bash &>/dev/null
   else
     docker run -it --rm \
       --name $DOCKER_CONTAINER \
@@ -173,10 +173,10 @@ start)
       -v ${dir}/das-types:/das-types \
       -v ${dir}/das-types-std:/das-types-std \
       -v ${dir}/simple-ast:/simple-ast \
-      -v ~/.ssh:/root/.ssh_tmp:ro \
+      -v ~/.gitconfig:/root/.gitconfig:ro \
       -v $CACHE_VOLUME:/root/.cargo \
       $DOCKER_IMAGE \
-      /bin/bash -c 'cp -r /root/.ssh_tmp ~/.ssh; chown -R $(id -u):$(id -g) ~/.ssh; chmod 700 ~/.ssh; chmod 600 ~/.ssh/*; /bin/bash'
+      /bin/bash 
   fi
   ;;
 stop)
