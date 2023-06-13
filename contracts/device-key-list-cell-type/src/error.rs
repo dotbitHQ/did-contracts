@@ -1,5 +1,4 @@
 use ckb_std::syscalls::SysError;
-use das_types::VerificationError;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[repr(i8)]

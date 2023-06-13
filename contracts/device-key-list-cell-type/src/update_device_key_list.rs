@@ -101,7 +101,7 @@ pub fn action() -> Action {
                 das_core::assert!(
                     keys_in_input.is_superset(&keys_in_output),
                     ErrorCode::UpdateParamsInvalid,
-                    "Output keys should be superset of input"
+                    "Output keys should be subset of input"
                 );
                 let removed_device_key: Vec<Comparable<DeviceKey>> =
                     keys_in_input.difference(&keys_in_output).cloned().collect();
