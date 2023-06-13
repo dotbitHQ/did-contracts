@@ -3,7 +3,7 @@ use alloc::boxed::Box;
 use ckb_std::ckb_types::packed::Script;
 use das_core::constants::das_lock;
 use das_core::error::ScriptError;
-use das_core::{assert, code_to_error};
+use das_core::{assert, code_to_error, debug};
 use das_types::packed::{DeviceKeyList, DeviceKeyListCellData};
 use molecule::prelude::Entity;
 
@@ -36,7 +36,14 @@ pub fn action() -> Action {
 
     create_action.add_verification(Rule::new("Verify lock arg", |contract| {
         let key_list = contract.get_cell_witness::<DeviceKeyListCellData>(&contract.output_inner_cells[0])?;
-        verify_key_list_lock_arg(&contract.this_script, key_list.keys())?;
+        let mut lock_iter = contract.output_inner_cells.iter().map(|cell| cell.lock());
+        let first_lock = lock_iter.next().ok_or(code_to_error!(ErrorCode::InvalidTransactionStructure))?;
+        assert!(
+            lock_iter.all(|lock| lock.as_slice() == first_lock.as_slice()),
+            ErrorCode::InvalidTransactionStructure,
+            "All lock of the cell should be the same"
+        );
+        verify_key_list_lock_arg(&first_lock, key_list.keys())?;
         Ok(())
     }));
 
@@ -54,9 +61,9 @@ pub fn action() -> Action {
 
     create_action.add_verification(Rule::new("Verify capacity", |contract| {
         assert!(
-            contract.output_inner_cells[0].capacity().to_num() > 161 * 10u64.pow(8),
+            contract.output_inner_cells[0].capacity().to_num() >= 161 * 10u64.pow(8),
             ErrorCode::CapacityNotEnough,
-            "There should be at least 160 CKB for capacity"
+            "There should be at least 161 CKB for capacity"
         );
         Ok(())
     }));

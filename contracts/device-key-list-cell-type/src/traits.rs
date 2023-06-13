@@ -1,4 +1,5 @@
 use core::ops::Deref;
+use core::slice::SlicePattern;
 
 use alloc::boxed::Box;
 use alloc::string::String;
@@ -6,10 +7,9 @@ use alloc::vec::Vec;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::packed::{CellOutput, Script};
-use ckb_std::debug;
 use ckb_std::high_level::{load_cell, QueryIter};
 use ckb_std::syscalls::SysError;
-use das_core::code_to_error;
+use das_core::{code_to_error, debug};
 use das_core::constants::ScriptType;
 use das_core::error::ScriptError;
 use das_core::util::{self, find_cells_by_script_in_inputs_and_outputs};
@@ -134,7 +134,7 @@ impl FSMContract for MyContract {
 
     fn dispatch(&mut self) -> Option<Action> {
         while let Some(action) = self.registered_actions.pop() {
-            if action.name.as_bytes() == self.action_data.action().as_slice() {
+            if action.name.as_bytes() == self.action_data.action().raw_data().as_slice() {
                 return Some(action);
             }
         }
@@ -145,7 +145,7 @@ impl FSMContract for MyContract {
         let data_type = T::get_type_constant();
         let (_, _, bytes) = self.parser.verify_and_get(data_type, cell.0, cell.1)?;
         let res =
-            T::from_compatible_slice(bytes.as_slice()).map_err(|_| code_to_error!(ErrorCode::VerificationError))?;
+            T::from_compatible_slice(&bytes.raw_data()).map_err(|_| code_to_error!(ErrorCode::VerificationError))?;
 
         Ok(res)
     }
@@ -181,7 +181,6 @@ impl MyContract {
         let witness = util::load_das_witnesses(parser.witnesses[0].0)?;
         let action_data = ActionData::from_slice(witness.get(WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES..).unwrap())
             .map_err(|_| code_to_error!(ErrorCode::VerificationError))?;
-
         Ok(Self {
             registered_actions: Vec::new(),
             action_data,

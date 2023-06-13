@@ -9,6 +9,7 @@
 #![feature(lang_items)]
 #![feature(alloc_error_handler)]
 #![feature(panic_info_message)]
+#![feature(slice_pattern)]
 // define modules
 mod create_device_key_list;
 mod destroy_device_key_list;
