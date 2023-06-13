@@ -147,21 +147,18 @@ start-ci)
   docker run -d -t --rm \
     --name $DOCKER_CONTAINER \
     --network host \
-    -v .:/code \
+    -v ${dir}:/code \
     -v $CACHE_VOLUME:/root/.cargo \
     -v ~/.gitconfig:/root/.gitconfig:ro \
     $DOCKER_IMAGE /bin/bash &>/dev/null
   ;;
 start)
-  dir="$(dirname $PWD)"
+  dir=$PWD
   if [[ $2 == "-b" || $2 == "--background" ]]; then
     docker run -d -t --rm \
       --name $DOCKER_CONTAINER \
       --network host \
-      -v ${dir}/das-contracts:/code \
-      -v ${dir}/das-types:/das-types \
-      -v ${dir}/das-types-std:/das-types-std \
-      -v ${dir}/simple-ast:/simple-ast \
+      -v ${dir}:/code \
       -v $CACHE_VOLUME:/root/.cargo \
       -v ~/.gitconfig:/root/.gitconfig:ro \
       $DOCKER_IMAGE /bin/bash &>/dev/null
@@ -169,10 +166,7 @@ start)
     docker run -it --rm \
       --name $DOCKER_CONTAINER \
       --network host \
-      -v ${dir}/das-contracts:/code \
-      -v ${dir}/das-types:/das-types \
-      -v ${dir}/das-types-std:/das-types-std \
-      -v ${dir}/simple-ast:/simple-ast \
+      -v ${dir}:/code \
       -v ~/.gitconfig:/root/.gitconfig:ro \
       -v $CACHE_VOLUME:/root/.cargo \
       $DOCKER_IMAGE \

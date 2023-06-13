@@ -21,8 +21,8 @@ ckb-std = { workspace = true }
 sparse-merkle-tree = { workspace = true }
 das-types = { workspace = true, default-features = false }
 simple-ast = { workspace = true, features = ["no_std"], default-features = false }
-eip712 = { path = "../../libs/eip712" }
-das-dynamic-libs = { path = "../../libs/das-dynamic-libs" }
+eip712 = { path = "../eip712" }
+das-dynamic-libs = { path = "../das-dynamic-libs" }
 paste = "1.0"
 
 [dev-dependencies]
