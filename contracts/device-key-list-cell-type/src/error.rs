@@ -23,6 +23,7 @@ pub(crate) enum ErrorCode {
     MustUseDasLock,
     InconsistentBalanceCellLocks,
     CapacityReduceTooMuch,
+    DuplicatedKeys,
     ActionNotSupported,
     VerificationError
 }

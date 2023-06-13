@@ -56,19 +56,32 @@ pub fn action() -> Action {
             "The key list length should be from 1 to 10"
         );
 
-        let len_diff: i64 =
-            i64::try_from(key_list_in_output.keys().item_count()).unwrap() - i64::try_from(key_list_in_input.keys().item_count()).unwrap();
+        let len_diff: i64 = i64::try_from(key_list_in_output.keys().item_count()).unwrap()
+            - i64::try_from(key_list_in_input.keys().item_count()).unwrap();
         das_core::assert!(
             len_diff == 1 || len_diff == -1,
             ErrorCode::KeyListNumberIncorrect,
             "There should be exactly 1 device key difference when update"
         );
+        let keys_in_input: alloc::collections::BTreeSet<Comparable<DeviceKey>> = key_list_in_input
+            .keys()
+            .clone()
+            .into_iter()
+            .map(|key| Comparable(key))
+            .collect();
+        let keys_in_output: alloc::collections::BTreeSet<Comparable<DeviceKey>> = key_list_in_output
+            .keys()
+            .clone()
+            .into_iter()
+            .map(|key| Comparable(key))
+            .collect();
+
         match len_diff {
             1 => {
                 debug!("update_device_key_list: add key");
                 // Should only append to the tail
                 let mut input_iter = key_list_in_input.keys().into_iter();
-                let mut output_iter = key_list_in_output.keys().into_iter();
+                let mut output_iter = key_list_in_output.keys().clone().into_iter();
                 loop {
                     match (input_iter.next(), output_iter.next()) {
                         (Some(a), Some(b)) if a.as_slice() == b.as_slice() => continue,
@@ -77,19 +90,14 @@ pub fn action() -> Action {
                         _ => unreachable!(),
                     }
                 }
+                das_core::assert!(
+                    keys_in_output.len() == key_list_in_output.keys().item_count(),
+                    ErrorCode::DuplicatedKeys,
+                    "Should not add duplicated keys"
+                );
             }
             -1 => {
                 debug!("update_device_key_list: remove key");
-                let keys_in_input: alloc::collections::BTreeSet<Comparable<DeviceKey>> = key_list_in_input
-                    .keys()
-                    .into_iter()
-                    .map(|key| Comparable(key))
-                    .collect();
-                let keys_in_output: alloc::collections::BTreeSet<Comparable<DeviceKey>> = key_list_in_output
-                    .keys()
-                    .into_iter()
-                    .map(|key| Comparable(key))
-                    .collect();
                 das_core::assert!(
                     keys_in_input.is_superset(&keys_in_output),
                     ErrorCode::UpdateParamsInvalid,
