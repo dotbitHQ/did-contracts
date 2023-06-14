@@ -1,6 +1,7 @@
 use ckb_types::prelude::{Builder, Entity};
 use das_types_std::constants::Source;
 use das_types_std::packed::{Byte10, DeviceKey, DeviceKeyList, DeviceKeyListCellData};
+use device_key_list_cell_type::error::ErrorCode;
 
 use super::{init, BuildRefundLock, DeviceKeyListCell};
 use crate::util::template_parser::{test_tx, challenge_tx};
@@ -117,7 +118,7 @@ fn should_fail_on_multiple_cells() {
     input_cell.clone().push(&mut template, Source::Input);
     output_cell.push(&mut template, Source::Output);
 
-    challenge_tx(template.as_json(), 56);
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure);
 }
 
 #[test]
@@ -155,7 +156,7 @@ fn should_fail_on_too_much_capacity_change() {
     input_cell.push(&mut template, Source::Input);
     output_cell.push(&mut template, Source::Output);
 
-    challenge_tx(template.as_json(), 63);
+    challenge_tx(template.as_json(), ErrorCode::CapacityReduceTooMuch);
 }
 
 
@@ -198,12 +199,12 @@ fn should_fail_on_inconsistent_lock() {
     input_cell.push(&mut template, Source::Input);
     output_cell.push(&mut template, Source::Output);
 
-    challenge_tx(template.as_json(), 54);
+    challenge_tx(template.as_json(), ErrorCode::InvalidLock);
 }
 
 
 #[test]
-fn should_fail_on_multipl_add() {
+fn should_fail_on_multiple_add() {
     let mut template = init("update_device_key_list");
     let first_device_key = DeviceKey::new_builder().build();
     let second_device_key = DeviceKey::new_builder()
@@ -241,7 +242,7 @@ fn should_fail_on_multipl_add() {
     input_cell.push(&mut template, Source::Input);
     output_cell.push(&mut template, Source::Output);
 
-    challenge_tx(template.as_json(), 57);
+    challenge_tx(template.as_json(), ErrorCode::KeyListNumberIncorrect);
 }
 
 
@@ -278,7 +279,7 @@ fn should_fail_on_duplicated_keys() {
     input_cell.push(&mut template, Source::Input);
     output_cell.push(&mut template, Source::Output);
 
-    challenge_tx(template.as_json(), 64);
+    challenge_tx(template.as_json(), ErrorCode::DuplicatedKeys);
 }
 
 #[test]
@@ -316,7 +317,7 @@ fn should_fail_on_wrong_order() {
     input_cell.push(&mut template, Source::Input);
     output_cell.push(&mut template, Source::Output);
 
-    challenge_tx(template.as_json(), 58);
+    challenge_tx(template.as_json(), ErrorCode::UpdateParamsInvalid);
 }
 
 
@@ -365,5 +366,5 @@ fn should_fail_on_delete2_add1() {
     input_cell.push(&mut template, Source::Input);
     output_cell.push(&mut template, Source::Output);
 
-    challenge_tx(template.as_json(), 58);
+    challenge_tx(template.as_json(), ErrorCode::UpdateParamsInvalid);
 }

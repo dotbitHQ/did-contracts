@@ -31,3 +31,4 @@ walkdir = "2"
 rand = "0.8.3"
 chrono = { version = "0.4" }
 sparse-merkle-tree = { version = "0.6.1" }
+device-key-list-cell-type = { path = "../contracts/device-key-list-cell-type" }

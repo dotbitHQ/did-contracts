@@ -1828,6 +1828,7 @@ dependencies = [
  "ckb-types",
  "das-sorted-list",
  "das-types-std",
+ "device-key-list-cell-type",
  "hex",
  "lazy_static",
  "rand 0.8.5",

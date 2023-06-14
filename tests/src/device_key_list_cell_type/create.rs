@@ -1,9 +1,10 @@
 use ckb_types::prelude::{Builder, Entity};
 use das_types_std::constants::Source;
 use das_types_std::packed::{DeviceKey, DeviceKeyList, DeviceKeyListCellData};
+use device_key_list_cell_type::error::ErrorCode;
 
 use super::{init, BalanceCell, BuildRefundLock, DeviceKeyListCell};
-use crate::util::template_parser::{test_tx, challenge_tx};
+use crate::util::template_parser::{challenge_tx, test_tx};
 
 #[test]
 fn should_pass_nomral_create() {
@@ -44,7 +45,7 @@ fn should_fail_on_multiple_outputs() {
     input_balance_cell.push(&mut template, Source::Input);
     output_balance_cell.push(&mut template, Source::Output);
 
-    challenge_tx(template.as_json(), 56);
+    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure);
 }
 
 #[test]
@@ -63,7 +64,7 @@ fn should_fail_on_insufficient_capacity() {
     input_balance_cell.push(&mut template, Source::Input);
     output_balance_cell.push(&mut template, Source::Output);
 
-    challenge_tx(template.as_json(), 60);
+    challenge_tx(template.as_json(), ErrorCode::CapacityNotEnough);
 }
 
 #[test]
@@ -77,14 +78,16 @@ fn should_fail_on_inconsistent_refund_lock() {
         .build();
     DeviceKeyListCell::default_new(161 * 10u64.pow(8), refund_lock.clone().args(), witness_data.clone())
         .push(&mut template, Source::Output);
-    let input_balance_cell = BalanceCell::default_new(180 * 10u64.pow(8), refund_lock.clone().as_builder().args(Default::default()).build().args());
+    let input_balance_cell = BalanceCell::default_new(
+        180 * 10u64.pow(8),
+        refund_lock.clone().as_builder().args(Default::default()).build().args(),
+    );
     let output_balance_cell = BalanceCell::default_new(1 * 10u64.pow(8), refund_lock.args());
     input_balance_cell.push(&mut template, Source::Input);
     output_balance_cell.push(&mut template, Source::Output);
 
-    challenge_tx(template.as_json(), 62);
+    challenge_tx(template.as_json(), ErrorCode::InconsistentBalanceCellLocks);
 }
-
 
 #[test]
 fn should_fail_on_more_than_one_device_key() {
@@ -94,16 +97,24 @@ fn should_fail_on_more_than_one_device_key() {
     let refund_lock = first_device_key.build_default_refund_lock();
     let witness_data = DeviceKeyListCellData::new_builder()
         .refund_lock(das_types_std::packed::Script::from_slice(refund_lock.as_slice()).unwrap())
-        .keys(DeviceKeyList::new_builder().push(first_device_key).push(second_device_key).build())
+        .keys(
+            DeviceKeyList::new_builder()
+                .push(first_device_key)
+                .push(second_device_key)
+                .build(),
+        )
         .build();
     DeviceKeyListCell::default_new(161 * 10u64.pow(8), refund_lock.clone().args(), witness_data.clone())
         .push(&mut template, Source::Output);
-    let input_balance_cell = BalanceCell::default_new(180 * 10u64.pow(8), refund_lock.clone().as_builder().args(Default::default()).build().args());
+    let input_balance_cell = BalanceCell::default_new(
+        180 * 10u64.pow(8),
+        refund_lock.clone().as_builder().args(Default::default()).build().args(),
+    );
     let output_balance_cell = BalanceCell::default_new(1 * 10u64.pow(8), refund_lock.args());
     input_balance_cell.push(&mut template, Source::Input);
     output_balance_cell.push(&mut template, Source::Output);
 
-    challenge_tx(template.as_json(), 57);
+    challenge_tx(template.as_json(), ErrorCode::KeyListNumberIncorrect);
 }
 
 #[test]
@@ -120,12 +131,12 @@ fn should_fail_on_invalid_lock_arg() {
     let mut wrong_lock_arg_builder = refund_lock.clone().args().as_builder();
     wrong_lock_arg_builder.replace(0, 8.into());
 
-    DeviceKeyListCell::default_new(161 * 10u64.pow(8),wrong_lock_arg_builder.build(), witness_data)
+    DeviceKeyListCell::default_new(161 * 10u64.pow(8), wrong_lock_arg_builder.build(), witness_data)
         .push(&mut template, Source::Output);
     let input_balance_cell = BalanceCell::default_new(180 * 10u64.pow(8), refund_lock.args());
     let output_balance_cell = BalanceCell::default_new(1 * 10u64.pow(8), refund_lock.args());
     input_balance_cell.push(&mut template, Source::Input);
     output_balance_cell.push(&mut template, Source::Output);
 
-    challenge_tx(template.as_json(), 54);
+    challenge_tx(template.as_json(), ErrorCode::InvalidLock);
 }
