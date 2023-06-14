@@ -79,16 +79,17 @@ function build() {
 
   if [[ $is_release == true ]]; then echo "release: true"; else echo "release: false"; fi
   echo "feature: " $feature
-  if [[ $is_release == true ]]; then
-    command="RUSTFLAGS=\"${COMPILING_FLAGS} ${COMPILING_RELEASE_FLAGS}\" cargo build --release --features \"${feature}\" --target ${COMPILING_TARGET} && ckb-binary-patcher -i /code/target/${COMPILING_TARGET}/release/${contract} -o /code/target/${COMPILING_TARGET}/release/${contract}"
-    echo "Run build command: "$command
 
-    # Build release version
-    docker exec -it -w /code/contracts/$contract $DOCKER_CONTAINER bash -c "${command}" &&
-      docker exec -it -w /code $DOCKER_CONTAINER bash -c \
-        "cp /code/target/${COMPILING_TARGET}/release/${contract} /code/build/release/"
+  local profile="debug"
+  local rust_flags=${COMPILING_FLAGS}
+  local binary_path=""
+
+  if [[ $is_release == true ]]; then
+    rust_flags="${rust_flags} ${COMPILING_RELEASE_FLAGS}"
+    command="RUSTFLAGS=\"${rust_flags}\" cargo build --release --features \"${feature}\" --target ${COMPILING_TARGET}"
+    profile="release"
   else
-    command="RUSTFLAGS=\"${COMPILING_FLAGS}\" cargo build --features \"${feature}\" --target ${COMPILING_TARGET} && ckb-binary-patcher -i /code/target/${COMPILING_TARGET}/debug/${contract} -o /code/target/${COMPILING_TARGET}/debug/${contract}"
+    command="RUSTFLAGS=\"${rust_flags}\" cargo build --features \"${feature}\" --target ${COMPILING_TARGET}"
     echo "Run build command: "$command
 
     # Build debug version
@@ -96,6 +97,22 @@ function build() {
       docker exec -it -w /code $DOCKER_CONTAINER bash -c \
         "cp /code/target/${COMPILING_TARGET}/debug/${contract} /code/build/debug/"
   fi
+
+  if [[ -d "contracts/$contract/examples" ]]; then
+    command="${command} --examples"
+    binary_path="/code/target/${COMPILING_TARGET}/${profile}/examples/${contract}"
+  else
+    binary_path="/code/target/${COMPILING_TARGET}/${profile}/${contract}"
+  fi
+
+  command="${command} && ckb-binary-patcher -i ${binary_path} -o ${binary_path}"
+  echo "Run build command: "$command
+
+    # Build release version
+  docker exec -it -w /code/contracts/$contract $DOCKER_CONTAINER bash -c "${command}" &&
+    docker exec -it -w /code $DOCKER_CONTAINER bash -c \
+      "cp ${binary_path} /code/build/${profile}/"
+
   ret=$?
 
   if [[ $ret -ne 0 ]]; then
