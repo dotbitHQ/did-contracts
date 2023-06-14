@@ -83,6 +83,8 @@ pub struct SubAccountWitnessesParser {
     pub flag: SubAccountConfigFlag,
     pub contains_creation: bool,
     pub contains_edition: bool,
+    pub contains_renew: bool,
+    pub contains_recycle: bool,
     pub mint_sign_index: Option<usize>,
     pub price_rule_indexes: Vec<usize>,
     pub preserved_rule_indexes: Vec<usize>,
@@ -93,6 +95,8 @@ impl SubAccountWitnessesParser {
     pub fn new(flag: SubAccountConfigFlag) -> Result<Self, Box<dyn ScriptError>> {
         let mut contains_creation = false;
         let mut contains_edition = false;
+        let mut contains_renew = false;
+        let mut contains_recycle = false;
         let mut mint_sign_index = None;
         let mut price_rule_indexes = Vec::new();
         let mut preserved_rule_indexes = Vec::new();
@@ -150,6 +154,10 @@ impl SubAccountWitnessesParser {
                                 contains_creation = true;
                             } else if action_bytes == SubAccountAction::Edit.to_string().as_bytes() {
                                 contains_edition = true;
+                            } else if action_bytes == SubAccountAction::Renew.to_string().as_bytes() {
+                                contains_renew = true;
+                            } else if action_bytes == SubAccountAction::Recycle.to_string().as_bytes() {
+                                contains_recycle = true;
                             }
                         }
                         Ok(DataType::SubAccountPriceRule) => {
@@ -188,6 +196,8 @@ impl SubAccountWitnessesParser {
             flag,
             contains_creation,
             contains_edition,
+            contains_renew,
+            contains_recycle,
             mint_sign_index,
             price_rule_indexes,
             preserved_rule_indexes,
@@ -519,6 +529,9 @@ impl SubAccountWitnessesParser {
                     }
                     _ => SubAccountEditValue::None,
                 };
+            }
+            SubAccountAction::Recycle => {
+                edit_value = SubAccountEditValue::None;
             }
             _ => todo!(),
         }

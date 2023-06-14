@@ -495,8 +495,9 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
     let mut custom_preserved_rules = None;
 
     let all_inputs_balance_cells = util::find_all_balance_cells(config_main, Source::Input)?;
-    if sub_account_parser.contains_creation {
+    if sub_account_parser.contains_creation || sub_account_parser.contains_renew {
         debug!("Found `create` action in this transaction, do some common verfications ...");
+        // TODO Add renew branch
 
         match sub_account_parser.get_mint_sign(account_lock_args) {
             Some(Ok(witness)) => {
@@ -642,9 +643,9 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
 
         verifiers::common::verify_cell_number("BalanceCell", &all_inputs_balance_cells, 0, &[], 0)?;
 
-        if sub_account_parser.contains_edition {
+        if sub_account_parser.contains_edition || sub_account_parser.contains_recycle {
             debug!(
-                "Found `edit` action in this transaction but no `create` action, so do some common verfications ..."
+                "Found `edit/recycle` action in this transaction but no `create` action, so do some common verfications ..."
             );
 
             verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
@@ -924,7 +925,7 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
                     witness.index,
                     sub_account_reader,
                     timestamp,
-                )?;
+                ).map_err(|err| { code_to_error!(err) })?;
                 verifiers::sub_account_cell::verify_status(witness.index, sub_account_reader, AccountStatus::Normal)?;
 
                 match &witness.edit_value {
@@ -993,7 +994,40 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
                 }
             }
             SubAccountAction::Renew => todo!(),
-            SubAccountAction::Recycle => todo!(),
+            SubAccountAction::Recycle => {
+                let sub_account_reader = witness.sub_account.as_reader();
+
+                match verifiers::sub_account_cell::verify_expiration(
+                    config_account,
+                    witness.index,
+                    sub_account_reader,
+                    timestamp,
+                ) {
+                    Ok(_) => {
+                        warn!(
+                            "  witnesses[{:>2}] The sub-account is not expired, can not be recycled.",
+                            witness.index
+                        );
+                        return Err(code_to_error!(SubAccountCellErrorCode::AccountStillCanNotBeRecycled));
+                    },
+                    Err(SubAccountCellErrorCode::AccountHasInGracePeriod) => {
+                        warn!(
+                            "  witnesses[{:>2}] The sub-account is in expiration grace period , can be recycled.",
+                            witness.index
+                        );
+                        return Err(code_to_error!(SubAccountCellErrorCode::AccountStillCanNotBeRecycled));
+                    },
+                    Err(SubAccountCellErrorCode::AccountHasExpired) => {
+                        debug!("  witnesses[{:>2}] The sub-account is expired, can be recycled.", witness.index);
+                    }
+                    _ => {
+                        // This branch should be unreachable.
+                        return Err(code_to_error!(ErrorCode::HardCodedError));
+                    }
+                }
+
+                smt_verify_sub_account_is_removed(&prev_root, &witness)?;
+            },
         }
 
         prev_root = witness.new_root.clone();
@@ -1552,6 +1586,38 @@ fn smt_verify_sub_account_is_editable(
     Ok(())
 }
 
+fn smt_verify_sub_account_is_removed(
+    prev_root: &[u8],
+    witness: &SubAccountWitness,
+) -> Result<(), Box<dyn ScriptError>> {
+    let key = gen_smt_key_by_account_id(witness.sub_account.id().as_slice());
+    let proof = witness.proof.as_slice();
+
+    debug!(
+        "  witnesses[{:>2}] Verify if the current state of the sub-account was in the SMT before.(key: 0x{})",
+        witness.index,
+        util::hex_string(&key)
+    );
+    let prev_val: [u8; 32] = blake2b_256(witness.sub_account.as_slice()).to_vec().try_into().unwrap();
+    // debug!("prev_val = 0x{}", util::hex_string(&prev_val));
+    // debug!("prev_val_raw = 0x{}", util::hex_string(witness.sub_account.as_slice()));
+    // debug!("prev_val_prettier = {}", witness.sub_account.as_prettier());
+    verifiers::common::verify_smt_proof(key, prev_val, prev_root.try_into().unwrap(), proof)?;
+
+    debug!(
+        "  witnesses[{:>2}] Verify if the new state of the sub-account is in the SMT now.",
+        witness.index
+    );
+    let current_root = witness.new_root.as_slice();
+    let current_val = [0u8; 32];
+    // debug!("current_val = 0x{}", util::hex_string(&current_val));
+    // debug!("current_val_raw = 0x{}", util::hex_string(new_sub_account.as_slice()));
+    // debug!("current_val_prettier = {}", new_sub_account.as_prettier());
+    verifiers::common::verify_smt_proof(key, current_val, current_root.try_into().unwrap(), proof)?;
+
+    Ok(())
+}
+
 fn generate_new_sub_account_by_edit_value(
     sub_account: SubAccount,
     edit_value: &SubAccountEditValue,
@@ -1583,7 +1649,9 @@ fn generate_new_sub_account_by_edit_value(
             let sub_account_builder = sub_account.as_builder();
             sub_account_builder.records(val.to_owned())
         }
-        _ => unreachable!(),
+        _ => {
+            return Err(code_to_error!(SubAccountCellErrorCode::WitnessEditKeyInvalid))
+        },
     };
 
     // Every time a sub-account is edited, its nonce must  increase by 1 .

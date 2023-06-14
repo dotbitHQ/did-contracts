@@ -103,7 +103,7 @@ pub fn verify_expiration(
     sub_account_index: usize,
     sub_account_reader: SubAccountReader,
     current: u64,
-) -> Result<(), Box<dyn ScriptError>> {
+) -> Result<(), SubAccountCellErrorCode> {
     debug!(
         "  witnesses[{:>2}] Verify if the witness.sub_account.expired_at of sub-account is expired.",
         sub_account_index
@@ -119,10 +119,10 @@ pub fn verify_expiration(
                 sub_account_index,
                 sub_account_reader.account().as_prettier()
             );
-            return Err(code_to_error!(AccountCellErrorCode::AccountCellHasExpired));
+            return Err(SubAccountCellErrorCode::AccountHasExpired);
         } else {
             warn!("  witnesses[{:>2}] The sub-account {} has been in expiration grace period. Need to be renew as soon as possible.", sub_account_index, sub_account_reader.account().as_prettier());
-            return Err(code_to_error!(AccountCellErrorCode::AccountCellInExpirationGracePeriod));
+            return Err(SubAccountCellErrorCode::AccountHasInGracePeriod);
         }
     }
 
