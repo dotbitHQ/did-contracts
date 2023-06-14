@@ -705,7 +705,6 @@ dependencies = [
 [[package]]
 name = "das-types"
 version = "1.11.0"
-source = "git+https://github.com/dotbitHQ/das-types-private.git?rev=37e79f3f2bd945fdc29ec9a61fa4577c8d575c8e#37e79f3f2bd945fdc29ec9a61fa4577c8d575c8e"
 dependencies = [
  "ckb-std",
  "molecule",
@@ -716,19 +715,6 @@ dependencies = [
 [[package]]
 name = "das-types-std"
 version = "1.11.0"
-source = "git+https://github.com/dotbitHQ/das-types-private.git?rev=236db7906f#236db7906f7a95624731ea7f7be5528247598246"
-dependencies = [
- "ckb-types",
- "molecule",
- "num_enum",
- "serde",
- "strum",
-]
-
-[[package]]
-name = "das-types-std"
-version = "1.11.0"
-source = "git+https://github.com/dotbitHQ/das-types-private.git?rev=236db7906f7a95624731ea7f7be5528247598246#236db7906f7a95624731ea7f7be5528247598246"
 dependencies = [
  "ckb-types",
  "molecule",
@@ -748,15 +734,6 @@ dependencies = [
  "quote",
  "rustc_version",
  "syn 1.0.109",
-]
-
-[[package]]
-name = "device-key-list-cell-type"
-version = "0.1.0"
-dependencies = [
- "ckb-std",
- "das-core",
- "das-types",
 ]
 
 [[package]]
@@ -1700,7 +1677,7 @@ dependencies = [
  "blake2b-rs",
  "ctor",
  "das-types",
- "das-types-std 1.11.0 (git+https://github.com/dotbitHQ/das-types-private.git?rev=236db7906f7a95624731ea7f7be5528247598246)",
+ "das-types-std",
  "env_logger",
  "hex",
  "log",
@@ -1838,7 +1815,7 @@ dependencies = [
  "ckb-traits",
  "ckb-types",
  "das-sorted-list",
- "das-types-std 1.11.0 (git+https://github.com/dotbitHQ/das-types-private.git?rev=236db7906f)",
+ "das-types-std",
  "hex",
  "lazy_static",
  "rand 0.8.5",
