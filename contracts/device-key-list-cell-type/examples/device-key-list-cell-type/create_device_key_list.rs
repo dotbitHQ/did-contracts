@@ -3,13 +3,13 @@ use alloc::boxed::Box;
 use ckb_std::ckb_types::packed::Script;
 use das_core::constants::das_lock;
 use das_core::error::ScriptError;
-use das_core::{assert, code_to_error, debug};
+use das_core::{assert, code_to_error};
 use das_types::packed::{DeviceKeyList, DeviceKeyListCellData};
+use device_key_list_cell_type::error::ErrorCode;
 use molecule::prelude::Entity;
 
-use crate::error::ErrorCode;
-use crate::traits::{Action, FSMContract, Rule};
 use crate::helpers::ToNum;
+use crate::traits::{Action, FSMContract, Rule};
 
 pub fn action() -> Action {
     let mut create_action = Action::new("create_device_key_list");
@@ -37,7 +37,9 @@ pub fn action() -> Action {
     create_action.add_verification(Rule::new("Verify lock arg", |contract| {
         let key_list = contract.get_cell_witness::<DeviceKeyListCellData>(&contract.output_inner_cells[0])?;
         let mut lock_iter = contract.output_inner_cells.iter().map(|cell| cell.lock());
-        let first_lock = lock_iter.next().ok_or(code_to_error!(ErrorCode::InvalidTransactionStructure))?;
+        let first_lock = lock_iter
+            .next()
+            .ok_or(code_to_error!(ErrorCode::InvalidTransactionStructure))?;
         assert!(
             lock_iter.all(|lock| lock.as_slice() == first_lock.as_slice()),
             ErrorCode::InvalidTransactionStructure,

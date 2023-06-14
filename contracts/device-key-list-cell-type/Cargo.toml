@@ -13,6 +13,8 @@ mainnet = ["das-core/mainnet"]
 
 [dependencies]
 ckb-std = { workspace = true }
+
+[dev-dependencies]
 das-core = { workspace = true, default-features = false }
 das-types = { workspace = true }
 molecule = { workspace = true }

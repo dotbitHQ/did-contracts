@@ -14,8 +14,6 @@
 mod create_device_key_list;
 mod destroy_device_key_list;
 mod entry;
-mod entry_new;
-mod error;
 mod helpers;
 mod traits;
 mod update_device_key_list;
@@ -28,7 +26,7 @@ default_alloc!();
 /// program entry
 fn program_entry() -> i8 {
     // Call main function and return error code
-    match entry_new::main() {
+    match entry::main() {
         Ok(_) => 0,
         Err(err) => err.as_i8(),
     }

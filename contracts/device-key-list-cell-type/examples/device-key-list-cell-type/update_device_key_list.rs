@@ -1,15 +1,10 @@
-use alloc::boxed::Box;
 use alloc::vec::Vec;
 
-use ckb_std::ckb_types::packed::Script;
-use das_core::constants::das_lock;
-use das_core::error::ScriptError;
 use das_core::{assert, code_to_error, debug};
-use das_types::convert::*;
-use das_types::packed::{DeviceKey, DeviceKeyList, DeviceKeyListCellData};
+use das_types::packed::{DeviceKey, DeviceKeyListCellData};
+use device_key_list_cell_type::error::ErrorCode;
 use molecule::prelude::Entity;
 
-use crate::error::ErrorCode;
 use crate::helpers::{Comparable, ToNum};
 use crate::traits::{Action, FSMContract, Rule};
 

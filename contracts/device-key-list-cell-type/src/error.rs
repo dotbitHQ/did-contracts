@@ -2,7 +2,7 @@ use ckb_std::syscalls::SysError;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[repr(i8)]
-pub(crate) enum ErrorCode {
+pub enum ErrorCode {
     IndexOutOfBound = 1,
     ItemMissing,
     LengthNotEnough,

@@ -1,13 +1,8 @@
-use alloc::boxed::Box;
-
-use ckb_std::ckb_types::packed::Script;
-use das_core::constants::das_lock;
-use das_core::error::ScriptError;
 use das_core::{assert, code_to_error};
-use das_types::packed::{DeviceKeyList, DeviceKeyListCellData};
+use das_types::packed::DeviceKeyListCellData;
+use device_key_list_cell_type::error::ErrorCode;
 use molecule::prelude::Entity;
 
-use crate::error::ErrorCode;
 use crate::traits::{Action, FSMContract, Rule};
 
 pub fn action() -> Action {
@@ -27,12 +22,15 @@ pub fn action() -> Action {
         let key_list_in_input = contract.get_cell_witness::<DeviceKeyListCellData>(&contract.input_inner_cells[0])?;
         let refund_lock = key_list_in_input.refund_lock();
         assert!(
-            contract.output_outer_cells.iter().all(|c| c.lock().as_slice() == refund_lock.as_slice()),
+            contract
+                .output_outer_cells
+                .iter()
+                .all(|c| c.lock().as_slice() == refund_lock.as_slice()),
             ErrorCode::InconsistentBalanceCellLocks,
-                "Should return capacity to refund_lock"
+            "Should return capacity to refund_lock"
         );
         Ok(())
     }));
-    
+
     destroy_action
 }

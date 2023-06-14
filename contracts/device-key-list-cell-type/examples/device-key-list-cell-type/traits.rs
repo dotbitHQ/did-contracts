@@ -10,15 +10,14 @@ use ckb_std::ckb_types::packed::{CellOutput, Script};
 use ckb_std::high_level::{load_cell, QueryIter};
 use ckb_std::syscalls::SysError;
 use das_core::{code_to_error, debug};
-use das_core::constants::ScriptType;
 use das_core::error::ScriptError;
-use das_core::util::{self, find_cells_by_script_in_inputs_and_outputs};
+use das_core::util::{self};
 use das_core::witness_parser::WitnessesParser;
-use das_types::constants::{DataType, WITNESS_HEADER_BYTES, WITNESS_TYPE_BYTES};
-use das_types::packed::{ActionData, DeviceKeyListCellData};
+use das_types::constants::{WITNESS_HEADER_BYTES, WITNESS_TYPE_BYTES};
+use das_types::packed::{ActionData};
 use molecule::prelude::Entity;
 
-use crate::error::ErrorCode;
+use device_key_list_cell_type::error::ErrorCode;
 use crate::helpers::GetDataType;
 
 pub struct Action {
@@ -76,7 +75,7 @@ impl<T> Verification for T
 where
     T: Fn() -> Result<(), Box<dyn ScriptError>>,
 {
-    fn verify(&self, contract: &mut MyContract) -> Result<(), Box<dyn ScriptError>> {
+    fn verify(&self, _contract: &mut MyContract) -> Result<(), Box<dyn ScriptError>> {
         self()
     }
 }

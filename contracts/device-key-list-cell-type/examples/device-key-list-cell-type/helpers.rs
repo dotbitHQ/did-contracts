@@ -14,43 +14,56 @@ impl<T> Deref for Comparable<T> {
     }
 }
 
-impl<T> PartialOrd for Comparable<T> where T: Entity {
+impl<T> PartialOrd for Comparable<T>
+where
+    T: Entity,
+{
     fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
         self.as_slice().partial_cmp(other.as_slice())
     }
 }
 
-impl <T> Ord for Comparable<T> where T: Entity {
+impl<T> Ord for Comparable<T>
+where
+    T: Entity,
+{
     fn cmp(&self, other: &Self) -> core::cmp::Ordering {
         self.as_slice().cmp(other.as_slice())
     }
 }
 
-impl <T> PartialEq for Comparable<T> where T: Entity {
+impl<T> PartialEq for Comparable<T>
+where
+    T: Entity,
+{
     fn eq(&self, other: &Self) -> bool {
         self.as_slice().eq(other.as_slice())
     }
 }
 
-impl <T> Eq for Comparable<T> where T: Entity {}
+impl<T> Eq for Comparable<T> where T: Entity {}
 
-
-impl <T> Clone for Comparable<T> where T: Clone {
+impl<T> Clone for Comparable<T>
+where
+    T: Clone,
+{
     fn clone(&self) -> Self {
         Self(self.0.clone())
     }
 }
 
-
 pub trait GetDataType {
     fn get_type_constant() -> DataType;
 }
 
-impl <T> GetDataType for T where T: Entity {
+impl<T> GetDataType for T
+where
+    T: Entity,
+{
     fn get_type_constant() -> DataType {
         match T::NAME {
             "DeviceKeyListCellData" => DataType::DeviceKeyList,
-            _ => unimplemented!()
+            _ => unimplemented!(),
         }
     }
 }
@@ -70,5 +83,4 @@ impl ToNum for Uint64 {
         buf.copy_from_slice(self.as_slice());
         Self::Target::from_le_bytes(buf)
     }
-    
 }
