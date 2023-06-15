@@ -264,6 +264,9 @@ pub enum SubAccountCellErrorCode {
     ProfitMustBeCollected,
     ProfitIsEmpty, // 70
     CustomRuleIsOff,
+    AccountHasInGracePeriod,
+    AccountHasExpired,
+    AccountStillCanNotBeRecycled,
     SubAccountWitnessMismatched,
     SubAccountRulesToWitnessFailed,
     SubAccountSignMintExpiredAtTooLarge,

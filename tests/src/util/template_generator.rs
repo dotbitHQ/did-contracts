@@ -3006,18 +3006,19 @@ impl TemplateGenerator {
                             Uint64::from(util::parse_json_u64("witness.edit_value", &witness["edit_value"], None));
                         new_sub_account_builder = new_sub_account_builder.expired_at(mol)
                     }
-                    "owner" | "manager" => {
+                    "records" => {
+                        let mol = parse_json_to_records_mol("witness.edit_value", &witness["edit_value"]);
+                        new_sub_account_builder = new_sub_account_builder.records(mol)
+                    }
+                    // WARNING The _ pattern is used to test empty edit_key .
+                    // "owner" | "manager"
+                    _ => {
                         let mut lock_builder = sub_account_entity.lock().as_builder();
                         let args = util::parse_json_hex("witness.edit_value", &witness["edit_value"]);
                         lock_builder = lock_builder.args(Bytes::from(args));
 
                         new_sub_account_builder = new_sub_account_builder.lock(lock_builder.build())
                     }
-                    "records" => {
-                        let mol = parse_json_to_records_mol("witness.edit_value", &witness["edit_value"]);
-                        new_sub_account_builder = new_sub_account_builder.records(mol)
-                    }
-                    _ => panic!("Unsupported type of witness.edit_key !"),
                 };
 
                 new_sub_account_builder = new_sub_account_builder.nonce(Uint64::from(current_nonce + 1));
@@ -3040,8 +3041,21 @@ impl TemplateGenerator {
                 // extend_edit_fields(&mut witness_bytes, &witness);
             }
             SubAccountAction::Recycle => {
-                todo!();
-                // extend_edit_fields(&mut witness_bytes, &witness);
+                let sub_account_entity_bytes = sub_account_entity.as_slice().to_vec();
+                let mut value = [0u8; 32];
+                // temporarily use edit_value to pass the value of SMT leaf
+                let tmp = util::parse_json_hex_with_default("witness.edit_value", &witness["edit_value"], vec![0u8; 32]);
+                value.copy_from_slice(&tmp);
+                let (_, current_root, proof) = self.smt_with_history.insert(key.clone().into(), value.clone().into());
+                let compiled_proof = proof.compile(vec![key.into()]).unwrap().0;
+
+                extend_main_fields(
+                    &mut witness_bytes,
+                    current_root,
+                    compiled_proof,
+                    sub_account_entity_bytes,
+                );
+                extend_edit_fields(&mut witness_bytes, &witness);
             }
         }
 
