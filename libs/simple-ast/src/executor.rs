@@ -4,11 +4,13 @@ use alloc::format;
 use alloc::string::String;
 #[cfg(feature = "no_std")]
 use alloc::string::ToString;
-
 #[cfg(feature = "no_std")]
 use das_types::{constants::*, packed, prelude::*};
+
 #[cfg(feature = "std")]
 use das_types_std::{constants::*, packed, prelude::*};
+#[cfg(feature = "std")]
+use std::format;
 
 use crate::error::ASTError;
 use crate::types::*;
@@ -82,7 +84,7 @@ pub fn match_rule_with_account_chars<'a>(
             }
         }
 
-        let value = handle_expression(format!("rules[{}].ast", i), &rule.ast, account_chars, account)?;
+        let value = handle_expression(&format!("rules[{}].ast", i), &rule.ast, account_chars, account)?;
         let ret = assert_and_get_return!(format!("rules[{}]", i), value, Bool);
 
         if ret {
@@ -94,38 +96,35 @@ pub fn match_rule_with_account_chars<'a>(
 }
 
 fn handle_expression(
-    key: String,
+    key: &str,
     ast: &Expression,
     account_chars: packed::AccountCharsReader,
     account: &str,
 ) -> Result<Value, ASTError> {
-    let value = match ast {
+    Ok(match ast {
         Expression::Operator(operator) => handle_operator(key, operator, account_chars, account)?,
         Expression::Function(function) => handle_function(key, function, account_chars, account)?,
         Expression::Variable(variable) => handle_variable(key, variable, account_chars, account)?,
         Expression::Value(value) => value.value.clone(),
         // _ => todo!()
-    };
-
-    Ok(value)
+    })
 }
 
 fn handle_operator(
-    key: String,
+    key: &str,
     operator: &OperatorExpression,
     account_chars: packed::AccountCharsReader,
     account: &str,
 ) -> Result<Value, ASTError> {
-    let ret = match operator.symbol {
+    Ok(Value::Bool(match operator.symbol {
         SymbolType::And => operator_and_or(&key, operator, account_chars, account, true)?,
         SymbolType::Or => operator_and_or(&key, operator, account_chars, account, false)?,
         SymbolType::Not => operator_not(&key, operator, account_chars, account)?,
-        SymbolType::Equal | SymbolType::Gt | SymbolType::Gte | SymbolType::Lt | SymbolType::Lte =>
-            operator_compare(&key, operator, account_chars, account, operator.symbol)?,
+        SymbolType::Equal | SymbolType::Gt | SymbolType::Gte | SymbolType::Lt | SymbolType::Lte => {
+            operator_compare(&key, operator, account_chars, account, operator.symbol)?
+        }
         // _ => todo!(),
-    };
-
-    Ok(Value::Bool(ret))
+    }))
 }
 
 fn operator_and_or(
@@ -140,7 +139,7 @@ fn operator_and_or(
     let mut ret = if is_and { true } else { false };
     for (i, expression) in operator.expressions.iter().enumerate() {
         let value = handle_expression(
-            format!("{}.expressions[{}]", key, i),
+            &format!("{}.expressions[{}]", key, i),
             expression,
             account_chars,
             account,
@@ -178,7 +177,7 @@ fn operator_not(
     assert_param_length(format!("{}.expressions", key), operator.expressions.len(), 1)?;
 
     let value = handle_expression(
-        format!("{}.expressions[0]", key),
+        &format!("{}.expressions[0]", key),
         &operator.expressions[0],
         account_chars,
         account,
@@ -204,13 +203,13 @@ fn operator_compare(
     assert_param_length(format!("{}.expressions", key), operator.expressions.len(), 2)?;
 
     let left = handle_expression(
-        format!("{}.expressions[0]", key),
+        &format!("{}.expressions[0]", key),
         &operator.expressions[0],
         account_chars,
         account,
     )?;
     let right = handle_expression(
-        format!("{}.expressions[1]", key),
+        &format!("{}.expressions[1]", key),
         &operator.expressions[1],
         account_chars,
         account,
@@ -223,22 +222,23 @@ fn operator_compare(
         });
     }
 
-    left.compare(&right, symbol_type).map_err(|err| ASTError::ParamTypeError {
-        key: key.to_string(),
-        types: err.to_string(),
-    })
+    left.compare(&right, symbol_type)
+        .map_err(|err| ASTError::ParamTypeError {
+            key: key.to_string(),
+            types: err.to_string(),
+        })
 }
 
 fn handle_function(
-    key: String,
+    key: &str,
     function: &FunctionExpression,
     account_chars: packed::AccountCharsReader,
     account: &str,
 ) -> Result<Value, ASTError> {
     macro_rules! call_fn {
         ($fn_name: ident, $arg_len: expr) => {{
-            assert_param_length(key.clone() + ".arguments", function.arguments.len(), $arg_len)?;
-            $fn_name(key.clone(), &function.arguments, account_chars, account)
+            assert_param_length(format!("{}.arguments", key), function.arguments.len(), $arg_len.to_owned())?;
+            $fn_name(key, &function.arguments, account_chars, account)
         }};
     }
 
@@ -246,11 +246,14 @@ fn handle_function(
         FnName::IncludeChars | FnName::IncludeWords => call_fn!(include_chars, 2),
         FnName::OnlyIncludeCharset => call_fn!(only_include_charset, 2),
         FnName::InList => call_fn!(in_list, 2),
+        FnName::IncludeCharset => call_fn!(include_charset, 2),
+        FnName::StartsWith => call_fn!(starts_with, 2),
+        FnName::EndsWith => call_fn!(ends_with, 2),
     }?;
 
     if ret.get_type() != ValueType::Bool {
         return Err(ASTError::ReturnTypeError {
-            key,
+            key: key.to_string(),
             types: ValueType::Bool.to_string(),
         });
     }
@@ -259,7 +262,7 @@ fn handle_function(
 }
 
 fn handle_variable(
-    key: String,
+    key: &str,
     variable: &VariableExpression,
     account_chars: packed::AccountCharsReader,
     account: &str,
@@ -286,50 +289,110 @@ fn handle_variable(
 }
 
 fn include_chars(
-    key: String,
+    key: &str,
     arguments: &[Expression],
-    account_chars: packed::AccountCharsReader,
+    _account_chars: packed::AccountCharsReader,
     account: &str,
 ) -> Result<Value, ASTError> {
-    assert_param_expression!(format!("{}.arguments[0]", key), arguments[0], Expression::Variable(VariableExpression {
-        name: VarName::Account
-    }), format!("variable AccountChars"));
+    assert_param_expression!(
+        format!("{}.arguments[0]", key),
+        arguments[0],
+        Expression::Variable(VariableExpression { name: VarName::Account }),
+        format!("variable AccountChars")
+    );
 
-    let chars = handle_expression(key.clone() + ".arguments[1]", &arguments[1], account_chars, account)?;
+    let account_without_suffix = get_account_without_suffix(account);
 
-    assert_param_expression!(format!("{}.arguments[1]", key), chars, Value::StringVec(_), format!("string[]"));
-
-    match chars {
-        Value::StringVec(chars) => {
+    match &arguments[1] {
+        Expression::Value(ValueExpression { value_type: _, value: Value::StringVec(chars) }) => {
             for char in chars.iter() {
-                if account.contains(char) {
+                if account_without_suffix.contains(char) {
                     return Ok(Value::Bool(true));
                 }
             }
 
             Ok(Value::Bool(false))
         }
-        _ => Err(ASTError::ValueTypeMismatch),
+        _ => Err(ASTError::ParamTypeError { key: format!("{}.arguments[1]", key), types: String::from("string[]") }),
+    }
+}
+
+fn starts_with(
+    key: &str,
+    arguments: &[Expression],
+    _account_chars: packed::AccountCharsReader,
+    account: &str,
+) -> Result<Value, ASTError> {
+    assert_param_expression!(
+        format!("{}.arguments[0]", key),
+        arguments[0],
+        Expression::Variable(VariableExpression { name: VarName::Account }),
+        format!("variable AccountChars")
+    );
+
+    let account_without_suffix = get_account_without_suffix(account);
+
+    match &arguments[1] {
+        Expression::Value(ValueExpression { value_type: _, value: Value::StringVec(chars) }) => {
+            for char in chars.iter() {
+                if account_without_suffix.starts_with(char) {
+                    return Ok(Value::Bool(true));
+                }
+            }
+
+            Ok(Value::Bool(false))
+        }
+        _ => Err(ASTError::ParamTypeError { key: format!("{}.arguments[1]", key), types: String::from("string[]") }),
+    }
+}
+
+fn ends_with(
+    key: &str,
+    arguments: &[Expression],
+    _account_chars: packed::AccountCharsReader,
+    account: &str,
+) -> Result<Value, ASTError> {
+    assert_param_expression!(
+        format!("{}.arguments[0]", key),
+        arguments[0],
+        Expression::Variable(VariableExpression { name: VarName::Account }),
+        format!("variable AccountChars")
+    );
+
+    let account_without_suffix = get_account_without_suffix(account);
+
+    match &arguments[1] {
+        Expression::Value(ValueExpression { value_type: _, value: Value::StringVec(chars) }) => {
+            for char in chars.iter() {
+                if account_without_suffix.ends_with(char) {
+                    return Ok(Value::Bool(true));
+                }
+            }
+
+            Ok(Value::Bool(false))
+        }
+        _ => Err(ASTError::ParamTypeError { key: format!("{}.arguments[1]", key), types: String::from("string[]") }),
     }
 }
 
 fn only_include_charset(
-    key: String,
+    key: &str,
     arguments: &[Expression],
     account_chars: packed::AccountCharsReader,
-    account: &str,
+    _account: &str,
 ) -> Result<Value, ASTError> {
-    assert_param_expression!(format!("{}.arguments[0]", key), arguments[0], Expression::Variable(VariableExpression {
-        name: VarName::AccountChars
-    }), format!("variable AccountChars"));
+    assert_param_expression!(
+        format!("{}.arguments[0]", key),
+        arguments[0],
+        Expression::Variable(VariableExpression {
+            name: VarName::AccountChars
+        }),
+        format!("variable AccountChars")
+    );
 
-    let charset = handle_expression(key.clone() + ".arguments[1]", &arguments[1], account_chars, account)?;
-
-    assert_param_expression!(format!("{}.arguments[1]", key), charset, Value::CharsetType(_), format!("charset_type"));
-
-    let expected_charset = match charset {
-        Value::CharsetType(charset) => charset,
-        _ => return Err(ASTError::ValueTypeMismatch),
+    let expected_charset = match &arguments[1] {
+        Expression::Value(ValueExpression { value_type: _, value: Value::CharsetType(charset) })=> charset,
+        _ => return Err(ASTError::ParamTypeError { key: format!("{}.arguments[1]", key), types: String::from("charset_type") }),
     };
 
     for item in account_chars.iter() {
@@ -339,7 +402,7 @@ fn only_include_charset(
             type_: charset_index,
         })?;
 
-        if expected_charset != charset {
+        if expected_charset != &charset {
             return Ok(Value::Bool(false));
         }
     }
@@ -347,28 +410,62 @@ fn only_include_charset(
     Ok(Value::Bool(true))
 }
 
-fn in_list(
-    key: String,
+fn include_charset(
+    key: &str,
     arguments: &[Expression],
     account_chars: packed::AccountCharsReader,
+    _account: &str,
+) -> Result<Value, ASTError> {
+    assert_param_expression!(
+        format!("{}.arguments[0]", key),
+        arguments[0],
+        Expression::Variable(VariableExpression {
+            name: VarName::AccountChars
+        }),
+        format!("variable AccountChars")
+    );
+
+    let expected_charset = match &arguments[1] {
+        Expression::Value(ValueExpression { value_type: _, value: Value::CharsetType(charset) }) => charset,
+        _ => return Err(ASTError::ParamTypeError { key: format!("{}.arguments[1]", key), types: String::from("charset_type") }),
+    };
+
+    for item in account_chars.iter() {
+        let charset_index = u32::from(item.char_set_name());
+        let charset = CharSetType::try_from(charset_index).map_err(|_| ASTError::UndefinedCharSetType {
+            key: "".to_string(),
+            type_: charset_index,
+        })?;
+
+        if expected_charset == &charset {
+            return Ok(Value::Bool(true));
+        }
+    }
+
+    Ok(Value::Bool(false))
+}
+
+fn in_list(
+    key: &str,
+    arguments: &[Expression],
+    _account_chars: packed::AccountCharsReader,
     account: &str,
 ) -> Result<Value, ASTError> {
-    assert_param_expression!(format!("{}.arguments[0]", key), arguments[0], Expression::Variable(VariableExpression {
-        name: VarName::Account
-    }), format!("variable AccountChars"));
+    assert_param_expression!(
+        format!("{}.arguments[0]", key),
+        arguments[0],
+        Expression::Variable(VariableExpression { name: VarName::Account }),
+        format!("variable AccountChars")
+    );
 
-    let account_list = handle_expression(key.clone() + ".arguments[1]", &arguments[1], account_chars, account)?;
-
-    assert_param_expression!(format!("{}.arguments[1]", key), account_list, Value::BinaryVec(_), format!("binary[]"));
-
-    match account_list {
-        Value::BinaryVec(account_list) => {
+    match &arguments[1] {
+        Expression::Value(ValueExpression { value_type: _, value: Value::BinaryVec(account_list) }) => {
             let hash = blake2b_256(account);
             let account_id = hash[0..20].to_vec();
             // println!("account_id = {:?}", hex::encode(&account_id));
             Ok(Value::Bool(account_list.contains(&account_id)))
         }
-        _ => Err(ASTError::ValueTypeMismatch),
+        _ => Err(ASTError::ParamTypeError { key: format!("{}.arguments[1]", key), types: String::from("binary[]") }),
     }
 }
 
@@ -517,7 +614,7 @@ mod test {
     }
 
     fn test_operator_expression(expression: Expression) -> Value {
-        let key = String::from(".");
+        let key = ".";
         let account_chars = packed::AccountChars::default();
         let account = "";
 
@@ -525,7 +622,7 @@ mod test {
     }
 
     fn test_err_operator_expression(expression: Expression) -> Result<Value, ASTError> {
-        let key = String::from(".");
+        let key = ".";
         let account_chars = packed::AccountChars::default();
         let account = "";
 
@@ -599,14 +696,19 @@ mod test {
 
         let ret = test_err_operator_expression(Expression::Operator(OperatorExpression {
             symbol: SymbolType::And,
-            expressions: vec![
-                Expression::Value(ValueExpression {
-                    value_type: ValueType::Bool,
-                    value: Value::Bool(true),
-                }),
-            ],
+            expressions: vec![Expression::Value(ValueExpression {
+                value_type: ValueType::Bool,
+                value: Value::Bool(true),
+            })],
         }));
-        assert!(matches!(ret, Err(ASTError::ParamLengthError { key: _, expected_length: _, length: _ })));
+        assert!(matches!(
+            ret,
+            Err(ASTError::ParamLengthError {
+                key: _,
+                expected_length: _,
+                length: _
+            })
+        ));
     }
 
     #[test]
@@ -676,14 +778,19 @@ mod test {
 
         let ret = test_err_operator_expression(Expression::Operator(OperatorExpression {
             symbol: SymbolType::Or,
-            expressions: vec![
-                Expression::Value(ValueExpression {
-                    value_type: ValueType::Bool,
-                    value: Value::Bool(true),
-                }),
-            ],
+            expressions: vec![Expression::Value(ValueExpression {
+                value_type: ValueType::Bool,
+                value: Value::Bool(true),
+            })],
         }));
-        assert!(matches!(ret, Err(ASTError::ParamLengthError { key: _, expected_length: _, length: _ })));
+        assert!(matches!(
+            ret,
+            Err(ASTError::ParamLengthError {
+                key: _,
+                expected_length: _,
+                length: _
+            })
+        ));
     }
 
     #[test]
@@ -720,15 +827,25 @@ mod test {
 
         let ret = test_err_operator_expression(Expression::Operator(OperatorExpression {
             symbol: SymbolType::Not,
-            expressions: vec![Expression::Value(ValueExpression {
-                value_type: ValueType::Bool,
-                value: Value::Bool(false),
-            }), Expression::Value(ValueExpression {
-                value_type: ValueType::Bool,
-                value: Value::Bool(false),
-            })],
+            expressions: vec![
+                Expression::Value(ValueExpression {
+                    value_type: ValueType::Bool,
+                    value: Value::Bool(false),
+                }),
+                Expression::Value(ValueExpression {
+                    value_type: ValueType::Bool,
+                    value: Value::Bool(false),
+                }),
+            ],
         }));
-        assert!(matches!(ret, Err(ASTError::ParamLengthError { key: _, expected_length: _, length: _ })));
+        assert!(matches!(
+            ret,
+            Err(ASTError::ParamLengthError {
+                key: _,
+                expected_length: _,
+                length: _
+            })
+        ));
     }
 
     macro_rules! gen_compare_test {
@@ -871,14 +988,23 @@ mod test {
     }
 
     fn test_function_expression(expression: Expression, account_chars: types::AccountChars, account: &str) -> Value {
-        let key = String::from(".");
+        let key = ".";
         let account_chars: packed::AccountChars = account_chars.into();
 
-        handle_expression(key, &expression, account_chars.as_reader(), account).unwrap()
+        match handle_expression(key, &expression, account_chars.as_reader(), account) {
+            Ok(ret) => ret,
+            Err(err) => {
+                panic!("handle expression failed: {:?}", err)
+            }
+        }
     }
 
-    fn test_err_function_expression(expression: Expression, account_chars: types::AccountChars, account: &str) -> Result<Value, ASTError> {
-        let key = String::from(".");
+    fn test_err_function_expression(
+        expression: Expression,
+        account_chars: types::AccountChars,
+        account: &str,
+    ) -> Result<Value, ASTError> {
+        let key = ".";
         let account_chars: packed::AccountChars = account_chars.into();
 
         handle_expression(key, &expression, account_chars.as_reader(), account)
@@ -887,16 +1013,20 @@ mod test {
     #[test]
     fn test_function_include_chars() {
         fn inner(string_vec: Vec<String>, account: &str) -> Value {
-            test_function_expression(Expression::Function(FunctionExpression {
-                name: FnName::IncludeChars,
-                arguments: vec![
-                    Expression::Variable(VariableExpression { name: VarName::Account }),
-                    Expression::Value(ValueExpression {
-                        value_type: ValueType::StringVec,
-                        value: Value::StringVec(string_vec),
-                    }),
-                ]
-            }), packed::AccountChars::default().into(), account)
+            test_function_expression(
+                Expression::Function(FunctionExpression {
+                    name: FnName::IncludeChars,
+                    arguments: vec![
+                        Expression::Variable(VariableExpression { name: VarName::Account }),
+                        Expression::Value(ValueExpression {
+                            value_type: ValueType::StringVec,
+                            value: Value::StringVec(string_vec),
+                        }),
+                    ],
+                }),
+                packed::AccountChars::default().into(),
+                account,
+            )
         }
 
         let ret = inner(vec!["🌈".to_string(), "✨".to_string()], "xxxxx.ast.bit");
@@ -913,100 +1043,183 @@ mod test {
     }
 
     #[test]
-    fn test_function_include_chars_param_error() {
-        let ret = test_err_function_expression(Expression::Function(FunctionExpression {
-            name: FnName::IncludeChars,
-            arguments: vec![
-                Expression::Variable(VariableExpression { name: VarName::AccountChars }),
-                Expression::Value(ValueExpression {
-                    value_type: ValueType::StringVec,
-                    value: Value::StringVec(vec!["uni".to_string(), "meta".to_string()]),
+    fn test_function_starts_with() {
+        fn inner(string_vec: Vec<String>, account: &str) -> Value {
+            test_function_expression(
+                Expression::Function(FunctionExpression {
+                    name: FnName::StartsWith,
+                    arguments: vec![
+                        Expression::Variable(VariableExpression { name: VarName::Account }),
+                        Expression::Value(ValueExpression {
+                            value_type: ValueType::StringVec,
+                            value: Value::StringVec(string_vec),
+                        }),
+                    ],
                 }),
-            ]
-        }), vec![], "xxxxxxx.ast.bit");
-        assert!(matches!(ret, Err(ASTError::ParamTypeError { key: _, types: _ })));
+                packed::AccountChars::default().into(),
+                account,
+            )
+        }
 
-        let ret = test_err_function_expression(Expression::Function(FunctionExpression {
-            name: FnName::IncludeChars,
-            arguments: vec![
-                Expression::Variable(VariableExpression { name: VarName::Account }),
-                Expression::Value(ValueExpression {
-                    value_type: ValueType::String,
-                    value: Value::String("uni".to_string()),
-                }),
-            ]
-        }), vec![], "xxxxxxx.ast.bit");
-        assert!(matches!(ret, Err(ASTError::ParamTypeError { key: _, types: _ })));
+        let ret = inner(vec!["🌈uni".to_string(), "✨me".to_string()], "xxxxx.ast.bit");
+        assert!(matches!(ret, Value::Bool(false)));
 
-        let ret = test_err_function_expression(Expression::Function(FunctionExpression {
-            name: FnName::IncludeChars,
-            arguments: vec![
-                Expression::Variable(VariableExpression { name: VarName::Account }),
-                Expression::Value(ValueExpression {
-                    value_type: ValueType::StringVec,
-                    value: Value::StringVec(vec!["uni".to_string(), "meta".to_string()]),
-                }),
-                Expression::Variable(VariableExpression { name: VarName::Account }),
-            ]
-        }), vec![], "xxxxxxx.ast.bit");
-        assert!(matches!(ret, Err(ASTError::ParamLengthError { key: _, expected_length: _, length: _ })));
+        let ret = inner(vec!["🌈uni".to_string(), "✨me".to_string()], "✨mexx.ast.bit");
+        assert!(matches!(ret, Value::Bool(true)));
     }
 
     #[test]
-    fn test_function_only_include_charset() {
-        fn inner(account_chars: types::AccountChars, account: &str) -> Value {
-            test_function_expression(Expression::Function(FunctionExpression {
-                name: FnName::OnlyIncludeCharset,
+    fn test_function_ends_with() {
+        fn inner(string_vec: Vec<String>, account: &str) -> Value {
+            test_function_expression(
+                Expression::Function(FunctionExpression {
+                    name: FnName::EndsWith,
+                    arguments: vec![
+                        Expression::Variable(VariableExpression { name: VarName::Account }),
+                        Expression::Value(ValueExpression {
+                            value_type: ValueType::StringVec,
+                            value: Value::StringVec(string_vec),
+                        }),
+                    ],
+                }),
+                packed::AccountChars::default().into(),
+                account,
+            )
+        }
+
+        let ret = inner(vec!["uni🌈".to_string(), "me✨".to_string()], "xxxxx.ast.bit");
+        assert!(matches!(ret, Value::Bool(false)));
+
+        let ret = inner(vec!["uni🌈".to_string(), "me✨".to_string()], "xxuni🌈.ast.bit");
+        assert!(matches!(ret, Value::Bool(true)));
+    }
+
+    #[test]
+    fn test_function_include_chars_param_error() {
+        let ret = test_err_function_expression(
+            Expression::Function(FunctionExpression {
+                name: FnName::IncludeChars,
                 arguments: vec![
                     Expression::Variable(VariableExpression {
                         name: VarName::AccountChars,
                     }),
                     Expression::Value(ValueExpression {
-                        value_type: ValueType::CharsetType,
-                        value: Value::CharsetType(CharSetType::Digit),
+                        value_type: ValueType::StringVec,
+                        value: Value::StringVec(vec!["uni".to_string(), "meta".to_string()]),
                     }),
-                ]
-            }), account_chars, account)
+                ],
+            }),
+            vec![],
+            "xxxxxxx.ast.bit",
+        );
+        assert!(matches!(ret, Err(ASTError::ParamTypeError { key: _, types: _ })));
+
+        let ret = test_err_function_expression(
+            Expression::Function(FunctionExpression {
+                name: FnName::IncludeChars,
+                arguments: vec![
+                    Expression::Variable(VariableExpression { name: VarName::Account }),
+                    Expression::Value(ValueExpression {
+                        value_type: ValueType::String,
+                        value: Value::String("uni".to_string()),
+                    }),
+                ],
+            }),
+            vec![],
+            "xxxxxxx.ast.bit",
+        );
+        assert!(matches!(ret, Err(ASTError::ParamTypeError { key: _, types: _ })));
+
+        let ret = test_err_function_expression(
+            Expression::Function(FunctionExpression {
+                name: FnName::IncludeChars,
+                arguments: vec![
+                    Expression::Variable(VariableExpression { name: VarName::Account }),
+                    Expression::Value(ValueExpression {
+                        value_type: ValueType::StringVec,
+                        value: Value::StringVec(vec!["uni".to_string(), "meta".to_string()]),
+                    }),
+                    Expression::Variable(VariableExpression { name: VarName::Account }),
+                ],
+            }),
+            vec![],
+            "xxxxxxx.ast.bit",
+        );
+        assert!(matches!(
+            ret,
+            Err(ASTError::ParamLengthError {
+                key: _,
+                expected_length: _,
+                length: _
+            })
+        ));
+    }
+
+    #[test]
+    fn test_function_only_include_charset() {
+        fn inner(account_chars: types::AccountChars, account: &str) -> Value {
+            test_function_expression(
+                Expression::Function(FunctionExpression {
+                    name: FnName::OnlyIncludeCharset,
+                    arguments: vec![
+                        Expression::Variable(VariableExpression {
+                            name: VarName::AccountChars,
+                        }),
+                        Expression::Value(ValueExpression {
+                            value_type: ValueType::CharsetType,
+                            value: Value::CharsetType(CharSetType::Digit),
+                        }),
+                    ],
+                }),
+                account_chars,
+                account,
+            )
         }
 
-        let ret = inner(vec![
-            types::AccountChar {
-                char_set_type: CharSetType::Digit,
-                char: String::new(),
-            },
-            types::AccountChar {
-                char_set_type: CharSetType::Digit,
-                char: String::new(),
-            },
-            types::AccountChar {
-                char_set_type: CharSetType::Digit,
-                char: String::new(),
-            },
-            types::AccountChar {
-                char_set_type: CharSetType::Emoji,
-                char: String::new(),
-            },
-        ], "111✨.ast.bit");
+        let ret = inner(
+            vec![
+                types::AccountChar {
+                    char_set_type: CharSetType::Digit,
+                    char: String::new(),
+                },
+                types::AccountChar {
+                    char_set_type: CharSetType::Digit,
+                    char: String::new(),
+                },
+                types::AccountChar {
+                    char_set_type: CharSetType::Digit,
+                    char: String::new(),
+                },
+                types::AccountChar {
+                    char_set_type: CharSetType::Emoji,
+                    char: String::new(),
+                },
+            ],
+            "111✨.ast.bit",
+        );
         assert!(matches!(ret, Value::Bool(false)));
 
-        let ret = inner(vec![
-            types::AccountChar {
-                char_set_type: CharSetType::Digit,
-                char: String::new(),
-            },
-            types::AccountChar {
-                char_set_type: CharSetType::Digit,
-                char: String::new(),
-            },
-            types::AccountChar {
-                char_set_type: CharSetType::Digit,
-                char: String::new(),
-            },
-            types::AccountChar {
-                char_set_type: CharSetType::Digit,
-                char: String::new(),
-            },
-        ], "1111.ast.bit");
+        let ret = inner(
+            vec![
+                types::AccountChar {
+                    char_set_type: CharSetType::Digit,
+                    char: String::new(),
+                },
+                types::AccountChar {
+                    char_set_type: CharSetType::Digit,
+                    char: String::new(),
+                },
+                types::AccountChar {
+                    char_set_type: CharSetType::Digit,
+                    char: String::new(),
+                },
+                types::AccountChar {
+                    char_set_type: CharSetType::Digit,
+                    char: String::new(),
+                },
+            ],
+            "1111.ast.bit",
+        );
         assert!(matches!(ret, Value::Bool(true)));
     }
 
@@ -1031,67 +1244,238 @@ mod test {
             },
         ];
 
-        let ret = test_err_function_expression(Expression::Function(FunctionExpression {
-            name: FnName::OnlyIncludeCharset,
-            arguments: vec![
-                Expression::Variable(VariableExpression {
-                    name: VarName::Account,
-                }),
-                Expression::Value(ValueExpression {
-                    value_type: ValueType::CharsetType,
-                    value: Value::CharsetType(CharSetType::Digit),
-                }),
-            ]
-        }), account_chars.clone(), "1111.ast.bit");
+        let ret = test_err_function_expression(
+            Expression::Function(FunctionExpression {
+                name: FnName::OnlyIncludeCharset,
+                arguments: vec![
+                    Expression::Variable(VariableExpression { name: VarName::Account }),
+                    Expression::Value(ValueExpression {
+                        value_type: ValueType::CharsetType,
+                        value: Value::CharsetType(CharSetType::Digit),
+                    }),
+                ],
+            }),
+            account_chars.clone(),
+            "1111.ast.bit",
+        );
         assert!(matches!(ret, Err(ASTError::ParamTypeError { key: _, types: _ })));
 
-        let ret = test_err_function_expression(Expression::Function(FunctionExpression {
-            name: FnName::OnlyIncludeCharset,
-            arguments: vec![
-                Expression::Variable(VariableExpression {
-                    name: VarName::AccountChars,
-                }),
-                Expression::Value(ValueExpression {
-                    value_type: ValueType::String,
-                    value: Value::String("test".to_string()),
-                }),
-            ]
-        }), account_chars.clone(), "1111.ast.bit");
+        let ret = test_err_function_expression(
+            Expression::Function(FunctionExpression {
+                name: FnName::OnlyIncludeCharset,
+                arguments: vec![
+                    Expression::Variable(VariableExpression {
+                        name: VarName::AccountChars,
+                    }),
+                    Expression::Value(ValueExpression {
+                        value_type: ValueType::String,
+                        value: Value::String("test".to_string()),
+                    }),
+                ],
+            }),
+            account_chars.clone(),
+            "1111.ast.bit",
+        );
         assert!(matches!(ret, Err(ASTError::ParamTypeError { key: _, types: _ })));
 
-        let ret = test_err_function_expression(Expression::Function(FunctionExpression {
-            name: FnName::OnlyIncludeCharset,
-            arguments: vec![
-                Expression::Variable(VariableExpression {
-                    name: VarName::AccountChars,
+        let ret = test_err_function_expression(
+            Expression::Function(FunctionExpression {
+                name: FnName::OnlyIncludeCharset,
+                arguments: vec![
+                    Expression::Variable(VariableExpression {
+                        name: VarName::AccountChars,
+                    }),
+                    Expression::Value(ValueExpression {
+                        value_type: ValueType::CharsetType,
+                        value: Value::CharsetType(CharSetType::Digit),
+                    }),
+                    Expression::Variable(VariableExpression {
+                        name: VarName::AccountChars,
+                    }),
+                ],
+            }),
+            account_chars.clone(),
+            "1111.ast.bit",
+        );
+        assert!(matches!(
+            ret,
+            Err(ASTError::ParamLengthError {
+                key: _,
+                expected_length: _,
+                length: _
+            })
+        ));
+    }
+
+    #[test]
+    fn test_function_include_charset() {
+        fn inner(account_chars: types::AccountChars, account: &str) -> Value {
+            test_function_expression(
+                Expression::Function(FunctionExpression {
+                    name: FnName::IncludeCharset,
+                    arguments: vec![
+                        Expression::Variable(VariableExpression {
+                            name: VarName::AccountChars,
+                        }),
+                        Expression::Value(ValueExpression {
+                            value_type: ValueType::CharsetType,
+                            value: Value::CharsetType(CharSetType::Emoji),
+                        }),
+                    ],
                 }),
-                Expression::Value(ValueExpression {
-                    value_type: ValueType::CharsetType,
-                    value: Value::CharsetType(CharSetType::Digit),
-                }),
-                Expression::Variable(VariableExpression {
-                    name: VarName::AccountChars,
-                }),
-            ]
-        }), account_chars.clone(), "1111.ast.bit");
-        assert!(matches!(ret, Err(ASTError::ParamLengthError { key: _, expected_length: _, length: _ })));
+                account_chars,
+                account,
+            )
+        }
+
+        let ret = inner(
+            vec![
+                types::AccountChar {
+                    char_set_type: CharSetType::Digit,
+                    char: String::new(),
+                },
+                types::AccountChar {
+                    char_set_type: CharSetType::Digit,
+                    char: String::new(),
+                },
+                types::AccountChar {
+                    char_set_type: CharSetType::Digit,
+                    char: String::new(),
+                },
+                types::AccountChar {
+                    char_set_type: CharSetType::Emoji,
+                    char: String::new(),
+                },
+            ],
+            "111✨.ast.bit",
+        );
+        assert!(matches!(ret, Value::Bool(true)));
+
+        let ret = inner(
+            vec![
+                types::AccountChar {
+                    char_set_type: CharSetType::Digit,
+                    char: String::new(),
+                },
+                types::AccountChar {
+                    char_set_type: CharSetType::Digit,
+                    char: String::new(),
+                },
+                types::AccountChar {
+                    char_set_type: CharSetType::Digit,
+                    char: String::new(),
+                },
+                types::AccountChar {
+                    char_set_type: CharSetType::Digit,
+                    char: String::new(),
+                },
+            ],
+            "1111.ast.bit",
+        );
+        assert!(matches!(ret, Value::Bool(false)));
+    }
+
+    #[test]
+    fn test_function_include_charset_param_error() {
+        let account_chars = vec![
+            types::AccountChar {
+                char_set_type: CharSetType::Digit,
+                char: String::new(),
+            },
+            types::AccountChar {
+                char_set_type: CharSetType::Digit,
+                char: String::new(),
+            },
+            types::AccountChar {
+                char_set_type: CharSetType::Digit,
+                char: String::new(),
+            },
+            types::AccountChar {
+                char_set_type: CharSetType::Digit,
+                char: String::new(),
+            },
+        ];
+
+        let ret = test_err_function_expression(
+            Expression::Function(FunctionExpression {
+                name: FnName::IncludeCharset,
+                arguments: vec![
+                    Expression::Variable(VariableExpression { name: VarName::Account }),
+                    Expression::Value(ValueExpression {
+                        value_type: ValueType::CharsetType,
+                        value: Value::CharsetType(CharSetType::Digit),
+                    }),
+                ],
+            }),
+            account_chars.clone(),
+            "1111.ast.bit",
+        );
+        assert!(matches!(ret, Err(ASTError::ParamTypeError { key: _, types: _ })));
+
+        let ret = test_err_function_expression(
+            Expression::Function(FunctionExpression {
+                name: FnName::IncludeCharset,
+                arguments: vec![
+                    Expression::Variable(VariableExpression {
+                        name: VarName::AccountChars,
+                    }),
+                    Expression::Value(ValueExpression {
+                        value_type: ValueType::String,
+                        value: Value::String("test".to_string()),
+                    }),
+                ],
+            }),
+            account_chars.clone(),
+            "1111.ast.bit",
+        );
+        assert!(matches!(ret, Err(ASTError::ParamTypeError { key: _, types: _ })));
+
+        let ret = test_err_function_expression(
+            Expression::Function(FunctionExpression {
+                name: FnName::IncludeCharset,
+                arguments: vec![
+                    Expression::Variable(VariableExpression {
+                        name: VarName::AccountChars,
+                    }),
+                    Expression::Value(ValueExpression {
+                        value_type: ValueType::CharsetType,
+                        value: Value::CharsetType(CharSetType::Digit),
+                    }),
+                    Expression::Variable(VariableExpression {
+                        name: VarName::AccountChars,
+                    }),
+                ],
+            }),
+            account_chars.clone(),
+            "1111.ast.bit",
+        );
+        assert!(matches!(
+            ret,
+            Err(ASTError::ParamLengthError {
+                key: _,
+                expected_length: _,
+                length: _
+            })
+        ));
     }
 
     #[test]
     fn test_function_in_list() {
         fn inner(list: Vec<Binary>, account: &str) -> Value {
-            test_function_expression(Expression::Function(FunctionExpression {
-                name: FnName::InList,
-                arguments: vec![
-                    Expression::Variable(VariableExpression {
-                        name: VarName::Account,
-                    }),
-                    Expression::Value(ValueExpression {
-                        value_type: ValueType::BinaryVec,
-                        value: Value::BinaryVec(list),
-                    }),
-                ]
-            }), vec![], account)
+            test_function_expression(
+                Expression::Function(FunctionExpression {
+                    name: FnName::InList,
+                    arguments: vec![
+                        Expression::Variable(VariableExpression { name: VarName::Account }),
+                        Expression::Value(ValueExpression {
+                            value_type: ValueType::BinaryVec,
+                            value: Value::BinaryVec(list),
+                        }),
+                    ],
+                }),
+                vec![],
+                account,
+            )
         }
 
         let ret = inner(
@@ -1118,49 +1502,62 @@ mod test {
 
     #[test]
     fn test_function_in_list_param_error() {
-        let ret = test_err_function_expression(Expression::Function(FunctionExpression {
-            name: FnName::InList,
-            arguments: vec![
-                Expression::Variable(VariableExpression {
-                    name: VarName::AccountChars,
-                }),
-                Expression::Value(ValueExpression {
-                    value_type: ValueType::BinaryVec,
-                    value: Value::BinaryVec(vec![]),
-                }),
-            ]
-        }), vec![], "1111.ast.bit");
+        let ret = test_err_function_expression(
+            Expression::Function(FunctionExpression {
+                name: FnName::InList,
+                arguments: vec![
+                    Expression::Variable(VariableExpression {
+                        name: VarName::AccountChars,
+                    }),
+                    Expression::Value(ValueExpression {
+                        value_type: ValueType::BinaryVec,
+                        value: Value::BinaryVec(vec![]),
+                    }),
+                ],
+            }),
+            vec![],
+            "1111.ast.bit",
+        );
         assert!(matches!(ret, Err(ASTError::ParamTypeError { key: _, types: _ })));
 
-        let ret = test_err_function_expression(Expression::Function(FunctionExpression {
-            name: FnName::InList,
-            arguments: vec![
-                Expression::Variable(VariableExpression {
-                    name: VarName::Account,
-                }),
-                Expression::Value(ValueExpression {
-                    value_type: ValueType::Binary,
-                    value: Value::Binary(vec![]),
-                }),
-            ]
-        }), vec![], "1111.ast.bit");
+        let ret = test_err_function_expression(
+            Expression::Function(FunctionExpression {
+                name: FnName::InList,
+                arguments: vec![
+                    Expression::Variable(VariableExpression { name: VarName::Account }),
+                    Expression::Value(ValueExpression {
+                        value_type: ValueType::Binary,
+                        value: Value::Binary(vec![]),
+                    }),
+                ],
+            }),
+            vec![],
+            "1111.ast.bit",
+        );
         assert!(matches!(ret, Err(ASTError::ParamTypeError { key: _, types: _ })));
 
-        let ret = test_err_function_expression(Expression::Function(FunctionExpression {
-            name: FnName::InList,
-            arguments: vec![
-                Expression::Variable(VariableExpression {
-                    name: VarName::Account,
-                }),
-                Expression::Value(ValueExpression {
-                    value_type: ValueType::BinaryVec,
-                    value: Value::BinaryVec(vec![]),
-                }),
-                Expression::Variable(VariableExpression {
-                    name: VarName::Account,
-                }),
-            ]
-        }), vec![], "1111.ast.bit");
-        assert!(matches!(ret, Err(ASTError::ParamLengthError { key: _, expected_length: _, length: _ })));
+        let ret = test_err_function_expression(
+            Expression::Function(FunctionExpression {
+                name: FnName::InList,
+                arguments: vec![
+                    Expression::Variable(VariableExpression { name: VarName::Account }),
+                    Expression::Value(ValueExpression {
+                        value_type: ValueType::BinaryVec,
+                        value: Value::BinaryVec(vec![]),
+                    }),
+                    Expression::Variable(VariableExpression { name: VarName::Account }),
+                ],
+            }),
+            vec![],
+            "1111.ast.bit",
+        );
+        assert!(matches!(
+            ret,
+            Err(ASTError::ParamLengthError {
+                key: _,
+                expected_length: _,
+                length: _
+            })
+        ));
     }
 }

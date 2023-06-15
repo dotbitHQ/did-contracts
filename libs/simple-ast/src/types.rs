@@ -221,6 +221,9 @@ pub enum FnName {
     IncludeWords,
     OnlyIncludeCharset,
     InList,
+    IncludeCharset,
+    StartsWith,
+    EndsWith,
 }
 
 impl Into<packed::Byte> for FnName {
@@ -417,15 +420,13 @@ impl Value {
         let right = right.get_u64();
 
         match (left, right) {
-            (Ok(left), Ok(right)) => {
-                match symbol_type {
-                    SymbolType::Gt => Ok(left > right),
-                    SymbolType::Gte => Ok(left >= right),
-                    SymbolType::Lt => Ok(left < right),
-                    SymbolType::Lte => Ok(left <= right),
-                    SymbolType::Equal => Ok(left == right),
-                    _ => Err(ASTError::ValueOperatorUnsupported),
-                }
+            (Ok(left), Ok(right)) => match symbol_type {
+                SymbolType::Gt => Ok(left > right),
+                SymbolType::Gte => Ok(left >= right),
+                SymbolType::Lt => Ok(left < right),
+                SymbolType::Lte => Ok(left <= right),
+                SymbolType::Equal => Ok(left == right),
+                _ => Err(ASTError::ValueOperatorUnsupported),
             },
             _ => Err(ASTError::ValueOperatorUnsupported),
         }

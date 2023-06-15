@@ -1,5 +1,5 @@
 #[cfg(feature = "no_std")]
-use alloc::{format, string::String};
+use alloc::{format, string::String, string::ToString};
 #[cfg(feature = "std")]
 use std::str::FromStr;
 
@@ -77,6 +77,11 @@ pub fn blake2b_256<T: AsRef<[u8]>>(s: T) -> [u8; 32] {
     blake2b.update(s.as_ref());
     blake2b.finalize(&mut result);
     result
+}
+
+pub fn get_account_without_suffix(input: &str) -> String {
+    let mut iter = input.split('.');
+    iter.next().unwrap().to_string()
 }
 
 pub fn hex_to_bytes(key: String, mut input: &str) -> Result<Vec<u8>, ASTError> {
