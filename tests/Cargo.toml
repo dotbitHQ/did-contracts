@@ -17,7 +17,7 @@ ckb-types = "=0.108.0"
 ckb-hash = "=0.108.0"
 ckb-jsonrpc-types = "=0.108.0"
 das-sorted-list = { workspace = true, features = ["std"] }
-das-types-std = { git = "https://github.com/dotbitHQ/das-types-private.git", rev = "236db7906f" }
+das-types-std = { workspace = true }
 simple-ast = { workspace = true, features = ["std"] }
 # Other
 hex = "0.4.3"
@@ -31,3 +31,4 @@ walkdir = "2"
 rand = "0.8.3"
 chrono = { version = "0.4" }
 sparse-merkle-tree = { version = "0.6.1" }
+device-key-list-cell-type = { path = "../contracts/device-key-list-cell-type" }

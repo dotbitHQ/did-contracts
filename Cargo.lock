@@ -737,6 +737,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "device-key-list-cell-type"
+version = "0.1.0"
+dependencies = [
+ "ckb-std",
+ "das-core",
+ "das-types",
+ "molecule",
+]
+
+[[package]]
 name = "digest"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1816,6 +1826,7 @@ dependencies = [
  "ckb-types",
  "das-sorted-list",
  "das-types-std",
+ "device-key-list-cell-type",
  "hex",
  "lazy_static",
  "rand 0.8.5",

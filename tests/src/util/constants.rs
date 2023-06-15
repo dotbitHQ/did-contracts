@@ -228,6 +228,10 @@ lazy_static! {
             "doge_sign.so",
             "0x0480767c09c1c26abe4e180d08238ed551f11dc293ab1286d8a7b7cac95e55a7",
         );
+        map.insert(
+            "device-key-list-cell-type",
+            "0x982f5e9cc7503f4cd0d0e2ed7115b70f9007f6adcdbdefb5465228d39c94f12a"
+        );
         map
     };
     pub static ref RE_VARIABLE: Regex = Regex::new(r"\{\{([\w\-\.]+)\}\}").unwrap();

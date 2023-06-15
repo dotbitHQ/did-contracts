@@ -10,6 +10,8 @@ use das_types::constants::{DataType, WITNESS_HEADER, WITNESS_HEADER_BYTES, WITNE
 use das_types::packed::*;
 use das_types::prelude::*;
 
+use crate::util::load_data;
+
 use super::super::constants::*;
 use super::super::error::*;
 use super::super::types::{Configs, LockScriptTypeIdTable};
@@ -501,6 +503,36 @@ impl WitnessesParser {
         }
 
         Ok(())
+    }
+
+    pub fn verify_and_get_list_from_witness(
+        &self,
+        data_type: DataType,
+        source: Source
+    ) -> Result<Vec<(u32, DataType, &Bytes)>, Box<dyn ScriptError>> {
+        let mut i = 0;
+        let mut res = Vec::new();
+        loop {
+            match load_data(|buf, offset| syscalls::load_cell_data(buf, offset, i, source)) {
+                Ok(data) => {
+                    if let Some(hash) = data.get(..32) {
+                        match self.verify_with_hash_and_get(hash, data_type, i, source) {
+                            Ok(data) => res.push(data),
+                            Err(_e) => {
+                                debug!("Cannot get witness data for cell #{} in {:?}.", i, source);
+                            }
+                        }
+                    } else {
+                        debug!("Cannot get witness data for cell #{} in {:?} because cell does not contain a hash.", i, source);
+                    }
+                },
+                Err(SysError::IndexOutOfBound) => break,
+                Err(e) => return Err(ErrorCode::from(e).into())
+            };
+            i = i + 1;
+        }
+
+        Ok(res)
     }
 
     pub fn verify_and_get(
