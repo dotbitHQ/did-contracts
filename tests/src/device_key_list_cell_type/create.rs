@@ -7,7 +7,7 @@ use super::{init, BalanceCell, BuildRefundLock, DeviceKeyListCell};
 use crate::util::template_parser::{challenge_tx, test_tx};
 
 #[test]
-fn should_pass_nomral_create() {
+fn should_pass_normal_create() {
     let mut template = init("create_device_key_list");
     let device_key = DeviceKey::new_builder().build();
     let refund_lock = device_key.build_default_refund_lock();
