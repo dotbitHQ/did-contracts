@@ -70,7 +70,6 @@ pub fn main() -> Result<(), Error> {
 
         match AccountChars::from_slice(&sub_account_bytes) {
             Ok(account) => {
-                debug!("account = {}", account.as_prettier());
                 let account_len = account.len();
                 das_assert!(
                     account_len > 0,
