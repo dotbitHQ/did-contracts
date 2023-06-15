@@ -113,18 +113,18 @@ fn verify_key_list_lock_arg(lock: &Script, key_list: DeviceKeyList) -> Result<()
         "Second byte of lock arg should be sub_alg_id"
     );
 
-    // Next 10 bytes are pubkey hashed 5 times
-    das_core::assert!(
-        lock_arg.slice(2..12) == device_key.pubkey().raw_data(),
-        ErrorCode::InvalidLock,
-        "Byte 2..12 should be pubkey'"
-    );
-
     // Next 10 bytes are cid hashed 5 times
     das_core::assert!(
-        lock_arg.slice(12..22) == device_key.cid().raw_data(),
+        lock_arg.slice(2..12) == device_key.cid().raw_data(),
         ErrorCode::InvalidLock,
-        "Byte 12..22 should be cid'"
+        "Byte 2..12 should be cid'"
+    );
+
+    // Next 10 bytes are pubkey hashed 5 times
+    das_core::assert!(
+        lock_arg.slice(12..22) == device_key.pubkey().raw_data(),
+        ErrorCode::InvalidLock,
+        "Byte 12..22 should be pubkey'"
     );
 
     // Owner and manager are the same
