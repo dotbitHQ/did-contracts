@@ -424,7 +424,7 @@ impl SubAccountWitnessesParser {
         let mut _lock_args = vec![];
         let edit_value;
         match action {
-            SubAccountAction::Create => {
+            SubAccountAction::Create | SubAccountAction::Renew => {
                 debug!(
                     "  witnesses[{:>2}] SubAccountWitness.action is Create, skip signature related fields.",
                     i
@@ -533,7 +533,6 @@ impl SubAccountWitnessesParser {
             SubAccountAction::Recycle => {
                 edit_value = SubAccountEditValue::None;
             }
-            _ => todo!(),
         }
 
         debug!(
@@ -709,5 +708,9 @@ impl SubAccountWitnessesParser {
             None => return None,
             Some(&i) => Some(Self::parse_witness(self.flag, i)),
         }
+    }
+
+    pub fn only_contains_recycle(&self) -> bool {
+        self.contains_recycle && !self.contains_creation && !self.contains_edition && !self.contains_renew
     }
 }

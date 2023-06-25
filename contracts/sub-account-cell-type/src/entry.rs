@@ -370,6 +370,32 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
     let timestamp = util::load_oracle_data(OracleCellType::Time)?;
     let quote = util::load_oracle_data(OracleCellType::Quote)?;
 
+    debug!("Preparing to parse sub-account witnesses by loading the SubAccountCell ...");
+
+    let (input_sub_account_cells, output_sub_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
+
+    verifiers::common::verify_cell_number_and_position(
+        "SubAccountCell",
+        &input_sub_account_cells,
+        &[0],
+        &output_sub_account_cells,
+        &[0],
+    )?;
+
+    let input_sub_account_capacity = high_level::load_cell_capacity(input_sub_account_cells[0], Source::Input)?;
+    let output_sub_account_capacity = high_level::load_cell_capacity(output_sub_account_cells[0], Source::Output)?;
+    let input_sub_account_data = high_level::load_cell_data(input_sub_account_cells[0], Source::Input)?;
+    let output_sub_account_data = high_level::load_cell_data(output_sub_account_cells[0], Source::Output)?;
+
+    let flag = match data_parser::sub_account_cell::get_flag(&input_sub_account_data) {
+        Some(val) => val,
+        None => {
+            warn!("The flag should always be some for now.");
+            return Err(code_to_error!(ErrorCode::HardCodedError));
+        }
+    };
+    let sub_account_parser = SubAccountWitnessesParser::new(flag)?;
+
     debug!("Verify if the AccountCell in cell_deps has sub-account feature enabled and not expired ...");
 
     let dep_account_cells = util::find_cells_by_type_id(
@@ -390,32 +416,21 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
 
     verifiers::account_cell::verify_sub_account_enabled(&account_cell_reader, account_cell_index, account_cell_source)?;
 
-    verifiers::account_cell::verify_account_expiration(
-        config_account,
-        account_cell_index,
-        account_cell_source,
-        timestamp,
-    )?;
+    if sub_account_parser.only_contains_recycle() {
+        debug!("This transaction only contains recycle action, skip the account expiration check ...");
+    } else {
+        verifiers::account_cell::verify_account_expiration(
+            config_account,
+            account_cell_index,
+            account_cell_source,
+            timestamp,
+        )?;
+    }
 
     let mut parent_account = account_cell_reader.account().as_readable();
     parent_account.extend(ACCOUNT_SUFFIX.as_bytes());
 
-    debug!("Verify if the SubAccountCells in inputs and outputs have sufficient capacity and paid transaction fees properly ...");
-
-    let (input_sub_account_cells, output_sub_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
-
-    verifiers::common::verify_cell_number_and_position(
-        "SubAccountCell",
-        &input_sub_account_cells,
-        &[0],
-        &output_sub_account_cells,
-        &[0],
-    )?;
-
-    let input_sub_account_capacity = high_level::load_cell_capacity(input_sub_account_cells[0], Source::Input)?;
-    let output_sub_account_capacity = high_level::load_cell_capacity(output_sub_account_cells[0], Source::Output)?;
-    let input_sub_account_data = high_level::load_cell_data(input_sub_account_cells[0], Source::Input)?;
-    let output_sub_account_data = high_level::load_cell_data(output_sub_account_cells[0], Source::Output)?;
+    debug!("Verify if the SubAccountCells have sufficient capacity and paid transaction fees properly ...");
 
     verify_sub_account_capacity_is_enough(
         config_sub_account,
@@ -468,15 +483,8 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
         sign_lib.doge = load_2_methods!(doge_lib);
     }
 
-    // Initiate some variables used again and again in the following codes.
-    let flag = match data_parser::sub_account_cell::get_flag(&input_sub_account_data) {
-        Some(val) => val,
-        None => {
-            warn!("The flag should always be some for now.");
-            return Err(code_to_error!(ErrorCode::HardCodedError));
-        }
-    };
-    let sub_account_parser = SubAccountWitnessesParser::new(flag)?;
+    debug!("Initialize some vars base on the sub-actions contains in the transaction ...");
+
     let parent_expired_at = data_parser::account_cell::get_expired_at(&account_cell_data);
     let header = util::load_header(input_sub_account_cells[0], Source::Input)?;
     let sub_account_last_updated_at = util::get_timestamp_from_header(header.as_reader());
