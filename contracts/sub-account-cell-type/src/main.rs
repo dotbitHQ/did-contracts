@@ -12,6 +12,7 @@
 
 // define modules
 mod entry;
+mod sub_action;
 
 use ckb_std::default_alloc;
 

@@ -10,12 +10,11 @@ use das_types::constants::{DataType, WITNESS_HEADER, WITNESS_HEADER_BYTES, WITNE
 use das_types::packed::*;
 use das_types::prelude::*;
 
-use crate::util::load_data;
-
 use super::super::constants::*;
 use super::super::error::*;
 use super::super::types::{Configs, LockScriptTypeIdTable};
 use super::super::util;
+use crate::util::load_data;
 
 #[derive(Debug)]
 pub struct WitnessesParser {
@@ -508,7 +507,7 @@ impl WitnessesParser {
     pub fn verify_and_get_list_from_witness(
         &self,
         data_type: DataType,
-        source: Source
+        source: Source,
     ) -> Result<Vec<(u32, DataType, &Bytes)>, Box<dyn ScriptError>> {
         let mut i = 0;
         let mut res = Vec::new();
@@ -523,11 +522,14 @@ impl WitnessesParser {
                             }
                         }
                     } else {
-                        debug!("Cannot get witness data for cell #{} in {:?} because cell does not contain a hash.", i, source);
+                        debug!(
+                            "Cannot get witness data for cell #{} in {:?} because cell does not contain a hash.",
+                            i, source
+                        );
                     }
-                },
+                }
                 Err(SysError::IndexOutOfBound) => break,
-                Err(e) => return Err(ErrorCode::from(e).into())
+                Err(e) => return Err(ErrorCode::from(e).into()),
             };
             i = i + 1;
         }

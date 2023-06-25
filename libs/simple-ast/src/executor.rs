@@ -4,13 +4,13 @@ use alloc::format;
 use alloc::string::String;
 #[cfg(feature = "no_std")]
 use alloc::string::ToString;
-#[cfg(feature = "no_std")]
-use das_types::{constants::*, packed, prelude::*};
-
-#[cfg(feature = "std")]
-use das_types_std::{constants::*, packed, prelude::*};
 #[cfg(feature = "std")]
 use std::format;
+
+#[cfg(feature = "no_std")]
+use das_types::{constants::*, packed, prelude::*};
+#[cfg(feature = "std")]
+use das_types_std::{constants::*, packed, prelude::*};
 
 use crate::error::ASTError;
 use crate::types::*;
@@ -122,8 +122,7 @@ fn handle_operator(
         SymbolType::Not => operator_not(&key, operator, account_chars, account)?,
         SymbolType::Equal | SymbolType::Gt | SymbolType::Gte | SymbolType::Lt | SymbolType::Lte => {
             operator_compare(&key, operator, account_chars, account, operator.symbol)?
-        }
-        // _ => todo!(),
+        } // _ => todo!(),
     }))
 }
 
@@ -237,7 +236,11 @@ fn handle_function(
 ) -> Result<Value, ASTError> {
     macro_rules! call_fn {
         ($fn_name: ident, $arg_len: expr) => {{
-            assert_param_length(format!("{}.arguments", key), function.arguments.len(), $arg_len.to_owned())?;
+            assert_param_length(
+                format!("{}.arguments", key),
+                function.arguments.len(),
+                $arg_len.to_owned(),
+            )?;
             $fn_name(key, &function.arguments, account_chars, account)
         }};
     }
@@ -304,7 +307,10 @@ fn include_chars(
     let account_without_suffix = get_account_without_suffix(account);
 
     match &arguments[1] {
-        Expression::Value(ValueExpression { value_type: _, value: Value::StringVec(chars) }) => {
+        Expression::Value(ValueExpression {
+            value_type: _,
+            value: Value::StringVec(chars),
+        }) => {
             for char in chars.iter() {
                 if account_without_suffix.contains(char) {
                     return Ok(Value::Bool(true));
@@ -313,7 +319,10 @@ fn include_chars(
 
             Ok(Value::Bool(false))
         }
-        _ => Err(ASTError::ParamTypeError { key: format!("{}.arguments[1]", key), types: String::from("string[]") }),
+        _ => Err(ASTError::ParamTypeError {
+            key: format!("{}.arguments[1]", key),
+            types: String::from("string[]"),
+        }),
     }
 }
 
@@ -333,7 +342,10 @@ fn starts_with(
     let account_without_suffix = get_account_without_suffix(account);
 
     match &arguments[1] {
-        Expression::Value(ValueExpression { value_type: _, value: Value::StringVec(chars) }) => {
+        Expression::Value(ValueExpression {
+            value_type: _,
+            value: Value::StringVec(chars),
+        }) => {
             for char in chars.iter() {
                 if account_without_suffix.starts_with(char) {
                     return Ok(Value::Bool(true));
@@ -342,7 +354,10 @@ fn starts_with(
 
             Ok(Value::Bool(false))
         }
-        _ => Err(ASTError::ParamTypeError { key: format!("{}.arguments[1]", key), types: String::from("string[]") }),
+        _ => Err(ASTError::ParamTypeError {
+            key: format!("{}.arguments[1]", key),
+            types: String::from("string[]"),
+        }),
     }
 }
 
@@ -362,7 +377,10 @@ fn ends_with(
     let account_without_suffix = get_account_without_suffix(account);
 
     match &arguments[1] {
-        Expression::Value(ValueExpression { value_type: _, value: Value::StringVec(chars) }) => {
+        Expression::Value(ValueExpression {
+            value_type: _,
+            value: Value::StringVec(chars),
+        }) => {
             for char in chars.iter() {
                 if account_without_suffix.ends_with(char) {
                     return Ok(Value::Bool(true));
@@ -371,7 +389,10 @@ fn ends_with(
 
             Ok(Value::Bool(false))
         }
-        _ => Err(ASTError::ParamTypeError { key: format!("{}.arguments[1]", key), types: String::from("string[]") }),
+        _ => Err(ASTError::ParamTypeError {
+            key: format!("{}.arguments[1]", key),
+            types: String::from("string[]"),
+        }),
     }
 }
 
@@ -391,8 +412,16 @@ fn only_include_charset(
     );
 
     let expected_charset = match &arguments[1] {
-        Expression::Value(ValueExpression { value_type: _, value: Value::CharsetType(charset) })=> charset,
-        _ => return Err(ASTError::ParamTypeError { key: format!("{}.arguments[1]", key), types: String::from("charset_type") }),
+        Expression::Value(ValueExpression {
+            value_type: _,
+            value: Value::CharsetType(charset),
+        }) => charset,
+        _ => {
+            return Err(ASTError::ParamTypeError {
+                key: format!("{}.arguments[1]", key),
+                types: String::from("charset_type"),
+            })
+        }
     };
 
     for item in account_chars.iter() {
@@ -426,8 +455,16 @@ fn include_charset(
     );
 
     let expected_charset = match &arguments[1] {
-        Expression::Value(ValueExpression { value_type: _, value: Value::CharsetType(charset) }) => charset,
-        _ => return Err(ASTError::ParamTypeError { key: format!("{}.arguments[1]", key), types: String::from("charset_type") }),
+        Expression::Value(ValueExpression {
+            value_type: _,
+            value: Value::CharsetType(charset),
+        }) => charset,
+        _ => {
+            return Err(ASTError::ParamTypeError {
+                key: format!("{}.arguments[1]", key),
+                types: String::from("charset_type"),
+            })
+        }
     };
 
     for item in account_chars.iter() {
@@ -459,13 +496,19 @@ fn in_list(
     );
 
     match &arguments[1] {
-        Expression::Value(ValueExpression { value_type: _, value: Value::BinaryVec(account_list) }) => {
+        Expression::Value(ValueExpression {
+            value_type: _,
+            value: Value::BinaryVec(account_list),
+        }) => {
             let hash = blake2b_256(account);
             let account_id = hash[0..20].to_vec();
             // println!("account_id = {:?}", hex::encode(&account_id));
             Ok(Value::Bool(account_list.contains(&account_id)))
         }
-        _ => Err(ASTError::ParamTypeError { key: format!("{}.arguments[1]", key), types: String::from("binary[]") }),
+        _ => Err(ASTError::ParamTypeError {
+            key: format!("{}.arguments[1]", key),
+            types: String::from("binary[]"),
+        }),
     }
 }
 
