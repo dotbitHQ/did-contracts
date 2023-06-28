@@ -15,7 +15,7 @@ use crate::constants::*;
 use crate::error::*;
 use crate::witness_parser::sub_account::*;
 use crate::witness_parser::WitnessesParser;
-use crate::{data_parser, util};
+use crate::{data_parser, util, verifiers};
 
 pub fn verify_cell_initial_properties(data: &[u8]) -> Result<(), Box<dyn ScriptError>> {
     debug!("Verify if the SubAccountCell's initial properties is correct.");
@@ -219,6 +219,7 @@ fn verify_initial_registered_at(
 }
 
 pub fn verify_initial_properties(
+    parser: &WitnessesParser,
     sub_account_index: usize,
     sub_account_reader: SubAccountReader,
     current_timestamp: u64,
@@ -228,13 +229,29 @@ pub fn verify_initial_properties(
     verify_initial_registered_at(sub_account_index, sub_account_reader, current_timestamp)?;
     verify_status(sub_account_index, sub_account_reader, AccountStatus::Normal)?;
 
-    das_assert!(
-        sub_account_reader.records().len() == 0,
-        AccountCellErrorCode::AccountCellRecordNotEmpty,
-        "  witnesses[{:>2}] The witness.sub_account.records of {} should be empty.",
-        sub_account_index,
-        util::get_sub_account_name_from_reader(sub_account_reader)
-    );
+    if sub_account_reader.records().len() == 0 {
+        debug!(
+            "  witnesses[{:>2}] The witness.sub_account.records of {} is empty, that is ok.",
+            sub_account_index,
+            util::get_sub_account_name_from_reader(sub_account_reader)
+        );
+    } else if sub_account_reader.records().len() == 1 {
+        debug!(
+            "  witnesses[{:>2}] The witness.sub_account.records of {} has 1 default record, verify if it is ok.",
+            sub_account_index,
+            util::get_sub_account_name_from_reader(sub_account_reader)
+        );
+
+        let records_reader = sub_account_reader.records();
+        verifiers::account_cell::verify_records_keys(parser, records_reader)?;
+    } else {
+        warn!(
+            "  witnesses[{:>2}] The witness.sub_account.records of {} should be empty or only one default record.",
+            sub_account_index,
+            util::get_sub_account_name_from_reader(sub_account_reader)
+        );
+        return Err(code_to_error!(SubAccountCellErrorCode::SubAccountInitialValueError));
+    }
 
     let enable_sub_account = u8::from(sub_account_reader.enable_sub_account());
     das_assert!(
