@@ -176,6 +176,8 @@ start)
       --name $DOCKER_CONTAINER \
       --network host \
       -v ${dir}:/code \
+      -v ${dir}/../das-types:/das-types \
+      -v ${dir}/../das-types-std:/das-types-std \
       -v $CACHE_VOLUME:/root/.cargo \
       -v ~/.gitconfig:/root/.gitconfig:ro \
       $DOCKER_IMAGE /bin/bash &>/dev/null
@@ -184,10 +186,12 @@ start)
       --name $DOCKER_CONTAINER \
       --network host \
       -v ${dir}:/code \
+      -v ${dir}/../das-types:/das-types \
+      -v ${dir}/../das-types-std:/das-types-std \
       -v ~/.gitconfig:/root/.gitconfig:ro \
       -v $CACHE_VOLUME:/root/.cargo \
       $DOCKER_IMAGE \
-      /bin/bash 
+      /bin/bash
   fi
   ;;
 stop)
