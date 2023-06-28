@@ -1,3 +1,4 @@
+use alloc::borrow::ToOwned;
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec;
@@ -490,8 +491,8 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
     let sub_account_last_updated_at = util::get_timestamp_from_header(header.as_reader());
 
     let mut manual_mint_list_smt_root = None;
+    let mut manual_renew_list_smt_root = None;
     let mut sender_lock = packed::Script::default();
-    let mut sender_total_input_capacity = 0;
 
     let mut custom_script_params = Vec::new();
     let mut custom_script_type_id = None;
@@ -500,54 +501,85 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
     let mut custom_price_rules = None;
     let mut custom_preserved_rules = None;
 
-    let all_inputs_balance_cells = util::find_all_balance_cells(config_main, Source::Input)?;
+    let mut sign_verified = false;
     if sub_account_parser.contains_creation || sub_account_parser.contains_renew {
-        debug!("Found `create` action in this transaction, do some common verfications ...");
-        // TODO Add renew branch
+        debug!("Found `create/renew` action in this transaction, do some common verfications ...");
 
-        match sub_account_parser.get_mint_sign(account_lock_args) {
-            Some(Ok(witness)) => {
-                debug!("The SubAccountMintSignWitness is exist, verifying the signature for manual mint ...",);
+        let verify_and_init_some_vars = |name: &str,
+                                         witness: &SubAccountMintSignWitness|
+         -> Result<(packed::Script, Option<[u8; 32]>), Box<dyn ScriptError>> {
+            debug!("The {} is exist, verifying the signature for manual mint ...", name);
 
-                verifiers::sub_account_cell::verify_sub_account_mint_sign_not_expired(
-                    &sub_account_parser,
-                    &witness,
-                    parent_expired_at,
-                    sub_account_last_updated_at,
-                )?;
-                verifiers::sub_account_cell::verify_sub_account_mint_sign(&witness, &sign_lib)?;
+            verifiers::sub_account_cell::verify_sub_account_mint_sign_not_expired(
+                &sub_account_parser,
+                &witness,
+                parent_expired_at,
+                sub_account_last_updated_at,
+            )?;
+            verifiers::sub_account_cell::verify_sub_account_mint_sign(&witness, &sign_lib)?;
 
-                let mut tmp = [0u8; 32];
-                tmp.copy_from_slice(&witness.account_list_smt_root);
-                manual_mint_list_smt_root = Some(tmp);
+            let mut tmp = [0u8; 32];
+            tmp.copy_from_slice(&witness.account_list_smt_root);
+            let account_list_smt_root = Some(tmp);
 
-                sender_lock = if witness.sign_role == Some(LockRole::Manager) {
-                    debug!("Found SubAccountWitness.sign_role is manager, use manager lock as sender_lock.");
-                    util::derive_manager_lock_from_cell(account_cell_index, account_cell_source)?
-                } else {
-                    debug!("Found SubAccountWitness.sign_role is owner, use owner lock as sender_lock.");
-                    util::derive_owner_lock_from_cell(account_cell_index, account_cell_source)?
-                };
+            let sender_lock = if witness.sign_role == Some(LockRole::Manager) {
+                debug!("Found SubAccountWitness.sign_role is manager, use manager lock as sender_lock.");
+                util::derive_manager_lock_from_cell(account_cell_index, account_cell_source)?
+            } else {
+                debug!("Found SubAccountWitness.sign_role is owner, use owner lock as sender_lock.");
+                util::derive_owner_lock_from_cell(account_cell_index, account_cell_source)?
+            };
 
-                let input_sender_balance_cells =
-                    util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Input)?;
+            Ok((sender_lock, account_list_smt_root))
+        };
 
-                verifiers::misc::verify_no_more_cells_with_same_lock(
-                    sender_lock.as_reader(),
-                    &input_sender_balance_cells,
-                    Source::Input,
-                )?;
-
-                sender_total_input_capacity = if input_sender_balance_cells.is_empty() {
-                    0
-                } else {
-                    util::load_cells_capacity(&input_sender_balance_cells, Source::Input)?
-                };
+        if sub_account_parser.contains_creation {
+            match sub_account_parser.get_mint_sign(account_lock_args) {
+                Some(Ok(witness)) => {
+                    sign_verified = true;
+                    (sender_lock, manual_mint_list_smt_root) =
+                        verify_and_init_some_vars("SubAccountMintWitness", &witness)?;
+                }
+                Some(Err(err)) => {
+                    return Err(err);
+                }
+                None => {
+                    debug!("There is no SubAccountMintSign found.");
+                }
             }
-            Some(Err(err)) => {
-                return Err(err);
+        }
+
+        if sub_account_parser.contains_renew {
+            match sub_account_parser.get_renew_sign(account_lock_args) {
+                Some(Ok(witness)) => {
+                    let renew_sender_lock;
+
+                    sign_verified = true;
+                    (renew_sender_lock, manual_renew_list_smt_root) =
+                        verify_and_init_some_vars("SubAccountRenewWitness", &witness)?;
+
+                    if sub_account_parser.contains_creation {
+                        das_assert!(
+                            util::is_entity_eq(&sender_lock, &renew_sender_lock),
+                            SubAccountCellErrorCode::MultipleSignRolesIsNotAllowed,
+                            "The sign_role of SubAccountMintSignWitness and SubAccountRenewSignWitness should be the same in the same transaction."
+                        );
+                    } else {
+                        sender_lock = renew_sender_lock;
+                    }
+                }
+                Some(Err(err)) => {
+                    return Err(err);
+                }
+                None => {
+                    debug!("There is no SubAccountRenewSign found.");
+                }
             }
-            None => {}
+        } else {
+            if sub_account_parser.get_renew_sign(account_lock_args).is_some() {
+                warn!("The SubAccountRenewSignWitness is not allowed if there if no renew action exists.");
+                return Err(code_to_error!(SubAccountCellErrorCode::SubAccountRenewSignIsNotAllowed));
+            }
         }
 
         debug!("The SubAccountCell.data.flag is {} .", flag.to_string());
@@ -604,11 +636,6 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
                 debug!("The type ID of custom script is: 0x{}", util::hex_string(&type_id));
 
                 custom_script_type_id = Some(type_id);
-
-                // CAREFUL This is very important, only update it with fully understanding the requirements.
-                debug!("Verify if there is no BalanceCells of the parent AccountCell's owner is spent.");
-
-                verifiers::common::verify_cell_number("BalanceCell", &all_inputs_balance_cells, 0, &[], 0)?;
             }
             SubAccountConfigFlag::CustomRule => {
                 verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
@@ -645,11 +672,6 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
             account_cell_source,
         )?;
     } else {
-        // CAREFUL This is very important, only update it with fully understanding the requirements.
-        debug!("Verify if there is no BalanceCells are spent.");
-
-        verifiers::common::verify_cell_number("BalanceCell", &all_inputs_balance_cells, 0, &[], 0)?;
-
         if sub_account_parser.contains_edition || sub_account_parser.contains_recycle {
             debug!(
                 "Found `edit/recycle` action in this transaction but no `create` action, so do some common verfications ..."
@@ -669,6 +691,49 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
                 vec![],
             )?;
         }
+    }
+
+    debug!("Verify if there is any BalanceCell is abused ...");
+
+    // CAREFUL This is very important, only update it with fully understanding the requirements.
+    let das_lock = das_lock();
+    let all_inputs_with_das_lock =
+        util::find_cells_by_type_id(ScriptType::Lock, das_lock.code_hash().as_reader().into(), Source::Input)?;
+    let mut sender_total_input_capacity = 0;
+    if sign_verified {
+        let input_sender_balance_cells = util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Input)?;
+
+        verifiers::misc::verify_no_more_cells_with_same_lock(
+            sender_lock.as_reader(),
+            &input_sender_balance_cells,
+            Source::Input,
+        )?;
+
+        das_assert!(
+            all_inputs_with_das_lock == input_sender_balance_cells,
+            SubAccountCellErrorCode::SomeCellWithDasLockMayBeAbused,
+            "Some cells with das-lock have may be abused.(invalid_inputs: {:?})",
+            all_inputs_with_das_lock
+                .iter()
+                .filter(|item| !input_sender_balance_cells.contains(item))
+                .map(|item| item.to_owned())
+                .collect::<Vec<usize>>()
+        );
+
+        sender_total_input_capacity = if input_sender_balance_cells.is_empty() {
+            0
+        } else {
+            util::load_cells_capacity(&input_sender_balance_cells, Source::Input)?
+        };
+    } else {
+        debug!("Verify if there is no BalanceCells are spent.");
+
+        das_assert!(
+            all_inputs_with_das_lock.len() == 0,
+            SubAccountCellErrorCode::SomeCellWithDasLockMayBeAbused,
+            "Some cells with das-lock have may be abused.(invalid_inputs: {:?})",
+            all_inputs_with_das_lock
+        );
     }
 
     debug!("Start iterating sub-account witnesses ...");
@@ -709,6 +774,7 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
         &parent_account,
         parent_expired_at,
         &manual_mint_list_smt_root,
+        &manual_renew_list_smt_root,
         custom_script_params,
         &custom_preserved_rules,
         &custom_price_rules,
@@ -720,7 +786,6 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
         };
 
         sub_action.dispatch(&witness, &prev_root)?;
-
         prev_root = witness.new_root.clone();
 
         if i == sub_account_parser.len() - 1 {
@@ -741,11 +806,26 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
         }
     }
 
-    let minimal_required_das_profit = sub_action.minimal_required_das_profit;
-    let profit_from_manual_mint = sub_action.profit_from_manual_mint;
-    let profit_total = sub_action.profit_total;
-    if sub_account_parser.contains_creation {
+    if sub_account_parser.contains_creation || sub_account_parser.contains_renew {
         debug!("Verify if the profit distribution is correct.");
+
+        let minimal_required_das_profit = sub_action.minimal_required_das_profit;
+        let profit_from_manual_mint = sub_action.profit_from_manual_mint;
+        let profit_from_manual_renew = sub_action.profit_from_manual_renew;
+        let profit_from_manual_renew_by_other = sub_action.profit_from_manual_renew_by_other;
+        let profit_total = sub_action.profit_total;
+
+        if profit_from_manual_renew_by_other > 0 {
+            debug!("Found profit paied by others, verify if they only used NormalCells.");
+
+            let lock = signall_lock();
+            let normal_cells =
+                util::find_cells_by_type_id(ScriptType::Lock, lock.as_reader().code_hash().into(), Source::Input)?;
+            // 0 is SubAccountCell, all_inputs_with_das_lock are BalanceCells paied by owner/manager
+            let all_inputs = [vec![0], all_inputs_with_das_lock, normal_cells].concat();
+
+            verifiers::misc::verify_no_more_cells(&all_inputs, Source::Input)?;
+        }
 
         if sender_total_input_capacity > 0 {
             debug!("Verify if the sender capacity cost is correct.");
@@ -762,10 +842,10 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
                 };
 
                 das_assert!(
-                    sender_total_input_capacity - sender_total_output_capacity <= profit_from_manual_mint + fee_to_pay,
+                    sender_total_input_capacity - sender_total_output_capacity <= profit_from_manual_mint + profit_from_manual_renew + fee_to_pay,
                     SubAccountCellErrorCode::SenderCapacityOverCost,
                     "The sender capacity cost should be <= the cost for manual mint and fee(if not paied by SubAccountCell).(should <=: {}, actual: {})",
-                    profit_from_manual_mint + fee_to_pay,
+                    profit_from_manual_mint + profit_from_manual_renew + fee_to_pay,
                     sender_total_input_capacity - sender_total_output_capacity
                 );
             }
@@ -829,7 +909,7 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
                     output_sub_account_cells[0],
                     &input_sub_account_data,
                     &output_sub_account_data,
-                    profit_from_manual_mint,
+                    profit_total,
                 )?;
             }
         }

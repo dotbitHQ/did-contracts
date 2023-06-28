@@ -48,3 +48,11 @@ pub fn get_price_rules_hash(data: &[u8]) -> Option<&[u8]> {
 pub fn get_preserved_rules_hash(data: &[u8]) -> Option<&[u8]> {
     data.get(60..70)
 }
+
+pub fn get_exipred_at_from_edit_value(data: &[u8]) -> Option<u64> {
+    data.get(..8).map(|v| u64::from_le_bytes(v.try_into().unwrap()))
+}
+
+pub fn get_proof_from_edit_value(data: &[u8]) -> Option<&[u8]> {
+    data.get(8..)
+}

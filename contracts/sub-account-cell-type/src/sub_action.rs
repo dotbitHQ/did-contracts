@@ -1,6 +1,6 @@
 use alloc::borrow::ToOwned;
 use alloc::boxed::Box;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use das_core::constants::*;
@@ -37,9 +37,12 @@ pub struct SubAction<'a> {
     pub minimal_required_das_profit: u64,
     pub profit_total: u64,
     pub profit_from_manual_mint: u64,
+    pub profit_from_manual_renew: u64,
+    pub profit_from_manual_renew_by_other: u64,
 
     // manual mint fields
     manual_mint_list_smt_root: &'a Option<[u8; 32]>,
+    manual_renew_list_smt_root: &'a Option<[u8; 32]>,
 
     // custom script fields
     pub custom_script_params: Vec<String>,
@@ -63,6 +66,7 @@ impl<'a> SubAction<'a> {
         parent_account: &'a [u8],
         parent_expired_at: u64,
         manual_mint_list_smt_root: &'a Option<[u8; 32]>,
+        manual_renew_list_smt_root: &'a Option<[u8; 32]>,
         custom_script_params: Vec<String>,
         custom_preserved_rules: &'a Option<Vec<ast_types::SubAccountRule>>,
         custom_price_rules: &'a Option<Vec<ast_types::SubAccountRule>>,
@@ -82,7 +86,10 @@ impl<'a> SubAction<'a> {
             minimal_required_das_profit: 0,
             profit_total: 0,
             profit_from_manual_mint: 0,
+            profit_from_manual_renew: 0,
+            profit_from_manual_renew_by_other: 0,
             manual_mint_list_smt_root,
+            manual_renew_list_smt_root,
             custom_script_params,
             custom_preserved_rules,
             custom_price_rules,
@@ -117,18 +124,18 @@ impl<'a> SubAction<'a> {
         );
 
         let sub_account_reader = witness.sub_account.as_reader();
-        let account_chars = witness.sub_account.account();
-        let account_chars_reader = account_chars.as_reader();
-        let mut account_bytes = account_chars.as_readable();
-        account_bytes.extend(sub_account_reader.suffix().raw_data());
-        let account = String::from_utf8(account_bytes)
-            .map_err(|_| code_to_error!(SubAccountCellErrorCode::BytesToStringFailed))?;
+        let (account, account_chars_reader) = gen_account_from_witness(sub_account_reader)?;
 
         verifiers::account_cell::verify_account_chars(self.parser, account_chars_reader)?;
         verifiers::account_cell::verify_account_chars_min_length(account_chars_reader)?;
         verifiers::account_cell::verify_account_chars_max_length(self.parser, account_chars_reader)?;
 
-        verifiers::sub_account_cell::verify_initial_properties(witness.index, sub_account_reader, self.timestamp)?;
+        verifiers::sub_account_cell::verify_initial_properties(
+            self.parser,
+            witness.index,
+            sub_account_reader,
+            self.timestamp,
+        )?;
 
         // The verifiers::sub_account_cell::verify_initial_properties has ensured the expiration_years is >= 1 year.
         let expired_at = u64::from(sub_account_reader.expired_at());
@@ -150,7 +157,7 @@ impl<'a> SubAction<'a> {
             );
 
             let root = self.manual_mint_list_smt_root.as_ref().unwrap();
-            match smt_verify_sub_account_is_in_signed_list(root.clone(), &witness) {
+            match smt_verify_sub_account_is_in_mint_list(root.clone(), &witness) {
                 Ok(()) => {
                     debug!(
                         "  witnesses[{:>2}] The account is in the signed mint list, it can be register without payment.",
@@ -172,7 +179,9 @@ impl<'a> SubAction<'a> {
                             witness.index
                         );
 
-                        return Err(code_to_error!(SubAccountCellErrorCode::AccountMissingProof));
+                        return Err(code_to_error!(
+                            SubAccountCellErrorCode::ProofInManualSignRenewListMissing
+                        ));
                     } else {
                         debug!("  witnesses[{:>2}] The account is not in the signed mint list, continue try other mint methods.", witness.index);
                     }
@@ -301,6 +310,196 @@ impl<'a> SubAction<'a> {
         Ok(())
     }
 
+    fn renew(&mut self, witness: &SubAccountWitness, prev_root: &[u8]) -> Result<(), Box<dyn ScriptError>> {
+        let sub_account_reader = witness.sub_account.as_reader();
+        let mut new_sub_account_builder = witness.sub_account.clone().as_builder();
+
+        let new_expired_at =
+            match data_parser::sub_account_cell::get_exipred_at_from_edit_value(&witness.edit_value_bytes) {
+                Some(value) => value,
+                None => {
+                    warn!(
+                        "  witnesses[{:>2}] The edit_value should contains expired_at when renewing the sub-account.",
+                        witness.index
+                    );
+                    return Err(code_to_error!(SubAccountCellErrorCode::NewExpiredAtIsRequired));
+                }
+            };
+        new_sub_account_builder = new_sub_account_builder.expired_at(Uint64::from(new_expired_at));
+
+        let new_sub_account = new_sub_account_builder.build();
+        let new_sub_account_reader = new_sub_account.as_reader();
+
+        smt_verify_sub_account_is_editable(&prev_root, &witness, new_sub_account_reader)?;
+
+        let expired_at = u64::from(sub_account_reader.expired_at());
+        let expiration_years = (new_expired_at - expired_at) / YEAR_SEC;
+
+        debug!(
+            "  witnesses[{:>2}] The account is renewed for {} years.",
+            witness.index, expiration_years
+        );
+
+        das_assert!(
+            expiration_years >= 1,
+            SubAccountCellErrorCode::ExpirationYearsTooShort,
+            "  witnesses[{:>2}] The renewed expiration date should be at least 1 year.",
+            witness.index
+        );
+
+        match (witness.edit_key.as_slice(), self.manual_renew_list_smt_root) {
+            (b"manual", Some(root)) => {
+                debug!(
+                    "  witnesses[{:>2}] The account will be manually renewed by owner/manager.",
+                    witness.index
+                );
+
+                match data_parser::sub_account_cell::get_proof_from_edit_value(&witness.edit_value_bytes) {
+                    Some(_) => {
+                        match smt_verify_sub_account_is_in_renew_list(root.clone(), &witness) {
+                            Ok(()) => {
+                                let profit =
+                                    u64::from(self.config_sub_account.renew_sub_account_price()) * expiration_years;
+                                self.profit_from_manual_renew += profit;
+                                self.profit_total += profit;
+                                self.minimal_required_das_profit +=
+                                    u64::from(self.config_sub_account.renew_sub_account_price()) * expiration_years;
+                            }
+                            Err(err) => {
+                                warn!(
+                                    "  witnesses[{:>2}] The proof in edit_value is missing or invalid, but it is marked as manual renew.",
+                                    witness.index
+                                );
+
+                                return Err(err);
+                            }
+                        }
+
+                        return Ok(());
+                    }
+                    None => {
+                        debug!(
+                            "  witnesses[{:>2}] The account has no proof and will be treated as manually renewed by others later.",
+                            witness.index
+                        );
+                    }
+                }
+            }
+            _ => {}
+        }
+
+        match self.flag {
+            SubAccountConfigFlag::CustomScript => {
+                warn!(
+                    "  witnesses[{:>2}] The sub-accounts with custom script are not supported for now.",
+                    witness.index
+                );
+                return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
+            }
+            SubAccountConfigFlag::CustomRule => {
+                if self.custom_rule_flag == SubAccountCustomRuleFlag::Off {
+                    warn!(
+                        "  witnesses[{:>2}] The custom rules is off, the account can not be renewed for now.",
+                        witness.index
+                    );
+                    return Err(code_to_error!(SubAccountCellErrorCode::CustomRuleIsOff));
+                }
+
+                let sub_account_reader = witness.sub_account.as_reader();
+                let (account, account_chars_reader) = gen_account_from_witness(sub_account_reader)?;
+
+                match self.custom_price_rules.as_ref() {
+                    Some(rules) => match match_rule_with_account_chars(&rules, account_chars_reader, &account) {
+                        Ok(Some(rule)) => {
+                            debug!(
+                                "  witnesses[{:>2}] The account will be renewed with custom rules.",
+                                witness.index
+                            );
+
+                            das_assert!(
+                                witness.edit_key == b"custom_rule",
+                                SubAccountCellErrorCode::EditKeyMismatch,
+                                "  witnesses[{:>2}] The edit_key should be custom_rule, because rule[{}] found.",
+                                witness.index,
+                                rule.name
+                            );
+
+                            das_assert!(
+                                    matches!(witness.edit_value, SubAccountEditValue::Channel(_, _)),
+                                    SubAccountCellErrorCode::WitnessEditValueError,
+                                    "  witnesses[{:>2}] The edit_value should be contains channel info when the account is Custom Rule Mint.",
+                                    witness.index
+                                );
+
+                            let profit = util::calc_yearly_capacity(rule.price, self.quote, 0) * expiration_years;
+
+                            das_assert!(
+                                profit
+                                    >= u64::from(self.config_sub_account.renew_sub_account_price()) * expiration_years,
+                                SubAccountCellErrorCode::MinimalProfitToDASNotReached,
+                                "  witnesses[{:>2}] The minimal profit to .bit should be more than {} shannon.",
+                                witness.index,
+                                u64::from(self.config_sub_account.renew_sub_account_price()) * expiration_years
+                            );
+
+                            self.profit_total += profit;
+
+                            debug!(
+                                "  witnesses[{:>2}] account: {}, matched rule: {}, profit: {} in shannon",
+                                witness.index, account, rule.index, profit
+                            );
+
+                            return Ok(());
+                        }
+                        Ok(None) => {
+                            debug!(
+                                "  witnesses[{:>2}] The account is allowed to be renewed manually because no matched rule found.",
+                                witness.index
+                            );
+                        }
+                        Err(err) => {
+                            warn!(
+                                "  witnesses[{:>2}] The config rules has syntax error: {}",
+                                witness.index,
+                                err.to_string()
+                            );
+                            return Err(code_to_error!(SubAccountCellErrorCode::ConfigRulesHasSyntaxError));
+                        }
+                    },
+                    None => {
+                        warn!(
+                            "  witnesses[{:>2}] The account {} can not be renewed, the witness named SubAccountRules is required.",
+                            witness.index, account
+                        );
+                        return Err(code_to_error!(SubAccountCellErrorCode::AccountHasNoPrice));
+                    }
+                }
+                // let matched_rule = rules.last();
+            }
+            _ => {}
+        }
+
+        debug!(
+            "  witnesses[{:>2}] The account will be manually renewed by others.",
+            witness.index
+        );
+
+        das_assert!(
+            witness.edit_key == b"manual",
+            SubAccountCellErrorCode::EditKeyMismatch,
+            "  witnesses[{:>2}] The edit_key should be manual, because it does not match any other conditions.",
+            witness.index
+        );
+
+        let profit = u64::from(self.config_sub_account.renew_sub_account_price()) * expiration_years;
+        self.profit_from_manual_renew_by_other += profit;
+        self.profit_total += profit;
+        self.minimal_required_das_profit +=
+            u64::from(self.config_sub_account.renew_sub_account_price()) * expiration_years;
+
+        Ok(())
+    }
+
     fn edit(&mut self, witness: &SubAccountWitness, prev_root: &[u8]) -> Result<(), Box<dyn ScriptError>> {
         let sub_account_reader = witness.sub_account.as_reader();
         let new_sub_account = generate_new_sub_account_by_edit_value(witness.sub_account.clone(), &witness.edit_value)?;
@@ -376,14 +575,6 @@ impl<'a> SubAction<'a> {
             SubAccountEditValue::Records(records) => {
                 verifiers::account_cell::verify_records_keys(self.parser, records.as_reader())?;
             }
-            // manual::verify_expired_at_not_editable
-            SubAccountEditValue::ExpiredAt(_) => {
-                warn!(
-                    "  witnesses[{:>2}] Can not edit witness.sub_account.expired_at in this transaction.",
-                    witness.index
-                );
-                return Err(code_to_error!(SubAccountCellErrorCode::SubAccountFieldNotEditable));
-            }
             // manual::verify_edit_value_not_empty
             SubAccountEditValue::None | _ => {
                 warn!(
@@ -395,10 +586,6 @@ impl<'a> SubAction<'a> {
         }
 
         Ok(())
-    }
-
-    fn renew(&mut self, witness: &SubAccountWitness, prev_root: &[u8]) -> Result<(), Box<dyn ScriptError>> {
-        todo!()
     }
 
     fn recycle(&mut self, witness: &SubAccountWitness, prev_root: &[u8]) -> Result<(), Box<dyn ScriptError>> {
@@ -442,6 +629,18 @@ impl<'a> SubAction<'a> {
     }
 }
 
+fn gen_account_from_witness(
+    sub_account_reader: SubAccountReader,
+) -> Result<(String, AccountCharsReader), Box<dyn ScriptError>> {
+    let account_chars_reader = sub_account_reader.account();
+    let mut account_bytes = account_chars_reader.as_readable();
+    account_bytes.extend(sub_account_reader.suffix().raw_data());
+    let account =
+        String::from_utf8(account_bytes).map_err(|_| code_to_error!(SubAccountCellErrorCode::BytesToStringFailed))?;
+
+    Ok((account, account_chars_reader))
+}
+
 fn gen_smt_key_by_account_id(account_id: &[u8]) -> [u8; 32] {
     let mut key = [0u8; 32];
     let key_pre = [account_id, &[0u8; 12]].concat();
@@ -449,10 +648,11 @@ fn gen_smt_key_by_account_id(account_id: &[u8]) -> [u8; 32] {
     key
 }
 
-fn smt_verify_sub_account_is_in_signed_list(
+fn smt_verify_sub_account_is_in_mint_list(
     root: [u8; 32],
     witness: &SubAccountWitness,
 ) -> Result<(), Box<dyn ScriptError>> {
+    // TODO Unify the error codes here with the renew action
     let proof = &witness.edit_value_bytes;
     let key = gen_smt_key_by_account_id(witness.sub_account.id().as_slice());
     let value = util::blake2b_256(witness.sub_account.lock().args().as_reader().raw_data());
@@ -465,6 +665,30 @@ fn smt_verify_sub_account_is_in_signed_list(
     );
 
     verifiers::common::verify_smt_proof(key, value, root, proof)?;
+
+    Ok(())
+}
+
+fn smt_verify_sub_account_is_in_renew_list(
+    root: [u8; 32],
+    witness: &SubAccountWitness,
+) -> Result<(), Box<dyn ScriptError>> {
+    let proof = match data_parser::sub_account_cell::get_proof_from_edit_value(&witness.edit_value_bytes) {
+        Some(proof) => proof,
+        None => return Err(code_to_error!(SubAccountCellErrorCode::ManualRenewProofIsRequired)),
+    };
+    let key = gen_smt_key_by_account_id(witness.sub_account.id().as_slice());
+    let value = util::blake2b_256(witness.sub_account.lock().args().as_reader().raw_data());
+
+    debug!(
+        "  witnesses[{:>2}] Verify if {} is exist in the SubAccountMintSignWitness.account_list_smt_root.(key: 0x{})",
+        witness.index,
+        witness.sub_account.account().as_prettier(),
+        util::hex_string(&key)
+    );
+
+    verifiers::common::verify_smt_proof(key, value, root, proof)
+        .map_err(|_| code_to_error!(SubAccountCellErrorCode::ManualRenewProofIsInvalid))?;
 
     Ok(())
 }
@@ -567,10 +791,6 @@ fn generate_new_sub_account_by_edit_value(
     let current_nonce = u64::from(sub_account.nonce());
 
     let mut sub_account_builder = match edit_value {
-        SubAccountEditValue::ExpiredAt(val) => {
-            let sub_account_builder = sub_account.as_builder();
-            sub_account_builder.expired_at(val.to_owned())
-        }
         SubAccountEditValue::Owner(val) | SubAccountEditValue::Manager(val) => {
             let mut lock_builder = sub_account.lock().as_builder();
             let mut sub_account_builder = sub_account.as_builder();

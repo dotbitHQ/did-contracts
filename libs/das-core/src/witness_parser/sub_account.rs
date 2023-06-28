@@ -54,7 +54,6 @@ pub struct SubAccountWitness {
 #[derive(Debug)]
 pub enum SubAccountEditValue {
     None,
-    ExpiredAt(Uint64),
     Owner(Vec<u8>),
     Manager(Vec<u8>),
     Records(Records),
@@ -86,6 +85,7 @@ pub struct SubAccountWitnessesParser {
     pub contains_renew: bool,
     pub contains_recycle: bool,
     pub mint_sign_index: Option<usize>,
+    pub renew_sign_index: Option<usize>,
     pub price_rule_indexes: Vec<usize>,
     pub preserved_rule_indexes: Vec<usize>,
     pub indexes: Vec<usize>,
@@ -98,6 +98,7 @@ impl SubAccountWitnessesParser {
         let mut contains_renew = false;
         let mut contains_recycle = false;
         let mut mint_sign_index = None;
+        let mut renew_sign_index = None;
         let mut price_rule_indexes = Vec::new();
         let mut preserved_rule_indexes = Vec::new();
         let mut indexes = Vec::new();
@@ -141,6 +142,10 @@ impl SubAccountWitnessesParser {
                         Ok(DataType::SubAccountMintSign) => {
                             count += 1;
                             mint_sign_index = Some(i);
+                        }
+                        Ok(DataType::SubAccountRenewSign) => {
+                            count += 1;
+                            renew_sign_index = Some(i);
                         }
                         Ok(DataType::SubAccount) => {
                             count += 1;
@@ -199,20 +204,19 @@ impl SubAccountWitnessesParser {
             contains_renew,
             contains_recycle,
             mint_sign_index,
+            renew_sign_index,
             price_rule_indexes,
             preserved_rule_indexes,
             indexes,
         })
     }
 
-    fn parse_mint_sign_witness(&self, lock_args: &[u8]) -> Result<SubAccountMintSignWitness, Box<dyn ScriptError>> {
-        if self.mint_sign_index.is_none() {
-            return Err(code_to_error!(ErrorCode::WitnessReadingError));
-        }
-
-        let index = self.mint_sign_index.unwrap();
-
-        debug!("  witnesses[{:>2}] Parsing SubAccountMintSignWitness ...", index);
+    fn parse_mint_sign_witness(
+        &self,
+        index: usize,
+        lock_args: &[u8],
+    ) -> Result<SubAccountMintSignWitness, Box<dyn ScriptError>> {
+        debug!("  witnesses[{:>2}] Parsing SubAccountMint/RenewSignWitness ...", index);
 
         let raw = util::load_das_witnesses(index)?;
         let start = WITNESS_HEADER_BYTES + WITNESS_LENGTH_BYTES;
@@ -417,6 +421,12 @@ impl SubAccountWitnessesParser {
             }
         };
 
+        debug!(
+            "  witnesses[{:>2}] SubAccountWitness.action is {} .",
+            i,
+            action.to_string()
+        );
+
         let mut sign_role = None;
         let mut sign_type = None;
         let mut sign_args = vec![];
@@ -425,15 +435,10 @@ impl SubAccountWitnessesParser {
         let edit_value;
         match action {
             SubAccountAction::Create | SubAccountAction::Renew => {
-                debug!(
-                    "  witnesses[{:>2}] SubAccountWitness.action is Create, skip signature related fields.",
-                    i
-                );
-
                 edit_value = match edit_key {
                     b"manual" => {
                         das_assert!(
-                            !edit_value_bytes.is_empty(),
+                            !edit_value_bytes.len() >= 8,
                             SubAccountCellErrorCode::WitnessParsingError,
                             "  witnesses[{:>2}] SubAccountMintSignWitness.edit_value_bytes should not be empty.",
                             i
@@ -468,16 +473,29 @@ impl SubAccountWitnessesParser {
                             flag.to_string()
                         );
 
-                        das_assert!(
-                            edit_value_bytes.len() == 28,
-                            SubAccountCellErrorCode::WitnessParsingError,
-                            "  witnesses[{:>2}] SubAccountMintSignWitness.edit_value_bytes should be 4 bytes.",
-                            i
-                        );
+                        if action == SubAccountAction::Create {
+                            das_assert!(
+                                edit_value_bytes.len() == 28,
+                                SubAccountCellErrorCode::WitnessParsingError,
+                                "  witnesses[{:>2}] SubAccountMintSignWitness.edit_value_bytes should be 28 bytes.",
+                                i
+                            );
 
-                        let value = u64::from_le_bytes(edit_value_bytes[20..].try_into().unwrap());
+                            let value = u64::from_le_bytes(edit_value_bytes[20..].try_into().unwrap());
 
-                        SubAccountEditValue::Channel(edit_value_bytes[..20].to_vec(), value)
+                            SubAccountEditValue::Channel(edit_value_bytes[..20].to_vec(), value)
+                        } else {
+                            das_assert!(
+                                edit_value_bytes.len() == 28 + 8,
+                                SubAccountCellErrorCode::WitnessParsingError,
+                                "  witnesses[{:>2}] SubAccountMintSignWitness.edit_value_bytes should be 36 bytes.",
+                                i
+                            );
+
+                            let value = u64::from_le_bytes(edit_value_bytes[28..].try_into().unwrap());
+
+                            SubAccountEditValue::Channel(edit_value_bytes[8..28].to_vec(), value)
+                        }
                     }
                     _ => SubAccountEditValue::None,
                 };
@@ -497,20 +515,6 @@ impl SubAccountWitnessesParser {
 
                 // The actual type of the edit_value field is base what the edit_key field is.
                 edit_value = match edit_key {
-                    b"expired_at" => {
-                        let expired_at = match Uint64::from_slice(edit_value_bytes) {
-                            Ok(val) => val,
-                            Err(e) => {
-                                warn!(
-                                    "  witnesses[{:>2}] Sub-account witness structure error, decoding expired_at failed: {}",
-                                    i, e
-                                );
-                                return Err(code_to_error!(ErrorCode::WitnessStructureError));
-                            }
-                        };
-
-                        SubAccountEditValue::ExpiredAt(expired_at)
-                    }
                     b"owner" => SubAccountEditValue::Owner(edit_value_bytes.to_vec()),
                     b"manager" => SubAccountEditValue::Manager(edit_value_bytes.to_vec()),
                     b"records" => {
@@ -656,7 +660,17 @@ impl SubAccountWitnessesParser {
 
     pub fn get_mint_sign(&self, lock_args: &[u8]) -> Option<Result<SubAccountMintSignWitness, Box<dyn ScriptError>>> {
         match self.mint_sign_index {
-            Some(_) => match self.parse_mint_sign_witness(lock_args) {
+            Some(i) => match self.parse_mint_sign_witness(i, lock_args) {
+                Ok(witness) => Some(Ok(witness)),
+                Err(e) => Some(Err(e)),
+            },
+            _ => None,
+        }
+    }
+
+    pub fn get_renew_sign(&self, lock_args: &[u8]) -> Option<Result<SubAccountMintSignWitness, Box<dyn ScriptError>>> {
+        match self.renew_sign_index {
+            Some(i) => match self.parse_mint_sign_witness(i, lock_args) {
                 Ok(witness) => Some(Ok(witness)),
                 Err(e) => Some(Err(e)),
             },

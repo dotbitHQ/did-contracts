@@ -78,6 +78,7 @@ impl WitnessesParser {
                         Ok(
                             DataType::SubAccount
                             | DataType::SubAccountMintSign
+                            | DataType::SubAccountRenewSign
                             | DataType::SubAccountPriceRule
                             | DataType::SubAccountPreservedRule,
                         ) => {
