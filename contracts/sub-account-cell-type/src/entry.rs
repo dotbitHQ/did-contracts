@@ -505,10 +505,10 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
     if sub_account_parser.contains_creation || sub_account_parser.contains_renew {
         debug!("Found `create/renew` action in this transaction, do some common verfications ...");
 
-        let verify_and_init_some_vars = |name: &str,
+        let verify_and_init_some_vars = |_name: &str,
                                          witness: &SubAccountMintSignWitness|
          -> Result<(packed::Script, Option<[u8; 32]>), Box<dyn ScriptError>> {
-            debug!("The {} is exist, verifying the signature for manual mint ...", name);
+            debug!("The {} is exist, verifying the signature for manual mint ...", _name);
 
             verifiers::sub_account_cell::verify_sub_account_mint_sign_not_expired(
                 &sub_account_parser,

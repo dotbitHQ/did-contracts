@@ -59,6 +59,7 @@ pub enum SubAccountEditValue {
     Records(Records),
     Proof,
     Channel(Vec<u8>, u64),
+    ExpiredAt(u64),
 }
 
 pub struct SubAccountWitnessesIter<'a> {
@@ -434,12 +435,12 @@ impl SubAccountWitnessesParser {
         let mut _lock_args = vec![];
         let edit_value;
         match action {
-            SubAccountAction::Create | SubAccountAction::Renew => {
+            SubAccountAction::Create => {
                 edit_value = match edit_key {
                     b"manual" => {
                         das_assert!(
                             !edit_value_bytes.len() >= 8,
-                            SubAccountCellErrorCode::WitnessParsingError,
+                            SubAccountCellErrorCode::WitnessEditValueError,
                             "  witnesses[{:>2}] SubAccountMintSignWitness.edit_value_bytes should not be empty.",
                             i
                         );
@@ -457,7 +458,7 @@ impl SubAccountWitnessesParser {
 
                         das_assert!(
                             edit_value_bytes.is_empty(),
-                            SubAccountCellErrorCode::WitnessParsingError,
+                            SubAccountCellErrorCode::WitnessEditValueError,
                             "  witnesses[{:>2}] SubAccountMintSignWitness.edit_value_bytes should be empty.",
                             i
                         );
@@ -473,32 +474,70 @@ impl SubAccountWitnessesParser {
                             flag.to_string()
                         );
 
-                        if action == SubAccountAction::Create {
-                            das_assert!(
-                                edit_value_bytes.len() == 28,
-                                SubAccountCellErrorCode::WitnessParsingError,
-                                "  witnesses[{:>2}] SubAccountMintSignWitness.edit_value_bytes should be 28 bytes.",
-                                i
-                            );
+                        das_assert!(
+                            edit_value_bytes.len() == 28,
+                            SubAccountCellErrorCode::WitnessEditValueError,
+                            "  witnesses[{:>2}] SubAccountMintSignWitness.edit_value_bytes should be 28 bytes.",
+                            i
+                        );
 
-                            let value = u64::from_le_bytes(edit_value_bytes[20..].try_into().unwrap());
+                        let value = u64::from_le_bytes(edit_value_bytes[20..].try_into().unwrap());
 
-                            SubAccountEditValue::Channel(edit_value_bytes[..20].to_vec(), value)
-                        } else {
-                            das_assert!(
-                                edit_value_bytes.len() == 28 + 8,
-                                SubAccountCellErrorCode::WitnessParsingError,
-                                "  witnesses[{:>2}] SubAccountMintSignWitness.edit_value_bytes should be 36 bytes.",
-                                i
-                            );
-
-                            let value = u64::from_le_bytes(edit_value_bytes[28..].try_into().unwrap());
-
-                            SubAccountEditValue::Channel(edit_value_bytes[8..28].to_vec(), value)
-                        }
+                        SubAccountEditValue::Channel(edit_value_bytes[..20].to_vec(), value)
                     }
                     _ => SubAccountEditValue::None,
                 };
+            }
+            SubAccountAction::Renew => {
+                let new_expired_at = match data_parser::sub_account_cell::get_exipred_at_from_edit_value(
+                    &edit_value_bytes,
+                ) {
+                    Some(value) => value,
+                    None => {
+                        warn!(
+                                "  witnesses[{:>2}] The edit_value should contains expired_at when renewing the sub-account.",
+                                i
+                            );
+                        return Err(code_to_error!(SubAccountCellErrorCode::NewExpiredAtIsRequired));
+                    }
+                };
+                edit_value = SubAccountEditValue::ExpiredAt(new_expired_at);
+
+                match edit_key {
+                    b"custom_script" => {
+                        das_assert!(
+                            flag == SubAccountConfigFlag::CustomScript,
+                            SubAccountCellErrorCode::WitnessEditKeyInvalid,
+                            "  witnesses[{:>2}] The flag is {}, so the 'custom_script' is not allowed in edit_key.",
+                            i,
+                            flag.to_string()
+                        );
+
+                        das_assert!(
+                            edit_value_bytes.is_empty(),
+                            SubAccountCellErrorCode::WitnessEditValueError,
+                            "  witnesses[{:>2}] SubAccountMintSignWitness.edit_value_bytes should be empty.",
+                            i
+                        );
+                    }
+                    b"custom_rule" => {
+                        das_assert!(
+                            flag == SubAccountConfigFlag::CustomRule,
+                            SubAccountCellErrorCode::WitnessEditKeyInvalid,
+                            "  witnesses[{:>2}] The flag is {}, so the 'custom_rule' is not allowed in edit_key.",
+                            i,
+                            flag.to_string()
+                        );
+
+                        das_assert!(
+                            edit_value_bytes.len() == 28 + 8,
+                            SubAccountCellErrorCode::WitnessEditValueError,
+                            "  witnesses[{:>2}] SubAccountMintSignWitness.edit_value_bytes should be 36 bytes.",
+                            i
+                        );
+                    }
+                    _ => {}
+                }
             }
             SubAccountAction::Edit => {
                 das_assert!(

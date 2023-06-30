@@ -287,13 +287,6 @@ impl<'a> SubAction<'a> {
                         );
                         return Err(code_to_error!(SubAccountCellErrorCode::AccountHasNoPrice));
                     }
-
-                    das_assert!(
-                        matches!(witness.edit_value, SubAccountEditValue::Channel(_, _)),
-                        SubAccountCellErrorCode::WitnessEditValueError,
-                        "  witnesses[{:>2}] The edit_value should be contains channel info when the account is Custom Rule Mint.",
-                        witness.index
-                    );
                 }
                 _ => {
                     if !is_manual_minted {
@@ -312,26 +305,16 @@ impl<'a> SubAction<'a> {
 
     fn renew(&mut self, witness: &SubAccountWitness, prev_root: &[u8]) -> Result<(), Box<dyn ScriptError>> {
         let sub_account_reader = witness.sub_account.as_reader();
-        let mut new_sub_account_builder = witness.sub_account.clone().as_builder();
-
-        let new_expired_at =
-            match data_parser::sub_account_cell::get_exipred_at_from_edit_value(&witness.edit_value_bytes) {
-                Some(value) => value,
-                None => {
-                    warn!(
-                        "  witnesses[{:>2}] The edit_value should contains expired_at when renewing the sub-account.",
-                        witness.index
-                    );
-                    return Err(code_to_error!(SubAccountCellErrorCode::NewExpiredAtIsRequired));
-                }
-            };
-        new_sub_account_builder = new_sub_account_builder.expired_at(Uint64::from(new_expired_at));
-
-        let new_sub_account = new_sub_account_builder.build();
+        let new_sub_account = generate_new_sub_account_by_edit_value(witness.sub_account.clone(), &witness.edit_value)?;
         let new_sub_account_reader = new_sub_account.as_reader();
+        debug!("new_sub_account_reader = {}", new_sub_account_reader);
 
         smt_verify_sub_account_is_editable(&prev_root, &witness, new_sub_account_reader)?;
 
+        let new_expired_at = match witness.edit_value {
+            SubAccountEditValue::ExpiredAt(new_expired_at) => new_expired_at,
+            _ => unreachable!(),
+        };
         let expired_at = u64::from(sub_account_reader.expired_at());
         let expiration_years = (new_expired_at - expired_at) / YEAR_SEC;
 
@@ -423,13 +406,6 @@ impl<'a> SubAction<'a> {
                                 witness.index,
                                 rule.name
                             );
-
-                            das_assert!(
-                                    matches!(witness.edit_value, SubAccountEditValue::Channel(_, _)),
-                                    SubAccountCellErrorCode::WitnessEditValueError,
-                                    "  witnesses[{:>2}] The edit_value should be contains channel info when the account is Custom Rule Mint.",
-                                    witness.index
-                                );
 
                             let profit = util::calc_yearly_capacity(rule.price, self.quote, 0) * expiration_years;
 
@@ -791,6 +767,12 @@ fn generate_new_sub_account_by_edit_value(
     let current_nonce = u64::from(sub_account.nonce());
 
     let mut sub_account_builder = match edit_value {
+        SubAccountEditValue::ExpiredAt(val) => {
+            let mut sub_account_builder = sub_account.as_builder();
+            sub_account_builder = sub_account_builder.expired_at(Uint64::from(val.to_owned()));
+
+            sub_account_builder
+        }
         SubAccountEditValue::Owner(val) | SubAccountEditValue::Manager(val) => {
             let mut lock_builder = sub_account.lock().as_builder();
             let mut sub_account_builder = sub_account.as_builder();
