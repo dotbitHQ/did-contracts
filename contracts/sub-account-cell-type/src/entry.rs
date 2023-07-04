@@ -507,7 +507,7 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
 
         let verify_and_init_some_vars = |_name: &str,
                                          witness: &SubAccountMintSignWitness|
-         -> Result<(packed::Script, Option<[u8; 32]>), Box<dyn ScriptError>> {
+         -> Result<(Option<LockRole>, packed::Script, Option<[u8; 32]>), Box<dyn ScriptError>> {
             debug!("The {} is exist, verifying the signature for manual mint ...", _name);
 
             verifiers::sub_account_cell::verify_sub_account_mint_sign_not_expired(
@@ -530,14 +530,15 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
                 util::derive_owner_lock_from_cell(account_cell_index, account_cell_source)?
             };
 
-            Ok((sender_lock, account_list_smt_root))
+            Ok((witness.sign_role.clone(), sender_lock, account_list_smt_root))
         };
 
+        let mut mint_sign_role = None;
         if sub_account_parser.contains_creation {
             match sub_account_parser.get_mint_sign(account_lock_args) {
                 Some(Ok(witness)) => {
                     sign_verified = true;
-                    (sender_lock, manual_mint_list_smt_root) =
+                    (mint_sign_role, sender_lock, manual_mint_list_smt_root) =
                         verify_and_init_some_vars("SubAccountMintWitness", &witness)?;
                 }
                 Some(Err(err)) => {
@@ -553,14 +554,13 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
             match sub_account_parser.get_renew_sign(account_lock_args) {
                 Some(Ok(witness)) => {
                     let renew_sender_lock;
-
-                    sign_verified = true;
-                    (renew_sender_lock, manual_renew_list_smt_root) =
+                    let renew_sign_role;
+                    (renew_sign_role, renew_sender_lock, manual_renew_list_smt_root) =
                         verify_and_init_some_vars("SubAccountRenewWitness", &witness)?;
 
-                    if sub_account_parser.contains_creation {
+                    if mint_sign_role.is_some() {
                         das_assert!(
-                            util::is_entity_eq(&sender_lock, &renew_sender_lock),
+                            mint_sign_role == renew_sign_role,
                             SubAccountCellErrorCode::MultipleSignRolesIsNotAllowed,
                             "The sign_role of SubAccountMintSignWitness and SubAccountRenewSignWitness should be the same in the same transaction."
                         );
