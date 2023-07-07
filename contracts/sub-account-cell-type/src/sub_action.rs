@@ -338,27 +338,34 @@ impl<'a> SubAction<'a> {
                 );
 
                 match data_parser::sub_account_cell::get_proof_from_edit_value(&witness.edit_value_bytes) {
-                    Some(_) => {
-                        match smt_verify_sub_account_is_in_renew_list(root.clone(), &witness) {
-                            Ok(()) => {
-                                let profit =
-                                    u64::from(self.config_sub_account.renew_sub_account_price()) * expiration_years;
-                                self.profit_from_manual_renew += profit;
-                                self.profit_total += profit;
-                                self.minimal_required_das_profit +=
-                                    u64::from(self.config_sub_account.renew_sub_account_price()) * expiration_years;
-                            }
-                            Err(err) => {
-                                warn!(
-                                    "  witnesses[{:>2}] The proof in edit_value is missing or invalid, but it is marked as manual renew.",
-                                    witness.index
-                                );
+                    Some(proof) => {
+                        if !proof.is_empty() {
+                            match smt_verify_sub_account_is_in_renew_list(root.clone(), &witness) {
+                                Ok(()) => {
+                                    let profit =
+                                        u64::from(self.config_sub_account.renew_sub_account_price()) * expiration_years;
+                                    self.profit_from_manual_renew += profit;
+                                    self.profit_total += profit;
+                                    self.minimal_required_das_profit +=
+                                        u64::from(self.config_sub_account.renew_sub_account_price()) * expiration_years;
 
-                                return Err(err);
+                                    return Ok(());
+                                }
+                                Err(err) => {
+                                    warn!(
+                                        "  witnesses[{:>2}] The proof in edit_value is invalid, but it is marked as manual renew.",
+                                        witness.index
+                                    );
+
+                                    return Err(err);
+                                }
                             }
+                        } else {
+                            debug!(
+                                "  witnesses[{:>2}] The account has no proof and will be treated as manually renewed by others later.",
+                                witness.index
+                            );
                         }
-
-                        return Ok(());
                     }
                     None => {
                         debug!(
