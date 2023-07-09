@@ -6,16 +6,16 @@ use device_key_list_cell_type::error::ErrorCode;
 use molecule::prelude::Entity;
 
 use crate::helpers::{Comparable, ToNum};
-use crate::traits::{Action, FSMContract, Rule};
+use crate::traits::{Action, GetCellWitness, Rule};
 
 pub fn action() -> Action {
     let mut update_action = Action::new("update_device_key_list");
     update_action.add_verification(Rule::new("Verify cell structure", |contract| {
         assert!(
-            contract.input_inner_cells.len() == 1
-                && contract.output_inner_cells.len() == 1
-                && contract.input_inner_cells[0].0 == 0
-                && contract.output_inner_cells[0].0 == 0,
+            contract.get_input_inner_cells().len() == 1
+                && contract.get_output_inner_cells().len() == 1
+                && contract.get_input_inner_cells()[0].0 == 0
+                && contract.get_output_inner_cells()[0].0 == 0,
             ErrorCode::InvalidTransactionStructure,
             "Should have 1 cell in input[0] and 1 cell in output[0]"
         );
@@ -24,8 +24,8 @@ pub fn action() -> Action {
 
     update_action.add_verification(Rule::new("Verify capacity change", |contract| {
         assert!(
-            i64::try_from(contract.input_inner_cells[0].capacity().to_num()).unwrap()
-                - i64::try_from(contract.output_inner_cells[0].capacity().to_num()).unwrap()
+            i64::try_from(contract.get_input_inner_cells()[0].capacity().to_num()).unwrap()
+                - i64::try_from(contract.get_output_inner_cells()[0].capacity().to_num()).unwrap()
                 < 10000,
             ErrorCode::CapacityReduceTooMuch,
             "Capacity change is too much"
@@ -35,7 +35,8 @@ pub fn action() -> Action {
 
     update_action.add_verification(Rule::new("Verify lock consistent", |contract| {
         assert!(
-            contract.input_inner_cells[0].lock().as_slice() == contract.output_inner_cells[0].lock().as_slice(),
+            contract.get_input_inner_cells()[0].lock().as_slice()
+                == contract.get_output_inner_cells()[0].lock().as_slice(),
             ErrorCode::InvalidLock,
             "Lock should not change"
         );
@@ -43,8 +44,14 @@ pub fn action() -> Action {
     }));
 
     update_action.add_verification(Rule::new("Verify key list structure", |contract| {
-        let key_list_in_input = contract.get_cell_witness::<DeviceKeyListCellData>(&contract.input_inner_cells[0])?;
-        let key_list_in_output = contract.get_cell_witness::<DeviceKeyListCellData>(&contract.output_inner_cells[0])?;
+        let input_cell_meta = contract.get_input_inner_cells()[0].get_meta();
+        let output_cell_meta = contract.get_output_inner_cells()[0].get_meta();
+        let key_list_in_input = contract
+            .get_parser()
+            .get_cell_witness::<DeviceKeyListCellData>(input_cell_meta)?;
+        let key_list_in_output = contract
+            .get_parser()
+            .get_cell_witness::<DeviceKeyListCellData>(output_cell_meta)?;
         das_core::assert!(
             key_list_in_output.keys().item_count() > 0 && key_list_in_output.keys().item_count() < 11,
             ErrorCode::UpdateParamsInvalid,

@@ -9,15 +9,15 @@ use device_key_list_cell_type::error::ErrorCode;
 use molecule::prelude::Entity;
 
 use crate::helpers::ToNum;
-use crate::traits::{Action, FSMContract, Rule};
+use crate::traits::{Action, GetCellWitness, Rule};
 
 pub fn action() -> Action {
     let mut create_action = Action::new("create_device_key_list");
     create_action.add_verification(Rule::new("Verify cell structure", |contract| {
         assert!(
-            contract.input_inner_cells.len() == 0
-                && contract.output_inner_cells.len() == 1
-                && contract.output_inner_cells[0].0 == 0,
+            contract.get_input_inner_cells().len() == 0
+                && contract.get_output_inner_cells().len() == 1
+                && contract.get_output_inner_cells()[0].0 == 0,
             ErrorCode::InvalidTransactionStructure,
             "Should have 0 cell in input and 1 cell in output[0]"
         );
@@ -25,7 +25,10 @@ pub fn action() -> Action {
     }));
 
     create_action.add_verification(Rule::new("Verify key length", |contract| {
-        let key_list = contract.get_cell_witness::<DeviceKeyListCellData>(&contract.output_inner_cells[0])?;
+        let output_cell_meta = contract.get_output_inner_cells()[0].get_meta();
+        let key_list = contract
+            .get_parser()
+            .get_cell_witness::<DeviceKeyListCellData>(output_cell_meta)?;
         assert!(
             key_list.keys().item_count() == 1,
             ErrorCode::KeyListNumberIncorrect,
@@ -35,8 +38,11 @@ pub fn action() -> Action {
     }));
 
     create_action.add_verification(Rule::new("Verify lock arg", |contract| {
-        let key_list = contract.get_cell_witness::<DeviceKeyListCellData>(&contract.output_inner_cells[0])?;
-        let mut lock_iter = contract.output_inner_cells.iter().map(|cell| cell.lock());
+        let output_cell_meta = contract.get_output_inner_cells()[0].get_meta();
+        let key_list = contract
+            .get_parser()
+            .get_cell_witness::<DeviceKeyListCellData>(output_cell_meta)?;
+        let mut lock_iter = contract.get_output_inner_cells().iter().map(|cell| cell.lock());
         let first_lock = lock_iter
             .next()
             .ok_or(code_to_error!(ErrorCode::InvalidTransactionStructure))?;
@@ -50,7 +56,7 @@ pub fn action() -> Action {
     }));
 
     create_action.add_verification(Rule::new("Verify output lock", |contract| {
-        let lock = contract.output_inner_cells[0].lock();
+        let lock = contract.get_output_inner_cells()[0].lock();
         let das_lock = das_lock();
         assert!(
             lock.hash_type().as_slice() == das_lock.hash_type().as_slice()
@@ -63,7 +69,7 @@ pub fn action() -> Action {
 
     create_action.add_verification(Rule::new("Verify capacity", |contract| {
         assert!(
-            contract.output_inner_cells[0].capacity().to_num() >= 161 * 10u64.pow(8),
+            contract.get_output_inner_cells()[0].capacity().to_num() >= 161 * 10u64.pow(8),
             ErrorCode::CapacityNotEnough,
             "There should be at least 161 CKB for capacity"
         );
@@ -71,15 +77,18 @@ pub fn action() -> Action {
     }));
 
     create_action.add_verification(Rule::new("Verify refund lock", |contract| {
-        let key_list = contract.get_cell_witness::<DeviceKeyListCellData>(&contract.output_inner_cells[0])?;
+        let output_cell_meta = contract.get_output_inner_cells()[0].get_meta();
+        let key_list = contract
+            .get_parser()
+            .get_cell_witness::<DeviceKeyListCellData>(output_cell_meta)?;
         let refund_lock = key_list.refund_lock();
         assert!(
             contract
-                .input_outer_cells
+                .get_input_outer_cells()
                 .iter()
                 .all(|c| c.lock().as_slice() == refund_lock.as_slice())
                 && contract
-                    .output_outer_cells
+                    .get_output_outer_cells()
                     .iter()
                     .all(|c| c.lock().as_slice() == refund_lock.as_slice()),
             ErrorCode::InconsistentBalanceCellLocks,

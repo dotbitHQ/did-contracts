@@ -31,6 +31,25 @@ members = [
     "contracts/playground",
 ]
 
+default-members = [
+    "contracts/always-success",
+    "contracts/account-cell-type",
+    "contracts/account-sale-cell-type",
+    "contracts/account-auction-cell-type",
+    "contracts/apply-register-cell-type",
+    "contracts/balance-cell-type",
+    "contracts/config-cell-type",
+    "contracts/income-cell-type",
+    "contracts/offer-cell-type",
+    "contracts/pre-account-cell-type",
+    "contracts/proposal-cell-type",
+    "contracts/reverse-record-cell-type",
+    "contracts/reverse-record-root-cell-type",
+    "contracts/sub-account-cell-type",
+    "contracts/eip712-lib",
+    "contracts/device-key-list-cell-type",
+]
+
 [workspace.dependencies]
 das-types = { git = "https://github.com/dotbitHQ/das-types-private.git", default-features = false, rev = "45fe41e" }
 das-types-std = { git = "https://github.com/dotbitHQ/das-types-private.git", rev = "b95c5f6" }
