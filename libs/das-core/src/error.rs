@@ -351,6 +351,7 @@ pub enum SubAccountCellErrorCode {
     BytesToStringFailed,
     MinimalProfitToDASNotReached,
     ExpirationYearsTooShort,
+    ExpirationToleranceReached,
     SenderCapacityOverCost,
     ProfitManagerLockIsRequired,
     ProfitMustBeCollected,

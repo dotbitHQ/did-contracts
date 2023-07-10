@@ -505,33 +505,34 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
     if sub_account_parser.contains_creation || sub_account_parser.contains_renew {
         debug!("Found `create/renew` action in this transaction, do some common verfications ...");
 
-        let verify_and_init_some_vars = |_name: &str,
-                                         witness: &SubAccountMintSignWitness|
-         -> Result<(Option<LockRole>, packed::Script, Option<[u8; 32]>), Box<dyn ScriptError>> {
-            debug!("The {} is exist, verifying the signature for manual mint ...", _name);
+        let verify_and_init_some_vars =
+            |_name: &str,
+             witness: &SubAccountMintSignWitness|
+             -> Result<(Option<LockRole>, packed::Script, Option<[u8; 32]>), Box<dyn ScriptError>> {
+                debug!("The {} is exist, verifying the signature for manual mint ...", _name);
 
-            verifiers::sub_account_cell::verify_sub_account_mint_sign_not_expired(
-                &sub_account_parser,
-                &witness,
-                parent_expired_at,
-                sub_account_last_updated_at,
-            )?;
-            verifiers::sub_account_cell::verify_sub_account_mint_sign(&witness, &sign_lib)?;
+                verifiers::sub_account_cell::verify_sub_account_mint_sign_not_expired(
+                    &sub_account_parser,
+                    &witness,
+                    parent_expired_at,
+                    sub_account_last_updated_at,
+                )?;
+                verifiers::sub_account_cell::verify_sub_account_mint_sign(&witness, &sign_lib)?;
 
-            let mut tmp = [0u8; 32];
-            tmp.copy_from_slice(&witness.account_list_smt_root);
-            let account_list_smt_root = Some(tmp);
+                let mut tmp = [0u8; 32];
+                tmp.copy_from_slice(&witness.account_list_smt_root);
+                let account_list_smt_root = Some(tmp);
 
-            let sender_lock = if witness.sign_role == Some(LockRole::Manager) {
-                debug!("Found SubAccountWitness.sign_role is manager, use manager lock as sender_lock.");
-                util::derive_manager_lock_from_cell(account_cell_index, account_cell_source)?
-            } else {
-                debug!("Found SubAccountWitness.sign_role is owner, use owner lock as sender_lock.");
-                util::derive_owner_lock_from_cell(account_cell_index, account_cell_source)?
+                let sender_lock = if witness.sign_role == Some(LockRole::Manager) {
+                    debug!("Found SubAccountWitness.sign_role is manager, use manager lock as sender_lock.");
+                    util::derive_manager_lock_from_cell(account_cell_index, account_cell_source)?
+                } else {
+                    debug!("Found SubAccountWitness.sign_role is owner, use owner lock as sender_lock.");
+                    util::derive_owner_lock_from_cell(account_cell_index, account_cell_source)?
+                };
+
+                Ok((witness.sign_role.clone(), sender_lock, account_list_smt_root))
             };
-
-            Ok((witness.sign_role.clone(), sender_lock, account_list_smt_root))
-        };
 
         let mut mint_sign_role = None;
         if sub_account_parser.contains_creation {
@@ -1210,7 +1211,7 @@ fn verify_profit_to_das_with_custom_rule(
     output_data: &[u8],
     expected_total_profit: u64,
 ) -> Result<(), Box<dyn ScriptError>> {
-    debug!("Verify the profit to DAS is calculated from rate of config properly.");
+    debug!("Verify the profit to DAS is calculated properly.");
 
     let input_das_profit = data_parser::sub_account_cell::get_das_profit(&input_data).unwrap();
     let output_das_profit = data_parser::sub_account_cell::get_das_profit(&output_data).unwrap();
@@ -1219,7 +1220,7 @@ fn verify_profit_to_das_with_custom_rule(
     das_assert!(
         expected_total_profit == das_profit,
         SubAccountCellErrorCode::SubAccountProfitError,
-        "The profit to DAS should be calculated from rate of config properly. (expected_das_profit: {}, das_profit: {})",
+        "The profit to DAS should be calculated properly. (expected_das_profit: {}, das_profit: {})",
         expected_total_profit,
         das_profit
     );

@@ -141,10 +141,25 @@ impl<'a> SubAction<'a> {
         let expired_at = u64::from(sub_account_reader.expired_at());
         let registered_at = u64::from(sub_account_reader.registered_at());
         let expiration_years = (expired_at - registered_at) / YEAR_SEC;
+        let expiration_tolerance = (expired_at - registered_at) % YEAR_SEC;
 
         debug!(
             "  witnesses[{:>2}] The account is registered for {} years.",
             witness.index, expiration_years
+        );
+
+        das_assert!(
+            expiration_years >= 1,
+            SubAccountCellErrorCode::ExpirationYearsTooShort,
+            "  witnesses[{:>2}] The expired_at date should be more than 1 year after the registered_at date.",
+            witness.index
+        );
+
+        das_assert!(
+            expiration_tolerance <= DAY_SEC,
+            SubAccountCellErrorCode::ExpirationToleranceReached,
+            "  witnesses[{:>2}] The expired_at date reached maximum tolerance.",
+            witness.index
         );
 
         let mut is_manual_minted = false;
@@ -307,7 +322,6 @@ impl<'a> SubAction<'a> {
         let sub_account_reader = witness.sub_account.as_reader();
         let new_sub_account = generate_new_sub_account_by_edit_value(witness.sub_account.clone(), &witness.edit_value)?;
         let new_sub_account_reader = new_sub_account.as_reader();
-        debug!("new_sub_account_reader = {}", new_sub_account_reader);
 
         smt_verify_sub_account_is_editable(&prev_root, &witness, new_sub_account_reader)?;
 
@@ -317,6 +331,7 @@ impl<'a> SubAction<'a> {
         };
         let expired_at = u64::from(sub_account_reader.expired_at());
         let expiration_years = (new_expired_at - expired_at) / YEAR_SEC;
+        let expiration_tolerance = (new_expired_at - expired_at) % YEAR_SEC;
 
         debug!(
             "  witnesses[{:>2}] The account is renewed for {} years.",
@@ -326,7 +341,14 @@ impl<'a> SubAction<'a> {
         das_assert!(
             expiration_years >= 1,
             SubAccountCellErrorCode::ExpirationYearsTooShort,
-            "  witnesses[{:>2}] The renewed expiration date should be at least 1 year.",
+            "  witnesses[{:>2}] The new expired_at date should be more than 1 year after the previous expired_at date.",
+            witness.index
+        );
+
+        das_assert!(
+            expiration_tolerance <= DAY_SEC,
+            SubAccountCellErrorCode::ExpirationToleranceReached,
+            "  witnesses[{:>2}] The new expired_at date reached maximum tolerance.",
             witness.index
         );
 
