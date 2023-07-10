@@ -39,16 +39,19 @@ fn parse_sub_account_witness_create_only() {
 
     push_input_test_env_cell(&mut template);
 
-    let smt = template.push_sub_account_mint_sign_witness(json!({
-        "version": 1,
-        "expired_at": TIMESTAMP + DAY_SEC,
-        "account_list_smt_root": [
-            [SUB_ACCOUNT_1, OWNER_1_WITHOUT_TYPE],
-            [SUB_ACCOUNT_2, OWNER_2_WITHOUT_TYPE],
-            [SUB_ACCOUNT_3, OWNER_3_WITHOUT_TYPE],
-            [SUB_ACCOUNT_4, OWNER_4_WITHOUT_TYPE],
-        ]
-    }));
+    let smt = template.push_sub_account_mint_sign_witness(
+        DataType::SubAccountMintSign,
+        json!({
+            "version": 1,
+            "expired_at": TIMESTAMP + DAY_SEC,
+            "account_list_smt_root": [
+                [SUB_ACCOUNT_1, OWNER_1_WITHOUT_TYPE],
+                [SUB_ACCOUNT_2, OWNER_2_WITHOUT_TYPE],
+                [SUB_ACCOUNT_3, OWNER_3_WITHOUT_TYPE],
+                [SUB_ACCOUNT_4, OWNER_4_WITHOUT_TYPE],
+            ]
+        }),
+    );
 
     template.push_sub_account_witness_v2(json!({
         "action": SubAccountAction::Create.to_string(),
@@ -222,17 +225,20 @@ fn parse_sub_account_witness_mixed() {
         }),
     ]);
 
-    let smt = template.push_sub_account_mint_sign_witness(json!({
-        "version": 1,
-        "expired_at": TIMESTAMP + DAY_SEC,
-        "account_list_smt_root": [
-            // SUB_ACCOUNT_1 and SUB_ACCOUNT_3 is intentionally redundant.
-            [SUB_ACCOUNT_1, OWNER_1_WITHOUT_TYPE],
-            [SUB_ACCOUNT_2, OWNER_2_WITHOUT_TYPE],
-            [SUB_ACCOUNT_3, OWNER_3_WITHOUT_TYPE],
-            [SUB_ACCOUNT_4, OWNER_4_WITHOUT_TYPE],
-        ]
-    }));
+    let smt = template.push_sub_account_mint_sign_witness(
+        DataType::SubAccountMintSign,
+        json!({
+            "version": 1,
+            "expired_at": TIMESTAMP + DAY_SEC,
+            "account_list_smt_root": [
+                // SUB_ACCOUNT_1 and SUB_ACCOUNT_3 is intentionally redundant.
+                [SUB_ACCOUNT_1, OWNER_1_WITHOUT_TYPE],
+                [SUB_ACCOUNT_2, OWNER_2_WITHOUT_TYPE],
+                [SUB_ACCOUNT_3, OWNER_3_WITHOUT_TYPE],
+                [SUB_ACCOUNT_4, OWNER_4_WITHOUT_TYPE],
+            ]
+        }),
+    );
 
     push_input_test_env_cell(&mut template);
 
@@ -382,16 +388,19 @@ fn parser_sub_account_rules_witness() {
         ),
     );
 
-    let smt = template.push_sub_account_mint_sign_witness(json!({
-        "version": 1,
-        "expired_at": TIMESTAMP + DAY_SEC,
-        "account_list_smt_root": [
-            [SUB_ACCOUNT_1, OWNER_1_WITHOUT_TYPE],
-            [SUB_ACCOUNT_2, OWNER_2_WITHOUT_TYPE],
-            [SUB_ACCOUNT_3, OWNER_3_WITHOUT_TYPE],
-            [SUB_ACCOUNT_4, OWNER_4_WITHOUT_TYPE],
-        ]
-    }));
+    let smt = template.push_sub_account_mint_sign_witness(
+        DataType::SubAccountMintSign,
+        json!({
+            "version": 1,
+            "expired_at": TIMESTAMP + DAY_SEC,
+            "account_list_smt_root": [
+                [SUB_ACCOUNT_1, OWNER_1_WITHOUT_TYPE],
+                [SUB_ACCOUNT_2, OWNER_2_WITHOUT_TYPE],
+                [SUB_ACCOUNT_3, OWNER_3_WITHOUT_TYPE],
+                [SUB_ACCOUNT_4, OWNER_4_WITHOUT_TYPE],
+            ]
+        }),
+    );
     template.push_sub_account_witness_v2(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {

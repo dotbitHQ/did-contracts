@@ -387,7 +387,7 @@ fn challenge_sub_account_create_flag_custom_script_spend_balance_cell_1() {
     push_simple_output_sub_account_cell_with_custom_script(&mut template, das_profit, owner_profit, "");
     push_output_normal_cell(&mut template, 100_000_000_000 - total_profit, OWNER);
 
-    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure);
+    challenge_tx(template.as_json(), SubAccountCellErrorCode::SomeCellWithDasLockMayBeAbused);
 }
 
 #[test]
@@ -423,7 +423,7 @@ fn challenge_sub_account_create_flag_custom_script_spend_balance_cell_2() {
     push_simple_output_sub_account_cell_with_custom_script(&mut template, das_profit, owner_profit, "");
     push_output_normal_cell(&mut template, 100_000_000_000 - total_profit, OWNER);
 
-    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure);
+    challenge_tx(template.as_json(), SubAccountCellErrorCode::SomeCellWithDasLockMayBeAbused);
 }
 
 #[test]

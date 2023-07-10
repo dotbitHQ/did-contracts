@@ -1,0 +1,52 @@
+[package]
+name = "simple-ast"
+version = "1.0.0"
+edition = "2021"
+
+[lib]
+name = "simple_ast"
+path = "src/lib.rs"
+
+[features]
+default = ["std", "size_util"]
+std = [
+    "num_enum/std",
+    "das-types-std",
+    "hex/std",
+    "serde",
+    "serde_json",
+    "strum/std",
+    "thiserror",
+    "blake2b-rs",
+]
+no_std = [
+    "das-types",
+    "hex/alloc",
+    "thiserror-no-std",
+    "strum",
+    "blake2b-ref",
+]
+size_util = []
+
+[dependencies]
+# main
+# Temporarily use thiserror-no-std
+thiserror = { version = "1.0", optional = true }
+thiserror-no-std = { version = "=2.0.2", default-features = false, optional = true }
+log = "0.4.0"
+hex = { version = "0.4", default-features = false }
+serde = { version = "1.0", features = ["derive"], optional = true }
+serde_json = { version = "1.0", optional = true }
+# macro
+paste = "1.0"
+num_enum = { version = "0.6", default-features = false }
+strum = { version = "0.24", features = ["derive"], default-features = false, optional = true }
+# dotbit
+blake2b-rs = { version = "0.2", optional = true }
+blake2b-ref = { version = "0.3", optional = true }
+das-types = { workspace = true, optional = true, default-features = false }
+das-types-std = { workspace = true, optional = true }
+
+[dev-dependencies]
+env_logger = "0.10.0"
+ctor = "0.2.0"

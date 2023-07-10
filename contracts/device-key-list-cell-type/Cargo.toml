@@ -1,0 +1,20 @@
+[package]
+name = "device-key-list-cell-type"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+dev = ["das-core/dev"]
+local = ["das-core/local"]
+testnet = ["das-core/testnet"]
+mainnet = ["das-core/mainnet"]
+
+[dependencies]
+ckb-std = { workspace = true }
+
+[dev-dependencies]
+das-core = { workspace = true, default-features = false }
+das-types = { workspace = true }
+molecule = { workspace = true }

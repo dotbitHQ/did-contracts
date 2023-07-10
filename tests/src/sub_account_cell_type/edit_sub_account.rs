@@ -49,21 +49,7 @@ fn before_each() -> TemplateGenerator {
             "expired_at": TIMESTAMP + YEAR_SEC,
         }),
     ]);
-    push_input_sub_account_cell_v2(
-        &mut template,
-        json!({
-            "header": {
-                "height": HEIGHT - 1,
-                "timestamp": TIMESTAMP - DAY_SEC,
-            },
-            "data": {
-                "das_profit": 0,
-                "owner_profit": 0,
-                "flag": SubAccountConfigFlag::CustomScript as u8,
-            }
-        }),
-        ACCOUNT_1,
-    );
+    push_simple_input_sub_account_cell(&mut template, 0, 0);
 
     template
 }
@@ -84,7 +70,25 @@ fn push_simple_sub_account_witness(template: &mut TemplateGenerator, sub_account
     template.push_sub_account_witness_v2(sub_account);
 }
 
-pub fn push_simple_output_sub_account_cell(template: &mut TemplateGenerator, das_profit: u64, owner_profit: u64) {
+fn push_simple_input_sub_account_cell(template: &mut TemplateGenerator, das_profit: u64, owner_profit: u64) {
+    push_input_sub_account_cell_v2(
+        template,
+        json!({
+            "header": {
+                "height": HEIGHT - 1,
+                "timestamp": TIMESTAMP - DAY_SEC,
+            },
+            "data": {
+                "das_profit": das_profit,
+                "owner_profit": owner_profit,
+                "flag": SubAccountConfigFlag::CustomScript as u8,
+            }
+        }),
+        ACCOUNT_1,
+    );
+}
+
+fn push_simple_output_sub_account_cell(template: &mut TemplateGenerator, das_profit: u64, owner_profit: u64) {
     push_output_sub_account_cell_v2(
         template,
         json!({
@@ -306,7 +310,7 @@ fn challenge_sub_account_edit_spend_balance_cell_1() {
     );
     push_simple_output_sub_account_cell(&mut template, 0, 0);
 
-    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure);
+    challenge_tx(template.as_json(), SubAccountCellErrorCode::SomeCellWithDasLockMayBeAbused);
 }
 
 #[test]
@@ -348,7 +352,7 @@ fn challenge_sub_account_edit_spend_balance_cell_2() {
     );
     push_simple_output_sub_account_cell(&mut template, 0, 0);
 
-    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure);
+    challenge_tx(template.as_json(), SubAccountCellErrorCode::SomeCellWithDasLockMayBeAbused);
 }
 
 /// If the transaction only contains edit action, then the owner_profit must be consistent.
@@ -516,4 +520,91 @@ fn challenge_sub_account_edit_records_invalid_role() {
     push_simple_output_sub_account_cell(&mut template, 0, 0);
 
     challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellPermissionDenied);
+}
+
+#[test]
+fn challenge_sub_account_edit_empty_edit_key() {
+    let mut template = init_update();
+
+    // cell_deps
+    push_simple_dep_account_cell(&mut template);
+
+    // inputs
+    template.restore_sub_account(vec![json!({
+        "lock": {
+            "owner_lock_args": OWNER_1,
+            "manager_lock_args": MANAGER_1
+        },
+        "account": SUB_ACCOUNT_1,
+        "suffix": SUB_ACCOUNT_SUFFIX,
+        "registered_at": TIMESTAMP,
+        "expired_at": TIMESTAMP + YEAR_SEC,
+    })]);
+    push_simple_input_sub_account_cell(&mut template, 0, 0);
+
+    // outputs
+    push_simple_sub_account_witness(
+        &mut template,
+        json!({
+            "sub_account": {
+                "lock": {
+                    "owner_lock_args": OWNER_1,
+                    "manager_lock_args": MANAGER_1
+                },
+                "account": SUB_ACCOUNT_1,
+                "suffix": SUB_ACCOUNT_SUFFIX,
+                "registered_at": TIMESTAMP,
+                "expired_at": TIMESTAMP + YEAR_SEC,
+            },
+            "edit_key": "",
+            "edit_value": gen_das_lock_args(OWNER_2, Some(MANAGER_1))
+        }),
+    );
+    push_simple_output_sub_account_cell(&mut template, 0, 0);
+
+    challenge_tx(template.as_json(), SubAccountCellErrorCode::WitnessEditKeyInvalid);
+}
+
+#[test]
+fn challenge_sub_account_edit_has_expired() {
+    let mut template = init_update();
+
+    // cell_deps
+    push_simple_dep_account_cell(&mut template);
+
+    // inputs
+    template.restore_sub_account(vec![json!({
+        "lock": {
+            "owner_lock_args": OWNER_1,
+            "manager_lock_args": MANAGER_1
+        },
+        "account": SUB_ACCOUNT_1,
+        "suffix": SUB_ACCOUNT_SUFFIX,
+        "registered_at": TIMESTAMP - YEAR_SEC,
+        // Simulate modifying the sub-account that has expired.
+        "expired_at": TIMESTAMP - 1,
+    })]);
+    push_simple_input_sub_account_cell(&mut template, 0, 0);
+
+    // outputs
+    push_simple_sub_account_witness(
+        &mut template,
+        json!({
+            "sub_account": {
+                "lock": {
+                    "owner_lock_args": OWNER_1,
+                    "manager_lock_args": MANAGER_1
+                },
+                "account": SUB_ACCOUNT_1,
+                "suffix": SUB_ACCOUNT_SUFFIX,
+                "registered_at": TIMESTAMP - YEAR_SEC,
+                "expired_at": TIMESTAMP - 1,
+            },
+            "edit_key": "owner",
+            "edit_value": gen_das_lock_args(OWNER_2, Some(MANAGER_1))
+        }),
+    );
+    push_simple_output_sub_account_cell(&mut template, 0, 0);
+
+    challenge_tx(template.as_json(), SubAccountCellErrorCode::AccountHasInGracePeriod);
 }
