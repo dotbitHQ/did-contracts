@@ -91,7 +91,7 @@ fn test_sub_account_update_without_custom_script() {
     let mut template = before_each_without_custom_script();
 
     // outputs
-    let smt = push_commen_sign_witness(&mut template);
+    let smt = push_commen_mint_sign_witness(&mut template);
     template.push_sub_account_witness_v2(json!({
         "action": SubAccountAction::Edit.to_string(),
         "sign_role": "0x00",
@@ -138,7 +138,7 @@ fn test_sub_account_update_with_custom_script() {
     let mut template = before_each();
 
     // outputs
-    let smt = push_commen_sign_witness(&mut template);
+    let smt = push_commen_mint_sign_witness(&mut template);
     template.push_sub_account_witness_v2(json!({
         "action": SubAccountAction::Edit.to_string(),
         "sign_role": "0x00",
@@ -215,7 +215,7 @@ fn challenge_sub_account_update_parent_not_in_normal_status() {
     push_input_normal_cell(&mut template, 10_000_000_000, OWNER);
 
     // outputs
-    let smt = push_commen_sign_witness(&mut template);
+    let smt = push_commen_mint_sign_witness(&mut template);
     template.push_sub_account_witness_v2(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
@@ -264,16 +264,19 @@ fn challenge_sub_account_update_parent_expired() {
     push_input_normal_cell(&mut template, 10_000_000_000, OWNER);
 
     // outputs
-    let smt = template.push_sub_account_mint_sign_witness(json!({
-        "version": 1,
-        "expired_at": TIMESTAMP - 1,
-        "account_list_smt_root": [
-            [SUB_ACCOUNT_1, gen_das_lock_args(OWNER_1, Some(MANAGER_1))],
-            [SUB_ACCOUNT_2, gen_das_lock_args(OWNER_2, Some(MANAGER_2))],
-            [SUB_ACCOUNT_3, gen_das_lock_args(OWNER_3, Some(MANAGER_3))],
-            [SUB_ACCOUNT_4, gen_das_lock_args(OWNER_4, Some(MANAGER_4))],
-        ]
-    }));
+    let smt = template.push_sub_account_mint_sign_witness(
+        DataType::SubAccountMintSign,
+        json!({
+            "version": 1,
+            "expired_at": TIMESTAMP - 1,
+            "account_list_smt_root": [
+                [SUB_ACCOUNT_1, gen_das_lock_args(OWNER_1, Some(MANAGER_1))],
+                [SUB_ACCOUNT_2, gen_das_lock_args(OWNER_2, Some(MANAGER_2))],
+                [SUB_ACCOUNT_3, gen_das_lock_args(OWNER_3, Some(MANAGER_3))],
+                [SUB_ACCOUNT_4, gen_das_lock_args(OWNER_4, Some(MANAGER_4))],
+            ]
+        }),
+    );
     template.push_sub_account_witness_v2(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
@@ -324,7 +327,7 @@ fn challenge_sub_account_update_parent_not_enable_feature() {
     push_input_normal_cell(&mut template, 10_000_000_000, OWNER);
 
     // outputs
-    let smt = push_commen_sign_witness(&mut template);
+    let smt = push_commen_mint_sign_witness(&mut template);
     template.push_sub_account_witness_v2(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {

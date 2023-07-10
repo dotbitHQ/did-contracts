@@ -267,11 +267,7 @@ fn perf_has_expression() {
     for i in 2..101 {
         // generate a witness for every 20 rules
         if rules.len() > 20 {
-            template.push_sub_account_rules_witness(
-                DataType::SubAccountPriceRule,
-                1,
-                json!(rules),
-            );
+            template.push_sub_account_rules_witness(DataType::SubAccountPriceRule, 1, json!(rules));
 
             rules = vec![];
         }
@@ -339,11 +335,7 @@ fn perf_has_expression() {
             }
         }))
     }
-    template.push_sub_account_rules_witness(
-        DataType::SubAccountPriceRule,
-        1,
-        json!(rules),
-    );
+    template.push_sub_account_rules_witness(DataType::SubAccountPriceRule, 1, json!(rules));
 
     // outputs
     push_simple_output_account_cell(&mut template);

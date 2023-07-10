@@ -116,8 +116,8 @@ pub fn push_simple_output_sub_account_cell(template: &mut TemplateGenerator, das
     );
 }
 
-pub fn push_common_output_cells(template: &mut TemplateGenerator, new_account_count: u64) {
-    let das_profit = calculate_sub_account_cost(new_account_count);
+pub fn push_common_output_cells(template: &mut TemplateGenerator, total_paied_years: u64) {
+    let das_profit = calculate_sub_account_cost(total_paied_years);
     push_simple_output_sub_account_cell(template, das_profit, 0);
     push_output_normal_cell(template, 10_000_000_000 - das_profit, OWNER);
 }
@@ -126,17 +126,38 @@ pub fn calculate_sub_account_cost(new_account_count: u64) -> u64 {
     SUB_ACCOUNT_NEW_PRICE * new_account_count
 }
 
-pub fn push_commen_sign_witness(template: &mut TemplateGenerator) -> SMTWithHistory {
-    let smt = template.push_sub_account_mint_sign_witness(json!({
-        "version": 1,
-        "expired_at": TIMESTAMP + DAY_SEC,
-        "account_list_smt_root": [
-            [SUB_ACCOUNT_1, gen_das_lock_args(OWNER_1, Some(MANAGER_1))],
-            [SUB_ACCOUNT_2, gen_das_lock_args(OWNER_2, Some(MANAGER_2))],
-            [SUB_ACCOUNT_3, gen_das_lock_args(OWNER_3, Some(MANAGER_3))],
-            [SUB_ACCOUNT_4, gen_das_lock_args(OWNER_4, Some(MANAGER_4))],
-        ]
-    }));
+pub fn push_commen_mint_sign_witness(template: &mut TemplateGenerator) -> SMTWithHistory {
+    let smt = template.push_sub_account_mint_sign_witness(
+        DataType::SubAccountMintSign,
+        json!({
+            "version": 1,
+            "expired_at": TIMESTAMP + DAY_SEC,
+            "account_list_smt_root": [
+                [SUB_ACCOUNT_1, gen_das_lock_args(OWNER_1, Some(MANAGER_1))],
+                [SUB_ACCOUNT_2, gen_das_lock_args(OWNER_2, Some(MANAGER_2))],
+                [SUB_ACCOUNT_3, gen_das_lock_args(OWNER_3, Some(MANAGER_3))],
+                [SUB_ACCOUNT_4, gen_das_lock_args(OWNER_4, Some(MANAGER_4))],
+            ]
+        }),
+    );
+
+    smt
+}
+
+pub fn push_commen_renew_sign_witness(template: &mut TemplateGenerator) -> SMTWithHistory {
+    let smt = template.push_sub_account_mint_sign_witness(
+        DataType::SubAccountRenewSign,
+        json!({
+            "version": 1,
+            "expired_at": TIMESTAMP + DAY_SEC,
+            "account_list_smt_root": [
+                [SUB_ACCOUNT_1, gen_das_lock_args(OWNER_1, Some(MANAGER_1))],
+                [SUB_ACCOUNT_2, gen_das_lock_args(OWNER_2, Some(MANAGER_2))],
+                [SUB_ACCOUNT_3, gen_das_lock_args(OWNER_3, Some(MANAGER_3))],
+                [SUB_ACCOUNT_4, gen_das_lock_args(OWNER_4, Some(MANAGER_4))],
+            ]
+        }),
+    );
 
     smt
 }

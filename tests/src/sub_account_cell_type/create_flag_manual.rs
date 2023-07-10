@@ -28,7 +28,7 @@ fn test_sub_account_create_flag_manual() {
     let mut template = before_each();
 
     // outputs
-    let smt = push_commen_sign_witness(&mut template);
+    let smt = push_commen_mint_sign_witness(&mut template);
     template.push_sub_account_witness_v2(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
@@ -85,13 +85,16 @@ fn challenge_sub_account_create_flag_manual_flag_not_consistent() {
     let mut template = before_each();
 
     // outputs
-    let smt = template.push_sub_account_mint_sign_witness(json!({
-        "version": 1,
-        "expired_at": TIMESTAMP + DAY_SEC,
-        "account_list_smt_root": [
-            [SUB_ACCOUNT_1, gen_das_lock_args(OWNER_1, Some(MANAGER_1))],
-        ]
-    }));
+    let smt = template.push_sub_account_mint_sign_witness(
+        DataType::SubAccountMintSign,
+        json!({
+            "version": 1,
+            "expired_at": TIMESTAMP + DAY_SEC,
+            "account_list_smt_root": [
+                [SUB_ACCOUNT_1, gen_das_lock_args(OWNER_1, Some(MANAGER_1))],
+            ]
+        }),
+    );
     template.push_sub_account_witness_v2(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
@@ -132,13 +135,16 @@ fn challenge_sub_account_create_flag_manual_profit_not_consistent() {
     let mut template = before_each();
 
     // outputs
-    let smt = template.push_sub_account_mint_sign_witness(json!({
-        "version": 1,
-        "expired_at": TIMESTAMP + DAY_SEC,
-        "account_list_smt_root": [
-            [SUB_ACCOUNT_1, gen_das_lock_args(OWNER_1, Some(MANAGER_1))],
-        ]
-    }));
+    let smt = template.push_sub_account_mint_sign_witness(
+        DataType::SubAccountMintSign,
+        json!({
+            "version": 1,
+            "expired_at": TIMESTAMP + DAY_SEC,
+            "account_list_smt_root": [
+                [SUB_ACCOUNT_1, gen_das_lock_args(OWNER_1, Some(MANAGER_1))],
+            ]
+        }),
+    );
     template.push_sub_account_witness_v2(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
@@ -179,13 +185,16 @@ fn challenge_sub_account_create_flag_manual_mix_custom_rule() {
     let mut template = before_each();
 
     // outputs
-    let smt = template.push_sub_account_mint_sign_witness(json!({
-        "version": 1,
-        "expired_at": TIMESTAMP + DAY_SEC,
-        "account_list_smt_root": [
-            [SUB_ACCOUNT_1, gen_das_lock_args(OWNER_1, Some(MANAGER_1))],
-        ]
-    }));
+    let smt = template.push_sub_account_mint_sign_witness(
+        DataType::SubAccountMintSign,
+        json!({
+            "version": 1,
+            "expired_at": TIMESTAMP + DAY_SEC,
+            "account_list_smt_root": [
+                [SUB_ACCOUNT_1, gen_das_lock_args(OWNER_1, Some(MANAGER_1))],
+            ]
+        }),
+    );
     template.push_sub_account_witness_v2(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
@@ -239,13 +248,16 @@ fn challenge_sub_account_create_flag_manual_invalid_char() {
     let account = "✨das🇫🇮001.xxxxx.bit";
 
     // outputs
-    let smt = template.push_sub_account_mint_sign_witness(json!({
-        "version": 1,
-        "expired_at": TIMESTAMP + DAY_SEC,
-        "account_list_smt_root": [
-            [account, gen_das_lock_args(OWNER_1, Some(MANAGER_1))],
-        ]
-    }));
+    let smt = template.push_sub_account_mint_sign_witness(
+        DataType::SubAccountMintSign,
+        json!({
+            "version": 1,
+            "expired_at": TIMESTAMP + DAY_SEC,
+            "account_list_smt_root": [
+                [account, gen_das_lock_args(OWNER_1, Some(MANAGER_1))],
+            ]
+        }),
+    );
     template.push_sub_account_witness_v2(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
@@ -281,13 +293,16 @@ fn challenge_sub_account_create_flag_manual_undefined_char() {
     let account = "✨das大001.xxxxx.bit";
 
     // outputs
-    let smt = template.push_sub_account_mint_sign_witness(json!({
-        "version": 1,
-        "expired_at": TIMESTAMP + DAY_SEC,
-        "account_list_smt_root": [
-            [account, gen_das_lock_args(OWNER_1, Some(MANAGER_1))],
-        ]
-    }));
+    let smt = template.push_sub_account_mint_sign_witness(
+        DataType::SubAccountMintSign,
+        json!({
+            "version": 1,
+            "expired_at": TIMESTAMP + DAY_SEC,
+            "account_list_smt_root": [
+                [account, gen_das_lock_args(OWNER_1, Some(MANAGER_1))],
+            ]
+        }),
+    );
     template.push_sub_account_witness_v2(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
@@ -323,13 +338,16 @@ fn challenge_sub_account_create_flag_manual_too_long() {
     let account = "1234567890123456789012345678901234567890123.xxxxx.bit";
 
     // outputs
-    let smt = template.push_sub_account_mint_sign_witness(json!({
-        "version": 1,
-        "expired_at": TIMESTAMP + DAY_SEC,
-        "account_list_smt_root": [
-            [account, gen_das_lock_args(OWNER_1, Some(MANAGER_1))],
-        ]
-    }));
+    let smt = template.push_sub_account_mint_sign_witness(
+        DataType::SubAccountMintSign,
+        json!({
+            "version": 1,
+            "expired_at": TIMESTAMP + DAY_SEC,
+            "account_list_smt_root": [
+                [account, gen_das_lock_args(OWNER_1, Some(MANAGER_1))],
+            ]
+        }),
+    );
     template.push_sub_account_witness_v2(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
@@ -356,13 +374,16 @@ fn challenge_sub_account_create_flag_manual_empty() {
     let account = ".xxxxx.bit";
 
     // outputs
-    let smt = template.push_sub_account_mint_sign_witness(json!({
-        "version": 1,
-        "expired_at": TIMESTAMP + DAY_SEC,
-        "account_list_smt_root": [
-            [account, gen_das_lock_args(OWNER_1, Some(MANAGER_1))],
-        ]
-    }));
+    let smt = template.push_sub_account_mint_sign_witness(
+        DataType::SubAccountMintSign,
+        json!({
+            "version": 1,
+            "expired_at": TIMESTAMP + DAY_SEC,
+            "account_list_smt_root": [
+                [account, gen_das_lock_args(OWNER_1, Some(MANAGER_1))],
+            ]
+        }),
+    );
     template.push_sub_account_witness_v2(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
@@ -389,13 +410,16 @@ fn challenge_sub_account_create_flag_manual_suffix_not_match() {
     let account = "00000.a.bit";
 
     // outputs
-    let smt = template.push_sub_account_mint_sign_witness(json!({
-        "version": 1,
-        "expired_at": TIMESTAMP + DAY_SEC,
-        "account_list_smt_root": [
-            [account, gen_das_lock_args(OWNER_1, Some(MANAGER_1))],
-        ]
-    }));
+    let smt = template.push_sub_account_mint_sign_witness(
+        DataType::SubAccountMintSign,
+        json!({
+            "version": 1,
+            "expired_at": TIMESTAMP + DAY_SEC,
+            "account_list_smt_root": [
+                [account, gen_das_lock_args(OWNER_1, Some(MANAGER_1))],
+            ]
+        }),
+    );
     template.push_sub_account_witness_v2(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
@@ -421,13 +445,16 @@ fn challenge_sub_account_create_flag_manual_id_not_match() {
     let mut template = before_each();
 
     // outputs
-    let smt = template.push_sub_account_mint_sign_witness(json!({
-        "version": 1,
-        "expired_at": TIMESTAMP + DAY_SEC,
-        "account_list_smt_root": [
-            [SUB_ACCOUNT_1, gen_das_lock_args(OWNER_1, Some(MANAGER_1))],
-        ]
-    }));
+    let smt = template.push_sub_account_mint_sign_witness(
+        DataType::SubAccountMintSign,
+        json!({
+            "version": 1,
+            "expired_at": TIMESTAMP + DAY_SEC,
+            "account_list_smt_root": [
+                [SUB_ACCOUNT_1, gen_das_lock_args(OWNER_1, Some(MANAGER_1))],
+            ]
+        }),
+    );
     template.push_sub_account_witness_v2(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
@@ -454,7 +481,7 @@ fn challenge_sub_account_create_flag_manual_registered_at_is_invalid() {
     let mut template = before_each();
 
     // outputs
-    let smt = push_commen_sign_witness(&mut template);
+    let smt = push_commen_mint_sign_witness(&mut template);
     template.push_sub_account_witness_v2(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
@@ -480,7 +507,7 @@ fn challenge_sub_account_create_flag_manual_expired_at_less_than_one_year() {
     let mut template = before_each();
 
     // outputs
-    let smt = push_commen_sign_witness(&mut template);
+    let smt = push_commen_mint_sign_witness(&mut template);
     template.push_sub_account_witness_v2(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
@@ -506,7 +533,7 @@ fn challenge_sub_account_create_flag_manual_no_profit_record() {
     let mut template = before_each();
 
     // outputs
-    let smt = push_commen_sign_witness(&mut template);
+    let smt = push_commen_mint_sign_witness(&mut template);
     template.push_sub_account_witness_v2(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
@@ -535,7 +562,7 @@ fn challenge_sub_account_create_flag_manual_profit_not_match_capacity() {
     let mut template = before_each();
 
     // outputs
-    let smt = push_commen_sign_witness(&mut template);
+    let smt = push_commen_mint_sign_witness(&mut template);
     template.push_sub_account_witness_v2(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
@@ -578,17 +605,20 @@ fn challenge_sub_account_create_flag_manual_mint_sign_expired() {
     let mut template = before_each();
 
     // outputs
-    let smt = template.push_sub_account_mint_sign_witness(json!({
-        "version": 1,
-        // Simulate generating the mint signature with too large value.
-        "expired_at": TIMESTAMP + YEAR_SEC + 1,
-        "account_list_smt_root": [
-            [SUB_ACCOUNT_1, gen_das_lock_args(OWNER_1, Some(MANAGER_1))],
-            [SUB_ACCOUNT_2, gen_das_lock_args(OWNER_2, Some(MANAGER_2))],
-            [SUB_ACCOUNT_3, gen_das_lock_args(OWNER_3, Some(MANAGER_3))],
-            [SUB_ACCOUNT_4, gen_das_lock_args(OWNER_4, Some(MANAGER_4))],
-        ]
-    }));
+    let smt = template.push_sub_account_mint_sign_witness(
+        DataType::SubAccountMintSign,
+        json!({
+            "version": 1,
+            // Simulate generating the mint signature with too large value.
+            "expired_at": TIMESTAMP + YEAR_SEC + 1,
+            "account_list_smt_root": [
+                [SUB_ACCOUNT_1, gen_das_lock_args(OWNER_1, Some(MANAGER_1))],
+                [SUB_ACCOUNT_2, gen_das_lock_args(OWNER_2, Some(MANAGER_2))],
+                [SUB_ACCOUNT_3, gen_das_lock_args(OWNER_3, Some(MANAGER_3))],
+                [SUB_ACCOUNT_4, gen_das_lock_args(OWNER_4, Some(MANAGER_4))],
+            ]
+        }),
+    );
     template.push_sub_account_witness_v2(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
@@ -616,17 +646,20 @@ fn challenge_sub_account_create_flag_manual_sign_expired_at_less_than_the_minima
     let mut template = before_each();
 
     // outputs
-    let smt = template.push_sub_account_mint_sign_witness(json!({
-        "version": 1,
-        // Simulate generating the mint signature with too large value.
-        "expired_at": TIMESTAMP + YEAR_SEC + 1,
-        "account_list_smt_root": [
-            [SUB_ACCOUNT_1, gen_das_lock_args(OWNER_1, Some(MANAGER_1))],
-            [SUB_ACCOUNT_2, gen_das_lock_args(OWNER_2, Some(MANAGER_2))],
-            [SUB_ACCOUNT_3, gen_das_lock_args(OWNER_3, Some(MANAGER_3))],
-            [SUB_ACCOUNT_4, gen_das_lock_args(OWNER_4, Some(MANAGER_4))],
-        ]
-    }));
+    let smt = template.push_sub_account_mint_sign_witness(
+        DataType::SubAccountMintSign,
+        json!({
+            "version": 1,
+            // Simulate generating the mint signature with too large value.
+            "expired_at": TIMESTAMP + YEAR_SEC + 1,
+            "account_list_smt_root": [
+                [SUB_ACCOUNT_1, gen_das_lock_args(OWNER_1, Some(MANAGER_1))],
+                [SUB_ACCOUNT_2, gen_das_lock_args(OWNER_2, Some(MANAGER_2))],
+                [SUB_ACCOUNT_3, gen_das_lock_args(OWNER_3, Some(MANAGER_3))],
+                [SUB_ACCOUNT_4, gen_das_lock_args(OWNER_4, Some(MANAGER_4))],
+            ]
+        }),
+    );
     template.push_sub_account_witness_v2(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
@@ -654,17 +687,20 @@ fn challenge_sub_account_create_flag_manual_sign_expired_at_less_than_the_minima
     let mut template = before_each();
 
     // outputs
-    let smt = template.push_sub_account_mint_sign_witness(json!({
-        "version": 1,
-        // Simulate generating the mint signature with too large value.
-        "expired_at": TIMESTAMP - DAY_SEC - 1,
-        "account_list_smt_root": [
-            [SUB_ACCOUNT_1, gen_das_lock_args(OWNER_1, Some(MANAGER_1))],
-            [SUB_ACCOUNT_2, gen_das_lock_args(OWNER_2, Some(MANAGER_2))],
-            [SUB_ACCOUNT_3, gen_das_lock_args(OWNER_3, Some(MANAGER_3))],
-            [SUB_ACCOUNT_4, gen_das_lock_args(OWNER_4, Some(MANAGER_4))],
-        ]
-    }));
+    let smt = template.push_sub_account_mint_sign_witness(
+        DataType::SubAccountMintSign,
+        json!({
+            "version": 1,
+            // Simulate generating the mint signature with too large value.
+            "expired_at": TIMESTAMP - DAY_SEC - 1,
+            "account_list_smt_root": [
+                [SUB_ACCOUNT_1, gen_das_lock_args(OWNER_1, Some(MANAGER_1))],
+                [SUB_ACCOUNT_2, gen_das_lock_args(OWNER_2, Some(MANAGER_2))],
+                [SUB_ACCOUNT_3, gen_das_lock_args(OWNER_3, Some(MANAGER_3))],
+                [SUB_ACCOUNT_4, gen_das_lock_args(OWNER_4, Some(MANAGER_4))],
+            ]
+        }),
+    );
     template.push_sub_account_witness_v2(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
