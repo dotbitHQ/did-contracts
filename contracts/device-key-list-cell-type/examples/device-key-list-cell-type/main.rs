@@ -9,10 +9,14 @@
 #![feature(lang_items)]
 #![feature(alloc_error_handler)]
 #![feature(panic_info_message)]
-
+#![feature(slice_pattern)]
 // define modules
+mod create_device_key_list;
+mod destroy_device_key_list;
 mod entry;
-mod sub_action;
+mod helpers;
+mod traits;
+mod update_device_key_list;
 
 use ckb_std::default_alloc;
 

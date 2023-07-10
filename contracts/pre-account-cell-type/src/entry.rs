@@ -376,6 +376,8 @@ fn verify_apply_hash<'a>(
         ".bit".as_bytes().to_vec(),
     ]
     .concat();
+    debug!("The raw data to genrate hash: 0x{}", util::hex_string(&data_to_hash));
+
     let expected_hash = util::blake2b_256(data_to_hash.as_slice());
 
     assert!(

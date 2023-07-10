@@ -514,7 +514,8 @@ pub fn load_das_witnesses(index: usize) -> Result<Vec<u8>, Box<dyn ScriptError>>
                 );
             }
 
-            if actual_size > 32000 {
+            // WARNING This limit may not be accurate. It is advisable to adjust it based on the data available on the chain.
+            if actual_size > 33000 {
                 warn!("The witnesses[{}] should be less than 32KB because the signall lock do not support more than that.", index);
                 return Err(SysError::LengthNotEnough(actual_size).into());
             }
