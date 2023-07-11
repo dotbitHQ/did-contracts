@@ -556,6 +556,7 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
                 Some(Ok(witness)) => {
                     let renew_sender_lock;
                     let renew_sign_role;
+                    sign_verified = true;
                     (renew_sign_role, renew_sender_lock, manual_renew_list_smt_root) =
                         verify_and_init_some_vars("SubAccountRenewWitness", &witness)?;
 
