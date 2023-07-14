@@ -311,7 +311,7 @@ table AccountCellData {
     records: Records,
     // The status of sub-account function, 0x00 means disabled, 0x01 means enabled.
     enable_sub_account: Uint8,
-    // The price of renewing sub-account for one year.
+    // Uused, The price of renewing sub-account for one year.
     renew_sub_account_price: Uint64,
 }
 

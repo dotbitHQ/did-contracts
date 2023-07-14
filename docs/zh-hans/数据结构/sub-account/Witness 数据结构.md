@@ -1,9 +1,9 @@
 # Witness 数据结构
 
 
-## Mint 方式与 flag 标识符
+## Mint/Renew 方式与 flag 标识符
 
-子账户的 Mint 方式主要有 3 种：
+子账户的 Mint 方式主要有 3 种，Mint 方式同时也是 Renew 方式：
 
 - 由 Owner 或 Manager 签名的 **Sign Mint**；
 - 由用户支付一定 USD 自助 Mint ，这种 Mint 方式又根据定价来源细分为以下两种：
@@ -90,10 +90,10 @@
 0x00000000 就是 field_2 的 length ，其指明了 field_2 的值为空
 ```
 
-### SubAccountMintSign 数据结构
+### SubAccountMintSign 和 SubAccountRenewSign 的数据结构
 
-当大批量地创建子账户时，因为交易体积的限制，一笔交易中无法携带过多的子账户信息，这时候就需要将交易拆分为多笔交易才能执行。因此，为了
-保证交易拆分后仍然只需要用户进行一次签名，所以有了这种转为创建子账户而设计的签名数据结构。
+当大批量地创建、续费子账户时，因为交易体积的限制，一笔交易中无法携带过多的子账户信息，这时候就需要将交易拆分为多笔交易才能执行。因此
+，为了保证交易拆分后仍然只需要用户进行一次签名，所以有了这种转为创建子账户而设计的签名数据结构。
 
 ```
 [ length ][ version ]
@@ -179,34 +179,12 @@ account hash ，value 为子账户创建成功后的 `SubAccountData.lock.args` 
 - `sign_expired_at` 指明 `signature` 签名的到期时间，**这个过期时间必须小于等于父账户 `expired_at` 和子账户的 `expired_at` 之间的最小值**；
 - `new_root` 当前 witness 对 `SubAccountCell.data.smt_root` 修改后的新的 SMT root ；
 - `proof` 即 SMT 的 proof，用于证明当前的 `SubAccountCell.data.smt_root` 和修改后的 `SubAccountCell.data.smt_root` 都是正确的；
-
-剩余的 `action, sub_account, edit_key, edit_value` 等字段的详细信息详见后续章节的介绍。
-
-#### action、edit_key 和 edit_value 字段数据结构
-
-`action` 的值就是 utf-8 编码的字符串，根据当前 witness 的意图不同可以为 `create`, `edit`, `renew` 等等。
-
-比较重要的一点是，当 `action` 不同时，`edit_key` 和 `edit_value` 的含义也有所不同：
-
-- 如果 `action == create && edit_key == manual`，则 `edit_value` 必须是 `SubAccountMintSign.account_list_smt_root` 的有效 `proof` ，其要能够证明当前的创建的账户名确实存在于 `SubAccountMintSign.account_list_smt_root` 中；
-- 如果 `action == create && edit_key == custom_script`，`edit_value` 必须为空；
-- 如果 `action == create && edit_key == custom_rule`，`edit_value` 前 20 Bytes 为渠道商的识别 ID，后 8 Bytes 为此账号注册时所支付的金额；
-- 如果 `action == edit`，那么 `edit_key` 就是 utf-8 编码的字符串，用于指明需要修改的字段，`edit_value` 就是具体修改后的值，根据字段的不同有以下类型：
-  - `edit_key` 为 `expired_at`，那么 `edit_value` 必须为一个 molecule 编码的 `Uint64` 类型数据；
-  - `edit_key` 为 `owner`，那么 `edit_value` 必须为一个合法的 das-lock 的 args 数据，并且出于安全考虑，新状态的子账户的 records 字段会被视为已清空；
-  - `edit_key` 为 `manager`，那么 `edit_value` 必须为一个合法的 das-lock 的 args 数据；
-  - `edit_key` 为 `records`，那么 `edit_value` 必须为一个 molecule 编码的 `Records` 类型数据；
-
-> 为了支持第三方渠道通过自定义规则分发子账户，因此每个通过第三方渠道注册的子账户的 witness 中需要带上渠道商的识别 ID 和注册金额，后续在 dotbit 团队以此为依据和第三方渠道进行利润分配。
->
-> 没有任何第三方渠道时，渠道标识就使用 20 Bytes 的 `0x00` 进行填充，所有利润归属 dotbit 团队。
-
-#### sub_account 字段数据结构
-
-在整个子账户的 witness 中，`sub_account` 则是一个子账户的 molecule 编码的数据结构(**最新结构请以 [das-types](https://github.com/dotbitHQ/das-types) 中定义为准**)：
+- `sub_account` 一个存放子账户信息的 molecule 编码结构，同样名为 SubAccount ，详细数据结构在下方可见；
+- `edit_key` 是一个配合 `action` 使用的参数字段；
+- `edit_value` 也是一个配合 `action` 使用的参数字段；
 
 ```
-table SubAccountData {
+table SubAccount {
     // The lock of owner and manager
     lock: Script,
     // The first 160 bits of the hash of account.
@@ -232,19 +210,38 @@ table SubAccountData {
 }
 ```
 
+#### sub_account 字段数据结构
+
+在整个子账户的 witness 中，`sub_account` 则是一个子账户的 molecule 编码的数据结构(**最新结构请以 [das-types](https://github.com/dotbitHQ/das-types) 中定义为准**)：
+
+```
+table SubAccountData {
+    // The lock of owner and manager
+    lock: Script,
+    // The first 160 bits of the hash of account.
+    id: AccountId,
+    // Separate chars of account.
+    account: AccountChars,
+    // The suffix of this sub-account, it is always .bit currently.
+    suffix: Bytes,
+    // The sub-account register timestamp.
+    registered_at: Uint64,
+    // The sub-account expiration timestamp.
+    expired_at: Uint64,
+    // The status of the account, 0x00 means normal, 0x01 means being sold, 0x02 means being auctioned.
+    status: Uint8,
+    // Resolving records of this sub-account.
+    records: Records,
+    // This is a count field, it mainly used to prevent replay attacks.
+    nonce: Uint64,
+    // Uused, If sub-account of sub-account is enabled.
+    enable_sub_account: Uint8,
+    // Uused, The price of renew sub-account of this sub-account.
+    renew_sub_account_price: Uint64,
+}
+```
+
 > 目前 `lock` 字段仅支持 das-lock ，既其中的 `code_hash`, `hash_type` 字段必须和用于其他 Cell 上的 das-lock 完全一致。
 >
 > `nonce` 字段在每次发起需要子账户签名的交易时都需要自增 1 ，如此就可以防止重放攻击。 由于 witness.sub_account.nonce 的值总是**当前的 nonce 值**，
 > 如果需要对子账户交易进行签名，那么使用**当前的 nonce 值**即可，如果需要计算交易上链后新的子账户信息，那么需要在**当前的 nonce 值上 +1** 。
-
-#### 签名与验签
-
-`signature` 最终会使用和 `das-lock` 进行验签，因此签名的生成和验签就是 CKB、ETH、BTC 链的标准协议。唯一不同的是 `digest` 的生成，其组成为按顺序拼接以下字段：
-
-- `from did: ` 字符串的二进制字节；
-- 一个以 `ckb-default-hash` 为参数的 32 字节 blake2b hash ，创建方法是按顺序拼接以下字段后进行 hash：
-  - `account_id`
-  - `edit_key`
-  - `edit_value`
-  - `nonce`
-  - `sign_expired_at`
