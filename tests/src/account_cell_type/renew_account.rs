@@ -143,7 +143,7 @@ fn challenge_account_renew_modify_owner() {
         json!({
             "lock": {
                 // Simulate the owner of the AccountCell was changed.
-                "owner_lock_args": "0x000000000000000000000000000000000000003333",
+                "owner_lock_args": "0x020000000000000000000000000000000000003333",
             },
             "data": {
                 "expired_at": TIMESTAMP + 31_536_000,
