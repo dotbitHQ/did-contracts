@@ -51,7 +51,7 @@ pub struct SignLib {
     pub eth: Option<SignLibWith2Methods>,
     pub tron: Option<SignLibWith2Methods>,
     pub doge: Option<SignLibWith2Methods>,
-    pub webauthn: Option<SignLibWith3Methods>
+    pub web_authn: Option<SignLibWith3Methods>
 }
 
 impl SignLib {
@@ -63,7 +63,7 @@ impl SignLib {
             eth: None,
             tron: None,
             doge: None,
-            webauthn: None
+            web_authn: None
         }
     }
 
@@ -160,7 +160,7 @@ impl SignLib {
                 func = &lib.c_validate_str;
             }
             DasLockType::WebAuthn => {
-                let lib = self.webauthn.as_ref().unwrap();
+                let lib = self.web_authn.as_ref().unwrap();
                 func = &lib.c_validate_str;
             }
             _ => return Err(Error::UndefinedDasLockType as i32),
@@ -210,7 +210,7 @@ impl SignLib {
             util::hex_string(data)
         );
 
-        let func = &self.webauthn.as_ref().unwrap().c_validate_device;
+        let func = &self.web_authn.as_ref().unwrap().c_validate_device;
 
         let error_code = unsafe {
             func(

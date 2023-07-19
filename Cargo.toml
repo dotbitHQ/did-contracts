@@ -51,8 +51,8 @@ default-members = [
 ]
 
 [workspace.dependencies]
-das-types = { git = "https://github.com/dotbitHQ/das-types-private.git", default-features = false, rev = "65304ca" }
-das-types-std = { git = "https://github.com/dotbitHQ/das-types-private.git", rev = "f4130b1" }
+das-types = { git = "https://github.com/dotbitHQ/das-types-private.git", default-features = false, rev = "dfd9ec6" }
+das-types-std = { git = "https://github.com/dotbitHQ/das-types-private.git", rev = "65e3276a" }
 simple-ast = { path = "libs/simple-ast", default-features = false }
 das-map = { path = "libs/das-map", default-features = false }
 das-core = { path = "libs/das-core", default-features = false }
