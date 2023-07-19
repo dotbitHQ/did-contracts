@@ -1,6 +1,7 @@
 use alloc::boxed::Box;
 use alloc::string::ToString;
 use alloc::vec;
+use das_types::prelude::Entity;
 use core::result::Result;
 
 use ckb_std::ckb_constants::Source;
@@ -125,7 +126,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 }
                 let witness = witness_ret.unwrap();
 
-                verify_sign(&sign_lib, &witness)?;
+                verify_sign(&sign_lib, &witness, &witness_parser)?;
                 smt_verify_reverse_record_proof(&prev_root, &witness)?;
 
                 prev_root = witness.next_root.to_vec();
@@ -177,7 +178,11 @@ fn verify_has_some_lock_in_white_list(start_from: usize, white_list: &[[u8; 32]]
     Err(code_to_error!(ErrorCode::SMTWhiteListTheLockIsNotFound))
 }
 
-fn verify_sign(sign_lib: &SignLib, witness: &ReverseRecordWitness) -> Result<(), Box<dyn ScriptError>> {
+fn verify_sign(
+    sign_lib: &SignLib,
+    witness: &ReverseRecordWitness,
+    witness_parser: &ReverseRecordWitnessesParser,
+) -> Result<(), Box<dyn ScriptError>> {
     if cfg!(feature = "dev") {
         // CAREFUL Proof verification has been skipped in development mode.
         debug!(
@@ -193,7 +198,11 @@ fn verify_sign(sign_lib: &SignLib, witness: &ReverseRecordWitness) -> Result<(),
     );
 
     let das_lock_type = match witness.sign_type {
-        DasLockType::ETH | DasLockType::ETHTypedData | DasLockType::TRON | DasLockType::Doge => witness.sign_type,
+        DasLockType::ETH
+        | DasLockType::ETHTypedData
+        | DasLockType::TRON
+        | DasLockType::Doge
+        | DasLockType::WebAuthn => witness.sign_type,
         _ => {
             warn!(
                 "  witnesses[{:>2}] Parsing das-lock(witness.reverse_record.lock.args) algorithm failed (maybe not supported for now), but it is required in this transaction.",
@@ -220,7 +229,29 @@ fn verify_sign(sign_lib: &SignLib, witness: &ReverseRecordWitness) -> Result<(),
         );
         code_to_error!(ReverseRecordRootCellErrorCode::SignatureVerifyError)
     })?;
-    let ret = sign_lib.validate_str(das_lock_type, 0i32, message.clone(), message.len(), signature, args);
+    let ret = if das_lock_type == DasLockType::WebAuthn {
+        let device_key_list = witness_parser
+            .device_key_lists
+            .get(&args)
+            .ok_or(code_to_error!(ErrorCode::WitnessStructureError))?;
+        sign_lib.validate_device(
+            das_lock_type,
+            0i32,
+            &signature,
+            &message,
+            device_key_list.as_slice(),
+            Default::default(),
+        )
+    } else {
+        sign_lib.validate_str(
+            das_lock_type, 0i32, 
+            message.clone(), 
+            message.len(), 
+            signature, 
+            args
+        )
+    };
+
     match ret {
         Err(_error_code) if _error_code == DasDynamicLibError::UndefinedDasLockType as i32 => {
             warn!(

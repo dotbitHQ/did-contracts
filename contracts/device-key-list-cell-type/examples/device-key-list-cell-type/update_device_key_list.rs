@@ -1,11 +1,12 @@
 use alloc::vec::Vec;
 
+use das_core::helpers::Comparable;
 use das_core::{assert, code_to_error, debug};
 use das_types::packed::{DeviceKey, DeviceKeyListCellData};
 use device_key_list_cell_type::error::ErrorCode;
 use molecule::prelude::Entity;
 
-use crate::helpers::{Comparable, ToNum};
+use crate::helpers::ToNum;
 use crate::traits::{Action, GetCellWitness, Rule};
 
 pub fn action() -> Action {

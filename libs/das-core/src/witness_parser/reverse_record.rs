@@ -1,17 +1,25 @@
 use alloc::boxed::Box;
+use alloc::collections::BTreeMap;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::convert::{TryFrom, TryInto};
+use core::ops::Index;
 use core::str::FromStr;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::error::SysError;
-use ckb_std::syscalls;
+use ckb_std::high_level::{load_cell, load_cell_data, QueryIter};
+use ckb_std::syscalls::{self};
 use das_types::constants::*;
+use das_types::packed::DeviceKeyListCellData;
+use das_types::prelude::Entity;
 
 use super::super::error::*;
 use super::super::util;
 use super::lv_parser::*;
+use crate::constants::device_key_list_cell_type;
+use crate::traits::Blake2BHash;
+use crate::util::load_das_witnesses;
 
 // Binary format: 'das'(3) + DATA_TYPE(4) + binary_data
 
@@ -52,6 +60,7 @@ pub struct ReverseRecordWitnessesParser {
     pub contains_updating: bool,
     pub contains_removing: bool,
     pub reverse_record_indexes: Vec<usize>,
+    pub device_key_lists: BTreeMap<Vec<u8>, DeviceKeyListCellData>,
 }
 
 impl ReverseRecordWitnessesParser {
@@ -59,14 +68,25 @@ impl ReverseRecordWitnessesParser {
         let mut contains_updating = false;
         let mut contains_removing = false;
         let mut reverse_record_indexes = Vec::new();
+        let mut device_key_lists = BTreeMap::<Vec<u8>, DeviceKeyListCellData>::new();
+        let cell_deps = QueryIter::new(
+            |index, source| {
+                let output = load_cell(index, source)?;
+                let data = load_cell_data(index, source)?;
+                Ok((data, output))
+            },
+            Source::CellDep,
+        )
+        .collect::<BTreeMap<_, _>>();
         let mut i = 0;
         let mut das_witnesses_started = false;
 
         loop {
-            let mut buf = [0u8; (WITNESS_HEADER_BYTES
-                + WITNESS_TYPE_BYTES
-                + REVERSE_RECORD_WITNESS_VERSION_BYTES
-                + REVERSE_RECORD_WITNESS_ACTION_BYTES)];
+            let mut buf = [0u8; (
+                WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES
+                // + REVERSE_RECORD_WITNESS_VERSION_BYTES
+                // + REVERSE_RECORD_WITNESS_ACTION_BYTES
+            )];
             let ret = syscalls::load_witness(&mut buf, 0, i, Source::Input);
 
             match ret {
@@ -109,6 +129,23 @@ impl ReverseRecordWitnessesParser {
                                 contains_removing = true;
                             }
                         }
+                        Ok(DataType::DeviceKeyListCellData) => {
+                            let ret = &load_das_witnesses(i)?[7..];
+                            let device_list = DeviceKeyListCellData::from_slice(ret)
+                                .map_err(|_| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
+                            let cell_dep = cell_deps.get(device_list.blake2b_256().index(..));
+                            if let Some(cell_dep) = cell_dep {
+                                das_assert!(
+                                    cell_dep.type_().to_opt().unwrap().as_slice()
+                                        == device_key_list_cell_type().as_slice(),
+                                    ErrorCode::WitnessDataDecodingError,
+                                    "Cell dep of witness[{:>2}] is not a device_key_list_cell",
+                                    i
+                                );
+                                device_key_lists
+                                    .insert(cell_dep.lock().args().raw_data().slice(2..22).to_vec(), device_list);
+                            }
+                        }
                         Ok(_) => {
                             // Ignore other witnesses in this parser.
                         }
@@ -138,6 +175,7 @@ impl ReverseRecordWitnessesParser {
             contains_updating,
             contains_removing,
             reverse_record_indexes,
+            device_key_lists,
         })
     }
 

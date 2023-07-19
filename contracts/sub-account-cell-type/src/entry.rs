@@ -517,7 +517,7 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
                     parent_expired_at,
                     sub_account_last_updated_at,
                 )?;
-                verifiers::sub_account_cell::verify_sub_account_mint_sign(&witness, &sign_lib)?;
+                verifiers::sub_account_cell::verify_sub_account_mint_sign(&witness, &sign_lib, &sub_account_parser)?;
 
                 let mut tmp = [0u8; 32];
                 tmp.copy_from_slice(&witness.account_list_smt_root);
@@ -787,7 +787,7 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
             Err(e) => return Err(e),
         };
 
-        sub_action.dispatch(&witness, &prev_root)?;
+        sub_action.dispatch(&witness, &prev_root, &sub_account_parser)?;
         prev_root = witness.new_root.clone();
 
         if i == sub_account_parser.len() - 1 {

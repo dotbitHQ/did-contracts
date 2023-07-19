@@ -17,3 +17,5 @@ pub mod types;
 pub mod util;
 pub mod verifiers;
 pub mod witness_parser;
+pub mod traits;
+pub mod helpers;

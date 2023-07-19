@@ -3,6 +3,7 @@ use alloc::vec::Vec;
 
 pub use ckb_std::ckb_types::core::ScriptHashType;
 use ckb_std::ckb_types::packed::*;
+use hex::FromHex;
 
 use super::types::ScriptLiteral;
 use super::util;
@@ -546,4 +547,23 @@ pub fn multisign_lock() -> Script {
     };
 
     util::script_literal_to_script(multisign_lock)
+}
+
+
+pub fn device_key_list_cell_type() -> Script {
+    #[cfg(feature = "dev")]
+    let script = ScriptLiteral {
+        code_hash: <[u8; 32]>::from_hex("355da9bcc2b24ba928846118eb8dd30846fc7ed150f2b629c4c3ed3c428b6a32").unwrap(),
+        hash_type: ScriptHashType::Type,
+        args: Vec::new(),
+    };
+
+    #[cfg(not(feature = "dev"))]
+    let script = ScriptLiteral {
+        code_hash: <[u8; 32]>::from_hex("355da9bcc2b24ba928846118eb8dd30846fc7ed150f2b629c4c3ed3c428b6a32").unwrap(),
+        hash_type: ScriptHashType::Type,
+        args: Vec::new(),
+    };
+
+    util::script_literal_to_script(script)
 }

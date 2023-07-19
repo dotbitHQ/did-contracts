@@ -1,7 +1,10 @@
 use alloc::boxed::Box;
+use alloc::collections::BTreeMap;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
+use ckb_std::high_level::{QueryIter, load_cell, load_cell_data};
 use core::convert::{TryFrom, TryInto};
+use core::ops::Index;
 use core::str::FromStr;
 
 use ckb_std::ckb_constants::Source;
@@ -13,6 +16,10 @@ use das_types::prelude::*;
 #[cfg(all(debug_assertions))]
 use das_types::prettier::Prettier;
 use simple_ast::{types as ast_types, util as ast_util};
+
+use crate::constants::device_key_list_cell_type;
+use crate::traits::Blake2BHash;
+use crate::util::load_das_witnesses;
 
 use super::super::error::*;
 use super::super::{data_parser, util};
@@ -90,6 +97,7 @@ pub struct SubAccountWitnessesParser {
     pub price_rule_indexes: Vec<usize>,
     pub preserved_rule_indexes: Vec<usize>,
     pub indexes: Vec<usize>,
+    pub device_key_lists: BTreeMap<Vec<u8>, DeviceKeyListCellData>,
 }
 
 impl SubAccountWitnessesParser {
@@ -106,11 +114,22 @@ impl SubAccountWitnessesParser {
         let mut i = 0;
         let mut das_witnesses_started = false;
         let mut count = 0;
+        let mut device_key_lists = BTreeMap::<Vec<u8>, DeviceKeyListCellData>::new();
+        let cell_deps = QueryIter::new(
+            |index, source| {
+                let output = load_cell(index, source)?;
+                let data = load_cell_data(index, source)?;
+                Ok((data, output))
+            },
+            Source::CellDep,
+        )
+        .collect::<BTreeMap<_, _>>();
         loop {
             let mut buf = [0u8; (WITNESS_HEADER_BYTES
                 + WITNESS_TYPE_BYTES
-                + SUB_ACCOUNT_WITNESS_VERSION_BYTES
-                + SUB_ACCOUNT_WITNESS_ACTION_BYTES)];
+                // + SUB_ACCOUNT_WITNESS_VERSION_BYTES
+                // + SUB_ACCOUNT_WITNESS_ACTION_BYTES
+            )];
             let ret = syscalls::load_witness(&mut buf, 0, i, Source::Input);
 
             match ret {
@@ -174,6 +193,23 @@ impl SubAccountWitnessesParser {
                             count += 1;
                             preserved_rule_indexes.push(i);
                         }
+                        Ok(DataType::DeviceKeyListCellData) => {
+                            let ret = &load_das_witnesses(i)?[7..];
+                            let device_list = DeviceKeyListCellData::from_slice(ret)
+                                .map_err(|_| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
+                            let cell_dep = cell_deps.get(device_list.blake2b_256().index(..));
+                            if let Some(cell_dep) = cell_dep {
+                                das_assert!(
+                                    cell_dep.type_().to_opt().unwrap().as_slice()
+                                        == device_key_list_cell_type().as_slice(),
+                                    ErrorCode::WitnessDataDecodingError,
+                                    "Cell dep of witness[{:>2}] is not a device_key_list_cell",
+                                    i
+                                );
+                                device_key_lists
+                                    .insert(cell_dep.lock().args().raw_data().slice(2..22).to_vec(), device_list);
+                            }
+                        }
                         Ok(_) => {
                             // Ignore other witnesses in this parser.
                         }
@@ -209,6 +245,7 @@ impl SubAccountWitnessesParser {
             price_rule_indexes,
             preserved_rule_indexes,
             indexes,
+            device_key_lists
         })
     }
 
