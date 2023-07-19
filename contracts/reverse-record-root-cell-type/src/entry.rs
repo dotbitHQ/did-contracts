@@ -1,12 +1,12 @@
 use alloc::boxed::Box;
 use alloc::string::ToString;
 use alloc::vec;
-use das_types::prelude::Entity;
 use core::result::Result;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
 use das_core::constants::CellField;
+use das_core::data_parser::webauthn_signature::WebAuthnSignature;
 use das_core::error::*;
 use das_core::witness_parser::reverse_record::{ReverseRecordWitness, ReverseRecordWitnessesParser};
 use das_core::witness_parser::WitnessesParser;
@@ -16,6 +16,7 @@ use das_dynamic_libs::error::Error as DasDynamicLibError;
 use das_dynamic_libs::sign_lib::SignLib;
 use das_dynamic_libs::{load_2_methods, load_lib, log_loading, new_context};
 use das_types::constants::DasLockType;
+use das_types::prelude::Entity;
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running reverse-record-root-cell-type ======");
@@ -229,7 +230,14 @@ fn verify_sign(
         );
         code_to_error!(ReverseRecordRootCellErrorCode::SignatureVerifyError)
     })?;
-    let ret = if das_lock_type == DasLockType::WebAuthn {
+    let ret = if das_lock_type == DasLockType::WebAuthn
+        && u8::from_le_bytes(
+            WebAuthnSignature::try_from(signature.as_slice())?
+                .pubkey_index()
+                .try_into()
+                .unwrap(),
+        ) != 255
+    {
         let device_key_list = witness_parser
             .device_key_lists
             .get(&args)
@@ -243,13 +251,7 @@ fn verify_sign(
             Default::default(),
         )
     } else {
-        sign_lib.validate_str(
-            das_lock_type, 0i32, 
-            message.clone(), 
-            message.len(), 
-            signature, 
-            args
-        )
+        sign_lib.validate_str(das_lock_type, 0i32, message.clone(), message.len(), signature, args)
     };
 
     match ret {

@@ -12,6 +12,7 @@ use das_types::prelude::Entity;
 use das_types::prettier::Prettier;
 
 use crate::constants::*;
+use crate::data_parser::webauthn_signature::WebAuthnSignature;
 use crate::error::*;
 use crate::witness_parser::sub_account::*;
 use crate::witness_parser::WitnessesParser;
@@ -330,7 +331,14 @@ pub fn verify_sub_account_mint_sign(
     let signature = witness.signature.clone();
     let args = witness.sign_args.clone();
 
-    let ret = if das_lock_type == DasLockType::WebAuthn {
+    let ret = if das_lock_type == DasLockType::WebAuthn
+        && u8::from_le_bytes(
+            WebAuthnSignature::try_from(signature.as_slice())?
+                .pubkey_index()
+                .try_into()
+                .unwrap(),
+        ) != 255
+    {
         let data = [expired_at, account_list_smt_root].concat();
         let message = util::blake2b_256(&data);
         let device_key_list = witness_parser
@@ -435,7 +443,7 @@ pub fn verify_sub_account_mint_sign_not_expired(
 pub fn verify_sub_account_edit_sign(
     witness: &SubAccountWitness,
     sign_lib: &SignLib,
-    witness_parser: &SubAccountWitnessesParser
+    witness_parser: &SubAccountWitnessesParser,
 ) -> Result<(), Box<dyn ScriptError>> {
     if cfg!(feature = "dev") {
         // CAREFUL Proof verification has been skipped in development mode.
@@ -452,18 +460,21 @@ pub fn verify_sub_account_edit_sign(
     );
 
     let das_lock_type = match witness.sign_type {
-        Some(val) => {
-            match val {
-                DasLockType::CKBSingle| DasLockType::ETH| DasLockType::ETHTypedData| DasLockType::TRON| DasLockType::Doge | DasLockType::WebAuthn => val,
-                _ => {
-                    warn!(
+        Some(val) => match val {
+            DasLockType::CKBSingle
+            | DasLockType::ETH
+            | DasLockType::ETHTypedData
+            | DasLockType::TRON
+            | DasLockType::Doge
+            | DasLockType::WebAuthn => val,
+            _ => {
+                warn!(
                         "  witnesses[{:>2}] Parsing das-lock(witness.sub_account.lock.args) algorithm failed (maybe not supported for now), but it is required in this transaction.",
                         witness.index
                     );
-                    return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
-                }
+                return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
             }
-        }
+        },
         _ => {
             warn!(
                 "  witnesses[{:>2}] Parsing das-lock(witness.sub_account.lock.args) algorithm failed (maybe not supported for now), but it is required in this transaction.",
@@ -481,8 +492,22 @@ pub fn verify_sub_account_edit_sign(
     let args = witness.sign_args.as_slice();
     let sign_expired_at = witness.sign_expired_at.to_le_bytes().to_vec();
 
-    let ret = if das_lock_type == DasLockType::WebAuthn {
-        let data = [account_id, edit_key.to_vec(), edit_value.to_vec(), nonce, sign_expired_at].concat();
+    let ret = if das_lock_type == DasLockType::WebAuthn
+        && u8::from_le_bytes(
+            WebAuthnSignature::try_from(signature)?
+                .pubkey_index()
+                .try_into()
+                .unwrap(),
+        ) != 255
+    {
+        let data = [
+            account_id,
+            edit_key.to_vec(),
+            edit_value.to_vec(),
+            nonce,
+            sign_expired_at,
+        ]
+        .concat();
         let message = util::blake2b_256(&data);
         let device_key_list = witness_parser
             .device_key_lists
