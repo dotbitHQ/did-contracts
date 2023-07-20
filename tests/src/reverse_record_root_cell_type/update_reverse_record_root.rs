@@ -16,6 +16,7 @@ fn before_each() -> TemplateGenerator {
     template.push_contract_cell("eth_sign.so", ContractType::SharedLib);
     template.push_contract_cell("tron_sign.so", ContractType::SharedLib);
     template.push_contract_cell("doge_sign.so", ContractType::SharedLib);
+    template.push_contract_cell("webauthn_sign.so", ContractType::SharedLib);
 
     template.push_config_cell(DataType::ConfigCellSMTNodeWhitelist, Source::CellDep);
 
