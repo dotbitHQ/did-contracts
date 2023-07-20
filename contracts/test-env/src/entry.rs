@@ -228,10 +228,9 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 "The edit_key field should be expired_at ."
             );
             match &witness_0.edit_value {
-                SubAccountEditValue::ExpiredAt(val) => {
-                    let expired_at = u64::from(val.as_reader());
+                SubAccountEditValue::ExpiredAt(expired_at) => {
                     assert!(
-                        expired_at == u64::MAX,
+                        expired_at.to_owned() == u64::MAX,
                         ErrorCode::UnittestError,
                         "The edit_value should be u64::MAX"
                     );
