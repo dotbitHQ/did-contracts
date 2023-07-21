@@ -16,12 +16,11 @@ use das_types::prelude::*;
 use das_types::prettier::Prettier;
 use simple_ast::{types as ast_types, util as ast_util};
 
-use crate::traits::Blake2BHash;
-use crate::util::load_das_witnesses;
-
 use super::super::error::*;
 use super::super::{data_parser, util};
 use super::device_key_list::get_device_key_list_cell_deps;
+use crate::traits::Blake2BHash;
+use crate::util::load_das_witnesses;
 
 // Binary format: 'das'(3) + DATA_TYPE(4) + binary_data
 
@@ -119,8 +118,7 @@ impl SubAccountWitnessesParser {
             let mut buf = [0u8; (WITNESS_HEADER_BYTES
                 + WITNESS_TYPE_BYTES
                 + SUB_ACCOUNT_WITNESS_VERSION_BYTES
-                + SUB_ACCOUNT_WITNESS_ACTION_BYTES
-            )];
+                + SUB_ACCOUNT_WITNESS_ACTION_BYTES)];
             let ret = syscalls::load_witness(&mut buf, 0, i, Source::Input);
 
             match ret {
@@ -190,8 +188,7 @@ impl SubAccountWitnessesParser {
                                 .map_err(|_| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
                             let cell_dep = cell_deps.get(device_list.blake2b_256().index(..));
                             if let Some(cell_dep) = cell_dep {
-                                device_key_lists
-                                    .insert(cell_dep.1.slice(2..22).to_vec(), device_list);
+                                device_key_lists.insert(cell_dep.slice(2..22).to_vec(), device_list);
                             }
                         }
                         Ok(_) => {
@@ -229,7 +226,7 @@ impl SubAccountWitnessesParser {
             price_rule_indexes,
             preserved_rule_indexes,
             indexes,
-            device_key_lists
+            device_key_lists,
         })
     }
 
