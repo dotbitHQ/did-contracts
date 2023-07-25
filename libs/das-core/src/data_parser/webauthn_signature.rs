@@ -3,6 +3,7 @@ use core::ops::Index;
 
 use crate::error::{ErrorCode, ScriptError};
 
+#[derive(Debug)]
 pub struct WebAuthnSignature<'a> {
     inner: &'a [u8],
     pubkey_index_start: usize,
@@ -57,7 +58,7 @@ impl<'a> TryFrom<&'a [u8]> for WebAuthnSignature<'a> {
             .ok_or(code_to_error!(ErrorCode::WitnessDataDecodingError))?;
         let pubkey_start = cursor + 1;
 
-        cursor = pubkey_index_start + *pubkey_bytes as usize;
+        cursor = pubkey_start + *pubkey_bytes as usize;
         let authenticator_data_bytes = value
             .get(cursor)
             .ok_or(code_to_error!(ErrorCode::WitnessDataDecodingError))?;
