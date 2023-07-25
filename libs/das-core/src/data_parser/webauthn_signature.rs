@@ -44,36 +44,35 @@ impl<'a> TryFrom<&'a [u8]> for WebAuthnSignature<'a> {
             .get(cursor)
             .ok_or(code_to_error!(ErrorCode::WitnessDataDecodingError))?;
         let pubkey_index_start = cursor + 1;
-        
+
         cursor = pubkey_index_start + *pubkey_index_bytes as usize;
         let signature_bytes = value
             .get(cursor)
             .ok_or(code_to_error!(ErrorCode::WitnessDataDecodingError))?;
         let signature_start = cursor + 1;
-        
+
         cursor = signature_start + *signature_bytes as usize;
         let pubkey_bytes = value
             .get(cursor)
             .ok_or(code_to_error!(ErrorCode::WitnessDataDecodingError))?;
         let pubkey_start = cursor + 1;
-        
+
         cursor = pubkey_index_start + *pubkey_bytes as usize;
         let authenticator_data_bytes = value
             .get(cursor)
             .ok_or(code_to_error!(ErrorCode::WitnessDataDecodingError))?;
         let authenticator_data_start = cursor + 1;
-        
+
         cursor = authenticator_data_start + *authenticator_data_bytes as usize;
-        let client_data_json_bytes = value
-            .get(cursor)
-            .ok_or(code_to_error!(ErrorCode::WitnessDataDecodingError))?;
-        let client_data_json_start = cursor + 1;
-        
-        cursor = client_data_json_start + *client_data_json_bytes as usize;
+        let client_data_json_bytes = u16::from_le_bytes(value.index(cursor..cursor + 2).try_into().unwrap());
+        let client_data_json_start = cursor + 2;
+
+        cursor = client_data_json_start + client_data_json_bytes as usize;
         das_assert!(
             value.get(cursor).is_none() && value.get(cursor - 1).is_some(),
             ErrorCode::WitnessDataDecodingError,
-            "There's residue after parsing WebAuthnSignature"
+            "There's residue after parsing WebAuthnSignature, signature: {}",
+            hex::encode(value)
         );
 
         Ok(Self {
