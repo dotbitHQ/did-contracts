@@ -183,11 +183,16 @@ impl SubAccountWitnessesParser {
                             preserved_rule_indexes.push(i);
                         }
                         Ok(DataType::DeviceKeyListCellData) => {
+                            debug!(
+                                "cell deps: {:?}, ",
+                                cell_deps
+                            );
                             let ret = &load_das_witnesses(i)?[7..];
                             let device_list = DeviceKeyListCellData::from_slice(ret)
                                 .map_err(|_| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
                             let cell_dep = cell_deps.get(device_list.blake2b_256().index(..));
                             if let Some(cell_dep) = cell_dep {
+                                debug!("DeviceKeyLists index: {:?}", cell_dep.slice(2..22));
                                 device_key_lists.insert(cell_dep.slice(2..22).to_vec(), device_list);
                             }
                         }

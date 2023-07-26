@@ -1,6 +1,7 @@
 use alloc::boxed::Box;
 use alloc::string::ToString;
 use alloc::vec;
+use core::ops::Index;
 use core::result::Result;
 
 use ckb_std::ckb_constants::Source;
@@ -245,7 +246,7 @@ fn verify_sign(
     {
         let device_key_list = witness_parser
             .device_key_lists
-            .get(&args)
+            .get(args.index(1..))
             .ok_or(code_to_error!(ErrorCode::WitnessStructureError))?;
         sign_lib.validate_device(
             das_lock_type,

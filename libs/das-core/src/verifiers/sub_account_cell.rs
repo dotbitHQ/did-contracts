@@ -1,3 +1,5 @@
+use core::ops::Index;
+
 use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -339,11 +341,15 @@ pub fn verify_sub_account_mint_sign(
                 .unwrap(),
         ) != 255
     {
+        debug!(
+            "Getting DeviceKeyListCellData for sign_args: {}",
+            hex::encode(args.as_slice())
+        );
         let data = [expired_at, account_list_smt_root].concat();
         let message = util::blake2b_256(&data);
         let device_key_list = witness_parser
             .device_key_lists
-            .get(&args)
+            .get(args.index(1..))
             .ok_or(code_to_error!(ErrorCode::WitnessStructureError))?;
         sign_lib.validate_device(
             das_lock_type,
@@ -509,9 +515,14 @@ pub fn verify_sub_account_edit_sign(
         ]
         .concat();
         let message = util::blake2b_256(&data);
+        debug!(
+            "Getting DeviceKeyListCellData for sign_args: {}",
+            hex::encode(args)
+        );
+
         let device_key_list = witness_parser
             .device_key_lists
-            .get(args)
+            .get(args.index(1..))
             .ok_or(code_to_error!(ErrorCode::WitnessStructureError))?;
         sign_lib.validate_device(
             das_lock_type,

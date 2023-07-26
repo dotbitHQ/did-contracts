@@ -15,20 +15,20 @@ pub struct WebAuthnSignature<'a> {
 
 impl<'a> WebAuthnSignature<'a> {
     pub fn pubkey_index(&self) -> &[u8] {
-        self.inner.index(self.pubkey_index_start..self.signature_start)
+        self.inner.index(self.pubkey_index_start..self.signature_start - 1)
     }
 
     pub fn signature(&self) -> &[u8] {
-        self.inner.index(self.signature_start..self.pubkey_start)
+        self.inner.index(self.signature_start..self.pubkey_start - 1)
     }
 
     pub fn pubkey(&self) -> &[u8] {
-        self.inner.index(self.pubkey_start..self.authenticator_data_start)
+        self.inner.index(self.pubkey_start..self.authenticator_data_start - 1)
     }
 
     pub fn authenticator_data(&self) -> &[u8] {
         self.inner
-            .index(self.authenticator_data_start..self.client_data_json_start)
+            .index(self.authenticator_data_start..self.client_data_json_start - 1)
     }
 
     pub fn client_data_json(&self) -> &[u8] {
