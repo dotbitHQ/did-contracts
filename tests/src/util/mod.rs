@@ -1,5 +1,6 @@
 pub mod accounts;
 pub mod constants;
+pub mod encoder;
 pub mod error;
 pub mod since_util;
 pub mod smt;

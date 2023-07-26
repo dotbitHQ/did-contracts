@@ -308,7 +308,7 @@ pub fn push_input_account_cell(template: &mut TemplateGenerator, cell_partial: V
     template.push_das_lock_witness("0000000000000000000000000000000000000000000000000000000000000000");
 }
 
-pub fn push_output_account_cell(template: &mut TemplateGenerator, cell_partial: Value) {
+pub fn push_output_account_cell_v3(template: &mut TemplateGenerator, cell_partial: Value) {
     let mut cell = json!({
         "capacity": util::gen_account_cell_capacity(5),
         "lock": {
@@ -337,6 +337,37 @@ pub fn push_output_account_cell(template: &mut TemplateGenerator, cell_partial: 
     util::merge_json(&mut cell, cell_partial);
 
     template.push_output(cell, Some(3));
+}
+
+pub fn push_output_account_cell(template: &mut TemplateGenerator, cell_partial: Value) {
+    let mut cell = json!({
+        "capacity": util::gen_account_cell_capacity(5),
+        "lock": {
+            "owner_lock_args": OWNER,
+            "manager_lock_args": MANAGER
+        },
+        "type": {
+            "code_hash": "{{account-cell-type}}"
+        },
+        "data": {
+            "account": ACCOUNT_1,
+            "next": "yyyyy.bit",
+            "expired_at": u64::MAX,
+        },
+        "witness": {
+            "account": ACCOUNT_1,
+            "registered_at": 0,
+            "last_transfer_account_at": 0,
+            "last_edit_manager_at": 0,
+            "last_edit_records_at": 0,
+            "status": (AccountStatus::Normal as u8),
+            "enable_sub_account": 0,
+            "renew_sub_account_price": 0,
+        }
+    });
+    util::merge_json(&mut cell, cell_partial);
+
+    template.push_output(cell, Some(4));
 }
 
 pub fn push_input_account_cell_v2(template: &mut TemplateGenerator, cell_partial: Value) {
