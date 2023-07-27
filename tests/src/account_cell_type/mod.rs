@@ -5,6 +5,7 @@ mod edit_records;
 mod force_recover_account_status;
 // mod init_account_chain;
 // mod confirm_expired_account_auction;
+mod create_approval;
 mod enable_sub_account;
 mod lock_account_for_cross_chain;
 mod recycle_expired_account;

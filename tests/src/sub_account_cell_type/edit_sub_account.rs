@@ -17,7 +17,7 @@ fn before_each() -> TemplateGenerator {
     push_simple_dep_account_cell(&mut template);
 
     // inputs
-    template.restore_sub_account(vec![
+    template.restore_sub_account_v1(vec![
         json!({
             "lock": {
                 "owner_lock_args": OWNER_1,
@@ -279,7 +279,7 @@ fn challenge_sub_account_edit_spend_balance_cell_1() {
     push_simple_dep_account_cell(&mut template);
 
     // inputs
-    template.restore_sub_account(vec![json!({
+    template.restore_sub_account_v1(vec![json!({
         "lock": {
             "owner_lock_args": OWNER_1,
             "manager_lock_args": MANAGER_1
@@ -324,7 +324,7 @@ fn challenge_sub_account_edit_spend_balance_cell_2() {
     push_simple_dep_account_cell(&mut template);
 
     // inputs
-    template.restore_sub_account(vec![json!({
+    template.restore_sub_account_v1(vec![json!({
         "lock": {
             "owner_lock_args": OWNER_1,
             "manager_lock_args": MANAGER_1
@@ -536,7 +536,7 @@ fn challenge_sub_account_edit_empty_edit_key() {
     push_simple_dep_account_cell(&mut template);
 
     // inputs
-    template.restore_sub_account(vec![json!({
+    template.restore_sub_account_v1(vec![json!({
         "lock": {
             "owner_lock_args": OWNER_1,
             "manager_lock_args": MANAGER_1
@@ -579,7 +579,7 @@ fn challenge_sub_account_edit_has_expired() {
     push_simple_dep_account_cell(&mut template);
 
     // inputs
-    template.restore_sub_account(vec![json!({
+    template.restore_sub_account_v1(vec![json!({
         "lock": {
             "owner_lock_args": OWNER_1,
             "manager_lock_args": MANAGER_1

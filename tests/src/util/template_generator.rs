@@ -438,67 +438,6 @@ fn parse_json_to_chain_id_mol(field_name: &str, field: &Value) -> ChainId {
         .build()
 }
 
-pub fn parse_json_to_sub_account(field_name: &str, field: &Value) -> SubAccount {
-    // let lock = parse_json_script_das_lock(&format!("{}.lock", field_name), &field["lock"]);
-    let lock = parse_json_script_to_mol(
-        "",
-        &parse_json_script_das_lock(&format!("{}.lock", field_name), &field["lock"]),
-    );
-    let suffix = parse_json_str(&format!("{}.suffix", field_name), &field["suffix"]);
-    let (account, account_chars) =
-        parse_json_to_account_chars(&format!("{}.account", field_name), &field["account"], Some(suffix));
-    let account_id = if !field["id"].is_null() {
-        parse_json_str_to_account_id_mol(&format!("{}.id", field_name), &field["id"])
-    } else {
-        AccountId::try_from(util::account_to_id(&account)).expect("Calculate account ID from account failed")
-    };
-    let registered_at = Uint64::from(util::parse_json_u64(
-        &format!("{}.registered_at", field_name),
-        &field["registered_at"],
-        None,
-    ));
-    let expired_at = Uint64::from(util::parse_json_u64(
-        &format!("{}.expired_at", field_name),
-        &field["expired_at"],
-        None,
-    ));
-    let status = Uint8::from(util::parse_json_u8(
-        &format!("{}.status", field_name),
-        &field["status"],
-        Some(0),
-    ));
-    let records = parse_json_to_records_mol(&format!("{}.records", field_name), &field["records"]);
-    let nonce = Uint64::from(util::parse_json_u64(
-        &format!("{}.nonce", field_name),
-        &field["nonce"],
-        Some(0),
-    ));
-    let enable_sub_account = Uint8::from(util::parse_json_u8(
-        &format!("{}.enable_sub_account", field_name),
-        &field["enable_sub_account"],
-        Some(0),
-    ));
-    let renew_sub_account_price = Uint64::from(util::parse_json_u64(
-        &format!("{}.renew_sub_account_price", field_name),
-        &field["renew_sub_account_price"],
-        Some(0),
-    ));
-
-    SubAccount::new_builder()
-        .lock(lock)
-        .id(account_id)
-        .account(account_chars)
-        .suffix(Bytes::from(suffix.as_bytes()))
-        .registered_at(registered_at)
-        .expired_at(expired_at)
-        .status(status)
-        .records(records)
-        .nonce(nonce)
-        .enable_sub_account(enable_sub_account)
-        .renew_sub_account_price(renew_sub_account_price)
-        .build()
-}
-
 fn length_of(data: &[u8]) -> Vec<u8> {
     (data.len() as u32).to_le_bytes().to_vec()
 }
@@ -2649,13 +2588,14 @@ impl TemplateGenerator {
     }
 
     /// Insert some leaves into the sparse-merkle-tree without pushing any witness
-    pub fn restore_sub_account(&mut self, sub_account_jsons: Vec<Value>) {
+    pub fn restore_sub_account_v1(&mut self, sub_account_jsons: Vec<Value>) {
         let mut leaves: Vec<(H256, H256)> = Vec::new();
 
         for sub_account_json in sub_account_jsons {
             let account = parse_json_str("", &sub_account_json["account"]);
             let key = util::gen_smt_key_from_account(account);
-            let sub_account_1 = parse_json_to_sub_account("", &sub_account_json);
+            // Be aware that the sub_account used here is SubAccountV1
+            let sub_account_1 = encoder::sub_account::to_v1("", &sub_account_json);
             let value = util::blake2b_smt(sub_account_1.as_slice());
             leaves.push((key.into(), value.into()));
         }

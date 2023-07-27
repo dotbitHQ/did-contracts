@@ -14,7 +14,7 @@ fn before_each() -> TemplateGenerator {
     // cell_deps
     push_simple_dep_account_cell(&mut template);
 
-    template.restore_sub_account(vec![
+    template.restore_sub_account_v1(vec![
         json!({
             "lock": {
                 "owner_lock_args": OWNER_1,
