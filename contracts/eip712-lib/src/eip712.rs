@@ -536,23 +536,32 @@ fn to_semantic_account_witness(
     source: Source,
 ) -> Result<String, Box<dyn ScriptError>> {
     let (version, _, entity) = parser.verify_with_hash_and_get(expected_hash, data_type, index, source)?;
-    let witness: Box<dyn AccountCellDataMixer> = if version == 2 {
-        Box::new(
+    let witness: Box<dyn AccountCellDataMixer> = match version {
+        2 => Box::new(
             das_packed::AccountCellDataV2::from_slice(entity.as_reader().raw_data()).map_err(|_| {
                 warn!("EIP712 decoding AccountCellDataV2 failed");
                 ErrorCode::WitnessEntityDecodingError
             })?,
-        )
-    } else {
-        Box::new(
+        ),
+        3 => Box::new(
+            das_packed::AccountCellDataV3::from_slice(entity.as_reader().raw_data()).map_err(|_| {
+                warn!("EIP712 decoding AccountCellDataV3 failed");
+                ErrorCode::WitnessEntityDecodingError
+            })?,
+        ),
+        4 => Box::new(
             das_packed::AccountCellData::from_slice(entity.as_reader().raw_data()).map_err(|_| {
                 warn!("EIP712 decoding AccountCellData failed");
                 ErrorCode::WitnessEntityDecodingError
             })?,
-        )
+        ),
+        _ => {
+            warn!("EIP712 decoding AccountCellData failed, unsupported version");
+            return Err(code_to_error!(ErrorCode::WitnessEntityDecodingError));
+        }
     };
-    let witness_reader = witness.as_reader();
 
+    let witness_reader = witness.as_reader();
     let status = u8::from(witness_reader.status());
     let records_hash = util::blake2b_256(witness_reader.records().as_slice());
 

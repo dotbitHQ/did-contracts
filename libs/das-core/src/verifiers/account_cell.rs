@@ -312,47 +312,94 @@ pub fn verify_account_witness_consistent<'a>(
         (status, "status")
     );
 
-    if input_witness_reader.version() <= 1 {
-        // CAREFUL! The early versions will no longer be supported.
-        return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
-    } else if input_witness_reader.version() == 2 {
-        // The output witness should be upgraded to the latest version.
-        das_assert!(
-            output_witness_reader.version() == 3,
-            ErrorCode::UpgradeForWitnessIsRequired,
-            "The witness of outputs[{}] should be upgraded to latest version.",
-            output_index
-        );
-
-        let output_witness_reader = output_witness_reader
-            .try_into_latest()
-            .map_err(|_| ErrorCode::NarrowMixerTypeFailed)?;
-
-        // If field enable_sub_account is excepted, skip verifying their defaults.
-        if !except.contains(&"enable_sub_account") {
+    match input_witness_reader.version() {
+        0 | 1 => {
+            // CAREFUL! The early versions will no longer be supported.
+            return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
+        }
+        2 => {
+            // The output witness should be upgraded to the latest version.
             das_assert!(
-                u8::from(output_witness_reader.enable_sub_account()) == 0
-                    && u64::from(output_witness_reader.renew_sub_account_price()) == 0,
-                ErrorCode::UpgradeDefaultValueOfNewFieldIsError,
-                "The new fields of outputs[{}] should be 0 by default.",
+                output_witness_reader.version() == 4,
+                ErrorCode::UpgradeForWitnessIsRequired,
+                "The witness of outputs[{}] should be upgraded to latest version.",
                 output_index
             );
-        }
-    } else {
-        // Verify if the new fields is consistent.
-        let input_witness_reader = input_witness_reader
-            .try_into_latest()
-            .map_err(|_| ErrorCode::NarrowMixerTypeFailed)?;
-        let output_witness_reader = output_witness_reader
-            .try_into_latest()
-            .map_err(|_| ErrorCode::NarrowMixerTypeFailed)?;
 
-        das_assert_field_consistent_if_not_except!(
-            input_witness_reader,
-            output_witness_reader,
-            (enable_sub_account, "enable_sub_account"),
-            (renew_sub_account_price, "renew_sub_account_price")
-        );
+            let output_witness_reader = output_witness_reader
+                .try_into_latest()
+                .map_err(|_| ErrorCode::NarrowMixerTypeFailed)?;
+
+            // If field enable_sub_account is excepted, skip verifying their defaults.
+            if !except.contains(&"enable_sub_account") {
+                das_assert!(
+                    u8::from(output_witness_reader.enable_sub_account()) == 0
+                        && u64::from(output_witness_reader.renew_sub_account_price()) == 0,
+                    ErrorCode::UpgradeDefaultValueOfNewFieldIsError,
+                    "outputs[{}] The witness.enable_sub_account and witness.renew_sub_account_price should be 0 by default.",
+                    output_index
+                );
+            }
+
+            if !except.contains(&"approval") {
+                das_assert!(
+                    util::is_reader_eq(output_witness_reader.approval(), AccountApproval::default().as_reader()),
+                    AccountCellErrorCode::AccountCellProtectFieldIsModified,
+                    "outputs[{}] The witness.approval should be default value.",
+                    output_index
+                )
+            }
+        }
+        3 => {
+            // The output witness should be upgraded to the latest version.
+            das_assert!(
+                output_witness_reader.version() == 4,
+                ErrorCode::UpgradeForWitnessIsRequired,
+                "The witness of outputs[{}] should be upgraded to latest version.",
+                output_index
+            );
+
+            // Verify if the new fields is consistent.
+            let input_witness_reader = input_witness_reader
+                .try_into_v3()
+                .map_err(|_| ErrorCode::NarrowMixerTypeFailed)?;
+            let output_witness_reader = output_witness_reader
+                .try_into_latest()
+                .map_err(|_| ErrorCode::NarrowMixerTypeFailed)?;
+
+            das_assert_field_consistent_if_not_except!(
+                input_witness_reader,
+                output_witness_reader,
+                (enable_sub_account, "enable_sub_account"),
+                (renew_sub_account_price, "renew_sub_account_price")
+            );
+
+            if !except.contains(&"approval") {
+                das_assert!(
+                    util::is_reader_eq(output_witness_reader.approval(), AccountApproval::default().as_reader()),
+                    AccountCellErrorCode::AccountCellProtectFieldIsModified,
+                    "outputs[{}] The witness.approval should be default value.",
+                    output_index
+                )
+            }
+        }
+        _ => {
+            // Verify if the new fields is consistent.
+            let input_witness_reader = input_witness_reader
+                .try_into_latest()
+                .map_err(|_| ErrorCode::NarrowMixerTypeFailed)?;
+            let output_witness_reader = output_witness_reader
+                .try_into_latest()
+                .map_err(|_| ErrorCode::NarrowMixerTypeFailed)?;
+
+            das_assert_field_consistent_if_not_except!(
+                input_witness_reader,
+                output_witness_reader,
+                (enable_sub_account, "enable_sub_account"),
+                (renew_sub_account_price, "renew_sub_account_price"),
+                (approval, "approval")
+            );
+        }
     }
 
     Ok(())
@@ -460,20 +507,30 @@ pub fn verify_sub_account_enabled<'a>(
         return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
     } else if account_cell_witness_reader.version() == 2 {
         return Err(code_to_error!(SubAccountCellErrorCode::SubAccountFeatureNotEnabled));
-    } else {
-        let reader = account_cell_witness_reader
-            .try_into_latest()
-            .map_err(|_| ErrorCode::NarrowMixerTypeFailed)?;
-        let enable_sub_account = u8::from(reader.enable_sub_account());
-
-        das_assert!(
-            enable_sub_account == 1,
-            SubAccountCellErrorCode::SubAccountFeatureNotEnabled,
-            "{:?}[{}]The AccountCell.witness.enable_sub_account should be 1.",
-            source,
-            index
-        );
     }
+
+    let enable_sub_account = match account_cell_witness_reader.version() {
+        3 => {
+            let reader = account_cell_witness_reader
+                .try_into_v3()
+                .map_err(|_| ErrorCode::NarrowMixerTypeFailed)?;
+            reader.enable_sub_account()
+        }
+        _ => {
+            let reader = account_cell_witness_reader
+                .try_into_latest()
+                .map_err(|_| ErrorCode::NarrowMixerTypeFailed)?;
+            reader.enable_sub_account()
+        }
+    };
+
+    das_assert!(
+        u8::from(enable_sub_account) == 1,
+        SubAccountCellErrorCode::SubAccountFeatureNotEnabled,
+        "{:?}[{}]The AccountCell.witness.enable_sub_account should be 1.",
+        source,
+        index
+    );
 
     Ok(())
 }

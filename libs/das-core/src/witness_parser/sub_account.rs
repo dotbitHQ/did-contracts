@@ -10,6 +10,7 @@ use ckb_std::ckb_constants::Source;
 use ckb_std::error::SysError;
 use ckb_std::syscalls;
 use das_types::constants::*;
+use das_types::mixer::SubAccountMixer;
 use das_types::packed::*;
 use das_types::prelude::*;
 #[cfg(all(debug_assertions))]
@@ -37,7 +38,6 @@ pub struct SubAccountMintSignWitness {
     pub account_list_smt_root: Vec<u8>,
 }
 
-#[derive(Debug)]
 pub struct SubAccountWitness {
     // The index of the transaction's witnesses, this field aaaaaaaaaaaaaaaaaaaais mainly used for debug.
     pub index: usize,
@@ -50,7 +50,7 @@ pub struct SubAccountWitness {
     pub new_root: Vec<u8>,
     pub proof: Vec<u8>,
     pub action: SubAccountAction,
-    pub sub_account: SubAccount,
+    pub sub_account: Box<dyn SubAccountMixer>,
     pub edit_key: Vec<u8>,
     pub edit_value: SubAccountEditValue,
     pub edit_value_bytes: Vec<u8>,
@@ -65,6 +65,7 @@ pub enum SubAccountEditValue {
     Proof,
     Channel(Vec<u8>, u64),
     ExpiredAt(u64),
+    Approval(AccountApproval),
 }
 
 pub struct SubAccountWitnessesIter<'a> {
@@ -167,13 +168,22 @@ impl SubAccountWitnessesParser {
                             // Every sub-account witness has the next fields, here we parse it one by one.
                             let (start, _) = Self::parse_field("version", &buf, start)?;
                             let (_, action_bytes) = Self::parse_field("action", &buf, start)?;
-                            if action_bytes == SubAccountAction::Create.to_string().as_bytes() {
+                            let action = String::from_utf8(action_bytes.to_vec())
+                                .map_err(|_| code_to_error!(SubAccountCellErrorCode::WitnessParsingError))?;
+                            let edit_like_actions = vec![
+                                SubAccountAction::Edit.to_string(),
+                                SubAccountAction::CreateApproval.to_string(),
+                                SubAccountAction::DelayApproval.to_string(),
+                                SubAccountAction::RevokeApproval.to_string(),
+                                SubAccountAction::FulfillApproval.to_string(),
+                            ];
+                            if action == SubAccountAction::Create.to_string() {
                                 contains_creation = true;
-                            } else if action_bytes == SubAccountAction::Edit.to_string().as_bytes() {
+                            } else if edit_like_actions.contains(&action) {
                                 contains_edition = true;
-                            } else if action_bytes == SubAccountAction::Renew.to_string().as_bytes() {
+                            } else if action == SubAccountAction::Renew.to_string() {
                                 contains_renew = true;
-                            } else if action_bytes == SubAccountAction::Recycle.to_string().as_bytes() {
+                            } else if action == SubAccountAction::Recycle.to_string() {
                                 contains_recycle = true;
                             }
                         }
@@ -405,16 +415,6 @@ impl SubAccountWitnessesParser {
         );
         let version = u32::from_le_bytes(version_bytes.try_into().unwrap());
 
-        if version == 2 {
-            // TODO Support multiple version of sub-account witness.
-        } else {
-            warn!(
-                "  witnesses[{:>2}] SubAccountWitness.version is {} which is invalid for now.",
-                i, version
-            );
-            return Err(code_to_error!(ErrorCode::WitnessVersionOrTypeInvalid));
-        }
-
         let action = match String::from_utf8(action_bytes.to_vec()) {
             Ok(action) => match SubAccountAction::from_str(action.as_str()) {
                 Ok(val) => val,
@@ -435,14 +435,39 @@ impl SubAccountWitnessesParser {
             }
         };
 
-        let sub_account = match SubAccount::from_compatible_slice(sub_account_bytes) {
-            Ok(val) => val,
-            Err(e) => {
+        let sub_account: Box<dyn SubAccountMixer> = match version {
+            1 | 2 => {
+                let sub_account = match SubAccountV1::from_compatible_slice(sub_account_bytes) {
+                    Ok(val) => val,
+                    Err(e) => {
+                        warn!(
+                            "  witnesses[{:>2}] SubAccountWitness.sub_account(SubAccountV1) field parse failed: {}",
+                            i, e
+                        );
+                        return Err(code_to_error!(ErrorCode::WitnessStructureError));
+                    }
+                };
+                Box::new(sub_account)
+            }
+            3 => {
+                let sub_account = match SubAccount::from_compatible_slice(sub_account_bytes) {
+                    Ok(val) => val,
+                    Err(e) => {
+                        warn!(
+                            "  witnesses[{:>2}] SubAccountWitness.sub_account(SubAccount) field parse failed: {}",
+                            i, e
+                        );
+                        return Err(code_to_error!(ErrorCode::WitnessStructureError));
+                    }
+                };
+                Box::new(sub_account)
+            }
+            _ => {
                 warn!(
-                    "  witnesses[{:>2}] SubAccountWitness.sub_account field parse failed: {}",
-                    i, e
+                    "  witnesses[{:>2}] SubAccountWitness.version is {} which is invalid for now.",
+                    i, version
                 );
-                return Err(code_to_error!(ErrorCode::WitnessStructureError));
+                return Err(code_to_error!(ErrorCode::WitnessVersionOrTypeInvalid));
             }
         };
 
@@ -585,7 +610,7 @@ impl SubAccountWitnessesParser {
                             Ok(val) => val,
                             Err(e) => {
                                 warn!(
-                                    "  witnesses[{:>2}] Sub-account witness structure error, decoding records failed: {}",
+                                    "  witnesses[{:>2}] Sub-account witness structure error, decoding edit_value to records failed: {}",
                                     i, e
                                 );
                                 return Err(code_to_error!(ErrorCode::WitnessStructureError));
@@ -597,14 +622,25 @@ impl SubAccountWitnessesParser {
                     _ => SubAccountEditValue::None,
                 };
             }
-            SubAccountAction::Recycle => {
+            SubAccountAction::CreateApproval | SubAccountAction::DelayApproval => {
+                let approval = AccountApproval::from_compatible_slice(edit_value_bytes)
+                    .map_err(|e| {
+                        warn!(
+                            "  witnesses[{:>2}] Sub-account witness structure error, decoding edit_value to AccountApproval failed: {}",
+                            i, e
+                        );
+                        code_to_error!(ErrorCode::WitnessStructureError)
+                    })?;
+                edit_value = SubAccountEditValue::Approval(approval);
+            }
+            SubAccountAction::Recycle | SubAccountAction::RevokeApproval | SubAccountAction::FulfillApproval => {
                 edit_value = SubAccountEditValue::None;
             }
         }
 
         debug!(
             "  Sub-account witnesses[{:>2}]: {{ version: {}, signature: 0x{}, lock_args: 0x{}, sign_role: 0x{}, sign_exipired_at: {}, new_root: 0x{}, action: {}, sub_account: {}, edit_key: {}, sign_args: {} }}",
-            i, version, util::hex_string(signature), util::hex_string(&_lock_args), util::hex_string(sign_role_byte), sign_expired_at, util::hex_string(new_root), action, sub_account.account().as_prettier(), String::from_utf8(edit_key.to_vec()).unwrap(), util::hex_string(&sign_args)
+            i, version, util::hex_string(signature), util::hex_string(&_lock_args), util::hex_string(sign_role_byte), sign_expired_at, util::hex_string(new_root), action, sub_account.as_reader().account().as_prettier(), String::from_utf8(edit_key.to_vec()).unwrap(), util::hex_string(&sign_args)
         );
 
         Ok(SubAccountWitness {

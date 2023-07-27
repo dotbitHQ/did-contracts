@@ -344,7 +344,8 @@ pub enum SubAccountCellErrorCode {
     WitnessEditKeyInvalid,
     WitnessEditValueError,
     WitnessSignMintIsRequired,
-    CanNotMint, // 60
+    WitnessVersionMismatched = 60,
+    CanNotMint,
     ProofInManualSignRenewListMissing,
     AccountIsPreserved,
     AccountHasNoPrice,
@@ -353,9 +354,9 @@ pub enum SubAccountCellErrorCode {
     ExpirationYearsTooShort,
     ExpirationToleranceReached,
     SenderCapacityOverCost,
-    ProfitManagerLockIsRequired,
+    ProfitManagerLockIsRequired = 70,
     ProfitMustBeCollected,
-    ProfitIsEmpty, // 70
+    ProfitIsEmpty,
     CustomRuleIsOff,
     NewExpiredAtIsRequired,
     AccountHasInGracePeriod,
@@ -376,7 +377,7 @@ pub enum SubAccountCellErrorCode {
     SubAccountCellCapacityError,
     SubAccountCellAccountIdError,
     SubAccountCellConsistencyError,
-    SubAccountInitialValueError, // 80
+    SubAccountInitialValueError,
     SubAccountSigVerifyError,
     SubAccountFieldNotEditable,
     SubAccountEditLockError,

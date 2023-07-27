@@ -819,7 +819,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 }
                 Err(_) => {
                     warn!(
-                        "{:?}[{}]The version of this AccountCell should be latest.",
+                        "{:?}[{}] The version of this AccountCell should be latest.",
                         Source::Output,
                         output_account_cells[0]
                     );
@@ -1182,6 +1182,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 );
             }
         }
+        b"create_approval" => {}
         _ => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
     }
 

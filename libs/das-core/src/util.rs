@@ -904,7 +904,7 @@ pub fn get_account_id_from_account(account: &[u8]) -> [u8; ACCOUNT_ID_LENGTH] {
     account_id
 }
 
-pub fn get_sub_account_name_from_reader(sub_account_reader: das_packed::SubAccountReader) -> String {
+pub fn get_sub_account_name_from_reader<'a>(sub_account_reader: &Box<dyn SubAccountReaderMixer + 'a>) -> String {
     let mut account = sub_account_reader.account().as_readable();
     let suffix = sub_account_reader.suffix().raw_data();
     account.extend(suffix);
@@ -1028,6 +1028,12 @@ pub fn parse_account_cell_witness(
             })?,
         ),
         3 => Box::new(
+            das_packed::AccountCellDataV3::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
+                warn!("{:?}[{}] Decoding AccountCellDataV3 failed", source, index);
+                ErrorCode::WitnessEntityDecodingError
+            })?,
+        ),
+        4 => Box::new(
             das_packed::AccountCellData::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
                 warn!("{:?}[{}] Decoding AccountCellData failed", source, index);
                 ErrorCode::WitnessEntityDecodingError
