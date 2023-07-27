@@ -1,5 +1,4 @@
 use alloc::collections::BTreeMap;
-use core::slice::SlicePattern;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level::{load_cell_lock, load_cell_type, QueryIter};

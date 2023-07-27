@@ -297,7 +297,7 @@ impl SignLib {
             //     let prefix = "from did: ".as_bytes();
             //     Ok([prefix, &h].concat())
             // }
-            DasLockType::ETH | DasLockType::ETHTypedData | DasLockType::TRON | DasLockType::Doge => Ok(h.to_vec()),
+            DasLockType::ETH | DasLockType::ETHTypedData | DasLockType::TRON | DasLockType::Doge | DasLockType::WebAuthn => Ok(h.to_vec()),
             _ => Err(Error::UndefinedDasLockType as i32),
         }
     }

@@ -246,7 +246,7 @@ fn verify_sign(
     {
         let device_key_list = witness_parser
             .device_key_lists
-            .get(args.index(1..))
+            .get(args.index(..))
             .ok_or(code_to_error!(ErrorCode::WitnessStructureError))?;
         sign_lib.validate_device(
             das_lock_type,

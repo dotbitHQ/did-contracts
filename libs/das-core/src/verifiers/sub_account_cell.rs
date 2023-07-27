@@ -349,6 +349,7 @@ pub fn verify_sub_account_mint_sign(
         let message = util::blake2b_256(&data);
         let device_key_list = witness_parser
             .device_key_lists
+            // TODO: args for WebAuthn actually has sub_alg_id. Need to remove. This is a temporary walkaround.
             .get(args.index(1..))
             .ok_or(code_to_error!(ErrorCode::WitnessStructureError))?;
         sign_lib.validate_device(
