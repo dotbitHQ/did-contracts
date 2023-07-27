@@ -15,8 +15,8 @@ pub fn action() -> Action {
         assert!(
             contract.get_input_inner_cells().len() == 1
                 && contract.get_output_inner_cells().len() == 1
-                && contract.get_input_inner_cells()[0].0 == 0
-                && contract.get_output_inner_cells()[0].0 == 0,
+                && contract.get_input_inner_cells()[0].meta.index == 0
+                && contract.get_output_inner_cells()[0].meta.index == 0,
             ErrorCode::InvalidTransactionStructure,
             "Should have 1 cell in input[0] and 1 cell in output[0]"
         );

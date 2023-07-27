@@ -101,14 +101,31 @@ pub struct MyContract {
     pub output_outer_cells: Vec<CellWithMeta>,
 }
 
-#[derive(Clone)]
-pub struct CellWithMeta(pub usize, pub Source, pub CellOutput);
+#[derive(Clone, Debug)]
+pub struct CellWithMeta {
+    pub cell: CellOutput,
+    pub meta: CellMeta
+}
 
-type CellMeta = (usize, Source);
+#[derive(Clone, Copy, Debug)]
+pub struct CellMeta {
+    pub index: usize,
+    pub source: Source
+}
 
 impl CellWithMeta {
     pub fn get_meta(&self) -> CellMeta {
-        (self.0, self.1)
+        self.meta
+    }
+
+    pub fn new(index: usize, source: Source, cell: CellOutput) -> Self {
+        Self {
+            meta: CellMeta {
+                index,
+                source
+            },
+            cell
+        }
     }
 }
 
@@ -116,7 +133,7 @@ impl Deref for CellWithMeta {
     type Target = CellOutput;
 
     fn deref(&self) -> &Self::Target {
-        &self.2
+        &self.cell
     }
 }
 
@@ -129,15 +146,15 @@ impl FSMContract for MyContract {
 impl MyContract {
     pub fn new(parser: WitnessesParser, action_data: ActionData) -> Result<Self, Box<dyn ScriptError>> {
         fn load_cell_with_meta(index: usize, source: Source) -> Result<CellWithMeta, SysError> {
-            load_cell(index, source).map(|cell| CellWithMeta(index, source, cell))
+            load_cell(index, source).map(|cell| CellWithMeta::new(index, source, cell))
         }
         let this_script = ckb_std::high_level::load_script()?;
         let (input_inner_cells, input_outer_cells): (Vec<_>, Vec<_>) =
             QueryIter::new(load_cell_with_meta, Source::Input)
-                .partition(|cell| cell.2.type_().as_slice() == this_script.as_slice());
+                .partition(|cell| cell.type_().as_slice() == this_script.as_slice());
         let (output_inner_cells, output_outer_cells): (Vec<_>, Vec<_>) =
             QueryIter::new(load_cell_with_meta, Source::Output)
-                .partition(|cell| cell.2.type_().as_slice() == this_script.as_slice());
+                .partition(|cell| cell.type_().as_slice() == this_script.as_slice());
         Ok(Self {
             registered_actions: Vec::new(),
             action_data,
@@ -167,7 +184,7 @@ pub trait GetCellWitness {
 impl GetCellWitness for WitnessesParser {
     fn get_cell_witness<T: Entity>(&self, meta: CellMeta) -> Result<T, Box<dyn ScriptError>> {
         let data_type = T::get_type_constant();
-        let (_, _, bytes) = self.verify_and_get(data_type, meta.0, meta.1)?;
+        let (_, _, bytes) = self.verify_and_get(data_type, meta.index, meta.source)?;
         let res =
             T::from_compatible_slice(&bytes.raw_data()).map_err(|_| code_to_error!(ErrorCode::VerificationError))?;
         Ok(res)
