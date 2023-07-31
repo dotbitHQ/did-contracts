@@ -192,8 +192,9 @@ impl SubAccountWitnessesParser {
                                 .map_err(|_| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
                             let cell_dep = cell_deps.get(device_list.blake2b_256().index(..));
                             if let Some(cell_dep) = cell_dep {
-                                debug!("DeviceKeyLists index: {:?}", cell_dep.slice(2..22));
-                                device_key_lists.insert(cell_dep.slice(2..22).to_vec(), device_list);
+                                device_key_lists.insert(cell_dep.slice(1..22).to_vec(), device_list);
+                            } else {
+                                // TODO: 报错
                             }
                         }
                         Ok(_) => {

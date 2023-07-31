@@ -126,7 +126,10 @@ impl ReverseRecordWitnessesParser {
                                 .map_err(|_| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
                             let cell_dep = cell_deps.get(device_list.blake2b_256().index(..));
                             if let Some(cell_dep) = cell_dep {
-                                device_key_lists.insert(cell_dep.slice(2..22).to_vec(), device_list);
+                                // TODO: 改成1..22
+                                device_key_lists.insert(cell_dep.slice(1..22).to_vec(), device_list);
+                            } else {
+                                // TODO：说明这个device_key_list不合法
                             }
                         }
                         Ok(_) => {

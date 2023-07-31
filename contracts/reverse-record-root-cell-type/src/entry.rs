@@ -15,7 +15,7 @@ use das_core::{assert as das_assert, code_to_error, debug, util, verifiers, warn
 use das_dynamic_libs::constants::DynLibName;
 use das_dynamic_libs::error::Error as DasDynamicLibError;
 use das_dynamic_libs::sign_lib::SignLib;
-use das_dynamic_libs::{load_2_methods, load_lib, log_loading, new_context, load_3_methods};
+use das_dynamic_libs::{load_2_methods, load_3_methods, load_lib, log_loading, new_context};
 use das_types::constants::DasLockType;
 use das_types::prelude::Entity;
 
@@ -77,7 +77,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
         }
         b"update_reverse_record_root" => {
             util::is_system_off(&parser)?;
-
             let config_main = parser.configs.main()?;
             let config_smt_white_list = parser.configs.smt_node_white_list()?;
             verify_has_some_lock_in_white_list(1, config_smt_white_list)?;
@@ -118,7 +117,11 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             let mut web_authn_context = new_context!();
             log_loading!(DynLibName::WebAuthn, config_main.das_lock_type_id_table());
-            let web_authn_lib = load_lib!(web_authn_context, DynLibName::WebAuthn, config_main.das_lock_type_id_table());
+            let web_authn_lib = load_lib!(
+                web_authn_context,
+                DynLibName::WebAuthn,
+                config_main.das_lock_type_id_table()
+            );
             sign_lib.web_authn = load_3_methods!(web_authn_lib);
 
             debug!("Start iterating ReverseRecord witnesses ...");
@@ -236,6 +239,14 @@ fn verify_sign(
         );
         code_to_error!(ReverseRecordRootCellErrorCode::SignatureVerifyError)
     })?;
+
+    // TODO: currently we cannot find sub_alg_id in witness. fix sub_alg_id to 7
+    let args = if das_lock_type == DasLockType::WebAuthn {
+        [vec![7], args].concat()
+    } else {
+        args
+    };
+
     let ret = if das_lock_type == DasLockType::WebAuthn
         && u8::from_le_bytes(
             WebAuthnSignature::try_from(signature.as_slice())?
