@@ -145,7 +145,7 @@ fn test_sub_account_renew_flag_manual_by_others() {
             "expired_at": TIMESTAMP + YEAR_SEC * 2,
         }
     }));
-    push_common_output_cells(&mut template, 3);
+    push_common_output_cells(&mut template, 3, SubAccountConfigFlag::Manual);
 
     test_tx(template.as_json())
 }

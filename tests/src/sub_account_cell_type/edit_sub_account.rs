@@ -49,7 +49,7 @@ fn before_each() -> TemplateGenerator {
             "expired_at": TIMESTAMP + YEAR_SEC,
         }),
     ]);
-    push_simple_input_sub_account_cell(&mut template, 0, 0);
+    push_simple_input_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomScript);
 
     template
 }
@@ -68,38 +68,6 @@ fn push_simple_sub_account_witness(template: &mut TemplateGenerator, sub_account
     util::merge_json(&mut sub_account, sub_account_partial);
 
     template.push_sub_account_witness_v2(sub_account);
-}
-
-fn push_simple_input_sub_account_cell(template: &mut TemplateGenerator, das_profit: u64, owner_profit: u64) {
-    push_input_sub_account_cell_v2(
-        template,
-        json!({
-            "header": {
-                "height": HEIGHT - 1,
-                "timestamp": TIMESTAMP - DAY_SEC,
-            },
-            "data": {
-                "das_profit": das_profit,
-                "owner_profit": owner_profit,
-                "flag": SubAccountConfigFlag::CustomScript as u8,
-            }
-        }),
-        ACCOUNT_1,
-    );
-}
-
-fn push_simple_output_sub_account_cell(template: &mut TemplateGenerator, das_profit: u64, owner_profit: u64) {
-    push_output_sub_account_cell_v2(
-        template,
-        json!({
-            "data": {
-                "das_profit": das_profit,
-                "owner_profit": owner_profit,
-                "flag": SubAccountConfigFlag::CustomScript as u8,
-            }
-        }),
-        ACCOUNT_1,
-    );
 }
 
 #[test]
@@ -160,7 +128,7 @@ fn test_sub_account_edit() {
             ]
         }),
     );
-    push_simple_output_sub_account_cell(&mut template, 0, 0);
+    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomScript);
 
     test_tx(template.as_json())
 }
@@ -185,7 +153,7 @@ fn challenge_sub_account_edit_owner_not_change() {
             "edit_value": gen_das_lock_args(OWNER_1, Some(MANAGER_1))
         }),
     );
-    push_simple_output_sub_account_cell(&mut template, 0, 0);
+    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomScript);
 
     challenge_tx(template.as_json(), SubAccountCellErrorCode::SubAccountEditLockError);
 }
@@ -210,7 +178,7 @@ fn challenge_sub_account_edit_owner_changed_when_edit_manager() {
             "edit_value": gen_das_lock_args(OWNER_2, Some(MANAGER_2))
         }),
     );
-    push_simple_output_sub_account_cell(&mut template, 0, 0);
+    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomScript);
 
     challenge_tx(template.as_json(), SubAccountCellErrorCode::SubAccountEditLockError);
 }
@@ -235,7 +203,7 @@ fn challenge_sub_account_edit_modify_das_profit() {
             "edit_value": gen_das_lock_args(OWNER_2, Some(MANAGER_1))
         }),
     );
-    push_simple_output_sub_account_cell(&mut template, 1, 0);
+    push_simple_output_sub_account_cell(&mut template, 1, 0, SubAccountConfigFlag::CustomScript);
 
     challenge_tx(
         template.as_json(),
@@ -263,7 +231,7 @@ fn challenge_sub_account_edit_modify_owner_profit() {
             "edit_value": gen_das_lock_args(OWNER_2, Some(MANAGER_1))
         }),
     );
-    push_simple_output_sub_account_cell(&mut template, 0, 1);
+    push_simple_output_sub_account_cell(&mut template, 0, 1, SubAccountConfigFlag::CustomScript);
 
     challenge_tx(
         template.as_json(),
@@ -289,7 +257,7 @@ fn challenge_sub_account_edit_spend_balance_cell_1() {
         "registered_at": TIMESTAMP,
         "expired_at": TIMESTAMP + YEAR_SEC,
     })]);
-    push_simple_input_sub_account_cell(&mut template, 0, 0);
+    push_simple_input_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomScript);
     // Simulate spending the BalanceCells of the parent AccountCell owner in a transaction only contains `edit` action.
     push_input_balance_cell(&mut template, 10_000_000_000, OWNER);
 
@@ -308,7 +276,7 @@ fn challenge_sub_account_edit_spend_balance_cell_1() {
             "edit_value": gen_das_lock_args(OWNER_2, Some(MANAGER_1))
         }),
     );
-    push_simple_output_sub_account_cell(&mut template, 0, 0);
+    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomScript);
 
     challenge_tx(
         template.as_json(),
@@ -334,7 +302,7 @@ fn challenge_sub_account_edit_spend_balance_cell_2() {
         "registered_at": TIMESTAMP,
         "expired_at": TIMESTAMP + YEAR_SEC,
     })]);
-    push_simple_input_sub_account_cell(&mut template, 0, 0);
+    push_simple_input_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomScript);
     // Simulate spending the BalanceCells of others in a transaction only contains `edit` action.
     push_input_balance_cell(&mut template, 10_000_000_000, OWNER_4);
 
@@ -353,7 +321,7 @@ fn challenge_sub_account_edit_spend_balance_cell_2() {
             "edit_value": gen_das_lock_args(OWNER_2, Some(MANAGER_1))
         }),
     );
-    push_simple_output_sub_account_cell(&mut template, 0, 0);
+    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomScript);
 
     challenge_tx(
         template.as_json(),
@@ -424,7 +392,7 @@ fn challenge_sub_account_edit_manager_not_change() {
             "edit_value": gen_das_lock_args(OWNER_1, Some(MANAGER_1))
         }),
     );
-    push_simple_output_sub_account_cell(&mut template, 0, 0);
+    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomScript);
 
     challenge_tx(template.as_json(), SubAccountCellErrorCode::SubAccountEditLockError);
 }
@@ -457,7 +425,7 @@ fn challenge_sub_account_edit_records_invalid_char() {
             ]
         }),
     );
-    push_simple_output_sub_account_cell(&mut template, 0, 0);
+    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomScript);
 
     challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellRecordKeyInvalid);
 }
@@ -490,7 +458,7 @@ fn challenge_sub_account_edit_records_invalid_key() {
             ]
         }),
     );
-    push_simple_output_sub_account_cell(&mut template, 0, 0);
+    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomScript);
 
     challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellRecordKeyInvalid);
 }
@@ -523,7 +491,7 @@ fn challenge_sub_account_edit_records_invalid_role() {
             ]
         }),
     );
-    push_simple_output_sub_account_cell(&mut template, 0, 0);
+    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomScript);
 
     challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellPermissionDenied);
 }
@@ -546,7 +514,7 @@ fn challenge_sub_account_edit_empty_edit_key() {
         "registered_at": TIMESTAMP,
         "expired_at": TIMESTAMP + YEAR_SEC,
     })]);
-    push_simple_input_sub_account_cell(&mut template, 0, 0);
+    push_simple_input_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomScript);
 
     // outputs
     push_simple_sub_account_witness(
@@ -566,7 +534,7 @@ fn challenge_sub_account_edit_empty_edit_key() {
             "edit_value": gen_das_lock_args(OWNER_2, Some(MANAGER_1))
         }),
     );
-    push_simple_output_sub_account_cell(&mut template, 0, 0);
+    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomScript);
 
     challenge_tx(template.as_json(), SubAccountCellErrorCode::WitnessEditKeyInvalid);
 }
@@ -590,7 +558,7 @@ fn challenge_sub_account_edit_has_expired() {
         // Simulate modifying the sub-account that has expired.
         "expired_at": TIMESTAMP - 1,
     })]);
-    push_simple_input_sub_account_cell(&mut template, 0, 0);
+    push_simple_input_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomScript);
 
     // outputs
     push_simple_sub_account_witness(
@@ -610,7 +578,7 @@ fn challenge_sub_account_edit_has_expired() {
             "edit_value": gen_das_lock_args(OWNER_2, Some(MANAGER_1))
         }),
     );
-    push_simple_output_sub_account_cell(&mut template, 0, 0);
+    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomScript);
 
     challenge_tx(template.as_json(), SubAccountCellErrorCode::AccountHasInGracePeriod);
 }

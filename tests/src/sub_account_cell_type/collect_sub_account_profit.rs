@@ -1,4 +1,4 @@
-use das_types_std::constants::{DataType, Source};
+use das_types_std::constants::*;
 use serde_json::json;
 
 use super::common::*;
@@ -29,49 +29,20 @@ fn before_each() -> TemplateGenerator {
     template
 }
 
-fn push_simple_input_sub_account_cell(template: &mut TemplateGenerator, das_profit: u64, owner_profit: u64) {
-    let current_root = template.smt_with_history.current_root();
-    push_input_sub_account_cell(
-        template,
-        json!({
-            "type": {
-                "args": ACCOUNT_1
-            },
-            "data": {
-                "root": String::from("0x") + &hex::encode(&current_root),
-                "das_profit": das_profit,
-                "owner_profit": owner_profit,
-            }
-        }),
-    );
-}
-
-fn push_simple_output_sub_account_cell(template: &mut TemplateGenerator, das_profit: u64, owner_profit: u64) {
-    let current_root = template.smt_with_history.current_root();
-    push_output_sub_account_cell(
-        template,
-        json!({
-            "type": {
-                "args": ACCOUNT_1
-            },
-            "data": {
-                "root": String::from("0x") + &hex::encode(&current_root),
-                "das_profit": das_profit,
-                "owner_profit": owner_profit,
-            }
-        }),
-    );
-}
-
 #[test]
 fn test_sub_account_collect_profit() {
     let mut template = before_each();
 
     // inputs
-    push_simple_input_sub_account_cell(&mut template, 1000_00_000_000, 1000_00_000_000);
+    push_simple_input_sub_account_cell(
+        &mut template,
+        1000_00_000_000,
+        1000_00_000_000,
+        SubAccountConfigFlag::Manual,
+    );
 
     // outputs
-    push_simple_output_sub_account_cell(&mut template, 0, 0);
+    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
     push_output_normal_cell(&mut template, 1000_00_000_000, DAS_WALLET_LOCK_ARGS);
     push_output_balance_cell(&mut template, 1000_00_000_000, OWNER);
 
@@ -83,7 +54,12 @@ fn challenge_sub_account_collect_profit_modify_root() {
     let mut template = before_each();
 
     // inputs
-    push_simple_input_sub_account_cell(&mut template, 1000_00_000_000, 1000_00_000_000);
+    push_simple_input_sub_account_cell(
+        &mut template,
+        1000_00_000_000,
+        1000_00_000_000,
+        SubAccountConfigFlag::Manual,
+    );
 
     // outputs
     let current_root = [1u8; 32];
@@ -156,10 +132,20 @@ fn challenge_sub_account_not_collect_profit() {
     let mut template = before_each();
 
     // inputs
-    push_simple_input_sub_account_cell(&mut template, 1000_00_000_000, 1000_00_000_000);
+    push_simple_input_sub_account_cell(
+        &mut template,
+        1000_00_000_000,
+        1000_00_000_000,
+        SubAccountConfigFlag::Manual,
+    );
 
     // outputs
-    push_simple_output_sub_account_cell(&mut template, 1000_00_000_000, 1000_00_000_000);
+    push_simple_output_sub_account_cell(
+        &mut template,
+        1000_00_000_000,
+        1000_00_000_000,
+        SubAccountConfigFlag::Manual,
+    );
 
     challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure)
 }
@@ -169,10 +155,10 @@ fn challenge_sub_account_no_profit_to_collect() {
     let mut template = before_each();
 
     // inputs
-    push_simple_input_sub_account_cell(&mut template, 0, 0);
+    push_simple_input_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
 
     // outputs
-    push_simple_output_sub_account_cell(&mut template, 0, 0);
+    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
 
     challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure)
 }
@@ -182,11 +168,16 @@ fn challenge_sub_account_collect_das_profit_incomplete() {
     let mut template = before_each();
 
     // inputs
-    push_simple_input_sub_account_cell(&mut template, 1000_00_000_000, 1000_00_000_000);
+    push_simple_input_sub_account_cell(
+        &mut template,
+        1000_00_000_000,
+        1000_00_000_000,
+        SubAccountConfigFlag::Manual,
+    );
 
     // outputs
     // Simulate not collecting all profit of DAS at once.
-    push_simple_output_sub_account_cell(&mut template, 1, 0);
+    push_simple_output_sub_account_cell(&mut template, 1, 0, SubAccountConfigFlag::Manual);
     push_output_normal_cell(&mut template, 1000_00_000_000 - 1, DAS_WALLET_LOCK_ARGS);
     push_output_balance_cell(&mut template, 1000_00_000_000, OWNER);
 
@@ -201,10 +192,15 @@ fn challenge_sub_account_collect_das_profit_error() {
     let mut template = before_each();
 
     // inputs
-    push_simple_input_sub_account_cell(&mut template, 1000_00_000_000, 1000_00_000_000);
+    push_simple_input_sub_account_cell(
+        &mut template,
+        1000_00_000_000,
+        1000_00_000_000,
+        SubAccountConfigFlag::Manual,
+    );
 
     // outputs
-    push_simple_output_sub_account_cell(&mut template, 0, 0);
+    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
     // Simulate not transferring all profit to DAS.
     push_output_normal_cell(&mut template, 1000_00_000_000 - 1, DAS_WALLET_LOCK_ARGS);
     push_output_balance_cell(&mut template, 1000_00_000_000, OWNER);
@@ -217,10 +213,15 @@ fn challenge_sub_account_collect_das_profit_error_2() {
     let mut template = before_each();
 
     // inputs
-    push_simple_input_sub_account_cell(&mut template, 1000_00_000_000, 1000_00_000_000);
+    push_simple_input_sub_account_cell(
+        &mut template,
+        1000_00_000_000,
+        1000_00_000_000,
+        SubAccountConfigFlag::Manual,
+    );
 
     // outputs
-    push_simple_output_sub_account_cell(&mut template, 0, 0);
+    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
     // Simulate not transferring all profit to other lock.
     push_output_normal_cell(
         &mut template,
@@ -237,11 +238,16 @@ fn challenge_sub_account_collect_owner_profit_incomplete() {
     let mut template = before_each();
 
     // inputs
-    push_simple_input_sub_account_cell(&mut template, 1000_00_000_000, 1000_00_000_000);
+    push_simple_input_sub_account_cell(
+        &mut template,
+        1000_00_000_000,
+        1000_00_000_000,
+        SubAccountConfigFlag::Manual,
+    );
 
     // outputs
     // Simulate not collecting all profit of owner at once.
-    push_simple_output_sub_account_cell(&mut template, 0, 1);
+    push_simple_output_sub_account_cell(&mut template, 0, 1, SubAccountConfigFlag::Manual);
     push_output_normal_cell(&mut template, 1000_00_000_000, DAS_WALLET_LOCK_ARGS);
     push_output_balance_cell(&mut template, 1000_00_000_000 - 1, OWNER);
 
@@ -256,10 +262,15 @@ fn challenge_sub_account_collect_owner_profit_error() {
     let mut template = before_each();
 
     // inputs
-    push_simple_input_sub_account_cell(&mut template, 1000_00_000_000, 1000_00_000_000);
+    push_simple_input_sub_account_cell(
+        &mut template,
+        1000_00_000_000,
+        1000_00_000_000,
+        SubAccountConfigFlag::Manual,
+    );
 
     // outputs
-    push_simple_output_sub_account_cell(&mut template, 0, 0);
+    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
     push_output_normal_cell(&mut template, 1000_00_000_000, DAS_WALLET_LOCK_ARGS);
     // Simulate not transferring all profit to owner.
     push_output_balance_cell(&mut template, 1000_00_000_000 - 1, OWNER);
@@ -272,10 +283,15 @@ fn challenge_sub_account_collect_owner_profit_error_2() {
     let mut template = before_each();
 
     // inputs
-    push_simple_input_sub_account_cell(&mut template, 1000_00_000_000, 1000_00_000_000);
+    push_simple_input_sub_account_cell(
+        &mut template,
+        1000_00_000_000,
+        1000_00_000_000,
+        SubAccountConfigFlag::Manual,
+    );
 
     // outputs
-    push_simple_output_sub_account_cell(&mut template, 0, 0);
+    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
     push_output_normal_cell(&mut template, 1000_00_000_000, DAS_WALLET_LOCK_ARGS);
     // Simulate not transferring all profit to other lock.
     push_output_balance_cell(&mut template, 1000_00_000_000, OWNER_1);

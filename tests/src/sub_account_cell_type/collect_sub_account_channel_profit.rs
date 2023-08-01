@@ -1,4 +1,4 @@
-use das_types_std::constants::{DataType, Source};
+use das_types_std::constants::*;
 use serde_json::json;
 
 use super::common::*;
@@ -16,46 +16,21 @@ fn before_each() -> TemplateGenerator {
     template
 }
 
-fn push_simple_input_sub_account_cell(template: &mut TemplateGenerator, das_profit: u64, owner_profit: u64) {
-    push_input_sub_account_cell(
-        template,
-        json!({
-            "type": {
-                "args": ACCOUNT_1
-            },
-            "data": {
-                "das_profit": das_profit,
-                "owner_profit": owner_profit,
-            }
-        }),
-    );
-}
-
-fn push_simple_output_sub_account_cell(template: &mut TemplateGenerator, das_profit: u64, owner_profit: u64) {
-    push_output_sub_account_cell(
-        template,
-        json!({
-            "type": {
-                "args": ACCOUNT_1
-            },
-            "data": {
-                "das_profit": das_profit,
-                "owner_profit": owner_profit,
-            }
-        }),
-    );
-}
-
 #[test]
 fn test_sub_account_collect_channel_profit() {
     let mut template = before_each();
 
     // inputs
-    push_simple_input_sub_account_cell(&mut template, 1000_00_000_000, 1000_00_000_000);
+    push_simple_input_sub_account_cell(
+        &mut template,
+        1000_00_000_000,
+        1000_00_000_000,
+        SubAccountConfigFlag::Manual,
+    );
     push_input_normal_cell(&mut template, ONE_CKB, PROFIT_LOCK_ARGS);
 
     // outputs
-    push_simple_output_sub_account_cell(&mut template, 0, 1000_00_000_000);
+    push_simple_output_sub_account_cell(&mut template, 0, 1000_00_000_000, SubAccountConfigFlag::Manual);
     push_output_normal_cell(&mut template, 1000_00_000_000, DUMMY_LOCK_ARGS);
     push_output_normal_cell(&mut template, ONE_CKB, PROFIT_LOCK_ARGS);
 
@@ -67,12 +42,17 @@ fn challenge_sub_account_collect_channel_collect_without_manager_lock() {
     let mut template = before_each();
 
     // inputs
-    push_simple_input_sub_account_cell(&mut template, 1000_00_000_000, 1000_00_000_000);
+    push_simple_input_sub_account_cell(
+        &mut template,
+        1000_00_000_000,
+        1000_00_000_000,
+        SubAccountConfigFlag::Manual,
+    );
     // Simulate collecting profit without the profit manager's signature.
     // push_input_normal_cell(&mut template, ONE_CKB, PROFIT_LOCK_ARGS);
 
     // outputs
-    push_simple_output_sub_account_cell(&mut template, 0, 1000_00_000_000);
+    push_simple_output_sub_account_cell(&mut template, 0, 1000_00_000_000, SubAccountConfigFlag::Manual);
     push_output_normal_cell(&mut template, 1000_00_000_000, DUMMY_LOCK_ARGS);
     push_output_normal_cell(&mut template, ONE_CKB, PROFIT_LOCK_ARGS);
 
@@ -84,7 +64,12 @@ fn challenge_sub_account_collect_channel_profit_modify_root() {
     let mut template = before_each();
 
     // inputs
-    push_simple_input_sub_account_cell(&mut template, 1000_00_000_000, 1000_00_000_000);
+    push_simple_input_sub_account_cell(
+        &mut template,
+        1000_00_000_000,
+        1000_00_000_000,
+        SubAccountConfigFlag::Manual,
+    );
     push_input_normal_cell(&mut template, ONE_CKB, PROFIT_LOCK_ARGS);
 
     // outputs
@@ -115,12 +100,17 @@ fn challenge_sub_account_collect_channel_modify_owner_profit() {
     let mut template = before_each();
 
     // inputs
-    push_simple_input_sub_account_cell(&mut template, 1000_00_000_000, 1000_00_000_000);
+    push_simple_input_sub_account_cell(
+        &mut template,
+        1000_00_000_000,
+        1000_00_000_000,
+        SubAccountConfigFlag::Manual,
+    );
     push_input_normal_cell(&mut template, ONE_CKB, PROFIT_LOCK_ARGS);
 
     // outputs
     // Simulate modifying the SubAccountCell.data.owner_profit.
-    push_simple_output_sub_account_cell(&mut template, 0, 1000_00_000_000 - 1);
+    push_simple_output_sub_account_cell(&mut template, 0, 1000_00_000_000 - 1, SubAccountConfigFlag::Manual);
     push_output_normal_cell(&mut template, 1000_00_000_000, DUMMY_LOCK_ARGS);
     push_output_normal_cell(&mut template, ONE_CKB, PROFIT_LOCK_ARGS);
 
@@ -136,11 +126,11 @@ fn challenge_sub_account_collect_channel_no_profit_to_collect() {
 
     // inputs
     // Simulate no profit to collect.
-    push_simple_input_sub_account_cell(&mut template, 0, 0);
+    push_simple_input_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
     push_input_normal_cell(&mut template, ONE_CKB, PROFIT_LOCK_ARGS);
 
     // outputs
-    push_simple_output_sub_account_cell(&mut template, 0, 0);
+    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
     push_output_normal_cell(&mut template, ONE_CKB, PROFIT_LOCK_ARGS);
 
     challenge_tx(template.as_json(), SubAccountCellErrorCode::ProfitIsEmpty)
@@ -151,11 +141,21 @@ fn challenge_sub_account_collect_channel_not_collect_profit() {
     let mut template = before_each();
 
     // inputs
-    push_simple_input_sub_account_cell(&mut template, 1000_00_000_000, 1000_00_000_000);
+    push_simple_input_sub_account_cell(
+        &mut template,
+        1000_00_000_000,
+        1000_00_000_000,
+        SubAccountConfigFlag::Manual,
+    );
     push_input_normal_cell(&mut template, ONE_CKB, PROFIT_LOCK_ARGS);
 
     // outputs
-    push_simple_output_sub_account_cell(&mut template, 1000_00_000_000, 1000_00_000_000);
+    push_simple_output_sub_account_cell(
+        &mut template,
+        1000_00_000_000,
+        1000_00_000_000,
+        SubAccountConfigFlag::Manual,
+    );
     push_output_normal_cell(&mut template, ONE_CKB, PROFIT_LOCK_ARGS);
 
     challenge_tx(template.as_json(), SubAccountCellErrorCode::ProfitMustBeCollected)

@@ -307,7 +307,7 @@ fn get_smt_new_root_and_proof(
             macro_rules! get_new_entity_bytes {
                 ($entity:expr, $expired_at:expr) => {{
                     let current_nonce = u64::from($entity.nonce());
-                    let mut builder = $entity.clone().as_builder();
+                    let mut builder = Clone::clone(&$entity).as_builder();
                     builder = builder.expired_at($expired_at);
                     builder = builder.nonce(Uint64::from(current_nonce + 1));
                     let new_entity = builder.build();
@@ -341,7 +341,7 @@ fn get_smt_new_root_and_proof(
             macro_rules! get_new_entity_bytes {
                 ($entity:expr) => {{
                     let current_nonce = u64::from($entity.nonce());
-                    let mut builder = $entity.clone().as_builder();
+                    let mut builder = Clone::clone(&$entity).as_builder();
 
                     // Modify SubAccount base on edit_key and edit_value.
                     let edit_key = util::parse_json_str(&format!("{}.edit_key", path), &value["edit_key"]);
@@ -398,7 +398,7 @@ fn get_smt_new_root_and_proof(
             macro_rules! get_new_entity_bytes {
                 ($entity:expr) => {{
                     let current_nonce = u64::from($entity.nonce());
-                    let mut builder = $entity.clone().as_builder();
+                    let mut builder = Clone::clone(&$entity).as_builder();
 
                     let approval = encode_v2_fields(&format!("{}.edit_value", path), &value["edit_value"]);
 

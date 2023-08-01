@@ -41,7 +41,12 @@ fn before_each_without_custom_script() -> TemplateGenerator {
             "expired_at": TIMESTAMP + YEAR_SEC,
         }),
     ]);
-    push_simple_input_sub_account_cell(&mut template, INIT_DAS_PROFIT, INIT_OWNER_PROFIT);
+    push_simple_input_sub_account_cell(
+        &mut template,
+        INIT_DAS_PROFIT,
+        INIT_OWNER_PROFIT,
+        SubAccountConfigFlag::Manual,
+    );
 
     template
 }
@@ -128,6 +133,7 @@ fn test_sub_account_update_without_custom_script() {
         &mut template,
         INIT_DAS_PROFIT + SUB_ACCOUNT_NEW_PRICE,
         INIT_OWNER_PROFIT,
+        SubAccountConfigFlag::Manual,
     );
 
     test_tx(template.as_json())
@@ -211,7 +217,7 @@ fn challenge_sub_account_update_parent_not_in_normal_status() {
     );
 
     // inputs
-    push_simple_input_sub_account_cell(&mut template, 0, 0);
+    push_simple_input_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
     push_input_normal_cell(&mut template, 10_000_000_000, OWNER);
 
     // outputs
@@ -230,7 +236,7 @@ fn challenge_sub_account_update_parent_not_in_normal_status() {
         },
         "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_1)
     }));
-    push_common_output_cells(&mut template, 1);
+    push_common_output_cells(&mut template, 1, SubAccountConfigFlag::Manual);
 
     challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellStatusLocked);
 }
@@ -260,7 +266,7 @@ fn challenge_sub_account_update_parent_expired() {
     );
 
     // inputs
-    push_simple_input_sub_account_cell(&mut template, 0, 0);
+    push_simple_input_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
     push_input_normal_cell(&mut template, 10_000_000_000, OWNER);
 
     // outputs
@@ -291,7 +297,7 @@ fn challenge_sub_account_update_parent_expired() {
         },
         "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_1)
     }));
-    push_common_output_cells(&mut template, 1);
+    push_common_output_cells(&mut template, 1, SubAccountConfigFlag::Manual);
 
     challenge_tx(
         template.as_json(),
@@ -323,7 +329,7 @@ fn challenge_sub_account_update_parent_not_enable_feature() {
     );
 
     // inputs
-    push_simple_input_sub_account_cell(&mut template, 0, 0);
+    push_simple_input_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
     push_input_normal_cell(&mut template, 10_000_000_000, OWNER);
 
     // outputs
@@ -342,7 +348,7 @@ fn challenge_sub_account_update_parent_not_enable_feature() {
         },
         "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_1)
     }));
-    push_common_output_cells(&mut template, 1);
+    push_common_output_cells(&mut template, 1, SubAccountConfigFlag::Manual);
 
     challenge_tx(template.as_json(), SubAccountCellErrorCode::SubAccountFeatureNotEnabled);
 }
