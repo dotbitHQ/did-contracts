@@ -197,7 +197,7 @@ fn action_config_sub_account(_action: &[u8], parser: &mut WitnessesParser) -> Re
             }
 
             if !rules_to_verify.is_empty() {
-                let sub_account_witness_parser = SubAccountWitnessesParser::new(flag)?;
+                let sub_account_witness_parser = SubAccountWitnessesParser::new(flag, &config_main)?;
                 for data_type in rules_to_verify {
                     let (hash, field) = match data_type {
                         DataType::SubAccountPriceRule => (price_rules_hash, String::from("price_rules")),
@@ -395,7 +395,7 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
             return Err(code_to_error!(ErrorCode::HardCodedError));
         }
     };
-    let sub_account_parser = SubAccountWitnessesParser::new(flag)?;
+    let sub_account_parser = SubAccountWitnessesParser::new(flag, &config_main)?;
 
     debug!("Verify if the AccountCell in cell_deps has sub-account feature enabled and not expired ...");
 

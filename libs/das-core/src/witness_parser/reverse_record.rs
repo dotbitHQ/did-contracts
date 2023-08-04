@@ -10,7 +10,7 @@ use ckb_std::ckb_constants::Source;
 use ckb_std::error::SysError;
 use ckb_std::syscalls::{self};
 use das_types::constants::*;
-use das_types::packed::DeviceKeyListCellData;
+use das_types::packed::{DeviceKeyListCellData, ConfigCellMainReader};
 use das_types::prelude::Entity;
 
 use super::super::error::*;
@@ -63,12 +63,12 @@ pub struct ReverseRecordWitnessesParser {
 }
 
 impl ReverseRecordWitnessesParser {
-    pub fn new() -> Result<Self, Box<dyn ScriptError>> {
+    pub fn new(config_main: &ConfigCellMainReader<'_>) -> Result<Self, Box<dyn ScriptError>> {
         let mut contains_updating = false;
         let mut contains_removing = false;
         let mut reverse_record_indexes = Vec::new();
         let mut device_key_lists = BTreeMap::<Vec<u8>, DeviceKeyListCellData>::new();
-        let cell_deps = get_device_key_list_cell_deps();
+        let cell_deps = get_device_key_list_cell_deps(config_main.type_id_table().key_list_config_cell().raw_data());
 
         let mut i = 0;
         let mut das_witnesses_started = false;
@@ -126,10 +126,9 @@ impl ReverseRecordWitnessesParser {
                                 .map_err(|_| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
                             let cell_dep = cell_deps.get(device_list.blake2b_256().index(..));
                             if let Some(cell_dep) = cell_dep {
-                                // TODO: 改成1..22
                                 device_key_lists.insert(cell_dep.slice(1..22).to_vec(), device_list);
                             } else {
-                                // TODO：说明这个device_key_list不合法
+                                return Err(code_to_error!(ErrorCode::WitnessDataTypeDecodingError))
                             }
                         }
                         Ok(_) => {

@@ -129,7 +129,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let mut prev_root = high_level::load_cell_data(input_cells[0], Source::Input)?;
             let latest_root = high_level::load_cell_data(output_cells[0], Source::Output)?;
 
-            let witness_parser = ReverseRecordWitnessesParser::new()?;
+            let witness_parser = ReverseRecordWitnessesParser::new(&config_main)?;
             for witness_ret in witness_parser.iter() {
                 if let Err(e) = witness_ret {
                     return Err(e);

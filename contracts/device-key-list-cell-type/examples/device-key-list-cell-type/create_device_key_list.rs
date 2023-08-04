@@ -37,21 +37,12 @@ pub fn action() -> Action {
         Ok(())
     }));
 
-    create_action.add_verification(Rule::new("Verify lock arg", |contract| {
+    create_action.add_verification(Rule::new("The lock arg of key list should be ", |contract| {
         let output_cell_meta = contract.get_output_inner_cells()[0].get_meta();
         let key_list = contract
             .get_parser()
             .get_cell_witness::<DeviceKeyListCellData>(output_cell_meta)?;
-        let mut lock_iter = contract.get_output_inner_cells().iter().map(|cell| cell.lock());
-        let first_lock = lock_iter
-            .next()
-            .ok_or(code_to_error!(ErrorCode::InvalidTransactionStructure))?;
-        assert!(
-            lock_iter.all(|lock| lock.as_slice() == first_lock.as_slice()),
-            ErrorCode::InvalidTransactionStructure,
-            "All lock of the cell should be the same"
-        );
-        verify_key_list_lock_arg(&first_lock, key_list.keys())?;
+        verify_key_list_lock_arg(&contract.get_output_inner_cells()[0].lock(), key_list.keys())?;
         Ok(())
     }));
 
@@ -71,7 +62,7 @@ pub fn action() -> Action {
         assert!(
             contract.get_output_inner_cells()[0].capacity().to_num() >= 161 * 10u64.pow(8),
             ErrorCode::CapacityNotEnough,
-            "There should be at least 161 CKB for capacity"
+            "There should be at 161 CKB base capacity for key-list-cell (output[0])"
         );
         Ok(())
     }));

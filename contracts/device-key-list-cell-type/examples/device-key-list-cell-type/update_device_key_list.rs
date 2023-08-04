@@ -13,12 +13,18 @@ pub fn action() -> Action {
     let mut update_action = Action::new("update_device_key_list");
     update_action.add_verification(Rule::new("Verify cell structure", |contract| {
         assert!(
+            contract.get_input_outer_cells().len() == 0
+            && contract.get_output_outer_cells().len() == 0,
+            ErrorCode::InvalidTransactionStructure,
+            "Should not have any balance cells in input or output"
+        );
+        assert!(
             contract.get_input_inner_cells().len() == 1
                 && contract.get_output_inner_cells().len() == 1
                 && contract.get_input_inner_cells()[0].meta.index == 0
                 && contract.get_output_inner_cells()[0].meta.index == 0,
             ErrorCode::InvalidTransactionStructure,
-            "Should have 1 cell in input[0] and 1 cell in output[0]"
+            "Should have 1 device_key_list_cell in input[0] and 1 cell in output[0]"
         );
         Ok(())
     }));
@@ -27,7 +33,7 @@ pub fn action() -> Action {
         assert!(
             i64::try_from(contract.get_input_inner_cells()[0].capacity().to_num()).unwrap()
                 - i64::try_from(contract.get_output_inner_cells()[0].capacity().to_num()).unwrap()
-                < 10000,
+                <= 10000,
             ErrorCode::CapacityReduceTooMuch,
             "Capacity change is too much"
         );
@@ -53,6 +59,13 @@ pub fn action() -> Action {
         let key_list_in_output = contract
             .get_parser()
             .get_cell_witness::<DeviceKeyListCellData>(output_cell_meta)?;
+
+        assert!(
+            key_list_in_input.refund_lock().as_slice() == key_list_in_output.refund_lock().as_slice(),
+            ErrorCode::UpdateParamsInvalid,
+            "Changes to refund_lock are not allowed"
+        );
+
         das_core::assert!(
             key_list_in_output.keys().item_count() > 0 && key_list_in_output.keys().item_count() < 11,
             ErrorCode::UpdateParamsInvalid,

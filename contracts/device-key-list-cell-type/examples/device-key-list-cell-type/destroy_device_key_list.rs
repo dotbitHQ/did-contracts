@@ -3,6 +3,7 @@ use das_types::packed::DeviceKeyListCellData;
 use device_key_list_cell_type::error::ErrorCode;
 use molecule::prelude::Entity;
 
+use crate::helpers::ToNum;
 use crate::traits::{Action, GetCellWitness, Rule};
 
 pub fn action() -> Action {
@@ -20,7 +21,7 @@ pub fn action() -> Action {
 
     destroy_action.add_verification(Rule::new("Verify refund lock", |contract| {
         let input_cell_meta = contract.get_input_inner_cells()[0].get_meta();
-        let key_list_in_input = contract
+        let key_list_in_input: DeviceKeyListCellData = contract
             .get_parser()
             .get_cell_witness::<DeviceKeyListCellData>(input_cell_meta)?;
         let refund_lock = key_list_in_input.refund_lock();
@@ -32,6 +33,37 @@ pub fn action() -> Action {
             ErrorCode::InconsistentBalanceCellLocks,
             "Should return capacity to refund_lock"
         );
+        Ok(())
+    }));
+
+    destroy_action.add_verification(Rule::new("Check total capacity change", |contract| {
+        let input_capacity: u64 = contract
+            .get_input_inner_cells()
+            .iter()
+            .map(|cell| cell.capacity().to_num())
+            .sum::<u64>()
+            + contract
+                .get_input_outer_cells()
+                .iter()
+                .map(|cell| cell.capacity().to_num())
+                .sum::<u64>();
+
+        let output_capacity: u64 = contract
+            .get_output_inner_cells()
+            .iter()
+            .map(|cell| cell.capacity().to_num())
+            .sum::<u64>()
+            + contract
+                .get_output_outer_cells()
+                .iter()
+                .map(|cell| cell.capacity().to_num())
+                .sum::<u64>();
+        assert!(
+            input_capacity - output_capacity <= 10000,
+            ErrorCode::CapacityReduceTooMuch,
+            "Should not pay too much to miner"
+        );
+
         Ok(())
     }));
 

@@ -99,7 +99,7 @@ pub struct SubAccountWitnessesParser {
 }
 
 impl SubAccountWitnessesParser {
-    pub fn new(flag: SubAccountConfigFlag) -> Result<Self, Box<dyn ScriptError>> {
+    pub fn new(flag: SubAccountConfigFlag, config_main: &ConfigCellMainReader<'_>) -> Result<Self, Box<dyn ScriptError>> {
         let mut contains_creation = false;
         let mut contains_edition = false;
         let mut contains_renew = false;
@@ -113,7 +113,7 @@ impl SubAccountWitnessesParser {
         let mut das_witnesses_started = false;
         let mut count = 0;
         let mut device_key_lists = BTreeMap::<Vec<u8>, DeviceKeyListCellData>::new();
-        let cell_deps = get_device_key_list_cell_deps();
+        let cell_deps = get_device_key_list_cell_deps(config_main.type_id_table().key_list_config_cell().raw_data());
         loop {
             let mut buf = [0u8; (WITNESS_HEADER_BYTES
                 + WITNESS_TYPE_BYTES
@@ -194,7 +194,7 @@ impl SubAccountWitnessesParser {
                             if let Some(cell_dep) = cell_dep {
                                 device_key_lists.insert(cell_dep.slice(1..22).to_vec(), device_list);
                             } else {
-                                // TODO: 报错
+                                return Err(code_to_error!(ErrorCode::WitnessDataTypeDecodingError))
                             }
                         }
                         Ok(_) => {

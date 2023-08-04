@@ -20,6 +20,7 @@ fn init(action: &str) -> TemplateGenerator {
     template.push_contract_cell("always_success", ContractType::DeployedContract);
     template.push_contract_cell("fake-secp256k1-blake160-signhash-all", ContractType::DeployedContract);
     template.push_contract_cell("test-env", ContractType::Contract);
+    template.push_config_cell(DataType::ConfigCellMain, Source::CellDep);
 
     template
 }

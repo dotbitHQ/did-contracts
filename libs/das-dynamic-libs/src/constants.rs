@@ -2,7 +2,7 @@ use core::fmt::Display;
 
 use das_types::packed::DasLockTypeIdTableReader;
 
-pub type DynLibSize = [u8; 128 * 1024];
+pub type DynLibSize = [u8; 192 * 1024];
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum DynLibName {
