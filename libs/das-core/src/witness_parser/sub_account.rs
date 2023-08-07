@@ -481,7 +481,66 @@ impl SubAccountWitnessesParser {
         let mut sign_type = None;
         let mut sign_args = vec![];
         let mut sign_expired_at = 0;
-        let mut _lock_args = vec![];
+        let mut lock_args = vec![];
+
+        if vec![
+            SubAccountAction::Edit,
+            SubAccountAction::CreateApproval,
+            SubAccountAction::DelayApproval,
+            SubAccountAction::FulfillApproval,
+        ]
+        .contains(&action)
+        {
+            debug!(
+                "  witnesses[{:>2}] Parse the sub_account.lock as the signing lock ...",
+                i
+            );
+
+            das_assert!(
+                sign_expired_at_bytes.len() == 8,
+                ErrorCode::WitnessStructureError,
+                "  witnesses[{:>2}] SubAccountMintSignWitness.expired_at_bytes should be 8 bytes.",
+                i
+            );
+            sign_expired_at = u64::from_le_bytes(sign_expired_at_bytes.try_into().unwrap());
+
+            let lock_args_reader = sub_account.as_reader().lock().args();
+            lock_args = lock_args_reader.raw_data().to_vec();
+            (sign_role, sign_type, sign_args) = Self::parse_sign_info(i, sign_role_byte, &lock_args)?;
+        } else if action == SubAccountAction::RevokeApproval {
+            debug!(
+                "  witnesses[{:>2}] Parse the sub_account.approval.params.platform_lock as the signing lock ...",
+                i
+            );
+
+            das_assert!(
+                sign_expired_at_bytes.len() == 8,
+                ErrorCode::WitnessStructureError,
+                "  witnesses[{:>2}] SubAccountMintSignWitness.expired_at_bytes should be 8 bytes.",
+                i
+            );
+            sign_expired_at = u64::from_le_bytes(sign_expired_at_bytes.try_into().unwrap());
+
+            let sub_account_reader = sub_account
+                .as_reader()
+                .try_into_latest()
+                .map_err(|_| code_to_error!(SubAccountCellErrorCode::WitnessVersionMismatched))?;
+            let approval = sub_account_reader.approval();
+            let approval_action = approval.action().raw_data();
+            let approval_params = approval.params().raw_data();
+
+            match approval_action {
+                b"transfer" => {
+                    let approval_params_reader = AccountApprovalTransferReader::from_compatible_slice(approval_params)
+                        .map_err(|_| code_to_error!(SubAccountCellErrorCode::WitnessParsingError))?;
+                    let lock_args_reader = approval_params_reader.platform_lock().args();
+                    lock_args = lock_args_reader.raw_data().to_vec();
+                    (sign_role, sign_type, sign_args) = Self::parse_sign_info(i, sign_role_byte, &lock_args)?;
+                }
+                _ => return Err(code_to_error!(SubAccountCellErrorCode::ApprovalActionUndefined)),
+            }
+        }
+
         let edit_value;
         match action {
             SubAccountAction::Create => {
@@ -589,18 +648,6 @@ impl SubAccountWitnessesParser {
                 }
             }
             SubAccountAction::Edit => {
-                das_assert!(
-                    sign_expired_at_bytes.len() == 8,
-                    ErrorCode::WitnessStructureError,
-                    "  witnesses[{:>2}] SubAccountMintSignWitness.expired_at_bytes should be 8 bytes.",
-                    i
-                );
-                sign_expired_at = u64::from_le_bytes(sign_expired_at_bytes.try_into().unwrap());
-
-                let lock_args_reader = sub_account.as_reader().lock().args();
-                _lock_args = lock_args_reader.raw_data().to_vec();
-                (sign_role, sign_type, sign_args) = Self::parse_sign_info(i, sign_role_byte, &_lock_args)?;
-
                 // The actual type of the edit_value field is base what the edit_key field is.
                 edit_value = match edit_key {
                     b"owner" => SubAccountEditValue::Owner(edit_value_bytes.to_vec()),
@@ -634,13 +681,20 @@ impl SubAccountWitnessesParser {
                 edit_value = SubAccountEditValue::Approval(approval);
             }
             SubAccountAction::Recycle | SubAccountAction::RevokeApproval | SubAccountAction::FulfillApproval => {
+                das_assert!(
+                    edit_key.is_empty() && edit_value_bytes.is_empty(),
+                    SubAccountCellErrorCode::WitnessEditKeyInvalid,
+                    "  witnesses[{:>2}] The edit_key and edit_value should be empty.",
+                    i
+                );
+
                 edit_value = SubAccountEditValue::None;
             }
         }
 
         debug!(
             "  Sub-account witnesses[{:>2}]: {{ version: {}, signature: 0x{}, lock_args: 0x{}, sign_role: 0x{}, sign_exipired_at: {}, new_root: 0x{}, action: {}, sub_account: {}, edit_key: {}, sign_args: {} }}",
-            i, version, util::hex_string(signature), util::hex_string(&_lock_args), util::hex_string(sign_role_byte), sign_expired_at, util::hex_string(new_root), action, sub_account.as_reader().account().as_prettier(), String::from_utf8(edit_key.to_vec()).unwrap(), util::hex_string(&sign_args)
+            i, version, util::hex_string(signature), util::hex_string(&lock_args), util::hex_string(sign_role_byte), sign_expired_at, util::hex_string(new_root), action, sub_account.as_reader().account().as_prettier(), String::from_utf8(edit_key.to_vec()).unwrap(), util::hex_string(&sign_args)
         );
 
         Ok(SubAccountWitness {
@@ -694,6 +748,9 @@ impl SubAccountWitnessesParser {
         // Slice the field base on the start and length.
         let from = start + WITNESS_LENGTH_BYTES;
         let to = from + length;
+
+        // debug!("  [{}] Parsing from {} to {}", field_name, from, to);
+
         let field_bytes = match bytes.get(from..to) {
             Some(bytes) => bytes,
             None => {
@@ -742,6 +799,8 @@ impl SubAccountWitnessesParser {
 
         let sign_type = DasLockType::try_from(sign_type_int).ok();
         let sign_args = sign_args_ref.to_vec();
+
+        debug!("  witnesses[{:>2}] Parse sign_role as {:?}", index, sign_role);
 
         Ok((sign_role, sign_type, sign_args))
     }

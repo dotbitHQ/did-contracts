@@ -1,7 +1,9 @@
+use alloc::string::ToString;
 use alloc::vec::Vec;
 
 use ckb_std::dynamic_loading_c_impl::Symbol;
-use das_types::constants::DasLockType;
+use das_types::constants::{DasLockType, SubAccountAction};
+use das_types::packed::*;
 
 use super::error::Error;
 use super::util;
@@ -248,6 +250,34 @@ impl SignLib {
         }
 
         let data = [expired_at, account_list_smt_root].concat();
+        let message = self.gen_digest(das_lock_type, data)?;
+        let type_no = 0i32;
+        let m_len = message.len();
+        let ret = self.validate_str(das_lock_type, type_no, message, m_len, sig, args);
+        if let Err(error_code) = ret {
+            Err(error_code)
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn verify_sub_account_approval_sig(
+        &self,
+        das_lock_type: DasLockType,
+        action: SubAccountAction,
+        approval: AccountApprovalReader,
+        nonce: Vec<u8>,
+        sig: Vec<u8>,
+        args: Vec<u8>,
+        sign_expired_at: Vec<u8>,
+    ) -> Result<(), i32> {
+        if cfg!(feature = "dev") {
+            return Ok(());
+        }
+
+        let action_bytes = action.to_string().as_bytes().to_vec();
+        let approval_bytes = approval.as_slice().to_vec();
+        let data = [action_bytes, approval_bytes, nonce, sign_expired_at].concat();
         let message = self.gen_digest(das_lock_type, data)?;
         let type_no = 0i32;
         let m_len = message.len();

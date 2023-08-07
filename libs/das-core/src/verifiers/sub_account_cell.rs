@@ -566,6 +566,87 @@ pub fn verify_sub_account_edit_sign(
     }
 }
 
+pub fn verify_sub_account_approval_sign(
+    witness: &SubAccountWitness,
+    sign_lib: &SignLib,
+) -> Result<(), Box<dyn ScriptError>> {
+    if cfg!(feature = "dev") {
+        // CAREFUL Proof verification has been skipped in development mode.
+        debug!(
+            "  witnesses[{:>2}] Skip verifying the witness.sub_account.sig is valid.",
+            witness.index
+        );
+        return Ok(());
+    }
+
+    debug!(
+        "  witnesses[{:>2}] Verify if the witness.sub_account.signature is valid.",
+        witness.index
+    );
+
+    let das_lock_type = match witness.sign_type {
+        Some(val) => {
+            assert!(
+                [DasLockType::CKBSingle, DasLockType::ETH, DasLockType::ETHTypedData, DasLockType::TRON, DasLockType::Doge].contains(&val),
+                ErrorCode::InvalidTransactionStructure,
+                "  witnesses[{:>2}] Parsing das-lock(witness.sub_account.lock.args) algorithm failed (maybe not supported for now), but it is required in this transaction.",
+                witness.index
+            );
+
+            val
+        }
+        _ => {
+            warn!(
+                "  witnesses[{:>2}] Parsing das-lock(witness.sub_account.lock.args) algorithm failed (maybe not supported for now), but it is required in this transaction.",
+                witness.index
+            );
+            return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
+        }
+    };
+
+    let sub_account_reader = witness
+        .sub_account
+        .as_reader()
+        .try_into_latest()
+        .map_err(|_| code_to_error!(SubAccountCellErrorCode::WitnessVersionMismatched))?;
+
+    let nonce = sub_account_reader.nonce().as_slice().to_vec();
+    let signature = witness.signature.as_slice();
+    let args = witness.sign_args.as_slice();
+    let sign_expired_at = witness.sign_expired_at.to_le_bytes().to_vec();
+
+    let ret = sign_lib.verify_sub_account_approval_sig(
+        das_lock_type,
+        witness.action,
+        sub_account_reader.approval(),
+        nonce,
+        signature.to_vec(),
+        args.to_vec(),
+        sign_expired_at,
+    );
+
+    match ret {
+        Err(_error_code) if _error_code == DasDynamicLibError::UndefinedDasLockType as i32 => {
+            warn!(
+                "  witnesses[{:>2}] The signature algorithm has not been supported",
+                witness.index
+            );
+            Err(code_to_error!(ErrorCode::HardCodedError))
+        }
+        Err(_error_code) => {
+            warn!(
+                "  witnesses[{:>2}] The witness.signature is invalid, the error_code returned by dynamic library is: {}",
+                witness.index, _error_code
+            );
+            Err(code_to_error!(SubAccountCellErrorCode::SubAccountSigVerifyError))
+        }
+        _ => {
+            debug!("  witnesses[{:>2}] The witness.signature is valid.", witness.index);
+            Ok(())
+        }
+    }
+}
+
 pub fn verify_sub_account_edit_sign_not_expired(
     witness: &SubAccountWitness,
     parent_expired_at: u64,
@@ -585,7 +666,7 @@ pub fn verify_sub_account_edit_sign_not_expired(
 
     das_assert!(
         expired_at <= limit_expired_at,
-        SubAccountCellErrorCode::SubAccountSignMintExpiredAtTooLarge,
+        SubAccountCellErrorCode::SignExpiredAtTooLarge,
         "  witnesses[{:>2}] SubAccount.expired_at should be less than the minimal expired_at of AccountCell and all sub-accounts'. (current: {}, limit: {})",
         witness.index,
         expired_at,
@@ -594,8 +675,8 @@ pub fn verify_sub_account_edit_sign_not_expired(
 
     das_assert!(
         expired_at >= sub_account_last_updated_at,
-        SubAccountCellErrorCode::SubAccountSignMintExpiredAtReached,
-        "  witnesses[{:>2}] The signature in SubAccount is expired. (current: {}, expired_at: {})",
+        SubAccountCellErrorCode::SignExpiredAtReached,
+        "  witnesses[{:>2}] SubAccount.signature is expired. (current: {}, expired_at: {})",
         witness.index,
         sub_account_last_updated_at,
         expired_at
