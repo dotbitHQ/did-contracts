@@ -97,7 +97,7 @@ impl DeviceKeyListCell {
 
         let mut outer_witness = Vec::new();
         outer_witness.extend(WITNESS_HEADER);
-        outer_witness.extend((das_types_std::constants::DataType::DeviceKeyList as u32).to_le_bytes());
+        outer_witness.extend((das_types_std::constants::DataType::DeviceKeyListEntityData as u32).to_le_bytes());
         outer_witness.extend(data.as_slice());
 
         template

@@ -9,15 +9,15 @@ use device_key_list_cell_type::error::ErrorCode;
 use molecule::prelude::Entity;
 
 use crate::helpers::ToNum;
-use crate::traits::{Action, FSMContract, Rule};
+use crate::traits::{Action, GetCellWitness, Rule};
 
 pub fn action() -> Action {
     let mut create_action = Action::new("create_device_key_list");
     create_action.add_verification(Rule::new("Verify cell structure", |contract| {
         assert!(
-            contract.input_inner_cells.len() == 0
-                && contract.output_inner_cells.len() == 1
-                && contract.output_inner_cells[0].0 == 0,
+            contract.get_input_inner_cells().len() == 0
+                && contract.get_output_inner_cells().len() == 1
+                && contract.get_output_inner_cells()[0].meta.index == 0,
             ErrorCode::InvalidTransactionStructure,
             "Should have 0 cell in input and 1 cell in output[0]"
         );
@@ -25,7 +25,10 @@ pub fn action() -> Action {
     }));
 
     create_action.add_verification(Rule::new("Verify key length", |contract| {
-        let key_list = contract.get_cell_witness::<DeviceKeyListCellData>(&contract.output_inner_cells[0])?;
+        let output_cell_meta = contract.get_output_inner_cells()[0].get_meta();
+        let key_list = contract
+            .get_parser()
+            .get_cell_witness::<DeviceKeyListCellData>(output_cell_meta)?;
         assert!(
             key_list.keys().item_count() == 1,
             ErrorCode::KeyListNumberIncorrect,
@@ -34,23 +37,17 @@ pub fn action() -> Action {
         Ok(())
     }));
 
-    create_action.add_verification(Rule::new("Verify lock arg", |contract| {
-        let key_list = contract.get_cell_witness::<DeviceKeyListCellData>(&contract.output_inner_cells[0])?;
-        let mut lock_iter = contract.output_inner_cells.iter().map(|cell| cell.lock());
-        let first_lock = lock_iter
-            .next()
-            .ok_or(code_to_error!(ErrorCode::InvalidTransactionStructure))?;
-        assert!(
-            lock_iter.all(|lock| lock.as_slice() == first_lock.as_slice()),
-            ErrorCode::InvalidTransactionStructure,
-            "All lock of the cell should be the same"
-        );
-        verify_key_list_lock_arg(&first_lock, key_list.keys())?;
+    create_action.add_verification(Rule::new("The lock arg of key list should be ", |contract| {
+        let output_cell_meta = contract.get_output_inner_cells()[0].get_meta();
+        let key_list = contract
+            .get_parser()
+            .get_cell_witness::<DeviceKeyListCellData>(output_cell_meta)?;
+        verify_key_list_lock_arg(&contract.get_output_inner_cells()[0].lock(), key_list.keys())?;
         Ok(())
     }));
 
     create_action.add_verification(Rule::new("Verify output lock", |contract| {
-        let lock = contract.output_inner_cells[0].lock();
+        let lock = contract.get_output_inner_cells()[0].lock();
         let das_lock = das_lock();
         assert!(
             lock.hash_type().as_slice() == das_lock.hash_type().as_slice()
@@ -63,23 +60,26 @@ pub fn action() -> Action {
 
     create_action.add_verification(Rule::new("Verify capacity", |contract| {
         assert!(
-            contract.output_inner_cells[0].capacity().to_num() >= 161 * 10u64.pow(8),
+            contract.get_output_inner_cells()[0].capacity().to_num() >= 161 * 10u64.pow(8),
             ErrorCode::CapacityNotEnough,
-            "There should be at least 161 CKB for capacity"
+            "There should be at 161 CKB base capacity for key-list-cell (output[0])"
         );
         Ok(())
     }));
 
     create_action.add_verification(Rule::new("Verify refund lock", |contract| {
-        let key_list = contract.get_cell_witness::<DeviceKeyListCellData>(&contract.output_inner_cells[0])?;
+        let output_cell_meta = contract.get_output_inner_cells()[0].get_meta();
+        let key_list = contract
+            .get_parser()
+            .get_cell_witness::<DeviceKeyListCellData>(output_cell_meta)?;
         let refund_lock = key_list.refund_lock();
         assert!(
             contract
-                .input_outer_cells
+                .get_input_outer_cells()
                 .iter()
                 .all(|c| c.lock().as_slice() == refund_lock.as_slice())
                 && contract
-                    .output_outer_cells
+                    .get_output_outer_cells()
                     .iter()
                     .all(|c| c.lock().as_slice() == refund_lock.as_slice()),
             ErrorCode::InconsistentBalanceCellLocks,
@@ -113,18 +113,18 @@ fn verify_key_list_lock_arg(lock: &Script, key_list: DeviceKeyList) -> Result<()
         "Second byte of lock arg should be sub_alg_id"
     );
 
-    // Next 10 bytes are pubkey hashed 5 times
-    das_core::assert!(
-        lock_arg.slice(2..12) == device_key.pubkey().raw_data(),
-        ErrorCode::InvalidLock,
-        "Byte 2..12 should be pubkey'"
-    );
-
     // Next 10 bytes are cid hashed 5 times
     das_core::assert!(
-        lock_arg.slice(12..22) == device_key.cid().raw_data(),
+        lock_arg.slice(2..12) == device_key.cid().raw_data(),
         ErrorCode::InvalidLock,
-        "Byte 12..22 should be cid'"
+        "Byte 2..12 should be cid'"
+    );
+
+    // Next 10 bytes are pubkey hashed 5 times
+    das_core::assert!(
+        lock_arg.slice(12..22) == device_key.pubkey().raw_data(),
+        ErrorCode::InvalidLock,
+        "Byte 12..22 should be pubkey'"
     );
 
     // Owner and manager are the same

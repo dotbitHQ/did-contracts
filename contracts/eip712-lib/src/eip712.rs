@@ -300,7 +300,13 @@ pub fn to_semantic_address(
                         _ => unreachable!(),
                     };
                 }
-                _ => return Err(code_to_error!(ErrorCode::EIP712SematicError)),
+                _ => {
+                    address = format!(
+                        "{}",
+                        to_full_address(code_hash, hash_type, args)
+                            .map_err(|_| Error::new(ErrorCode::EIP712SematicError, String::new()))?
+                    );
+                }
             }
         }
         Some(LockScript::Secp256k1Blake160SignhashLock) => {

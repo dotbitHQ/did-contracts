@@ -547,3 +547,4 @@ pub fn multisign_lock() -> Script {
 
     util::script_literal_to_script(multisign_lock)
 }
+

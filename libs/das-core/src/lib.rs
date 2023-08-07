@@ -1,4 +1,5 @@
 // #![feature(once_cell)]
+#![feature(slice_pattern)]
 #![feature(once_cell_try)]
 #![no_std]
 
@@ -17,3 +18,5 @@ pub mod types;
 pub mod util;
 pub mod verifiers;
 pub mod witness_parser;
+pub mod traits;
+pub mod helpers;

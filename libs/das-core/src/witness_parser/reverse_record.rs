@@ -1,17 +1,24 @@
 use alloc::boxed::Box;
+use alloc::collections::BTreeMap;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::convert::{TryFrom, TryInto};
+use core::ops::Index;
 use core::str::FromStr;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::error::SysError;
-use ckb_std::syscalls;
+use ckb_std::syscalls::{self};
 use das_types::constants::*;
+use das_types::packed::{DeviceKeyListCellData, ConfigCellMainReader};
+use das_types::prelude::Entity;
 
 use super::super::error::*;
 use super::super::util;
+use super::device_key_list::get_device_key_list_cell_deps;
 use super::lv_parser::*;
+use crate::traits::Blake2BHash;
+use crate::util::load_das_witnesses;
 
 // Binary format: 'das'(3) + DATA_TYPE(4) + binary_data
 
@@ -52,13 +59,17 @@ pub struct ReverseRecordWitnessesParser {
     pub contains_updating: bool,
     pub contains_removing: bool,
     pub reverse_record_indexes: Vec<usize>,
+    pub device_key_lists: BTreeMap<Vec<u8>, DeviceKeyListCellData>,
 }
 
 impl ReverseRecordWitnessesParser {
-    pub fn new() -> Result<Self, Box<dyn ScriptError>> {
+    pub fn new(config_main: &ConfigCellMainReader<'_>) -> Result<Self, Box<dyn ScriptError>> {
         let mut contains_updating = false;
         let mut contains_removing = false;
         let mut reverse_record_indexes = Vec::new();
+        let mut device_key_lists = BTreeMap::<Vec<u8>, DeviceKeyListCellData>::new();
+        let cell_deps = get_device_key_list_cell_deps(config_main.type_id_table().key_list_config_cell().raw_data());
+
         let mut i = 0;
         let mut das_witnesses_started = false;
 
@@ -109,6 +120,17 @@ impl ReverseRecordWitnessesParser {
                                 contains_removing = true;
                             }
                         }
+                        Ok(DataType::DeviceKeyListCellData) => {
+                            let ret = &load_das_witnesses(i)?[7..];
+                            let device_list = DeviceKeyListCellData::from_slice(ret)
+                                .map_err(|_| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
+                            let cell_dep = cell_deps.get(device_list.blake2b_256().index(..));
+                            if let Some(cell_dep) = cell_dep {
+                                device_key_lists.insert(cell_dep.slice(1..22).to_vec(), device_list);
+                            } else {
+                                return Err(code_to_error!(ErrorCode::WitnessDataTypeDecodingError))
+                            }
+                        }
                         Ok(_) => {
                             // Ignore other witnesses in this parser.
                         }
@@ -138,6 +160,7 @@ impl ReverseRecordWitnessesParser {
             contains_updating,
             contains_removing,
             reverse_record_indexes,
+            device_key_lists,
         })
     }
 

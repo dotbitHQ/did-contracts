@@ -4,8 +4,6 @@ use alloc::format;
 use alloc::string::String;
 #[cfg(feature = "no_std")]
 use alloc::string::ToString;
-#[cfg(feature = "std")]
-use std::format;
 
 #[cfg(feature = "no_std")]
 use das_types::{constants::*, packed, prelude::*};

@@ -2,7 +2,7 @@ use core::fmt::Display;
 
 use das_types::packed::DasLockTypeIdTableReader;
 
-pub type DynLibSize = [u8; 128 * 1024];
+pub type DynLibSize = [u8; 192 * 1024];
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum DynLibName {
@@ -12,6 +12,7 @@ pub enum DynLibName {
     ETH,
     TRON,
     DOGE,
+    WebAuthn
 }
 
 impl DynLibName {
@@ -23,6 +24,7 @@ impl DynLibName {
             &DynLibName::ETH => type_id_table_reader.eth().raw_data(),
             &DynLibName::TRON => type_id_table_reader.tron().raw_data(),
             &DynLibName::DOGE => type_id_table_reader.doge().raw_data(),
+            &DynLibName::WebAuthn => type_id_table_reader.web_authn().raw_data(),
         }
     }
 }

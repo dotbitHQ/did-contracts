@@ -17,6 +17,24 @@ type ValidateStrFunction = unsafe extern "C" fn(
     lock_args: *const u8,
 ) -> i32;
 
+type ValidateDeviceFunction = unsafe extern "C" fn(
+    version: i32,
+    sig: *const u8,
+    sig_len: usize,
+    msg: *const u8,
+    msg_len: usize,
+    device_key_list: *const u8,
+    device_key_list_len: usize,
+    data: *const u8,
+    data_len: usize
+) -> i32;
+
+pub struct SignLibWith3Methods {
+    pub c_validate: Symbol<ValidateFunction>,
+    pub c_validate_str: Symbol<ValidateStrFunction>,
+    pub c_validate_device: Symbol<ValidateDeviceFunction>
+}
+
 pub struct SignLibWith2Methods {
     pub c_validate: Symbol<ValidateFunction>,
     pub c_validate_str: Symbol<ValidateStrFunction>,
@@ -33,6 +51,7 @@ pub struct SignLib {
     pub eth: Option<SignLibWith2Methods>,
     pub tron: Option<SignLibWith2Methods>,
     pub doge: Option<SignLibWith2Methods>,
+    pub web_authn: Option<SignLibWith3Methods>
 }
 
 impl SignLib {
@@ -44,6 +63,7 @@ impl SignLib {
             eth: None,
             tron: None,
             doge: None,
+            web_authn: None
         }
     }
 
@@ -139,6 +159,10 @@ impl SignLib {
                 let lib = self.doge.as_ref().unwrap();
                 func = &lib.c_validate_str;
             }
+            DasLockType::WebAuthn => {
+                let lib = self.web_authn.as_ref().unwrap();
+                func = &lib.c_validate_str;
+            }
             _ => return Err(Error::UndefinedDasLockType as i32),
         }
 
@@ -154,6 +178,56 @@ impl SignLib {
 
         if error_code != 0 {
             return Err(error_code);
+        }
+
+        Ok(())
+    }
+
+    pub fn validate_device(
+        &self,
+        das_lock_type: DasLockType,
+        version: i32,
+        sig: &[u8],
+        msg: &[u8],
+        device_key_list: &[u8],
+        data: &[u8] 
+    ) -> Result<(), i32> {
+        // TODO 测试环境跳过验签
+        if cfg!(feature = "dev") {
+            return Ok(());
+        }
+
+        if das_lock_type != DasLockType::WebAuthn {
+            return Err(Error::UndefinedDasLockType as i32)
+        }
+
+        warn_log!(
+            "SignLib::validate_device The params pass to dynamic lib is {{ version: {}, sig: 0x{}, msg: 0x{}, device_key_list: 0x{}, data: 0x{} }}",
+            version,
+            util::hex_string(sig),
+            util::hex_string(msg),
+            util::hex_string(device_key_list),
+            util::hex_string(data)
+        );
+
+        let func = &self.web_authn.as_ref().unwrap().c_validate_device;
+
+        let error_code = unsafe {
+            func(
+                version,
+                sig.as_ptr(),
+                sig.len(),
+                msg.as_ptr(),
+                msg.len(),
+                device_key_list.as_ptr(),
+                device_key_list.len(),
+                data.as_ptr(),
+                data.len()
+            )
+        };
+
+        if error_code != 0 {
+            return Err(error_code)
         }
 
         Ok(())
@@ -223,7 +297,7 @@ impl SignLib {
             //     let prefix = "from did: ".as_bytes();
             //     Ok([prefix, &h].concat())
             // }
-            DasLockType::ETH | DasLockType::ETHTypedData | DasLockType::TRON | DasLockType::Doge => Ok(h.to_vec()),
+            DasLockType::ETH | DasLockType::ETHTypedData | DasLockType::TRON | DasLockType::Doge | DasLockType::WebAuthn => Ok(h.to_vec()),
             _ => Err(Error::UndefinedDasLockType as i32),
         }
     }

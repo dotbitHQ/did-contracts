@@ -6,7 +6,7 @@ use alloc::vec::Vec;
 use das_core::constants::*;
 use das_core::error::{ErrorCode, ScriptError, SubAccountCellErrorCode};
 use das_core::util::{self, blake2b_256};
-use das_core::witness_parser::sub_account::{SubAccountEditValue, SubAccountWitness};
+use das_core::witness_parser::sub_account::{SubAccountEditValue, SubAccountWitness, SubAccountWitnessesParser};
 use das_core::witness_parser::WitnessesParser;
 use das_core::{code_to_error, das_assert, data_parser, debug, verifiers, warn};
 use das_dynamic_libs::sign_lib::SignLib;
@@ -96,7 +96,7 @@ impl<'a> SubAction<'a> {
         }
     }
 
-    pub fn dispatch(&mut self, witness: &SubAccountWitness, prev_root: &[u8]) -> Result<(), Box<dyn ScriptError>> {
+    pub fn dispatch(&mut self, witness: &SubAccountWitness, prev_root: &[u8], witness_parser: &SubAccountWitnessesParser) -> Result<(), Box<dyn ScriptError>> {
         let sub_account_reader = witness.sub_account.as_reader();
 
         verifiers::sub_account_cell::verify_suffix_with_parent_account(
@@ -108,7 +108,7 @@ impl<'a> SubAction<'a> {
         match witness.action {
             SubAccountAction::Create => self.create(witness, prev_root)?,
             SubAccountAction::Renew => self.renew(witness, prev_root)?,
-            SubAccountAction::Edit => self.edit(witness, prev_root)?,
+            SubAccountAction::Edit => self.edit(witness, prev_root, witness_parser)?,
             SubAccountAction::Recycle => self.recycle(witness, prev_root)?,
         }
 
@@ -505,7 +505,7 @@ impl<'a> SubAction<'a> {
         Ok(())
     }
 
-    fn edit(&mut self, witness: &SubAccountWitness, prev_root: &[u8]) -> Result<(), Box<dyn ScriptError>> {
+    fn edit(&mut self, witness: &SubAccountWitness, prev_root: &[u8], witness_parser: &SubAccountWitnessesParser) -> Result<(), Box<dyn ScriptError>> {
         let sub_account_reader = witness.sub_account.as_reader();
         let new_sub_account = generate_new_sub_account_by_edit_value(witness.sub_account.clone(), &witness.edit_value)?;
         let new_sub_account_reader = new_sub_account.as_reader();
@@ -524,7 +524,7 @@ impl<'a> SubAction<'a> {
             self.parent_expired_at,
             self.sub_account_last_updated_at,
         )?;
-        verifiers::sub_account_cell::verify_sub_account_edit_sign(&witness, &self.sign_lib)?;
+        verifiers::sub_account_cell::verify_sub_account_edit_sign(&witness, &self.sign_lib, witness_parser)?;
         verifiers::sub_account_cell::verify_expiration(
             self.config_account,
             witness.index,
