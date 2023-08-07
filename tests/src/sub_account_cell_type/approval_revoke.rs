@@ -17,7 +17,7 @@ fn before_each() -> TemplateGenerator {
     push_simple_dep_account_cell(&mut template);
 
     // inputs
-    template.restore_sub_account_v1(vec![
+    template.restore_sub_account_v2(vec![
         json!({
             "lock": {
                 "owner_lock_args": OWNER_1,
@@ -27,6 +27,23 @@ fn before_each() -> TemplateGenerator {
             "suffix": SUB_ACCOUNT_SUFFIX,
             "registered_at": TIMESTAMP,
             "expired_at": TIMESTAMP + YEAR_SEC,
+            "status": AccountStatus::ApprovedTransfer as u8,
+            "approval": {
+                "action": "transfer",
+                "params": {
+                    "platform_lock": {
+                        "owner_lock_args": CHANNEL,
+                        "manager_lock_args": CHANNEL
+                    },
+                    "protected_until": TIMESTAMP - 1,
+                    "sealed_until": TIMESTAMP + DAY_SEC * 3,
+                    "delay_count_remain": 1,
+                    "to_lock": {
+                        "owner_lock_args": OWNER_2,
+                        "manager_lock_args": OWNER_2
+                    }
+                }
+            }
         }),
         json!({
             "lock": {
@@ -49,78 +66,47 @@ fn before_each() -> TemplateGenerator {
             "expired_at": TIMESTAMP + YEAR_SEC,
         }),
     ]);
-    push_simple_input_sub_account_cell(&mut template, 0, 0);
+    push_simple_input_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
 
     template
 }
 
 fn push_simple_sub_account_witness(template: &mut TemplateGenerator, sub_account_partial: Value) {
     let mut sub_account = json!({
-        "action": SubAccountAction::CreateApproval.to_string(),
+        "action": SubAccountAction::RevokeApproval.to_string(),
         "sign_role": "0x00",
         "sign_expired_at": TIMESTAMP,
         "sub_account": {
             "suffix": SUB_ACCOUNT_SUFFIX,
             "registered_at": TIMESTAMP,
             "expired_at": TIMESTAMP + YEAR_SEC,
-        },
-        "edit_key": "approval",
-        "edit_value": {
-            "action": "transfer",
-            "params": {
-                "platform_lock": {
-                    "owner_lock_args": CHANNEL,
-                    "manager_lock_args": CHANNEL
-                },
-                "protected_until": TIMESTAMP + DAY_SEC,
-                "sealed_until": TIMESTAMP + DAY_SEC * 3,
-                "delay_count_remain": 1,
-                "to_lock": {
-                    "owner_lock_args": OWNER_2,
-                    "manager_lock_args": OWNER_2
+            "status": AccountStatus::ApprovedTransfer as u8,
+            "approval": {
+                "action": "transfer",
+                "params": {
+                    "platform_lock": {
+                        "owner_lock_args": CHANNEL,
+                        "manager_lock_args": CHANNEL
+                    },
+                    "protected_until": TIMESTAMP - 1,
+                    "sealed_until": TIMESTAMP + DAY_SEC * 3,
+                    "delay_count_remain": 1,
+                    "to_lock": {
+                        "owner_lock_args": OWNER_2,
+                        "manager_lock_args": OWNER_2
+                    }
                 }
             }
-        }
+        },
     });
     util::merge_json(&mut sub_account, sub_account_partial);
 
+    // Simulate upgrate the SubAccount version in this transaction.
     template.push_sub_account_witness_v3(sub_account);
 }
 
-fn push_simple_input_sub_account_cell(template: &mut TemplateGenerator, das_profit: u64, owner_profit: u64) {
-    push_input_sub_account_cell_v2(
-        template,
-        json!({
-            "header": {
-                "height": HEIGHT - 1,
-                "timestamp": TIMESTAMP - DAY_SEC,
-            },
-            "data": {
-                "das_profit": das_profit,
-                "owner_profit": owner_profit,
-                "flag": SubAccountConfigFlag::CustomScript as u8,
-            }
-        }),
-        ACCOUNT_1,
-    );
-}
-
-fn push_simple_output_sub_account_cell(template: &mut TemplateGenerator, das_profit: u64, owner_profit: u64) {
-    push_output_sub_account_cell_v2(
-        template,
-        json!({
-            "data": {
-                "das_profit": das_profit,
-                "owner_profit": owner_profit,
-                "flag": SubAccountConfigFlag::CustomScript as u8,
-            }
-        }),
-        ACCOUNT_1,
-    );
-}
-
 #[test]
-fn xxxx_sub_account_create_approval() {
+fn test_sub_account_approval_revoke() {
     let mut template = before_each();
 
     // outputs
@@ -136,7 +122,7 @@ fn xxxx_sub_account_create_approval() {
             },
         }),
     );
-    push_simple_output_sub_account_cell(&mut template, 0, 0);
+    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
 
     test_tx(template.as_json())
 }

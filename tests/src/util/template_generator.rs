@@ -2603,6 +2603,22 @@ impl TemplateGenerator {
         self.smt_with_history.restore_state(leaves);
     }
 
+    /// Insert some leaves into the sparse-merkle-tree without pushing any witness
+    pub fn restore_sub_account_v2(&mut self, sub_account_jsons: Vec<Value>) {
+        let mut leaves: Vec<(H256, H256)> = Vec::new();
+
+        for sub_account_json in sub_account_jsons {
+            let account = parse_json_str("", &sub_account_json["account"]);
+            let key = util::gen_smt_key_from_account(account);
+            // Be aware that the sub_account used here is SubAccountV1
+            let sub_account_2 = encoder::sub_account::to_latest("", &sub_account_json);
+            let value = util::blake2b_smt(sub_account_2.as_slice());
+            leaves.push((key.into(), value.into()));
+        }
+
+        self.smt_with_history.restore_state(leaves);
+    }
+
     /// Push SubAccountMintSign witness
     ///
     /// Witness structure:

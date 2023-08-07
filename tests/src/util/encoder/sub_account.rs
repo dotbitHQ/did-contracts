@@ -58,7 +58,7 @@ pub fn to_latest(path: &str, value: &Value) -> SubAccount {
     ) = encode_v1_fields(path, value);
     let approval = encode_v2_fields(&format!("{}.approval", path), &value["approval"]);
 
-    SubAccount::new_builder()
+    let entity = SubAccount::new_builder()
         .lock(lock)
         .id(account_id)
         .account(account_chars)
@@ -71,7 +71,10 @@ pub fn to_latest(path: &str, value: &Value) -> SubAccount {
         .enable_sub_account(enable_sub_account)
         .renew_sub_account_price(renew_sub_account_price)
         .approval(approval)
-        .build()
+        .build();
+    // println!("entity = {}", entity.as_prettier());
+
+    entity
 }
 
 fn encode_v1_fields(
@@ -292,11 +295,36 @@ fn get_smt_new_root_and_proof(
     path: &str,
     key: [u8; 32],
     value: &Value,
-    entity: Box<dyn SubAccountMixer>,
+    sub_account: Box<dyn SubAccountMixer>,
 ) -> ([u8; 32], Vec<u8>) {
+    // Upgrade the earlier version to the latest version, because the new SubAccount should always be kept up to date.
+    let sub_account = if sub_account.version() == 1 {
+        let sub_account = sub_account
+            .try_into_v1()
+            .expect("The SubAccount should be the latest version.");
+
+        SubAccount::new_builder()
+            .lock(sub_account.lock().clone())
+            .id(sub_account.id().clone())
+            .account(sub_account.account().clone())
+            .suffix(sub_account.suffix().clone())
+            .registered_at(sub_account.registered_at().clone())
+            .expired_at(sub_account.expired_at().clone())
+            .status(sub_account.status().clone())
+            .records(sub_account.records().clone())
+            .nonce(sub_account.nonce().clone())
+            .enable_sub_account(sub_account.enable_sub_account().clone())
+            .renew_sub_account_price(sub_account.renew_sub_account_price().clone())
+            .build()
+    } else {
+        sub_account
+            .try_into_latest()
+            .expect("The SubAccount should be the latest version.")
+    };
+
     let (new_root, compiled_proof) = match action {
         SubAccountAction::Create => {
-            let sub_account_entity_bytes = entity.as_slice().to_vec();
+            let sub_account_entity_bytes = sub_account.as_slice().to_vec();
             let smt_value = util::blake2b_smt(&sub_account_entity_bytes);
             let (_, new_root, proof) = smt_with_history.insert(key.clone().into(), smt_value.clone().into());
             let compiled_proof = proof.compile(vec![key.into()]).unwrap().0;
@@ -304,32 +332,18 @@ fn get_smt_new_root_and_proof(
             (new_root, compiled_proof)
         }
         SubAccountAction::Renew => {
-            macro_rules! get_new_entity_bytes {
-                ($entity:expr, $expired_at:expr) => {{
-                    let current_nonce = u64::from($entity.nonce());
-                    let mut builder = Clone::clone(&$entity).as_builder();
-                    builder = builder.expired_at($expired_at);
-                    builder = builder.nonce(Uint64::from(current_nonce + 1));
-                    let new_entity = builder.build();
-                    Entity::as_slice(&new_entity).to_vec()
-                }};
-            }
-
             let expired_at = Uint64::from(util::parse_json_u64(
                 "witness.edit_value.expired_at",
                 &value["edit_value"]["expired_at"],
                 None,
             ));
-            let new_entity_bytes = match entity.version() {
-                1 => {
-                    let entity = entity.try_into_v1().expect("The SubAccount entity should be v1.");
-                    get_new_entity_bytes!(entity, expired_at)
-                }
-                _ => {
-                    let entity = entity.try_into_latest().expect("The SubAccount entity should be v2.");
-                    get_new_entity_bytes!(entity, expired_at)
-                }
-            };
+            let current_nonce = u64::from(sub_account.nonce());
+
+            let mut builder = sub_account.as_builder();
+            builder = builder.expired_at(expired_at);
+            builder = builder.nonce(Uint64::from(current_nonce + 1));
+            let new_entity = builder.build();
+            let new_entity_bytes = new_entity.as_slice().to_vec();
 
             let smt_value = util::blake2b_smt(&new_entity_bytes);
             let (_, new_root, proof) = smt_with_history.insert(key.into(), smt_value.into());
@@ -338,45 +352,28 @@ fn get_smt_new_root_and_proof(
             (new_root, compiled_proof)
         }
         SubAccountAction::Edit => {
-            macro_rules! get_new_entity_bytes {
-                ($entity:expr) => {{
-                    let current_nonce = u64::from($entity.nonce());
-                    let mut builder = Clone::clone(&$entity).as_builder();
-
-                    // Modify SubAccount base on edit_key and edit_value.
-                    let edit_key = util::parse_json_str(&format!("{}.edit_key", path), &value["edit_key"]);
-                    match edit_key {
-                        "records" => {
-                            let mol = util::parse_json_to_records_mol(&format!("{}.edit_value", path), &value["edit_value"]);
-                            builder = builder.records(mol)
-                        }
-                        // WARNING The _ pattern is used to test empty edit_key so it also contains "owner" | "manager" .
-                        _ => {
-                            let mut lock_builder = $entity.lock().as_builder();
-                            let args = util::parse_json_hex(&format!("{}.edit_value", path), &value["edit_value"]);
-                            lock_builder = lock_builder.args(Bytes::from(args));
-
-                            builder = builder.lock(lock_builder.build())
-                        }
-                    };
-
-                    builder = builder.nonce(Uint64::from(current_nonce + 1));
-
-                    let new_entity = builder.build();
-                    Entity::as_slice(&new_entity).to_vec()
-                }};
-            }
-
-            let new_entity_bytes = match entity.version() {
-                1 => {
-                    let entity = entity.try_into_v1().expect("The SubAccount entity should be v1.");
-                    get_new_entity_bytes!(entity)
+            let current_nonce = u64::from(sub_account.nonce());
+            let mut builder = sub_account.clone().as_builder();
+            // Modify SubAccount base on edit_key and edit_value.
+            let edit_key = util::parse_json_str(&format!("{}.edit_key", path), &value["edit_key"]);
+            match edit_key {
+                "records" => {
+                    let mol = util::parse_json_to_records_mol(&format!("{}.edit_value", path), &value["edit_value"]);
+                    builder = builder.records(mol)
                 }
+                // WARNING The _ pattern is used to test empty edit_key so it also contains "owner" | "manager" .
                 _ => {
-                    let entity = entity.try_into_latest().expect("The SubAccount entity should be v2.");
-                    get_new_entity_bytes!(entity)
+                    let mut lock_builder = sub_account.lock().as_builder();
+                    let args = util::parse_json_hex(&format!("{}.edit_value", path), &value["edit_value"]);
+                    lock_builder = lock_builder.args(Bytes::from(args));
+
+                    builder = builder.lock(lock_builder.build())
                 }
             };
+            builder = builder.nonce(Uint64::from(current_nonce + 1));
+            let new_entity = builder.build();
+            let new_entity_bytes = new_entity.as_slice().to_vec();
+
             let smt_value = util::blake2b_smt(&new_entity_bytes);
             let (_, new_root, proof) = smt_with_history.insert(key.into(), smt_value.into());
             let compiled_proof = proof.compile(vec![key.into()]).unwrap().0;
@@ -394,31 +391,53 @@ fn get_smt_new_root_and_proof(
 
             (new_root, compiled_proof)
         }
-        SubAccountAction::CreateApproval => {
-            macro_rules! get_new_entity_bytes {
-                ($entity:expr) => {{
-                    let current_nonce = u64::from($entity.nonce());
-                    let mut builder = Clone::clone(&$entity).as_builder();
+        SubAccountAction::CreateApproval | SubAccountAction::DelayApproval => {
+            let current_nonce = u64::from(sub_account.nonce());
+            let mut builder = Clone::clone(&sub_account).as_builder();
+            let approval = encode_v2_fields(&format!("{}.edit_value", path), &value["edit_value"]);
+            builder = builder.approval(approval);
+            builder = builder.status(Uint8::from(AccountStatus::ApprovedTransfer as u8));
+            builder = builder.nonce(Uint64::from(current_nonce + 1));
+            let new_entity = builder.build();
+            let new_entity_bytes = new_entity.as_slice().to_vec();
 
-                    let approval = encode_v2_fields(&format!("{}.edit_value", path), &value["edit_value"]);
+            let smt_value = util::blake2b_smt(&new_entity_bytes);
+            let (_, new_root, proof) = smt_with_history.insert(key.into(), smt_value.into());
+            let compiled_proof = proof.compile(vec![key.into()]).unwrap().0;
 
-                    builder = builder.approval(approval);
-                    builder = builder.nonce(Uint64::from(current_nonce + 1));
+            (new_root, compiled_proof)
+        }
+        SubAccountAction::RevokeApproval => {
+            let current_nonce = u64::from(sub_account.nonce());
+            let mut builder = Clone::clone(&sub_account).as_builder();
+            builder = builder.approval(AccountApproval::default());
+            builder = builder.status(Uint8::from(AccountStatus::Normal as u8));
+            builder = builder.nonce(Uint64::from(current_nonce + 1));
+            let new_entity = builder.build();
+            let new_entity_bytes = new_entity.as_slice().to_vec();
 
-                    let new_entity = builder.build();
-                    Entity::as_slice(&new_entity).to_vec()
-                }};
-            }
+            let smt_value = util::blake2b_smt(&new_entity_bytes);
+            let (_, new_root, proof) = smt_with_history.insert(key.into(), smt_value.into());
+            let compiled_proof = proof.compile(vec![key.into()]).unwrap().0;
 
-            let new_entity_bytes = match entity.version() {
-                1 => {
-                    unreachable!("The SubAccount v1 do not support approval.")
-                }
-                _ => {
-                    let entity = entity.try_into_latest().expect("The SubAccount entity should be v2.");
-                    get_new_entity_bytes!(entity)
-                }
-            };
+            (new_root, compiled_proof)
+        }
+        SubAccountAction::FulfillApproval => {
+            let approval = sub_account.approval().clone();
+            let approval_reader = approval.as_reader();
+            let approval_params = approval_reader.params().raw_data();
+            let approval_params_reader = AccountApprovalTransferReader::from_compatible_slice(approval_params)
+                .expect("The approval params should be AccountApprovalTransferReader.");
+            let current_nonce = u64::from(sub_account.nonce());
+
+            let mut builder = Clone::clone(&sub_account).as_builder();
+            builder = builder.lock(approval_params_reader.to_lock().to_entity());
+            builder = builder.approval(AccountApproval::default());
+            builder = builder.status(Uint8::from(AccountStatus::Normal as u8));
+            builder = builder.nonce(Uint64::from(current_nonce + 1));
+            let new_entity = builder.build();
+            let new_entity_bytes = new_entity.as_slice().to_vec();
+
             let smt_value = util::blake2b_smt(&new_entity_bytes);
             let (_, new_root, proof) = smt_with_history.insert(key.into(), smt_value.into());
             let compiled_proof = proof.compile(vec![key.into()]).unwrap().0;
@@ -488,7 +507,6 @@ fn encode_edit_fields(action: &SubAccountAction, path: &str, witness_bytes: &mut
                 }
             }
             SubAccountAction::CreateApproval | SubAccountAction::DelayApproval => {
-                println!("value[\"edit_value\"] = {:?}", value["edit_value"]);
                 let approval = encode_v2_fields(&format!("{}.edit_value", path), &value["edit_value"]);
                 approval.as_slice().to_vec()
             }
