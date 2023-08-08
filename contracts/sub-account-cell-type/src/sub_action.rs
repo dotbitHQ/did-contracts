@@ -127,7 +127,7 @@ impl<'a> SubAction<'a> {
             SubAccountAction::CreateApproval
             | SubAccountAction::DelayApproval
             | SubAccountAction::RevokeApproval
-            | SubAccountAction::FulfillApproval => self.approve(witness, prev_root)?,
+            | SubAccountAction::FulfillApproval => self.approve(witness, prev_root, witness_parser)?,
         }
 
         Ok(())
@@ -664,7 +664,7 @@ impl<'a> SubAction<'a> {
         Ok(())
     }
 
-    fn approve(&mut self, witness: &SubAccountWitness, prev_root: &[u8]) -> Result<(), Box<dyn ScriptError>> {
+    fn approve(&mut self, witness: &SubAccountWitness, prev_root: &[u8], witness_parser: &SubAccountWitnessesParser) -> Result<(), Box<dyn ScriptError>> {
         let sub_account_reader = witness.sub_account.as_reader();
         let new_sub_account = generate_new_sub_account_by_edit_value(
             witness.action.clone(),
@@ -703,7 +703,7 @@ impl<'a> SubAction<'a> {
                     self.parent_expired_at,
                     self.sub_account_last_updated_at,
                 )?;
-                verifiers::sub_account_cell::verify_sub_account_edit_sign(&witness, &self.sign_lib)?;
+                verifiers::sub_account_cell::verify_sub_account_edit_sign(&witness, &self.sign_lib, witness_parser)?;
             }
             SubAccountAction::RevokeApproval => {
                 verifiers::sub_account_cell::verify_sub_account_edit_sign_not_expired(
@@ -711,7 +711,7 @@ impl<'a> SubAction<'a> {
                     self.parent_expired_at,
                     self.sub_account_last_updated_at,
                 )?;
-                verifiers::sub_account_cell::verify_sub_account_approval_sign(&witness, &self.sign_lib)?;
+                verifiers::sub_account_cell::verify_sub_account_approval_sign(&witness, &self.sign_lib, witness_parser)?;
             }
             SubAccountAction::FulfillApproval => match approval_action {
                 b"transfer" => {
@@ -730,7 +730,7 @@ impl<'a> SubAction<'a> {
                             self.parent_expired_at,
                             self.sub_account_last_updated_at,
                         )?;
-                        verifiers::sub_account_cell::verify_sub_account_approval_sign(&witness, &self.sign_lib)?;
+                        verifiers::sub_account_cell::verify_sub_account_approval_sign(&witness, &self.sign_lib, witness_parser)?;
                     } else {
                         debug!(
                             "  witnesses[{:>2}] The approval is released, no need to verify the signature.",

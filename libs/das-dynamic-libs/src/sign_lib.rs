@@ -194,7 +194,6 @@ impl SignLib {
         device_key_list: &[u8],
         data: &[u8],
     ) -> Result<(), i32> {
-        // TODO 测试环境跳过验签
         if cfg!(feature = "dev") {
             return Ok(());
         }
@@ -244,7 +243,6 @@ impl SignLib {
         sig: Vec<u8>,
         args: Vec<u8>,
     ) -> Result<(), i32> {
-        // TODO 测试环境跳过验签
         if cfg!(feature = "dev") {
             return Ok(());
         }

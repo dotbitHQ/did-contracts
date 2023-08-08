@@ -11,6 +11,7 @@ use das_types::constants::*;
 use das_types::mixer::SubAccountReaderMixer;
 use das_types::packed::*;
 use das_types::prettier::Prettier;
+use das_types::prelude::*;
 
 use crate::constants::*;
 use crate::data_parser::webauthn_signature::WebAuthnSignature;
@@ -569,6 +570,8 @@ pub fn verify_sub_account_edit_sign(
 pub fn verify_sub_account_approval_sign(
     witness: &SubAccountWitness,
     sign_lib: &SignLib,
+    // TODO Support webauthn signature
+    _witness_parser: &SubAccountWitnessesParser,
 ) -> Result<(), Box<dyn ScriptError>> {
     if cfg!(feature = "dev") {
         // CAREFUL Proof verification has been skipped in development mode.
