@@ -59,6 +59,8 @@ fn push_simple_sub_account_witness(template: &mut TemplateGenerator, sub_account
         "action": SubAccountAction::CreateApproval.to_string(),
         "sign_role": "0x00",
         "sign_expired_at": TIMESTAMP,
+        "old_sub_account_version": 1,
+        "new_sub_account_version": 2,
         "sub_account": {
             "suffix": SUB_ACCOUNT_SUFFIX,
             "registered_at": TIMESTAMP,
@@ -85,7 +87,7 @@ fn push_simple_sub_account_witness(template: &mut TemplateGenerator, sub_account
     util::merge_json(&mut sub_account, sub_account_partial);
 
     // Simulate upgrate the SubAccount version in this transaction.
-    template.push_sub_account_witness_v2(sub_account);
+    template.push_sub_account_witness_v3(sub_account);
 }
 
 #[test]

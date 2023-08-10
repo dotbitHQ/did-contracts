@@ -218,12 +218,17 @@ pub fn to_raw_witness_v2(smt_with_history: &mut SMTWithHistory, path: &str, valu
     let (new_root, compiled_proof) =
         get_smt_new_root_and_proof(&action, smt_with_history, path, key, value, Box::new(entity));
 
-    encode_smt_fields(&mut witness_bytes, new_root, compiled_proof, entity_bytes);
+    encode_smt_fields(&mut witness_bytes, new_root, compiled_proof);
+
+    witness_bytes.extend(encoder_util::length_of(&entity_bytes));
+    witness_bytes.extend(entity_bytes);
+
     encode_edit_fields(&action, path, &mut witness_bytes, &value);
 
     das_util::wrap_raw_witness_v2(DataType::SubAccount, witness_bytes)
 }
 
+/// v3
 pub fn to_raw_witness_latest(smt_with_history: &mut SMTWithHistory, path: &str, value: &Value) -> Vec<u8> {
     if value["sub_account"].is_null() {
         panic!("{}.sub_account is missing", path);
@@ -232,12 +237,30 @@ pub fn to_raw_witness_latest(smt_with_history: &mut SMTWithHistory, path: &str, 
     let (action, mut witness_bytes) = encode_raw_witness_common_fields(path, value, Some(3));
 
     let key = get_smt_key_from_json(&format!("{}.sub_account", path), &value["sub_account"]);
-    let entity = to_latest(&format!("{}.sub_account", path), &value["sub_account"]);
-    let entity_bytes = Entity::as_slice(&entity).to_vec();
-    let (new_root, compiled_proof) =
-        get_smt_new_root_and_proof(&action, smt_with_history, path, key, value, Box::new(entity));
+    let old_sub_account_version = util::parse_json_u32(
+        &format!("{}.old_sub_account_version", path),
+        &value["old_sub_account_version"],
+        None,
+    );
+    let (entity, entity_bytes) = if old_sub_account_version == 1 {
+        let entity = to_v1(&format!("{}.sub_account", path), &value["sub_account"]);
+        let entity_bytes = Entity::as_slice(&entity).to_vec();
+        let entity: Box<dyn SubAccountMixer> = Box::new(entity);
+        (entity, entity_bytes)
+    } else {
+        let entity = to_latest(&format!("{}.sub_account", path), &value["sub_account"]);
+        let entity_bytes = Entity::as_slice(&entity).to_vec();
+        let entity: Box<dyn SubAccountMixer> = Box::new(entity);
+        (entity, entity_bytes)
+    };
+    let (new_root, compiled_proof) = get_smt_new_root_and_proof(&action, smt_with_history, path, key, value, entity);
 
-    encode_smt_fields(&mut witness_bytes, new_root, compiled_proof, entity_bytes);
+    encode_smt_fields(&mut witness_bytes, new_root, compiled_proof);
+    encode_v3_fields(&mut witness_bytes, path, value);
+
+    witness_bytes.extend(encoder_util::length_of(&entity_bytes));
+    witness_bytes.extend(entity_bytes);
+
     encode_edit_fields(&action, path, &mut witness_bytes, &value);
 
     das_util::wrap_raw_witness_v2(DataType::SubAccount, witness_bytes)
@@ -277,6 +300,26 @@ fn encode_raw_witness_common_fields(
     witness_bytes.extend(field_value);
 
     (action, witness_bytes)
+}
+
+fn encode_v3_fields(witness_bytes: &mut Vec<u8>, path: &str, value: &Value) {
+    let old_sub_account_version = util::parse_json_u32(
+        &format!("{}.old_sub_account_version", path),
+        &value["old_sub_account_version"],
+        None,
+    );
+    let field_value = old_sub_account_version.to_le_bytes();
+    witness_bytes.extend(encoder_util::length_of(&field_value));
+    witness_bytes.extend(field_value);
+
+    let field_value = util::parse_json_u32(
+        &format!("{}.new_sub_account_version", path),
+        &value["new_sub_account_version"],
+        None,
+    )
+    .to_le_bytes();
+    witness_bytes.extend(encoder_util::length_of(&field_value));
+    witness_bytes.extend(field_value);
 }
 
 fn get_smt_key_from_json(path: &str, sub_account_value: &Value) -> [u8; 32] {
@@ -444,7 +487,7 @@ fn get_smt_new_root_and_proof(
 
             (new_root, compiled_proof)
         }
-        _ => unimplemented!("Not support action: {}", action),
+        // _ => unimplemented!("Not support action: {}", action),
     };
 
     (new_root, compiled_proof)
@@ -454,16 +497,12 @@ fn encode_smt_fields(
     witness_bytes: &mut Vec<u8>,
     new_root: [u8; 32],
     proof: Vec<u8>,
-    sub_account_entity_bytes: Vec<u8>,
 ) {
     witness_bytes.extend(encoder_util::length_of(&new_root));
     witness_bytes.extend(new_root);
 
     witness_bytes.extend(encoder_util::length_of(&proof));
     witness_bytes.extend(proof);
-
-    witness_bytes.extend(encoder_util::length_of(&sub_account_entity_bytes));
-    witness_bytes.extend(sub_account_entity_bytes);
 }
 
 fn encode_edit_fields(action: &SubAccountAction, path: &str, witness_bytes: &mut Vec<u8>, value: &Value) {

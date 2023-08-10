@@ -27,7 +27,7 @@ fn test_sub_account_create_flag_custom_script_with_args() {
     let mut template = before_each();
 
     // outputs
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -41,7 +41,7 @@ fn test_sub_account_create_flag_custom_script_with_args() {
         },
         "edit_key": "custom_script",
     }));
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -55,7 +55,7 @@ fn test_sub_account_create_flag_custom_script_with_args() {
         },
         "edit_key": "custom_script",
     }));
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -86,7 +86,7 @@ fn test_sub_account_create_flag_custom_script_without_args() {
     push_input_normal_cell(&mut template, 100_000_000_000, OWNER);
 
     // outputs
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -100,7 +100,7 @@ fn test_sub_account_create_flag_custom_script_without_args() {
         },
         "edit_key": "custom_script",
     }));
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -114,7 +114,7 @@ fn test_sub_account_create_flag_custom_script_without_args() {
         },
         "edit_key": "custom_script",
     }));
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -142,7 +142,7 @@ fn challenge_sub_account_create_flag_custom_script_flag_not_consistent() {
     let mut template = before_each();
 
     // outputs
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -187,7 +187,7 @@ fn challenge_sub_account_create_flag_custom_script_script_code_hash_not_consiste
     let mut template = before_each();
 
     // outputs
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -233,7 +233,7 @@ fn challenge_sub_account_create_flag_custom_script_script_args_not_consistent() 
     let mut template = before_each();
 
     // outputs
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -265,7 +265,7 @@ fn challenge_sub_account_create_flag_custom_script_mix_custom_rule() {
     let mut template = before_each();
 
     // outputs
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -296,7 +296,7 @@ fn challenge_sub_account_create_flag_custom_script_different_lock_for_normal_cel
     let mut template = before_each();
 
     // outputs
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -329,7 +329,7 @@ fn challenge_sub_account_create_flag_custom_script_das_profit_not_enough() {
     let mut template = before_each();
 
     // outputs
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -367,7 +367,7 @@ fn challenge_sub_account_create_flag_custom_script_spend_balance_cell_1() {
     push_input_balance_cell(&mut template, 10_000_000_000, OWNER);
 
     // outputs
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -406,7 +406,7 @@ fn challenge_sub_account_create_flag_custom_script_spend_balance_cell_2() {
     push_input_balance_cell(&mut template, 10_000_000_000, OWNER_4);
 
     // outputs
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -437,7 +437,7 @@ fn challenge_sub_account_create_flag_custom_script_create_empty() {
     let mut template = before_each();
 
     // outputs
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {

@@ -54,7 +54,7 @@ fn parse_sub_account_witness_create_only() {
         }),
     );
 
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -68,7 +68,7 @@ fn parse_sub_account_witness_create_only() {
         },
         "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_1)
     }));
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -82,7 +82,7 @@ fn parse_sub_account_witness_create_only() {
         },
         "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_2)
     }));
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -260,7 +260,7 @@ fn parse_sub_account_witness_mixed() {
         "edit_key": "expired_at",
         "edit_value": u64::MAX
     }));
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -298,7 +298,7 @@ fn parse_sub_account_witness_mixed() {
             },
         ]
     }));
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -402,7 +402,7 @@ fn parser_sub_account_rules_witness() {
             ]
         }),
     );
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {

@@ -115,7 +115,7 @@ fn test_sub_account_update_without_custom_script() {
         // Simulate modifying manager.
         "edit_value": gen_das_lock_args(OWNER_1, Some(MANAGER_2))
     }));
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -163,7 +163,7 @@ fn test_sub_account_update_with_custom_script() {
         // Simulate modifying manager.
         "edit_value": gen_das_lock_args(OWNER_1, Some(MANAGER_2))
     }));
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -222,7 +222,7 @@ fn challenge_sub_account_update_parent_not_in_normal_status() {
 
     // outputs
     let smt = push_commen_mint_sign_witness(&mut template);
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -283,7 +283,7 @@ fn challenge_sub_account_update_parent_expired() {
             ]
         }),
     );
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -334,7 +334,7 @@ fn challenge_sub_account_update_parent_not_enable_feature() {
 
     // outputs
     let smt = push_commen_mint_sign_witness(&mut template);
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {

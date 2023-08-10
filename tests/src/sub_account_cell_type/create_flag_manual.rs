@@ -29,7 +29,7 @@ fn test_sub_account_create_flag_manual() {
 
     // outputs
     let smt = push_commen_mint_sign_witness(&mut template);
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -44,7 +44,7 @@ fn test_sub_account_create_flag_manual() {
         "edit_key": "manual",
         "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_1)
     }));
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -59,7 +59,7 @@ fn test_sub_account_create_flag_manual() {
         "edit_key": "manual",
         "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_2)
     }));
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -95,7 +95,7 @@ fn challenge_sub_account_create_flag_manual_flag_not_consistent() {
             ]
         }),
     );
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -145,7 +145,7 @@ fn challenge_sub_account_create_flag_manual_profit_not_consistent() {
             ]
         }),
     );
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -195,7 +195,7 @@ fn challenge_sub_account_create_flag_manual_mix_custom_rule() {
             ]
         }),
     );
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -209,7 +209,7 @@ fn challenge_sub_account_create_flag_manual_mix_custom_rule() {
         },
         "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_1)
     }));
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -258,7 +258,7 @@ fn challenge_sub_account_create_flag_manual_invalid_char() {
             ]
         }),
     );
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -303,7 +303,7 @@ fn challenge_sub_account_create_flag_manual_undefined_char() {
             ]
         }),
     );
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -348,7 +348,7 @@ fn challenge_sub_account_create_flag_manual_too_long() {
             ]
         }),
     );
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -384,7 +384,7 @@ fn challenge_sub_account_create_flag_manual_empty() {
             ]
         }),
     );
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -420,7 +420,7 @@ fn challenge_sub_account_create_flag_manual_suffix_not_match() {
             ]
         }),
     );
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -455,7 +455,7 @@ fn challenge_sub_account_create_flag_manual_id_not_match() {
             ]
         }),
     );
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -482,7 +482,7 @@ fn challenge_sub_account_create_flag_manual_registered_at_is_invalid() {
 
     // outputs
     let smt = push_commen_mint_sign_witness(&mut template);
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -508,7 +508,7 @@ fn challenge_sub_account_create_flag_manual_expired_at_less_than_one_year() {
 
     // outputs
     let smt = push_commen_mint_sign_witness(&mut template);
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -534,7 +534,7 @@ fn challenge_sub_account_create_flag_manual_no_profit_record() {
 
     // outputs
     let smt = push_commen_mint_sign_witness(&mut template);
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -563,7 +563,7 @@ fn challenge_sub_account_create_flag_manual_profit_not_match_capacity() {
 
     // outputs
     let smt = push_commen_mint_sign_witness(&mut template);
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -619,7 +619,7 @@ fn challenge_sub_account_create_flag_manual_mint_sign_expired() {
             ]
         }),
     );
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -660,7 +660,7 @@ fn challenge_sub_account_create_flag_manual_sign_expired_at_less_than_the_minima
             ]
         }),
     );
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {
@@ -701,7 +701,7 @@ fn challenge_sub_account_create_flag_manual_sign_expired_at_less_than_the_minima
             ]
         }),
     );
-    template.push_sub_account_witness_v2(json!({
+    template.push_sub_account_witness_v3(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {

@@ -76,6 +76,8 @@ fn push_simple_sub_account_witness(template: &mut TemplateGenerator, sub_account
         "action": SubAccountAction::FulfillApproval.to_string(),
         "sign_role": "0x00",
         "sign_expired_at": TIMESTAMP,
+        "old_sub_account_version": 2,
+        "new_sub_account_version": 2,
         "sub_account": {
             "suffix": SUB_ACCOUNT_SUFFIX,
             "registered_at": TIMESTAMP,
