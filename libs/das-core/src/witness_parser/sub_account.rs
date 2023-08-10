@@ -50,6 +50,8 @@ pub struct SubAccountWitness {
     pub new_root: Vec<u8>,
     pub proof: Vec<u8>,
     pub action: SubAccountAction,
+    pub old_sub_account_version: u32,
+    pub new_sub_account_version: u32,
     pub sub_account: Box<dyn SubAccountMixer>,
     pub edit_key: Vec<u8>,
     pub edit_value: SubAccountEditValue,
@@ -397,23 +399,39 @@ impl SubAccountWitnessesParser {
 
         // Every sub-account witness has the next fields, here we parse it one by one.
         let (start, version_bytes) = Self::parse_field("version", &raw, start)?;
+        das_assert!(
+            version_bytes.len() == 4,
+            ErrorCode::WitnessStructureError,
+            "  witnesses[{:>2}] SubAccount.version should be 4 bytes.",
+            i
+        );
+        let version = u32::from_le_bytes(version_bytes.try_into().unwrap());
+
         let (start, action_bytes) = Self::parse_field("action", &raw, start)?;
         let (start, signature) = Self::parse_field("signature", &raw, start)?;
         let (start, sign_role_byte) = Self::parse_field("sign_role", &raw, start)?;
         let (start, sign_expired_at_bytes) = Self::parse_field("sign_expired_at", &raw, start)?;
         let (start, new_root) = Self::parse_field("new_root", &raw, start)?;
         let (start, proof) = Self::parse_field("proof", &raw, start)?;
+        let (start, old_sub_account_version, new_sub_account_version) = if version == 3 {
+            let (start, old_sub_account_version_bytes) = Self::parse_field("old_sub_account_version", &raw, start)?;
+            let (start, new_sub_account_version_bytes) = Self::parse_field("new_sub_account_version", &raw, start)?;
+            das_assert!(
+                old_sub_account_version_bytes.len() == 4 && new_sub_account_version_bytes.len() == 4,
+                ErrorCode::WitnessStructureError,
+                "  witnesses[{:>2}] SubAccount.old_sub_account_version and SubAccount.new_sub_account_version both should be 4 bytes.",
+                i
+            );
+            let old_sub_account_version = u32::from_le_bytes(old_sub_account_version_bytes.try_into().unwrap());
+            let new_sub_account_version = u32::from_le_bytes(new_sub_account_version_bytes.try_into().unwrap());
+
+            (start, old_sub_account_version, new_sub_account_version)
+        } else {
+            (start, 1, 1)
+        };
         let (start, sub_account_bytes) = Self::parse_field("sub_account", &raw, start)?;
         let (start, edit_key) = Self::parse_field("edit_key", &raw, start)?;
         let (_, edit_value_bytes) = Self::parse_field("edit_value", &raw, start)?;
-
-        das_assert!(
-            version_bytes.len() == 4,
-            ErrorCode::WitnessStructureError,
-            "  witnesses[{:>2}] SubAccountMintSignWitness.version should be 4 bytes.",
-            i
-        );
-        let version = u32::from_le_bytes(version_bytes.try_into().unwrap());
 
         let action = match String::from_utf8(action_bytes.to_vec()) {
             Ok(action) => match SubAccountAction::from_str(action.as_str()) {
@@ -435,27 +453,27 @@ impl SubAccountWitnessesParser {
             }
         };
 
-        let sub_account: Box<dyn SubAccountMixer> = match version {
-            1 | 2 => {
+        let sub_account: Box<dyn SubAccountMixer> = match old_sub_account_version {
+            1 => {
                 let sub_account = match SubAccountV1::from_compatible_slice(sub_account_bytes) {
                     Ok(val) => val,
                     Err(e) => {
                         warn!(
-                            "  witnesses[{:>2}] SubAccountWitness.sub_account(SubAccountV1) field parse failed: {}",
-                            i, e
+                            "  witnesses[{:>2}] SubAccountWitness.sub_account(SubAccountV1) field parse failed: {} (old_version: {})",
+                            i, e, old_sub_account_version
                         );
                         return Err(code_to_error!(ErrorCode::WitnessStructureError));
                     }
                 };
                 Box::new(sub_account)
             }
-            3 => {
+            2 => {
                 let sub_account = match SubAccount::from_compatible_slice(sub_account_bytes) {
                     Ok(val) => val,
                     Err(e) => {
                         warn!(
-                            "  witnesses[{:>2}] SubAccountWitness.sub_account(SubAccount) field parse failed: {}",
-                            i, e
+                            "  witnesses[{:>2}] SubAccountWitness.sub_account(SubAccount) field parse failed: {} (old_version: {})",
+                            i, e, old_sub_account_version
                         );
                         return Err(code_to_error!(ErrorCode::WitnessStructureError));
                     }
@@ -708,6 +726,8 @@ impl SubAccountWitnessesParser {
             new_root: new_root.to_vec(),
             proof: proof.to_vec(),
             action,
+            old_sub_account_version,
+            new_sub_account_version,
             sub_account,
             edit_key: edit_key.to_vec(),
             edit_value,

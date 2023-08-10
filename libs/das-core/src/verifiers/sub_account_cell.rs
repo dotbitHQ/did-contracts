@@ -10,8 +10,8 @@ use das_dynamic_libs::sign_lib::SignLib;
 use das_types::constants::*;
 use das_types::mixer::SubAccountReaderMixer;
 use das_types::packed::*;
-use das_types::prettier::Prettier;
 use das_types::prelude::*;
+use das_types::prettier::Prettier;
 
 use crate::constants::*;
 use crate::data_parser::webauthn_signature::WebAuthnSignature;

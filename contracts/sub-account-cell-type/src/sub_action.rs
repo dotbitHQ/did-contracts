@@ -11,7 +11,7 @@ use das_core::witness_parser::WitnessesParser;
 use das_core::{code_to_error, das_assert, data_parser, debug, verifiers, warn};
 use das_dynamic_libs::sign_lib::SignLib;
 use das_types::constants::*;
-use das_types::mixer::{SubAccountMixer, SubAccountReaderMixer};
+use das_types::mixer::SubAccountReaderMixer;
 use das_types::packed::*;
 use das_types::prelude::{Builder, Entity};
 #[cfg(debug_assertions)]
@@ -338,11 +338,7 @@ impl<'a> SubAction<'a> {
 
     fn renew(&mut self, witness: &SubAccountWitness, prev_root: &[u8]) -> Result<(), Box<dyn ScriptError>> {
         let sub_account_reader = witness.sub_account.as_reader();
-        let new_sub_account = generate_new_sub_account_by_edit_value(
-            SubAccountAction::Renew,
-            witness.sub_account.clone(),
-            &witness.edit_value,
-        )?;
+        let new_sub_account = generate_new_sub_account_by_edit_value(&witness)?;
         let new_sub_account_reader = new_sub_account.as_reader();
 
         smt_verify_sub_account_is_editable(&prev_root, &witness, new_sub_account_reader)?;
@@ -534,11 +530,7 @@ impl<'a> SubAction<'a> {
         witness_parser: &SubAccountWitnessesParser,
     ) -> Result<(), Box<dyn ScriptError>> {
         let sub_account_reader = witness.sub_account.as_reader();
-        let new_sub_account = generate_new_sub_account_by_edit_value(
-            SubAccountAction::Edit,
-            witness.sub_account.clone(),
-            &witness.edit_value,
-        )?;
+        let new_sub_account = generate_new_sub_account_by_edit_value(&witness)?;
         let new_sub_account_reader = new_sub_account.as_reader();
 
         debug!(
@@ -664,13 +656,14 @@ impl<'a> SubAction<'a> {
         Ok(())
     }
 
-    fn approve(&mut self, witness: &SubAccountWitness, prev_root: &[u8], witness_parser: &SubAccountWitnessesParser) -> Result<(), Box<dyn ScriptError>> {
+    fn approve(
+        &mut self,
+        witness: &SubAccountWitness,
+        prev_root: &[u8],
+        witness_parser: &SubAccountWitnessesParser,
+    ) -> Result<(), Box<dyn ScriptError>> {
         let sub_account_reader = witness.sub_account.as_reader();
-        let new_sub_account = generate_new_sub_account_by_edit_value(
-            witness.action.clone(),
-            witness.sub_account.clone(),
-            &witness.edit_value,
-        )?;
+        let new_sub_account = generate_new_sub_account_by_edit_value(&witness)?;
         let new_sub_account_reader = new_sub_account.as_reader();
 
         debug!(
@@ -711,7 +704,11 @@ impl<'a> SubAction<'a> {
                     self.parent_expired_at,
                     self.sub_account_last_updated_at,
                 )?;
-                verifiers::sub_account_cell::verify_sub_account_approval_sign(&witness, &self.sign_lib, witness_parser)?;
+                verifiers::sub_account_cell::verify_sub_account_approval_sign(
+                    &witness,
+                    &self.sign_lib,
+                    witness_parser,
+                )?;
             }
             SubAccountAction::FulfillApproval => match approval_action {
                 b"transfer" => {
@@ -730,7 +727,11 @@ impl<'a> SubAction<'a> {
                             self.parent_expired_at,
                             self.sub_account_last_updated_at,
                         )?;
-                        verifiers::sub_account_cell::verify_sub_account_approval_sign(&witness, &self.sign_lib, witness_parser)?;
+                        verifiers::sub_account_cell::verify_sub_account_approval_sign(
+                            &witness,
+                            &self.sign_lib,
+                            witness_parser,
+                        )?;
                     } else {
                         debug!(
                             "  witnesses[{:>2}] The approval is released, no need to verify the signature.",
@@ -966,12 +967,18 @@ fn smt_verify_sub_account_is_removed(
     Ok(())
 }
 
-fn generate_new_sub_account_by_edit_value(
-    _action: SubAccountAction,
-    sub_account: Box<dyn SubAccountMixer>,
-    edit_value: &SubAccountEditValue,
-) -> Result<SubAccount, Box<dyn ScriptError>> {
+fn generate_new_sub_account_by_edit_value(witness: &SubAccountWitness) -> Result<SubAccount, Box<dyn ScriptError>> {
+    das_assert!(
+        witness.new_sub_account_version == 2,
+        SubAccountCellErrorCode::WitnessUpgradeNeeded,
+        "  witnesses[{:>2}] SubAccount.new_sub_account_version is invalid.(expected: {}, actual: {})",
+        witness.index,
+        2,
+        witness.new_sub_account_version
+    );
+
     // Upgrade the earlier version to the latest version, because the new SubAccount should always be kept up to date.
+    let sub_account = witness.sub_account.clone();
     let sub_account = if sub_account.version() == 1 {
         let sub_account = sub_account
             .try_into_v1()
@@ -996,11 +1003,13 @@ fn generate_new_sub_account_by_edit_value(
             .map_err(|_| code_to_error!(SubAccountCellErrorCode::WitnessVersionMismatched))?
     };
 
+    let edit_value = &witness.edit_value;
+
     let current_nonce = u64::from(sub_account.nonce());
     let current_approval = sub_account.approval().clone();
     let current_approval_reader = current_approval.as_reader();
     let mut sub_account_builder = sub_account.as_builder();
-    sub_account_builder = match _action {
+    sub_account_builder = match witness.action {
         SubAccountAction::Edit => {
             match edit_value {
                 SubAccountEditValue::Owner(val) | SubAccountEditValue::Manager(val) => {
