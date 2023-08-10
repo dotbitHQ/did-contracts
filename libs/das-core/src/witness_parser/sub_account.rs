@@ -99,7 +99,10 @@ pub struct SubAccountWitnessesParser {
 }
 
 impl SubAccountWitnessesParser {
-    pub fn new(flag: SubAccountConfigFlag, config_main: &ConfigCellMainReader<'_>) -> Result<Self, Box<dyn ScriptError>> {
+    pub fn new(
+        flag: SubAccountConfigFlag,
+        config_main: &ConfigCellMainReader<'_>,
+    ) -> Result<Self, Box<dyn ScriptError>> {
         let mut contains_creation = false;
         let mut contains_edition = false;
         let mut contains_renew = false;
@@ -183,10 +186,7 @@ impl SubAccountWitnessesParser {
                             preserved_rule_indexes.push(i);
                         }
                         Ok(DataType::DeviceKeyListCellData) => {
-                            debug!(
-                                "cell deps: {:?}, ",
-                                cell_deps
-                            );
+                            debug!("cell deps: {:?}, ", cell_deps);
                             let ret = &load_das_witnesses(i)?[7..];
                             let device_list = DeviceKeyListCellData::from_slice(ret)
                                 .map_err(|_| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
@@ -194,7 +194,7 @@ impl SubAccountWitnessesParser {
                             if let Some(cell_dep) = cell_dep {
                                 device_key_lists.insert(cell_dep.slice(1..22).to_vec(), device_list);
                             } else {
-                                return Err(code_to_error!(ErrorCode::WitnessDataTypeDecodingError))
+                                return Err(code_to_error!(ErrorCode::WitnessDataTypeDecodingError));
                             }
                         }
                         Ok(_) => {

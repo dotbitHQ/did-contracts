@@ -58,7 +58,7 @@ macro_rules! load_3_methods {
             c_validate_device: unsafe {
                 $lib.get(b"validate_device")
                     .expect("Load function 'validate_device' from library failed.")
-            }
+            },
         })
     };
 }

@@ -18,7 +18,7 @@ use das_core::witness_parser::WitnessesParser;
 use das_core::{assert as das_assert, code_to_error, data_parser, debug, verifiers, warn};
 use das_dynamic_libs::constants::DynLibName;
 use das_dynamic_libs::sign_lib::SignLib;
-use das_dynamic_libs::{load_2_methods, load_lib, log_loading, new_context, load_3_methods};
+use das_dynamic_libs::{load_2_methods, load_3_methods, load_lib, log_loading, new_context};
 use das_types::constants::{AccountStatus, DataType, LockRole, SubAccountConfigFlag, SubAccountCustomRuleFlag};
 use das_types::packed::*;
 use das_types::prelude::{Builder, Entity};
@@ -485,7 +485,11 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
 
         let mut web_authn_context = new_context!();
         log_loading!(DynLibName::WebAuthn, config_main.das_lock_type_id_table());
-        let web_authn_lib = load_lib!(web_authn_context, DynLibName::WebAuthn, config_main.das_lock_type_id_table());
+        let web_authn_lib = load_lib!(
+            web_authn_context,
+            DynLibName::WebAuthn,
+            config_main.das_lock_type_id_table()
+        );
         sign_lib.web_authn = load_3_methods!(web_authn_lib);
     }
 

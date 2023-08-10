@@ -12,7 +12,7 @@ pub enum DynLibName {
     ETH,
     TRON,
     DOGE,
-    WebAuthn
+    WebAuthn,
 }
 
 impl DynLibName {

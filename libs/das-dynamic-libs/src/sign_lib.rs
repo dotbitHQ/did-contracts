@@ -26,13 +26,13 @@ type ValidateDeviceFunction = unsafe extern "C" fn(
     device_key_list: *const u8,
     device_key_list_len: usize,
     data: *const u8,
-    data_len: usize
+    data_len: usize,
 ) -> i32;
 
 pub struct SignLibWith3Methods {
     pub c_validate: Symbol<ValidateFunction>,
     pub c_validate_str: Symbol<ValidateStrFunction>,
-    pub c_validate_device: Symbol<ValidateDeviceFunction>
+    pub c_validate_device: Symbol<ValidateDeviceFunction>,
 }
 
 pub struct SignLibWith2Methods {
@@ -51,7 +51,7 @@ pub struct SignLib {
     pub eth: Option<SignLibWith2Methods>,
     pub tron: Option<SignLibWith2Methods>,
     pub doge: Option<SignLibWith2Methods>,
-    pub web_authn: Option<SignLibWith3Methods>
+    pub web_authn: Option<SignLibWith3Methods>,
 }
 
 impl SignLib {
@@ -63,7 +63,7 @@ impl SignLib {
             eth: None,
             tron: None,
             doge: None,
-            web_authn: None
+            web_authn: None,
         }
     }
 
@@ -190,7 +190,7 @@ impl SignLib {
         sig: &[u8],
         msg: &[u8],
         device_key_list: &[u8],
-        data: &[u8] 
+        data: &[u8],
     ) -> Result<(), i32> {
         // TODO 测试环境跳过验签
         if cfg!(feature = "dev") {
@@ -198,7 +198,7 @@ impl SignLib {
         }
 
         if das_lock_type != DasLockType::WebAuthn {
-            return Err(Error::UndefinedDasLockType as i32)
+            return Err(Error::UndefinedDasLockType as i32);
         }
 
         warn_log!(
@@ -222,12 +222,12 @@ impl SignLib {
                 device_key_list.as_ptr(),
                 device_key_list.len(),
                 data.as_ptr(),
-                data.len()
+                data.len(),
             )
         };
 
         if error_code != 0 {
-            return Err(error_code)
+            return Err(error_code);
         }
 
         Ok(())
@@ -297,7 +297,11 @@ impl SignLib {
             //     let prefix = "from did: ".as_bytes();
             //     Ok([prefix, &h].concat())
             // }
-            DasLockType::ETH | DasLockType::ETHTypedData | DasLockType::TRON | DasLockType::Doge | DasLockType::WebAuthn => Ok(h.to_vec()),
+            DasLockType::ETH
+            | DasLockType::ETHTypedData
+            | DasLockType::TRON
+            | DasLockType::Doge
+            | DasLockType::WebAuthn => Ok(h.to_vec()),
             _ => Err(Error::UndefinedDasLockType as i32),
         }
     }

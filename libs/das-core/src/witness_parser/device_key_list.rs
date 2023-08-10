@@ -5,7 +5,6 @@ use ckb_std::high_level::{load_cell_lock, load_cell_type, QueryIter};
 use molecule::bytes::Bytes;
 use molecule::prelude::Entity;
 
-
 pub fn get_device_key_list_cell_deps(type_id: &[u8]) -> BTreeMap<[u8; 32], Bytes> {
     let cell_deps = QueryIter::new(
         |index, source| {

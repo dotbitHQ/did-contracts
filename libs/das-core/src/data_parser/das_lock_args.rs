@@ -1,8 +1,9 @@
 use alloc::borrow::ToOwned;
 use alloc::boxed::Box;
 
-use super::super::error::*;
 use das_types::constants::DasLockType;
+
+use super::super::error::*;
 
 pub fn get_owner_type_opt(data: &[u8]) -> Option<u8> {
     data.get(0).map(|v| v.to_owned())
@@ -17,7 +18,7 @@ pub fn get_owner_lock_args_opt(data: &[u8]) -> Option<&[u8]> {
     let ret = match data[0] {
         1 => data.get(1..29),
         6 => data.get(1..33),
-        // TODO: temporary walkaround. WebAuthn has sub_alg_id. Currently we treat it as part of manager 
+        // TODO: temporary walkaround. WebAuthn has sub_alg_id. Currently we treat it as part of manager
         8 => data.get(1..22),
         2 | 3 | 4 | 5 | 7 => data.get(1..21),
         _ => None,
@@ -53,14 +54,14 @@ pub fn get_manager_lock_args_opt(data: &[u8]) -> Option<&[u8]> {
             if DasLockType::try_from(v).is_err() {
                 return None;
             }
-        },
+        }
         _ => return None,
     };
 
     let ret = match data[0] {
         1 => data.get(30..),
         6 => data.get(34..),
-        // TODO: temporary walkaround. WebAuthn has sub_alg_id. Currently we treat it as part of manager 
+        // TODO: temporary walkaround. WebAuthn has sub_alg_id. Currently we treat it as part of manager
         8 => data.get(23..),
         2 | 3 | 4 | 5 | 7 => data.get(22..),
         _ => None,

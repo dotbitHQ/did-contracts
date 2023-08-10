@@ -64,7 +64,8 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             SubAccountWitnessesParser::new(SubAccountConfigFlag::CustomRule, &parser.configs.main()?)?;
         }
         b"test_parse_sub_account_witness_create_only" => {
-            let sub_account_witness_parser = SubAccountWitnessesParser::new(SubAccountConfigFlag::CustomRule, &parser.configs.main()?)?;
+            let sub_account_witness_parser =
+                SubAccountWitnessesParser::new(SubAccountConfigFlag::CustomRule, &parser.configs.main()?)?;
 
             let lock_args = &[
                 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -173,7 +174,8 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             }
         }
         b"test_parse_sub_account_witness_edit_only" => {
-            let sub_account_witness_parser = SubAccountWitnessesParser::new(SubAccountConfigFlag::CustomRule, &parser.configs.main()?)?;
+            let sub_account_witness_parser =
+                SubAccountWitnessesParser::new(SubAccountConfigFlag::CustomRule, &parser.configs.main()?)?;
 
             assert!(
                 sub_account_witness_parser.len() == 3,
@@ -282,7 +284,8 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             }
         }
         b"test_parse_sub_account_witness_mixed" => {
-            let sub_account_witness_parser = SubAccountWitnessesParser::new(SubAccountConfigFlag::CustomRule, &parser.configs.main()?)?;
+            let sub_account_witness_parser =
+                SubAccountWitnessesParser::new(SubAccountConfigFlag::CustomRule, &parser.configs.main()?)?;
 
             let lock_args = &[
                 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -377,11 +380,13 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             }
         }
         b"test_parser_sub_account_rules_witness_empty" => {
-            let sub_account_witness_parser = SubAccountWitnessesParser::new(SubAccountConfigFlag::CustomRule, &parser.configs.main()?)?;
+            let sub_account_witness_parser =
+                SubAccountWitnessesParser::new(SubAccountConfigFlag::CustomRule, &parser.configs.main()?)?;
             sub_account_witness_parser.get_rules(&[0u8; 10], DataType::SubAccountPriceRule)?;
         }
         b"test_parser_sub_account_rules_witness" => {
-            let sub_account_witness_parser = SubAccountWitnessesParser::new(SubAccountConfigFlag::CustomRule, &parser.configs.main()?)?;
+            let sub_account_witness_parser =
+                SubAccountWitnessesParser::new(SubAccountConfigFlag::CustomRule, &parser.configs.main()?)?;
             let rules = sub_account_witness_parser.get_rules(&[0u8; 10], DataType::SubAccountPriceRule)?;
 
             assert!(rules.is_some(), ErrorCode::UnittestError, "This rules should be some.");

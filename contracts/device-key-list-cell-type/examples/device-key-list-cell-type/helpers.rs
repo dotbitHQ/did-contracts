@@ -2,7 +2,6 @@ use ckb_std::ckb_types::packed::Uint64;
 use das_types::constants::DataType;
 use molecule::prelude::Entity;
 
-
 pub trait GetDataType {
     fn get_type_constant() -> DataType;
 }

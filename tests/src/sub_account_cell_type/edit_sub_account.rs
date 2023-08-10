@@ -310,7 +310,10 @@ fn challenge_sub_account_edit_spend_balance_cell_1() {
     );
     push_simple_output_sub_account_cell(&mut template, 0, 0);
 
-    challenge_tx(template.as_json(), SubAccountCellErrorCode::SomeCellWithDasLockMayBeAbused);
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::SomeCellWithDasLockMayBeAbused,
+    );
 }
 
 #[test]
@@ -352,7 +355,10 @@ fn challenge_sub_account_edit_spend_balance_cell_2() {
     );
     push_simple_output_sub_account_cell(&mut template, 0, 0);
 
-    challenge_tx(template.as_json(), SubAccountCellErrorCode::SomeCellWithDasLockMayBeAbused);
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::SomeCellWithDasLockMayBeAbused,
+    );
 }
 
 /// If the transaction only contains edit action, then the owner_profit must be consistent.

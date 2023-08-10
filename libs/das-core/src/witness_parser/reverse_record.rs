@@ -10,7 +10,7 @@ use ckb_std::ckb_constants::Source;
 use ckb_std::error::SysError;
 use ckb_std::syscalls::{self};
 use das_types::constants::*;
-use das_types::packed::{DeviceKeyListCellData, ConfigCellMainReader};
+use das_types::packed::{ConfigCellMainReader, DeviceKeyListCellData};
 use das_types::prelude::Entity;
 
 use super::super::error::*;
@@ -128,7 +128,7 @@ impl ReverseRecordWitnessesParser {
                             if let Some(cell_dep) = cell_dep {
                                 device_key_lists.insert(cell_dep.slice(1..22).to_vec(), device_list);
                             } else {
-                                return Err(code_to_error!(ErrorCode::WitnessDataTypeDecodingError))
+                                return Err(code_to_error!(ErrorCode::WitnessDataTypeDecodingError));
                             }
                         }
                         Ok(_) => {

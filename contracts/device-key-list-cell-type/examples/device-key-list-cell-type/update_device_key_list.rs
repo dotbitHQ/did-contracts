@@ -13,8 +13,7 @@ pub fn action() -> Action {
     let mut update_action = Action::new("update_device_key_list");
     update_action.add_verification(Rule::new("Verify cell structure", |contract| {
         assert!(
-            contract.get_input_outer_cells().len() == 0
-            && contract.get_output_outer_cells().len() == 0,
+            contract.get_input_outer_cells().len() == 0 && contract.get_output_outer_cells().len() == 0,
             ErrorCode::InvalidTransactionStructure,
             "Should not have any balance cells in input or output"
         );

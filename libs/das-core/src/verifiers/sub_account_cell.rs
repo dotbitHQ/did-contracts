@@ -1,8 +1,7 @@
-use core::ops::Index;
-
 use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::vec::Vec;
+use core::ops::Index;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
@@ -516,10 +515,7 @@ pub fn verify_sub_account_edit_sign(
         ]
         .concat();
         let message = util::blake2b_256(&data);
-        debug!(
-            "Getting DeviceKeyListCellData for sign_args: {}",
-            hex::encode(args)
-        );
+        debug!("Getting DeviceKeyListCellData for sign_args: {}", hex::encode(args));
 
         let device_key_list = witness_parser
             .device_key_lists

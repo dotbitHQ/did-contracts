@@ -96,7 +96,12 @@ impl<'a> SubAction<'a> {
         }
     }
 
-    pub fn dispatch(&mut self, witness: &SubAccountWitness, prev_root: &[u8], witness_parser: &SubAccountWitnessesParser) -> Result<(), Box<dyn ScriptError>> {
+    pub fn dispatch(
+        &mut self,
+        witness: &SubAccountWitness,
+        prev_root: &[u8],
+        witness_parser: &SubAccountWitnessesParser,
+    ) -> Result<(), Box<dyn ScriptError>> {
         let sub_account_reader = witness.sub_account.as_reader();
 
         verifiers::sub_account_cell::verify_suffix_with_parent_account(
@@ -505,7 +510,12 @@ impl<'a> SubAction<'a> {
         Ok(())
     }
 
-    fn edit(&mut self, witness: &SubAccountWitness, prev_root: &[u8], witness_parser: &SubAccountWitnessesParser) -> Result<(), Box<dyn ScriptError>> {
+    fn edit(
+        &mut self,
+        witness: &SubAccountWitness,
+        prev_root: &[u8],
+        witness_parser: &SubAccountWitnessesParser,
+    ) -> Result<(), Box<dyn ScriptError>> {
         let sub_account_reader = witness.sub_account.as_reader();
         let new_sub_account = generate_new_sub_account_by_edit_value(witness.sub_account.clone(), &witness.edit_value)?;
         let new_sub_account_reader = new_sub_account.as_reader();

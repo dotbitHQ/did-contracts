@@ -104,13 +104,13 @@ pub struct MyContract {
 #[derive(Clone, Debug)]
 pub struct CellWithMeta {
     pub cell: CellOutput,
-    pub meta: CellMeta
+    pub meta: CellMeta,
 }
 
 #[derive(Clone, Copy, Debug)]
 pub struct CellMeta {
     pub index: usize,
-    pub source: Source
+    pub source: Source,
 }
 
 impl CellWithMeta {
@@ -120,11 +120,8 @@ impl CellWithMeta {
 
     pub fn new(index: usize, source: Source, cell: CellOutput) -> Self {
         Self {
-            meta: CellMeta {
-                index,
-                source
-            },
-            cell
+            meta: CellMeta { index, source },
+            cell,
         }
     }
 }

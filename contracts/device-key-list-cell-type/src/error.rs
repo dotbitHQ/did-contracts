@@ -24,7 +24,7 @@ pub enum ErrorCode {
     CapacityReduceTooMuch,
     DuplicatedKeys,
     ActionNotSupported,
-    VerificationError
+    VerificationError,
 }
 
 impl From<SysError> for ErrorCode {
