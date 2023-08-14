@@ -148,7 +148,7 @@ fn challenge_sub_account_renew_flag_manual_multi_sign_role() {
             ]
         }),
     );
-    template.push_sub_account_witness_v3(json!({
+    template.push_sub_account_witness_v2(json!({
         "action": SubAccountAction::Create.to_string(),
         "sub_account": {
             "lock": {

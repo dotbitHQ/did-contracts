@@ -235,24 +235,34 @@ pub fn to_raw_witness_latest(smt_with_history: &mut SMTWithHistory, path: &str, 
     }
 
     let (action, mut witness_bytes) = encode_raw_witness_common_fields(path, value, Some(3));
+    let (entity, entity_bytes) = match action {
+        SubAccountAction::Create => {
+            let entity = to_latest(&format!("{}.sub_account", path), &value["sub_account"]);
+            let entity_bytes = Entity::as_slice(&entity).to_vec();
+            let entity: Box<dyn SubAccountMixer> = Box::new(entity);
+            (entity, entity_bytes)
+        }
+        _ => {
+            let old_sub_account_version = util::parse_json_u32(
+                &format!("{}.old_sub_account_version", path),
+                &value["old_sub_account_version"],
+                None,
+            );
+            if old_sub_account_version == 1 {
+                let entity = to_v1(&format!("{}.sub_account", path), &value["sub_account"]);
+                let entity_bytes = Entity::as_slice(&entity).to_vec();
+                let entity: Box<dyn SubAccountMixer> = Box::new(entity);
+                (entity, entity_bytes)
+            } else {
+                let entity = to_latest(&format!("{}.sub_account", path), &value["sub_account"]);
+                let entity_bytes = Entity::as_slice(&entity).to_vec();
+                let entity: Box<dyn SubAccountMixer> = Box::new(entity);
+                (entity, entity_bytes)
+            }
+        }
+    };
 
     let key = get_smt_key_from_json(&format!("{}.sub_account", path), &value["sub_account"]);
-    let old_sub_account_version = util::parse_json_u32(
-        &format!("{}.old_sub_account_version", path),
-        &value["old_sub_account_version"],
-        None,
-    );
-    let (entity, entity_bytes) = if old_sub_account_version == 1 {
-        let entity = to_v1(&format!("{}.sub_account", path), &value["sub_account"]);
-        let entity_bytes = Entity::as_slice(&entity).to_vec();
-        let entity: Box<dyn SubAccountMixer> = Box::new(entity);
-        (entity, entity_bytes)
-    } else {
-        let entity = to_latest(&format!("{}.sub_account", path), &value["sub_account"]);
-        let entity_bytes = Entity::as_slice(&entity).to_vec();
-        let entity: Box<dyn SubAccountMixer> = Box::new(entity);
-        (entity, entity_bytes)
-    };
     let (new_root, compiled_proof) = get_smt_new_root_and_proof(&action, smt_with_history, path, key, value, entity);
 
     encode_smt_fields(&mut witness_bytes, new_root, compiled_proof);
@@ -365,15 +375,8 @@ fn get_smt_new_root_and_proof(
             .expect("The SubAccount should be the latest version.")
     };
 
-    let (new_root, compiled_proof) = match action {
-        SubAccountAction::Create => {
-            let sub_account_entity_bytes = sub_account.as_slice().to_vec();
-            let smt_value = util::blake2b_smt(&sub_account_entity_bytes);
-            let (_, new_root, proof) = smt_with_history.insert(key.clone().into(), smt_value.clone().into());
-            let compiled_proof = proof.compile(vec![key.into()]).unwrap().0;
-
-            (new_root, compiled_proof)
-        }
+    let sub_account = match action {
+        SubAccountAction::Create => sub_account,
         SubAccountAction::Renew => {
             let expired_at = Uint64::from(util::parse_json_u64(
                 "witness.edit_value.expired_at",
@@ -385,14 +388,7 @@ fn get_smt_new_root_and_proof(
             let mut builder = sub_account.as_builder();
             builder = builder.expired_at(expired_at);
             builder = builder.nonce(Uint64::from(current_nonce + 1));
-            let new_entity = builder.build();
-            let new_entity_bytes = new_entity.as_slice().to_vec();
-
-            let smt_value = util::blake2b_smt(&new_entity_bytes);
-            let (_, new_root, proof) = smt_with_history.insert(key.into(), smt_value.into());
-            let compiled_proof = proof.compile(vec![key.into()]).unwrap().0;
-
-            (new_root, compiled_proof)
+            builder.build()
         }
         SubAccountAction::Edit => {
             let current_nonce = u64::from(sub_account.nonce());
@@ -414,26 +410,9 @@ fn get_smt_new_root_and_proof(
                 }
             };
             builder = builder.nonce(Uint64::from(current_nonce + 1));
-            let new_entity = builder.build();
-            let new_entity_bytes = new_entity.as_slice().to_vec();
-
-            let smt_value = util::blake2b_smt(&new_entity_bytes);
-            let (_, new_root, proof) = smt_with_history.insert(key.into(), smt_value.into());
-            let compiled_proof = proof.compile(vec![key.into()]).unwrap().0;
-
-            (new_root, compiled_proof)
+            builder.build()
         }
-        SubAccountAction::Recycle => {
-            let mut smt_value = [0u8; 32];
-            // temporarily use edit_value to pass the value of SMT leaf
-            let tmp =
-                util::parse_json_hex_with_default(&format!("{}.edit_value", path), &value["edit_value"], vec![0u8; 32]);
-            smt_value.copy_from_slice(&tmp);
-            let (_, new_root, proof) = smt_with_history.insert(key.clone().into(), smt_value.clone().into());
-            let compiled_proof = proof.compile(vec![key.into()]).unwrap().0;
-
-            (new_root, compiled_proof)
-        }
+        SubAccountAction::Recycle => sub_account,
         SubAccountAction::CreateApproval | SubAccountAction::DelayApproval => {
             let current_nonce = u64::from(sub_account.nonce());
             let mut builder = Clone::clone(&sub_account).as_builder();
@@ -441,14 +420,7 @@ fn get_smt_new_root_and_proof(
             builder = builder.approval(approval);
             builder = builder.status(Uint8::from(AccountStatus::ApprovedTransfer as u8));
             builder = builder.nonce(Uint64::from(current_nonce + 1));
-            let new_entity = builder.build();
-            let new_entity_bytes = new_entity.as_slice().to_vec();
-
-            let smt_value = util::blake2b_smt(&new_entity_bytes);
-            let (_, new_root, proof) = smt_with_history.insert(key.into(), smt_value.into());
-            let compiled_proof = proof.compile(vec![key.into()]).unwrap().0;
-
-            (new_root, compiled_proof)
+            builder.build()
         }
         SubAccountAction::RevokeApproval => {
             let current_nonce = u64::from(sub_account.nonce());
@@ -456,14 +428,7 @@ fn get_smt_new_root_and_proof(
             builder = builder.approval(AccountApproval::default());
             builder = builder.status(Uint8::from(AccountStatus::Normal as u8));
             builder = builder.nonce(Uint64::from(current_nonce + 1));
-            let new_entity = builder.build();
-            let new_entity_bytes = new_entity.as_slice().to_vec();
-
-            let smt_value = util::blake2b_smt(&new_entity_bytes);
-            let (_, new_root, proof) = smt_with_history.insert(key.into(), smt_value.into());
-            let compiled_proof = proof.compile(vec![key.into()]).unwrap().0;
-
-            (new_root, compiled_proof)
+            builder.build()
         }
         SubAccountAction::FulfillApproval => {
             let approval = sub_account.approval().clone();
@@ -478,26 +443,30 @@ fn get_smt_new_root_and_proof(
             builder = builder.approval(AccountApproval::default());
             builder = builder.status(Uint8::from(AccountStatus::Normal as u8));
             builder = builder.nonce(Uint64::from(current_nonce + 1));
-            let new_entity = builder.build();
-            let new_entity_bytes = new_entity.as_slice().to_vec();
-
-            let smt_value = util::blake2b_smt(&new_entity_bytes);
-            let (_, new_root, proof) = smt_with_history.insert(key.into(), smt_value.into());
-            let compiled_proof = proof.compile(vec![key.into()]).unwrap().0;
-
-            (new_root, compiled_proof)
-        }
-        // _ => unimplemented!("Not support action: {}", action),
+            builder.build()
+        } // _ => unimplemented!("Not support action: {}", action),
     };
+
+    // println!("sub_account = {}", sub_account.as_prettier());
+
+    let smt_value = match action {
+        SubAccountAction::Recycle => {
+            let mut smt_value = [0u8; 32];
+            // temporarily use edit_value to pass the value of SMT leaf
+            let tmp =
+                util::parse_json_hex_with_default(&format!("{}.edit_value", path), &value["edit_value"], vec![0u8; 32]);
+            smt_value.copy_from_slice(&tmp);
+            smt_value
+        }
+        _ => util::blake2b_smt(sub_account.as_slice().to_vec()),
+    };
+    let (_, new_root, proof) = smt_with_history.insert(key.clone().into(), smt_value.clone().into());
+    let compiled_proof = proof.compile(vec![key.into()]).unwrap().0;
 
     (new_root, compiled_proof)
 }
 
-fn encode_smt_fields(
-    witness_bytes: &mut Vec<u8>,
-    new_root: [u8; 32],
-    proof: Vec<u8>,
-) {
+fn encode_smt_fields(witness_bytes: &mut Vec<u8>, new_root: [u8; 32], proof: Vec<u8>) {
     witness_bytes.extend(encoder_util::length_of(&new_root));
     witness_bytes.extend(new_root);
 

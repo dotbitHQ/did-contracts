@@ -224,25 +224,27 @@ fn verify_initial_registered_at<'a>(
 pub fn verify_initial_properties<'a>(
     parser: &WitnessesParser,
     sub_account_index: usize,
-    sub_account_reader: &Box<dyn SubAccountReaderMixer + 'a>,
+    sub_account_reader: SubAccountReader<'a>,
     current_timestamp: u64,
 ) -> Result<(), Box<dyn ScriptError>> {
-    verify_initial_lock(sub_account_index, sub_account_reader)?;
-    verify_initial_id(sub_account_index, sub_account_reader)?;
-    verify_initial_registered_at(sub_account_index, sub_account_reader, current_timestamp)?;
-    verify_status(sub_account_index, sub_account_reader, AccountStatus::Normal)?;
+    let sub_account_reader_mixer: Box<dyn SubAccountReaderMixer> = Box::new(sub_account_reader);
+
+    verify_initial_lock(sub_account_index, &sub_account_reader_mixer)?;
+    verify_initial_id(sub_account_index, &sub_account_reader_mixer)?;
+    verify_initial_registered_at(sub_account_index, &sub_account_reader_mixer, current_timestamp)?;
+    verify_status(sub_account_index, &sub_account_reader_mixer, AccountStatus::Normal)?;
 
     if sub_account_reader.records().len() == 0 {
         debug!(
             "  witnesses[{:>2}] The witness.sub_account.records of {} is empty, that is ok.",
             sub_account_index,
-            util::get_sub_account_name_from_reader(&sub_account_reader)
+            util::get_sub_account_name_from_reader(&sub_account_reader_mixer)
         );
     } else if sub_account_reader.records().len() == 1 {
         debug!(
             "  witnesses[{:>2}] The witness.sub_account.records of {} has 1 default record, verify if it is ok.",
             sub_account_index,
-            util::get_sub_account_name_from_reader(&sub_account_reader)
+            util::get_sub_account_name_from_reader(&sub_account_reader_mixer)
         );
 
         let records_reader = sub_account_reader.records();
@@ -251,7 +253,7 @@ pub fn verify_initial_properties<'a>(
         warn!(
             "  witnesses[{:>2}] The witness.sub_account.records of {} should be empty or only one default record.",
             sub_account_index,
-            util::get_sub_account_name_from_reader(&sub_account_reader)
+            util::get_sub_account_name_from_reader(&sub_account_reader_mixer)
         );
         return Err(code_to_error!(SubAccountCellErrorCode::SubAccountInitialValueError));
     }
@@ -262,7 +264,7 @@ pub fn verify_initial_properties<'a>(
         SubAccountCellErrorCode::SubAccountInitialValueError,
         "  witnesses[{:>2}] The witness.sub_account.enable_sub_account of {} should be 0 .",
         sub_account_index,
-        util::get_sub_account_name_from_reader(&sub_account_reader)
+        util::get_sub_account_name_from_reader(&sub_account_reader_mixer)
     );
 
     let renew_sub_account_price = u64::from(sub_account_reader.renew_sub_account_price());
@@ -271,7 +273,7 @@ pub fn verify_initial_properties<'a>(
         SubAccountCellErrorCode::SubAccountInitialValueError,
         "  witnesses[{:>2}] The witness.sub_account.renew_sub_account_price of {} should be 0 .",
         sub_account_index,
-        util::get_sub_account_name_from_reader(&sub_account_reader)
+        util::get_sub_account_name_from_reader(&sub_account_reader_mixer)
     );
 
     let nonce = u64::from(sub_account_reader.nonce());
@@ -280,7 +282,7 @@ pub fn verify_initial_properties<'a>(
         SubAccountCellErrorCode::SubAccountInitialValueError,
         "  witnesses[{:>2}] The witness.sub_account.nonce of {} should be 0 .",
         sub_account_index,
-        util::get_sub_account_name_from_reader(&sub_account_reader)
+        util::get_sub_account_name_from_reader(&sub_account_reader_mixer)
     );
 
     let expired_at = u64::from(sub_account_reader.expired_at());
@@ -291,6 +293,13 @@ pub fn verify_initial_properties<'a>(
         sub_account_index,
         current_timestamp + YEAR_SEC,
         expired_at
+    );
+
+    das_assert!(
+        util::is_reader_eq(sub_account_reader.approval(), AccountApproval::default().as_reader()),
+        SubAccountCellErrorCode::ApprovalExist,
+        "  witnesses[{:>2}] The approval of new SubAccount should be empty.",
+        sub_account_index
     );
 
     Ok(())

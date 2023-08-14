@@ -2773,6 +2773,8 @@ impl TemplateGenerator {
     ///     "sign_expired_at": null | u64, // If this is null, it will be filled with 0.
     ///     "new_root": null | "0x...", // If this is null, it will be calculated automatically from self.smt_with_history.
     ///     "proof": null | "0x...", // If this is null, it will be calculated automatically from self.smt_with_history.
+    ///     "old_sub_account_version": null | u32,
+    ///     "new_sub_account_version": null | u32,
     ///     "sub_account": {
     ///         "lock": Script,
     ///         "id": null | "yyyyy.xxxxx.bit" | "0x...", // If this is null, it will be an invalid cell. If this is not hex, it will be treated as account to calculate account ID.
@@ -2800,14 +2802,30 @@ impl TemplateGenerator {
     /// })
     /// ```
     pub fn push_sub_account_witness_v2(&mut self, witness: Value) {
-        let witness_bytes = encoder::sub_account::to_raw_witness_v2(&mut self.smt_with_history, "witness", &witness);
-        self.sub_account_outer_witnesses
-            .push(util::bytes_to_hex(&witness_bytes));
-    }
+        let action = SubAccountAction::from_str(
+            witness["action"]
+                .as_str()
+                .expect("witness.action should be a valid str."),
+        )
+        .expect("witness.action should be a valid SubAccountAction.");
+        let mut default_witness = match action {
+            SubAccountAction::Create => {
+                json!({
+                    "old_sub_account_version": 2,
+                    "new_sub_account_version": 2,
+                })
+            }
+            _ => {
+                json!({
+                    "old_sub_account_version": 1,
+                    "new_sub_account_version": 2,
+                })
+            }
+        };
+        util::merge_json(&mut default_witness, witness);
 
-    pub fn push_sub_account_witness_v3(&mut self, witness: Value) {
         let witness_bytes =
-            encoder::sub_account::to_raw_witness_latest(&mut self.smt_with_history, "witness", &witness);
+            encoder::sub_account::to_raw_witness_latest(&mut self.smt_with_history, "witness", &default_witness);
         self.sub_account_outer_witnesses
             .push(util::bytes_to_hex(&witness_bytes));
     }

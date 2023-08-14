@@ -141,8 +141,27 @@ impl<'a> SubAction<'a> {
             witness.index
         );
 
-        let sub_account_reader = witness.sub_account.as_reader();
-        let (account, account_chars_reader) = gen_account_from_witness(&sub_account_reader)?;
+        das_assert!(
+            witness.old_sub_account_version == 2 && witness.new_sub_account_version == 2,
+            SubAccountCellErrorCode::WitnessVersionMismatched,
+            "  witnesses[{:>2}] The old_sub_account_version and new_sub_account_version should be 2.",
+            witness.index
+        );
+
+        let sub_account = match witness.sub_account.try_into_latest() {
+            Ok(sub_account) => sub_account,
+            Err(_) => {
+                debug!(
+                    "  witnesses[{:>2}] The new SubAccount should be the latest version.",
+                    witness.index
+                );
+                return Err(code_to_error!(SubAccountCellErrorCode::WitnessVersionMismatched));
+            }
+        };
+        let sub_account_reader = sub_account.as_reader();
+        let sub_account_reader_mixer = witness.sub_account.as_reader();
+
+        let (account, account_chars_reader) = gen_account_from_witness(&sub_account_reader_mixer)?;
 
         verifiers::account_cell::verify_account_chars(self.parser, account_chars_reader)?;
         verifiers::account_cell::verify_account_chars_min_length(account_chars_reader)?;
@@ -151,7 +170,7 @@ impl<'a> SubAction<'a> {
         verifiers::sub_account_cell::verify_initial_properties(
             self.parser,
             witness.index,
-            &sub_account_reader,
+            sub_account_reader,
             self.timestamp,
         )?;
 
@@ -892,6 +911,7 @@ fn smt_verify_sub_account_is_creatable(
     );
     let current_root = witness.new_root.as_slice();
     let current_val = blake2b_256(sub_account_reader.as_slice()).to_vec().try_into().unwrap();
+    // debug!("current_val_prettier = {}", sub_account_reader.as_prettier());
     verifiers::common::verify_smt_proof(key, current_val, current_root.try_into().unwrap(), proof)?;
 
     Ok(())

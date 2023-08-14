@@ -453,40 +453,56 @@ impl SubAccountWitnessesParser {
             }
         };
 
-        let sub_account: Box<dyn SubAccountMixer> = match old_sub_account_version {
-            1 => {
-                let sub_account = match SubAccountV1::from_compatible_slice(sub_account_bytes) {
-                    Ok(val) => val,
-                    Err(e) => {
-                        warn!(
-                            "  witnesses[{:>2}] SubAccountWitness.sub_account(SubAccountV1) field parse failed: {} (old_version: {})",
-                            i, e, old_sub_account_version
-                        );
-                        return Err(code_to_error!(ErrorCode::WitnessStructureError));
-                    }
-                };
-                Box::new(sub_account)
-            }
-            2 => {
+        let sub_account: Box<dyn SubAccountMixer> = match action {
+            SubAccountAction::Create => {
+                // The new created SubAccount should always be the latest version.
                 let sub_account = match SubAccount::from_compatible_slice(sub_account_bytes) {
                     Ok(val) => val,
                     Err(e) => {
                         warn!(
-                            "  witnesses[{:>2}] SubAccountWitness.sub_account(SubAccount) field parse failed: {} (old_version: {})",
-                            i, e, old_sub_account_version
+                            "  witnesses[{:>2}] SubAccountWitness.sub_account(SubAccount) field parse failed: {} (The new created should always be latest version)",
+                            i, e
                         );
                         return Err(code_to_error!(ErrorCode::WitnessStructureError));
                     }
                 };
                 Box::new(sub_account)
             }
-            _ => {
-                warn!(
-                    "  witnesses[{:>2}] SubAccountWitness.version is {} which is invalid for now.",
-                    i, version
-                );
-                return Err(code_to_error!(ErrorCode::WitnessVersionOrTypeInvalid));
-            }
+            _ => match old_sub_account_version {
+                1 => {
+                    let sub_account = match SubAccountV1::from_compatible_slice(sub_account_bytes) {
+                        Ok(val) => val,
+                        Err(e) => {
+                            warn!(
+                                    "  witnesses[{:>2}] SubAccountWitness.sub_account(SubAccountV1) field parse failed: {} (old_version: {})",
+                                    i, e, old_sub_account_version
+                                );
+                            return Err(code_to_error!(ErrorCode::WitnessStructureError));
+                        }
+                    };
+                    Box::new(sub_account)
+                }
+                2 => {
+                    let sub_account = match SubAccount::from_compatible_slice(sub_account_bytes) {
+                        Ok(val) => val,
+                        Err(e) => {
+                            warn!(
+                                    "  witnesses[{:>2}] SubAccountWitness.sub_account(SubAccount) field parse failed: {} (old_version: {})",
+                                    i, e, old_sub_account_version
+                                );
+                            return Err(code_to_error!(ErrorCode::WitnessStructureError));
+                        }
+                    };
+                    Box::new(sub_account)
+                }
+                _ => {
+                    warn!(
+                        "  witnesses[{:>2}] SubAccountWitness.version is {} which is invalid for now.",
+                        i, version
+                    );
+                    return Err(code_to_error!(ErrorCode::WitnessVersionOrTypeInvalid));
+                }
+            },
         };
 
         debug!(

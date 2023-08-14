@@ -87,7 +87,7 @@ fn push_simple_sub_account_witness(template: &mut TemplateGenerator, sub_account
     util::merge_json(&mut sub_account, sub_account_partial);
 
     // Simulate upgrate the SubAccount version in this transaction.
-    template.push_sub_account_witness_v3(sub_account);
+    template.push_sub_account_witness_v2(sub_account);
 }
 
 #[test]
