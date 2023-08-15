@@ -18,7 +18,7 @@ use das_core::witness_parser::WitnessesParser;
 use das_core::{assert as das_assert, code_to_error, data_parser, debug, verifiers, warn};
 use das_dynamic_libs::constants::DynLibName;
 use das_dynamic_libs::sign_lib::SignLib;
-use das_dynamic_libs::{load_2_methods, load_lib, log_loading, new_context};
+use das_dynamic_libs::{load_2_methods, load_3_methods, load_lib, log_loading, new_context};
 use das_types::constants::{AccountStatus, DataType, LockRole, SubAccountConfigFlag, SubAccountCustomRuleFlag};
 use das_types::packed::*;
 use das_types::prelude::{Builder, Entity};
@@ -197,7 +197,7 @@ fn action_config_sub_account(_action: &[u8], parser: &mut WitnessesParser) -> Re
             }
 
             if !rules_to_verify.is_empty() {
-                let sub_account_witness_parser = SubAccountWitnessesParser::new(flag)?;
+                let sub_account_witness_parser = SubAccountWitnessesParser::new(flag, &config_main)?;
                 for data_type in rules_to_verify {
                     let (hash, field) = match data_type {
                         DataType::SubAccountPriceRule => (price_rules_hash, String::from("price_rules")),
@@ -395,7 +395,7 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
             return Err(code_to_error!(ErrorCode::HardCodedError));
         }
     };
-    let sub_account_parser = SubAccountWitnessesParser::new(flag)?;
+    let sub_account_parser = SubAccountWitnessesParser::new(flag, &config_main)?;
 
     debug!("Verify if the AccountCell in cell_deps has sub-account feature enabled and not expired ...");
 
@@ -482,6 +482,15 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
         log_loading!(DynLibName::DOGE, config_main.das_lock_type_id_table());
         let doge_lib = load_lib!(doge_context, DynLibName::DOGE, config_main.das_lock_type_id_table());
         sign_lib.doge = load_2_methods!(doge_lib);
+
+        let mut web_authn_context = new_context!();
+        log_loading!(DynLibName::WebAuthn, config_main.das_lock_type_id_table());
+        let web_authn_lib = load_lib!(
+            web_authn_context,
+            DynLibName::WebAuthn,
+            config_main.das_lock_type_id_table()
+        );
+        sign_lib.web_authn = load_3_methods!(web_authn_lib);
     }
 
     debug!("Initialize some vars base on the sub-actions contains in the transaction ...");
@@ -517,7 +526,7 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
                     parent_expired_at,
                     sub_account_last_updated_at,
                 )?;
-                verifiers::sub_account_cell::verify_sub_account_mint_sign(&witness, &sign_lib)?;
+                verifiers::sub_account_cell::verify_sub_account_mint_sign(&witness, &sign_lib, &sub_account_parser)?;
 
                 let mut tmp = [0u8; 32];
                 tmp.copy_from_slice(&witness.account_list_smt_root);
@@ -787,7 +796,7 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
             Err(e) => return Err(e),
         };
 
-        sub_action.dispatch(&witness, &prev_root)?;
+        sub_action.dispatch(&witness, &prev_root, &sub_account_parser)?;
         prev_root = witness.new_root.clone();
 
         if i == sub_account_parser.len() - 1 {

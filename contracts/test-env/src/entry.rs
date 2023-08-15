@@ -19,6 +19,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running test-env ======");
 
     let mut parser = WitnessesParser::new()?;
+    parser.parse_cell()?;
     let action = match parser.parse_action_with_params()? {
         Some((action, _)) => action,
         None => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
@@ -60,10 +61,11 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             );
         }
         b"test_parse_sub_account_witness_empty" => {
-            SubAccountWitnessesParser::new(SubAccountConfigFlag::CustomRule)?;
+            SubAccountWitnessesParser::new(SubAccountConfigFlag::CustomRule, &parser.configs.main()?)?;
         }
         b"test_parse_sub_account_witness_create_only" => {
-            let sub_account_witness_parser = SubAccountWitnessesParser::new(SubAccountConfigFlag::CustomRule)?;
+            let sub_account_witness_parser =
+                SubAccountWitnessesParser::new(SubAccountConfigFlag::CustomRule, &parser.configs.main()?)?;
 
             let lock_args = &[
                 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -172,7 +174,8 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             }
         }
         b"test_parse_sub_account_witness_edit_only" => {
-            let sub_account_witness_parser = SubAccountWitnessesParser::new(SubAccountConfigFlag::CustomRule)?;
+            let sub_account_witness_parser =
+                SubAccountWitnessesParser::new(SubAccountConfigFlag::CustomRule, &parser.configs.main()?)?;
 
             assert!(
                 sub_account_witness_parser.len() == 3,
@@ -228,10 +231,9 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 "The edit_key field should be expired_at ."
             );
             match &witness_0.edit_value {
-                SubAccountEditValue::ExpiredAt(val) => {
-                    let expired_at = u64::from(val.as_reader());
+                SubAccountEditValue::ExpiredAt(expired_at) => {
                     assert!(
-                        expired_at == u64::MAX,
+                        expired_at.to_owned() == u64::MAX,
                         ErrorCode::UnittestError,
                         "The edit_value should be u64::MAX"
                     );
@@ -282,7 +284,8 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             }
         }
         b"test_parse_sub_account_witness_mixed" => {
-            let sub_account_witness_parser = SubAccountWitnessesParser::new(SubAccountConfigFlag::CustomRule)?;
+            let sub_account_witness_parser =
+                SubAccountWitnessesParser::new(SubAccountConfigFlag::CustomRule, &parser.configs.main()?)?;
 
             let lock_args = &[
                 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -377,11 +380,13 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             }
         }
         b"test_parser_sub_account_rules_witness_empty" => {
-            let sub_account_witness_parser = SubAccountWitnessesParser::new(SubAccountConfigFlag::CustomRule)?;
+            let sub_account_witness_parser =
+                SubAccountWitnessesParser::new(SubAccountConfigFlag::CustomRule, &parser.configs.main()?)?;
             sub_account_witness_parser.get_rules(&[0u8; 10], DataType::SubAccountPriceRule)?;
         }
         b"test_parser_sub_account_rules_witness" => {
-            let sub_account_witness_parser = SubAccountWitnessesParser::new(SubAccountConfigFlag::CustomRule)?;
+            let sub_account_witness_parser =
+                SubAccountWitnessesParser::new(SubAccountConfigFlag::CustomRule, &parser.configs.main()?)?;
             let rules = sub_account_witness_parser.get_rules(&[0u8; 10], DataType::SubAccountPriceRule)?;
 
             assert!(rules.is_some(), ErrorCode::UnittestError, "This rules should be some.");
@@ -410,10 +415,10 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             // };
         }
         b"test_parse_reverse_record_witness_empty" => {
-            ReverseRecordWitnessesParser::new()?;
+            ReverseRecordWitnessesParser::new(&parser.configs.main()?)?;
         }
         b"test_parse_reverse_record_witness_update_only" => {
-            let witness_parser = ReverseRecordWitnessesParser::new()?;
+            let witness_parser = ReverseRecordWitnessesParser::new(&parser.configs.main()?)?;
             for witness_ret in witness_parser.iter() {
                 let witness = witness_ret.expect("Should be Ok");
 
@@ -439,7 +444,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             }
         }
         b"test_parse_reverse_record_witness_remove_only" => {
-            let witness_parser = ReverseRecordWitnessesParser::new()?;
+            let witness_parser = ReverseRecordWitnessesParser::new(&parser.configs.main()?)?;
             for witness_ret in witness_parser.iter() {
                 let witness = witness_ret.expect("Should be Ok");
 
@@ -465,7 +470,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             }
         }
         b"test_parse_reverse_record_witness_mixed" => {
-            let witness_parser = ReverseRecordWitnessesParser::new()?;
+            let witness_parser = ReverseRecordWitnessesParser::new(&parser.configs.main()?)?;
             for witness_ret in witness_parser.iter() {
                 let witness = witness_ret.expect("Should be Ok");
 

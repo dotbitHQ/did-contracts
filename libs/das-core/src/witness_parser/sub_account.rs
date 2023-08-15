@@ -1,7 +1,9 @@
 use alloc::boxed::Box;
+use alloc::collections::BTreeMap;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::convert::{TryFrom, TryInto};
+use core::ops::Index;
 use core::str::FromStr;
 
 use ckb_std::ckb_constants::Source;
@@ -16,6 +18,9 @@ use simple_ast::{types as ast_types, util as ast_util};
 
 use super::super::error::*;
 use super::super::{data_parser, util};
+use super::device_key_list::get_device_key_list_cell_deps;
+use crate::traits::Blake2BHash;
+use crate::util::load_das_witnesses;
 
 // Binary format: 'das'(3) + DATA_TYPE(4) + binary_data
 
@@ -90,10 +95,14 @@ pub struct SubAccountWitnessesParser {
     pub price_rule_indexes: Vec<usize>,
     pub preserved_rule_indexes: Vec<usize>,
     pub indexes: Vec<usize>,
+    pub device_key_lists: BTreeMap<Vec<u8>, DeviceKeyListCellData>,
 }
 
 impl SubAccountWitnessesParser {
-    pub fn new(flag: SubAccountConfigFlag) -> Result<Self, Box<dyn ScriptError>> {
+    pub fn new(
+        flag: SubAccountConfigFlag,
+        config_main: &ConfigCellMainReader<'_>,
+    ) -> Result<Self, Box<dyn ScriptError>> {
         let mut contains_creation = false;
         let mut contains_edition = false;
         let mut contains_renew = false;
@@ -106,6 +115,8 @@ impl SubAccountWitnessesParser {
         let mut i = 0;
         let mut das_witnesses_started = false;
         let mut count = 0;
+        let mut device_key_lists = BTreeMap::<Vec<u8>, DeviceKeyListCellData>::new();
+        let cell_deps = get_device_key_list_cell_deps(config_main.type_id_table().key_list_config_cell().raw_data());
         loop {
             let mut buf = [0u8; (WITNESS_HEADER_BYTES
                 + WITNESS_TYPE_BYTES
@@ -174,6 +185,18 @@ impl SubAccountWitnessesParser {
                             count += 1;
                             preserved_rule_indexes.push(i);
                         }
+                        Ok(DataType::DeviceKeyListCellData) => {
+                            debug!("cell deps: {:?}, ", cell_deps);
+                            let ret = &load_das_witnesses(i)?[7..];
+                            let device_list = DeviceKeyListCellData::from_slice(ret)
+                                .map_err(|_| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
+                            let cell_dep = cell_deps.get(device_list.blake2b_256().index(..));
+                            if let Some(cell_dep) = cell_dep {
+                                device_key_lists.insert(cell_dep.slice(1..22).to_vec(), device_list);
+                            } else {
+                                return Err(code_to_error!(ErrorCode::WitnessDataTypeDecodingError));
+                            }
+                        }
                         Ok(_) => {
                             // Ignore other witnesses in this parser.
                         }
@@ -209,6 +232,7 @@ impl SubAccountWitnessesParser {
             price_rule_indexes,
             preserved_rule_indexes,
             indexes,
+            device_key_lists,
         })
     }
 

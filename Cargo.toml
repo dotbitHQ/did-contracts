@@ -31,16 +31,38 @@ members = [
     "contracts/playground",
 ]
 
+default-members = [
+    "contracts/always-success",
+    "contracts/account-cell-type",
+    "contracts/account-sale-cell-type",
+    "contracts/account-auction-cell-type",
+    "contracts/apply-register-cell-type",
+    "contracts/balance-cell-type",
+    "contracts/config-cell-type",
+    "contracts/income-cell-type",
+    "contracts/offer-cell-type",
+    "contracts/pre-account-cell-type",
+    "contracts/proposal-cell-type",
+    "contracts/reverse-record-cell-type",
+    "contracts/reverse-record-root-cell-type",
+    "contracts/sub-account-cell-type",
+    "contracts/eip712-lib",
+    "contracts/device-key-list-cell-type",
+]
+
 [workspace.dependencies]
-das-types = { git = "https://github.com/dotbitHQ/das-types-private.git", default-features = false, rev = "9211dfc" }
-das-types-std = { git = "https://github.com/dotbitHQ/das-types-private.git", rev = "ca8d7d9" }
+das-types = { git = "https://github.com/dotbitHQ/das-types-private.git", default-features = false, rev = "7fbd101" }
+das-types-std = { git = "https://github.com/dotbitHQ/das-types-private.git", rev = "f993731" }
 simple-ast = { path = "libs/simple-ast", default-features = false }
 das-map = { path = "libs/das-map", default-features = false }
 das-core = { path = "libs/das-core", default-features = false }
 das-sorted-list = { path = "libs/das-sorted-list", default-features = false }
-sparse-merkle-tree = { version = "0.6.1", default-features = false, features = ["smtc"] }
+sparse-merkle-tree = { version = "0.6.1", default-features = false, features = [
+    "smtc",
+] }
 ckb-std = "0.13.0"
 molecule = { version = "0.7", default-features = false }
+hex = { default-features = false, version = "0.4.2" }
 
 [profile.release]
 overflow-checks = true

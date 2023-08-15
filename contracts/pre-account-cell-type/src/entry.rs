@@ -417,7 +417,7 @@ fn verify_owner_lock_args<'a>(
     let owner_lock_args = reader.owner_lock_args().raw_data();
 
     assert!(
-        owner_lock_args.len() >= 42,
+        data_parser::das_lock_args::get_owner_and_manager(owner_lock_args).is_ok(),
         PreAccountCellErrorCode::OwnerLockArgsIsInvalid,
         "The length of owner_lock_args should be more 42 byte, but {} found.",
         owner_lock_args.len()

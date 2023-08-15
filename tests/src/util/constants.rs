@@ -229,6 +229,10 @@ lazy_static! {
             "0x0480767c09c1c26abe4e180d08238ed551f11dc293ab1286d8a7b7cac95e55a7",
         );
         map.insert(
+            "webauthn_sign.so",
+            "0xa22105572bf4c7c1c3bcfb97bcc1d3bba060f32c50df5364ee1cb2b09228d7aa"
+        );
+        map.insert(
             "device-key-list-cell-type",
             "0x982f5e9cc7503f4cd0d0e2ed7115b70f9007f6adcdbdefb5465228d39c94f12a"
         );

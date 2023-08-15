@@ -4,7 +4,7 @@ use das_types_std::packed::{Byte10, DeviceKey, DeviceKeyList, DeviceKeyListCellD
 use device_key_list_cell_type::error::ErrorCode;
 
 use super::{init, BuildRefundLock, DeviceKeyListCell};
-use crate::util::template_parser::{test_tx, challenge_tx};
+use crate::util::template_parser::{challenge_tx, test_tx};
 #[test]
 fn should_pass_on_normal_add() {
     let mut template = init("update_device_key_list");
@@ -80,7 +80,6 @@ fn should_pass_on_normal_remove() {
 
     test_tx(template.as_json());
 }
-
 
 #[test]
 fn should_fail_on_multiple_cells() {
@@ -159,7 +158,6 @@ fn should_fail_on_too_much_capacity_change() {
     challenge_tx(template.as_json(), ErrorCode::CapacityReduceTooMuch);
 }
 
-
 #[test]
 fn should_fail_on_inconsistent_lock() {
     let mut template = init("update_device_key_list");
@@ -202,7 +200,6 @@ fn should_fail_on_inconsistent_lock() {
     challenge_tx(template.as_json(), ErrorCode::InvalidLock);
 }
 
-
 #[test]
 fn should_fail_on_multiple_add() {
     let mut template = init("update_device_key_list");
@@ -244,7 +241,6 @@ fn should_fail_on_multiple_add() {
 
     challenge_tx(template.as_json(), ErrorCode::KeyListNumberIncorrect);
 }
-
 
 #[test]
 fn should_fail_on_duplicated_keys() {
@@ -320,7 +316,6 @@ fn should_fail_on_wrong_order() {
     challenge_tx(template.as_json(), ErrorCode::UpdateParamsInvalid);
 }
 
-
 #[test]
 fn should_fail_on_delete2_add1() {
     let mut template = init("update_device_key_list");
@@ -344,7 +339,14 @@ fn should_fail_on_delete2_add1() {
         refund_lock.args(),
         DeviceKeyListCellData::new_builder()
             .refund_lock(das_types_std::packed::Script::from_slice(refund_lock.as_slice()).unwrap())
-            .keys(DeviceKeyList::new_builder().push(device_key_1.clone()).push(device_key_2.clone()).push(device_key_3.clone()).push(device_key_4.clone()).build())
+            .keys(
+                DeviceKeyList::new_builder()
+                    .push(device_key_1.clone())
+                    .push(device_key_2.clone())
+                    .push(device_key_3.clone())
+                    .push(device_key_4.clone())
+                    .build(),
+            )
             .build(),
     );
 

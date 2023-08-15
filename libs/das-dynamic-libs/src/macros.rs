@@ -44,6 +44,26 @@ macro_rules! load_lib {
 }
 
 #[macro_export]
+macro_rules! load_3_methods {
+    ($lib:expr) => {
+        Some($crate::sign_lib::SignLibWith3Methods {
+            c_validate: unsafe {
+                $lib.get(b"validate")
+                    .expect("Load function 'validate' from library failed.")
+            },
+            c_validate_str: unsafe {
+                $lib.get(b"validate_str")
+                    .expect("Load function 'validate_str' from library failed.")
+            },
+            c_validate_device: unsafe {
+                $lib.get(b"validate_device")
+                    .expect("Load function 'validate_device' from library failed.")
+            },
+        })
+    };
+}
+
+#[macro_export]
 macro_rules! load_2_methods {
     ($lib:expr) => {
         Some($crate::sign_lib::SignLibWith2Methods {
