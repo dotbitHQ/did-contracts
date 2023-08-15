@@ -766,6 +766,7 @@ impl TemplateGenerator {
             .eth(Hash::try_from(util::get_type_id_bytes("eth_sign.so")).unwrap())
             .tron(Hash::try_from(util::get_type_id_bytes("tron_sign.so")).unwrap())
             .doge(Hash::try_from(util::get_type_id_bytes("doge_sign.so")).unwrap())
+            .web_authn(Hash::try_from(util::get_type_id_bytes("webauthn_sign.so")).unwrap())
             .build();
 
         let entity = ConfigCellMain::new_builder()

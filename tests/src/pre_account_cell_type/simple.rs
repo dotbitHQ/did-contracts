@@ -323,7 +323,8 @@ fn challenge_pre_register_invalid_owner_lock_args() {
                     "renew": ACCOUNT_PRICE_5_CHAR
                 },
                 // Simulate providing an invalid das-lock args.
-                "owner_lock_args": "0x00"
+                // The 0x05 is algorithm id, and it is duplicated.
+                "owner_lock_args": "0x0505000000000000000000000000000000000000333305050000000000000000000000000000000000003333"
             }
         }),
     );

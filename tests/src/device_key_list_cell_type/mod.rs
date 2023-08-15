@@ -5,16 +5,15 @@ use ckb_types::packed::{Byte32, Bytes, Script};
 use ckb_types::prelude::{Builder, Entity};
 use das_types_std::constants::{DataType, Source, WITNESS_HEADER};
 use das_types_std::packed::{Data, DataEntity, DataEntityOpt, DeviceKey, DeviceKeyListCellData};
-use hex::{ToHex, FromHex};
+use hex::{FromHex, ToHex};
 use serde_json::{json, Value};
 
 use crate::util::constants::TYPE_ID_TABLE;
 use crate::util::template_generator::{ContractType, TemplateGenerator};
 
-
 mod create;
-mod update;
 mod destroy;
+mod update;
 
 #[derive(Debug, Clone)]
 pub struct DeviceKeyListCell {
@@ -57,7 +56,7 @@ impl DeviceKeyListCell {
             capacity,
             witness,
             lock,
-            data: None
+            data: None,
         }
     }
 
@@ -97,7 +96,7 @@ impl DeviceKeyListCell {
 
         let mut outer_witness = Vec::new();
         outer_witness.extend(WITNESS_HEADER);
-        outer_witness.extend((das_types_std::constants::DataType::DeviceKeyList as u32).to_le_bytes());
+        outer_witness.extend((das_types_std::constants::DataType::DeviceKeyListEntityData as u32).to_le_bytes());
         outer_witness.extend(data.as_slice());
 
         template
@@ -135,10 +134,7 @@ impl BalanceCell {
             .hash_type(ScriptHashType::Type.into())
             .build();
 
-        Self {
-            capacity,
-            lock
-        }
+        Self { capacity, lock }
     }
 
     pub fn push(&self, template: &mut TemplateGenerator, source: Source) {
@@ -155,7 +151,6 @@ impl BalanceCell {
 trait BuildLockArg {
     fn build_lock_arg(&self) -> Bytes;
 }
-
 
 impl BuildLockArg for DeviceKey {
     fn build_lock_arg(&self) -> Bytes {
@@ -207,7 +202,6 @@ fn init(action_name: impl AsRef<str>) -> TemplateGenerator {
     template
 }
 
-
 fn name_to_code_hash(name: impl AsRef<str>) -> Byte32 {
     Byte32::from_slice(
         Vec::<u8>::from_hex(TYPE_ID_TABLE.get(name.as_ref()).unwrap().trim_start_matches("0x"))
@@ -216,4 +210,3 @@ fn name_to_code_hash(name: impl AsRef<str>) -> Byte32 {
     )
     .unwrap()
 }
-

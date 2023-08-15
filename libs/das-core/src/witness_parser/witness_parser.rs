@@ -76,14 +76,15 @@ impl WitnessesParser {
                     );
                     match DataType::try_from(data_type_in_int) {
                         Ok(
-                            DataType::SubAccount
-                            | DataType::SubAccountMintSign
-                            | DataType::SubAccountRenewSign
-                            | DataType::SubAccountPriceRule
-                            | DataType::SubAccountPreservedRule,
+                            _data_type @ DataType::SubAccount
+                            | _data_type @ DataType::SubAccountMintSign
+                            | _data_type @ DataType::SubAccountRenewSign
+                            | _data_type @ DataType::SubAccountPriceRule
+                            | _data_type @ DataType::SubAccountPreservedRule
+                            | _data_type @ DataType::DeviceKeyListCellData,
                         ) => {
                             // Ignore SubAccount witnesses in this parser.
-                            debug!("witnesses[{:>2}] Found SubAccount witness skip parsing.", i);
+                            debug!("witnesses[{:>2}] Found {:?} witness skip parsing.", i, _data_type);
                         }
                         Ok(DataType::ReverseRecord) => {
                             // Ignore ReverseRecord witnesses in this parser.
@@ -126,6 +127,12 @@ impl WitnessesParser {
                                     );
 
                                     let data = util::load_cell_data(config_cells[0], Source::CellDep)?;
+                                    debug!(
+                                        "Loaded data in cell_dep[{:>2}] for witness[{:>2}]: {}",
+                                        config_cells[0],
+                                        i,
+                                        hex::encode(&data)
+                                    );
                                     assert!(
                                         data.len() >= 32,
                                         ErrorCode::WitnessStructureError,

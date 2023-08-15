@@ -671,6 +671,7 @@ dependencies = [
  "das-types",
  "eip712",
  "hex",
+ "molecule",
  "paste",
  "sha2 0.9.9",
  "simple-ast",
@@ -705,7 +706,7 @@ dependencies = [
 [[package]]
 name = "das-types"
 version = "1.11.0"
-source = "git+https://github.com/dotbitHQ/das-types-private.git?rev=e416a81#e416a81364b01eeed6c805a53da67174cccec29b"
+source = "git+https://github.com/dotbitHQ/das-types-private.git?rev=7fbd101#7fbd1014eb3f6bc195b6c2abcda2210d11f8ea10"
 dependencies = [
  "ckb-std",
  "molecule",
@@ -716,7 +717,7 @@ dependencies = [
 [[package]]
 name = "das-types-std"
 version = "1.11.0"
-source = "git+https://github.com/dotbitHQ/das-types-private.git?rev=26192e7#26192e79e9048478ff52cf030c31ceb4e908344f"
+source = "git+https://github.com/dotbitHQ/das-types-private.git?rev=f993731#f99373176f4ca08fb2d57603f21e3aa95447aef8"
 dependencies = [
  "ckb-types",
  "molecule",

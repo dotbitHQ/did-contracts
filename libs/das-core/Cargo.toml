@@ -15,15 +15,19 @@ blake2b-ref = "0.3"
 chrono = { version = "0.4", default-features = false }
 das-map = { path = "../das-map", default-features = false }
 bech32 = { version = "0.8.1", default-features = false }
-bs58 = { version = "0.4.0", default-features = false, features = [ "alloc" ] }
+bs58 = { version = "0.4.0", default-features = false, features = ["alloc"] }
 sha2 = { version = "0.9.6", default-features = false }
 ckb-std = { workspace = true }
 sparse-merkle-tree = { workspace = true }
 das-types = { workspace = true, default-features = false }
-simple-ast = { workspace = true, features = ["no_std"], default-features = false }
+simple-ast = { workspace = true, features = [
+    "no_std",
+], default-features = false }
 eip712 = { path = "../eip712" }
 das-dynamic-libs = { path = "../das-dynamic-libs" }
 paste = "1.0"
+molecule = { workspace = true }
+hex = { workspace = true, default-features = false }
 
 [dev-dependencies]
 hex = { version = "0.4", default-features = false }

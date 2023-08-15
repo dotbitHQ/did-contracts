@@ -19,7 +19,7 @@ fn test_destory() {
             .build(),
     );
 
-    let output_balance_cell = BalanceCell::default_new(90_000_000_000, refund_lock.args());
+    let output_balance_cell = BalanceCell::default_new(9_999_999_000, refund_lock.args());
     input_cell.push(&mut template, Source::Input);
     output_balance_cell.push(&mut template, Source::Output);
 
