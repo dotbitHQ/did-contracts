@@ -596,6 +596,13 @@ pub fn verify_sub_account_approval_sign(
         witness.index
     );
 
+    das_assert!(
+        witness.sign_role.is_some(),
+        SubAccountCellErrorCode::SubAccountSigVerifyError,
+        "  witnesses[{:>2}] Verify the signature is required, but the sign_role, sign_args or sign is missing.",
+        witness.index
+    );
+
     let das_lock_type = match witness.sign_type {
         Some(val) => {
             assert!(

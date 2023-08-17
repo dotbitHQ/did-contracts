@@ -280,7 +280,7 @@ impl SubAccountWitnessesParser {
         );
         let expired_at = u64::from_le_bytes(expired_at_bytes.try_into().unwrap());
 
-        let (sign_role, sign_type, sign_args) = Self::parse_sign_info(index, sign_role_byte, lock_args)?;
+        let (sign_role, sign_type, sign_args) = Self::parse_sign_info(index, sign_role_byte, lock_args, false)?;
 
         Ok(SubAccountMintSignWitness {
             index,
@@ -521,7 +521,6 @@ impl SubAccountWitnessesParser {
             SubAccountAction::Edit,
             SubAccountAction::CreateApproval,
             SubAccountAction::DelayApproval,
-            SubAccountAction::FulfillApproval,
         ]
         .contains(&action)
         {
@@ -540,7 +539,7 @@ impl SubAccountWitnessesParser {
 
             let lock_args_reader = sub_account.as_reader().lock().args();
             lock_args = lock_args_reader.raw_data().to_vec();
-            (sign_role, sign_type, sign_args) = Self::parse_sign_info(i, sign_role_byte, &lock_args)?;
+            (sign_role, sign_type, sign_args) = Self::parse_sign_info(i, sign_role_byte, &lock_args, false)?;
         } else if action == SubAccountAction::RevokeApproval {
             debug!(
                 "  witnesses[{:>2}] Parse the sub_account.approval.params.platform_lock as the signing lock ...",
@@ -569,10 +568,28 @@ impl SubAccountWitnessesParser {
                         .map_err(|_| code_to_error!(SubAccountCellErrorCode::WitnessParsingError))?;
                     let lock_args_reader = approval_params_reader.platform_lock().args();
                     lock_args = lock_args_reader.raw_data().to_vec();
-                    (sign_role, sign_type, sign_args) = Self::parse_sign_info(i, sign_role_byte, &lock_args)?;
+                    (sign_role, sign_type, sign_args) = Self::parse_sign_info(i, sign_role_byte, &lock_args, false)?;
                 }
                 _ => return Err(code_to_error!(SubAccountCellErrorCode::ApprovalActionUndefined)),
             }
+        } else if action == SubAccountAction::FulfillApproval {
+            debug!(
+                "  witnesses[{:>2}] Parse the sub_account.lock as the signing lock ...",
+                i
+            );
+
+            das_assert!(
+                sign_expired_at_bytes.len() == 8,
+                ErrorCode::WitnessStructureError,
+                "  witnesses[{:>2}] SubAccountMintSignWitness.expired_at_bytes should be 8 bytes.",
+                i
+            );
+            sign_expired_at = u64::from_le_bytes(sign_expired_at_bytes.try_into().unwrap());
+
+            let lock_args_reader = sub_account.as_reader().lock().args();
+            lock_args = lock_args_reader.raw_data().to_vec();
+            // WARNING! If the approval reached the sealed_util field, no signature is required.
+            (sign_role, sign_type, sign_args) = Self::parse_sign_info(i, sign_role_byte, &lock_args, true)?;
         }
 
         let edit_value;
@@ -806,19 +823,24 @@ impl SubAccountWitnessesParser {
         index: usize,
         sign_role_byte: &[u8],
         lock_args: &[u8],
+        can_be_empty: bool,
     ) -> Result<(Option<LockRole>, Option<DasLockType>, Vec<u8>), Box<dyn ScriptError>> {
         debug!("  witnesses[{:>2}] Start parsing sign info ...", index);
 
         let sign_role_int = match sign_role_byte.try_into() {
             Ok(val) => u8::from_le_bytes(val),
             Err(e) => {
-                warn!(
-                    "  witnesses[{:>2}] Parsing 0x{} to u8 failed: {}",
-                    index,
-                    util::hex_string(sign_role_byte),
-                    e
-                );
-                return Err(code_to_error!(ErrorCode::Encoding));
+                if can_be_empty {
+                    return Ok((None, None, Vec::new()));
+                } else {
+                    warn!(
+                        "  witnesses[{:>2}] Parsing 0x{} to u8 failed: {}",
+                        index,
+                        util::hex_string(sign_role_byte),
+                        e
+                    );
+                    return Err(code_to_error!(ErrorCode::Encoding));
+                }
             }
         };
         let sign_type_int;
