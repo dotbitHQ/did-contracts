@@ -341,7 +341,7 @@ fn create_approval_to_semantic(parser: &WitnessesParser) -> Result<String, Box<d
             let sealed_until = u64::from(approval_params.sealed_until());
 
             Ok(format!(
-                "APPROVE TRANSFER ACCOUNT {} TO {} AFTER {}",
+                "APPROVE TRANSFER {} TO {} AFTER {}",
                 account, to_address, sealed_until
             ))
         }
@@ -389,7 +389,7 @@ fn delay_approval_to_semantic(parser: &WitnessesParser) -> Result<String, Box<dy
             let sealed_until = u64::from(approval_params.sealed_until());
 
             Ok(format!(
-                "DELAY THE TRANSFER APPROVAL OF ACCOUNT {} TO {}",
+                "DELAY THE TRANSFER APPROVAL OF {} TO {}",
                 account, sealed_until
             ))
         }
