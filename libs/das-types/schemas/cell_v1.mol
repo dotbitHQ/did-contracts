@@ -1,0 +1,16 @@
+import basic;
+import cell;
+
+table AccountCellDataV1 {
+    // The first 160 bits of the hash of account.
+    id: AccountId,
+    // Separate chars of account.
+    account: AccountChars,
+    // AccountCell register timestamp.
+    registered_at: Uint64,
+    // AccountCell update timestamp.
+    updated_at: Uint64,
+    // The status of the account, 0x00 means normal, 0x01 means being sold, 0x02 means being auctioned.
+    status: Uint8,
+    records: Records,
+}

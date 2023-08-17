@@ -7,6 +7,7 @@ members = [
     "libs/das-sorted-list",
     "libs/eip712",
     "libs/simple-ast",
+    "libs/das-types",
     # Contracts
     "contracts/always-success",
     "contracts/account-cell-type",
@@ -51,8 +52,7 @@ default-members = [
 ]
 
 [workspace.dependencies]
-das-types = { git = "https://github.com/dotbitHQ/das-types-private.git", default-features = false, rev = "7fbd101" }
-das-types-std = { git = "https://github.com/dotbitHQ/das-types-private.git", rev = "f993731" }
+das-types = { path = "libs/das-types", default-features = false }
 simple-ast = { path = "libs/simple-ast", default-features = false }
 das-map = { path = "libs/das-map", default-features = false }
 das-core = { path = "libs/das-core", default-features = false }

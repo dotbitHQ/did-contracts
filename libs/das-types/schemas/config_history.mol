@@ -1,0 +1,260 @@
+import basic;
+import cell;
+
+// ConfigCellMain
+
+table ConfigCellMainV1 {
+    // Global DAS system switch, 0x01 means system on, 0x00 means system off.
+    status: Uint8,
+    // table of type ID of all kinds of cells
+    type_id_table: TypeIdTableV1,
+    // table code_hash of dynamic libs of das-lock
+    das_lock_out_point_table: DasLockOutPointTableV1,
+}
+
+table TypeIdTableV1 {
+    account_cell: Hash,
+    apply_register_cell: Hash,
+    bidding_cell: Hash,
+    income_cell: Hash,
+    on_sale_cell: Hash,
+    pre_account_cell: Hash,
+    proposal_cell: Hash,
+}
+
+table DasLockOutPointTableV1 {
+    ckb_signall: OutPoint,
+    ckb_multisign: OutPoint,
+    ckb_anyone_can_pay: OutPoint,
+    eth: OutPoint,
+    tron: OutPoint,
+}
+
+table ConfigCellMainV2 {
+    // Global DAS system switch, 0x01 means system on, 0x00 means system off.
+    status: Uint8,
+    // table of type ID of all kinds of cells
+    type_id_table: TypeIdTableV2,
+    // table code_hash of dynamic libs of das-lock
+    das_lock_out_point_table: DasLockOutPointTableV1,
+}
+
+table TypeIdTableV2 {
+    account_cell: Hash,
+    apply_register_cell: Hash,
+    balance_cell: Hash,
+    income_cell: Hash,
+    pre_account_cell: Hash,
+    proposal_cell: Hash,
+}
+
+table ConfigCellMainV3 {
+    // Global DAS system switch, 0x01 means system on, 0x00 means system off.
+    status: Uint8,
+    // table of type ID of all kinds of cells
+    type_id_table: TypeIdTableV3,
+    // table code_hash of dynamic libs of das-lock
+    das_lock_out_point_table: DasLockOutPointTableV1,
+}
+
+table TypeIdTableV3 {
+    account_cell: Hash,
+    apply_register_cell: Hash,
+    balance_cell: Hash,
+    income_cell: Hash,
+    pre_account_cell: Hash,
+    proposal_cell: Hash,
+    account_sale_cell: Hash,
+    account_auction_cell: Hash,
+    // reverse_record_cell: Hash,
+}
+
+table ConfigCellMainV4 {
+    // Global DAS system switch, 0x01 means system on, 0x00 means system off.
+    status: Uint8,
+    // table of type ID of all kinds of cells
+    type_id_table: TypeIdTableV4,
+    // table code_hash of dynamic libs of das-lock
+    das_lock_out_point_table: DasLockOutPointTableV1,
+}
+
+table ConfigCellMainV5 {
+    // Global DAS system switch, 0x01 means system on, 0x00 means system off.
+    status: Uint8,
+    // table of type ID of all kinds of cells
+    type_id_table: TypeIdTableV4,
+    // table code_hash of dynamic libs of das-lock
+    das_lock_out_point_table: DasLockOutPointTable,
+}
+
+table TypeIdTableV4 {
+    account_cell: Hash,
+    apply_register_cell: Hash,
+    balance_cell: Hash,
+    income_cell: Hash,
+    pre_account_cell: Hash,
+    proposal_cell: Hash,
+    account_sale_cell: Hash,
+    account_auction_cell: Hash,
+    offer_cell: Hash,
+    reverse_record_cell: Hash,
+}
+
+table ConfigCellMainV6 {
+    // Global DAS system switch, 0x01 means system on, 0x00 means system off.
+    status: Uint8,
+    // table of type ID of all kinds of cells
+    type_id_table: TypeIdTableV5,
+    // table code_hash of dynamic libs of das-lock
+    das_lock_out_point_table: DasLockOutPointTable,
+}
+
+table TypeIdTableV5 {
+    account_cell: Hash,
+    apply_register_cell: Hash,
+    balance_cell: Hash,
+    income_cell: Hash,
+    pre_account_cell: Hash,
+    proposal_cell: Hash,
+    account_sale_cell: Hash,
+    account_auction_cell: Hash,
+    offer_cell: Hash,
+    reverse_record_cell: Hash,
+    sub_account_cell: Hash,
+}
+
+table ConfigCellMainV7 {
+    // Global DAS system switch, 0x01 means system on, 0x00 means system off.
+    status: Uint8,
+    // table of type ID of all kinds of cells
+    type_id_table: TypeIdTableV5,
+    // table code_hash of dynamic libs of das-lock
+    das_lock_out_point_table: DasLockOutPointTable,
+}
+
+table TypeIdTableV6 {
+    account_cell: Hash,
+    apply_register_cell: Hash,
+    balance_cell: Hash,
+    income_cell: Hash,
+    pre_account_cell: Hash,
+    proposal_cell: Hash,
+    account_sale_cell: Hash,
+    account_auction_cell: Hash,
+    offer_cell: Hash,
+    reverse_record_cell: Hash,
+    sub_account_cell: Hash,
+    eip712_lib: Hash,
+}
+
+// ConfigCellAccount
+
+table ConfigCellAccountV1 {
+    // The maximum length of accounts in characters.
+    max_length: Uint32,
+    // The basic capacity AccountCell required, it is bigger than or equal to AccountCell occupied capacity.
+    basic_capacity: Uint64,
+    // The fees prepared for various transactions for operating an account.
+    prepared_fee_capacity: Uint64,
+    // The grace period for account expiration in seconds
+    expiration_grace_period: Uint32,
+    // The minimum ttl of record in seconds
+    record_min_ttl: Uint32,
+    // The maximum size of all records in molecule encoding
+    record_size_limit: Uint32,
+    // The fee of each action
+    transfer_account_fee: Uint64,
+    edit_manager_fee: Uint64,
+    edit_records_fee: Uint64,
+    // The frequency limit of actions which manipulating account
+    transfer_account_throttle: Uint32,
+    edit_manager_throttle: Uint32,
+    edit_records_throttle: Uint32,
+}
+
+// ConfigCellProfitRate
+
+table ConfigCellProfitRateV1 {
+    // The profit rate of inviters who invite people to buy DAS accounts.
+    inviter: Uint32,
+    // The profit rate of channels who support people to create DAS accounts.
+    channel: Uint32,
+    // The profit rate for who created proposal
+    proposal_create: Uint32,
+    // The profit rate for who confirmed proposal
+    proposal_confirm: Uint32,
+    // The profit rate for consolidating IncomeCells
+    income_consolidate: Uint32,
+}
+
+table ConfigCellProfitRateV2 {
+    // The profit rate of inviters who invite people to buy DAS accounts.
+    inviter: Uint32,
+    // The profit rate of channels who support people to create DAS accounts.
+    channel: Uint32,
+    // The profit rate for who created proposal
+    proposal_create: Uint32,
+    // The profit rate for who confirmed proposal
+    proposal_confirm: Uint32,
+    // The profit rate for consolidating IncomeCells
+    income_consolidate: Uint32,
+    // The profit rate for inviter in account sale.
+    sale_inviter: Uint32,
+    // The profit rate for channel in account sale.
+    sale_channel: Uint32,
+    // The profit rate for DAS in account sale.
+    sale_das: Uint32,
+}
+
+// ConfigCellSecondaryMarket
+
+table ConfigCellSecondaryMarketV1 {
+    // Minimum price for selling an account.
+    min_sale_price: Uint64,
+    // Expiration time limit for selling accounts.
+    sale_expiration_limit: Uint64,
+    // Limitation of bytes size for the description of selling accounts.
+    sale_description_bytes_limit: Uint32,
+}
+
+table ConfigCellSecondaryMarketV2 {
+    // Minimum price for selling an account.
+    sale_min_price: Uint64,
+    // Expiration time limit for selling accounts.
+    sale_expiration_limit: Uint32,
+    // Bytes size limitation of the description for account sale.
+    sale_description_bytes_limit: Uint32,
+    // The maximum extendable duration time for an auction, unit in seconds.
+    auction_max_extendable_duration: Uint32,
+    // The increment of duration brought by each bid in the auction, unit in seconds.
+    auction_duration_increment_each_bid: Uint32,
+    // The minimum opening price for an auction.
+    auction_min_opening_price: Uint64,
+    // The minimum bid increment rate of each bid.
+    auction_min_increment_rate_each_bid: Uint32,
+    // Bytes size limitation of the description for an auction.
+    auction_description_bytes_limit: Uint32,
+}
+
+// ConfigCellSubAccount
+
+table ConfigCellSubAccountV1 {
+    // The basic capacity SubAccountCell required, it is bigger than or equal to SubAccountCell occupied capacity.
+    basic_capacity: Uint64,
+    // The fees prepared for various transactions.
+    prepared_fee_capacity: Uint64,
+    // The price to register a new sub-account.
+    new_sub_account_price: Uint64,
+    // The price to register a renew sub-account.
+    renew_sub_account_price: Uint64,
+    // The common fee for every transactions SubAccountCell involved.
+    common_fee: Uint64,
+    // The fee for create_sub_account action.
+    create_fee: Uint64,
+    // The fee for edit_sub_account action.
+    edit_fee: Uint64,
+    // The fee for renew_sub_account action.
+    renew_fee: Uint64,
+    // The fee for recycle_sub_account action.
+    recycle_fee: Uint64,
+}
