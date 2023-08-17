@@ -17,7 +17,7 @@ pub fn transfer_approval_create(
     new_sub_account_reader: SubAccountReader,
 ) -> Result<(), Box<dyn ScriptError>> {
     debug!(
-        "  witnesses[{:>2}] Verify if the AccountApprovalTransfer.approve is exist ...",
+        "  witnesses[{:>2}] Verify if the AccountApprovalTransfer.approval is not exist ...",
         i
     );
 

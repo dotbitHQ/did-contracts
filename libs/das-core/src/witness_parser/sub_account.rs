@@ -807,6 +807,8 @@ impl SubAccountWitnessesParser {
         sign_role_byte: &[u8],
         lock_args: &[u8],
     ) -> Result<(Option<LockRole>, Option<DasLockType>, Vec<u8>), Box<dyn ScriptError>> {
+        debug!("  witnesses[{:>2}] Start parsing sign info ...", index);
+
         let sign_role_int = match sign_role_byte.try_into() {
             Ok(val) => u8::from_le_bytes(val),
             Err(e) => {
