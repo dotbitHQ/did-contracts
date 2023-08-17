@@ -3,8 +3,8 @@ use alloc::string::ToString;
 
 use das_core::constants::{das_lock, DAY_SEC};
 use das_core::error::*;
-use das_core::{code_to_error, das_assert, debug, util, warn};
-use das_types::constants::AccountStatus;
+use das_core::{code_to_error, das_assert, data_parser, debug, util, warn};
+use das_types::constants::*;
 use das_types::mixer::SubAccountReaderMixer;
 use das_types::packed::*;
 use das_types::prelude::*;
@@ -83,6 +83,13 @@ pub fn transfer_approval_create(
         util::is_type_id_equal(platform_lock.into(), das_lock_reader),
         SubAccountCellErrorCode::ApprovalParamsPlatformLockInvalid,
         "  witnesses[{:>2}] The edit_value.params.platform_lock should use das-lock.",
+        i
+    );
+
+    das_assert!(
+        data_parser::das_lock_args::get_owner_type(platform_lock.args().raw_data()) == (DasLockType::ETH as u8),
+        AccountCellErrorCode::ApprovalParamsPlatformLockInvalid,
+        "  witnesses[{:>2}] The approval.params.platform_lock only support ETH type.",
         i
     );
 

@@ -8,12 +8,10 @@ use ckb_std::high_level;
 use das_core::constants::*;
 use das_core::error::*;
 use das_core::witness_parser::WitnessesParser;
-use das_core::{
-    assert as das_assert, code_to_error, data_parser, debug, sign_util, util, verifiers, warn,
-};
+use das_core::{assert as das_assert, code_to_error, data_parser, debug, sign_util, util, verifiers, warn};
 use das_dynamic_libs::constants::DynLibName;
 use das_dynamic_libs::sign_lib::SignLib;
-use das_dynamic_libs::{load_1_method, load_lib, log_loading, new_context};
+use das_dynamic_libs::{load_1_method, load_2_methods, load_lib, log_loading, new_context};
 use das_map::map::Map;
 use das_map::util as map_util;
 use das_types::constants::*;
@@ -1205,7 +1203,9 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 );
             }
         }
-        b"create_approval" => action_approve(action, &mut parser)?,
+        b"create_approval" | b"delay_approval" | b"revoke_approval" | b"fulfill_approval" => {
+            action_approve(action, &mut parser)?
+        }
         _ => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
     }
 
@@ -1238,6 +1238,7 @@ fn action_approve(action: &[u8], parser: &mut WitnessesParser) -> Result<(), Box
     let output_cell_witness = util::parse_account_cell_witness(&parser, output_account_cells[0], Source::Output)?;
     let output_cell_witness_reader = output_cell_witness.as_reader();
 
+    let config_main = parser.configs.main()?;
     let config_account = parser.configs.account()?;
 
     verify_transaction_fee_spent_correctly(action, config_account, input_account_cells[0], output_account_cells[0])?;
@@ -1274,6 +1275,8 @@ fn action_approve(action: &[u8], parser: &mut WitnessesParser) -> Result<(), Box
                 input_cell_witness_reader,
                 output_cell_witness_reader,
             )?;
+
+            util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
         }
         b"delay_approval" => {
             verifiers::account_cell::verify_account_cell_consistent_with_exception(
@@ -1292,6 +1295,34 @@ fn action_approve(action: &[u8], parser: &mut WitnessesParser) -> Result<(), Box
                 input_cell_witness_reader,
                 output_cell_witness_reader,
             )?;
+
+            util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
+        }
+        b"revoke_approval" => {
+            verifiers::account_cell::verify_account_cell_consistent_with_exception(
+                input_account_cells[0],
+                output_account_cells[0],
+                &input_cell_witness_reader,
+                &output_cell_witness_reader,
+                None,
+                vec![],
+                vec!["status", "approval"],
+            )?;
+
+            let platform_lock = approval::transfer_approval_revoke(
+                timestamp,
+                input_account_cells[0],
+                output_account_cells[0],
+                input_cell_witness_reader,
+                output_cell_witness_reader,
+            )?;
+
+            verify_approval_sign(
+                "platform_lock",
+                platform_lock.as_reader(),
+                input_account_cells[0],
+                config_main.das_lock_type_id_table(),
+            )?;
         }
         _ => {
             warn!(
@@ -1302,7 +1333,7 @@ fn action_approve(action: &[u8], parser: &mut WitnessesParser) -> Result<(), Box
         }
     }
 
-    util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
+    // WARNING! No codes allowed here, all branches should end before this line.
 
     Ok(())
 }
@@ -1496,6 +1527,53 @@ fn verify_multi_sign(
     if cfg!(not(feature = "dev")) {
         sign_lib
             .validate(DasLockType::CKBMulti, 0i32, digest.to_vec(), witness_args_lock, args)
+            .map_err(|err_code| {
+                warn!(
+                    "inputs[{}] Verify signature failed, error code: {}",
+                    input_account_index, err_code
+                );
+                return ErrorCode::EIP712SignatureError;
+            })?;
+    }
+
+    Ok(())
+}
+
+fn verify_approval_sign(
+    lock_name: &str,
+    sign_lock: ScriptReader,
+    input_account_index: usize,
+    type_id_table: DasLockTypeIdTableReader,
+) -> Result<(), Box<dyn ScriptError>> {
+    debug!("Verify the signatures of eth wit {} ...", lock_name);
+
+    let lock_type = data_parser::das_lock_args::get_owner_type(sign_lock.args().raw_data());
+    let args = data_parser::das_lock_args::get_owner_lock_args(sign_lock.args().raw_data());
+
+    das_assert!(
+        lock_type == (DasLockType::ETH as u8),
+        AccountCellErrorCode::ApprovalParamsPlatformLockInvalid,
+        "Only sign type ETH is supported here."
+    );
+
+    let (digest, witness_args_lock) =
+        sign_util::calc_digest_by_input_group(DasLockType::ETH, vec![input_account_index])?;
+
+    let mut sign_lib = SignLib::new();
+    let mut eth_context = new_context!();
+    log_loading!(DynLibName::ETH, type_id_table);
+    let eth_lib = load_lib!(eth_context, DynLibName::ETH, type_id_table);
+    sign_lib.eth = load_2_methods!(eth_lib);
+
+    if cfg!(not(feature = "dev")) {
+        sign_lib
+            .validate(
+                DasLockType::ETH,
+                0i32,
+                digest.to_vec(),
+                witness_args_lock,
+                args.to_vec(),
+            )
             .map_err(|err_code| {
                 warn!(
                     "inputs[{}] Verify signature failed, error code: {}",

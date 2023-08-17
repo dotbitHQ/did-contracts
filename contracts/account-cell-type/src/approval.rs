@@ -1,11 +1,10 @@
 use alloc::boxed::Box;
+use alloc::string::{String, ToString};
 
-use alloc::string::{ToString, String};
 use ckb_std::ckb_constants::Source;
 use das_core::constants::{das_lock, DAY_SEC};
-use das_core::{error::*, warn};
-use das_core::code_to_error;
-use das_core::{das_assert, data_parser, debug, util, verifiers};
+use das_core::error::*;
+use das_core::{code_to_error, das_assert, data_parser, debug, util, verifiers, warn};
 use das_types::constants::*;
 use das_types::mixer::AccountCellDataReaderMixer;
 use das_types::packed::*;
@@ -111,6 +110,14 @@ pub fn transfer_approval_create<'a>(
     );
 
     das_assert!(
+        data_parser::das_lock_args::get_owner_type(platform_lock.args().raw_data()) == (DasLockType::ETH as u8),
+        AccountCellErrorCode::ApprovalParamsPlatformLockInvalid,
+        "{:?}[{}] The approval.params.platform_lock only support ETH type.",
+        Source::Output,
+        output_account_index
+    );
+
+    das_assert!(
         protected_until <= timestamp + DAY_SEC * limit_days,
         AccountCellErrorCode::ApprovalParamsProtectedUntilInvalid,
         "{:?}[{}] The approval.params.protected_until should not exceed {} days from current.",
@@ -153,7 +160,7 @@ pub fn transfer_approval_delay<'a>(
     input_account_reader: Box<dyn AccountCellDataReaderMixer + 'a>,
     output_account_reader: Box<dyn AccountCellDataReaderMixer + 'a>,
 ) -> Result<(), Box<dyn ScriptError>> {
-    debug!("Parse the AccountApprovalTransfer.params ...",);
+    debug!("Parsing the AccountCellData into the latest version ...");
 
     let input_account_reader = match input_account_reader.try_into_latest() {
         Ok(reader) => reader,
@@ -178,35 +185,44 @@ pub fn transfer_approval_delay<'a>(
         }
     };
 
+    debug!("Verify if the AccountApprovalTransfer.params is consistent ...");
+
     das_assert!(
-        util::is_reader_eq(input_account_reader.approval().action(), output_account_reader.approval().action()),
+        util::is_reader_eq(
+            input_account_reader.approval().action(),
+            output_account_reader.approval().action()
+        ),
         AccountCellErrorCode::ApprovalParamsCanNotBeChanged,
         "The AccountCell.witness.approval.action can not be changed.(input: {:?}, output: {:?})",
         String::from_utf8(input_account_reader.approval().action().raw_data().to_vec()),
         String::from_utf8(output_account_reader.approval().action().raw_data().to_vec())
     );
 
-    let input_approval_params =
-        AccountApprovalTransfer::from_compatible_slice(input_account_reader.approval().params().raw_data()).map_err(|e| {
-            warn!(
-                "{:?}[{}] Decoding AccountCell.witness.approval.params failed: {}",
-                Source::Input,
-                input_account_index,
-                e.to_string()
-            );
-            return code_to_error!(AccountCellErrorCode::WitnessParsingError);
-        })?;
+    let input_approval_params = AccountApprovalTransfer::from_compatible_slice(
+        input_account_reader.approval().params().raw_data(),
+    )
+    .map_err(|e| {
+        warn!(
+            "{:?}[{}] Decoding AccountCell.witness.approval.params failed: {}",
+            Source::Input,
+            input_account_index,
+            e.to_string()
+        );
+        return code_to_error!(AccountCellErrorCode::WitnessParsingError);
+    })?;
     let input_approval_reader = input_approval_params.as_reader();
-    let output_approval_params =
-        AccountApprovalTransfer::from_compatible_slice(output_account_reader.approval().params().raw_data()).map_err(|e| {
-            warn!(
-                "{:?}[{}] Decoding AccountCell.witness.approval.params failed: {}",
-                Source::Output,
-                output_account_index,
-                e.to_string()
-            );
-            return code_to_error!(AccountCellErrorCode::WitnessParsingError);
-        })?;
+    let output_approval_params = AccountApprovalTransfer::from_compatible_slice(
+        output_account_reader.approval().params().raw_data(),
+    )
+    .map_err(|e| {
+        warn!(
+            "{:?}[{}] Decoding AccountCell.witness.approval.params failed: {}",
+            Source::Output,
+            output_account_index,
+            e.to_string()
+        );
+        return code_to_error!(AccountCellErrorCode::WitnessParsingError);
+    })?;
     let output_approval_reader = output_approval_params.as_reader();
 
     macro_rules! das_assert_field_consistent {
@@ -219,9 +235,21 @@ pub fn transfer_approval_delay<'a>(
             );
         };
     }
-    das_assert_field_consistent!( input_approval_reader, output_approval_reader, "platform_lock", platform_lock );
-    das_assert_field_consistent!( input_approval_reader, output_approval_reader, "protected_until", protected_until );
-    das_assert_field_consistent!( input_approval_reader, output_approval_reader, "to_lock", to_lock );
+    das_assert_field_consistent!(
+        input_approval_reader,
+        output_approval_reader,
+        "platform_lock",
+        platform_lock
+    );
+    das_assert_field_consistent!(
+        input_approval_reader,
+        output_approval_reader,
+        "protected_until",
+        protected_until
+    );
+    das_assert_field_consistent!(input_approval_reader, output_approval_reader, "to_lock", to_lock);
+
+    debug!("Verify if the AccountApprovalTransfer.params is valid ...");
 
     let input_delay_count_remain = u8::from(input_approval_reader.delay_count_remain());
     let output_delay_count_remain = u8::from(output_approval_reader.delay_count_remain());
@@ -237,7 +265,7 @@ pub fn transfer_approval_delay<'a>(
     das_assert!(
         output_delay_count_remain < input_delay_count_remain
             && output_delay_count_remain == input_delay_count_remain - 1,
-            AccountCellErrorCode::ApprovalParamsDelayCountDecrementError,
+        AccountCellErrorCode::ApprovalParamsDelayCountDecrementError,
         "{:?}[{}] The AccountCell.witness.approval.params.delay_count_remain should be decreased by 1.",
         Source::Output,
         output_account_index
@@ -255,4 +283,85 @@ pub fn transfer_approval_delay<'a>(
     );
 
     Ok(())
+}
+
+pub fn transfer_approval_revoke<'a>(
+    timestamp: u64,
+    input_account_index: usize,
+    output_account_index: usize,
+    input_account_reader: Box<dyn AccountCellDataReaderMixer + 'a>,
+    output_account_reader: Box<dyn AccountCellDataReaderMixer + 'a>,
+) -> Result<Script, Box<dyn ScriptError>> {
+    debug!("Parsing the AccountCellData into the latest version ...");
+
+    let input_account_reader = match input_account_reader.try_into_latest() {
+        Ok(reader) => reader,
+        Err(_) => {
+            warn!(
+                "{:?}[{}] The witness should be the latest version.",
+                Source::Input,
+                input_account_index
+            );
+            return Err(code_to_error!(AccountCellErrorCode::WitnessParsingError));
+        }
+    };
+    let output_account_reader = match output_account_reader.try_into_latest() {
+        Ok(reader) => reader,
+        Err(_) => {
+            warn!(
+                "{:?}[{}] The witness should be the latest version.",
+                Source::Output,
+                output_account_index
+            );
+            return Err(code_to_error!(AccountCellErrorCode::WitnessParsingError));
+        }
+    };
+
+    debug!("Verify if the approval can be revoked ...");
+
+    let input_approval_params = AccountApprovalTransfer::from_compatible_slice(
+        input_account_reader.approval().params().raw_data(),
+    )
+    .map_err(|e| {
+        warn!(
+            "{:?}[{}] Decoding AccountCell.witness.approval.params failed: {}",
+            Source::Input,
+            input_account_index,
+            e.to_string()
+        );
+        return code_to_error!(AccountCellErrorCode::WitnessParsingError);
+    })?;
+    let input_approval_reader = input_approval_params.as_reader();
+
+    let input_protected_until = u64::from(input_approval_reader.protected_until());
+
+    das_assert!(
+        timestamp > input_protected_until,
+        AccountCellErrorCode::ApprovalInProtectionPeriod,
+        "{:?}[{}] The AccountCell.witness.approval.params.protected_until is not reached, can not revoke the approval.",
+        Source::Input,
+        input_account_index
+    );
+
+    // Signature verification is placed at the end of the contract.
+
+    debug!("Verify if the approval has been revoked ...");
+
+    das_assert!(
+        (AccountStatus::Normal as u8) == u8::from(output_account_reader.status()),
+        AccountCellErrorCode::ApprovalNotRevoked,
+        "{:?}[{}] The AccountCell should be reset to the normal status.",
+        Source::Output,
+        output_account_index
+    );
+
+    das_assert!(
+        util::is_reader_eq(output_account_reader.approval(), AccountApproval::default().as_reader()),
+        AccountCellErrorCode::ApprovalNotRevoked,
+        "{:?}[{}] The AccountCell.witness.approval should be set to default.",
+        Source::Output,
+        output_account_index
+    );
+
+    Ok(input_approval_reader.platform_lock().to_entity())
 }
