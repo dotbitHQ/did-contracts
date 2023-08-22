@@ -2,6 +2,7 @@ use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 
 use ckb_std::ckb_constants::Source;
+use ckb_std::high_level;
 use das_core::constants::{das_lock, DAY_SEC};
 use das_core::error::*;
 use das_core::{code_to_error, das_assert, data_parser, debug, util, verifiers, warn};
@@ -364,4 +365,102 @@ pub fn transfer_approval_revoke<'a>(
     );
 
     Ok(input_approval_reader.platform_lock().to_entity())
+}
+
+pub fn transfer_approval_fulfill<'a>(
+    input_account_index: usize,
+    output_account_index: usize,
+    input_account_reader: Box<dyn AccountCellDataReaderMixer + 'a>,
+    output_account_reader: Box<dyn AccountCellDataReaderMixer + 'a>,
+) -> Result<u64, Box<dyn ScriptError>> {
+    debug!("Parsing the AccountCellData into the latest version ...");
+
+    let input_account_reader = match input_account_reader.try_into_latest() {
+        Ok(reader) => reader,
+        Err(_) => {
+            warn!(
+                "{:?}[{}] The witness should be the latest version.",
+                Source::Input,
+                input_account_index
+            );
+            return Err(code_to_error!(AccountCellErrorCode::WitnessParsingError));
+        }
+    };
+    let output_account_reader = match output_account_reader.try_into_latest() {
+        Ok(reader) => reader,
+        Err(_) => {
+            warn!(
+                "{:?}[{}] The witness should be the latest version.",
+                Source::Output,
+                output_account_index
+            );
+            return Err(code_to_error!(AccountCellErrorCode::WitnessParsingError));
+        }
+    };
+
+    debug!("Parsing the approval params ...");
+
+    let input_approval_params = AccountApprovalTransfer::from_compatible_slice(
+        input_account_reader.approval().params().raw_data(),
+    )
+    .map_err(|e| {
+        warn!(
+            "{:?}[{}] Decoding AccountCell.witness.approval.params failed: {}",
+            Source::Input,
+            input_account_index,
+            e.to_string()
+        );
+        return code_to_error!(AccountCellErrorCode::WitnessParsingError);
+    })?;
+    let input_approval_reader = input_approval_params.as_reader();
+    let to_lock = input_approval_reader.to_lock();
+
+    // Signature verification is placed at the end of the contract.
+
+    debug!("Verify if the approval has been fulfilled ...");
+
+    das_assert!(
+        (AccountStatus::Normal as u8) == u8::from(output_account_reader.status()),
+        AccountCellErrorCode::ApprovalNotRevoked,
+        "{:?}[{}] The AccountCell should be reset to the normal status.",
+        Source::Output,
+        output_account_index
+    );
+
+    das_assert!(
+        util::is_reader_eq(output_account_reader.approval(), AccountApproval::default().as_reader()),
+        AccountCellErrorCode::ApprovalNotRevoked,
+        "{:?}[{}] The AccountCell.witness.approval should be set to default.",
+        Source::Output,
+        output_account_index
+    );
+
+    let output_lock = high_level::load_cell_lock(output_account_index, Source::Output).map_err(|_| {
+        warn!(
+            "{:?}[{}] Loading lock field failed.",
+            Source::Output,
+            output_account_index
+        );
+        return code_to_error!(ErrorCode::InvalidTransactionStructure);
+    })?;
+
+    das_assert!(
+        util::is_reader_eq(output_lock.as_reader().into(), to_lock),
+        AccountCellErrorCode::ApprovalFulfillError,
+        "{:?}[{}] The AccountCell.lock should be the to_lock in the approval.",
+        Source::Output,
+        output_account_index
+    );
+
+    das_assert!(
+        output_account_reader.records().is_empty(),
+        AccountCellErrorCode::ApprovalFulfillError,
+        "{:?}[{}] The AccountCell.records should be empty, because the ownership has been changed.",
+        Source::Output,
+        output_account_index
+    );
+
+    let sealed_until = u64::from(input_approval_reader.sealed_until());
+
+    Ok(sealed_until)
 }

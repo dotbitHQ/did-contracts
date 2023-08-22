@@ -292,7 +292,9 @@ fn lock_account_for_cross_chain_to_semantic(parser: &WitnessesParser) -> Result<
     Ok(format!("LOCK {} FOR CROSS CHAIN", account))
 }
 
-fn parse_approval_tx_info(parser: &WitnessesParser) -> Result<(usize, usize, String, Box<dyn AccountCellDataMixer>), Box<dyn ScriptError>> {
+fn parse_approval_tx_info(
+    parser: &WitnessesParser,
+) -> Result<(usize, usize, String, Box<dyn AccountCellDataMixer>), Box<dyn ScriptError>> {
     let type_id_table_reader = parser.configs.main()?.type_id_table();
     let (input_cells, output_cells) =
         util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, type_id_table_reader.account_cell())?;

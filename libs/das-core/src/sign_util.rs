@@ -11,7 +11,7 @@ use das_types::constants::DasLockType;
 
 use super::error::*;
 use super::{code_to_error, util};
-use crate::constants::{ScriptType, SECP_SIGNATURE_SIZE};
+use crate::constants::{ScriptType, CKB_HASH_DIGEST, EIP712_CHAINID_SIZE, SECP_SIGNATURE_SIZE};
 
 fn find_input_size() -> Result<usize, Box<dyn ScriptError>> {
     let mut i = 1;
@@ -46,6 +46,31 @@ pub fn calc_digest_by_lock(
     let ret = calc_digest_by_input_group(sign_type, input_group_idxs)?;
 
     Ok(ret)
+}
+
+pub fn get_eip712_digest(
+    input_group_idxs: Vec<usize>,
+) -> Result<([u8; 32], [u8; 32], Vec<u8>, Vec<u8>), Box<dyn ScriptError>> {
+    let init_witness_idx = input_group_idxs[0];
+    let (digest, witness_args_lock) = calc_digest_by_input_group(DasLockType::ETHTypedData, input_group_idxs)?;
+
+    das_assert!(
+        witness_args_lock.len() == SECP_SIGNATURE_SIZE + CKB_HASH_DIGEST + EIP712_CHAINID_SIZE,
+        ErrorCode::EIP712SignatureError,
+        "Inputs[{}] The length of signature is invalid.(current: {}, expected: {})",
+        init_witness_idx,
+        witness_args_lock.len(),
+        SECP_SIGNATURE_SIZE + CKB_HASH_DIGEST + EIP712_CHAINID_SIZE
+    );
+
+    let from = SECP_SIGNATURE_SIZE + CKB_HASH_DIGEST;
+    let to = from + EIP712_CHAINID_SIZE;
+    let eip712_chain_id = witness_args_lock[from..to].to_vec();
+
+    let mut typed_data_hash = [0u8; 32];
+    typed_data_hash.copy_from_slice(&witness_args_lock[SECP_SIGNATURE_SIZE..SECP_SIGNATURE_SIZE + CKB_HASH_DIGEST]);
+
+    Ok((digest, typed_data_hash, eip712_chain_id, witness_args_lock))
 }
 
 pub fn calc_digest_by_input_group(
