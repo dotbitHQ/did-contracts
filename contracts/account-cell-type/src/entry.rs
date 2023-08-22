@@ -1332,7 +1332,7 @@ fn action_approve(action: &[u8], parser: &mut WitnessesParser) -> Result<(), Box
                 &output_cell_witness_reader,
                 Some("owner"),
                 vec![],
-                vec!["status", "approval"],
+                vec!["status", "approval", "records"],
             )?;
 
             let sealed_until = approval::transfer_approval_fulfill(
