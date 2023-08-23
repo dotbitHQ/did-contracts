@@ -52,6 +52,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
         b"lock_account_for_cross_chain" => lock_account_for_cross_chain_to_semantic,
         b"create_approval" => create_approval_to_semantic,
         b"delay_approval" => delay_approval_to_semantic,
+        b"fulfill_approva" => fulfill_approval_to_semantic,
         _ => transfer_to_semantic,
     };
 
@@ -400,6 +401,55 @@ fn delay_approval_to_semantic(parser: &WitnessesParser) -> Result<String, Box<dy
                 "{:?}[{}] Found unsupported approval action: {:?}",
                 Source::Output,
                 output_index,
+                String::from_utf8(approval_reader.action().raw_data().to_vec())
+            );
+            return Err(code_to_error!(AccountCellErrorCode::ApprovalActionUndefined));
+        }
+    }
+}
+
+fn fulfill_approval_to_semantic(parser: &WitnessesParser) -> Result<String, Box<dyn ScriptError>> {
+    let (input_index, _, account, witness) = parse_approval_tx_info(parser)?;
+    let witness_reader = witness.as_reader();
+    let witness_reader = match witness_reader.try_into_latest() {
+        Ok(reader) => reader,
+        Err(_) => {
+            warn!(
+                "{:?}[{}] The AccountCell should be upgraded to the latest version.",
+                Source::Input,
+                input_index
+            );
+            return Err(code_to_error!(AccountCellErrorCode::WitnessParsingError));
+        }
+    };
+
+    let approval_reader = witness_reader.approval();
+    match approval_reader.action().raw_data() {
+        b"transfer" => {
+            let approval_params = AccountApprovalTransfer::from_compatible_slice(approval_reader.params().raw_data())
+                .map_err(|e| {
+                warn!(
+                    "{:?}[{}] Decoding approval.params failed: {}",
+                    Source::Input,
+                    input_index,
+                    e.to_string()
+                );
+                return code_to_error!(AccountCellErrorCode::WitnessParsingError);
+            })?;
+
+            let to_lock = approval_params.to_lock();
+            let to_address = to_semantic_address(parser, to_lock.as_reader().into(), LockRole::Owner)?;
+
+            Ok(format!(
+                "FULFILL THE TRANSFER APPROVAL OF {}, TRANSFER TO {}",
+                account, to_address
+            ))
+        }
+        _ => {
+            warn!(
+                "{:?}[{}] Found unsupported approval action: {:?}",
+                Source::Input,
+                input_index,
                 String::from_utf8(approval_reader.action().raw_data().to_vec())
             );
             return Err(code_to_error!(AccountCellErrorCode::ApprovalActionUndefined));
