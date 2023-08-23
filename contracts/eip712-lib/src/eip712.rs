@@ -140,7 +140,7 @@ fn tx_to_digest(
     let mut eip712_chain_id = Vec::new();
     for (_key, input_group_idxs) in input_groups_idxs {
         let init_witness_idx = input_group_idxs[0];
-        let (digest, typed_data_hash, eip712_chain_id, witness_args_lock) = sign_util::get_eip712_digest(input_group_idxs);
+        let (digest, typed_data_hash, chain_id, _) = sign_util::get_eip712_digest(input_group_idxs)?;
         ret.insert(
             init_witness_idx,
             DigestAndHash {
@@ -148,6 +148,10 @@ fn tx_to_digest(
                 typed_data_hash: typed_data_hash,
             },
         );
+
+        if eip712_chain_id.is_empty() {
+            eip712_chain_id = chain_id;
+        }
     }
 
     Ok((ret, eip712_chain_id))

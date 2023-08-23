@@ -52,7 +52,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
         b"lock_account_for_cross_chain" => lock_account_for_cross_chain_to_semantic,
         b"create_approval" => create_approval_to_semantic,
         b"delay_approval" => delay_approval_to_semantic,
-        b"fulfill_approva" => fulfill_approval_to_semantic,
+        b"fulfill_approval" => fulfill_approval_to_semantic,
         _ => transfer_to_semantic,
     };
 
@@ -295,7 +295,8 @@ fn lock_account_for_cross_chain_to_semantic(parser: &WitnessesParser) -> Result<
 
 fn parse_approval_tx_info(
     parser: &WitnessesParser,
-) -> Result<(usize, usize, String, Box<dyn AccountCellDataMixer>), Box<dyn ScriptError>> {
+    source: Source,
+) -> Result<(usize, String, Box<dyn AccountCellDataMixer>), Box<dyn ScriptError>> {
     let type_id_table_reader = parser.configs.main()?.type_id_table();
     let (input_cells, output_cells) =
         util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, type_id_table_reader.account_cell())?;
@@ -305,13 +306,18 @@ fn parse_approval_tx_info(
     let account_in_bytes = data_parser::account_cell::get_account(&data_in_bytes);
     let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| ErrorCode::EIP712SerializationError)?;
 
-    let witness = util::parse_account_cell_witness(parser, output_cells[0], Source::Output)?;
+    let index = if source == Source::Input {
+        input_cells[0]
+    } else {
+        output_cells[0]
+    };
+    let witness = util::parse_account_cell_witness(parser, index, source)?;
 
-    Ok((input_cells[0], output_cells[0], account, witness))
+    Ok((index, account, witness))
 }
 
 fn create_approval_to_semantic(parser: &WitnessesParser) -> Result<String, Box<dyn ScriptError>> {
-    let (_, output_index, account, witness) = parse_approval_tx_info(parser)?;
+    let (output_index, account, witness) = parse_approval_tx_info(parser, Source::Output)?;
     let witness_reader = witness.as_reader();
     let witness_reader = match witness_reader.try_into_latest() {
         Ok(reader) => reader,
@@ -361,7 +367,7 @@ fn create_approval_to_semantic(parser: &WitnessesParser) -> Result<String, Box<d
 }
 
 fn delay_approval_to_semantic(parser: &WitnessesParser) -> Result<String, Box<dyn ScriptError>> {
-    let (_, output_index, account, witness) = parse_approval_tx_info(parser)?;
+    let (output_index, account, witness) = parse_approval_tx_info(parser, Source::Output)?;
     let witness_reader = witness.as_reader();
     let witness_reader = match witness_reader.try_into_latest() {
         Ok(reader) => reader,
@@ -409,7 +415,7 @@ fn delay_approval_to_semantic(parser: &WitnessesParser) -> Result<String, Box<dy
 }
 
 fn fulfill_approval_to_semantic(parser: &WitnessesParser) -> Result<String, Box<dyn ScriptError>> {
-    let (input_index, _, account, witness) = parse_approval_tx_info(parser)?;
+    let (input_index, account, witness) = parse_approval_tx_info(parser, Source::Input)?;
     let witness_reader = witness.as_reader();
     let witness_reader = match witness_reader.try_into_latest() {
         Ok(reader) => reader,
