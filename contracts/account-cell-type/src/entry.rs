@@ -1594,6 +1594,12 @@ fn verify_approval_sign(
         code_to_error!(ErrorCode::InvalidTransactionStructure)
     })?;
 
+    let type_no = if sign_type == DasLockType::ETHTypedData {
+        1i32
+    } else {
+        0i32
+    };
+    debug!("type_no: {:?}", type_no);
 
     let mut sign_lib = SignLib::new();
 
@@ -1623,11 +1629,6 @@ fn verify_approval_sign(
             (digest, witness_args_lock)
         } else {
             sign_util::calc_digest_by_input_group(sign_type, vec![input_account_index])?
-        };
-        let type_no = if sign_type == DasLockType::ETHTypedData {
-            0i32
-        } else {
-            1i32
         };
 
         sign_lib
