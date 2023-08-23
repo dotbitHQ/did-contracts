@@ -11,7 +11,7 @@ use ckb_std::error::SysError;
 use ckb_std::high_level;
 use das_core::constants::*;
 use das_core::error::*;
-use das_core::sign_util::calc_digest_by_input_group;
+use das_core::sign_util;
 use das_core::witness_parser::WitnessesParser;
 use das_core::{assert as das_assert, code_to_error, data_parser, debug, util, warn};
 use das_types::constants::{DasLockType, DataType, LockRole};
@@ -140,30 +140,12 @@ fn tx_to_digest(
     let mut eip712_chain_id = Vec::new();
     for (_key, input_group_idxs) in input_groups_idxs {
         let init_witness_idx = input_group_idxs[0];
-
-        let (message, witness_args_lock) = calc_digest_by_input_group(DasLockType::ETHTypedData, input_group_idxs)?;
-
-        das_assert!(
-            witness_args_lock.len() == SECP_SIGNATURE_SIZE + CKB_HASH_DIGEST + EIP712_CHAINID_SIZE,
-            ErrorCode::EIP712SignatureError,
-            "Inputs[{}] The length of signature is invalid.(current: {}, expected: {})",
-            init_witness_idx,
-            witness_args_lock.len(),
-            SECP_SIGNATURE_SIZE + CKB_HASH_DIGEST + EIP712_CHAINID_SIZE
-        );
-
-        if eip712_chain_id.is_empty() {
-            let from = SECP_SIGNATURE_SIZE + CKB_HASH_DIGEST;
-            let to = from + EIP712_CHAINID_SIZE;
-            eip712_chain_id = witness_args_lock[from..to].to_vec();
-        }
-
-        let typed_data_hash = &witness_args_lock[SECP_SIGNATURE_SIZE..SECP_SIGNATURE_SIZE + CKB_HASH_DIGEST];
+        let (digest, typed_data_hash, eip712_chain_id, witness_args_lock) = sign_util::get_eip712_digest(input_group_idxs);
         ret.insert(
             init_witness_idx,
             DigestAndHash {
-                digest: message,
-                typed_data_hash: typed_data_hash.try_into().unwrap(),
+                digest: digest,
+                typed_data_hash: typed_data_hash,
             },
         );
     }

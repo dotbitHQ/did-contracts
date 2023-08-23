@@ -1360,6 +1360,8 @@ fn action_approve(action: &[u8], parser: &mut WitnessesParser) -> Result<(), Box
                     input_account_cells[0],
                     config_main.das_lock_type_id_table(),
                 )?;
+
+                util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
             }
         }
         _ => {
@@ -1622,11 +1624,16 @@ fn verify_approval_sign(
         } else {
             sign_util::calc_digest_by_input_group(sign_type, vec![input_account_index])?
         };
+        let type_no = if sign_type == DasLockType::ETHTypedData {
+            0i32
+        } else {
+            1i32
+        };
 
         sign_lib
             .validate_str(
                 sign_type,
-                0i32,
+                type_no,
                 digest.to_vec(),
                 digest.len(),
                 witness_args_lock,
