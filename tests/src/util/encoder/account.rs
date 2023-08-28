@@ -172,13 +172,12 @@ fn encode_v4_fields(path: &str, value: &Value) -> AccountApproval {
     let approval_action =
         util::parse_json_str(&format!("{}.{}", path, "approval.action"), &value["approval"]["action"]);
     let approval_params = match approval_action {
-        "transfer" => {
+        // "transfer" => {
+        // This is use for providing invalid action
+        _ => {
             let platform_lock = util::parse_json_script_to_mol(
                 &format!("{}.{}", path, "approval.params.platform_lock"),
-                &util::parse_json_script_das_lock(
-                    &format!("{}.{}", path, "approval.params.platform_lock"),
-                    &value["approval"]["params"]["platform_lock"],
-                ),
+                &value["approval"]["params"]["platform_lock"],
             );
             let protected_until = util::parse_json_u64(
                 &format!("{}.{}", path, "approval.params.protected_until"),
@@ -197,10 +196,7 @@ fn encode_v4_fields(path: &str, value: &Value) -> AccountApproval {
             );
             let to_lock = util::parse_json_script_to_mol(
                 &format!("{}.{}", path, "approval.params.to_lock"),
-                &util::parse_json_script_das_lock(
-                    &format!("{}.{}", path, "approval.params.to_lock"),
-                    &value["approval"]["params"]["to_lock"],
-                ),
+                &value["approval"]["params"]["to_lock"],
             );
             let account_approval_transfer = AccountApprovalTransfer::new_builder()
                 .platform_lock(platform_lock)
@@ -211,7 +207,7 @@ fn encode_v4_fields(path: &str, value: &Value) -> AccountApproval {
                 .build();
             Bytes::from(account_approval_transfer.as_slice().to_vec())
         }
-        _ => unimplemented!("Not support action: {}", approval_action),
+        // _ => unimplemented!("Not support action: {}", approval_action),
     };
     let approval = AccountApproval::new_builder()
         .action(Bytes::from(approval_action.as_bytes()))

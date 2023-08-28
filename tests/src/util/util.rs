@@ -370,6 +370,11 @@ pub fn parse_json_script_to_mol(field_name: &str, field: &Value) -> Script {
         return Script::default();
     }
 
+    let mut field = field.to_owned();
+    if !field["owner_lock_args"].is_null() {
+        field = parse_json_script_das_lock(field_name, &field);
+    }
+
     let code_hash = field["code_hash"]
         .as_str()
         .expect(&format!("{} is missing", field_name));

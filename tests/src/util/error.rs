@@ -195,7 +195,8 @@ pub enum AccountCellErrorCode {
     SubAccountNormalCellLockLimit = -37,
     SystemOff = -1,
     // Customized errors:
-    AccountCellNextUpdateError = 50,
+    WitnessParsingError = 50,
+    AccountCellNextUpdateError,
     AccountCellIdNotMatch,
     AccountCellPermissionDenied,
     AccountCellOwnerLockShouldNotBeModified,
@@ -219,6 +220,21 @@ pub enum AccountCellErrorCode {
     // 70
     AccountCellHasExpired,
     AccountCellStillCanNotRecycle,
+    AccountHasNearGracePeriod,
+    ApprovalExist,
+    ApprovalActionUndefined,
+    ApprovalParamsPlatformLockInvalid,
+    ApprovalParamsProtectedUntilInvalid,
+    ApprovalParamsSealedUntilInvalid,
+    ApprovalParamsDelayCountRemainInvalid,
+    ApprovalParamsToLockInvalid,
+    ApprovalParamsCanNotBeChanged,
+    ApprovalParamsDelayCountNotEnough,
+    ApprovalParamsDelayCountDecrementError,
+    ApprovalParamsSealedUntilIncrementError,
+    ApprovalNotRevoked,
+    ApprovalInProtectionPeriod,
+    ApprovalFulfillError,
 }
 
 impl Into<i8> for AccountCellErrorCode {
