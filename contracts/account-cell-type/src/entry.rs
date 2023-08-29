@@ -85,12 +85,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 )?;
             }
 
-            verifiers::account_cell::verify_status(
-                &input_cell_witness_reader,
-                AccountStatus::Normal,
-                input_account_cells[0],
-                Source::Input,
-            )?;
             verifiers::account_cell::verify_account_expiration(
                 config_account,
                 input_account_cells[0],
@@ -99,62 +93,10 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             )?;
 
             match action {
-                b"transfer_account" => {
-                    verifiers::account_cell::verify_account_cell_consistent_with_exception(
-                        input_account_cells[0],
-                        output_account_cells[0],
-                        &input_cell_witness_reader,
-                        &output_cell_witness_reader,
-                        Some("owner"),
-                        vec![],
-                        vec!["last_transfer_account_at", "records"],
-                    )?;
-                    verifiers::account_cell::verify_account_witness_record_empty(
-                        &output_cell_witness_reader,
-                        output_account_cells[0],
-                        Source::Output,
-                    )?;
-                }
-                b"edit_manager" => {
-                    verifiers::account_cell::verify_account_cell_consistent_with_exception(
-                        input_account_cells[0],
-                        output_account_cells[0],
-                        &input_cell_witness_reader,
-                        &output_cell_witness_reader,
-                        Some("manager"),
-                        vec![],
-                        vec!["last_edit_manager_at"],
-                    )?;
-                }
-                b"edit_records" => {
-                    verifiers::account_cell::verify_account_cell_consistent_with_exception(
-                        input_account_cells[0],
-                        output_account_cells[0],
-                        &input_cell_witness_reader,
-                        &output_cell_witness_reader,
-                        None,
-                        vec![],
-                        vec!["records", "last_edit_records_at"],
-                    )?;
-                    verifiers::account_cell::verify_records_keys(&parser, output_cell_witness_reader.records())?;
-                }
-                b"lock_account_for_cross_chain" => {
-                    verifiers::account_cell::verify_account_cell_consistent_with_exception(
-                        input_account_cells[0],
-                        output_account_cells[0],
-                        &input_cell_witness_reader,
-                        &output_cell_witness_reader,
-                        None,
-                        vec![],
-                        vec!["status"],
-                    )?;
-
-                    verify_account_is_locked_for_cross_chain(
-                        output_account_cells[0],
-                        &output_cell_witness_reader,
-                        timestamp,
-                    )?;
-                }
+                b"transfer_account" => action_transfer_account(&mut parser, &input_account_cells, &output_account_cells, &input_cell_witness_reader, &output_cell_witness_reader)?,
+                b"edit_manager" => action_edit_manager(&mut parser, &input_account_cells, &output_account_cells, &input_cell_witness_reader, &output_cell_witness_reader)?,
+                b"edit_records" => action_edit_records(&mut parser, &input_account_cells, &output_account_cells, &input_cell_witness_reader, &output_cell_witness_reader)?,
+                b"lock_account_for_cross_chain" => action_lock_account_for_cross_chain(&mut parser, &input_account_cells, &output_account_cells, &input_cell_witness_reader, &output_cell_witness_reader, timestamp)?,
                 _ => unreachable!(),
             }
 
@@ -1212,6 +1154,128 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
     Ok(())
 }
 
+fn action_transfer_account<'a>(
+    _parser: &mut WitnessesParser,
+    input_account_cells: &[usize],
+    output_account_cells: &[usize],
+    input_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
+    output_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
+) -> Result<(), Box<dyn ScriptError>> {
+    verifiers::account_cell::verify_status(
+        &input_cell_witness_reader,
+        AccountStatus::Normal,
+        input_account_cells[0],
+        Source::Input,
+    )?;
+
+    verifiers::account_cell::verify_account_cell_consistent_with_exception(
+        input_account_cells[0],
+        output_account_cells[0],
+        &input_cell_witness_reader,
+        &output_cell_witness_reader,
+        Some("owner"),
+        vec![],
+        vec!["last_transfer_account_at", "records"],
+    )?;
+
+    verifiers::account_cell::verify_account_witness_record_empty(
+        &output_cell_witness_reader,
+        output_account_cells[0],
+        Source::Output,
+    )?;
+
+    Ok(())
+}
+
+fn action_edit_manager<'a>(
+    _parser: &mut WitnessesParser,
+    input_account_cells: &[usize],
+    output_account_cells: &[usize],
+    input_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
+    output_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
+) -> Result<(), Box<dyn ScriptError>> {
+    verifiers::account_cell::verify_status(
+        &input_cell_witness_reader,
+        AccountStatus::Normal,
+        input_account_cells[0],
+        Source::Input,
+    )?;
+
+    verifiers::account_cell::verify_account_cell_consistent_with_exception(
+        input_account_cells[0],
+        output_account_cells[0],
+        &input_cell_witness_reader,
+        &output_cell_witness_reader,
+        Some("manager"),
+        vec![],
+        vec!["last_edit_manager_at"],
+    )?;
+
+    Ok(())
+}
+
+fn action_edit_records<'a>(
+    parser: &mut WitnessesParser,
+    input_account_cells: &[usize],
+    output_account_cells: &[usize],
+    input_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
+    output_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
+) -> Result<(), Box<dyn ScriptError>> {
+    verifiers::account_cell::verify_status_v2(
+        &input_cell_witness_reader,
+        &[AccountStatus::Normal, AccountStatus::ApprovedTransfer],
+        input_account_cells[0],
+        Source::Input,
+    )?;
+
+    verifiers::account_cell::verify_account_cell_consistent_with_exception(
+        input_account_cells[0],
+        output_account_cells[0],
+        &input_cell_witness_reader,
+        &output_cell_witness_reader,
+        None,
+        vec![],
+        vec!["records", "last_edit_records_at"],
+    )?;
+    verifiers::account_cell::verify_records_keys(&parser, output_cell_witness_reader.records())?;
+
+    Ok(())
+}
+
+fn action_lock_account_for_cross_chain<'a>(
+    _parser: &mut WitnessesParser,
+    input_account_cells: &[usize],
+    output_account_cells: &[usize],
+    input_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
+    output_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
+    timestamp: u64,
+) -> Result<(), Box<dyn ScriptError>> {
+    verifiers::account_cell::verify_status(
+        &input_cell_witness_reader,
+        AccountStatus::Normal,
+        input_account_cells[0],
+        Source::Input,
+    )?;
+
+    verifiers::account_cell::verify_account_cell_consistent_with_exception(
+        input_account_cells[0],
+        output_account_cells[0],
+        &input_cell_witness_reader,
+        &output_cell_witness_reader,
+        None,
+        vec![],
+        vec!["status"],
+    )?;
+
+    verify_account_is_locked_for_cross_chain(
+        output_account_cells[0],
+        &output_cell_witness_reader,
+        timestamp,
+    )?;
+
+    Ok(())
+}
+
 fn action_approve(action: &[u8], parser: &mut WitnessesParser) -> Result<(), Box<dyn ScriptError>> {
     verifiers::account_cell::verify_unlock_role(action, &parser.params)?;
 
@@ -1580,12 +1644,12 @@ fn verify_multi_sign(
 }
 
 fn verify_approval_sign(
-    lock_name: &str,
+    _lock_name: &str,
     sign_lock: ScriptReader,
     input_account_index: usize,
     type_id_table: DasLockTypeIdTableReader,
 ) -> Result<(), Box<dyn ScriptError>> {
-    debug!("Verify the signatures of {} ...", lock_name);
+    debug!("Verify the signatures of {} ...", _lock_name);
 
     let sign_type_int = data_parser::das_lock_args::get_owner_type(sign_lock.args().raw_data());
     let args = data_parser::das_lock_args::get_owner_lock_args(sign_lock.args().raw_data());

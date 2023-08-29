@@ -492,6 +492,37 @@ pub fn verify_status<'a>(
     Ok(())
 }
 
+pub fn verify_status_v2<'a>(
+    account_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
+    expected_status: &[AccountStatus],
+    index: usize,
+    source: Source,
+) -> Result<(), Box<dyn ScriptError>> {
+    debug!(
+        "{:?}[{}] Verify if AccountCell is in {:?} status.",
+        source, index, expected_status
+    );
+
+    if account_cell_witness_reader.version() <= 1 {
+        // CAREFUL! The early versions will no longer be supported.
+        return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
+    } else {
+        let expected_status = expected_status.iter().map(|s| *s as u8).collect::<Vec<_>>();
+        let account_cell_status = u8::from(account_cell_witness_reader.status());
+
+        das_assert!(
+            expected_status.contains(&account_cell_status),
+            AccountCellErrorCode::AccountCellStatusLocked,
+            "{:?}[{}] The AccountCell.witness.status should be {:?}.",
+            source,
+            index,
+            expected_status
+        );
+    }
+
+    Ok(())
+}
+
 pub fn verify_sub_account_enabled<'a>(
     account_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
     index: usize,

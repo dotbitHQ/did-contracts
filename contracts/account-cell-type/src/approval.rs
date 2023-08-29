@@ -274,10 +274,11 @@ pub fn transfer_approval_delay<'a>(
 
     let input_sealed_until = u64::from(input_approval_reader.sealed_until());
     let output_sealed_until = u64::from(output_approval_reader.sealed_until());
+    let limit_days = 10;
 
     das_assert!(
-        output_sealed_until > input_sealed_until,
-        SubAccountCellErrorCode::ApprovalParamsSealedUntilIncrementError,
+        output_sealed_until > input_sealed_until && output_sealed_until <= (input_sealed_until + DAY_SEC * limit_days),
+        AccountCellErrorCode::ApprovalParamsSealedUntilIncrementError,
         "{:?}[{}] The AccountCell.witness.approval.params.sealed_until should be increased.",
         Source::Output,
         output_account_index
@@ -421,7 +422,7 @@ pub fn transfer_approval_fulfill<'a>(
 
     das_assert!(
         (AccountStatus::Normal as u8) == u8::from(output_account_reader.status()),
-        AccountCellErrorCode::ApprovalNotRevoked,
+        AccountCellErrorCode::ApprovalFulfillError,
         "{:?}[{}] The AccountCell should be reset to the normal status.",
         Source::Output,
         output_account_index
@@ -429,7 +430,7 @@ pub fn transfer_approval_fulfill<'a>(
 
     das_assert!(
         util::is_reader_eq(output_account_reader.approval(), AccountApproval::default().as_reader()),
-        AccountCellErrorCode::ApprovalNotRevoked,
+        AccountCellErrorCode::ApprovalFulfillError,
         "{:?}[{}] The AccountCell.witness.approval should be set to default.",
         Source::Output,
         output_account_index
