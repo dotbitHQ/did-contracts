@@ -55,7 +55,7 @@ fn test_account_approval_create() {
 }
 
 #[test]
-fn test_account_approval_edit_records() {
+fn test_account_approval_create_edit_records() {
     let mut template = init("edit_records", Some("0x01"));
     template.push_config_cell(DataType::ConfigCellRecordKeyNamespace, Source::CellDep);
 
@@ -287,6 +287,51 @@ fn challenge_account_approval_create_status_error() {
     );
 
     challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellStatusLocked)
+}
+
+#[test]
+fn challenge_account_approval_create_account_near_expired() {
+    let mut template = init("create_approval", Some("0x00"));
+
+    // inputs
+    push_input_account_cell(&mut template, json!({
+        "data": {
+            // Simulate the account is near expired.
+            "expired_at": TIMESTAMP + DAY_SEC * 30 - 1,
+        },
+    }));
+
+    // outputs
+    push_output_account_cell(
+        &mut template,
+        json!({
+            "data": {
+                // Simulate the account is near expired.
+                "expired_at": TIMESTAMP + DAY_SEC * 30 - 1,
+            },
+            "witness": {
+                "status": (AccountStatus::ApprovedTransfer as u8),
+                "approval": {
+                    "action": "transfer",
+                    "params": {
+                        "platform_lock": {
+                            "owner_lock_args": CHANNEL,
+                            "manager_lock_args": CHANNEL
+                        },
+                        "protected_until": TIMESTAMP + DAY_SEC,
+                        "sealed_until": TIMESTAMP + DAY_SEC * 3,
+                        "delay_count_remain": 1,
+                        "to_lock": {
+                            "owner_lock_args": OWNER_2,
+                            "manager_lock_args": OWNER_2
+                        }
+                    }
+                }
+            }
+        }),
+    );
+
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountHasNearGracePeriod)
 }
 
 #[test]

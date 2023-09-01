@@ -159,13 +159,12 @@ fn encode_v2_fields(path: &str, value: &Value) -> AccountApproval {
 
     let approval_action = util::parse_json_str(&format!("{}.action", path), &value["action"]);
     let approval_params = match approval_action {
-        "transfer" => {
+        // "transfer" => {
+        // This is use for providing invalid action
+        _ => {
             let platform_lock = util::parse_json_script_to_mol(
                 &format!("{}.params.platform_lock", path),
-                &util::parse_json_script_das_lock(
-                    &format!("{}.params.platform_lock", path),
-                    &value["params"]["platform_lock"],
-                ),
+                &value["params"]["platform_lock"],
             );
             let protected_until = util::parse_json_u64(
                 &format!("{}.params.protected_until", path),
@@ -184,7 +183,7 @@ fn encode_v2_fields(path: &str, value: &Value) -> AccountApproval {
             );
             let to_lock = util::parse_json_script_to_mol(
                 &format!("{}.params.to_lock", path),
-                &util::parse_json_script_das_lock(&format!("{}.params.to_lock", path), &value["params"]["to_lock"]),
+                &value["params"]["to_lock"]
             );
             let account_approval_transfer = AccountApprovalTransfer::new_builder()
                 .platform_lock(platform_lock)
@@ -195,7 +194,7 @@ fn encode_v2_fields(path: &str, value: &Value) -> AccountApproval {
                 .build();
             Bytes::from(account_approval_transfer.as_slice().to_vec())
         }
-        _ => unimplemented!("Not support action: {}", approval_action),
+        // _ => unimplemented!("Not support action: {}", approval_action),
     };
     let approval = AccountApproval::new_builder()
         .action(Bytes::from(approval_action.as_bytes()))
@@ -519,7 +518,13 @@ fn encode_edit_fields(action: &SubAccountAction, path: &str, witness_bytes: &mut
                 approval.as_slice().to_vec()
             }
             SubAccountAction::RevokeApproval | SubAccountAction::FulfillApproval => {
-                vec![]
+                if !value["edit_value"].is_null() {
+                    // This should not happen, but we still need to build the transaction with the error to test it.
+                    let approval = encode_v2_fields(&format!("{}.edit_value", path), &value["edit_value"]);
+                    approval.as_slice().to_vec()
+                } else {
+                    vec![]
+                }
             }
             _ => util::parse_json_hex(&format!("{}.edit_value", path), &value["edit_value"]),
         };

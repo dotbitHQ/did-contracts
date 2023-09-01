@@ -4,8 +4,7 @@ use serde_json::{json, Value};
 use super::common::*;
 use crate::util::accounts::*;
 use crate::util::constants::*;
-// use crate::util::error::*;
-use crate::util::template_common_cell::*;
+use crate::util::error::*;
 use crate::util::template_generator::*;
 use crate::util::template_parser::*;
 use crate::util::{self};
@@ -127,4 +126,68 @@ fn test_sub_account_approval_fulfill() {
     push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
 
     test_tx(template.as_json())
+}
+
+#[test]
+fn challenge_sub_account_approval_fulfill_edit_key_not_empty() {
+    let mut template = before_each();
+
+    // outputs
+    push_simple_sub_account_witness(
+        &mut template,
+        json!({
+            "sub_account": {
+                "lock": {
+                    "owner_lock_args": OWNER_1,
+                    "manager_lock_args": MANAGER_1
+                },
+                "account": SUB_ACCOUNT_1,
+            },
+            // Simulate the edit_key is not empty.
+            "edit_key": "approval",
+        }),
+    );
+    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
+
+    challenge_tx(template.as_json(), SubAccountCellErrorCode::WitnessEditKeyInvalid)
+}
+
+#[test]
+fn challenge_sub_account_approval_fulfill_edit_value_not_empty() {
+    let mut template = before_each();
+
+    // outputs
+    push_simple_sub_account_witness(
+        &mut template,
+        json!({
+            "sub_account": {
+                "lock": {
+                    "owner_lock_args": OWNER_1,
+                    "manager_lock_args": MANAGER_1
+                },
+                "account": SUB_ACCOUNT_1,
+            },
+            // Simulate the edit_value is not empty.
+            "edit_value": {
+                "action": "transfer",
+                "params": {
+                    // Simulate modifying the platform_lock of the approval.
+                    "platform_lock": {
+                        "owner_lock_args": INVITER,
+                        "manager_lock_args": CHANNEL
+                    },
+                    "protected_until": TIMESTAMP + DAY_SEC,
+                    "sealed_until": TIMESTAMP + DAY_SEC * 2,
+                    "delay_count_remain": 1,
+                    "to_lock": {
+                        "owner_lock_args": OWNER_2,
+                        "manager_lock_args": OWNER_2
+                    }
+                }
+            }
+        }),
+    );
+    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
+
+    challenge_tx(template.as_json(), SubAccountCellErrorCode::WitnessEditKeyInvalid)
 }
