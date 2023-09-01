@@ -279,9 +279,11 @@ pub fn transfer_approval_delay<'a>(
     das_assert!(
         output_sealed_until > input_sealed_until && output_sealed_until <= (input_sealed_until + DAY_SEC * limit_days),
         AccountCellErrorCode::ApprovalParamsSealedUntilIncrementError,
-        "{:?}[{}] The AccountCell.witness.approval.params.sealed_until should be increased.",
+        "{:?}[{}] The AccountCell.witness.approval.params.sealed_until should be increased properly.({} < sealed_until <= {})",
         Source::Output,
-        output_account_index
+        output_account_index,
+        input_sealed_until,
+        input_sealed_until + DAY_SEC * limit_days
     );
 
     Ok(())

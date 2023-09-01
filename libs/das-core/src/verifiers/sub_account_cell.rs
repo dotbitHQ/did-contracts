@@ -82,19 +82,37 @@ pub fn verify_status<'a>(
 
     let sub_account_status = u8::from(sub_account_reader.status());
 
-    debug!(
+    das_assert!(
+        sub_account_status == expected_status as u8,
+        AccountCellErrorCode::AccountCellStatusLocked,
         "  witnesses[{:>2}] The witness.sub_account.status of {} should be {:?}.",
         sub_account_index,
         util::get_sub_account_name_from_reader(&sub_account_reader),
         expected_status
     );
 
+    Ok(())
+}
+
+pub fn verify_status_v2<'a>(
+    sub_account_index: usize,
+    sub_account_reader: &Box<dyn SubAccountReaderMixer + 'a>,
+    expected_status: &[AccountStatus],
+) -> Result<(), Box<dyn ScriptError>> {
+    debug!(
+        "  witnesses[{:>2}] Verify if the witness.sub_account.status is not expected.",
+        sub_account_index
+    );
+
+    let expected_status = expected_status.iter().map(|s| *s as u8).collect::<Vec<_>>();
+    let sub_account_status = u8::from(sub_account_reader.status());
+
     das_assert!(
-        sub_account_status == expected_status as u8,
+        expected_status.contains(&sub_account_status),
         AccountCellErrorCode::AccountCellStatusLocked,
         "  witnesses[{:>2}] The witness.sub_account.status of {} should be {:?}.",
         sub_account_index,
-        sub_account_reader.account().as_prettier(),
+        util::get_sub_account_name_from_reader(&sub_account_reader),
         expected_status
     );
 

@@ -574,10 +574,11 @@ impl<'a> SubAction<'a> {
             self.timestamp,
         )
         .map_err(|err| code_to_error!(err))?;
-        verifiers::sub_account_cell::verify_status(witness.index, &sub_account_reader, AccountStatus::Normal)?;
 
         match &witness.edit_value {
             SubAccountEditValue::Owner(new_args) | SubAccountEditValue::Manager(new_args) => {
+                verifiers::sub_account_cell::verify_status(witness.index, &sub_account_reader, AccountStatus::Normal)?;
+
                 let current_args = sub_account_reader.lock().args().raw_data();
                 let (current_owner_type, current_owner_args, current_manager_type, current_manager_args) =
                     data_parser::das_lock_args::get_owner_and_manager(current_args)?;
@@ -589,6 +590,7 @@ impl<'a> SubAction<'a> {
                         "  witnesses[{:>2}] Verify if owner has been changed correctly.",
                         witness.index
                     );
+
 
                     das_assert!(
                         current_owner_type != new_owner_type || current_owner_args != new_owner_args,
@@ -620,6 +622,8 @@ impl<'a> SubAction<'a> {
                 }
             }
             SubAccountEditValue::Records(records) => {
+                verifiers::sub_account_cell::verify_status_v2(witness.index, &sub_account_reader, &[AccountStatus::Normal, AccountStatus::ApprovedTransfer])?;
+
                 verifiers::account_cell::verify_records_keys(self.parser, records.as_reader())?;
             }
             // manual::verify_edit_value_not_empty
@@ -637,6 +641,9 @@ impl<'a> SubAction<'a> {
 
     fn recycle(&mut self, witness: &SubAccountWitness, prev_root: &[u8]) -> Result<(), Box<dyn ScriptError>> {
         let sub_account_reader = witness.sub_account.as_reader();
+
+        // WARNING! The sub-account only has 2 status for now, if more status added, the recycling logic should be also updated.
+        verifiers::sub_account_cell::verify_status_v2(witness.index, &sub_account_reader, &[AccountStatus::Normal, AccountStatus::ApprovedTransfer])?;
 
         match verifiers::sub_account_cell::verify_expiration(
             self.config_account,

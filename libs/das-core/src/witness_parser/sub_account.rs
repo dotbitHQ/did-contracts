@@ -515,7 +515,7 @@ impl SubAccountWitnessesParser {
         let mut sign_type = None;
         let mut sign_args = vec![];
         let mut sign_expired_at = 0;
-        let mut lock_args = vec![];
+        let mut _lock_args = vec![];
 
         if vec![
             SubAccountAction::Edit,
@@ -538,8 +538,8 @@ impl SubAccountWitnessesParser {
             sign_expired_at = u64::from_le_bytes(sign_expired_at_bytes.try_into().unwrap());
 
             let lock_args_reader = sub_account.as_reader().lock().args();
-            lock_args = lock_args_reader.raw_data().to_vec();
-            (sign_role, sign_type, sign_args) = Self::parse_sign_info(i, sign_role_byte, &lock_args, false)?;
+            _lock_args = lock_args_reader.raw_data().to_vec();
+            (sign_role, sign_type, sign_args) = Self::parse_sign_info(i, sign_role_byte, &_lock_args, false)?;
         } else if action == SubAccountAction::RevokeApproval {
             debug!(
                 "  witnesses[{:>2}] Parse the sub_account.approval.params.platform_lock as the signing lock ...",
@@ -567,8 +567,8 @@ impl SubAccountWitnessesParser {
                     let approval_params_reader = AccountApprovalTransferReader::from_compatible_slice(approval_params)
                         .map_err(|_| code_to_error!(SubAccountCellErrorCode::WitnessParsingError))?;
                     let lock_args_reader = approval_params_reader.platform_lock().args();
-                    lock_args = lock_args_reader.raw_data().to_vec();
-                    (sign_role, sign_type, sign_args) = Self::parse_sign_info(i, sign_role_byte, &lock_args, false)?;
+                    _lock_args = lock_args_reader.raw_data().to_vec();
+                    (sign_role, sign_type, sign_args) = Self::parse_sign_info(i, sign_role_byte, &_lock_args, false)?;
                 }
                 _ => return Err(code_to_error!(SubAccountCellErrorCode::ApprovalActionUndefined)),
             }
@@ -587,9 +587,9 @@ impl SubAccountWitnessesParser {
             sign_expired_at = u64::from_le_bytes(sign_expired_at_bytes.try_into().unwrap());
 
             let lock_args_reader = sub_account.as_reader().lock().args();
-            lock_args = lock_args_reader.raw_data().to_vec();
+            _lock_args = lock_args_reader.raw_data().to_vec();
             // WARNING! If the approval reached the sealed_util field, no signature is required.
-            (sign_role, sign_type, sign_args) = Self::parse_sign_info(i, sign_role_byte, &lock_args, true)?;
+            (sign_role, sign_type, sign_args) = Self::parse_sign_info(i, sign_role_byte, &_lock_args, true)?;
         }
 
         let edit_value;
@@ -721,6 +721,13 @@ impl SubAccountWitnessesParser {
                 };
             }
             SubAccountAction::CreateApproval | SubAccountAction::DelayApproval => {
+                das_assert!(
+                    edit_key == b"approval",
+                    SubAccountCellErrorCode::WitnessEditKeyInvalid,
+                    "  witnesses[{:>2}] The edit_key should be 'approval'.",
+                    i
+                );
+
                 let approval = AccountApproval::from_compatible_slice(edit_value_bytes)
                     .map_err(|e| {
                         warn!(
@@ -745,7 +752,7 @@ impl SubAccountWitnessesParser {
 
         debug!(
             "  Sub-account witnesses[{:>2}]: {{ version: {}, signature: 0x{}, lock_args: 0x{}, sign_role: 0x{}, sign_exipired_at: {}, new_root: 0x{}, action: {}, sub_account: {}, edit_key: {}, sign_args: {} }}",
-            i, version, util::hex_string(signature), util::hex_string(&lock_args), util::hex_string(sign_role_byte), sign_expired_at, util::hex_string(new_root), action, sub_account.as_reader().account().as_prettier(), String::from_utf8(edit_key.to_vec()).unwrap(), util::hex_string(&sign_args)
+            i, version, util::hex_string(signature), util::hex_string(&_lock_args), util::hex_string(sign_role_byte), sign_expired_at, util::hex_string(new_root), action, sub_account.as_reader().account().as_prettier(), String::from_utf8(edit_key.to_vec()).unwrap(), util::hex_string(&sign_args)
         );
 
         Ok(SubAccountWitness {

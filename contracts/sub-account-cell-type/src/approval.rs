@@ -88,7 +88,7 @@ pub fn transfer_approval_create(
 
     das_assert!(
         data_parser::das_lock_args::get_owner_type(platform_lock.args().raw_data()) == (DasLockType::ETH as u8),
-        AccountCellErrorCode::ApprovalParamsPlatformLockInvalid,
+        SubAccountCellErrorCode::ApprovalParamsPlatformLockInvalid,
         "  witnesses[{:>2}] The approval.params.platform_lock only support ETH type.",
         i
     );
@@ -212,12 +212,15 @@ pub fn transfer_approval_delay(
 
     let prev_sealed_until = u64::from(prev_approval_params_reader.sealed_until());
     let current_sealed_until = u64::from(current_approval_params_reader.sealed_until());
+    let limit_days = 10;
 
     das_assert!(
-        current_sealed_until > prev_sealed_until,
+        current_sealed_until > prev_sealed_until && current_sealed_until <= (prev_sealed_until + DAY_SEC * limit_days),
         SubAccountCellErrorCode::ApprovalParamsSealedUntilIncrementError,
-        "  witnesses[{:>2}] The edit_value.params.sealed_until should be increased.",
-        i
+        "  witnesses[{:>2}] The edit_value.params.sealed_until should be increased properly.({} < sealed_until <= {})",
+        i,
+        prev_sealed_until,
+        prev_sealed_until + DAY_SEC * limit_days
     );
 
     Ok(())
