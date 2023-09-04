@@ -17,7 +17,7 @@ fn before_each() -> TemplateGenerator {
     push_simple_dep_account_cell(&mut template);
 
     // inputs
-    template.restore_sub_account(vec![
+    template.restore_sub_account_v1(vec![
         json!({
             "lock": {
                 "owner_lock_args": OWNER_1,
@@ -51,7 +51,7 @@ fn before_each() -> TemplateGenerator {
             "expired_at": TIMESTAMP - ACCOUNT_EXPIRATION_GRACE_PERIOD - 1,
         }),
     ]);
-    push_simple_input_sub_account_cell(&mut template, 0, 0);
+    push_simple_input_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomScript);
 
     template
 }
@@ -66,38 +66,6 @@ fn push_simple_sub_account_witness(template: &mut TemplateGenerator, sub_account
     util::merge_json(&mut sub_account, sub_account_partial);
 
     template.push_sub_account_witness_v2(sub_account);
-}
-
-fn push_simple_input_sub_account_cell(template: &mut TemplateGenerator, das_profit: u64, owner_profit: u64) {
-    push_input_sub_account_cell_v2(
-        template,
-        json!({
-            "header": {
-                "height": HEIGHT - 1,
-                "timestamp": TIMESTAMP - DAY_SEC,
-            },
-            "data": {
-                "das_profit": das_profit,
-                "owner_profit": owner_profit,
-                "flag": SubAccountConfigFlag::CustomScript as u8,
-            }
-        }),
-        ACCOUNT_1,
-    );
-}
-
-fn push_simple_output_sub_account_cell(template: &mut TemplateGenerator, das_profit: u64, owner_profit: u64) {
-    push_output_sub_account_cell_v2(
-        template,
-        json!({
-            "data": {
-                "das_profit": das_profit,
-                "owner_profit": owner_profit,
-                "flag": SubAccountConfigFlag::CustomScript as u8,
-            }
-        }),
-        ACCOUNT_1,
-    );
 }
 
 #[test]
@@ -119,7 +87,7 @@ fn test_sub_account_recycle() {
             },
         }),
     );
-    push_simple_output_sub_account_cell(&mut template, 0, 0);
+    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomScript);
 
     test_tx(template.as_json())
 }
@@ -149,7 +117,7 @@ fn test_sub_account_recycle_when_parent_expired() {
     );
 
     // inputs
-    template.restore_sub_account(vec![
+    template.restore_sub_account_v1(vec![
         json!({
             "lock": {
                 "owner_lock_args": OWNER_1,
@@ -183,7 +151,7 @@ fn test_sub_account_recycle_when_parent_expired() {
             "expired_at": TIMESTAMP - ACCOUNT_EXPIRATION_GRACE_PERIOD - 1,
         }),
     ]);
-    push_simple_input_sub_account_cell(&mut template, 0, 0);
+    push_simple_input_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomScript);
 
     // outputs
     // This transaction only contains recycle sub action, so it should pass the verification even if the parent account
@@ -202,7 +170,7 @@ fn test_sub_account_recycle_when_parent_expired() {
             },
         }),
     );
-    push_simple_output_sub_account_cell(&mut template, 0, 0);
+    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomScript);
 
     test_tx(template.as_json())
 }
@@ -228,7 +196,7 @@ fn challenge_sub_account_recycle_account_not_expired() {
             },
         }),
     );
-    push_simple_output_sub_account_cell(&mut template, 0, 0);
+    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomScript);
 
     challenge_tx(
         template.as_json(),
@@ -257,7 +225,7 @@ fn challenge_sub_account_recycle_account_in_grace_period() {
             },
         }),
     );
-    push_simple_output_sub_account_cell(&mut template, 0, 0);
+    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomScript);
 
     challenge_tx(
         template.as_json(),
@@ -287,7 +255,7 @@ fn challenge_sub_account_recycle_smt_not_clear() {
             "edit_value": "0xFF00000000000000000000000000000000000000000000000000000000000000"
         }),
     );
-    push_simple_output_sub_account_cell(&mut template, 0, 0);
+    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomScript);
 
     challenge_tx(template.as_json(), ErrorCode::SMTProofVerifyFailed);
 }

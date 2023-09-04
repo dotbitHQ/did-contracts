@@ -8,8 +8,9 @@ use ckb_std::high_level;
 use das_dynamic_libs::error::Error as DasDynamicLibError;
 use das_dynamic_libs::sign_lib::SignLib;
 use das_types::constants::*;
+use das_types::mixer::SubAccountReaderMixer;
 use das_types::packed::*;
-use das_types::prelude::Entity;
+use das_types::prelude::*;
 use das_types::prettier::Prettier;
 
 use crate::constants::*;
@@ -69,9 +70,9 @@ pub fn verify_unlock_role(witness: &SubAccountWitness) -> Result<(), Box<dyn Scr
     Ok(())
 }
 
-pub fn verify_status(
+pub fn verify_status<'a>(
     sub_account_index: usize,
-    sub_account_reader: SubAccountReader,
+    sub_account_reader: &Box<dyn SubAccountReaderMixer + 'a>,
     expected_status: AccountStatus,
 ) -> Result<(), Box<dyn ScriptError>> {
     debug!(
@@ -81,29 +82,47 @@ pub fn verify_status(
 
     let sub_account_status = u8::from(sub_account_reader.status());
 
-    debug!(
-        "  witnesses[{:>2}] The witness.sub_account.status of {} should be {:?}.",
-        sub_account_index,
-        util::get_sub_account_name_from_reader(sub_account_reader),
-        expected_status
-    );
-
     das_assert!(
         sub_account_status == expected_status as u8,
         AccountCellErrorCode::AccountCellStatusLocked,
         "  witnesses[{:>2}] The witness.sub_account.status of {} should be {:?}.",
         sub_account_index,
-        sub_account_reader.account().as_prettier(),
+        util::get_sub_account_name_from_reader(&sub_account_reader),
         expected_status
     );
 
     Ok(())
 }
 
-pub fn verify_expiration(
+pub fn verify_status_v2<'a>(
+    sub_account_index: usize,
+    sub_account_reader: &Box<dyn SubAccountReaderMixer + 'a>,
+    expected_status: &[AccountStatus],
+) -> Result<(), Box<dyn ScriptError>> {
+    debug!(
+        "  witnesses[{:>2}] Verify if the witness.sub_account.status is not expected.",
+        sub_account_index
+    );
+
+    let expected_status = expected_status.iter().map(|s| *s as u8).collect::<Vec<_>>();
+    let sub_account_status = u8::from(sub_account_reader.status());
+
+    das_assert!(
+        expected_status.contains(&sub_account_status),
+        AccountCellErrorCode::AccountCellStatusLocked,
+        "  witnesses[{:>2}] The witness.sub_account.status of {} should be {:?}.",
+        sub_account_index,
+        util::get_sub_account_name_from_reader(&sub_account_reader),
+        expected_status
+    );
+
+    Ok(())
+}
+
+pub fn verify_expiration<'a>(
     config: ConfigCellAccountReader,
     sub_account_index: usize,
-    sub_account_reader: SubAccountReader,
+    sub_account_reader: &Box<dyn SubAccountReaderMixer + 'a>,
     current: u64,
 ) -> Result<(), SubAccountCellErrorCode> {
     debug!(
@@ -131,9 +150,9 @@ pub fn verify_expiration(
     Ok(())
 }
 
-pub fn verify_suffix_with_parent_account(
+pub fn verify_suffix_with_parent_account<'a>(
     sub_account_index: usize,
-    sub_account_reader: SubAccountReader,
+    sub_account_reader: &Box<dyn SubAccountReaderMixer + 'a>,
     parent_account: &[u8],
 ) -> Result<(), Box<dyn ScriptError>> {
     debug!(
@@ -151,7 +170,7 @@ pub fn verify_suffix_with_parent_account(
         SubAccountCellErrorCode::SubAccountInitialValueError,
         "  witnesses[{:>2}] The witness.sub_account.suffix of {} should come from the parent account.(expected: {:?}, current: {:?})",
         sub_account_index,
-        util::get_sub_account_name_from_reader(sub_account_reader),
+        util::get_sub_account_name_from_reader(&sub_account_reader),
         String::from_utf8(expected_suffix),
         String::from_utf8(suffix.to_vec())
     );
@@ -159,9 +178,9 @@ pub fn verify_suffix_with_parent_account(
     Ok(())
 }
 
-fn verify_initial_lock(
+fn verify_initial_lock<'a>(
     sub_account_index: usize,
-    sub_account_reader: SubAccountReader,
+    sub_account_reader: &Box<dyn SubAccountReaderMixer + 'a>,
 ) -> Result<(), Box<dyn ScriptError>> {
     let expected_lock = das_lock();
     let current_lock = sub_account_reader.lock();
@@ -171,7 +190,7 @@ fn verify_initial_lock(
         SubAccountCellErrorCode::SubAccountInitialValueError,
         "  witnesses[{:>2}] The witness.sub_account.lock of {} must be a das-lock.",
         sub_account_index,
-        util::get_sub_account_name_from_reader(sub_account_reader)
+        util::get_sub_account_name_from_reader(&sub_account_reader)
     );
 
     data_parser::das_lock_args::get_owner_and_manager(current_lock.args().raw_data())?;
@@ -179,11 +198,11 @@ fn verify_initial_lock(
     Ok(())
 }
 
-fn verify_initial_id(
+fn verify_initial_id<'a>(
     sub_account_index: usize,
-    sub_account_reader: SubAccountReader,
+    sub_account_reader: &Box<dyn SubAccountReaderMixer + 'a>,
 ) -> Result<(), Box<dyn ScriptError>> {
-    let account = util::get_sub_account_name_from_reader(sub_account_reader);
+    let account = util::get_sub_account_name_from_reader(&sub_account_reader);
     let expected_account_id = util::get_account_id_from_account(account.as_bytes());
     let account_id = sub_account_reader.id().raw_data();
 
@@ -200,9 +219,9 @@ fn verify_initial_id(
     Ok(())
 }
 
-fn verify_initial_registered_at(
+fn verify_initial_registered_at<'a>(
     sub_account_index: usize,
-    sub_account_reader: SubAccountReader,
+    sub_account_reader: &Box<dyn SubAccountReaderMixer + 'a>,
     timestamp: u64,
 ) -> Result<(), Box<dyn ScriptError>> {
     let registered_at = u64::from(sub_account_reader.registered_at());
@@ -212,7 +231,7 @@ fn verify_initial_registered_at(
         SubAccountCellErrorCode::SubAccountInitialValueError,
         "  witnesses[{:>2}] The witness.sub_account.registered_at of {} should be the same as the timestamp in TimeCell.(expected: {}, current: {})",
         sub_account_index,
-        util::get_sub_account_name_from_reader(sub_account_reader),
+        util::get_sub_account_name_from_reader(&sub_account_reader),
         timestamp,
         registered_at
     );
@@ -220,28 +239,30 @@ fn verify_initial_registered_at(
     Ok(())
 }
 
-pub fn verify_initial_properties(
+pub fn verify_initial_properties<'a>(
     parser: &WitnessesParser,
     sub_account_index: usize,
-    sub_account_reader: SubAccountReader,
+    sub_account_reader: SubAccountReader<'a>,
     current_timestamp: u64,
 ) -> Result<(), Box<dyn ScriptError>> {
-    verify_initial_lock(sub_account_index, sub_account_reader)?;
-    verify_initial_id(sub_account_index, sub_account_reader)?;
-    verify_initial_registered_at(sub_account_index, sub_account_reader, current_timestamp)?;
-    verify_status(sub_account_index, sub_account_reader, AccountStatus::Normal)?;
+    let sub_account_reader_mixer: Box<dyn SubAccountReaderMixer> = Box::new(sub_account_reader);
+
+    verify_initial_lock(sub_account_index, &sub_account_reader_mixer)?;
+    verify_initial_id(sub_account_index, &sub_account_reader_mixer)?;
+    verify_initial_registered_at(sub_account_index, &sub_account_reader_mixer, current_timestamp)?;
+    verify_status(sub_account_index, &sub_account_reader_mixer, AccountStatus::Normal)?;
 
     if sub_account_reader.records().len() == 0 {
         debug!(
             "  witnesses[{:>2}] The witness.sub_account.records of {} is empty, that is ok.",
             sub_account_index,
-            util::get_sub_account_name_from_reader(sub_account_reader)
+            util::get_sub_account_name_from_reader(&sub_account_reader_mixer)
         );
     } else if sub_account_reader.records().len() == 1 {
         debug!(
             "  witnesses[{:>2}] The witness.sub_account.records of {} has 1 default record, verify if it is ok.",
             sub_account_index,
-            util::get_sub_account_name_from_reader(sub_account_reader)
+            util::get_sub_account_name_from_reader(&sub_account_reader_mixer)
         );
 
         let records_reader = sub_account_reader.records();
@@ -250,7 +271,7 @@ pub fn verify_initial_properties(
         warn!(
             "  witnesses[{:>2}] The witness.sub_account.records of {} should be empty or only one default record.",
             sub_account_index,
-            util::get_sub_account_name_from_reader(sub_account_reader)
+            util::get_sub_account_name_from_reader(&sub_account_reader_mixer)
         );
         return Err(code_to_error!(SubAccountCellErrorCode::SubAccountInitialValueError));
     }
@@ -261,7 +282,7 @@ pub fn verify_initial_properties(
         SubAccountCellErrorCode::SubAccountInitialValueError,
         "  witnesses[{:>2}] The witness.sub_account.enable_sub_account of {} should be 0 .",
         sub_account_index,
-        util::get_sub_account_name_from_reader(sub_account_reader)
+        util::get_sub_account_name_from_reader(&sub_account_reader_mixer)
     );
 
     let renew_sub_account_price = u64::from(sub_account_reader.renew_sub_account_price());
@@ -270,7 +291,7 @@ pub fn verify_initial_properties(
         SubAccountCellErrorCode::SubAccountInitialValueError,
         "  witnesses[{:>2}] The witness.sub_account.renew_sub_account_price of {} should be 0 .",
         sub_account_index,
-        util::get_sub_account_name_from_reader(sub_account_reader)
+        util::get_sub_account_name_from_reader(&sub_account_reader_mixer)
     );
 
     let nonce = u64::from(sub_account_reader.nonce());
@@ -279,7 +300,7 @@ pub fn verify_initial_properties(
         SubAccountCellErrorCode::SubAccountInitialValueError,
         "  witnesses[{:>2}] The witness.sub_account.nonce of {} should be 0 .",
         sub_account_index,
-        util::get_sub_account_name_from_reader(sub_account_reader)
+        util::get_sub_account_name_from_reader(&sub_account_reader_mixer)
     );
 
     let expired_at = u64::from(sub_account_reader.expired_at());
@@ -290,6 +311,13 @@ pub fn verify_initial_properties(
         sub_account_index,
         current_timestamp + YEAR_SEC,
         expired_at
+    );
+
+    das_assert!(
+        util::is_reader_eq(sub_account_reader.approval(), AccountApproval::default().as_reader()),
+        SubAccountCellErrorCode::ApprovalExist,
+        "  witnesses[{:>2}] The approval of new SubAccount should be empty.",
+        sub_account_index
     );
 
     Ok(())
@@ -490,10 +518,12 @@ pub fn verify_sub_account_edit_sign(
         }
     };
 
-    let account_id = witness.sub_account.id().as_slice().to_vec();
+    let reader = witness.sub_account.as_reader();
+
+    let account_id = reader.id().as_slice().to_vec();
     let edit_key = witness.edit_key.as_slice();
     let edit_value = witness.edit_value_bytes.as_slice();
-    let nonce = witness.sub_account.nonce().as_slice().to_vec();
+    let nonce = reader.nonce().as_slice().to_vec();
     let signature = witness.signature.as_slice();
     let args = witness.sign_args.as_slice();
     let sign_expired_at = witness.sign_expired_at.to_le_bytes().to_vec();
@@ -564,6 +594,96 @@ pub fn verify_sub_account_edit_sign(
     }
 }
 
+pub fn verify_sub_account_approval_sign(
+    witness: &SubAccountWitness,
+    sign_lib: &SignLib,
+    // TODO Support webauthn signature
+    _witness_parser: &SubAccountWitnessesParser,
+) -> Result<(), Box<dyn ScriptError>> {
+    if cfg!(feature = "dev") {
+        // CAREFUL Proof verification has been skipped in development mode.
+        debug!(
+            "  witnesses[{:>2}] Skip verifying the witness.sub_account.sig is valid.",
+            witness.index
+        );
+        return Ok(());
+    }
+
+    debug!(
+        "  witnesses[{:>2}] Verify if the witness.sub_account.signature is valid.",
+        witness.index
+    );
+
+    das_assert!(
+        witness.sign_role.is_some(),
+        SubAccountCellErrorCode::SubAccountSigVerifyError,
+        "  witnesses[{:>2}] Verify the signature is required, but the sign_role, sign_args or sign is missing.",
+        witness.index
+    );
+
+    let das_lock_type = match witness.sign_type {
+        Some(val) => {
+            assert!(
+                [DasLockType::CKBSingle, DasLockType::ETH, DasLockType::ETHTypedData, DasLockType::TRON, DasLockType::Doge].contains(&val),
+                ErrorCode::InvalidTransactionStructure,
+                "  witnesses[{:>2}] Parsing das-lock(witness.sub_account.lock.args) algorithm failed (maybe not supported for now), but it is required in this transaction.",
+                witness.index
+            );
+
+            val
+        }
+        _ => {
+            warn!(
+                "  witnesses[{:>2}] Parsing das-lock(witness.sub_account.lock.args) algorithm failed (maybe not supported for now), but it is required in this transaction.",
+                witness.index
+            );
+            return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
+        }
+    };
+
+    let sub_account_reader = witness
+        .sub_account
+        .as_reader()
+        .try_into_latest()
+        .map_err(|_| code_to_error!(SubAccountCellErrorCode::WitnessVersionMismatched))?;
+
+    let nonce = sub_account_reader.nonce().as_slice().to_vec();
+    let signature = witness.signature.as_slice();
+    let args = witness.sign_args.as_slice();
+    let sign_expired_at = witness.sign_expired_at.to_le_bytes().to_vec();
+
+    let ret = sign_lib.verify_sub_account_approval_sig(
+        das_lock_type,
+        witness.action,
+        sub_account_reader.approval(),
+        nonce,
+        signature.to_vec(),
+        args.to_vec(),
+        sign_expired_at,
+    );
+
+    match ret {
+        Err(_error_code) if _error_code == DasDynamicLibError::UndefinedDasLockType as i32 => {
+            warn!(
+                "  witnesses[{:>2}] The signature algorithm has not been supported",
+                witness.index
+            );
+            Err(code_to_error!(ErrorCode::HardCodedError))
+        }
+        Err(_error_code) => {
+            warn!(
+                "  witnesses[{:>2}] The witness.signature is invalid, the error_code returned by dynamic library is: {}",
+                witness.index, _error_code
+            );
+            Err(code_to_error!(SubAccountCellErrorCode::SubAccountSigVerifyError))
+        }
+        _ => {
+            debug!("  witnesses[{:>2}] The witness.signature is valid.", witness.index);
+            Ok(())
+        }
+    }
+}
+
 pub fn verify_sub_account_edit_sign_not_expired(
     witness: &SubAccountWitness,
     parent_expired_at: u64,
@@ -576,14 +696,14 @@ pub fn verify_sub_account_edit_sign_not_expired(
 
     let expired_at = witness.sign_expired_at;
 
-    let mut limit_expired_at = u64::from(witness.sub_account.expired_at());
+    let mut limit_expired_at = u64::from(witness.sub_account.as_reader().expired_at());
     if limit_expired_at <= parent_expired_at {
         limit_expired_at = parent_expired_at;
     }
 
     das_assert!(
         expired_at <= limit_expired_at,
-        SubAccountCellErrorCode::SubAccountSignMintExpiredAtTooLarge,
+        SubAccountCellErrorCode::SignExpiredAtTooLarge,
         "  witnesses[{:>2}] SubAccount.expired_at should be less than the minimal expired_at of AccountCell and all sub-accounts'. (current: {}, limit: {})",
         witness.index,
         expired_at,
@@ -592,8 +712,8 @@ pub fn verify_sub_account_edit_sign_not_expired(
 
     das_assert!(
         expired_at >= sub_account_last_updated_at,
-        SubAccountCellErrorCode::SubAccountSignMintExpiredAtReached,
-        "  witnesses[{:>2}] The signature in SubAccount is expired. (current: {}, expired_at: {})",
+        SubAccountCellErrorCode::SignExpiredAtReached,
+        "  witnesses[{:>2}] SubAccount.signature is expired. (current: {}, expired_at: {})",
         witness.index,
         sub_account_last_updated_at,
         expired_at

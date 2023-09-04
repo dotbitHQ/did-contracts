@@ -109,9 +109,9 @@ fn action_config_sub_account(_action: &[u8], parser: &mut WitnessesParser) -> Re
         util::parse_account_cell_witness(&parser, output_account_cells[0], Source::Output)?;
     let output_account_cell_reader = output_account_cell_witness.as_reader();
 
-    verifiers::account_cell::verify_status(
+    verifiers::account_cell::verify_status_v2(
         &input_account_cell_reader,
-        AccountStatus::Normal,
+        &[AccountStatus::Normal, AccountStatus::ApprovedTransfer],
         input_account_cells[0],
         Source::Input,
     )?;
@@ -284,9 +284,9 @@ fn action_config_sub_account_custom_script(
         util::parse_account_cell_witness(&parser, output_account_cells[0], Source::Output)?;
     let output_account_cell_reader = output_account_cell_witness.as_reader();
 
-    verifiers::account_cell::verify_status(
+    verifiers::account_cell::verify_status_v2(
         &input_account_cell_reader,
-        AccountStatus::Normal,
+        &[AccountStatus::Normal, AccountStatus::ApprovedTransfer],
         input_account_cells[0],
         Source::Input,
     )?;
@@ -676,9 +676,10 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
             }
         }
 
-        verifiers::account_cell::verify_status(
+        // The AccountCell can be in both normal or approved_transfer status.
+        verifiers::account_cell::verify_status_v2(
             &account_cell_reader,
-            AccountStatus::Normal,
+            &[AccountStatus::Normal, AccountStatus::ApprovedTransfer],
             account_cell_index,
             account_cell_source,
         )?;

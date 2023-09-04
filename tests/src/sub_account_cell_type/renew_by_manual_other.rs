@@ -14,7 +14,7 @@ fn before_each() -> TemplateGenerator {
     // cell_deps
     push_simple_dep_account_cell(&mut template);
 
-    template.restore_sub_account(vec![
+    template.restore_sub_account_v1(vec![
         json!({
             "lock": {
                 "owner_lock_args": OWNER_1,
@@ -145,7 +145,7 @@ fn test_sub_account_renew_flag_manual_by_others() {
             "expired_at": TIMESTAMP + YEAR_SEC * 2,
         }
     }));
-    push_common_output_cells(&mut template, 3);
+    push_common_output_cells(&mut template, 3, SubAccountConfigFlag::Manual);
 
     test_tx(template.as_json())
 }
