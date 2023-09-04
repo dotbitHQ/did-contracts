@@ -84,7 +84,12 @@ pub fn push_simple_dep_account_cell(template: &mut TemplateGenerator) {
     );
 }
 
-pub fn push_simple_input_sub_account_cell(template: &mut TemplateGenerator, das_profit: u64, owner_profit: u64) {
+pub fn push_simple_input_sub_account_cell(
+    template: &mut TemplateGenerator,
+    das_profit: u64,
+    owner_profit: u64,
+    flag: SubAccountConfigFlag,
+) {
     push_input_sub_account_cell_v2(
         template,
         json!({
@@ -95,30 +100,35 @@ pub fn push_simple_input_sub_account_cell(template: &mut TemplateGenerator, das_
             "data": {
                 "das_profit": das_profit,
                 "owner_profit": owner_profit,
-                "flag": SubAccountConfigFlag::Manual as u8,
+                "flag": flag as u8,
             }
         }),
         ACCOUNT_1,
     );
 }
 
-pub fn push_simple_output_sub_account_cell(template: &mut TemplateGenerator, das_profit: u64, owner_profit: u64) {
+pub fn push_simple_output_sub_account_cell(
+    template: &mut TemplateGenerator,
+    das_profit: u64,
+    owner_profit: u64,
+    flag: SubAccountConfigFlag,
+) {
     push_output_sub_account_cell_v2(
         template,
         json!({
             "data": {
                 "das_profit": das_profit,
                 "owner_profit": owner_profit,
-                "flag": SubAccountConfigFlag::Manual as u8,
+                "flag": flag as u8,
             }
         }),
         ACCOUNT_1,
     );
 }
 
-pub fn push_common_output_cells(template: &mut TemplateGenerator, total_paied_years: u64) {
+pub fn push_common_output_cells(template: &mut TemplateGenerator, total_paied_years: u64, flag: SubAccountConfigFlag) {
     let das_profit = calculate_sub_account_cost(total_paied_years);
-    push_simple_output_sub_account_cell(template, das_profit, 0);
+    push_simple_output_sub_account_cell(template, das_profit, 0, flag);
     push_output_normal_cell(template, 10_000_000_000 - das_profit, OWNER);
 }
 

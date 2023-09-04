@@ -17,7 +17,7 @@ fn before_each() -> TemplateGenerator {
     push_simple_dep_account_cell(&mut template);
 
     // inputs
-    push_simple_input_sub_account_cell(&mut template, 0, 0);
+    push_simple_input_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
     push_input_normal_cell(&mut template, 10_000_000_000, OWNER);
 
     template
@@ -75,7 +75,7 @@ fn test_sub_account_create_flag_manual() {
         // "edit_key": "manual",
         "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_3)
     }));
-    push_common_output_cells(&mut template, 3);
+    push_common_output_cells(&mut template, 3, SubAccountConfigFlag::Manual);
 
     test_tx(template.as_json())
 }
@@ -282,7 +282,7 @@ fn challenge_sub_account_create_flag_manual_invalid_char() {
         },
         "edit_value": get_compiled_proof(&smt, account)
     }));
-    push_common_output_cells(&mut template, 1);
+    push_common_output_cells(&mut template, 1, SubAccountConfigFlag::Manual);
 
     challenge_tx(template.as_json(), ErrorCode::AccountCharIsInvalid);
 }
@@ -327,7 +327,7 @@ fn challenge_sub_account_create_flag_manual_undefined_char() {
         },
         "edit_value": get_compiled_proof(&smt, account)
     }));
-    push_common_output_cells(&mut template, 1);
+    push_common_output_cells(&mut template, 1, SubAccountConfigFlag::Manual);
 
     challenge_tx(template.as_json(), ErrorCode::ConfigIsPartialMissing);
 }
@@ -363,7 +363,7 @@ fn challenge_sub_account_create_flag_manual_too_long() {
         },
         "edit_value": get_compiled_proof(&smt, account)
     }));
-    push_common_output_cells(&mut template, 1);
+    push_common_output_cells(&mut template, 1, SubAccountConfigFlag::Manual);
 
     challenge_tx(template.as_json(), ErrorCode::AccountIsTooLong);
 }
@@ -399,7 +399,7 @@ fn challenge_sub_account_create_flag_manual_empty() {
         },
         "edit_value": get_compiled_proof(&smt, account)
     }));
-    push_common_output_cells(&mut template, 1);
+    push_common_output_cells(&mut template, 1, SubAccountConfigFlag::Manual);
 
     challenge_tx(template.as_json(), ErrorCode::AccountIsTooShort);
 }
@@ -435,7 +435,7 @@ fn challenge_sub_account_create_flag_manual_suffix_not_match() {
         },
         "edit_value": get_compiled_proof(&smt, account)
     }));
-    push_common_output_cells(&mut template, 1);
+    push_common_output_cells(&mut template, 1, SubAccountConfigFlag::Manual);
 
     challenge_tx(template.as_json(), SubAccountCellErrorCode::SubAccountInitialValueError);
 }
@@ -471,7 +471,7 @@ fn challenge_sub_account_create_flag_manual_id_not_match() {
         },
         "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_1)
     }));
-    push_common_output_cells(&mut template, 1);
+    push_common_output_cells(&mut template, 1, SubAccountConfigFlag::Manual);
 
     challenge_tx(template.as_json(), ErrorCode::SMTProofVerifyFailed);
 }
@@ -497,7 +497,7 @@ fn challenge_sub_account_create_flag_manual_registered_at_is_invalid() {
         },
         "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_1)
     }));
-    push_common_output_cells(&mut template, 1);
+    push_common_output_cells(&mut template, 1, SubAccountConfigFlag::Manual);
 
     challenge_tx(template.as_json(), SubAccountCellErrorCode::SubAccountInitialValueError);
 }
@@ -523,7 +523,7 @@ fn challenge_sub_account_create_flag_manual_expired_at_less_than_one_year() {
         },
         "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_1)
     }));
-    push_common_output_cells(&mut template, 1);
+    push_common_output_cells(&mut template, 1, SubAccountConfigFlag::Manual);
 
     challenge_tx(template.as_json(), SubAccountCellErrorCode::SubAccountInitialValueError);
 }
@@ -551,7 +551,7 @@ fn challenge_sub_account_create_flag_manual_no_profit_record() {
 
     let das_profit = calculate_sub_account_cost(1);
     // Simulate forget record correct profit in the outputs_data of the SubAccountCell
-    push_simple_output_sub_account_cell(&mut template, 0, 0);
+    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
     push_output_normal_cell(&mut template, 10_000_000_000 - das_profit, OWNER);
 
     challenge_tx(template.as_json(), SubAccountCellErrorCode::SubAccountProfitError);
@@ -633,7 +633,7 @@ fn challenge_sub_account_create_flag_manual_mint_sign_expired() {
         },
         "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_1)
     }));
-    push_common_output_cells(&mut template, 1);
+    push_common_output_cells(&mut template, 1, SubAccountConfigFlag::Manual);
 
     challenge_tx(
         template.as_json(),
@@ -674,7 +674,7 @@ fn challenge_sub_account_create_flag_manual_sign_expired_at_less_than_the_minima
         },
         "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_1)
     }));
-    push_common_output_cells(&mut template, 1);
+    push_common_output_cells(&mut template, 1, SubAccountConfigFlag::Manual);
 
     challenge_tx(
         template.as_json(),
@@ -715,7 +715,7 @@ fn challenge_sub_account_create_flag_manual_sign_expired_at_less_than_the_minima
         },
         "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_1)
     }));
-    push_common_output_cells(&mut template, 1);
+    push_common_output_cells(&mut template, 1, SubAccountConfigFlag::Manual);
 
     challenge_tx(
         template.as_json(),

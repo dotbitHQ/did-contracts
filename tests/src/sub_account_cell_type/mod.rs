@@ -1,3 +1,7 @@
+mod approval_create;
+mod approval_delay;
+mod approval_fulfill;
+mod approval_revoke;
 mod collect_sub_account_channel_profit;
 mod collect_sub_account_profit;
 mod common;

@@ -16,7 +16,7 @@ fn before_each() -> TemplateGenerator {
     push_simple_dep_account_cell(&mut template);
 
     // inputs
-    template.restore_sub_account(vec![
+    template.restore_sub_account_v1(vec![
         json!({
             "lock": {
                 "owner_lock_args": OWNER_1,
@@ -48,7 +48,7 @@ fn before_each() -> TemplateGenerator {
             "expired_at": TIMESTAMP,
         }),
     ]);
-    push_simple_input_sub_account_cell(&mut template, 0, 0);
+    push_simple_input_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
     push_input_normal_cell(&mut template, 10_000_000_000, OWNER);
 
     template
@@ -96,7 +96,7 @@ fn test_sub_account_renew_flag_manual_by_owner() {
             "rest": get_compiled_proof(&smt, SUB_ACCOUNT_2),
         }
     }));
-    push_common_output_cells(&mut template, 3);
+    push_common_output_cells(&mut template, 3, SubAccountConfigFlag::Manual);
 
     test_tx(template.as_json())
 }
@@ -163,7 +163,7 @@ fn challenge_sub_account_renew_flag_manual_multi_sign_role() {
         "edit_key": "manual",
         "edit_value": get_compiled_proof(&sign_smt, SUB_ACCOUNT_4)
     }));
-    push_common_output_cells(&mut template, 2);
+    push_common_output_cells(&mut template, 2, SubAccountConfigFlag::Manual);
 
     challenge_tx(
         template.as_json(),
@@ -196,7 +196,7 @@ fn challenge_sub_account_renew_flag_manual_expired_at_less_than_one_year() {
             "rest": get_compiled_proof(&smt, SUB_ACCOUNT_1),
         }
     }));
-    push_common_output_cells(&mut template, 1);
+    push_common_output_cells(&mut template, 1, SubAccountConfigFlag::Manual);
 
     challenge_tx(template.as_json(), SubAccountCellErrorCode::ExpirationYearsTooShort);
 }
@@ -228,7 +228,7 @@ fn challenge_sub_account_renew_flag_manual_no_profit_record() {
 
     let das_profit = calculate_sub_account_cost(1);
     // Simulate forget record correct profit in the outputs_data of the SubAccountCell
-    push_simple_output_sub_account_cell(&mut template, 0, 0);
+    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
     push_output_normal_cell(&mut template, 10_000_000_000 - das_profit, OWNER);
 
     challenge_tx(template.as_json(), SubAccountCellErrorCode::SubAccountProfitError);
@@ -318,7 +318,7 @@ fn challenge_sub_account_renew_flag_manual_renew_sign_expired() {
             "rest": get_compiled_proof(&smt, SUB_ACCOUNT_1),
         }
     }));
-    push_common_output_cells(&mut template, 1);
+    push_common_output_cells(&mut template, 1, SubAccountConfigFlag::Manual);
 
     challenge_tx(
         template.as_json(),

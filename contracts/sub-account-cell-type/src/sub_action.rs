@@ -11,12 +11,15 @@ use das_core::witness_parser::WitnessesParser;
 use das_core::{code_to_error, das_assert, data_parser, debug, verifiers, warn};
 use das_dynamic_libs::sign_lib::SignLib;
 use das_types::constants::*;
+use das_types::mixer::SubAccountReaderMixer;
 use das_types::packed::*;
 use das_types::prelude::{Builder, Entity};
 #[cfg(debug_assertions)]
 use das_types::prettier::Prettier;
 use simple_ast::executor::match_rule_with_account_chars;
 use simple_ast::types as ast_types;
+
+use super::approval;
 
 pub struct SubAction<'a> {
     sign_lib: SignLib,
@@ -106,15 +109,25 @@ impl<'a> SubAction<'a> {
 
         verifiers::sub_account_cell::verify_suffix_with_parent_account(
             witness.index,
-            sub_account_reader,
+            &sub_account_reader,
             self.parent_account,
         )?;
+
+        debug!(
+            "  witnesses[{:>2}] Start verify {} action ...",
+            witness.index,
+            witness.action.to_string()
+        );
 
         match witness.action {
             SubAccountAction::Create => self.create(witness, prev_root)?,
             SubAccountAction::Renew => self.renew(witness, prev_root)?,
             SubAccountAction::Edit => self.edit(witness, prev_root, witness_parser)?,
             SubAccountAction::Recycle => self.recycle(witness, prev_root)?,
+            SubAccountAction::CreateApproval
+            | SubAccountAction::DelayApproval
+            | SubAccountAction::RevokeApproval
+            | SubAccountAction::FulfillApproval => self.approve(witness, prev_root, witness_parser)?,
         }
 
         Ok(())
@@ -128,8 +141,27 @@ impl<'a> SubAction<'a> {
             witness.index
         );
 
-        let sub_account_reader = witness.sub_account.as_reader();
-        let (account, account_chars_reader) = gen_account_from_witness(sub_account_reader)?;
+        das_assert!(
+            witness.old_sub_account_version == 2 && witness.new_sub_account_version == 2,
+            SubAccountCellErrorCode::WitnessVersionMismatched,
+            "  witnesses[{:>2}] The old_sub_account_version and new_sub_account_version should be 2.",
+            witness.index
+        );
+
+        let sub_account = match witness.sub_account.try_into_latest() {
+            Ok(sub_account) => sub_account,
+            Err(_) => {
+                debug!(
+                    "  witnesses[{:>2}] The new SubAccount should be the latest version.",
+                    witness.index
+                );
+                return Err(code_to_error!(SubAccountCellErrorCode::WitnessVersionMismatched));
+            }
+        };
+        let sub_account_reader = sub_account.as_reader();
+        let sub_account_reader_mixer = witness.sub_account.as_reader();
+
+        let (account, account_chars_reader) = gen_account_from_witness(&sub_account_reader_mixer)?;
 
         verifiers::account_cell::verify_account_chars(self.parser, account_chars_reader)?;
         verifiers::account_cell::verify_account_chars_min_length(account_chars_reader)?;
@@ -325,7 +357,7 @@ impl<'a> SubAction<'a> {
 
     fn renew(&mut self, witness: &SubAccountWitness, prev_root: &[u8]) -> Result<(), Box<dyn ScriptError>> {
         let sub_account_reader = witness.sub_account.as_reader();
-        let new_sub_account = generate_new_sub_account_by_edit_value(witness.sub_account.clone(), &witness.edit_value)?;
+        let new_sub_account = generate_new_sub_account_by_edit_value(&witness)?;
         let new_sub_account_reader = new_sub_account.as_reader();
 
         smt_verify_sub_account_is_editable(&prev_root, &witness, new_sub_account_reader)?;
@@ -423,7 +455,7 @@ impl<'a> SubAction<'a> {
                 }
 
                 let sub_account_reader = witness.sub_account.as_reader();
-                let (account, account_chars_reader) = gen_account_from_witness(sub_account_reader)?;
+                let (account, account_chars_reader) = gen_account_from_witness(&sub_account_reader)?;
 
                 match self.custom_price_rules.as_ref() {
                     Some(rules) => match match_rule_with_account_chars(&rules, account_chars_reader, &account) {
@@ -517,13 +549,13 @@ impl<'a> SubAction<'a> {
         witness_parser: &SubAccountWitnessesParser,
     ) -> Result<(), Box<dyn ScriptError>> {
         let sub_account_reader = witness.sub_account.as_reader();
-        let new_sub_account = generate_new_sub_account_by_edit_value(witness.sub_account.clone(), &witness.edit_value)?;
+        let new_sub_account = generate_new_sub_account_by_edit_value(&witness)?;
         let new_sub_account_reader = new_sub_account.as_reader();
 
         debug!(
             "  witnesses[{:>2}] Calculated new sub-account structure is: {}",
             witness.index,
-            new_sub_account_reader.as_prettier()
+            Prettier::as_prettier(&new_sub_account_reader)
         );
 
         smt_verify_sub_account_is_editable(&prev_root, &witness, new_sub_account_reader)?;
@@ -538,14 +570,15 @@ impl<'a> SubAction<'a> {
         verifiers::sub_account_cell::verify_expiration(
             self.config_account,
             witness.index,
-            sub_account_reader,
+            &sub_account_reader,
             self.timestamp,
         )
         .map_err(|err| code_to_error!(err))?;
-        verifiers::sub_account_cell::verify_status(witness.index, sub_account_reader, AccountStatus::Normal)?;
 
         match &witness.edit_value {
             SubAccountEditValue::Owner(new_args) | SubAccountEditValue::Manager(new_args) => {
+                verifiers::sub_account_cell::verify_status(witness.index, &sub_account_reader, AccountStatus::Normal)?;
+
                 let current_args = sub_account_reader.lock().args().raw_data();
                 let (current_owner_type, current_owner_args, current_manager_type, current_manager_args) =
                     data_parser::das_lock_args::get_owner_and_manager(current_args)?;
@@ -557,6 +590,7 @@ impl<'a> SubAction<'a> {
                         "  witnesses[{:>2}] Verify if owner has been changed correctly.",
                         witness.index
                     );
+
 
                     das_assert!(
                         current_owner_type != new_owner_type || current_owner_args != new_owner_args,
@@ -588,6 +622,8 @@ impl<'a> SubAction<'a> {
                 }
             }
             SubAccountEditValue::Records(records) => {
+                verifiers::sub_account_cell::verify_status_v2(witness.index, &sub_account_reader, &[AccountStatus::Normal, AccountStatus::ApprovedTransfer])?;
+
                 verifiers::account_cell::verify_records_keys(self.parser, records.as_reader())?;
             }
             // manual::verify_edit_value_not_empty
@@ -606,10 +642,13 @@ impl<'a> SubAction<'a> {
     fn recycle(&mut self, witness: &SubAccountWitness, prev_root: &[u8]) -> Result<(), Box<dyn ScriptError>> {
         let sub_account_reader = witness.sub_account.as_reader();
 
+        // WARNING! The sub-account only has 2 status for now, if more status added, the recycling logic should be also updated.
+        verifiers::sub_account_cell::verify_status_v2(witness.index, &sub_account_reader, &[AccountStatus::Normal, AccountStatus::ApprovedTransfer])?;
+
         match verifiers::sub_account_cell::verify_expiration(
             self.config_account,
             witness.index,
-            sub_account_reader,
+            &sub_account_reader,
             self.timestamp,
         ) {
             Ok(_) => {
@@ -642,11 +681,158 @@ impl<'a> SubAction<'a> {
 
         Ok(())
     }
+
+    fn approve(
+        &mut self,
+        witness: &SubAccountWitness,
+        prev_root: &[u8],
+        witness_parser: &SubAccountWitnessesParser,
+    ) -> Result<(), Box<dyn ScriptError>> {
+        let sub_account_reader = witness.sub_account.as_reader();
+        let new_sub_account = generate_new_sub_account_by_edit_value(&witness)?;
+        let new_sub_account_reader = new_sub_account.as_reader();
+
+        debug!(
+            "  witnesses[{:>2}] Calculated new sub-account structure is: {}",
+            witness.index,
+            Prettier::as_prettier(&new_sub_account_reader)
+        );
+
+        smt_verify_sub_account_is_editable(&prev_root, &witness, new_sub_account_reader)?;
+
+        let approval_reader = match witness.action {
+            SubAccountAction::CreateApproval => new_sub_account_reader.approval(),
+            _ => {
+                let sub_account_reader = sub_account_reader
+                    .try_into_latest()
+                    .map_err(|_| code_to_error!(SubAccountCellErrorCode::WitnessVersionMismatched))?;
+                sub_account_reader.approval()
+            }
+        };
+        let approval_action = approval_reader.action().raw_data();
+        let approval_params = approval_reader.params().raw_data();
+
+        debug!("  witnesses[{:>2}] Verify if the signature is valid.", witness.index);
+
+        match witness.action {
+            SubAccountAction::CreateApproval | SubAccountAction::DelayApproval => {
+                verifiers::sub_account_cell::verify_unlock_role(&witness)?;
+                verifiers::sub_account_cell::verify_sub_account_edit_sign_not_expired(
+                    &witness,
+                    self.parent_expired_at,
+                    self.sub_account_last_updated_at,
+                )?;
+                verifiers::sub_account_cell::verify_sub_account_edit_sign(&witness, &self.sign_lib, witness_parser)?;
+            }
+            SubAccountAction::RevokeApproval => {
+                verifiers::sub_account_cell::verify_sub_account_edit_sign_not_expired(
+                    &witness,
+                    self.parent_expired_at,
+                    self.sub_account_last_updated_at,
+                )?;
+                verifiers::sub_account_cell::verify_sub_account_approval_sign(
+                    &witness,
+                    &self.sign_lib,
+                    witness_parser,
+                )?;
+            }
+            SubAccountAction::FulfillApproval => match approval_action {
+                b"transfer" => {
+                    let params = AccountApprovalTransferReader::from_compatible_slice(approval_params)
+                        .map_err(|_| code_to_error!(SubAccountCellErrorCode::WitnessParsingError))?;
+                    let sealed_util = u64::from(params.sealed_until());
+
+                    if self.timestamp <= sealed_util {
+                        debug!(
+                            "  witnesses[{:>2}] The approval is sealed, verify the signature with the owner lock.",
+                            witness.index
+                        );
+
+                        verifiers::sub_account_cell::verify_sub_account_edit_sign_not_expired(
+                            &witness,
+                            self.parent_expired_at,
+                            self.sub_account_last_updated_at,
+                        )?;
+                        verifiers::sub_account_cell::verify_sub_account_approval_sign(
+                            &witness,
+                            &self.sign_lib,
+                            witness_parser,
+                        )?;
+                    } else {
+                        debug!(
+                            "  witnesses[{:>2}] The approval is released, no need to verify the signature.",
+                            witness.index
+                        );
+                    }
+                }
+                _ => return Err(code_to_error!(SubAccountCellErrorCode::ApprovalActionUndefined)),
+            },
+            _ => {
+                warn!(
+                    "  witnesses[{:>2}] The action is not an approval actions.",
+                    witness.index
+                );
+                return Err(code_to_error!(SubAccountCellErrorCode::SignError));
+            }
+        }
+
+        debug!("  witnesses[{:>2}] Get the approval action.", witness.index);
+
+        match witness.action {
+            SubAccountAction::CreateApproval => match approval_action {
+                b"transfer" => {
+                    approval::transfer_approval_create(
+                        witness.index,
+                        self.timestamp,
+                        sub_account_reader,
+                        new_sub_account_reader,
+                    )?;
+                }
+                _ => return Err(code_to_error!(SubAccountCellErrorCode::ApprovalActionUndefined)),
+            },
+            SubAccountAction::DelayApproval => match approval_action {
+                b"transfer" => {
+                    let sub_account_reader = sub_account_reader
+                        .try_into_latest()
+                        .map_err(|_| code_to_error!(SubAccountCellErrorCode::WitnessVersionMismatched))?;
+                    approval::transfer_approval_delay(
+                        witness.index,
+                        sub_account_reader.approval(),
+                        new_sub_account_reader.approval(),
+                    )?;
+                }
+                _ => return Err(code_to_error!(SubAccountCellErrorCode::ApprovalActionUndefined)),
+            },
+            SubAccountAction::RevokeApproval => match approval_action {
+                b"transfer" => {
+                    let sub_account_reader = sub_account_reader
+                        .try_into_latest()
+                        .map_err(|_| code_to_error!(SubAccountCellErrorCode::WitnessVersionMismatched))?;
+                    approval::transfer_approval_revoke(
+                        witness.index,
+                        self.timestamp,
+                        sub_account_reader.approval(),
+                        new_sub_account_reader,
+                    )?;
+                }
+                _ => return Err(code_to_error!(SubAccountCellErrorCode::ApprovalActionUndefined)),
+            },
+            SubAccountAction::FulfillApproval => match approval_action {
+                b"transfer" => {
+                    debug!("  witnesses[{:>2}] The SMT verification has ensured the sub-account transfered properly, so no more verifications here.", witness.index);
+                }
+                _ => return Err(code_to_error!(SubAccountCellErrorCode::ApprovalActionUndefined)),
+            },
+            _ => return Err(code_to_error!(SubAccountCellErrorCode::ApprovalActionUndefined)),
+        }
+
+        Ok(())
+    }
 }
 
-fn gen_account_from_witness(
-    sub_account_reader: SubAccountReader,
-) -> Result<(String, AccountCharsReader), Box<dyn ScriptError>> {
+fn gen_account_from_witness<'a>(
+    sub_account_reader: &'a Box<dyn SubAccountReaderMixer + 'a>,
+) -> Result<(String, AccountCharsReader<'a>), Box<dyn ScriptError>> {
     let account_chars_reader = sub_account_reader.account();
     let mut account_bytes = account_chars_reader.as_readable();
     account_bytes.extend(sub_account_reader.suffix().raw_data());
@@ -669,13 +855,14 @@ fn smt_verify_sub_account_is_in_mint_list(
 ) -> Result<(), Box<dyn ScriptError>> {
     // TODO Unify the error codes here with the renew action
     let proof = &witness.edit_value_bytes;
-    let key = gen_smt_key_by_account_id(witness.sub_account.id().as_slice());
-    let value = util::blake2b_256(witness.sub_account.lock().args().as_reader().raw_data());
+    let sub_account_reader = witness.sub_account.as_reader();
+    let key = gen_smt_key_by_account_id(sub_account_reader.id().as_slice());
+    let value = util::blake2b_256(sub_account_reader.lock().args().raw_data());
 
     debug!(
         "  witnesses[{:>2}] Verify if {} is exist in the SubAccountMintSignWitness.account_list_smt_root.(key: 0x{})",
         witness.index,
-        witness.sub_account.account().as_prettier(),
+        sub_account_reader.account().as_prettier(),
         util::hex_string(&key)
     );
 
@@ -692,13 +879,14 @@ fn smt_verify_sub_account_is_in_renew_list(
         Some(proof) => proof,
         None => return Err(code_to_error!(SubAccountCellErrorCode::ManualRenewProofIsRequired)),
     };
-    let key = gen_smt_key_by_account_id(witness.sub_account.id().as_slice());
-    let value = util::blake2b_256(witness.sub_account.lock().args().as_reader().raw_data());
+    let sub_account_reader = witness.sub_account.as_reader();
+    let key = gen_smt_key_by_account_id(sub_account_reader.id().as_slice());
+    let value = util::blake2b_256(sub_account_reader.lock().args().raw_data());
 
     debug!(
         "  witnesses[{:>2}] Verify if {} is exist in the SubAccountMintSignWitness.account_list_smt_root.(key: 0x{})",
         witness.index,
-        witness.sub_account.account().as_prettier(),
+        sub_account_reader.account().as_prettier(),
         util::hex_string(&key)
     );
 
@@ -712,7 +900,8 @@ fn smt_verify_sub_account_is_creatable(
     prev_root: &[u8],
     witness: &SubAccountWitness,
 ) -> Result<(), Box<dyn ScriptError>> {
-    let key = gen_smt_key_by_account_id(witness.sub_account.id().as_slice());
+    let sub_account_reader = witness.sub_account.as_reader();
+    let key = gen_smt_key_by_account_id(sub_account_reader.id().as_slice());
     let proof = witness.proof.as_slice();
 
     debug!(
@@ -728,18 +917,20 @@ fn smt_verify_sub_account_is_creatable(
         witness.index
     );
     let current_root = witness.new_root.as_slice();
-    let current_val = blake2b_256(witness.sub_account.as_slice()).to_vec().try_into().unwrap();
+    let current_val = blake2b_256(sub_account_reader.as_slice()).to_vec().try_into().unwrap();
+    // debug!("current_val_prettier = {}", sub_account_reader.as_prettier());
     verifiers::common::verify_smt_proof(key, current_val, current_root.try_into().unwrap(), proof)?;
 
     Ok(())
 }
 
-fn smt_verify_sub_account_is_editable(
+fn smt_verify_sub_account_is_editable<'a>(
     prev_root: &[u8],
     witness: &SubAccountWitness,
     new_sub_account: SubAccountReader,
 ) -> Result<(), Box<dyn ScriptError>> {
-    let key = gen_smt_key_by_account_id(witness.sub_account.id().as_slice());
+    let sub_account_reader = witness.sub_account.as_reader();
+    let key = gen_smt_key_by_account_id(sub_account_reader.id().as_slice());
     let proof = witness.proof.as_slice();
 
     debug!(
@@ -747,7 +938,7 @@ fn smt_verify_sub_account_is_editable(
         witness.index,
         util::hex_string(&key)
     );
-    let prev_val: [u8; 32] = blake2b_256(witness.sub_account.as_slice()).to_vec().try_into().unwrap();
+    let prev_val: [u8; 32] = blake2b_256(sub_account_reader.as_slice()).to_vec().try_into().unwrap();
     // debug!("prev_val = 0x{}", util::hex_string(&prev_val));
     // debug!("prev_val_raw = 0x{}", util::hex_string(witness.sub_account.as_slice()));
     // debug!("prev_val_prettier = {}", witness.sub_account.as_prettier());
@@ -758,10 +949,13 @@ fn smt_verify_sub_account_is_editable(
         witness.index
     );
     let current_root = witness.new_root.as_slice();
-    let current_val: [u8; 32] = blake2b_256(new_sub_account.as_slice()).to_vec().try_into().unwrap();
+    let current_val: [u8; 32] = blake2b_256(Reader::as_slice(&new_sub_account))
+        .to_vec()
+        .try_into()
+        .unwrap();
     // debug!("current_val = 0x{}", util::hex_string(&current_val));
     // debug!("current_val_raw = 0x{}", util::hex_string(new_sub_account.as_slice()));
-    // debug!("current_val_prettier = {}", new_sub_account.as_prettier());
+    // debug!("current_val_prettier = {}", Prettier::as_prettier(&new_sub_account));
     verifiers::common::verify_smt_proof(key, current_val, current_root.try_into().unwrap(), proof)?;
 
     Ok(())
@@ -771,7 +965,8 @@ fn smt_verify_sub_account_is_removed(
     prev_root: &[u8],
     witness: &SubAccountWitness,
 ) -> Result<(), Box<dyn ScriptError>> {
-    let key = gen_smt_key_by_account_id(witness.sub_account.id().as_slice());
+    let sub_account_reader = witness.sub_account.as_reader();
+    let key = gen_smt_key_by_account_id(sub_account_reader.id().as_slice());
     let proof = witness.proof.as_slice();
 
     debug!(
@@ -779,7 +974,7 @@ fn smt_verify_sub_account_is_removed(
         witness.index,
         util::hex_string(&key)
     );
-    let prev_val: [u8; 32] = blake2b_256(witness.sub_account.as_slice()).to_vec().try_into().unwrap();
+    let prev_val: [u8; 32] = blake2b_256(sub_account_reader.as_slice()).to_vec().try_into().unwrap();
     // debug!("prev_val = 0x{}", util::hex_string(&prev_val));
     // debug!("prev_val_raw = 0x{}", util::hex_string(witness.sub_account.as_slice()));
     // debug!("prev_val_prettier = {}", witness.sub_account.as_prettier());
@@ -799,38 +994,119 @@ fn smt_verify_sub_account_is_removed(
     Ok(())
 }
 
-fn generate_new_sub_account_by_edit_value(
-    sub_account: SubAccount,
-    edit_value: &SubAccountEditValue,
-) -> Result<SubAccount, Box<dyn ScriptError>> {
+fn generate_new_sub_account_by_edit_value(witness: &SubAccountWitness) -> Result<SubAccount, Box<dyn ScriptError>> {
+    das_assert!(
+        witness.new_sub_account_version == 2,
+        SubAccountCellErrorCode::WitnessUpgradeNeeded,
+        "  witnesses[{:>2}] SubAccount.new_sub_account_version is invalid.(expected: {}, actual: {})",
+        witness.index,
+        2,
+        witness.new_sub_account_version
+    );
+
+    // Upgrade the earlier version to the latest version, because the new SubAccount should always be kept up to date.
+    let sub_account = witness.sub_account.clone();
+    let sub_account = if sub_account.version() == 1 {
+        let sub_account = sub_account
+            .try_into_v1()
+            .map_err(|_| code_to_error!(SubAccountCellErrorCode::WitnessVersionMismatched))?;
+
+        SubAccount::new_builder()
+            .lock(sub_account.lock().clone())
+            .id(sub_account.id().clone())
+            .account(sub_account.account().clone())
+            .suffix(sub_account.suffix().clone())
+            .registered_at(sub_account.registered_at().clone())
+            .expired_at(sub_account.expired_at().clone())
+            .status(sub_account.status().clone())
+            .records(sub_account.records().clone())
+            .nonce(sub_account.nonce().clone())
+            .enable_sub_account(sub_account.enable_sub_account().clone())
+            .renew_sub_account_price(sub_account.renew_sub_account_price().clone())
+            .build()
+    } else {
+        sub_account
+            .try_into_latest()
+            .map_err(|_| code_to_error!(SubAccountCellErrorCode::WitnessVersionMismatched))?
+    };
+
+    let edit_value = &witness.edit_value;
+
     let current_nonce = u64::from(sub_account.nonce());
+    let current_approval = sub_account.approval().clone();
+    let current_approval_reader = current_approval.as_reader();
+    let mut sub_account_builder = sub_account.as_builder();
+    sub_account_builder = match witness.action {
+        SubAccountAction::Edit => {
+            match edit_value {
+                SubAccountEditValue::Owner(val) | SubAccountEditValue::Manager(val) => {
+                    let mut lock_builder = Script::from(das_lock()).as_builder();
+                    // Verify if the edit_value is a valid format.
+                    data_parser::das_lock_args::get_owner_and_manager(val)?;
+                    lock_builder = lock_builder.args(Bytes::from(val.to_owned()));
 
-    let mut sub_account_builder = match edit_value {
-        SubAccountEditValue::ExpiredAt(val) => {
-            let mut sub_account_builder = sub_account.as_builder();
-            sub_account_builder = sub_account_builder.expired_at(Uint64::from(val.to_owned()));
+                    sub_account_builder = sub_account_builder.lock(lock_builder.build());
 
-            sub_account_builder
+                    if let SubAccountEditValue::Owner(_) = edit_value {
+                        sub_account_builder = sub_account_builder.records(Records::default())
+                    }
+
+                    sub_account_builder
+                }
+                SubAccountEditValue::Records(val) => sub_account_builder.records(val.to_owned()),
+                _ => return Err(code_to_error!(SubAccountCellErrorCode::WitnessEditKeyInvalid)),
+            }
         }
-        SubAccountEditValue::Owner(val) | SubAccountEditValue::Manager(val) => {
-            let mut lock_builder = sub_account.lock().as_builder();
-            let mut sub_account_builder = sub_account.as_builder();
-
-            // Verify if the edit_value is a valid format.
-            data_parser::das_lock_args::get_owner_and_manager(val)?;
-
-            lock_builder = lock_builder.args(Bytes::from(val.to_owned()));
-            sub_account_builder = sub_account_builder.lock(lock_builder.build());
-
-            if let SubAccountEditValue::Owner(_) = edit_value {
-                sub_account_builder = sub_account_builder.records(Records::default())
+        SubAccountAction::Renew => match edit_value {
+            SubAccountEditValue::ExpiredAt(val) => sub_account_builder.expired_at(Uint64::from(val.to_owned())),
+            _ => return Err(code_to_error!(SubAccountCellErrorCode::WitnessEditKeyInvalid)),
+        },
+        SubAccountAction::CreateApproval | SubAccountAction::DelayApproval => {
+            match edit_value {
+                SubAccountEditValue::Approval(val) => {
+                    // The status should be updated to AccountStatus::ApprovedTransfer when the edit_value is approval.
+                    sub_account_builder =
+                        sub_account_builder.status(Uint8::from(AccountStatus::ApprovedTransfer as u8));
+                    sub_account_builder.approval(val.to_owned())
+                }
+                _ => return Err(code_to_error!(SubAccountCellErrorCode::WitnessEditKeyInvalid)),
+            }
+        }
+        SubAccountAction::RevokeApproval => {
+            match edit_value {
+                SubAccountEditValue::None => {}
+                _ => {
+                    return Err(code_to_error!(SubAccountCellErrorCode::WitnessEditKeyInvalid));
+                }
             }
 
-            sub_account_builder
+            // The status should be updated to AccountStatus::Normal when the edit_value is None.
+            sub_account_builder = sub_account_builder.status(Uint8::from(AccountStatus::Normal as u8));
+            sub_account_builder.approval(AccountApproval::default())
         }
-        SubAccountEditValue::Records(val) => {
-            let sub_account_builder = sub_account.as_builder();
-            sub_account_builder.records(val.to_owned())
+        SubAccountAction::FulfillApproval => {
+            match edit_value {
+                SubAccountEditValue::None => {}
+                _ => {
+                    return Err(code_to_error!(SubAccountCellErrorCode::WitnessEditKeyInvalid));
+                }
+            }
+
+            let approval_action = current_approval_reader.action().raw_data();
+            let approval_params = current_approval_reader.params().raw_data();
+
+            match approval_action {
+                b"transfer" => {
+                    let approval_params_reader = AccountApprovalTransferReader::from_compatible_slice(approval_params)
+                        .map_err(|_| code_to_error!(SubAccountCellErrorCode::WitnessParsingError))?;
+                    sub_account_builder = sub_account_builder.lock(approval_params_reader.to_lock().to_entity());
+                    sub_account_builder = sub_account_builder.records(Records::default());
+                    // The status should be updated to AccountStatus::Normal when the edit_value is None.
+                    sub_account_builder = sub_account_builder.status(Uint8::from(AccountStatus::Normal as u8));
+                    sub_account_builder.approval(AccountApproval::default())
+                }
+                _ => return Err(code_to_error!(SubAccountCellErrorCode::ApprovalActionUndefined)),
+            }
         }
         _ => return Err(code_to_error!(SubAccountCellErrorCode::WitnessEditKeyInvalid)),
     };

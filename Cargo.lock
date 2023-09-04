@@ -706,7 +706,7 @@ dependencies = [
 [[package]]
 name = "das-types"
 version = "1.11.0"
-source = "git+https://github.com/dotbitHQ/das-types-private.git?rev=7fbd101#7fbd1014eb3f6bc195b6c2abcda2210d11f8ea10"
+source = "git+https://github.com/dotbitHQ/das-types-private.git?rev=17e1a0e#17e1a0e0bbebcf5f95231ea55b1d5f2fd7a2c878"
 dependencies = [
  "ckb-std",
  "molecule",
@@ -717,7 +717,7 @@ dependencies = [
 [[package]]
 name = "das-types-std"
 version = "1.11.0"
-source = "git+https://github.com/dotbitHQ/das-types-private.git?rev=f993731#f99373176f4ca08fb2d57603f21e3aa95447aef8"
+source = "git+https://github.com/dotbitHQ/das-types-private.git?rev=0dc4b91#0dc4b91d63d1b325eacdfc2df421f200f768020f"
 dependencies = [
  "ckb-types",
  "molecule",

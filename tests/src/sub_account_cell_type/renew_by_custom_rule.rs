@@ -26,7 +26,7 @@ fn before_each() -> TemplateGenerator {
 
     // inputs
     push_simple_rules(&mut template);
-    template.restore_sub_account(vec![
+    template.restore_sub_account_v1(vec![
         json!({
             "lock": {
                 "owner_lock_args": OWNER_1,
@@ -711,7 +711,7 @@ fn challenge_sub_account_renew_custom_rule_status_flag_is_off() {
 
     // inputs
     push_simple_rules(&mut template);
-    template.restore_sub_account(vec![json!({
+    template.restore_sub_account_v1(vec![json!({
         "lock": {
             "owner_lock_args": OWNER_1,
             "manager_lock_args": MANAGER_1

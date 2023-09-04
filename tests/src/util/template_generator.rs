@@ -21,7 +21,7 @@ use super::accounts::*;
 use super::constants::*;
 use super::since_util::SinceFlag;
 use super::smt::*;
-use super::{since_util, util};
+use super::{encoder, since_util, util};
 
 pub enum ContractType {
     DeployedContract,
@@ -435,67 +435,6 @@ fn parse_json_to_chain_id_mol(field_name: &str, field: &Value) -> ChainId {
         .coin_type(coin_type)
         .chain_id(chain_id)
         .checked(checked)
-        .build()
-}
-
-pub fn parse_json_to_sub_account(field_name: &str, field: &Value) -> SubAccount {
-    // let lock = parse_json_script_das_lock(&format!("{}.lock", field_name), &field["lock"]);
-    let lock = parse_json_script_to_mol(
-        "",
-        &parse_json_script_das_lock(&format!("{}.lock", field_name), &field["lock"]),
-    );
-    let suffix = parse_json_str(&format!("{}.suffix", field_name), &field["suffix"]);
-    let (account, account_chars) =
-        parse_json_to_account_chars(&format!("{}.account", field_name), &field["account"], Some(suffix));
-    let account_id = if !field["id"].is_null() {
-        parse_json_str_to_account_id_mol(&format!("{}.id", field_name), &field["id"])
-    } else {
-        AccountId::try_from(util::account_to_id(&account)).expect("Calculate account ID from account failed")
-    };
-    let registered_at = Uint64::from(util::parse_json_u64(
-        &format!("{}.registered_at", field_name),
-        &field["registered_at"],
-        None,
-    ));
-    let expired_at = Uint64::from(util::parse_json_u64(
-        &format!("{}.expired_at", field_name),
-        &field["expired_at"],
-        None,
-    ));
-    let status = Uint8::from(util::parse_json_u8(
-        &format!("{}.status", field_name),
-        &field["status"],
-        Some(0),
-    ));
-    let records = parse_json_to_records_mol(&format!("{}.records", field_name), &field["records"]);
-    let nonce = Uint64::from(util::parse_json_u64(
-        &format!("{}.nonce", field_name),
-        &field["nonce"],
-        Some(0),
-    ));
-    let enable_sub_account = Uint8::from(util::parse_json_u8(
-        &format!("{}.enable_sub_account", field_name),
-        &field["enable_sub_account"],
-        Some(0),
-    ));
-    let renew_sub_account_price = Uint64::from(util::parse_json_u64(
-        &format!("{}.renew_sub_account_price", field_name),
-        &field["renew_sub_account_price"],
-        Some(0),
-    ));
-
-    SubAccount::new_builder()
-        .lock(lock)
-        .id(account_id)
-        .account(account_chars)
-        .suffix(Bytes::from(suffix.as_bytes()))
-        .registered_at(registered_at)
-        .expired_at(expired_at)
-        .status(status)
-        .records(records)
-        .nonce(nonce)
-        .enable_sub_account(enable_sub_account)
-        .renew_sub_account_price(renew_sub_account_price)
         .build()
 }
 
@@ -1964,48 +1903,9 @@ impl TemplateGenerator {
 
         if !cell["witness"].is_null() {
             let witness = &cell["witness"];
-            let (account, account_chars) =
-                parse_json_to_account_chars("cell.witness.account", &witness["account"], None);
-            let account_id = if !witness["id"].is_null() {
-                parse_json_str_to_account_id_mol("cell.witness.id", &witness["id"])
-            } else {
-                AccountId::try_from(util::account_to_id(&account)).expect("Calculate account ID from account failed")
-            };
-            let registered_at = Uint64::from(util::parse_json_u64(
-                "cell.witness.registered_at",
-                &witness["registered_at"],
-                None,
-            ));
-            let last_transfer_account_at = Uint64::from(util::parse_json_u64(
-                "cell.witness.last_transfer_account_at",
-                &witness["last_transfer_account_at"],
-                Some(0),
-            ));
-            let last_edit_manager_at = Uint64::from(util::parse_json_u64(
-                "cell.witness.last_edit_manager_at",
-                &witness["last_edit_manager_at"],
-                Some(0),
-            ));
-            let last_edit_records_at = Uint64::from(util::parse_json_u64(
-                "cell.witness.last_edit_records_at",
-                &witness["last_edit_records_at"],
-                Some(0),
-            ));
-            let status = Uint8::from(util::parse_json_u8("cell.witness.status", &witness["status"], Some(0)));
-            let records = parse_json_to_records_mol("cell.witness.records", &witness["records"]);
-
             match version {
                 2 => {
-                    let entity = AccountCellDataV2::new_builder()
-                        .id(account_id)
-                        .account(account_chars)
-                        .registered_at(registered_at)
-                        .last_transfer_account_at(last_transfer_account_at)
-                        .last_edit_manager_at(last_edit_manager_at)
-                        .last_edit_records_at(last_edit_records_at)
-                        .status(status)
-                        .records(records)
-                        .build();
+                    let entity = encoder::account::to_v2("cell.witness", &witness);
                     let outputs_data = gen_outputs_data(&cell, Some(&entity));
 
                     (
@@ -2020,30 +1920,24 @@ impl TemplateGenerator {
                         Some(EntityWrapper::AccountCellDataV2(entity)),
                     )
                 }
-                _ => {
-                    let enable_sub_account = Uint8::from(util::parse_json_u8(
-                        "cell.witness.enable_sub_account",
-                        &witness["enable_sub_account"],
-                        Some(0),
-                    ));
-                    let renew_sub_account_price = Uint64::from(util::parse_json_u64(
-                        "cell.witness.renew_sub_account_price",
-                        &witness["renew_sub_account_price"],
-                        Some(0),
-                    ));
+                3 => {
+                    let entity = encoder::account::to_v3("cell.witness", &witness);
+                    let outputs_data = gen_outputs_data(&cell, Some(&entity));
 
-                    let entity = AccountCellData::new_builder()
-                        .id(account_id)
-                        .account(account_chars)
-                        .registered_at(registered_at)
-                        .last_transfer_account_at(last_transfer_account_at)
-                        .last_edit_manager_at(last_edit_manager_at)
-                        .last_edit_records_at(last_edit_records_at)
-                        .status(status)
-                        .records(records)
-                        .enable_sub_account(enable_sub_account)
-                        .renew_sub_account_price(renew_sub_account_price)
-                        .build();
+                    (
+                        json!({
+                            "tmp_header": cell["header"],
+                            "tmp_type": "full",
+                            "capacity": capacity,
+                            "lock": lock_script,
+                            "type": type_script,
+                            "tmp_data": util::bytes_to_hex(&outputs_data)
+                        }),
+                        Some(EntityWrapper::AccountCellDataV3(entity)),
+                    )
+                }
+                _ => {
+                    let entity = encoder::account::to_latest("cell.witness", &witness);
                     let outputs_data = gen_outputs_data(&cell, Some(&entity));
 
                     (
@@ -2694,14 +2588,31 @@ impl TemplateGenerator {
     }
 
     /// Insert some leaves into the sparse-merkle-tree without pushing any witness
-    pub fn restore_sub_account(&mut self, sub_account_jsons: Vec<Value>) {
+    pub fn restore_sub_account_v1(&mut self, sub_account_jsons: Vec<Value>) {
         let mut leaves: Vec<(H256, H256)> = Vec::new();
 
         for sub_account_json in sub_account_jsons {
             let account = parse_json_str("", &sub_account_json["account"]);
             let key = util::gen_smt_key_from_account(account);
-            let sub_account_1 = parse_json_to_sub_account("", &sub_account_json);
+            // Be aware that the sub_account used here is SubAccountV1
+            let sub_account_1 = encoder::sub_account::to_v1("", &sub_account_json);
             let value = util::blake2b_smt(sub_account_1.as_slice());
+            leaves.push((key.into(), value.into()));
+        }
+
+        self.smt_with_history.restore_state(leaves);
+    }
+
+    /// Insert some leaves into the sparse-merkle-tree without pushing any witness
+    pub fn restore_sub_account_v2(&mut self, sub_account_jsons: Vec<Value>) {
+        let mut leaves: Vec<(H256, H256)> = Vec::new();
+
+        for sub_account_json in sub_account_jsons {
+            let account = parse_json_str("", &sub_account_json["account"]);
+            let key = util::gen_smt_key_from_account(account);
+            // Be aware that the sub_account used here is SubAccountV1
+            let sub_account_2 = encoder::sub_account::to_latest("", &sub_account_json);
+            let value = util::blake2b_smt(sub_account_2.as_slice());
             leaves.push((key.into(), value.into()));
         }
 
@@ -2862,6 +2773,8 @@ impl TemplateGenerator {
     ///     "sign_expired_at": null | u64, // If this is null, it will be filled with 0.
     ///     "new_root": null | "0x...", // If this is null, it will be calculated automatically from self.smt_with_history.
     ///     "proof": null | "0x...", // If this is null, it will be calculated automatically from self.smt_with_history.
+    ///     "old_sub_account_version": null | u32,
+    ///     "new_sub_account_version": null | u32,
     ///     "sub_account": {
     ///         "lock": Script,
     ///         "id": null | "yyyyy.xxxxx.bit" | "0x...", // If this is null, it will be an invalid cell. If this is not hex, it will be treated as account to calculate account ID.
@@ -2889,212 +2802,30 @@ impl TemplateGenerator {
     /// })
     /// ```
     pub fn push_sub_account_witness_v2(&mut self, witness: Value) {
-        fn extend_main_fields(
-            witness_bytes: &mut Vec<u8>,
-            new_root: [u8; 32],
-            proof: Vec<u8>,
-            sub_account_entity_bytes: Vec<u8>,
-        ) {
-            witness_bytes.extend(length_of(&new_root));
-            witness_bytes.extend(new_root);
-
-            witness_bytes.extend(length_of(&proof));
-            witness_bytes.extend(proof);
-
-            witness_bytes.extend(length_of(&sub_account_entity_bytes));
-            witness_bytes.extend(sub_account_entity_bytes);
-        }
-
-        fn extend_edit_fields(action: SubAccountAction, witness_bytes: &mut Vec<u8>, witness: &Value) {
-            if witness["edit_key"].is_null() {
-                witness_bytes.extend(length_of(&[]));
-            } else {
-                let edit_key = parse_json_str("witness.edit_key", &witness["edit_key"]);
-                witness_bytes.extend(length_of(edit_key.as_bytes()));
-                witness_bytes.extend(edit_key.as_bytes().to_vec());
-            }
-
-            if witness["edit_value"].is_null() {
-                witness_bytes.extend(length_of(&[]));
-            } else {
-                let edit_value = match action {
-                    SubAccountAction::Renew => {
-                        let expired_at = Uint64::from(util::parse_json_u64(
-                            "witness.edit_value.expired_at",
-                            &witness["edit_value"]["expired_at"],
-                            None,
-                        ));
-                        let mut ret = expired_at.as_slice().to_vec();
-                        let rest = util::parse_json_hex_with_default(
-                            "witness.edit_value.rest",
-                            &witness["edit_value"]["rest"],
-                            vec![],
-                        );
-                        ret.extend(rest);
-                        ret
-                    }
-                    SubAccountAction::Edit => {
-                        // Allow the edit_key field to be an invalid value.
-                        let edit_key = parse_json_str_with_default("witness.edit_key", &witness["edit_key"], "");
-                        match edit_key {
-                            "owner" => util::parse_json_hex("witness.edit_value", &witness["edit_value"]),
-                            "manager" => util::parse_json_hex("witness.edit_value", &witness["edit_value"]),
-                            "records" => {
-                                let mol = parse_json_to_records_mol("witness.edit_value", &witness["edit_value"]);
-                                mol.as_slice().to_vec()
-                            }
-                            // If the edit_key field is invalid just parse edit_value field as hex string.
-                            _ => util::parse_json_hex("witness.edit_value", &witness["edit_value"]),
-                        }
-                    }
-                    _ => util::parse_json_hex("witness.edit_value", &witness["edit_value"]),
-                };
-
-                witness_bytes.extend(length_of(&edit_value));
-                witness_bytes.extend(edit_value);
-            }
-        }
-
-        let mut witness_bytes = Vec::new();
-
-        let field_value = util::parse_json_u32("witness.version", &witness["version"], Some(2)).to_le_bytes();
-        witness_bytes.extend(length_of(&field_value));
-        witness_bytes.extend(field_value);
-
         let action = SubAccountAction::from_str(
             witness["action"]
                 .as_str()
                 .expect("witness.action should be a valid str."),
         )
         .expect("witness.action should be a valid SubAccountAction.");
-        let action_str = action.clone().to_string();
-        witness_bytes.extend(length_of(action_str.as_bytes()));
-        witness_bytes.extend(action_str.as_bytes());
-
-        let field_value =
-            util::parse_json_hex_with_default("witness.signature", &witness["signature"], vec![255u8; 65]);
-        witness_bytes.extend(length_of(&field_value));
-        witness_bytes.extend(field_value);
-
-        let field_value = util::parse_json_hex_with_default("witness.sign_role", &witness["sign_role"], vec![0]);
-        witness_bytes.extend(length_of(&field_value));
-        witness_bytes.extend(field_value);
-
-        let field_value =
-            util::parse_json_u64("witness.sign_expired_at", &witness["sign_expired_at"], Some(0)).to_le_bytes();
-        witness_bytes.extend(length_of(&field_value));
-        witness_bytes.extend(field_value);
-
-        if witness["sub_account"].is_null() {
-            panic!("witness.sub_account is missing");
-        }
-        let sub_account_value = &witness["sub_account"];
-        let suffix = parse_json_str("witness.sub_account.suffix", &sub_account_value["suffix"]);
-        let (account, _) = parse_json_to_account_chars(
-            "witness.sub_account.account",
-            &sub_account_value["account"],
-            Some(suffix),
-        );
-        let key = util::gen_smt_key_from_account(&account);
-
-        let sub_account_entity = parse_json_to_sub_account("witness.sub_account", &witness["sub_account"]);
-        match action {
+        let mut default_witness = match action {
             SubAccountAction::Create => {
-                let sub_account_entity_bytes = sub_account_entity.as_slice().to_vec();
-                let value = util::blake2b_smt(&sub_account_entity_bytes);
-                let (_, current_root, proof) = self.smt_with_history.insert(key.clone().into(), value.clone().into());
-                let compiled_proof = proof.compile(vec![key.into()]).unwrap().0;
-
-                extend_main_fields(
-                    &mut witness_bytes,
-                    current_root,
-                    compiled_proof,
-                    sub_account_entity_bytes,
-                );
-                extend_edit_fields(action, &mut witness_bytes, &witness);
+                json!({
+                    "old_sub_account_version": 2,
+                    "new_sub_account_version": 2,
+                })
             }
-            SubAccountAction::Renew => {
-                let current_nonce = u64::from(sub_account_entity.nonce());
-                let mut new_sub_account_builder = sub_account_entity.clone().as_builder();
-                let expired_at = Uint64::from(util::parse_json_u64(
-                    "witness.edit_value.expired_at",
-                    &witness["edit_value"]["expired_at"],
-                    None,
-                ));
-                new_sub_account_builder = new_sub_account_builder.expired_at(expired_at);
-                new_sub_account_builder = new_sub_account_builder.nonce(Uint64::from(current_nonce + 1));
-
-                let new_sub_account_entity = new_sub_account_builder.build();
-                let new_sub_account_entity_bytes = new_sub_account_entity.as_slice().to_vec();
-                let value = util::blake2b_smt(&new_sub_account_entity_bytes);
-                let (_, current_root, proof) = self.smt_with_history.insert(key.into(), value.into());
-                let compiled_proof = proof.compile(vec![key.into()]).unwrap().0;
-
-                extend_main_fields(
-                    &mut witness_bytes,
-                    current_root,
-                    compiled_proof,
-                    sub_account_entity.as_slice().to_vec(),
-                );
-                extend_edit_fields(action, &mut witness_bytes, &witness);
+            _ => {
+                json!({
+                    "old_sub_account_version": 1,
+                    "new_sub_account_version": 2,
+                })
             }
-            SubAccountAction::Edit => {
-                let mut new_sub_account_builder = sub_account_entity.clone().as_builder();
-                let current_nonce = u64::from(sub_account_entity.nonce());
+        };
+        util::merge_json(&mut default_witness, witness);
 
-                // Modify SubAccount base on edit_key and edit_value.
-                let edit_key = parse_json_str("witness.edit_key", &witness["edit_key"]);
-                match edit_key {
-                    "records" => {
-                        let mol = parse_json_to_records_mol("witness.edit_value", &witness["edit_value"]);
-                        new_sub_account_builder = new_sub_account_builder.records(mol)
-                    }
-                    // WARNING The _ pattern is used to test empty edit_key so it also contains "owner" | "manager" .
-                    _ => {
-                        let mut lock_builder = sub_account_entity.lock().as_builder();
-                        let args = util::parse_json_hex("witness.edit_value", &witness["edit_value"]);
-                        lock_builder = lock_builder.args(Bytes::from(args));
-
-                        new_sub_account_builder = new_sub_account_builder.lock(lock_builder.build())
-                    }
-                };
-
-                new_sub_account_builder = new_sub_account_builder.nonce(Uint64::from(current_nonce + 1));
-                let new_sub_account_entity = new_sub_account_builder.build();
-                let new_sub_account_entity_bytes = new_sub_account_entity.as_slice().to_vec();
-                let value = util::blake2b_smt(&new_sub_account_entity_bytes);
-                let (_, current_root, proof) = self.smt_with_history.insert(key.into(), value.into());
-                let compiled_proof = proof.compile(vec![key.into()]).unwrap().0;
-
-                extend_main_fields(
-                    &mut witness_bytes,
-                    current_root,
-                    compiled_proof,
-                    sub_account_entity.as_slice().to_vec(),
-                );
-                extend_edit_fields(action, &mut witness_bytes, &witness);
-            }
-            SubAccountAction::Recycle => {
-                let sub_account_entity_bytes = sub_account_entity.as_slice().to_vec();
-                let mut value = [0u8; 32];
-                // temporarily use edit_value to pass the value of SMT leaf
-                let tmp =
-                    util::parse_json_hex_with_default("witness.edit_value", &witness["edit_value"], vec![0u8; 32]);
-                value.copy_from_slice(&tmp);
-                let (_, current_root, proof) = self.smt_with_history.insert(key.clone().into(), value.clone().into());
-                let compiled_proof = proof.compile(vec![key.into()]).unwrap().0;
-
-                extend_main_fields(
-                    &mut witness_bytes,
-                    current_root,
-                    compiled_proof,
-                    sub_account_entity_bytes,
-                );
-                extend_edit_fields(action, &mut witness_bytes, &witness);
-            }
-        }
-
-        witness_bytes = das_util::wrap_raw_witness_v2(DataType::SubAccount, witness_bytes);
+        let witness_bytes =
+            encoder::sub_account::to_raw_witness_latest(&mut self.smt_with_history, "witness", &default_witness);
         self.sub_account_outer_witnesses
             .push(util::bytes_to_hex(&witness_bytes));
     }
