@@ -1,4 +1,5 @@
 use alloc::boxed::Box;
+use alloc::string::String;
 use alloc::vec;
 
 use ckb_std::ckb_constants::Source;
@@ -10,12 +11,14 @@ use das_core::witness_parser::WitnessesParser;
 use das_core::{assert as das_assert, code_to_error, data_parser, debug, sign_util, util, verifiers, warn};
 use das_dynamic_libs::constants::DynLibName;
 use das_dynamic_libs::sign_lib::SignLib;
-use das_dynamic_libs::{load_1_method, load_lib, log_loading, new_context};
+use das_dynamic_libs::{load_1_method, load_2_methods, load_3_methods, load_lib, log_loading, new_context};
 use das_map::map::Map;
 use das_map::util as map_util;
 use das_types::constants::*;
 use das_types::mixer::*;
 use das_types::packed::*;
+
+use crate::approval;
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running account-cell-type ======");
@@ -82,12 +85,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 )?;
             }
 
-            verifiers::account_cell::verify_status(
-                &input_cell_witness_reader,
-                AccountStatus::Normal,
-                input_account_cells[0],
-                Source::Input,
-            )?;
             verifiers::account_cell::verify_account_expiration(
                 config_account,
                 input_account_cells[0],
@@ -96,62 +93,10 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             )?;
 
             match action {
-                b"transfer_account" => {
-                    verifiers::account_cell::verify_account_cell_consistent_with_exception(
-                        input_account_cells[0],
-                        output_account_cells[0],
-                        &input_cell_witness_reader,
-                        &output_cell_witness_reader,
-                        Some("owner"),
-                        vec![],
-                        vec!["last_transfer_account_at", "records"],
-                    )?;
-                    verifiers::account_cell::verify_account_witness_record_empty(
-                        &output_cell_witness_reader,
-                        output_account_cells[0],
-                        Source::Output,
-                    )?;
-                }
-                b"edit_manager" => {
-                    verifiers::account_cell::verify_account_cell_consistent_with_exception(
-                        input_account_cells[0],
-                        output_account_cells[0],
-                        &input_cell_witness_reader,
-                        &output_cell_witness_reader,
-                        Some("manager"),
-                        vec![],
-                        vec!["last_edit_manager_at"],
-                    )?;
-                }
-                b"edit_records" => {
-                    verifiers::account_cell::verify_account_cell_consistent_with_exception(
-                        input_account_cells[0],
-                        output_account_cells[0],
-                        &input_cell_witness_reader,
-                        &output_cell_witness_reader,
-                        None,
-                        vec![],
-                        vec!["records", "last_edit_records_at"],
-                    )?;
-                    verifiers::account_cell::verify_records_keys(&parser, output_cell_witness_reader.records())?;
-                }
-                b"lock_account_for_cross_chain" => {
-                    verifiers::account_cell::verify_account_cell_consistent_with_exception(
-                        input_account_cells[0],
-                        output_account_cells[0],
-                        &input_cell_witness_reader,
-                        &output_cell_witness_reader,
-                        None,
-                        vec![],
-                        vec!["status"],
-                    )?;
-
-                    verify_account_is_locked_for_cross_chain(
-                        output_account_cells[0],
-                        &output_cell_witness_reader,
-                        timestamp,
-                    )?;
-                }
+                b"transfer_account" => action_transfer_account(&mut parser, &input_account_cells, &output_account_cells, &input_cell_witness_reader, &output_cell_witness_reader)?,
+                b"edit_manager" => action_edit_manager(&mut parser, &input_account_cells, &output_account_cells, &input_cell_witness_reader, &output_cell_witness_reader)?,
+                b"edit_records" => action_edit_records(&mut parser, &input_account_cells, &output_account_cells, &input_cell_witness_reader, &output_cell_witness_reader)?,
+                b"lock_account_for_cross_chain" => action_lock_account_for_cross_chain(&mut parser, &input_account_cells, &output_account_cells, &input_cell_witness_reader, &output_cell_witness_reader, timestamp)?,
                 _ => unreachable!(),
             }
 
@@ -416,38 +361,46 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             let mut refund_from_sub_account_cell_to_das = 0;
             let mut refund_from_sub_account_cell_to_owner = 0;
-            match expired_account_witness_reader.try_into_latest() {
-                Ok(reader) => {
-                    let enable_sub_account = u8::from(reader.enable_sub_account());
-                    if enable_sub_account == SubAccountEnableStatus::On as u8 {
-                        debug!("Verify if the SubAccountCell is recycled properly.");
 
-                        let sub_account_type_id = config_main.type_id_table().sub_account_cell();
-                        let (input_sub_account_cells, output_sub_account_cells) =
-                            util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, sub_account_type_id)?;
-
-                        verifiers::common::verify_cell_number_and_position(
-                            "SubAccountCell",
-                            &input_sub_account_cells,
-                            &[2],
-                            &output_sub_account_cells,
-                            &[],
-                        )?;
-
-                        verifiers::sub_account_cell::verify_sub_account_parent_id(
-                            input_sub_account_cells[0],
-                            Source::Input,
-                            expired_account_witness_reader.id().raw_data(),
-                        )?;
-
-                        let total_capacity = high_level::load_cell_capacity(input_sub_account_cells[0], Source::Input)?;
-                        let sub_account_data = high_level::load_cell_data(input_sub_account_cells[0], Source::Input)?;
-                        refund_from_sub_account_cell_to_das =
-                            data_parser::sub_account_cell::get_das_profit(&sub_account_data).unwrap();
-                        refund_from_sub_account_cell_to_owner = total_capacity - refund_from_sub_account_cell_to_das;
-                    }
+            // TODO find a better way to handle multiple version of witness
+            let enable_sub_account = match expired_account_witness_reader.version() {
+                3 => {
+                    let reader = expired_account_witness_reader.try_into_v3().unwrap();
+                    u8::from(reader.enable_sub_account())
                 }
-                _ => {}
+                4 => {
+                    let reader = expired_account_witness_reader.try_into_latest().unwrap();
+                    u8::from(reader.enable_sub_account())
+                }
+                _ => SubAccountEnableStatus::Off as u8,
+            };
+
+            if enable_sub_account == SubAccountEnableStatus::On as u8 {
+                debug!("Verify if the SubAccountCell is recycled properly.");
+
+                let sub_account_type_id = config_main.type_id_table().sub_account_cell();
+                let (input_sub_account_cells, output_sub_account_cells) =
+                    util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, sub_account_type_id)?;
+
+                verifiers::common::verify_cell_number_and_position(
+                    "SubAccountCell",
+                    &input_sub_account_cells,
+                    &[2],
+                    &output_sub_account_cells,
+                    &[],
+                )?;
+
+                verifiers::sub_account_cell::verify_sub_account_parent_id(
+                    input_sub_account_cells[0],
+                    Source::Input,
+                    expired_account_witness_reader.id().raw_data(),
+                )?;
+
+                let total_capacity = high_level::load_cell_capacity(input_sub_account_cells[0], Source::Input)?;
+                let sub_account_data = high_level::load_cell_data(input_sub_account_cells[0], Source::Input)?;
+                refund_from_sub_account_cell_to_das =
+                    data_parser::sub_account_cell::get_das_profit(&sub_account_data).unwrap();
+                refund_from_sub_account_cell_to_owner = total_capacity - refund_from_sub_account_cell_to_das;
             }
 
             debug!("Verify if the AccountCell is recycled properly.");
@@ -788,22 +741,27 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             debug!("Verify if the AccountCell can enable sub-account function.");
 
-            match input_account_witness_reader.try_into_latest() {
-                Ok(reader) => {
-                    let enable_status = u8::from(reader.enable_sub_account());
-                    das_assert!(
-                        enable_status == SubAccountEnableStatus::Off as u8,
-                        AccountCellErrorCode::AccountCellPermissionDenied,
-                        "{:?}[{}] Only AccountCells with enable_sub_account field is {} can enable its sub-account function.",
-                        Source::Input,
-                        input_account_cells[0],
-                        SubAccountEnableStatus::Off as u8
-                    );
+            // TODO find a better way to handle multiple version of witness
+            let enable_status = match input_account_witness_reader.version() {
+                3 => {
+                    let reader = input_account_witness_reader.try_into_v3().unwrap();
+                    u8::from(reader.enable_sub_account())
                 }
-                Err(_) => {
-                    // If the AccountCell in inputs is old version, it definitely have not enabled the sub-account function.
+                4 => {
+                    let reader = input_account_witness_reader.try_into_latest().unwrap();
+                    u8::from(reader.enable_sub_account())
                 }
-            }
+                _ => SubAccountEnableStatus::Off as u8,
+            };
+
+            das_assert!(
+                enable_status == SubAccountEnableStatus::Off as u8,
+                AccountCellErrorCode::AccountCellPermissionDenied,
+                "{:?}[{}] Only AccountCells with enable_sub_account field is {} can enable its sub-account function.",
+                Source::Input,
+                input_account_cells[0],
+                SubAccountEnableStatus::Off as u8
+            );
 
             match output_account_witness_reader.try_into_latest() {
                 Ok(reader) => {
@@ -819,7 +777,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 }
                 Err(_) => {
                     warn!(
-                        "{:?}[{}]The version of this AccountCell should be latest.",
+                        "{:?}[{}] The version of this AccountCell should be latest.",
                         Source::Output,
                         output_account_cells[0]
                     );
@@ -1097,69 +1055,74 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             let mut refund_from_sub_account_cell_to_das = 0;
             let mut refund_from_sub_account_cell_to_owner = 0;
-            match input_cell_witness_reader.try_into_latest() {
-                Ok(reader) => {
-                    let enable_sub_account = u8::from(reader.enable_sub_account());
-                    if enable_sub_account == SubAccountEnableStatus::On as u8 {
-                        debug!("Verify if the SubAccountCell is refunded properly.");
 
-                        let config_sub_account = parser.configs.sub_account()?;
-                        let basic_capacity = u64::from(config_sub_account.basic_capacity());
-
-                        let sub_account_type_id = config_main.type_id_table().sub_account_cell();
-                        let (input_sub_account_cells, output_sub_account_cells) =
-                            util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, sub_account_type_id)?;
-
-                        verifiers::common::verify_cell_number_and_position(
-                            "SubAccountCell",
-                            &input_sub_account_cells,
-                            &[1],
-                            &output_sub_account_cells,
-                            &[1],
-                        )?;
-
-                        verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
-                            input_sub_account_cells[0],
-                            output_sub_account_cells[0],
-                            vec!["das_profit", "owner_profit"],
-                        )?;
-
-                        // For simplicity, the capacity of the SubAccountCell in inputs is ignored.
-                        let output_sub_account_capacity =
-                            high_level::load_cell_capacity(output_sub_account_cells[0], Source::Output)?;
-
-                        das_assert!(
-                            output_sub_account_capacity == basic_capacity,
-                            ErrorCode::InvalidTransactionStructure,
-                            "outputs[{}] The capacity of the SubAccountCell should be {} shannon.",
-                            output_sub_account_cells[0],
-                            basic_capacity
-                        );
-
-                        let input_sub_account_data =
-                            high_level::load_cell_data(input_sub_account_cells[0], Source::Input)?;
-                        let output_sub_account_data =
-                            high_level::load_cell_data(output_sub_account_cells[0], Source::Output)?;
-                        let input_das_profit =
-                            data_parser::sub_account_cell::get_das_profit(&input_sub_account_data).unwrap();
-                        let output_das_profit =
-                            data_parser::sub_account_cell::get_das_profit(&output_sub_account_data).unwrap();
-                        let input_owner_profit =
-                            data_parser::sub_account_cell::get_owner_profit(&input_sub_account_data).unwrap();
-                        let output_owner_profit =
-                            data_parser::sub_account_cell::get_owner_profit(&output_sub_account_data).unwrap();
-
-                        das_assert!(
-                            output_das_profit == 0 && output_owner_profit == 0,
-                            SubAccountCellErrorCode::SubAccountCollectProfitError,
-                            "All profit in the SubAccountCell should be collected."
-                        );
-
-                        refund_from_sub_account_cell_to_owner = input_owner_profit;
-                        refund_from_sub_account_cell_to_das = input_das_profit;
-                    }
+            // TODO find a better way to handle multiple version of witness
+            let enable_sub_account = match input_cell_witness_reader.version() {
+                3 => {
+                    let reader = input_cell_witness_reader.try_into_v3().unwrap();
+                    u8::from(reader.enable_sub_account())
                 }
-                _ => {}
+                4 => {
+                    let reader = input_cell_witness_reader.try_into_latest().unwrap();
+                    u8::from(reader.enable_sub_account())
+                }
+                _ => SubAccountEnableStatus::Off as u8,
+            };
+
+            if enable_sub_account == SubAccountEnableStatus::On as u8 {
+                debug!("Verify if the SubAccountCell is refunded properly.");
+
+                let config_sub_account = parser.configs.sub_account()?;
+                let basic_capacity = u64::from(config_sub_account.basic_capacity());
+
+                let sub_account_type_id = config_main.type_id_table().sub_account_cell();
+                let (input_sub_account_cells, output_sub_account_cells) =
+                    util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, sub_account_type_id)?;
+
+                verifiers::common::verify_cell_number_and_position(
+                    "SubAccountCell",
+                    &input_sub_account_cells,
+                    &[1],
+                    &output_sub_account_cells,
+                    &[1],
+                )?;
+
+                verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
+                    input_sub_account_cells[0],
+                    output_sub_account_cells[0],
+                    vec!["das_profit", "owner_profit"],
+                )?;
+
+                // For simplicity, the capacity of the SubAccountCell in inputs is ignored.
+                let output_sub_account_capacity =
+                    high_level::load_cell_capacity(output_sub_account_cells[0], Source::Output)?;
+
+                das_assert!(
+                    output_sub_account_capacity == basic_capacity,
+                    ErrorCode::InvalidTransactionStructure,
+                    "outputs[{}] The capacity of the SubAccountCell should be {} shannon.",
+                    output_sub_account_cells[0],
+                    basic_capacity
+                );
+
+                let input_sub_account_data = high_level::load_cell_data(input_sub_account_cells[0], Source::Input)?;
+                let output_sub_account_data = high_level::load_cell_data(output_sub_account_cells[0], Source::Output)?;
+                let input_das_profit = data_parser::sub_account_cell::get_das_profit(&input_sub_account_data).unwrap();
+                let output_das_profit =
+                    data_parser::sub_account_cell::get_das_profit(&output_sub_account_data).unwrap();
+                let input_owner_profit =
+                    data_parser::sub_account_cell::get_owner_profit(&input_sub_account_data).unwrap();
+                let output_owner_profit =
+                    data_parser::sub_account_cell::get_owner_profit(&output_sub_account_data).unwrap();
+
+                das_assert!(
+                    output_das_profit == 0 && output_owner_profit == 0,
+                    SubAccountCellErrorCode::SubAccountCollectProfitError,
+                    "All profit in the SubAccountCell should be collected."
+                );
+
+                refund_from_sub_account_cell_to_owner = input_owner_profit;
+                refund_from_sub_account_cell_to_das = input_das_profit;
             }
 
             debug!("Verify if all the refunds has been refund properly.");
@@ -1182,8 +1145,299 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 );
             }
         }
+        b"create_approval" | b"delay_approval" | b"revoke_approval" | b"fulfill_approval" => {
+            action_approve(action, &mut parser)?
+        }
         _ => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
     }
+
+    Ok(())
+}
+
+fn action_transfer_account<'a>(
+    _parser: &mut WitnessesParser,
+    input_account_cells: &[usize],
+    output_account_cells: &[usize],
+    input_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
+    output_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
+) -> Result<(), Box<dyn ScriptError>> {
+    verifiers::account_cell::verify_status(
+        &input_cell_witness_reader,
+        AccountStatus::Normal,
+        input_account_cells[0],
+        Source::Input,
+    )?;
+
+    verifiers::account_cell::verify_account_cell_consistent_with_exception(
+        input_account_cells[0],
+        output_account_cells[0],
+        &input_cell_witness_reader,
+        &output_cell_witness_reader,
+        Some("owner"),
+        vec![],
+        vec!["last_transfer_account_at", "records"],
+    )?;
+
+    verifiers::account_cell::verify_account_witness_record_empty(
+        &output_cell_witness_reader,
+        output_account_cells[0],
+        Source::Output,
+    )?;
+
+    Ok(())
+}
+
+fn action_edit_manager<'a>(
+    _parser: &mut WitnessesParser,
+    input_account_cells: &[usize],
+    output_account_cells: &[usize],
+    input_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
+    output_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
+) -> Result<(), Box<dyn ScriptError>> {
+    verifiers::account_cell::verify_status(
+        &input_cell_witness_reader,
+        AccountStatus::Normal,
+        input_account_cells[0],
+        Source::Input,
+    )?;
+
+    verifiers::account_cell::verify_account_cell_consistent_with_exception(
+        input_account_cells[0],
+        output_account_cells[0],
+        &input_cell_witness_reader,
+        &output_cell_witness_reader,
+        Some("manager"),
+        vec![],
+        vec!["last_edit_manager_at"],
+    )?;
+
+    Ok(())
+}
+
+fn action_edit_records<'a>(
+    parser: &mut WitnessesParser,
+    input_account_cells: &[usize],
+    output_account_cells: &[usize],
+    input_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
+    output_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
+) -> Result<(), Box<dyn ScriptError>> {
+    verifiers::account_cell::verify_status_v2(
+        &input_cell_witness_reader,
+        &[AccountStatus::Normal, AccountStatus::ApprovedTransfer],
+        input_account_cells[0],
+        Source::Input,
+    )?;
+
+    verifiers::account_cell::verify_account_cell_consistent_with_exception(
+        input_account_cells[0],
+        output_account_cells[0],
+        &input_cell_witness_reader,
+        &output_cell_witness_reader,
+        None,
+        vec![],
+        vec!["records", "last_edit_records_at"],
+    )?;
+    verifiers::account_cell::verify_records_keys(&parser, output_cell_witness_reader.records())?;
+
+    Ok(())
+}
+
+fn action_lock_account_for_cross_chain<'a>(
+    _parser: &mut WitnessesParser,
+    input_account_cells: &[usize],
+    output_account_cells: &[usize],
+    input_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
+    output_cell_witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
+    timestamp: u64,
+) -> Result<(), Box<dyn ScriptError>> {
+    verifiers::account_cell::verify_status(
+        &input_cell_witness_reader,
+        AccountStatus::Normal,
+        input_account_cells[0],
+        Source::Input,
+    )?;
+
+    verifiers::account_cell::verify_account_cell_consistent_with_exception(
+        input_account_cells[0],
+        output_account_cells[0],
+        &input_cell_witness_reader,
+        &output_cell_witness_reader,
+        None,
+        vec![],
+        vec!["status"],
+    )?;
+
+    verify_account_is_locked_for_cross_chain(
+        output_account_cells[0],
+        &output_cell_witness_reader,
+        timestamp,
+    )?;
+
+    Ok(())
+}
+
+fn action_approve(action: &[u8], parser: &mut WitnessesParser) -> Result<(), Box<dyn ScriptError>> {
+    verifiers::account_cell::verify_unlock_role(action, &parser.params)?;
+
+    let timestamp = util::load_oracle_data(OracleCellType::Time)?;
+
+    parser.parse_cell()?;
+
+    let (input_account_cells, output_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
+    verifiers::common::verify_cell_number_and_position(
+        "AccountCell",
+        &input_account_cells,
+        &[0],
+        &output_account_cells,
+        &[0],
+    )?;
+
+    debug!("Verify if there is no redundant cells in inputs.");
+
+    // WARNING! This is required for the revoke_approval and fulfill_approval transaction.
+    verifiers::misc::verify_no_more_cells(&input_account_cells, Source::Input)?;
+
+    let input_cell_witness = util::parse_account_cell_witness(&parser, input_account_cells[0], Source::Input)?;
+    let input_cell_witness_reader = input_cell_witness.as_reader();
+    let output_cell_witness = util::parse_account_cell_witness(&parser, output_account_cells[0], Source::Output)?;
+    let output_cell_witness_reader = output_cell_witness.as_reader();
+
+    let config_main = parser.configs.main()?;
+    let config_account = parser.configs.account()?;
+
+    verify_transaction_fee_spent_correctly(action, config_account, input_account_cells[0], output_account_cells[0])?;
+    // TODO The codes above is duplicate with the transfer action.
+
+    match output_cell_witness_reader.try_into_latest() {
+        Ok(_reader) => {}
+        Err(_) => {
+            warn!(
+                "{:?}[{}] The version of this AccountCell should be latest.",
+                Source::Output,
+                output_account_cells[0]
+            );
+            return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
+        }
+    }
+
+    match action {
+        b"create_approval" => {
+            verifiers::account_cell::verify_account_cell_consistent_with_exception(
+                input_account_cells[0],
+                output_account_cells[0],
+                &input_cell_witness_reader,
+                &output_cell_witness_reader,
+                None,
+                vec![],
+                vec!["status", "approval"],
+            )?;
+
+            approval::transfer_approval_create(
+                timestamp,
+                input_account_cells[0],
+                output_account_cells[0],
+                input_cell_witness_reader,
+                output_cell_witness_reader,
+            )?;
+
+            util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
+        }
+        b"delay_approval" => {
+            verifiers::account_cell::verify_account_cell_consistent_with_exception(
+                input_account_cells[0],
+                output_account_cells[0],
+                &input_cell_witness_reader,
+                &output_cell_witness_reader,
+                None,
+                vec![],
+                vec!["approval"],
+            )?;
+
+            approval::transfer_approval_delay(
+                input_account_cells[0],
+                output_account_cells[0],
+                input_cell_witness_reader,
+                output_cell_witness_reader,
+            )?;
+
+            util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
+        }
+        b"revoke_approval" => {
+            verifiers::account_cell::verify_account_cell_consistent_with_exception(
+                input_account_cells[0],
+                output_account_cells[0],
+                &input_cell_witness_reader,
+                &output_cell_witness_reader,
+                None,
+                vec![],
+                vec!["status", "approval"],
+            )?;
+
+            let platform_lock = approval::transfer_approval_revoke(
+                timestamp,
+                input_account_cells[0],
+                output_account_cells[0],
+                input_cell_witness_reader,
+                output_cell_witness_reader,
+            )?;
+
+            verify_approval_sign(
+                "platform_lock",
+                platform_lock.as_reader(),
+                input_account_cells[0],
+                config_main.das_lock_type_id_table(),
+            )?;
+        }
+        b"fulfill_approval" => {
+            verifiers::account_cell::verify_account_cell_consistent_with_exception(
+                input_account_cells[0],
+                output_account_cells[0],
+                &input_cell_witness_reader,
+                &output_cell_witness_reader,
+                Some("owner"),
+                vec![],
+                vec!["status", "approval", "records"],
+            )?;
+
+            let sealed_until = approval::transfer_approval_fulfill(
+                input_account_cells[0],
+                output_account_cells[0],
+                input_cell_witness_reader,
+                output_cell_witness_reader,
+            )?;
+
+            if timestamp > sealed_until {
+                debug!("The approval is already released, so anyone can fulfill it.");
+            } else {
+                let owner_lock = high_level::load_cell_lock(input_account_cells[0], Source::Input).map_err(|_| {
+                    warn!(
+                        "{:?}[{}] Loading lock field failed.",
+                        Source::Input,
+                        input_account_cells[0]
+                    );
+                    return code_to_error!(ErrorCode::InvalidTransactionStructure);
+                })?;
+
+                verify_approval_sign(
+                    "owner_lock",
+                    owner_lock.as_reader().into(),
+                    input_account_cells[0],
+                    config_main.das_lock_type_id_table(),
+                )?;
+
+                util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
+            }
+        }
+        _ => {
+            warn!(
+                "Action {:?} is not a valid approval action.",
+                String::from_utf8(action.to_vec())
+            );
+            return Err(code_to_error!(ErrorCode::ActionNotSupported));
+        }
+    }
+
+    // WARNING! No codes allowed here, all branches should end before this line.
 
     Ok(())
 }
@@ -1377,6 +1631,79 @@ fn verify_multi_sign(
     if cfg!(not(feature = "dev")) {
         sign_lib
             .validate(DasLockType::CKBMulti, 0i32, digest.to_vec(), witness_args_lock, args)
+            .map_err(|err_code| {
+                warn!(
+                    "inputs[{}] Verify signature failed, error code: {}",
+                    input_account_index, err_code
+                );
+                return ErrorCode::EIP712SignatureError;
+            })?;
+    }
+
+    Ok(())
+}
+
+fn verify_approval_sign(
+    _lock_name: &str,
+    sign_lock: ScriptReader,
+    input_account_index: usize,
+    type_id_table: DasLockTypeIdTableReader,
+) -> Result<(), Box<dyn ScriptError>> {
+    debug!("Verify the signatures of {} ...", _lock_name);
+
+    let sign_type_int = data_parser::das_lock_args::get_owner_type(sign_lock.args().raw_data());
+    let args = data_parser::das_lock_args::get_owner_lock_args(sign_lock.args().raw_data());
+    let sign_type = DasLockType::try_from(sign_type_int).map_err(|_| {
+        warn!("inputs[{}] Invalid sign type: {}", input_account_index, sign_type_int);
+        code_to_error!(ErrorCode::InvalidTransactionStructure)
+    })?;
+
+    let type_no = if sign_type == DasLockType::ETHTypedData {
+        1i32
+    } else {
+        0i32
+    };
+    debug!("type_no: {:?}", type_no);
+
+    let mut sign_lib = SignLib::new();
+
+    if cfg!(not(feature = "dev")) {
+        let mut eth_context = new_context!();
+        log_loading!(DynLibName::ETH, type_id_table);
+        let eth_lib = load_lib!(eth_context, DynLibName::ETH, type_id_table);
+        sign_lib.eth = load_2_methods!(eth_lib);
+
+        let mut tron_context = new_context!();
+        log_loading!(DynLibName::TRON, type_id_table);
+        let tron_lib = load_lib!(tron_context, DynLibName::TRON, type_id_table);
+        sign_lib.tron = load_2_methods!(tron_lib);
+
+        let mut doge_context = new_context!();
+        log_loading!(DynLibName::DOGE, type_id_table);
+        let doge_lib = load_lib!(doge_context, DynLibName::DOGE, type_id_table);
+        sign_lib.doge = load_2_methods!(doge_lib);
+
+        let mut web_authn_context = new_context!();
+        log_loading!(DynLibName::WebAuthn, type_id_table);
+        let web_authn_lib = load_lib!(web_authn_context, DynLibName::WebAuthn, type_id_table);
+        sign_lib.web_authn = load_3_methods!(web_authn_lib);
+
+        let (digest, witness_args_lock) = if sign_type == DasLockType::ETHTypedData {
+            let (_, digest, _, witness_args_lock) = sign_util::get_eip712_digest(vec![input_account_index])?;
+            (digest, witness_args_lock)
+        } else {
+            sign_util::calc_digest_by_input_group(sign_type, vec![input_account_index])?
+        };
+
+        sign_lib
+            .validate_str(
+                sign_type,
+                type_no,
+                digest.to_vec(),
+                digest.len(),
+                witness_args_lock,
+                args.to_vec(),
+            )
             .map_err(|err_code| {
                 warn!(
                     "inputs[{}] Verify signature failed, error code: {}",

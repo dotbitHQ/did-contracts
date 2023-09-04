@@ -1,3 +1,4 @@
+use std::convert::TryFrom;
 use std::error::Error;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Lines};
@@ -6,11 +7,13 @@ use std::{env, io, str};
 
 use chrono::{DateTime, NaiveDateTime, Utc};
 use ckb_hash::{blake2b_256, Blake2bBuilder};
-use ckb_types::bytes;
-use ckb_types::packed::*;
-use ckb_types::prelude::*;
+use ckb_types::prelude::hex_string;
+use ckb_types::{bytes, packed as ckb_packed};
+use das_types_std::constants::*;
+use das_types_std::packed::*;
+use das_types_std::prelude::*;
 use lazy_static::lazy_static;
-use serde_json::Value;
+use serde_json::{json, Value};
 use sparse_merkle_tree::H256;
 
 use super::super::ckb_types_relay::*;
@@ -53,7 +56,7 @@ pub fn bytes_to_hex(input: &[u8]) -> String {
     }
 }
 
-pub fn hex_to_byte32(input: &str) -> Result<Byte32, Box<dyn Error>> {
+pub fn hex_to_byte32(input: &str) -> Result<ckb_packed::Byte32, Box<dyn Error>> {
     let bytes = hex_to_bytes(input);
 
     Ok(byte32_new(&bytes))
@@ -211,6 +214,42 @@ pub fn gen_account_cell_capacity(length: u64) -> u64 {
     ((length + 4) * 100_000_000) + ACCOUNT_BASIC_CAPACITY + ACCOUNT_PREPARED_FEE_CAPACITY
 }
 
+fn gen_account_char(char: &str, char_set_type: CharSetType) -> AccountChar {
+    AccountChar::new_builder()
+        .char_set_name(Uint32::from(char_set_type as u32))
+        .bytes(Bytes::from(char.as_bytes()))
+        .build()
+}
+
+pub fn gen_account_chars(chars: Vec<impl AsRef<str>>) -> AccountChars {
+    let mut builder = AccountChars::new_builder();
+    for char in chars {
+        let char = char.as_ref();
+        // Filter empty chars come from str.split("").
+        if char.is_empty() {
+            continue;
+        }
+
+        // ⚠️ For testing only, the judgement is not accurate, DO NOT support multiple emoji with more than 4 bytes.
+        if char.len() != 1 {
+            if RE_ZH_CHAR.is_match(char) {
+                builder = builder.push(gen_account_char(char, CharSetType::ZhHans))
+            } else {
+                builder = builder.push(gen_account_char(char, CharSetType::Emoji))
+            }
+        } else {
+            let raw_char = char.chars().next().unwrap();
+            if raw_char.is_digit(10) {
+                builder = builder.push(gen_account_char(char, CharSetType::Digit))
+            } else {
+                builder = builder.push(gen_account_char(char, CharSetType::En))
+            }
+        }
+    }
+
+    builder.build()
+}
+
 /// Parse u64 in JSON
 ///
 /// Support both **number** and **string** format.
@@ -291,4 +330,257 @@ pub fn parse_json_hex_with_default(field_name: &str, field: &Value, default: Vec
     } else {
         parse_json_hex(field_name, field)
     }
+}
+
+/// Parse string in JSON
+///
+/// All string will be treated as utf8 encoding.
+pub fn parse_json_str<'a>(field_name: &str, field: &'a Value) -> &'a str {
+    field.as_str().expect(&format!("{} is missing", field_name))
+}
+
+pub fn parse_json_str_with_default<'a>(field_name: &str, field: &'a Value, default: &'a str) -> &'a str {
+    if field.is_null() {
+        default
+    } else {
+        parse_json_str(field_name, field)
+    }
+}
+
+/// Parse array in JSON
+pub fn parse_json_array<'a>(field_name: &str, field: &'a Value) -> &'a [Value] {
+    field
+        .as_array()
+        .map(|v| v.as_slice())
+        .expect(&format!("{} is missing", field_name))
+}
+
+/// Parse struct Script to hex of molecule encoding, if field is null will return Script::default()
+///
+/// Example:
+/// ```json
+/// {
+///     code_hash: "{{xxx-cell-type}}"
+///     hash_type: "type", // could be omit if it is "type"
+///     args: "" // could be omit if it it empty
+/// }
+/// ```
+pub fn parse_json_script_to_mol(field_name: &str, field: &Value) -> Script {
+    if field.is_null() {
+        return Script::default();
+    }
+
+    let mut field = field.to_owned();
+    if !field["owner_lock_args"].is_null() {
+        field = parse_json_script_das_lock(field_name, &field);
+    }
+
+    let code_hash = field["code_hash"]
+        .as_str()
+        .expect(&format!("{} is missing", field_name));
+    let code_hash_bytes = if let Some(caps) = RE_VARIABLE.captures(code_hash) {
+        let cap = caps.get(1).expect("The captures[1] should always exist.");
+        get_type_id_bytes(cap.as_str())
+    } else {
+        hex_to_bytes(code_hash)
+    };
+
+    let hash_type = match field["hash_type"].as_str() {
+        Some("data") => ScriptHashType::Data,
+        _ => ScriptHashType::Type,
+    };
+    let args = match field["args"].as_str() {
+        Some(val) => hex_to_bytes(val),
+        _ => Vec::new(),
+    };
+
+    Script::new_builder()
+        .code_hash(Hash::try_from(code_hash_bytes).unwrap().into())
+        .hash_type(Byte::new(hash_type as u8))
+        .args(Bytes::from(args))
+        .build()
+}
+
+/// Parse string in JSON to account ID bytes
+///
+/// It support both 0x-prefixed hex string and account name, if it is an account name, its ID will be calculated automatically.
+pub fn parse_json_str_to_account_id(field_name: &str, field: &Value) -> Vec<u8> {
+    let hex_or_str = parse_json_str(field_name, field);
+    let id = if hex_or_str.starts_with("0x") {
+        hex_to_bytes(hex_or_str)
+    } else {
+        account_to_id(hex_or_str)
+    };
+
+    id
+}
+
+/// Parse string in JSON to molecule struct AccountId
+///
+/// It support both 0x-prefixed hex string and account name, if it is an account name, its ID will be calculated automatically.
+pub fn parse_json_str_to_account_id_mol(field_name: &str, field: &Value) -> AccountId {
+    let account_id_bytes = parse_json_str_to_account_id(field_name, field);
+    AccountId::try_from(account_id_bytes).expect(&format!("{} should be a 20 bytes hex string", field_name))
+}
+
+/// Parse records array in JSON to molecule struct Records
+///
+/// Example:
+/// ```json
+/// [
+///     {
+///         "type": "xxxxx",
+///         "key": ""yyyyy,
+///         "label": "zzzzz",
+///         "value": "0x...",
+///         "ttl": null | u32
+///     },
+///     ...
+/// ]
+/// ```
+pub fn parse_json_to_records_mol(field_name: &str, field: &Value) -> Records {
+    if field.is_null() {
+        return Records::default();
+    };
+
+    let records = parse_json_array(field_name, field);
+    let mut records_builder = Records::new_builder();
+    for (_i, record) in records.iter().enumerate() {
+        let record = Record::new_builder()
+            .record_type(Bytes::from(
+                parse_json_str(&format!("{}[].type", field_name), &record["type"]).as_bytes(),
+            ))
+            .record_key(Bytes::from(
+                parse_json_str(&format!("{}[].key", field_name), &record["key"]).as_bytes(),
+            ))
+            .record_label(Bytes::from(
+                parse_json_str(&format!("{}[].label", field_name), &record["label"]).as_bytes(),
+            ))
+            .record_value(Bytes::from(parse_json_hex(
+                "cell.witness.records[].value",
+                &record["value"],
+            )))
+            .record_ttl(Uint32::from(parse_json_u32(
+                &format!("{}[].ttl", field_name),
+                &record["ttl"],
+                Some(300),
+            )))
+            .build();
+        records_builder = records_builder.push(record);
+    }
+
+    records_builder.build()
+}
+
+pub fn parse_json_to_account_chars(
+    field_name: &str,
+    field: &Value,
+    suffix_opt: Option<&str>,
+) -> (String, AccountChars) {
+    let suffix = if let Some(suffix) = suffix_opt { suffix } else { ".bit" };
+
+    let mut account;
+    let account_chars;
+    if field.is_string() {
+        // Parse the field as a string
+        account = parse_json_str(field_name, field).to_string();
+        let account_without_suffix = match account.strip_suffix(suffix) {
+            Some(val) => val,
+            _ => &account,
+        };
+        let account_chars_raw = account_without_suffix
+            .chars()
+            .map(|c| c.to_string())
+            .collect::<Vec<String>>();
+
+        account_chars = gen_account_chars(account_chars_raw);
+    } else {
+        // Parse the field as an AccountChars array.
+        // Example:
+        // ```json
+        // [
+        //     { char: "", type: u32 },
+        //     { char: "", type: u32 },
+        //     ...
+        // ]
+        // ```
+        //
+        // gen_account_char(char: &str, char_set_type: CharSetType)
+        let json_chars = parse_json_array(field_name, field);
+        let mut builder = AccountChars::new_builder();
+        for json_char in json_chars.iter() {
+            let char = parse_json_str(&format!("{}[].char", field_name), &json_char["char"]);
+            let char_set_type = parse_json_u32(&format!("{}[].type", field_name), &json_char["type"], None);
+            builder = builder.push(gen_account_char(
+                char,
+                CharSetType::try_from(char_set_type)
+                    .expect(&format!("{} should only contain valid CharSetType.", field_name)),
+            ));
+        }
+        account_chars = builder.build();
+        account = String::from_utf8(account_chars.as_readable())
+            .expect(&format!("{} should only contain UTF-8 characters.", field_name));
+        account += suffix;
+    }
+
+    (account, account_chars)
+}
+
+pub fn gen_das_lock_args(owner_pubkey_hash: &str, manager_pubkey_hash_opt: Option<&str>) -> String {
+    // TODO Unify format of args into one type.
+
+    let owner_args;
+    if owner_pubkey_hash.len() == 42 {
+        owner_args = format!("00{}", owner_pubkey_hash.trim_start_matches("0x"));
+    } else {
+        owner_args = String::from(owner_pubkey_hash.trim_start_matches("0x"));
+    }
+
+    let manager_args;
+    if let Some(manager_pubkey_hash) = manager_pubkey_hash_opt {
+        if manager_pubkey_hash.len() == 42 {
+            manager_args = format!("00{}", manager_pubkey_hash.trim_start_matches("0x"));
+        } else {
+            manager_args = String::from(manager_pubkey_hash.trim_start_matches("0x"));
+        }
+    } else {
+        manager_args = owner_args.clone();
+    }
+
+    format!("0x{}{}", owner_args, manager_args)
+}
+
+/// Parse das-lock Script and fill optional fields
+///
+/// Example:
+/// ```json
+/// // input
+/// {
+///     "owner_lock_args": OWNER,
+///     "manager_lock_args": MANAGER
+/// }
+/// // output
+/// {
+///     code_hash: "{{fake-das-lock}}",
+///     hash_type: "type",
+///     args: "0x..."
+/// }
+/// ```
+pub fn parse_json_script_das_lock(field_name: &str, field: &Value) -> Value {
+    if field.is_null() {
+        panic!("{} is missing", field_name);
+    }
+
+    let owner_lock_args = parse_json_str(&format!("{}.owner_lock_args", field_name), &field["owner_lock_args"]);
+    let manager_lock_args = parse_json_str(
+        &format!("{}.manager_lock_args", field_name),
+        &field["manager_lock_args"],
+    );
+    let args = gen_das_lock_args(owner_lock_args, Some(manager_lock_args));
+
+    json!({
+        "code_hash": "{{fake-das-lock}}",
+        "hash_type": "type",
+        "args": args
+    })
 }

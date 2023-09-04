@@ -67,7 +67,7 @@ impl fmt::Display for TypedDataV4 {
 
         write!(
             f,
-            r#"{{ "types": {}, "primary_type": "Transaction", "domain": {}, "message": {} }}"#,
+            r#"{{ "types": {}, "primaryType": "Transaction", "domain": {}, "message": {} }}"#,
             types, self.domain, self.message
         )
     }

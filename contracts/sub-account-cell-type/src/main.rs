@@ -11,6 +11,7 @@
 #![feature(panic_info_message)]
 
 // define modules
+mod approval;
 mod entry;
 mod sub_action;
 
