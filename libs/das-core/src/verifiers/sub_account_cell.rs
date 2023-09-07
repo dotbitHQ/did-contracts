@@ -1,5 +1,6 @@
 use alloc::boxed::Box;
 use alloc::string::String;
+use alloc::string::ToString;
 use alloc::vec::Vec;
 use core::ops::Index;
 
@@ -597,8 +598,7 @@ pub fn verify_sub_account_edit_sign(
 pub fn verify_sub_account_approval_sign(
     witness: &SubAccountWitness,
     sign_lib: &SignLib,
-    // TODO Support webauthn signature
-    _witness_parser: &SubAccountWitnessesParser,
+    witness_parser: &SubAccountWitnessesParser,
 ) -> Result<(), Box<dyn ScriptError>> {
     if cfg!(feature = "dev") {
         // CAREFUL Proof verification has been skipped in development mode.
@@ -622,16 +622,21 @@ pub fn verify_sub_account_approval_sign(
     );
 
     let das_lock_type = match witness.sign_type {
-        Some(val) => {
-            assert!(
-                [DasLockType::CKBSingle, DasLockType::ETH, DasLockType::ETHTypedData, DasLockType::TRON, DasLockType::Doge].contains(&val),
-                ErrorCode::InvalidTransactionStructure,
-                "  witnesses[{:>2}] Parsing das-lock(witness.sub_account.lock.args) algorithm failed (maybe not supported for now), but it is required in this transaction.",
-                witness.index
-            );
-
-            val
-        }
+        Some(val) => match val {
+            DasLockType::CKBSingle
+            | DasLockType::ETH
+            | DasLockType::ETHTypedData
+            | DasLockType::TRON
+            | DasLockType::Doge
+            | DasLockType::WebAuthn => val,
+            _ => {
+                warn!(
+                        "  witnesses[{:>2}] Parsing das-lock(witness.sub_account.lock.args) algorithm failed (maybe not supported for now), but it is required in this transaction.",
+                        witness.index
+                    );
+                return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
+            }
+        },
         _ => {
             warn!(
                 "  witnesses[{:>2}] Parsing das-lock(witness.sub_account.lock.args) algorithm failed (maybe not supported for now), but it is required in this transaction.",
@@ -652,15 +657,44 @@ pub fn verify_sub_account_approval_sign(
     let args = witness.sign_args.as_slice();
     let sign_expired_at = witness.sign_expired_at.to_le_bytes().to_vec();
 
-    let ret = sign_lib.verify_sub_account_approval_sig(
-        das_lock_type,
-        witness.action,
-        sub_account_reader.approval(),
-        nonce,
-        signature.to_vec(),
-        args.to_vec(),
-        sign_expired_at,
-    );
+    let ret = if das_lock_type == DasLockType::WebAuthn
+        && u8::from_le_bytes(
+            WebAuthnSignature::try_from(signature)?
+                .pubkey_index()
+                .try_into()
+                .unwrap(),
+        ) != 255
+    {
+        let action_bytes = witness.action.to_string().as_bytes().to_vec();
+        let approval_bytes = sub_account_reader.approval().as_slice().to_vec();
+        let data = [action_bytes, approval_bytes, nonce, sign_expired_at].concat();
+        let message = util::blake2b_256(&data);
+
+        debug!("Getting DeviceKeyListCellData for sign_args: {}", hex::encode(args));
+
+        let device_key_list = witness_parser
+            .device_key_lists
+            .get(args.index(..))
+            .ok_or(code_to_error!(ErrorCode::WitnessStructureError))?;
+        sign_lib.validate_device(
+            das_lock_type,
+            0,
+            &signature,
+            &message,
+            device_key_list.as_slice(),
+            Default::default(),
+        )
+    } else {
+        sign_lib.verify_sub_account_approval_sig(
+            das_lock_type,
+            witness.action,
+            sub_account_reader.approval(),
+            nonce,
+            signature.to_vec(),
+            args.to_vec(),
+            sign_expired_at,
+        )
+    };
 
     match ret {
         Err(_error_code) if _error_code == DasDynamicLibError::UndefinedDasLockType as i32 => {
