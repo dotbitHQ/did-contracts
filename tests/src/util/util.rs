@@ -250,6 +250,11 @@ pub fn gen_account_chars(chars: Vec<impl AsRef<str>>) -> AccountChars {
     builder.build()
 }
 
+pub fn gen_sub_account_register_fee(price_in_usd: u64, years: u64) -> u64 {
+    let price_in_ckb = usd_to_ckb(price_in_usd);
+    price_in_ckb * years
+}
+
 /// Parse u64 in JSON
 ///
 /// Support both **number** and **string** format.

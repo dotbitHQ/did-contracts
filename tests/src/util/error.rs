@@ -264,6 +264,7 @@ pub enum SubAccountCellErrorCode {
     ConfigFlagInvalid,
     ConfigRulesHashMismatch,
     ConfigRulesHasSyntaxError,
+    ConfigRulesPriceError,
     WitnessParsingError,
     WitnessEditKeyInvalid,
     WitnessEditValueError,

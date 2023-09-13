@@ -2,6 +2,7 @@ use das_types_std::constants::*;
 use serde_json::json;
 
 use super::common::*;
+use crate::util;
 use crate::util::accounts::*;
 use crate::util::constants::*;
 use crate::util::error::*;
@@ -49,7 +50,7 @@ fn before_each() -> TemplateGenerator {
         }),
     ]);
     push_simple_input_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
-    push_input_normal_cell(&mut template, 10_000_000_000, OWNER);
+    push_input_normal_cell(&mut template, TOTAL_PAID, OWNER);
 
     template
 }
@@ -226,10 +227,10 @@ fn challenge_sub_account_renew_flag_manual_no_profit_record() {
         }
     }));
 
-    let das_profit = calculate_sub_account_cost(1);
+    let das_profit = util::gen_sub_account_register_fee(SUB_ACCOUNT_RENEW_PRICE, 1);
     // Simulate forget record correct profit in the outputs_data of the SubAccountCell
     push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
-    push_output_normal_cell(&mut template, 10_000_000_000 - das_profit, OWNER);
+    push_output_normal_cell(&mut template, TOTAL_PAID - das_profit, OWNER);
 
     challenge_tx(template.as_json(), SubAccountCellErrorCode::SubAccountProfitError);
 }
@@ -259,7 +260,7 @@ fn challenge_sub_account_renew_flag_manual_profit_not_match_capacity() {
         }
     }));
 
-    let das_profit = calculate_sub_account_cost(1);
+    let das_profit = util::gen_sub_account_register_fee(SUB_ACCOUNT_RENEW_PRICE, 1);
     let current_root = template.smt_with_history.current_root();
     push_output_sub_account_cell(
         &mut template,
@@ -276,7 +277,7 @@ fn challenge_sub_account_renew_flag_manual_profit_not_match_capacity() {
         }),
     );
 
-    push_output_normal_cell(&mut template, 10_000_000_000 - das_profit, OWNER);
+    push_output_normal_cell(&mut template, TOTAL_PAID - das_profit, OWNER);
 
     challenge_tx(template.as_json(), SubAccountCellErrorCode::SubAccountCellCapacityError);
 }

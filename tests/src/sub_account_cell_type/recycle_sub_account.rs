@@ -257,5 +257,5 @@ fn challenge_sub_account_recycle_smt_not_clear() {
     );
     push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomScript);
 
-    challenge_tx(template.as_json(), ErrorCode::SMTProofVerifyFailed);
+    challenge_tx(template.as_json(), SubAccountCellErrorCode::WitnessEditKeyInvalid);
 }

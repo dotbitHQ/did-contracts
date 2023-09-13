@@ -2,6 +2,7 @@ use das_types_std::constants::*;
 use serde_json::json;
 
 use super::common::*;
+use crate::util;
 use crate::util::accounts::*;
 use crate::util::constants::*;
 use crate::util::template_common_cell::*;
@@ -171,7 +172,7 @@ fn test_sub_account_renew_flag_custom_rule_by_others() {
         }),
         ACCOUNT_1,
     );
-    push_input_normal_cell(&mut template, 10_000_000_000, OWNER_4);
+    push_input_normal_cell(&mut template, TOTAL_PAID, OWNER_4);
 
     // outputs
     template.push_sub_account_witness_v2(json!({
@@ -208,7 +209,7 @@ fn test_sub_account_renew_flag_custom_rule_by_others() {
             "expired_at": TIMESTAMP + YEAR_SEC * 2,
         }
     }));
-    let das_profit = calculate_sub_account_cost(3);
+    let das_profit = util::gen_sub_account_register_fee(SUB_ACCOUNT_RENEW_PRICE, 3);
     push_output_sub_account_cell_v2(
         &mut template,
         json!({
@@ -221,7 +222,7 @@ fn test_sub_account_renew_flag_custom_rule_by_others() {
         }),
         ACCOUNT_1,
     );
-    push_output_normal_cell(&mut template, 10_000_000_000 - das_profit, OWNER_4);
+    push_output_normal_cell(&mut template, TOTAL_PAID - das_profit, OWNER_4);
 
     test_tx(template.as_json())
 }

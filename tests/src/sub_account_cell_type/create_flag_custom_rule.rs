@@ -10,14 +10,6 @@ use crate::util::template_common_cell::*;
 use crate::util::template_generator::*;
 use crate::util::template_parser::*;
 
-const USD_1: u64 = 1_000_000;
-const USD_5: u64 = 5 * USD_1;
-const USD_10: u64 = 10 * USD_1;
-const USD_20: u64 = 20 * USD_1;
-
-// total paid 100 USD
-const TOTAL_PAID: u64 = USD_1 * 100 / CKB_QUOTE * ONE_CKB;
-
 fn before_each() -> TemplateGenerator {
     let mut template = init_update();
 
@@ -285,7 +277,7 @@ fn test_sub_account_create_flag_custom_rule_manual_mint() {
         },
         "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_1)
     }));
-    let total_profit = calculate_sub_account_cost(1);
+    let total_profit = util::gen_sub_account_register_fee(SUB_ACCOUNT_NEW_PRICE, 1);
     push_simple_outputs(&mut template, total_profit);
 
     test_tx(template.as_json())
@@ -336,7 +328,7 @@ fn test_sub_account_create_flag_custom_rule_mix_mint() {
         "edit_key": "custom_rule",
         "edit_value": "0x00000000000000000000000000000000000000000000000000000000"
     }));
-    let mut total_profit = calculate_sub_account_cost(1);
+    let mut total_profit = util::gen_sub_account_register_fee(SUB_ACCOUNT_NEW_PRICE, 1);
     total_profit += util::usd_to_ckb(USD_5 * 1);
     push_simple_outputs(&mut template, total_profit);
 
@@ -970,7 +962,7 @@ fn perf_create_with_custom_rules() {
         ]),
     );
 
-    let total_paied = USD_5 * 100 / CKB_QUOTE * ONE_CKB;
+    let total_paid = USD_5 * 100 / CKB_QUOTE * ONE_CKB;
 
     // inputs
     push_input_sub_account_cell_v2(
@@ -1024,7 +1016,7 @@ fn perf_create_with_custom_rules() {
         }),
         ACCOUNT_1,
     );
-    push_output_normal_cell(&mut template, total_paied - total_profit, OWNER);
+    push_output_normal_cell(&mut template, total_paid - total_profit, OWNER);
 
     test_tx(template.as_json())
 }
