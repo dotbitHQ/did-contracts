@@ -1,4 +1,4 @@
-use das_types_std::constants::*;
+use das_types::constants::*;
 
 use super::util::constants::*;
 use super::util::template_common_cell::*;

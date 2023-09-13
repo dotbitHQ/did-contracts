@@ -1,4 +1,4 @@
-use das_types_std::constants::{SubAccountConfigFlag, SubAccountCustomRuleFlag};
+use das_types::constants::{SubAccountConfigFlag, SubAccountCustomRuleFlag};
 use serde_json::json;
 
 use super::common::*;

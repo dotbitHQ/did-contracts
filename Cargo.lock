@@ -706,20 +706,9 @@ dependencies = [
 [[package]]
 name = "das-types"
 version = "1.11.0"
-source = "git+https://github.com/dotbitHQ/das-types-private.git?rev=17e1a0e#17e1a0e0bbebcf5f95231ea55b1d5f2fd7a2c878"
 dependencies = [
  "ckb-std",
- "molecule",
- "num_enum",
- "strum",
-]
-
-[[package]]
-name = "das-types-std"
-version = "1.11.0"
-source = "git+https://github.com/dotbitHQ/das-types-private.git?rev=0dc4b91#0dc4b91d63d1b325eacdfc2df421f200f768020f"
-dependencies = [
- "ckb-types",
+ "hex",
  "molecule",
  "num_enum",
  "serde",
@@ -1690,7 +1679,6 @@ dependencies = [
  "blake2b-rs",
  "ctor",
  "das-types",
- "das-types-std",
  "env_logger",
  "hex",
  "log",
@@ -1828,7 +1816,7 @@ dependencies = [
  "ckb-traits",
  "ckb-types",
  "das-sorted-list",
- "das-types-std",
+ "das-types",
  "device-key-list-cell-type",
  "hex",
  "lazy_static",

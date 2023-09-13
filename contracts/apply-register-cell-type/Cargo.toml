@@ -13,4 +13,4 @@ mainnet = ["das-core/mainnet"]
 ckb-std = { workspace = true }
 hex = { workspace = true, default-features = false }
 das-core = { workspace = true, default-features = false }
-das-types = { workspace = true, default-features = false }
+das-types = { workspace = true, default-features = false, features = ["no_std"] }

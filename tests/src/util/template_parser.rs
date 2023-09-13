@@ -17,7 +17,7 @@ use ckb_types::core::{Cycle, HeaderView, ScriptHashType, TransactionBuilder, Tra
 use ckb_types::packed::*;
 use ckb_types::prelude::*;
 use ckb_types::{bytes, H256};
-use das_types_std::{
+use das_types::{
     constants::Source,
     // packed::{Script, ScriptOpt},
     prelude::{Builder, Entity},

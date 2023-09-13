@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use ckb_types::prelude::Pack;
 use das_sorted_list::DasSortedList;
-use das_types_std::constants::*;
+use das_types::constants::*;
 use serde_json::{json, Value};
 
 use crate::util::accounts::*;
