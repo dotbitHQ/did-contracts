@@ -216,11 +216,10 @@ impl<'a> SubAction<'a> {
                         witness.index
                     );
 
-                    let profit = u64::from(self.config_sub_account.new_sub_account_price()) * expiration_years;
+                    let profit = calc_basic_profit(self.config_sub_account.new_sub_account_price(), self.quote, expiration_years);
                     self.profit_from_manual_mint += profit;
                     self.profit_total += profit;
-                    self.minimal_required_das_profit +=
-                        u64::from(self.config_sub_account.new_sub_account_price()) * expiration_years;
+                    self.minimal_required_das_profit += profit;
 
                     is_manual_minted = true;
                 }
@@ -254,8 +253,7 @@ impl<'a> SubAction<'a> {
                     self.custom_script_params.push(util::hex_string(&custom_script_param));
 
                     // This variable will be treat as the minimal profit to DAS no matter the custom script exist or not.
-                    self.minimal_required_das_profit +=
-                        u64::from(self.config_sub_account.new_sub_account_price()) * expiration_years;
+                    self.minimal_required_das_profit += calc_basic_profit(self.config_sub_account.new_sub_account_price(), self.quote, expiration_years);
 
                     das_assert!(
                         matches!(witness.edit_value, SubAccountEditValue::None),
@@ -308,16 +306,15 @@ impl<'a> SubAction<'a> {
                         // let matched_rule = rules.last();
 
                         if let Some(rule) = matched_rule {
-                            let profit = util::calc_yearly_capacity(rule.price, self.quote, 0) * expiration_years;
-
                             das_assert!(
-                                profit >= u64::from(self.config_sub_account.new_sub_account_price()) * expiration_years,
+                                rule.price >= u64::from(self.config_sub_account.new_sub_account_price()),
                                 SubAccountCellErrorCode::MinimalProfitToDASNotReached,
                                 "  witnesses[{:>2}] The minimal profit to .bit should be more than {} shannon.",
                                 witness.index,
                                 u64::from(self.config_sub_account.new_sub_account_price()) * expiration_years
                             );
 
+                            let profit = util::calc_yearly_capacity(rule.price, self.quote, 0) * expiration_years;
                             self.profit_total += profit;
 
                             debug!(
@@ -401,12 +398,10 @@ impl<'a> SubAction<'a> {
                         if !proof.is_empty() {
                             match smt_verify_sub_account_is_in_renew_list(root.clone(), &witness) {
                                 Ok(()) => {
-                                    let profit =
-                                        u64::from(self.config_sub_account.renew_sub_account_price()) * expiration_years;
+                                    let profit = calc_basic_profit(self.config_sub_account.renew_sub_account_price(), self.quote, expiration_years);
                                     self.profit_from_manual_renew += profit;
                                     self.profit_total += profit;
-                                    self.minimal_required_das_profit +=
-                                        u64::from(self.config_sub_account.renew_sub_account_price()) * expiration_years;
+                                    self.minimal_required_das_profit += profit;
 
                                     return Ok(());
                                 }
@@ -473,17 +468,15 @@ impl<'a> SubAction<'a> {
                                 rule.name
                             );
 
-                            let profit = util::calc_yearly_capacity(rule.price, self.quote, 0) * expiration_years;
-
                             das_assert!(
-                                profit
-                                    >= u64::from(self.config_sub_account.renew_sub_account_price()) * expiration_years,
+                                rule.price >= u64::from(self.config_sub_account.renew_sub_account_price()),
                                 SubAccountCellErrorCode::MinimalProfitToDASNotReached,
                                 "  witnesses[{:>2}] The minimal profit to .bit should be more than {} shannon.",
                                 witness.index,
                                 u64::from(self.config_sub_account.renew_sub_account_price()) * expiration_years
                             );
 
+                            let profit = util::calc_yearly_capacity(rule.price, self.quote, 0) * expiration_years;
                             self.profit_total += profit;
 
                             debug!(
@@ -533,11 +526,10 @@ impl<'a> SubAction<'a> {
             witness.index
         );
 
-        let profit = u64::from(self.config_sub_account.renew_sub_account_price()) * expiration_years;
+        let profit = calc_basic_profit(self.config_sub_account.renew_sub_account_price(), self.quote, expiration_years);
         self.profit_from_manual_renew_by_other += profit;
         self.profit_total += profit;
-        self.minimal_required_das_profit +=
-            u64::from(self.config_sub_account.renew_sub_account_price()) * expiration_years;
+        self.minimal_required_das_profit += profit;
 
         Ok(())
     }
@@ -1115,4 +1107,12 @@ fn generate_new_sub_account_by_edit_value(witness: &SubAccountWitness) -> Result
     sub_account_builder = sub_account_builder.nonce(Uint64::from(current_nonce + 1));
 
     Ok(sub_account_builder.build())
+}
+
+fn calc_basic_profit(yearly_price: Uint64Reader, quote: u64, expiration_years: u64) -> u64 {
+    let usd_price = u64::from(yearly_price);
+    let ckb_price = util::calc_yearly_capacity(usd_price, quote, 0);
+    let profit = ckb_price * expiration_years;
+
+    profit
 }
