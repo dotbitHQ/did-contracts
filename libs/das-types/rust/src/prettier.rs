@@ -8,7 +8,6 @@ use alloc::string::String;
 use alloc::vec::Vec;
 #[cfg(feature = "no_std")]
 use core::convert::TryFrom;
-
 #[cfg(not(feature = "no_std"))]
 use std::convert::TryFrom;
 
@@ -17,7 +16,7 @@ use crate::constants::CharSetType;
 
 macro_rules! print_fields {
     ($self:expr, $struct_name:expr, {$( $tt:tt ),+}) => {
-        String::from($struct_name) + " {"
+        String::from($struct_name) + "{"
         $(+ &print_fields!(@field $self, $tt) + ", ")+
         + "}"
     };
@@ -373,6 +372,29 @@ impl<'a> Prettier for AccountCellDataV2Reader<'a> {
     }
 }
 
+impl Prettier for AccountCellDataV3 {
+    fn as_prettier(&self) -> String {
+        self.as_reader().as_prettier()
+    }
+}
+
+impl<'a> Prettier for AccountCellDataV3Reader<'a> {
+    fn as_prettier(&self) -> String {
+        print_fields!(self, "AccountCellDataV3", {
+            id,
+            account,
+            registered_at,
+            last_transfer_account_at,
+            last_edit_manager_at,
+            last_edit_records_at,
+            status,
+            records,
+            enable_sub_account,
+            renew_sub_account_price
+        })
+    }
+}
+
 impl Prettier for AccountCellData {
     fn as_prettier(&self) -> String {
         self.as_reader().as_prettier()
@@ -391,7 +413,49 @@ impl<'a> Prettier for AccountCellDataReader<'a> {
             status,
             records,
             enable_sub_account,
-            renew_sub_account_price
+            renew_sub_account_price,
+            approval
+        })
+    }
+}
+
+impl Prettier for AccountApproval {
+    fn as_prettier(&self) -> String {
+        self.as_reader().as_prettier()
+    }
+}
+
+impl<'a> Prettier for AccountApprovalReader<'a> {
+    fn as_prettier(&self) -> String {
+        let params_str = match self.action().raw_data() {
+            b"transfer" => {
+                let params = AccountApprovalTransferReader::new_unchecked(self.params().raw_data());
+                format!("Bytes({})", params.as_prettier())
+            }
+            _ => self.params().as_prettier(),
+        };
+
+        print_fields!(self, "AccountApproval", {
+            action,
+            (params -> &params_str)
+        })
+    }
+}
+
+impl Prettier for AccountApprovalTransfer {
+    fn as_prettier(&self) -> String {
+        self.as_reader().as_prettier()
+    }
+}
+
+impl<'a> Prettier for AccountApprovalTransferReader<'a> {
+    fn as_prettier(&self) -> String {
+        print_fields!(self, "AccountApprovalTransfer", {
+            platform_lock,
+            protected_until,
+            sealed_until,
+            delay_count_remain,
+            to_lock
         })
     }
 }
@@ -962,7 +1026,8 @@ impl<'a> Prettier for DasLockTypeIdTableReader<'a> {
             ed25519,
             eth,
             tron,
-            doge
+            doge,
+            web_authn
         })
     }
 }
@@ -1236,6 +1301,31 @@ impl<'a> Prettier for ConfigCellReleaseReader<'a> {
     }
 }
 
+impl Prettier for SubAccountV1 {
+    fn as_prettier(&self) -> String {
+        self.as_reader().as_prettier()
+    }
+}
+
+impl<'a> Prettier for SubAccountV1Reader<'a> {
+    fn as_prettier(&self) -> String {
+        let fmt_suffix = String::from_utf8(self.suffix().raw_data().to_vec()).expect("Encoding utf-8 failed.");
+        print_fields!(self, "SubAccountV1", {
+            lock,
+            id,
+            account,
+            (suffix -> &fmt_suffix),
+            registered_at,
+            expired_at,
+            status,
+            records,
+            nonce,
+            enable_sub_account,
+            renew_sub_account_price
+        })
+    }
+}
+
 impl Prettier for SubAccount {
     fn as_prettier(&self) -> String {
         self.as_reader().as_prettier()
@@ -1256,7 +1346,8 @@ impl<'a> Prettier for SubAccountReader<'a> {
             records,
             nonce,
             enable_sub_account,
-            renew_sub_account_price
+            renew_sub_account_price,
+            approval
         })
     }
 }

@@ -1,9 +1,8 @@
 #[cfg(feature = "no_std")]
 use alloc::string::{FromUtf8Error, String};
+use core::convert::TryFrom;
 #[cfg(not(feature = "no_std"))]
 use std::string::FromUtf8Error;
-
-use core::convert::TryFrom;
 
 use ckb_std::ckb_types::{bytes, packed as ckb_packed};
 use molecule::error::VerificationError;

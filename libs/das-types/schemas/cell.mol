@@ -317,7 +317,7 @@ table AccountCellDataV2 {
     records: Records,
 }
 
-table AccountCellData {
+table AccountCellDataV3 {
     // The first 160 bits of the hash of account.
     id: AccountId,
     // Separate chars of account.
@@ -337,6 +337,28 @@ table AccountCellData {
     renew_sub_account_price: Uint64,
 }
 
+table AccountCellData {
+    // The first 160 bits of the hash of account.
+    id: AccountId,
+    // Separate chars of account.
+    account: AccountChars,
+    // AccountCell register timestamp.
+    registered_at: Uint64,
+    // AccountCell last action timestamp.
+    last_transfer_account_at: Uint64,
+    last_edit_manager_at: Uint64,
+    last_edit_records_at: Uint64,
+    // The status of the account, 0x00 means normal, 0x01 means being sold, 0x02 means being auctioned.
+    status: Uint8,
+    records: Records,
+    // The status of sub-account function, 0x00 means disabled, 0x01 means enabled.
+    enable_sub_account: Uint8,
+    // The price of renewing sub-account for one year.
+    renew_sub_account_price: Uint64,
+    // The approval that can be fulfilled in the future.
+    approval: AccountApproval,
+}
+
 array AccountId [byte; 20];
 
 table Record {
@@ -348,6 +370,19 @@ table Record {
 }
 
 vector Records <Record>;
+
+table AccountApproval {
+    action: Bytes,
+    params: Bytes,
+}
+
+table AccountApprovalTransfer {
+    platform_lock: Script,
+    protected_until: Uint64,
+    sealed_until: Uint64,
+    delay_count_remain: Uint8,
+    to_lock: Script,
+}
 
 // AccountSaleCellData
 
@@ -512,7 +547,32 @@ table OfferCellData {
     channel_lock: Script,
 }
 
-// SubAccount
+// SubAccountData
+
+table SubAccountV1 {
+    // The lock of owner and manager
+    lock: Script,
+    // The first 160 bits of the hash of account.
+    id: AccountId,
+    // Separate chars of account.
+    account: AccountChars,
+    // The suffix of this sub-account, it is always .bit currently.
+    suffix: Bytes,
+    // The sub-account register timestamp.
+    registered_at: Uint64,
+    // The sub-account expiration timestamp.
+    expired_at: Uint64,
+    // The status of the account, 0x00 means normal, 0x01 means being sold, 0x02 means being auctioned.
+    status: Uint8,
+    // Resolving records of this sub-account.
+    records: Records,
+    // This is a count field, it mainly used to prevent replay attacks.
+    nonce: Uint64,
+    // If sub-account of sub-account is enabled.
+    enable_sub_account: Uint8,
+    // The price of renew sub-account of this sub-account.
+    renew_sub_account_price: Uint64,
+}
 
 table SubAccount {
     // The lock of owner and manager
@@ -537,6 +597,8 @@ table SubAccount {
     enable_sub_account: Uint8,
     // The price of renew sub-account of this sub-account.
     renew_sub_account_price: Uint64,
+    // The approval that can be fulfilled in the future.
+    approval: AccountApproval,
 }
 
 table SubAccountRule {

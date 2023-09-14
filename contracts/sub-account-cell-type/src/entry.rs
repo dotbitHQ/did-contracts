@@ -61,7 +61,9 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
         b"config_sub_account" => action_config_sub_account(action, &mut parser)?,
         b"config_sub_account_custom_script" => action_config_sub_account_custom_script(action, &mut parser)?,
         b"update_sub_account" => action_update_sub_account(action, &mut parser)?,
-        b"collect_sub_account_profit" | b"collect_sub_account_channel_profit" => action_collect_sub_account_profit(action, &mut parser)?,
+        b"collect_sub_account_profit" | b"collect_sub_account_channel_profit" => {
+            action_collect_sub_account_profit(action, &mut parser)?
+        }
         b"confirm_expired_account_auction" => {
             util::require_type_script(
                 &parser,

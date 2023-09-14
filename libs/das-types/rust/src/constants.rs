@@ -157,6 +157,7 @@ pub enum AccountStatus {
     Selling,
     Auction,
     LockedForCrossChain,
+    ApprovedTransfer,
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]
@@ -177,7 +178,6 @@ pub enum DasLockType {
     ETHTypedData,
     MIXIN,
     Doge,
-    Device,
     WebAuthn,
 }
 
@@ -198,6 +198,14 @@ pub enum SubAccountAction {
     Renew,
     #[strum(serialize = "recycle")]
     Recycle,
+    #[strum(serialize = "create_approval")]
+    CreateApproval,
+    #[strum(serialize = "delay_approval")]
+    DelayApproval,
+    #[strum(serialize = "revoke_approval")]
+    RevokeApproval,
+    #[strum(serialize = "fulfill_approval")]
+    FulfillApproval,
 }
 
 #[derive(Debug, PartialEq, Copy, Clone, TryFromPrimitive, Display)]
@@ -223,6 +231,12 @@ pub enum ReverseRecordAction {
     Remove,
 }
 
+#[derive(Debug, Clone, PartialEq, EnumString, Display)]
+pub enum AccountApprovalAction {
+    #[strum(serialize = "transfer")]
+    Transfer,
+}
+
 // [100, 97, 115] equals b"das"
 pub const WITNESS_HEADER: [u8; 3] = [100, 97, 115];
 pub const WITNESS_HEADER_BYTES: usize = WITNESS_HEADER.len();
@@ -230,11 +244,12 @@ pub const WITNESS_TYPE_BYTES: usize = 4;
 pub const WITNESS_LENGTH_BYTES: usize = 4;
 pub const SUB_ACCOUNT_WITNESS_VERSION_BYTES: usize = 8;
 // WARNING! This constant maybe need to be enlarger in the future.
-pub const SUB_ACCOUNT_WITNESS_ACTION_BYTES: usize = 4 + 10;
+pub const SUB_ACCOUNT_WITNESS_ACTION_BYTES: usize = 4 + 20;
 pub const REVERSE_RECORD_WITNESS_VERSION_BYTES: usize = 8;
 // WARNING! This constant maybe need to be enlarger in the future.
 pub const REVERSE_RECORD_WITNESS_ACTION_BYTES: usize = 4 + 10;
 
+#[cfg(not(feature = "no_std"))]
 #[derive(Eq, PartialEq, Debug, Clone, Copy)]
 #[repr(u64)]
 pub enum Source {

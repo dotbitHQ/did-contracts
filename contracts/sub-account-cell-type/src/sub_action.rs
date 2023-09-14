@@ -216,7 +216,11 @@ impl<'a> SubAction<'a> {
                         witness.index
                     );
 
-                    let profit = calc_basic_profit(self.config_sub_account.new_sub_account_price(), self.quote, expiration_years);
+                    let profit = calc_basic_profit(
+                        self.config_sub_account.new_sub_account_price(),
+                        self.quote,
+                        expiration_years,
+                    );
                     self.profit_from_manual_mint += profit;
                     self.profit_total += profit;
                     self.minimal_required_das_profit += profit;
@@ -253,7 +257,11 @@ impl<'a> SubAction<'a> {
                     self.custom_script_params.push(util::hex_string(&custom_script_param));
 
                     // This variable will be treat as the minimal profit to DAS no matter the custom script exist or not.
-                    self.minimal_required_das_profit += calc_basic_profit(self.config_sub_account.new_sub_account_price(), self.quote, expiration_years);
+                    self.minimal_required_das_profit += calc_basic_profit(
+                        self.config_sub_account.new_sub_account_price(),
+                        self.quote,
+                        expiration_years,
+                    );
 
                     das_assert!(
                         matches!(witness.edit_value, SubAccountEditValue::None),
@@ -398,7 +406,11 @@ impl<'a> SubAction<'a> {
                         if !proof.is_empty() {
                             match smt_verify_sub_account_is_in_renew_list(root.clone(), &witness) {
                                 Ok(()) => {
-                                    let profit = calc_basic_profit(self.config_sub_account.renew_sub_account_price(), self.quote, expiration_years);
+                                    let profit = calc_basic_profit(
+                                        self.config_sub_account.renew_sub_account_price(),
+                                        self.quote,
+                                        expiration_years,
+                                    );
                                     self.profit_from_manual_renew += profit;
                                     self.profit_total += profit;
                                     self.minimal_required_das_profit += profit;
@@ -526,7 +538,11 @@ impl<'a> SubAction<'a> {
             witness.index
         );
 
-        let profit = calc_basic_profit(self.config_sub_account.renew_sub_account_price(), self.quote, expiration_years);
+        let profit = calc_basic_profit(
+            self.config_sub_account.renew_sub_account_price(),
+            self.quote,
+            expiration_years,
+        );
         self.profit_from_manual_renew_by_other += profit;
         self.profit_total += profit;
         self.minimal_required_das_profit += profit;
@@ -583,7 +599,6 @@ impl<'a> SubAction<'a> {
                         witness.index
                     );
 
-
                     das_assert!(
                         current_owner_type != new_owner_type || current_owner_args != new_owner_args,
                         SubAccountCellErrorCode::SubAccountEditLockError,
@@ -614,7 +629,11 @@ impl<'a> SubAction<'a> {
                 }
             }
             SubAccountEditValue::Records(records) => {
-                verifiers::sub_account_cell::verify_status_v2(witness.index, &sub_account_reader, &[AccountStatus::Normal, AccountStatus::ApprovedTransfer])?;
+                verifiers::sub_account_cell::verify_status_v2(
+                    witness.index,
+                    &sub_account_reader,
+                    &[AccountStatus::Normal, AccountStatus::ApprovedTransfer],
+                )?;
 
                 verifiers::account_cell::verify_records_keys(self.parser, records.as_reader())?;
             }
@@ -635,7 +654,11 @@ impl<'a> SubAction<'a> {
         let sub_account_reader = witness.sub_account.as_reader();
 
         // WARNING! The sub-account only has 2 status for now, if more status added, the recycling logic should be also updated.
-        verifiers::sub_account_cell::verify_status_v2(witness.index, &sub_account_reader, &[AccountStatus::Normal, AccountStatus::ApprovedTransfer])?;
+        verifiers::sub_account_cell::verify_status_v2(
+            witness.index,
+            &sub_account_reader,
+            &[AccountStatus::Normal, AccountStatus::ApprovedTransfer],
+        )?;
 
         match verifiers::sub_account_cell::verify_expiration(
             self.config_account,

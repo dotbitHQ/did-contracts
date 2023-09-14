@@ -1,11 +1,15 @@
+#[cfg(feature = "no_std")]
 use core::convert::TryFrom;
 
-use molecule::prelude::*;
-
-use super::constants::*;
+#[cfg(not(feature = "no_std"))]
+use std::convert::TryFrom;
+#[cfg(not(feature = "no_std"))]
 use super::schemas::packed::*;
 
 pub use molecule::hex_string;
+use molecule::prelude::*;
+
+use super::constants::*;
 
 pub fn is_entity_eq<T: Entity>(a: &T, b: &T) -> bool {
     a.as_slice() == b.as_slice()
@@ -31,6 +35,7 @@ pub fn preserved_accounts_group_to_data_type(group: usize) -> DataType {
     DataType::try_from(group as u32 + 10000).unwrap()
 }
 
+#[cfg(not(feature = "no_std"))]
 pub fn wrap_data_entity(version: u32, index: u32, entity: impl Entity) -> DataEntity {
     DataEntity::new_builder()
         .version(Uint32::from(version))
@@ -39,6 +44,7 @@ pub fn wrap_data_entity(version: u32, index: u32, entity: impl Entity) -> DataEn
         .build()
 }
 
+#[cfg(not(feature = "no_std"))]
 pub fn wrap_data_entity_opt(version: u32, index: u32, entity: impl Entity) -> DataEntityOpt {
     DataEntityOpt::new_builder()
         .set(Some(wrap_data_entity(version, index, entity)))
@@ -48,6 +54,7 @@ pub fn wrap_data_entity_opt(version: u32, index: u32, entity: impl Entity) -> Da
 // The function returns Bytes which is not the proper type required by the transaction builder, which case so many places
 // use Bytes.as_reader().raw_data() to retrieve the wrapped binary, so we should remove it from the repostiories gradually.
 #[deprecated]
+#[cfg(not(feature = "no_std"))]
 pub fn wrap_raw_witness(data_type: DataType, mut bytes: Vec<u8>) -> Bytes {
     let mut data = Vec::new();
     let mut data_type_bytes = (data_type as u32).to_le_bytes().to_vec();
@@ -60,6 +67,7 @@ pub fn wrap_raw_witness(data_type: DataType, mut bytes: Vec<u8>) -> Bytes {
         .build()
 }
 
+#[cfg(not(feature = "no_std"))]
 pub fn wrap_raw_witness_v2(data_type: DataType, mut bytes: Vec<u8>) -> Vec<u8> {
     let mut data = Vec::new();
     let mut data_type_bytes = (data_type as u32).to_le_bytes().to_vec();
@@ -73,6 +81,7 @@ pub fn wrap_raw_witness_v2(data_type: DataType, mut bytes: Vec<u8>) -> Vec<u8> {
 // The function returns Bytes which is not the proper type required by the transaction builder, which case so many places
 // use Bytes.as_reader().raw_data() to retrieve the wrapped binary, so we should remove it from the repostiories gradually.
 #[deprecated]
+#[cfg(not(feature = "no_std"))]
 pub fn wrap_entity_witness(data_type: DataType, entity: impl Entity) -> Bytes {
     let mut data = Vec::new();
     let mut data_type_bytes = (data_type as u32).to_le_bytes().to_vec();
@@ -85,6 +94,7 @@ pub fn wrap_entity_witness(data_type: DataType, entity: impl Entity) -> Bytes {
         .build()
 }
 
+#[cfg(not(feature = "no_std"))]
 pub fn wrap_entity_witness_v2(data_type: DataType, entity: impl Entity) -> Vec<u8> {
     let mut data = Vec::new();
     let mut data_type_bytes = (data_type as u32).to_le_bytes().to_vec();
@@ -98,6 +108,7 @@ pub fn wrap_entity_witness_v2(data_type: DataType, entity: impl Entity) -> Vec<u
 // The function returns Bytes which is not the proper type required by the transaction builder, which case so many places
 // use Bytes.as_reader().raw_data() to retrieve the wrapped binary, so we should remove it from the repostiories gradually.
 #[deprecated]
+#[cfg(not(feature = "no_std"))]
 pub fn wrap_action_witness(action: &str, params_opt: Option<Bytes>) -> Bytes {
     let mut builder = ActionData::new_builder().action(Bytes::from(action.as_bytes()));
 
@@ -108,6 +119,7 @@ pub fn wrap_action_witness(action: &str, params_opt: Option<Bytes>) -> Bytes {
     wrap_entity_witness(DataType::ActionData, builder.build())
 }
 
+#[cfg(not(feature = "no_std"))]
 pub fn wrap_action_witness_v2(action: &str, params_opt: Option<Bytes>) -> Vec<u8> {
     let mut builder = ActionData::new_builder().action(Bytes::from(action.as_bytes()));
 
@@ -118,6 +130,7 @@ pub fn wrap_action_witness_v2(action: &str, params_opt: Option<Bytes>) -> Vec<u8
     wrap_entity_witness_v2(DataType::ActionData, builder.build())
 }
 
+#[cfg(not(feature = "no_std"))]
 pub enum EntityWrapper {
     ActionData(ActionData),
     PreAccountCellDataV1(PreAccountCellDataV1),
@@ -126,11 +139,13 @@ pub enum EntityWrapper {
     ProposalCellData(ProposalCellData),
     AccountCellData(AccountCellData),
     AccountCellDataV2(AccountCellDataV2),
+    AccountCellDataV3(AccountCellDataV3),
     AccountSaleCellData(AccountSaleCellData),
     AccountSaleCellDataV1(AccountSaleCellDataV1),
     AccountAuctionCellData(AccountAuctionCellData),
     IncomeCellData(IncomeCellData),
     OfferCellData(OfferCellData),
+    SubAccountV1(SubAccountV1),
     SubAccount(SubAccount),
     ConfigCellAccount(ConfigCellAccount),
     ConfigCellApply(ConfigCellApply),
@@ -149,6 +164,7 @@ pub enum EntityWrapper {
 // The function returns Bytes which is not the proper type required by the transaction builder, which case so many places
 // use Bytes.as_reader().raw_data() to retrieve the wrapped binary, so we should remove it from the repostiories gradually.
 #[deprecated]
+#[cfg(not(feature = "no_std"))]
 pub fn wrap_entity_witness_v3(data_type: DataType, entity: EntityWrapper) -> Bytes {
     let mut data = Vec::new();
     let mut data_type_bytes = (data_type as u32).to_le_bytes().to_vec();
@@ -178,6 +194,7 @@ pub fn wrap_entity_witness_v3(data_type: DataType, entity: EntityWrapper) -> Byt
         .build()
 }
 
+#[cfg(not(feature = "no_std"))]
 pub fn wrap_entity_witness_v4(data_type: DataType, entity: EntityWrapper) -> Vec<u8> {
     let mut data = Vec::new();
     let mut data_type_bytes = (data_type as u32).to_le_bytes().to_vec();
@@ -205,6 +222,7 @@ pub fn wrap_entity_witness_v4(data_type: DataType, entity: EntityWrapper) -> Vec
     data
 }
 
+#[cfg(not(feature = "no_std"))]
 pub fn wrap_data_entity_v3(version: u32, index: usize, entity: EntityWrapper) -> DataEntity {
     fn wrap_data_entity(version: u32, index: usize, entity: impl Entity) -> DataEntity {
         DataEntity::new_builder()
@@ -221,11 +239,13 @@ pub fn wrap_data_entity_v3(version: u32, index: usize, entity: EntityWrapper) ->
         EntityWrapper::ProposalCellData(entity) => wrap_data_entity(version, index, entity),
         EntityWrapper::AccountCellData(entity) => wrap_data_entity(version, index, entity),
         EntityWrapper::AccountCellDataV2(entity) => wrap_data_entity(version, index, entity),
+        EntityWrapper::AccountCellDataV3(entity) => wrap_data_entity(version, index, entity),
         EntityWrapper::AccountSaleCellData(entity) => wrap_data_entity(version, index, entity),
         EntityWrapper::AccountSaleCellDataV1(entity) => wrap_data_entity(version, index, entity),
         EntityWrapper::AccountAuctionCellData(entity) => wrap_data_entity(version, index, entity),
         EntityWrapper::IncomeCellData(entity) => wrap_data_entity(version, index, entity),
         EntityWrapper::OfferCellData(entity) => wrap_data_entity(version, index, entity),
+        EntityWrapper::SubAccountV1(entity) => wrap_data_entity(version, index, entity),
         EntityWrapper::SubAccount(entity) => wrap_data_entity(version, index, entity),
         EntityWrapper::ConfigCellAccount(entity) => wrap_data_entity(version, index, entity),
         EntityWrapper::ConfigCellApply(entity) => wrap_data_entity(version, index, entity),
@@ -242,6 +262,7 @@ pub fn wrap_data_entity_v3(version: u32, index: usize, entity: EntityWrapper) ->
     }
 }
 
+#[cfg(not(feature = "no_std"))]
 pub fn wrap_data_entity_opt_v3(version: u32, index: usize, entity: EntityWrapper) -> DataEntityOpt {
     DataEntityOpt::new_builder()
         .set(Some(wrap_data_entity_v3(version, index, entity)))
@@ -251,6 +272,7 @@ pub fn wrap_data_entity_opt_v3(version: u32, index: usize, entity: EntityWrapper
 // The function returns Bytes which is not the proper type required by the transaction builder, which case so many places
 // use Bytes.as_reader().raw_data() to retrieve the wrapped binary, so we should remove it from the repostiories gradually.
 #[deprecated]
+#[cfg(not(feature = "no_std"))]
 pub fn wrap_data_witness_v3(
     data_type: DataType,
     version: u32,
@@ -277,6 +299,7 @@ pub fn wrap_data_witness_v3(
     Bytes::from(wrap_entity_witness_v2(data_type, data))
 }
 
+#[cfg(not(feature = "no_std"))]
 pub fn wrap_data_witness_v4(
     data_type: DataType,
     version: u32,
@@ -303,6 +326,7 @@ pub fn wrap_data_witness_v4(
     wrap_entity_witness_v2(data_type, data)
 }
 
+#[cfg(not(feature = "no_std"))]
 pub fn wrap_sub_account_witness(data_type: DataType, mut sub_account_data: Vec<u8>) -> Vec<u8> {
     let mut data = Vec::new();
     let mut data_type_bytes = (data_type as u32).to_le_bytes().to_vec();
