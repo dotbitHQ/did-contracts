@@ -5,6 +5,10 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use ckb_std::ckb_constants::Source;
+use ckb_std::ckb_types::packed::Script;
+use ckb_std::high_level::{
+    load_cell_data, load_cell_lock, load_cell_lock_hash, load_cell_type, load_cell_type_hash, QueryIter,
+};
 use ckb_std::syscalls::load_witness;
 use das_types::constants::{DataType, WITNESS_HEADER_BYTES, WITNESS_TYPE_BYTES};
 use molecule::prelude::Entity;
@@ -22,6 +26,7 @@ struct PartialWitness {
     buf: Vec<u8>,
     actual_size: usize,
 }
+
 struct CompleteWitness {
     buf: Vec<u8>,
     parsed: bool,
@@ -50,6 +55,82 @@ trait FromWitness {
 struct ParsedWithHash<T> {
     result: T,
     hash: Option<[u8; 32]>,
+}
+
+#[allow(dead_code)]
+enum Condition {
+    LockIs(Script),
+    TypeIs(Script),
+    LockHash([u8; 32]),
+    TypeHash([u8; 32]),
+}
+
+impl<T> ParsedWithHash<T> {
+    #[allow(dead_code)]
+    fn verify(&self, source: Source, conditions: &[Condition]) -> Result<&T, Box<dyn ScriptError>> {
+        let cell_found = match &self.hash {
+            None => return Err(code_to_error!(ErrorCode::WitnessCannotBeVerified)),
+            Some(h) => QueryIter::new(
+                |index, source| {
+                    let res = load_cell_data(index, source)?;
+                    Ok(WithMeta {
+                        item: res,
+                        index,
+                        source,
+                    })
+                },
+                source,
+            )
+            .find(|WithMeta { item, .. }| *item.as_slice() == h[..]),
+        }
+        .ok_or(code_to_error!(ErrorCode::WitnessDataHashOrTypeMissMatch))?;
+        let index = cell_found.index;
+        for condition in conditions {
+            match condition {
+                Condition::LockIs(script) => {
+                    das_assert!(
+                        script.as_slice() == load_cell_lock(index, source)?.as_slice(),
+                        ErrorCode::WitnessDataHashOrTypeMissMatch,
+                        "Cell {} in {:?} does not have lock {:?}",
+                        index,
+                        source,
+                        script
+                    )
+                }
+                Condition::LockHash(h) => {
+                    das_assert!(
+                        *h == load_cell_lock_hash(index, source)?,
+                        ErrorCode::WitnessDataHashOrTypeMissMatch,
+                        "Cell {} in {:?} does not have lock hash {:?}",
+                        index,
+                        source,
+                        h
+                    )
+                }
+                Condition::TypeIs(script) => {
+                    das_assert!(
+                        script.as_slice() == load_cell_type(index, source)?.unwrap_or_default().as_slice(),
+                        ErrorCode::WitnessDataHashOrTypeMissMatch,
+                        "Cell {} in {:?} does not have type {:?}",
+                        index,
+                        source,
+                        script
+                    )
+                }
+                Condition::TypeHash(h) => {
+                    das_assert!(
+                        *h == load_cell_type_hash(index, source)?.unwrap_or_default(),
+                        ErrorCode::WitnessDataHashOrTypeMissMatch,
+                        "Cell {} in {:?} does not have type hash {:?}",
+                        index,
+                        source,
+                        h
+                    )
+                }
+            }
+        }
+        Ok(&self.result)
+    }
 }
 
 impl<T> FromWitness for T
@@ -101,7 +182,7 @@ where
 
 impl Witness {
     fn parse<T: FromWitness<Error = impl Into<Box<dyn ScriptError>>> + 'static>(
-        &'static mut self,
+        &mut self,
     ) -> Result<ParsedWithHash<T>, Box<dyn ScriptError>> {
         let res = match self {
             Witness::Loaded(_) => T::from_witness(self).map_err(|e| e.into())?,
@@ -142,6 +223,7 @@ impl GeneralWitnessParser {
         let mut buf = [0u8; WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES];
         let mut witnesses: Vec<Witness> = Vec::new();
         loop {
+            // Only load first 7 bytes to identify the corresponding witness type
             let res = match load_witness(&mut buf, 0, i, Source::Input) {
                 Err(ckb_std::syscalls::SysError::IndexOutOfBound) => break,
                 Ok(actual_size) => Witness::Loaded(WithMeta {
@@ -171,9 +253,9 @@ impl GeneralWitnessParser {
 
     #[allow(dead_code)]
     fn parse_witness<T: FromWitness<Error = impl Into<Box<dyn ScriptError>>> + 'static>(
-        &'static mut self,
+        &mut self,
         index: usize,
-    ) -> Result<T, Box<dyn ScriptError>> {
+    ) -> Result<ParsedWithHash<T>, Box<dyn ScriptError>> {
         let res = self.witnesses[index].parse::<T>()?;
         if let Some(hash) = res.hash {
             let _ = self
@@ -181,14 +263,28 @@ impl GeneralWitnessParser {
                 .insert(hash, index)
                 .is_some_and(|original| panic!("Witness {} and {} have same hash!", index, original));
         }
-        Ok(res.result)
+        Ok(res)
+    }
+
+    #[allow(dead_code)]
+    fn find<T: FromWitness<Error = impl Into<Box<dyn ScriptError>>> + 'static>(
+        &'static mut self,
+    ) -> Result<Vec<ParsedWithHash<T>>, Box<dyn ScriptError>> {
+        let mut res = Vec::new();
+        for i in 0..self.witnesses.len() {
+            if !T::parsable(&self.witnesses[i]) {
+                continue;
+            }
+            res.push(self.parse_witness(i)?);
+        }
+        Ok(res)
     }
 
     #[allow(dead_code)]
     fn find_by_hash<T: FromWitness<Error = impl Into<Box<dyn ScriptError>>> + 'static>(
         &'static mut self,
         hash: &[u8; 32],
-    ) -> Result<Option<T>, Box<dyn ScriptError>> {
+    ) -> Result<Option<ParsedWithHash<T>>, Box<dyn ScriptError>> {
         if let Some(index) = self.hashes.get(hash) {
             return self.parse_witness(*index).map(Option::Some);
         }
@@ -206,8 +302,8 @@ impl GeneralWitnessParser {
             let res = witness.parse::<T>()?;
             match res.hash {
                 Some(h) if &h == hash => {
-                    return Ok(Some(res.result));
-                },
+                    return Ok(Some(res));
+                }
                 _ => continue,
             }
         }

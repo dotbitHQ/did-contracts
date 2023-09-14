@@ -70,6 +70,7 @@ pub enum ErrorCode {
     SMTNewRootMismatch, // 55
     SMTProofVerifyFailed,
     SignMethodUnsupported,
+    WitnessCannotBeVerified,
     ApplyRegisterNeedWaitLonger = 60,
     ApplyRegisterHasTimeout,
     ApplyLockMustBeUnique,
