@@ -61,6 +61,7 @@ sparse-merkle-tree = { version = "0.6.1", default-features = false, features = [
     "smtc",
 ] }
 ckb-std = "0.13.0"
+ckb-types = { version = "=0.108.0" }
 molecule = { version = "0.7", default-features = false }
 hex = { default-features = false, version = "0.4.2" }
 

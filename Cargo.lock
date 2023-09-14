@@ -708,6 +708,7 @@ name = "das-types"
 version = "1.11.0"
 dependencies = [
  "ckb-std",
+ "ckb-types",
  "hex",
  "molecule",
  "num_enum",

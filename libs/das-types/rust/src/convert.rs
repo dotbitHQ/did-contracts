@@ -1,10 +1,17 @@
 #[cfg(feature = "no_std")]
 use alloc::string::{FromUtf8Error, String};
+#[cfg(feature = "no_std")]
+use ckb_std::ckb_types::{bytes, packed as ckb_packed};
+#[cfg(feature = "no_std")]
 use core::convert::TryFrom;
+
 #[cfg(not(feature = "no_std"))]
 use std::string::FromUtf8Error;
+#[cfg(not(feature = "no_std"))]
+use ckb_types::{bytes, packed as ckb_packed};
+#[cfg(not(feature = "no_std"))]
+use std::convert::TryFrom;
 
-use ckb_std::ckb_types::{bytes, packed as ckb_packed};
 use molecule::error::VerificationError;
 use molecule::prelude::*;
 
