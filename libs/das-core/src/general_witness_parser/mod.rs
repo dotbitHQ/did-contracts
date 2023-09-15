@@ -268,7 +268,7 @@ impl GeneralWitnessParser {
 
     #[allow(dead_code)]
     fn find<T: FromWitness<Error = impl Into<Box<dyn ScriptError>>> + 'static>(
-        &'static mut self,
+        &mut self,
     ) -> Result<Vec<ParsedWithHash<T>>, Box<dyn ScriptError>> {
         let mut res = Vec::new();
         for i in 0..self.witnesses.len() {
@@ -282,7 +282,7 @@ impl GeneralWitnessParser {
 
     #[allow(dead_code)]
     fn find_by_hash<T: FromWitness<Error = impl Into<Box<dyn ScriptError>>> + 'static>(
-        &'static mut self,
+        &mut self,
         hash: &[u8; 32],
     ) -> Result<Option<ParsedWithHash<T>>, Box<dyn ScriptError>> {
         if let Some(index) = self.hashes.get(hash) {
