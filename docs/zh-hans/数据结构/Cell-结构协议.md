@@ -303,29 +303,19 @@ table AccountCellData {
     // AccountCell register timestamp.
     registered_at: Uint64,
     // AccountCell last action timestamp.
-    last_transfer_account_at: Timestamp,
-    last_edit_manager_at: Timestamp,
-    last_edit_records_at: Timestamp,
+    last_transfer_account_at: Uint64,
+    last_edit_manager_at: Uint64,
+    last_edit_records_at: Uint64,
     // The status of the account, 0x00 means normal, 0x01 means being sold, 0x02 means being auctioned.
     status: Uint8,
     records: Records,
     // The status of sub-account function, 0x00 means disabled, 0x01 means enabled.
     enable_sub_account: Uint8,
-    // Uused, The price of renewing sub-account for one year.
+    // The price of renewing sub-account for one year.
     renew_sub_account_price: Uint64,
+    // The approval that can be fulfilled in the future.
+    approval: AccountApproval,
 }
-
-array AccountId [byte; 20];
-
-table Record {
-    record_type: Bytes,
-    record_label: Bytes,
-    record_key: Bytes,
-    record_value: Bytes,
-    record_ttl: Uint32,
-}
-
-vector Records <Record>;
 ```
 
 - id ，账户 ID，对账户名(**含后缀**)计算 hash 之后，取前 20 bytes 就是账户 ID，全网唯一；
@@ -340,6 +330,7 @@ vector Records <Record>;
 - enable_sub_account ，状态字段：
     - 0 ，未启用子账户；
     - 1 ，已启用子账户；
+- approval ，账户的授权信息，详见 [授权结构相关文档](approval/transfer-approval.md)；
 
 #### das-lock
 
@@ -642,7 +633,7 @@ witness:
       entity: DeviceKeyListCellData
     },
   }
-  
+
 ======
 vector DeviceKeyList <DeviceKey>;
 

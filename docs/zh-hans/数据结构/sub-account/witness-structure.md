@@ -47,7 +47,7 @@
 ]
 ```
 
-其中 [3:7] 4 个 bytes 为小端编码的 u32 整型，它标明了第 8 bytes 之后的数据类型是子账户类型，具体值详见 [Cell 结构协议.md/Type 常量列表/SubAccount](../%E7%B3%BB%E7%BB%9F%E6%9E%9A%E4%B8%BE%E5%80%BC.md)；
+其中 [3:7] 4 个 bytes 为小端编码的 u32 整型，它标明了第 8 bytes 之后的数据类型是子账户类型，具体值详见 [Cell 结构协议.md/Type 常量列表/SubAccount](../system-constant.md)；
 
 最后一段数据 `sub_account` 分为了三类：
 
@@ -137,7 +137,7 @@ account hash ，value 为子账户创建成功后的 `SubAccountData.lock.args` 
 ```
 
 - `version` 即当前数据结构版本号，类型为小端编码的 u32 整形，后续的字段有任何改变时，此字段就会 `+1`；
-- `rules` 为 SubAccountPriceRule 和 SubAccountPreservedRule 共用的 `SubAccountRules` 类型，区别在于 SubAccountPreservedRule 数据结构中的 `SubAccountRule.price` 会被忽略，关于这两种类型的定义及其对应的 JSON 描述详见 [自定义规则](./%E8%87%AA%E5%AE%9A%E4%B9%89%E8%A7%84%E5%88%99.md) 。
+- `rules` 为 SubAccountPriceRule 和 SubAccountPreservedRule 共用的 `SubAccountRules` 类型，区别在于 SubAccountPreservedRule 数据结构中的 `SubAccountRule.price` 会被忽略，关于这两种类型的定义及其对应的 JSON 描述详见 [自定义规则](./custom-price-rule.md
 
 ### SubAccount 数据结构
 
@@ -157,7 +157,7 @@ account hash ，value 为子账户创建成功后的 `SubAccountData.lock.args` 
 [ length ][ edit_value ]
 ```
 
-当第一个字段的 `length == 4` 时，其后数据结构的版本就按照 `version` 所指明的数字进行处理，当前版本号为 `2`：
+当第一个字段的 `length == 4` 时，其后数据结构的版本就按照 `version` 所指明的数字进行处理，当前版本号为 `3`：
 
 ```
 [ length ][ version ]
@@ -167,6 +167,8 @@ account hash ，value 为子账户创建成功后的 `SubAccountData.lock.args` 
 [ length ][ sign_expired_at ]
 [ length ][ new_root ]
 [ length ][ proof ]
+[ length ][ old_sub_account_version ]
+[ length ][ new_sub_account_version ]
 [ length ][ sub_account ]
 [ length ][ edit_key ]
 [ length ][ edit_value ]
@@ -179,6 +181,8 @@ account hash ，value 为子账户创建成功后的 `SubAccountData.lock.args` 
 - `sign_expired_at` 指明 `signature` 签名的到期时间，**这个过期时间必须小于等于父账户 `expired_at` 和子账户的 `expired_at` 之间的最小值**；
 - `new_root` 当前 witness 对 `SubAccountCell.data.smt_root` 修改后的新的 SMT root ；
 - `proof` 即 SMT 的 proof，用于证明当前的 `SubAccountCell.data.smt_root` 和修改后的 `SubAccountCell.data.smt_root` 都是正确的；
+- `old_sub_account_version` 当前交易中 `sub_account` 字段在交易之前的版本号；
+- `new_sub_account_version` 当前交易中 `sub_account` 字段在交易之后的版本号；
 - `sub_account` 一个存放子账户信息的 molecule 编码结构，同样名为 SubAccount ，详细数据结构在下方可见；
 - `edit_key` 是一个配合 `action` 使用的参数字段；
 - `edit_value` 也是一个配合 `action` 使用的参数字段；
@@ -212,10 +216,10 @@ table SubAccount {
 
 #### sub_account 字段数据结构
 
-在整个子账户的 witness 中，`sub_account` 则是一个子账户的 molecule 编码的数据结构(**最新结构请以 [das-types](https://github.com/dotbitHQ/das-types) 中定义为准**)：
+在整个子账户的 witness 中，`sub_account` 则是一个子账户的 molecule 编码的数据结构，当前版本为 **2** (**最新结构请以 [das-types](https://github.com/dotbitHQ/das-types) 中定义为准**)：
 
 ```
-table SubAccountData {
+table SubAccount {
     // The lock of owner and manager
     lock: Script,
     // The first 160 bits of the hash of account.
@@ -234,10 +238,12 @@ table SubAccountData {
     records: Records,
     // This is a count field, it mainly used to prevent replay attacks.
     nonce: Uint64,
-    // Uused, If sub-account of sub-account is enabled.
+    // If sub-account of sub-account is enabled.
     enable_sub_account: Uint8,
-    // Uused, The price of renew sub-account of this sub-account.
+    // The price of renew sub-account of this sub-account.
     renew_sub_account_price: Uint64,
+    // The approval that can be fulfilled in the future.
+    approval: AccountApproval,
 }
 ```
 
