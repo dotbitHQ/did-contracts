@@ -1,6 +1,10 @@
+use core::cell::{RefCell, OnceCell};
+
 use alloc::borrow::ToOwned;
 use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
+use alloc::collections::btree_map::Entry;
+use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
 
@@ -9,10 +13,9 @@ use ckb_std::ckb_types::packed::Script;
 use ckb_std::high_level::{
     load_cell_data, load_cell_lock, load_cell_lock_hash, load_cell_type, load_cell_type_hash, QueryIter,
 };
-use ckb_std::syscalls::load_witness;
+use ckb_std::syscalls::{load_witness, SysError};
 use das_types::constants::{DataType, WITNESS_HEADER_BYTES, WITNESS_TYPE_BYTES};
 use molecule::prelude::Entity;
-
 use crate::error::{ErrorCode, ScriptError};
 use crate::traits::Blake2BHash;
 
@@ -65,6 +68,96 @@ enum Condition {
     TypeHash([u8; 32]),
 }
 
+// enum CacheState<T> {
+//     Cached(T),
+//     Initital
+// }
+
+// struct CacheEntry {
+//     type_script: Option<Option<Script>>,
+//     type_hash: Option<Option<[u8;32]>>,
+//     lock_script: Option<Script>,
+//     lock_hash: Option<[u8; 32]>,
+//     data: Option<Vec<u8>>,
+// }
+
+#[derive(Default)]
+struct Cached {
+    data: BTreeMap<(usize, u64), Vec<u8>>,
+    type_hash: BTreeMap<(usize, u64), Option<[u8;32]>>,
+    type_script: BTreeMap<(usize, u64), Option<Script>>,
+    lock_hash: BTreeMap<(usize, u64), [u8;32]>,
+    lock_script: BTreeMap<(usize, u64), Script>,
+}
+impl Cached {
+    fn load_cell_data(&mut self, index: usize, source: Source) -> Result<&Vec<u8>, SysError> {
+        let cache = self.data.entry((index, source as u64));
+        if let Entry::Vacant(e) = cache {
+            e.insert(load_cell_data(index, source)?);
+        }
+        let res = self.data.get(&(index, source as u64)).unwrap();
+        Ok(res)
+    }
+
+    fn load_type_hash(&mut self, index: usize, source: Source) -> Result<Option<&[u8;32]>, SysError> {
+        let cache = self.type_hash.entry((index, source as u64));
+        if let Entry::Vacant(e) = cache {
+            e.insert(load_cell_type_hash(index, source)?);
+        }
+        let res = self.type_hash.get(&(index, source as u64)).unwrap().as_ref();
+        Ok(res)
+    }
+
+    fn load_type(&mut self, index: usize, source: Source) -> Result<Option<&Script>, SysError> {
+        let cache = self.type_script.entry((index, source as u64));
+        if let Entry::Vacant(e) = cache {
+            e.insert(load_cell_type(index, source)?);
+        }
+        let res = self.type_script.get(&(index, source as u64)).unwrap().as_ref();
+        Ok(res)
+    }
+
+    fn load_lock_hash(&mut self, index: usize, source: Source) -> Result<&[u8;32], SysError> {
+        let cache = self.lock_hash.entry((index, source as u64));
+        if let Entry::Vacant(e) = cache {
+            e.insert(load_cell_lock_hash(index, source)?);
+        }
+        let res = self.lock_hash.get(&(index, source as u64)).unwrap();
+        Ok(res)
+    }
+
+    fn load_lock_script(&mut self, index: usize, source: Source) -> Result<&Script, SysError> {
+        let cache = self.lock_script.entry((index, source as u64));
+        if let Entry::Vacant(e) = cache {
+            e.insert(load_cell_lock(index, source)?);
+        }
+        let res = self.lock_script.get(&(index, source as u64)).unwrap();
+        Ok(res)
+    }
+
+}
+
+// static WITNESS_PARSER: RefCell<GeneralWitnessParser> = OnceCel  {
+//     let mut res = GeneralWitnessParser::default();
+//     res.init().unwrap();
+//     RefCell::new(res)
+// };
+
+
+fn get_witness_parser() -> &'static mut GeneralWitnessParser {
+    static mut WITNESS_PARSER: OnceCell<GeneralWitnessParser> = Default::default();
+    unsafe {
+        WITNESS_PARSER.get_mut()
+    }
+}
+
+fn get_cell_cache() -> &'static mut Cached {
+    static mut CELL_CACHE: OnceCell<Cached> = Default::default();
+    unsafe {
+        CELL_CACHE.get_mut()
+    }
+}
+
 impl<T> ParsedWithHash<T> {
     #[allow(dead_code)]
     fn verify(&self, source: Source, conditions: &[Condition]) -> Result<&T, Box<dyn ScriptError>> {
@@ -72,7 +165,7 @@ impl<T> ParsedWithHash<T> {
             None => return Err(code_to_error!(ErrorCode::WitnessCannotBeVerified)),
             Some(h) => QueryIter::new(
                 |index, source| {
-                    let res = load_cell_data(index, source)?;
+                    let res = get_cell_cache().load_cell_data(index, source)?;
                     Ok(WithMeta {
                         item: res,
                         index,
