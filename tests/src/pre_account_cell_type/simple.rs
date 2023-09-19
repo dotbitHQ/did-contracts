@@ -1,4 +1,3 @@
-use das_types::constants::*;
 use serde_json::json;
 
 use super::common::*;
@@ -40,7 +39,7 @@ fn push_output_simple_pre_account_cell(template: &mut TemplateGenerator) {
 
 #[test]
 fn test_pre_register_simple_v1() {
-    let mut template = before_each(ACCOUNT_SP_1);
+    let mut template = init(json!({ "account": ACCOUNT_SP_1 }));
 
     // inputs
     push_input_simple_apply_register_cell(&mut template, ACCOUNT_SP_1);
@@ -76,7 +75,7 @@ fn test_pre_register_simple_v1() {
 
 #[test]
 fn test_pre_register_simple_v2() {
-    let mut template = before_each(ACCOUNT_SP_1);
+    let mut template = init(json!({ "account": ACCOUNT_SP_1 }));
 
     // inputs
     push_input_simple_apply_register_cell(&mut template, ACCOUNT_SP_1);
@@ -112,7 +111,7 @@ fn test_pre_register_simple_v2() {
 
 #[test]
 fn test_pre_register_simple_v3() {
-    let mut template = before_each(ACCOUNT_SP_1);
+    let mut template = init(json!({ "account": ACCOUNT_SP_1 }));
 
     // inputs
     push_input_simple_apply_register_cell(&mut template, ACCOUNT_SP_1);
@@ -125,7 +124,7 @@ fn test_pre_register_simple_v3() {
 
 #[test]
 fn challenge_pre_register_initial_record_key_invalid() {
-    let mut template = before_each(ACCOUNT_SP_1);
+    let mut template = init(json!({ "account": ACCOUNT_SP_1 }));
 
     // inputs
     push_input_simple_apply_register_cell(&mut template, ACCOUNT_SP_1);
@@ -170,7 +169,7 @@ fn challenge_pre_register_initial_record_key_invalid() {
 
 #[test]
 fn challenge_pre_register_apply_since_relative_flag_error() {
-    let mut template = before_each(ACCOUNT_SP_1);
+    let mut template = init(json!({ "account": ACCOUNT_SP_1 }));
 
     // inputs
     push_input_apply_register_cell(
@@ -191,7 +190,7 @@ fn challenge_pre_register_apply_since_relative_flag_error() {
 
 #[test]
 fn challenge_pre_register_apply_since_metric_flag_error() {
-    let mut template = before_each(ACCOUNT_SP_1);
+    let mut template = init(json!({ "account": ACCOUNT_SP_1 }));
 
     // inputs
     push_input_apply_register_cell(
@@ -212,7 +211,7 @@ fn challenge_pre_register_apply_since_metric_flag_error() {
 
 #[test]
 fn challenge_pre_register_apply_since_value_error() {
-    let mut template = before_each(ACCOUNT_SP_1);
+    let mut template = init(json!({ "account": ACCOUNT_SP_1 }));
 
     // inputs
     push_input_apply_register_cell(
@@ -233,7 +232,7 @@ fn challenge_pre_register_apply_since_value_error() {
 
 #[test]
 fn challenge_pre_register_apply_hash_is_invalid() {
-    let mut template = before_each(ACCOUNT_1);
+    let mut template = init(json!({ "account": ACCOUNT_1 }));
 
     // inputs
     // Simulate the ApplyRegisterCell has different account with the PreAccountCell.
@@ -247,7 +246,7 @@ fn challenge_pre_register_apply_hash_is_invalid() {
 
 #[test]
 fn challenge_pre_register_invalid_account_id() {
-    let mut template = before_each(ACCOUNT_SP_1);
+    let mut template = init(json!({ "account": ACCOUNT_SP_1 }));
 
     // inputs
     push_input_simple_apply_register_cell(&mut template, ACCOUNT_SP_1);
@@ -277,7 +276,7 @@ fn challenge_pre_register_invalid_account_id() {
 
 #[test]
 fn challenge_pre_register_created_at_mismatch() {
-    let mut template = before_each(ACCOUNT_SP_1);
+    let mut template = init(json!({ "account": ACCOUNT_SP_1 }));
 
     // inputs
     push_input_simple_apply_register_cell(&mut template, ACCOUNT_SP_1);
@@ -305,7 +304,7 @@ fn challenge_pre_register_created_at_mismatch() {
 
 #[test]
 fn challenge_pre_register_invalid_owner_lock_args() {
-    let mut template = before_each(ACCOUNT_SP_1);
+    let mut template = init(json!({ "account": ACCOUNT_SP_1 }));
 
     // inputs
     push_input_simple_apply_register_cell(&mut template, ACCOUNT_SP_1);
@@ -334,7 +333,7 @@ fn challenge_pre_register_invalid_owner_lock_args() {
 
 #[test]
 fn challenge_pre_register_quote_mismatch() {
-    let mut template = before_each(ACCOUNT_SP_1);
+    let mut template = init(json!({ "account": ACCOUNT_SP_1 }));
 
     // inputs
     push_input_simple_apply_register_cell(&mut template, ACCOUNT_SP_1);
@@ -364,7 +363,7 @@ fn challenge_pre_register_quote_mismatch() {
 fn challenge_pre_register_exceed_account_max_length() {
     // Simulate registering an account longer than maximum length limitation.
     let account = "1234567890123456789012345678901234567890123.bit";
-    let mut template = before_each(account);
+    let mut template = init(json!({ "account": account }));
 
     // inputs
     push_input_simple_apply_register_cell(&mut template, account);
@@ -390,7 +389,7 @@ fn challenge_pre_register_exceed_account_max_length() {
 
 #[test]
 fn challenge_pre_register_discount_not_zero_when_no_inviter() {
-    let mut template = before_each(ACCOUNT_SP_1);
+    let mut template = init(json!({ "account": ACCOUNT_SP_1 }));
 
     // inputs
     push_input_simple_apply_register_cell(&mut template, ACCOUNT_SP_1);
@@ -421,7 +420,7 @@ fn challenge_pre_register_discount_not_zero_when_no_inviter() {
 
 #[test]
 fn challenge_pre_register_discount_incorrect() {
-    let mut template = before_each(ACCOUNT_SP_1);
+    let mut template = init(json!({ "account": ACCOUNT_SP_1 }));
 
     // inputs
     push_input_simple_apply_register_cell(&mut template, ACCOUNT_SP_1);
@@ -458,7 +457,7 @@ fn challenge_pre_register_discount_incorrect() {
 
 #[test]
 fn challenge_pre_register_incorrect_price() {
-    let mut template = before_each(ACCOUNT_SP_1);
+    let mut template = init(json!({ "account": ACCOUNT_SP_1 }));
 
     // inputs
     push_input_simple_apply_register_cell(&mut template, ACCOUNT_SP_1);
@@ -485,7 +484,7 @@ fn challenge_pre_register_incorrect_price() {
 
 #[test]
 fn challenge_pre_register_incorrect_capacity() {
-    let mut template = before_each(ACCOUNT_SP_1);
+    let mut template = init(json!({ "account": ACCOUNT_SP_1 }));
 
     // inputs
     push_input_simple_apply_register_cell(&mut template, ACCOUNT_SP_1);
@@ -513,8 +512,7 @@ fn challenge_pre_register_incorrect_capacity() {
 #[test]
 fn challenge_pre_register_refered_exact_account() {
     // Account ID of ACCOUNT_SP_1: 0xacfa8b68f77544e40abbb9daaaacc96621a3ee36
-    let mut template = init();
-    template.push_config_cell_derived_by_account(ACCOUNT_SP_1, Source::CellDep);
+    let mut template = init(json!({ "account": ACCOUNT_SP_1, "has_custom_dep_account_cell": true }));
 
     // cell_deps
     push_dep_account_cell(
@@ -543,8 +541,7 @@ fn challenge_pre_register_refered_exact_account() {
 #[test]
 fn challenge_pre_register_refered_next_account() {
     // Account ID of ACCOUNT_SP_1: 0xacfa8b68f77544e40abbb9daaaacc96621a3ee36
-    let mut template = init();
-    template.push_config_cell_derived_by_account(ACCOUNT_SP_1, Source::CellDep);
+    let mut template = init(json!({ "account": ACCOUNT_SP_1, "has_custom_dep_account_cell": true }));
 
     // cell_deps
     push_dep_account_cell(
@@ -573,8 +570,7 @@ fn challenge_pre_register_refered_next_account() {
 #[test]
 fn challenge_pre_register_refered_before_account() {
     // Account ID of ACCOUNT_SP_1: 0xacfa8b68f77544e40abbb9daaaacc96621a3ee36
-    let mut template = init();
-    template.push_config_cell_derived_by_account(ACCOUNT_SP_1, Source::CellDep);
+    let mut template = init(json!({ "account": ACCOUNT_SP_1, "has_custom_dep_account_cell": true }));
 
     // cell_deps
     push_dep_account_cell(
@@ -602,8 +598,7 @@ fn challenge_pre_register_refered_before_account() {
 #[test]
 fn challenge_pre_register_refered_after_account() {
     // Account ID of ACCOUNT_SP_1: 0xacfa8b68f77544e40abbb9daaaacc96621a3ee36
-    let mut template = init();
-    template.push_config_cell_derived_by_account(ACCOUNT_SP_1, Source::CellDep);
+    let mut template = init(json!({ "account": ACCOUNT_SP_1, "has_custom_dep_account_cell": true }));
 
     // cell_deps
     push_dep_account_cell(
