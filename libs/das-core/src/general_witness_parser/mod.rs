@@ -9,9 +9,9 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use ckb_std::ckb_constants::Source;
-use ckb_std::ckb_types::packed::Script;
+use ckb_std::ckb_types::packed::{Script, CellOutput};
 use ckb_std::high_level::{
-    load_cell_data, load_cell_lock, load_cell_lock_hash, load_cell_type, load_cell_type_hash, QueryIter,
+    load_cell_data, load_cell_lock, load_cell_lock_hash, load_cell_type, load_cell_type_hash, QueryIter, load_cell,
 };
 use ckb_std::syscalls::{load_witness, SysError};
 use das_types::constants::{DataType, WITNESS_HEADER_BYTES, WITNESS_TYPE_BYTES};
@@ -20,7 +20,7 @@ use crate::error::{ErrorCode, ScriptError};
 use crate::traits::Blake2BHash;
 
 #[derive(Default)]
-struct GeneralWitnessParser {
+pub struct GeneralWitnessParser {
     witnesses: Vec<Witness>,
     hashes: BTreeMap<[u8; 32], usize>,
 }
@@ -82,15 +82,24 @@ enum Condition {
 // }
 
 #[derive(Default)]
-struct Cached {
-    data: BTreeMap<(usize, u64), Vec<u8>>,
-    type_hash: BTreeMap<(usize, u64), Option<[u8;32]>>,
-    type_script: BTreeMap<(usize, u64), Option<Script>>,
-    lock_hash: BTreeMap<(usize, u64), [u8;32]>,
-    lock_script: BTreeMap<(usize, u64), Script>,
+pub struct Cached {
+    pub data: BTreeMap<(usize, u64), Vec<u8>>,
+    // pub type_hash: BTreeMap<(usize, u64), Option<[u8;32]>>,
+    // pub type_script: BTreeMap<(usize, u64), Option<Script>>,
+    // pub lock_hash: BTreeMap<(usize, u64), [u8;32]>,
+    // pub lock_script: BTreeMap<(usize, u64), Script>,
+    pub cell: BTreeMap<(usize, u64), CellOutput>
 }
 impl Cached {
-    fn load_cell_data(&mut self, index: usize, source: Source) -> Result<&Vec<u8>, SysError> {
+    pub fn load_cell(&mut self, index: usize, source: Source) -> Result<&CellOutput, SysError> {
+        let cache = self.cell.entry((index, source as u64));
+        if let Entry::Vacant(e) = cache {
+            e.insert(load_cell(index, source)?);
+        }
+        let res = self.cell.get(&(index, source as u64)).unwrap();
+        Ok(res)
+    }
+    pub fn load_cell_data(&mut self, index: usize, source: Source) -> Result<&Vec<u8>, SysError> {
         let cache = self.data.entry((index, source as u64));
         if let Entry::Vacant(e) = cache {
             e.insert(load_cell_data(index, source)?);
@@ -99,41 +108,41 @@ impl Cached {
         Ok(res)
     }
 
-    fn load_type_hash(&mut self, index: usize, source: Source) -> Result<Option<&[u8;32]>, SysError> {
-        let cache = self.type_hash.entry((index, source as u64));
-        if let Entry::Vacant(e) = cache {
-            e.insert(load_cell_type_hash(index, source)?);
-        }
-        let res = self.type_hash.get(&(index, source as u64)).unwrap().as_ref();
-        Ok(res)
-    }
+    // fn load_type_hash(&mut self, index: usize, source: Source) -> Result<Option<&[u8;32]>, SysError> {
+    //     let cache = self.type_hash.entry((index, source as u64));
+    //     if let Entry::Vacant(e) = cache {
+    //         e.insert(load_cell_type_hash(index, source)?);
+    //     }
+    //     let res = self.type_hash.get(&(index, source as u64)).unwrap().as_ref();
+    //     Ok(res)
+    // }
 
-    fn load_type(&mut self, index: usize, source: Source) -> Result<Option<&Script>, SysError> {
-        let cache = self.type_script.entry((index, source as u64));
-        if let Entry::Vacant(e) = cache {
-            e.insert(load_cell_type(index, source)?);
-        }
-        let res = self.type_script.get(&(index, source as u64)).unwrap().as_ref();
-        Ok(res)
-    }
+    // fn load_type(&mut self, index: usize, source: Source) -> Result<Option<&Script>, SysError> {
+    //     let cache = self.type_script.entry((index, source as u64));
+    //     if let Entry::Vacant(e) = cache {
+    //         e.insert(load_cell_type(index, source)?);
+    //     }
+    //     let res = self.type_script.get(&(index, source as u64)).unwrap().as_ref();
+    //     Ok(res)
+    // }
 
-    fn load_lock_hash(&mut self, index: usize, source: Source) -> Result<&[u8;32], SysError> {
-        let cache = self.lock_hash.entry((index, source as u64));
-        if let Entry::Vacant(e) = cache {
-            e.insert(load_cell_lock_hash(index, source)?);
-        }
-        let res = self.lock_hash.get(&(index, source as u64)).unwrap();
-        Ok(res)
-    }
+    // fn load_lock_hash(&mut self, index: usize, source: Source) -> Result<&[u8;32], SysError> {
+    //     let cache = self.lock_hash.entry((index, source as u64));
+    //     if let Entry::Vacant(e) = cache {
+    //         e.insert(load_cell_lock_hash(index, source)?);
+    //     }
+    //     let res = self.lock_hash.get(&(index, source as u64)).unwrap();
+    //     Ok(res)
+    // }
 
-    fn load_lock_script(&mut self, index: usize, source: Source) -> Result<&Script, SysError> {
-        let cache = self.lock_script.entry((index, source as u64));
-        if let Entry::Vacant(e) = cache {
-            e.insert(load_cell_lock(index, source)?);
-        }
-        let res = self.lock_script.get(&(index, source as u64)).unwrap();
-        Ok(res)
-    }
+    // fn load_lock_script(&mut self, index: usize, source: Source) -> Result<&Script, SysError> {
+    //     let cache = self.lock_script.entry((index, source as u64));
+    //     if let Entry::Vacant(e) = cache {
+    //         e.insert(load_cell_lock(index, source)?);
+    //     }
+    //     let res = self.lock_script.get(&(index, source as u64)).unwrap();
+    //     Ok(res)
+    // }
 
 }
 
@@ -144,17 +153,19 @@ impl Cached {
 // };
 
 
-fn get_witness_parser() -> &'static mut GeneralWitnessParser {
-    static mut WITNESS_PARSER: OnceCell<GeneralWitnessParser> = Default::default();
+pub fn get_witness_parser() -> &'static mut GeneralWitnessParser {
+    static mut WITNESS_PARSER: OnceCell<GeneralWitnessParser> = OnceCell::new();
     unsafe {
-        WITNESS_PARSER.get_mut()
+        WITNESS_PARSER.get_or_init(|| Default::default());
+        WITNESS_PARSER.get_mut().unwrap()
     }
 }
 
-fn get_cell_cache() -> &'static mut Cached {
-    static mut CELL_CACHE: OnceCell<Cached> = Default::default();
+pub fn get_cell_cache() -> &'static mut Cached {
+    static mut CELL_CACHE: OnceCell<Cached> = OnceCell::new();
     unsafe {
-        CELL_CACHE.get_mut()
+        CELL_CACHE.get_or_init(|| Default::default());
+        CELL_CACHE.get_mut().unwrap()
     }
 }
 
