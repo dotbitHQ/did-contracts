@@ -1,21 +1,21 @@
-use core::cell::{RefCell, OnceCell};
-
 use alloc::borrow::ToOwned;
 use alloc::boxed::Box;
-use alloc::collections::BTreeMap;
 use alloc::collections::btree_map::Entry;
+use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
+use core::cell::{OnceCell, RefCell};
 
 use ckb_std::ckb_constants::Source;
-use ckb_std::ckb_types::packed::{Script, CellOutput};
+use ckb_std::ckb_types::packed::{CellOutput, Script};
 use ckb_std::high_level::{
-    load_cell_data, load_cell_lock, load_cell_lock_hash, load_cell_type, load_cell_type_hash, QueryIter, load_cell,
+    load_cell, load_cell_data, load_cell_lock, load_cell_lock_hash, load_cell_type, load_cell_type_hash, QueryIter,
 };
 use ckb_std::syscalls::{load_witness, SysError};
 use das_types::constants::{DataType, WITNESS_HEADER_BYTES, WITNESS_TYPE_BYTES};
 use molecule::prelude::Entity;
+
 use crate::error::{ErrorCode, ScriptError};
 use crate::traits::Blake2BHash;
 
@@ -88,7 +88,7 @@ pub struct Cached {
     // pub type_script: BTreeMap<(usize, u64), Option<Script>>,
     // pub lock_hash: BTreeMap<(usize, u64), [u8;32]>,
     // pub lock_script: BTreeMap<(usize, u64), Script>,
-    pub cell: BTreeMap<(usize, u64), CellOutput>
+    pub cell: BTreeMap<(usize, u64), CellOutput>,
 }
 impl Cached {
     pub fn load_cell(&mut self, index: usize, source: Source) -> Result<&CellOutput, SysError> {
@@ -143,7 +143,6 @@ impl Cached {
     //     let res = self.lock_script.get(&(index, source as u64)).unwrap();
     //     Ok(res)
     // }
-
 }
 
 // static WITNESS_PARSER: RefCell<GeneralWitnessParser> = OnceCel  {
@@ -151,7 +150,6 @@ impl Cached {
 //     res.init().unwrap();
 //     RefCell::new(res)
 // };
-
 
 pub fn get_witness_parser() -> &'static mut GeneralWitnessParser {
     static mut WITNESS_PARSER: OnceCell<GeneralWitnessParser> = OnceCell::new();
@@ -244,14 +242,14 @@ where
     type Error = Box<dyn ScriptError>;
     fn from_witness(witness: &Witness) -> Result<Self, Box<dyn ScriptError>> {
         if let Witness::Loaded(WithMeta { item, .. }) = witness {
-            let type_constant = T::get_type_constant();
-            das_assert!(
-                Self::parsable(witness),
-                ErrorCode::WitnessDataDecodingError,
-                "The data type constant: {:?} and the actual molecule structure: {} does not match",
-                type_constant,
-                T::NAME
-            );
+            // let type_constant = T::get_type_constant();
+            // das_assert!(
+            //     Self::parsable(witness),
+            //     ErrorCode::WitnessDataDecodingError,
+            //     "The data type constant: {:?} and the actual molecule structure: {} does not match",
+            //     type_constant,
+            //     T::NAME
+            // );
             Ok(
                 T::from_compatible_slice(&item.buf[WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES..])
                     .map_err(|_| code_to_error!(ErrorCode::WitnessDataDecodingError))?,
@@ -426,8 +424,69 @@ where
 {
     fn get_type_constant() -> DataType {
         match T::NAME {
-            "DeviceKeyListCellData" => DataType::DeviceKeyListEntityData,
-            _ => unimplemented!(),
+            "ActionData" => DataType::ActionData,
+            "AccountCellData" => DataType::AccountCellData,
+            "AccountSaleCellData" => DataType::AccountSaleCellData,
+            "AccountAuctionCellData" => DataType::AccountAuctionCellData,
+            "ProposalCellData" => DataType::ProposalCellData,
+            "PreAccountCellData" => DataType::PreAccountCellData,
+            "IncomeCellData" => DataType::IncomeCellData,
+            "OfferCellData" => DataType::OfferCellData,
+            "SubAccount" => DataType::SubAccount,
+            "SubAccountMintSign" => DataType::SubAccountMintSign,
+            "ReverseRecord" => DataType::ReverseRecord,
+            "SubAccountPriceRule" => DataType::SubAccountPriceRule,
+            "SubAccountPreservedRule" => DataType::SubAccountPreservedRule,
+            "DeviceKeyListEntityData" => DataType::DeviceKeyListEntityData,
+            "SubAccountRenewSign" => DataType::SubAccountRenewSign,
+            "DeviceKeyListCellData" => DataType::DeviceKeyListCellData,
+            "ConfigCellAccount" => DataType::ConfigCellAccount,
+            "ConfigCellApply" => DataType::ConfigCellApply,
+            "ConfigCellIncome" => DataType::ConfigCellIncome,
+            "ConfigCellMain" => DataType::ConfigCellMain,
+            "ConfigCellPrice" => DataType::ConfigCellPrice,
+            "ConfigCellProposal" => DataType::ConfigCellProposal,
+            "ConfigCellProfitRate" => DataType::ConfigCellProfitRate,
+            "ConfigCellRecordKeyNamespace" => DataType::ConfigCellRecordKeyNamespace,
+            "ConfigCellRelease" => DataType::ConfigCellRelease,
+            "ConfigCellUnAvailableAccount" => DataType::ConfigCellUnAvailableAccount,
+            "ConfigCellSecondaryMarket" => DataType::ConfigCellSecondaryMarket,
+            "ConfigCellReverseResolution" => DataType::ConfigCellReverseResolution,
+            "ConfigCellSubAccount" => DataType::ConfigCellSubAccount,
+            "ConfigCellSubAccountBetaList" => DataType::ConfigCellSubAccountBetaList,
+            "ConfigCellSystemStatus" => DataType::ConfigCellSystemStatus,
+            "ConfigCellSMTNodeWhitelist" => DataType::ConfigCellSMTNodeWhitelist,
+            "ConfigCellPreservedAccount00" => DataType::ConfigCellPreservedAccount00,
+            "ConfigCellPreservedAccount01" => DataType::ConfigCellPreservedAccount01,
+            "ConfigCellPreservedAccount02" => DataType::ConfigCellPreservedAccount02,
+            "ConfigCellPreservedAccount03" => DataType::ConfigCellPreservedAccount03,
+            "ConfigCellPreservedAccount04" => DataType::ConfigCellPreservedAccount04,
+            "ConfigCellPreservedAccount05" => DataType::ConfigCellPreservedAccount05,
+            "ConfigCellPreservedAccount06" => DataType::ConfigCellPreservedAccount06,
+            "ConfigCellPreservedAccount07" => DataType::ConfigCellPreservedAccount07,
+            "ConfigCellPreservedAccount08" => DataType::ConfigCellPreservedAccount08,
+            "ConfigCellPreservedAccount09" => DataType::ConfigCellPreservedAccount09,
+            "ConfigCellPreservedAccount10" => DataType::ConfigCellPreservedAccount10,
+            "ConfigCellPreservedAccount11" => DataType::ConfigCellPreservedAccount11,
+            "ConfigCellPreservedAccount12" => DataType::ConfigCellPreservedAccount12,
+            "ConfigCellPreservedAccount13" => DataType::ConfigCellPreservedAccount13,
+            "ConfigCellPreservedAccount14" => DataType::ConfigCellPreservedAccount14,
+            "ConfigCellPreservedAccount15" => DataType::ConfigCellPreservedAccount15,
+            "ConfigCellPreservedAccount16" => DataType::ConfigCellPreservedAccount16,
+            "ConfigCellPreservedAccount17" => DataType::ConfigCellPreservedAccount17,
+            "ConfigCellPreservedAccount18" => DataType::ConfigCellPreservedAccount18,
+            "ConfigCellPreservedAccount19" => DataType::ConfigCellPreservedAccount19,
+            "ConfigCellCharSetEmoji" => DataType::ConfigCellCharSetEmoji,
+            "ConfigCellCharSetDigit" => DataType::ConfigCellCharSetDigit,
+            "ConfigCellCharSetEn" => DataType::ConfigCellCharSetEn,
+            "ConfigCellCharSetZhHans" => DataType::ConfigCellCharSetZhHans,
+            "ConfigCellCharSetZhHant" => DataType::ConfigCellCharSetZhHant,
+            "ConfigCellCharSetJa" => DataType::ConfigCellCharSetJa,
+            "ConfigCellCharSetKo" => DataType::ConfigCellCharSetKo,
+            "ConfigCellCharSetRu" => DataType::ConfigCellCharSetRu,
+            "ConfigCellCharSetTr" => DataType::ConfigCellCharSetTr,
+            "ConfigCellCharSetTh" => DataType::ConfigCellCharSetTh,
+            "ConfigCellCharSetVi" => DataType::ConfigCellCharSetVi,
         }
     }
 }
