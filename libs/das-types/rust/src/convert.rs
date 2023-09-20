@@ -1,17 +1,16 @@
 #[cfg(feature = "no_std")]
 use alloc::string::{FromUtf8Error, String};
 #[cfg(feature = "no_std")]
-use ckb_std::ckb_types::{bytes, packed as ckb_packed};
-#[cfg(feature = "no_std")]
 use core::convert::TryFrom;
-
-#[cfg(not(feature = "no_std"))]
-use std::string::FromUtf8Error;
-#[cfg(not(feature = "no_std"))]
-use ckb_types::{bytes, packed as ckb_packed};
 #[cfg(not(feature = "no_std"))]
 use std::convert::TryFrom;
+#[cfg(not(feature = "no_std"))]
+use std::string::FromUtf8Error;
 
+#[cfg(feature = "no_std")]
+use ckb_std::ckb_types::{bytes, packed as ckb_packed};
+#[cfg(not(feature = "no_std"))]
+use ckb_types::{bytes, packed as ckb_packed};
 use molecule::error::VerificationError;
 use molecule::prelude::*;
 
@@ -171,6 +170,13 @@ impl TryFrom<Vec<u8>> for Hash {
     }
 }
 
+/// Convert schemas::basic::Hash to Vec<u8>
+impl From<Hash> for Vec<u8> {
+    fn from(v: Hash) -> Self {
+        v.as_slice().to_vec()
+    }
+}
+
 impl From<[u8; 32]> for Hash {
     fn from(v: [u8; 32]) -> Self {
         let mut inner = [Byte::new(0); 32];
@@ -178,6 +184,22 @@ impl From<[u8; 32]> for Hash {
             inner[i] = Byte::new(*item);
         }
         Self::new_builder().set(inner).build()
+    }
+}
+
+impl Into<[u8; 32]> for Hash {
+    fn into(self) -> [u8; 32] {
+        let mut buf = [0u8; 32];
+        buf.copy_from_slice(self.as_slice());
+        buf
+    }
+}
+
+impl Into<[u8; 32]> for HashReader<'_> {
+    fn into(self) -> [u8; 32] {
+        let mut buf = [0u8; 32];
+        buf.copy_from_slice(self.as_slice());
+        buf
     }
 }
 
@@ -203,13 +225,6 @@ impl Into<ckb_packed::Byte32> for Hash {
 impl<'r> Into<ckb_packed::Byte32Reader<'r>> for HashReader<'r> {
     fn into(self) -> ckb_packed::Byte32Reader<'r> {
         ckb_packed::Byte32Reader::new_unchecked(self.as_slice())
-    }
-}
-
-/// Convert schemas::basic::Hash to Vec<u8>
-impl From<Hash> for Vec<u8> {
-    fn from(v: Hash) -> Self {
-        v.as_slice().to_vec()
     }
 }
 

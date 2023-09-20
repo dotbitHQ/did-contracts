@@ -1,9 +1,9 @@
 #[cfg(feature = "no_std")]
 use alloc::boxed::Box;
 #[cfg(feature = "no_std")]
-use alloc::string::ToString;
-#[cfg(feature = "no_std")]
 use alloc::string::String;
+#[cfg(feature = "no_std")]
+use alloc::string::ToString;
 
 use molecule::error::{VerificationError, VerificationResult};
 use molecule::prelude::Entity;

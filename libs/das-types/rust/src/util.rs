@@ -1,15 +1,14 @@
 #[cfg(feature = "no_std")]
 use core::convert::TryFrom;
-
 #[cfg(not(feature = "no_std"))]
 use std::convert::TryFrom;
-#[cfg(not(feature = "no_std"))]
-use super::schemas::packed::*;
 
 pub use molecule::hex_string;
 use molecule::prelude::*;
 
 use super::constants::*;
+#[cfg(not(feature = "no_std"))]
+use super::schemas::packed::*;
 
 pub fn is_entity_eq<T: Entity>(a: &T, b: &T) -> bool {
     a.as_slice() == b.as_slice()
