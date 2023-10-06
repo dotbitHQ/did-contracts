@@ -1,23 +1,22 @@
 use alloc::borrow::ToOwned;
 use alloc::boxed::Box;
-use alloc::collections::btree_map::Entry;
 use alloc::collections::BTreeMap;
-use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
-use core::cell::{OnceCell, RefCell};
+use core::cell::OnceCell;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::packed::{CellOutput, Script};
 use ckb_std::high_level::{
-    load_cell, load_cell_data, load_cell_lock, load_cell_lock_hash, load_cell_type, load_cell_type_hash, QueryIter,
+    load_cell, load_cell_lock, load_cell_lock_hash, load_cell_type, load_cell_type_hash, QueryIter,
 };
-use ckb_std::syscalls::{load_witness, SysError};
+use ckb_std::syscalls::{load_cell_data, load_witness, SysError};
 use das_types::constants::{DataType, WITNESS_HEADER_BYTES, WITNESS_TYPE_BYTES};
 use molecule::prelude::Entity;
 
 use crate::error::{ErrorCode, ScriptError};
 use crate::traits::Blake2BHash;
+// use crate::util::find_only_cell_by_type_id;
 
 #[derive(Default)]
 pub struct GeneralWitnessParser {
@@ -55,13 +54,13 @@ trait FromWitness {
     fn parsable(witness: &Witness) -> bool;
 }
 
-struct ParsedWithHash<T> {
+pub struct ParsedWithHash<T> {
     result: T,
     hash: Option<[u8; 32]>,
 }
 
 #[allow(dead_code)]
-enum Condition {
+pub enum Condition {
     LockIs(Script),
     TypeIs(Script),
     LockHash([u8; 32]),
@@ -81,32 +80,95 @@ enum Condition {
 //     data: Option<Vec<u8>>,
 // }
 
+#[derive(Eq, PartialEq, Debug, Clone, Copy, PartialOrd, Ord)]
+pub enum CellField {
+    Lock,
+    Type,
+    Data,
+}
+
+type SourceRepr = u64;
+
 #[derive(Default)]
-pub struct Cached {
-    pub data: BTreeMap<(usize, u64), Vec<u8>>,
+pub struct CellIndexer {
+    // pub data: BTreeMap<(usize, u64), Vec<u8>>,
     // pub type_hash: BTreeMap<(usize, u64), Option<[u8;32]>>,
     // pub type_script: BTreeMap<(usize, u64), Option<Script>>,
     // pub lock_hash: BTreeMap<(usize, u64), [u8;32]>,
     // pub lock_script: BTreeMap<(usize, u64), Script>,
-    pub cell: BTreeMap<(usize, u64), CellOutput>,
+    // pub cell: BTreeMap<(usize, u64), CellOutput>,
+    pub by_hash: BTreeMap<([u8; 32], SourceRepr, CellField), Vec<usize>>,
 }
-impl Cached {
-    pub fn load_cell(&mut self, index: usize, source: Source) -> Result<&CellOutput, SysError> {
-        let cache = self.cell.entry((index, source as u64));
-        if let Entry::Vacant(e) = cache {
-            e.insert(load_cell(index, source)?);
-        }
-        let res = self.cell.get(&(index, source as u64)).unwrap();
-        Ok(res)
+impl CellIndexer {
+    pub fn init(&mut self) -> Result<(), SysError> {
+        let load_fn = |index, source| {
+            let cell = load_cell(index, source)?;
+            Ok(WithMeta {
+                item: cell,
+                index,
+                source,
+            })
+        };
+        let mut index_fn = |item: WithMeta<CellOutput>| {
+            self.by_hash
+                .entry((
+                    item.item.lock().code_hash().as_slice().try_into().unwrap(),
+                    item.source as u64,
+                    CellField::Lock,
+                ))
+                .and_modify(|v| v.push(item.index))
+                .or_insert(vec![item.index]);
+
+            item.item.type_().to_opt().map(|script| {
+                self.by_hash
+                    .entry((
+                        script.code_hash().as_slice().try_into().unwrap(),
+                        item.source as u64,
+                        CellField::Type,
+                    ))
+                    .and_modify(|v| v.push(item.index))
+                    .or_insert(vec![item.index])
+            });
+
+            let mut data = [0; 32];
+            let res = load_cell_data(&mut data, 0, item.index, item.source);
+            match res {
+                Ok(_) | Err(SysError::LengthNotEnough(_)) => {
+                    self.by_hash
+                        .entry((data, item.source as u64, CellField::Data))
+                        .and_modify(|v| v.push(item.index))
+                        .or_insert(vec![item.index]);
+                }
+                _ => (),
+            }
+        };
+        QueryIter::new(load_fn, Source::Input).for_each(&mut index_fn);
+        QueryIter::new(load_fn, Source::Output).for_each(&mut index_fn);
+        QueryIter::new(load_fn, Source::CellDep).for_each(&mut index_fn);
+
+        Ok(())
     }
-    pub fn load_cell_data(&mut self, index: usize, source: Source) -> Result<&Vec<u8>, SysError> {
-        let cache = self.data.entry((index, source as u64));
-        if let Entry::Vacant(e) = cache {
-            e.insert(load_cell_data(index, source)?);
-        }
-        let res = self.data.get(&(index, source as u64)).unwrap();
-        Ok(res)
+
+    pub fn find_by_hash(&self, hash: &[u8; 32], source: Source, field: CellField) -> Option<&[usize]> {
+        self.by_hash.get(&(*hash, source as u64, field)).map(|v| v.as_slice())
     }
+
+    // pub fn load_cell(&mut self, index: usize, source: Source) -> Result<&CellOutput, SysError> {
+    //     let cache = self.cell.entry((index, source as u64));
+    //     if let Entry::Vacant(e) = cache {
+    //         e.insert(load_cell(index, source)?);
+    //     }
+    //     let res = self.cell.get(&(index, source as u64)).unwrap();
+    //     Ok(res)
+    // }
+    // pub fn load_cell_data(&mut self, index: usize, source: Source) -> Result<&Vec<u8>, SysError> {
+    //     let cache = self.data.entry((index, source as u64));
+    //     if let Entry::Vacant(e) = cache {
+    //         e.insert(load_cell_data(index, source)?);
+    //     }
+    //     let res = self.data.get(&(index, source as u64)).unwrap();
+    //     Ok(res)
+    // }
 
     // fn load_type_hash(&mut self, index: usize, source: Source) -> Result<Option<&[u8;32]>, SysError> {
     //     let cache = self.type_hash.entry((index, source as u64));
@@ -159,34 +221,16 @@ pub fn get_witness_parser() -> &'static mut GeneralWitnessParser {
     }
 }
 
-pub fn get_cell_cache() -> &'static mut Cached {
-    static mut CELL_CACHE: OnceCell<Cached> = OnceCell::new();
+pub fn get_cell_indexer() -> &'static mut CellIndexer {
+    static mut CELL_INDEXER: OnceCell<CellIndexer> = OnceCell::new();
     unsafe {
-        CELL_CACHE.get_or_init(|| Default::default());
-        CELL_CACHE.get_mut().unwrap()
+        CELL_INDEXER.get_or_init(|| Default::default());
+        CELL_INDEXER.get_mut().unwrap()
     }
 }
 
 impl<T> ParsedWithHash<T> {
-    #[allow(dead_code)]
-    fn verify(&self, source: Source, conditions: &[Condition]) -> Result<&T, Box<dyn ScriptError>> {
-        let cell_found = match &self.hash {
-            None => return Err(code_to_error!(ErrorCode::WitnessCannotBeVerified)),
-            Some(h) => QueryIter::new(
-                |index, source| {
-                    let res = get_cell_cache().load_cell_data(index, source)?;
-                    Ok(WithMeta {
-                        item: res,
-                        index,
-                        source,
-                    })
-                },
-                source,
-            )
-            .find(|WithMeta { item, .. }| *item.as_slice() == h[..]),
-        }
-        .ok_or(code_to_error!(ErrorCode::WitnessDataHashOrTypeMissMatch))?;
-        let index = cell_found.index;
+    pub fn verify_at(&self, source: Source, index: usize, conditions: &[Condition]) -> Result<&T, Box<dyn ScriptError>> {
         for condition in conditions {
             match condition {
                 Condition::LockIs(script) => {
@@ -231,7 +275,42 @@ impl<T> ParsedWithHash<T> {
                 }
             }
         }
+
         Ok(&self.result)
+    }
+
+    pub fn verify_unique(&self, source: Source, conditions: &[Condition]) -> Result<&T, Box<dyn ScriptError>> {
+        let index = match &self.hash {
+            None => return Err(code_to_error!(ErrorCode::WitnessCannotBeVerified)),
+            Some(h) => get_cell_indexer().find_by_hash(h, source, CellField::Data)
+        }
+        .ok_or(code_to_error!(ErrorCode::WitnessDataHashOrTypeMissMatch))
+        .and_then(|arr| if arr.len() == 1 {
+            Ok(arr[0])
+        } else {
+            Err(code_to_error!(ErrorCode::WitnessDataHashOrTypeMissMatch))
+        })?;
+        // let index = cell_found.index;
+        
+        self.verify_at(source, index, conditions)
+    }
+
+    pub fn verify_any(&self, source: Source, conditions: &[Condition]) -> Result<&T, Box<dyn ScriptError>> {
+        let indices = match &self.hash {
+            None => return Err(code_to_error!(ErrorCode::WitnessCannotBeVerified)),
+            Some(h) => get_cell_indexer().find_by_hash(h, source, CellField::Data)
+        }
+        .ok_or(code_to_error!(ErrorCode::WitnessDataHashOrTypeMissMatch))?;
+        if indices.len() == 0 {
+            return Err(code_to_error!(ErrorCode::WitnessDataHashOrTypeMissMatch));
+        }
+        for i in indices {
+            match self.verify_at(source, *i, conditions) {
+                Ok(res) => return Ok(res),
+                Err(_) => continue
+            }
+        }
+        Err(code_to_error!(ErrorCode::WitnessDataHashOrTypeMissMatch))
     }
 }
 
@@ -487,6 +566,7 @@ where
             "ConfigCellCharSetTr" => DataType::ConfigCellCharSetTr,
             "ConfigCellCharSetTh" => DataType::ConfigCellCharSetTh,
             "ConfigCellCharSetVi" => DataType::ConfigCellCharSetVi,
+            _ => unreachable!()
         }
     }
 }

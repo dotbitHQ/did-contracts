@@ -1,4 +1,5 @@
 // #![feature(once_cell)]
+#![feature(min_specialization)]
 #![feature(slice_pattern)]
 #![feature(once_cell_try)]
 #![no_std]
