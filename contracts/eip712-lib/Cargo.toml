@@ -12,6 +12,6 @@ mainnet = ["das-core/mainnet", "eip712/mainnet"]
 [dependencies]
 ckb-std = { workspace = true }
 das-core = { workspace = true, default-features = false }
-das-types = { workspace = true, default-features = false }
+das-types = { workspace = true, default-features = false, features = ["no_std"] }
 das-map = { workspace = true, default-features = false }
 eip712 = { path = "../../libs/eip712" }

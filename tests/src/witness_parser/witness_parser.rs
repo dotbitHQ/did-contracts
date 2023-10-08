@@ -1,11 +1,11 @@
 use std::convert::TryFrom;
 
 use ckb_hash::blake2b_256;
-use das_types_std::constants::*;
-use das_types_std::packed::*;
-use das_types_std::prelude::*;
-use das_types_std::util as das_util;
-use das_types_std::util::EntityWrapper;
+use das_types::constants::*;
+use das_types::packed::*;
+use das_types::prelude::*;
+use das_types::util as das_util;
+use das_types::util::EntityWrapper;
 use serde_json::{json, Value};
 
 use crate::util::accounts::*;

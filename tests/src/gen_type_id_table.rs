@@ -3,7 +3,7 @@ use std::env;
 use ckb_chain_spec::consensus::TYPE_ID_CODE_HASH;
 use ckb_types::core::ScriptHashType;
 use ckb_types::packed;
-use das_types_std::prelude::*;
+use das_types::prelude::*;
 use walkdir::WalkDir;
 
 use super::ckb_types_relay::*;

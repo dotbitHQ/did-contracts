@@ -13,11 +13,11 @@ ckb-mock-tx-types = "=0.108.0"
 ckb-script = { version="=0.108.0", default-features = false }
 ckb-traits = { version="=0.108.0" }
 ckb-chain-spec = "=0.108.0"
-ckb-types = "=0.108.0"
 ckb-hash = "=0.108.0"
 ckb-jsonrpc-types = "=0.108.0"
 das-sorted-list = { workspace = true, features = ["std"] }
-das-types-std = { workspace = true }
+ckb-types = { workspace = true }
+das-types = { workspace = true, default-features = true }
 simple-ast = { workspace = true, features = ["std"] }
 # Other
 hex = "0.4.3"

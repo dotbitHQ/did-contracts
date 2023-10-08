@@ -1,5 +1,5 @@
-use das_types_std::constants::*;
-use das_types_std::prelude::*;
+use das_types::constants::*;
+use das_types::prelude::*;
 use serde_json::json;
 
 use crate::util::accounts::*;

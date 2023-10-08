@@ -1,16 +1,14 @@
-use das_types_std::constants::AccountStatus;
-use das_types_std::constants::DataType;
-use das_types_std::constants::Source;
+use das_types::constants::{AccountStatus, DataType, Source};
 use serde_json::json;
 
 use super::common::*;
+use crate::util;
 use crate::util::accounts::*;
 use crate::util::constants::*;
 use crate::util::error::*;
 use crate::util::template_common_cell::*;
 use crate::util::template_generator::TemplateGenerator;
 use crate::util::template_parser::*;
-use crate::util;
 
 fn before_each() -> TemplateGenerator {
     let mut template = init("create_approval", Some("0x00"));
@@ -294,12 +292,15 @@ fn challenge_account_approval_create_account_near_expired() {
     let mut template = init("create_approval", Some("0x00"));
 
     // inputs
-    push_input_account_cell(&mut template, json!({
-        "data": {
-            // Simulate the account is near expired.
-            "expired_at": TIMESTAMP + DAY_SEC * 30 - 1,
-        },
-    }));
+    push_input_account_cell(
+        &mut template,
+        json!({
+            "data": {
+                // Simulate the account is near expired.
+                "expired_at": TIMESTAMP + DAY_SEC * 30 - 1,
+            },
+        }),
+    );
 
     // outputs
     push_output_account_cell(
@@ -418,7 +419,10 @@ fn challenge_account_approval_create_platform_lock_error() {
         }),
     );
 
-    challenge_tx(template.as_json(), AccountCellErrorCode::ApprovalParamsPlatformLockInvalid)
+    challenge_tx(
+        template.as_json(),
+        AccountCellErrorCode::ApprovalParamsPlatformLockInvalid,
+    )
 }
 
 #[test]
@@ -452,7 +456,10 @@ fn challenge_account_approval_create_protected_until_too_long() {
         }),
     );
 
-    challenge_tx(template.as_json(), AccountCellErrorCode::ApprovalParamsProtectedUntilInvalid)
+    challenge_tx(
+        template.as_json(),
+        AccountCellErrorCode::ApprovalParamsProtectedUntilInvalid,
+    )
 }
 
 #[test]
@@ -486,7 +493,10 @@ fn challenge_account_approval_create_sealed_until_too_long() {
         }),
     );
 
-    challenge_tx(template.as_json(), AccountCellErrorCode::ApprovalParamsSealedUntilInvalid)
+    challenge_tx(
+        template.as_json(),
+        AccountCellErrorCode::ApprovalParamsSealedUntilInvalid,
+    )
 }
 
 #[test]
@@ -520,7 +530,10 @@ fn challenge_account_approval_create_delay_count_invalid() {
         }),
     );
 
-    challenge_tx(template.as_json(), AccountCellErrorCode::ApprovalParamsDelayCountRemainInvalid)
+    challenge_tx(
+        template.as_json(),
+        AccountCellErrorCode::ApprovalParamsDelayCountRemainInvalid,
+    )
 }
 
 #[test]

@@ -13,5 +13,5 @@ mainnet = ["das-core/mainnet"]
 ckb-std = { workspace = true }
 das-map = { workspace = true }
 das-core = { workspace = true, default-features = false }
-das-types = { workspace = true, default-features = false }
+das-types = { workspace = true, default-features = false, features = ["no_std"] }
 chrono = { version = "0.4", default-features = false }

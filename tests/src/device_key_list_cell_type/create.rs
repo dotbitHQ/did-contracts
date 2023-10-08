@@ -1,6 +1,6 @@
 use ckb_types::prelude::{Builder, Entity};
-use das_types_std::constants::Source;
-use das_types_std::packed::{DeviceKey, DeviceKeyList, DeviceKeyListCellData};
+use das_types::constants::Source;
+use das_types::packed::{DeviceKey, DeviceKeyList, DeviceKeyListCellData};
 use device_key_list_cell_type::error::ErrorCode;
 
 use super::{init, BalanceCell, BuildRefundLock, DeviceKeyListCell};
@@ -13,7 +13,7 @@ fn should_pass_normal_create() {
     let refund_lock = device_key.build_default_refund_lock();
 
     let witness_data = DeviceKeyListCellData::new_builder()
-        .refund_lock(das_types_std::packed::Script::from_slice(refund_lock.as_slice()).unwrap())
+        .refund_lock(das_types::packed::Script::from_slice(refund_lock.as_slice()).unwrap())
         .keys(DeviceKeyList::new_builder().push(device_key).build())
         .build();
 
@@ -33,7 +33,7 @@ fn should_fail_on_multiple_outputs() {
     let device_key = DeviceKey::new_builder().build();
     let refund_lock = device_key.build_default_refund_lock();
     let witness_data = DeviceKeyListCellData::new_builder()
-        .refund_lock(das_types_std::packed::Script::from_slice(refund_lock.as_slice()).unwrap())
+        .refund_lock(das_types::packed::Script::from_slice(refund_lock.as_slice()).unwrap())
         .keys(DeviceKeyList::new_builder().push(device_key).build())
         .build();
     DeviceKeyListCell::default_new(161 * 10u64.pow(8), refund_lock.clone().args(), witness_data.clone())
@@ -54,7 +54,7 @@ fn should_fail_on_insufficient_capacity() {
     let device_key = DeviceKey::new_builder().build();
     let refund_lock = device_key.build_default_refund_lock();
     let witness_data = DeviceKeyListCellData::new_builder()
-        .refund_lock(das_types_std::packed::Script::from_slice(refund_lock.as_slice()).unwrap())
+        .refund_lock(das_types::packed::Script::from_slice(refund_lock.as_slice()).unwrap())
         .keys(DeviceKeyList::new_builder().push(device_key).build())
         .build();
     DeviceKeyListCell::default_new(160 * 10u64.pow(8), refund_lock.clone().args(), witness_data.clone())
@@ -73,7 +73,7 @@ fn should_fail_on_inconsistent_refund_lock() {
     let device_key = DeviceKey::new_builder().build();
     let refund_lock = device_key.build_default_refund_lock();
     let witness_data = DeviceKeyListCellData::new_builder()
-        .refund_lock(das_types_std::packed::Script::from_slice(refund_lock.as_slice()).unwrap())
+        .refund_lock(das_types::packed::Script::from_slice(refund_lock.as_slice()).unwrap())
         .keys(DeviceKeyList::new_builder().push(device_key).build())
         .build();
     DeviceKeyListCell::default_new(161 * 10u64.pow(8), refund_lock.clone().args(), witness_data.clone())
@@ -96,7 +96,7 @@ fn should_fail_on_more_than_one_device_key() {
     let second_device_key = DeviceKey::new_builder().build();
     let refund_lock = first_device_key.build_default_refund_lock();
     let witness_data = DeviceKeyListCellData::new_builder()
-        .refund_lock(das_types_std::packed::Script::from_slice(refund_lock.as_slice()).unwrap())
+        .refund_lock(das_types::packed::Script::from_slice(refund_lock.as_slice()).unwrap())
         .keys(
             DeviceKeyList::new_builder()
                 .push(first_device_key)
@@ -124,7 +124,7 @@ fn should_fail_on_invalid_lock_arg() {
     let refund_lock = device_key.build_default_refund_lock();
 
     let witness_data = DeviceKeyListCellData::new_builder()
-        .refund_lock(das_types_std::packed::Script::from_slice(refund_lock.as_slice()).unwrap())
+        .refund_lock(das_types::packed::Script::from_slice(refund_lock.as_slice()).unwrap())
         .keys(DeviceKeyList::new_builder().push(device_key).build())
         .build();
 

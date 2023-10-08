@@ -1,11 +1,11 @@
 use std::convert::TryFrom;
 use std::str::FromStr;
 
-use das_types_std::constants::*;
-use das_types_std::mixer::SubAccountMixer;
-use das_types_std::packed::*;
-use das_types_std::prelude::*;
-use das_types_std::util as das_util;
+use das_types::constants::*;
+use das_types::mixer::SubAccountMixer;
+use das_types::packed::*;
+use das_types::prelude::*;
+use das_types::util as das_util;
 use serde_json::Value;
 
 use super::super::smt::SMTWithHistory;
@@ -181,10 +181,8 @@ fn encode_v2_fields(path: &str, value: &Value) -> AccountApproval {
                 &value["params"]["delay_count_remain"],
                 None,
             );
-            let to_lock = util::parse_json_script_to_mol(
-                &format!("{}.params.to_lock", path),
-                &value["params"]["to_lock"]
-            );
+            let to_lock =
+                util::parse_json_script_to_mol(&format!("{}.params.to_lock", path), &value["params"]["to_lock"]);
             let account_approval_transfer = AccountApprovalTransfer::new_builder()
                 .platform_lock(platform_lock)
                 .protected_until(Uint64::from(protected_until))
@@ -193,8 +191,7 @@ fn encode_v2_fields(path: &str, value: &Value) -> AccountApproval {
                 .to_lock(to_lock)
                 .build();
             Bytes::from(account_approval_transfer.as_slice().to_vec())
-        }
-        // _ => unimplemented!("Not support action: {}", approval_action),
+        } // _ => unimplemented!("Not support action: {}", approval_action),
     };
     let approval = AccountApproval::new_builder()
         .action(Bytes::from(approval_action.as_bytes()))
@@ -391,7 +388,7 @@ fn get_smt_new_root_and_proof(
         }
         SubAccountAction::Edit => {
             let current_nonce = u64::from(sub_account.nonce());
-            let mut builder = sub_account.clone().as_builder();
+            let mut builder = Clone::clone(&sub_account).as_builder();
             // Modify SubAccount base on edit_key and edit_value.
             let edit_key = util::parse_json_str(&format!("{}.edit_key", path), &value["edit_key"]);
             match edit_key {
@@ -457,7 +454,7 @@ fn get_smt_new_root_and_proof(
             smt_value.copy_from_slice(&tmp);
             smt_value
         }
-        _ => util::blake2b_smt(sub_account.as_slice().to_vec()),
+        _ => util::blake2b_smt(Entity::as_slice(&sub_account).to_vec()),
     };
     let (_, new_root, proof) = smt_with_history.insert(key.clone().into(), smt_value.clone().into());
     let compiled_proof = proof.compile(vec![key.into()]).unwrap().0;

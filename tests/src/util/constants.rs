@@ -7,6 +7,14 @@ use regex::Regex;
 // ⚠️ The maximum cycles on-chain is 70_000_000.
 pub const MAX_CYCLES: u64 = u64::MAX;
 
+pub const USD_1: u64 = 1_000_000;
+pub const USD_5: u64 = 5 * USD_1;
+pub const USD_10: u64 = 10 * USD_1;
+pub const USD_20: u64 = 20 * USD_1;
+
+pub const ONE_CKB: u64 = 100_000_000;
+pub const CKB_QUOTE: u64 = 1000;
+
 pub const APPLY_MIN_WAITING_BLOCK: u64 = 1;
 pub const APPLY_MAX_WAITING_BLOCK: u64 = 5760;
 pub const APPLY_REFUND_REWARD: u64 = 100_000_000;
@@ -28,8 +36,6 @@ pub const ACCOUNT_PRICE_4_CHAR: u64 = 170_000_000;
 pub const ACCOUNT_PRICE_5_CHAR: u64 = 5_000_000;
 pub const INVITED_DISCOUNT: u64 = 500;
 pub const CONSOLIDATING_FEE: u64 = 100;
-pub const ONE_CKB: u64 = 100_000_000;
-pub const CKB_QUOTE: u64 = 1000;
 pub const TIMESTAMP: u64 = 1611200090u64;
 pub const TIMESTAMP_20221018: u64 = 1666094400u64;
 pub const HEIGHT: u64 = 1000000u64;
@@ -58,10 +64,10 @@ pub const REVERSE_RECORD_COMMON_FEE: u64 = 10_000;
 
 pub const SUB_ACCOUNT_BASIC_CAPACITY: u64 = 20_000_000_000;
 pub const SUB_ACCOUNT_PREPARED_FEE_CAPACITY: u64 = 1_000_000_000;
-pub const SUB_ACCOUNT_NEW_PRICE: u64 = 100_000_000;
-pub const SUB_ACCOUNT_NEW_CUSTOM_PRICE: u64 = 100_00_000_000;
+pub const SUB_ACCOUNT_NEW_PRICE: u64 = 990_000;
+pub const SUB_ACCOUNT_NEW_CUSTOM_PRICE: u64 = 5_000_000;
 pub const SUB_ACCOUNT_NEW_CUSTOM_PRICE_DAS_PROFIT_RATE: u64 = 2_000;
-pub const SUB_ACCOUNT_RENEW_PRICE: u64 = 100_000_000;
+pub const SUB_ACCOUNT_RENEW_PRICE: u64 = 990_000;
 pub const SUB_ACCOUNT_RENEW_CUSTOM_PRICE_DAS_PROFIT_RATE: u64 = 2_000;
 pub const SUB_ACCOUNT_COMMON_FEE: u64 = 30_000;
 pub const SUB_ACCOUNT_CREATE_FEE: u64 = 30_000;

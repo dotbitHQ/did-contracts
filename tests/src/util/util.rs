@@ -9,9 +9,9 @@ use chrono::{DateTime, NaiveDateTime, Utc};
 use ckb_hash::{blake2b_256, Blake2bBuilder};
 use ckb_types::prelude::hex_string;
 use ckb_types::{bytes, packed as ckb_packed};
-use das_types_std::constants::*;
-use das_types_std::packed::*;
-use das_types_std::prelude::*;
+use das_types::constants::*;
+use das_types::packed::*;
+use das_types::prelude::*;
 use lazy_static::lazy_static;
 use serde_json::{json, Value};
 use sparse_merkle_tree::H256;
@@ -248,6 +248,11 @@ pub fn gen_account_chars(chars: Vec<impl AsRef<str>>) -> AccountChars {
     }
 
     builder.build()
+}
+
+pub fn gen_sub_account_register_fee(price_in_usd: u64, years: u64) -> u64 {
+    let price_in_ckb = usd_to_ckb(price_in_usd);
+    price_in_ckb * years
 }
 
 /// Parse u64 in JSON

@@ -13,4 +13,4 @@ mainnet = []
 [dependencies]
 ckb-std = { workspace = true }
 blake2b-ref = "0.3"
-das-types = { workspace = true, default-features = false }
+das-types = { workspace = true, default-features = false, features = ["no_std"] }

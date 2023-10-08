@@ -1,4 +1,4 @@
-use das_types_std::constants::*;
+use das_types::constants::*;
 use serde_json::json;
 
 use super::common::*;
@@ -330,7 +330,7 @@ fn test_sub_account_renew_flag_custom_rule_manual_mint() {
             "expired_at": TIMESTAMP + YEAR_SEC,
         }
     }));
-    let total_profit = calculate_sub_account_cost(1);
+    let total_profit = util::gen_sub_account_register_fee(SUB_ACCOUNT_RENEW_PRICE, 1);
     push_simple_outputs(&mut template, total_profit);
 
     test_tx(template.as_json())
@@ -406,7 +406,7 @@ fn test_sub_account_renew_flag_custom_rule_mix_mint() {
             "expired_at": TIMESTAMP + YEAR_SEC,
         }
     }));
-    let mut total_profit = calculate_sub_account_cost(2);
+    let mut total_profit = util::gen_sub_account_register_fee(SUB_ACCOUNT_RENEW_PRICE, 2);
     total_profit += util::usd_to_ckb(USD_5 * 1);
     push_simple_outputs(&mut template, total_profit);
 

@@ -1,0 +1,25 @@
+[package]
+name = "das-types"
+version = "1.11.0"
+authors = ["Link <link@blockabc.com>"]
+edition = "2018"
+license = "MIT"
+
+[lib]
+path = "rust/src/lib.rs"
+
+[features]
+default = [ "dep:serde", "ckb-types" ]
+no_std = []
+
+[dependencies]
+ckb-std = { workspace = true }
+ckb-types = { workspace = true, optional = true }
+# CAREFUL! This version should be the same as which in ckb-standalone-types, otherwise will occur many type error in current codes.
+molecule = { version = "0.7", default-features = false }
+strum = { version = "0.24", features = ["derive"], default-features = false }
+num_enum = { version = "0.6.1", default-features = false }
+serde = { version = "1.0", features = ["derive"], optional = true }
+
+[dev-dependencies]
+hex = "0.4"

@@ -1,4 +1,4 @@
-use das_types_std::constants::AccountStatus;
+use das_types::constants::AccountStatus;
 use serde_json::json;
 
 use super::common::init;
