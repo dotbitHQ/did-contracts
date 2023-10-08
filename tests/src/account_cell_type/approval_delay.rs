@@ -1,4 +1,4 @@
-use das_types_std::constants::AccountStatus;
+use das_types::constants::AccountStatus;
 use serde_json::json;
 
 use super::common::*;
@@ -208,7 +208,10 @@ fn challenge_account_approval_delay_sealed_until_not_increased() {
         }),
     );
 
-    challenge_tx(template.as_json(), AccountCellErrorCode::ApprovalParamsSealedUntilIncrementError)
+    challenge_tx(
+        template.as_json(),
+        AccountCellErrorCode::ApprovalParamsSealedUntilIncrementError,
+    )
 }
 
 #[test]
@@ -242,7 +245,10 @@ fn challenge_account_approval_delay_sealed_until_increased_too_long() {
         }),
     );
 
-    challenge_tx(template.as_json(), AccountCellErrorCode::ApprovalParamsSealedUntilIncrementError)
+    challenge_tx(
+        template.as_json(),
+        AccountCellErrorCode::ApprovalParamsSealedUntilIncrementError,
+    )
 }
 
 #[test]
@@ -302,7 +308,10 @@ fn challenge_account_approval_delay_count_remain_is_empty() {
         }),
     );
 
-    challenge_tx(template.as_json(), AccountCellErrorCode::ApprovalParamsDelayCountNotEnough)
+    challenge_tx(
+        template.as_json(),
+        AccountCellErrorCode::ApprovalParamsDelayCountNotEnough,
+    )
 }
 
 #[test]
@@ -336,7 +345,10 @@ fn challenge_account_approval_delay_count_remain_not_decreased() {
         }),
     );
 
-    challenge_tx(template.as_json(), AccountCellErrorCode::ApprovalParamsDelayCountDecrementError)
+    challenge_tx(
+        template.as_json(),
+        AccountCellErrorCode::ApprovalParamsDelayCountDecrementError,
+    )
 }
 
 #[test]

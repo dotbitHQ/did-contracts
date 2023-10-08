@@ -4,7 +4,7 @@ use alloc::string::String;
 #[cfg(feature = "no_std")]
 use das_types::{constants::*, packed, prelude::*};
 #[cfg(feature = "std")]
-use das_types_std::{constants::*, packed, prelude::*};
+use das_types::{constants::*, packed, prelude::*};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 #[cfg(feature = "std")]
 use serde::ser::{SerializeSeq, SerializeStruct};

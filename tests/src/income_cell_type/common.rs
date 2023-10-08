@@ -1,4 +1,4 @@
-use das_types_std::constants::*;
+use das_types::constants::*;
 
 use crate::util::template_generator::*;
 

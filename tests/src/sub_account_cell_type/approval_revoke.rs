@@ -1,4 +1,4 @@
-use das_types_std::constants::*;
+use das_types::constants::*;
 use serde_json::{json, Value};
 
 use super::common::*;
@@ -200,36 +200,34 @@ fn challenge_sub_account_approval_revoke_protected_approval() {
     push_simple_dep_account_cell(&mut template);
 
     // inputs
-    template.restore_sub_account_v2(vec![
-        json!({
-            "lock": {
-                "owner_lock_args": OWNER_1,
-                "manager_lock_args": MANAGER_1
-            },
-            "account": SUB_ACCOUNT_1,
-            "suffix": SUB_ACCOUNT_SUFFIX,
-            "registered_at": TIMESTAMP,
-            "expired_at": TIMESTAMP + YEAR_SEC,
-            "status": AccountStatus::ApprovedTransfer as u8,
-            "approval": {
-                "action": "transfer",
-                "params": {
-                    "platform_lock": {
-                        "owner_lock_args": CHANNEL,
-                        "manager_lock_args": CHANNEL
-                    },
-                    // Simulate the approval is still in the protect period.
-                    "protected_until": TIMESTAMP,
-                    "sealed_until": TIMESTAMP + DAY_SEC * 2,
-                    "delay_count_remain": 1,
-                    "to_lock": {
-                        "owner_lock_args": OWNER_2,
-                        "manager_lock_args": OWNER_2
-                    }
+    template.restore_sub_account_v2(vec![json!({
+        "lock": {
+            "owner_lock_args": OWNER_1,
+            "manager_lock_args": MANAGER_1
+        },
+        "account": SUB_ACCOUNT_1,
+        "suffix": SUB_ACCOUNT_SUFFIX,
+        "registered_at": TIMESTAMP,
+        "expired_at": TIMESTAMP + YEAR_SEC,
+        "status": AccountStatus::ApprovedTransfer as u8,
+        "approval": {
+            "action": "transfer",
+            "params": {
+                "platform_lock": {
+                    "owner_lock_args": CHANNEL,
+                    "manager_lock_args": CHANNEL
+                },
+                // Simulate the approval is still in the protect period.
+                "protected_until": TIMESTAMP,
+                "sealed_until": TIMESTAMP + DAY_SEC * 2,
+                "delay_count_remain": 1,
+                "to_lock": {
+                    "owner_lock_args": OWNER_2,
+                    "manager_lock_args": OWNER_2
                 }
             }
-        }),
-    ]);
+        }
+    })]);
     push_simple_input_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
 
     // outputs

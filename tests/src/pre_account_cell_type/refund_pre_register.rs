@@ -9,9 +9,11 @@ use crate::util::template_common_cell::*;
 use crate::util::template_generator::*;
 use crate::util::template_parser::*;
 
+const ACTION: &str = "refund_pre_register";
+
 #[test]
 fn test_pre_register_refund() {
-    let mut template = init_for_refund();
+    let mut template = init(json!({ "action": ACTION }));
 
     // inputs
     push_input_pre_account_cell(
@@ -65,7 +67,7 @@ fn test_pre_register_refund() {
 
 #[test]
 fn test_pre_register_refund_with_refund_lock() {
-    let mut template = init_for_refund();
+    let mut template = init(json!({ "action": ACTION }));
 
     // inputs
     push_input_pre_account_cell(
@@ -121,7 +123,7 @@ fn test_pre_register_refund_with_refund_lock() {
 
 #[test]
 fn challenge_pre_register_refund_multi_target() {
-    let mut template = init_for_refund();
+    let mut template = init(json!({ "action": ACTION }));
 
     // inputs
     push_input_pre_account_cell(
@@ -162,7 +164,7 @@ fn challenge_pre_register_refund_multi_target() {
 
 #[test]
 fn challenge_pre_register_refund_outputs_not_clean() {
-    let mut template = init_for_refund();
+    let mut template = init(json!({ "action": ACTION }));
 
     // inputs
     push_input_pre_account_cell(
@@ -203,7 +205,7 @@ fn challenge_pre_register_refund_outputs_not_clean() {
 
 #[test]
 fn challenge_pre_register_refund_since_relative_flag_error() {
-    let mut template = init_for_refund();
+    let mut template = init(json!({ "action": ACTION }));
 
     // inputs
     push_input_pre_account_cell(
@@ -230,7 +232,7 @@ fn challenge_pre_register_refund_since_relative_flag_error() {
 
 #[test]
 fn challenge_pre_register_refund_since_metric_flag_error() {
-    let mut template = init_for_refund();
+    let mut template = init(json!({ "action": ACTION }));
 
     // inputs
     push_input_pre_account_cell(
@@ -257,7 +259,7 @@ fn challenge_pre_register_refund_since_metric_flag_error() {
 
 #[test]
 fn challenge_pre_register_refund_since_value_error() {
-    let mut template = init_for_refund();
+    let mut template = init(json!({ "action": ACTION }));
 
     // inputs
     push_input_pre_account_cell(
@@ -284,7 +286,7 @@ fn challenge_pre_register_refund_since_value_error() {
 
 #[test]
 fn challenge_pre_register_refund_with_refund_lock_since_value_error() {
-    let mut template = init_for_refund();
+    let mut template = init(json!({ "action": ACTION }));
 
     // inputs
     push_input_pre_account_cell(
@@ -313,7 +315,7 @@ fn challenge_pre_register_refund_with_refund_lock_since_value_error() {
 
 #[test]
 fn challenge_pre_register_refund_capacity_not_enough() {
-    let mut template = init_for_refund();
+    let mut template = init(json!({ "action": ACTION }));
 
     // inputs
     push_input_pre_account_cell(
@@ -344,7 +346,7 @@ fn challenge_pre_register_refund_capacity_not_enough() {
 
 #[test]
 fn challenge_pre_register_refund_to_das_lock_without_type() {
-    let mut template = init_for_refund();
+    let mut template = init(json!({ "action": ACTION }));
 
     // inputs
     push_input_pre_account_cell(

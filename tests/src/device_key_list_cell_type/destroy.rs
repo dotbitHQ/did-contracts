@@ -1,6 +1,6 @@
 use ckb_types::prelude::{Builder, Entity};
-use das_types_std::constants::Source;
-use das_types_std::packed::{DeviceKey, DeviceKeyList, DeviceKeyListCellData};
+use das_types::constants::Source;
+use das_types::packed::{DeviceKey, DeviceKeyList, DeviceKeyListCellData};
 
 use super::{init, BalanceCell, BuildRefundLock, DeviceKeyListCell};
 use crate::util::template_parser::test_tx;
@@ -14,7 +14,7 @@ fn test_destory() {
         10_000_000_000,
         refund_lock.args(),
         DeviceKeyListCellData::new_builder()
-            .refund_lock(das_types_std::packed::Script::from_slice(refund_lock.as_slice()).unwrap())
+            .refund_lock(das_types::packed::Script::from_slice(refund_lock.as_slice()).unwrap())
             .keys(DeviceKeyList::new_builder().push(device_key.clone()).build())
             .build(),
     );

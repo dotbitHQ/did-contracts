@@ -3,8 +3,8 @@ use ckb_types::core::ScriptHashType;
 // use ckb_types::bytes::Bytes;
 use ckb_types::packed::{Byte32, Bytes, Script};
 use ckb_types::prelude::{Builder, Entity};
-use das_types_std::constants::{DataType, Source, WITNESS_HEADER};
-use das_types_std::packed::{Data, DataEntity, DataEntityOpt, DeviceKey, DeviceKeyListCellData};
+use das_types::constants::{DataType, Source, WITNESS_HEADER};
+use das_types::packed::{Data, DataEntity, DataEntityOpt, DeviceKey, DeviceKeyListCellData};
 use hex::{FromHex, ToHex};
 use serde_json::{json, Value};
 
@@ -82,7 +82,7 @@ impl DeviceKeyListCell {
             .set(Some(
                 DataEntity::new_builder()
                     .entity(self.witness.as_bytes().into())
-                    .index(das_types_std::packed::Uint32::from(index as u32))
+                    .index(das_types::packed::Uint32::from(index as u32))
                     .build(),
             ))
             .build();
@@ -96,7 +96,7 @@ impl DeviceKeyListCell {
 
         let mut outer_witness = Vec::new();
         outer_witness.extend(WITNESS_HEADER);
-        outer_witness.extend((das_types_std::constants::DataType::DeviceKeyListEntityData as u32).to_le_bytes());
+        outer_witness.extend((das_types::constants::DataType::DeviceKeyListEntityData as u32).to_le_bytes());
         outer_witness.extend(data.as_slice());
 
         template

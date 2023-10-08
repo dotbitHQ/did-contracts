@@ -1,7 +1,8 @@
-use das_types_std::constants::*;
+use das_types::constants::*;
 use serde_json::json;
 
 use super::common::*;
+use crate::util;
 use crate::util::accounts::*;
 use crate::util::constants::*;
 use crate::util::error::*;
@@ -86,7 +87,7 @@ fn before_each() -> TemplateGenerator {
         INIT_OWNER_PROFIT,
         SCRIPT_ARGS,
     );
-    push_input_normal_cell(&mut template, 100_000_000_000, OWNER);
+    push_input_normal_cell(&mut template, TOTAL_PAID, OWNER);
 
     template
 }
@@ -129,9 +130,10 @@ fn test_sub_account_update_without_custom_script() {
         },
         "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_2)
     }));
+
     push_simple_output_sub_account_cell(
         &mut template,
-        INIT_DAS_PROFIT + SUB_ACCOUNT_NEW_PRICE,
+        INIT_DAS_PROFIT + util::gen_sub_account_register_fee(SUB_ACCOUNT_NEW_PRICE, 1),
         INIT_OWNER_PROFIT,
         SubAccountConfigFlag::Manual,
     );
@@ -178,16 +180,15 @@ fn test_sub_account_update_with_custom_script() {
         "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_2)
     }));
 
-    let total_profit = calculate_sub_account_custom_price(1);
-    let das_profit = total_profit * SUB_ACCOUNT_NEW_CUSTOM_PRICE_DAS_PROFIT_RATE / RATE_BASE;
-    let owner_profit = total_profit - das_profit;
+    let total_profit = util::gen_sub_account_register_fee(SUB_ACCOUNT_NEW_CUSTOM_PRICE, 1);
+    let (das_profit, owner_profit) = get_profit_of_each_role(total_profit, 1);
     push_simple_output_sub_account_cell_with_custom_script(
         &mut template,
         INIT_DAS_PROFIT + das_profit,
         INIT_OWNER_PROFIT + owner_profit,
         SCRIPT_ARGS,
     );
-    push_output_normal_cell(&mut template, 100_000_000_000 - total_profit, OWNER);
+    push_output_normal_cell(&mut template, TOTAL_PAID - total_profit, OWNER);
 
     test_tx(template.as_json())
 }

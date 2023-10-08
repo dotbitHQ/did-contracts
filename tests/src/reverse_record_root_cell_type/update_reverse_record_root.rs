@@ -1,4 +1,4 @@
-use das_types_std::constants::{DasLockType, DataType, Source};
+use das_types::constants::{DasLockType, DataType, Source};
 use serde_json::json;
 
 use super::common::*;

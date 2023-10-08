@@ -1,7 +1,8 @@
-use das_types_std::constants::*;
+use das_types::constants::*;
 use serde_json::json;
 
 use super::common::*;
+use crate::util;
 use crate::util::accounts::*;
 use crate::util::constants::*;
 use crate::util::error::*;
@@ -17,7 +18,7 @@ fn before_each() -> TemplateGenerator {
 
     // inputs
     push_simple_input_sub_account_cell_with_custom_script(&mut template, 0, 0, SCRIPT_ARGS);
-    push_input_normal_cell(&mut template, 100_000_000_000, OWNER);
+    push_input_normal_cell(&mut template, TOTAL_PAID, OWNER);
 
     template
 }
@@ -83,7 +84,7 @@ fn test_sub_account_create_flag_custom_script_without_args() {
 
     // inputs
     push_simple_input_sub_account_cell_with_custom_script(&mut template, 0, 0, "");
-    push_input_normal_cell(&mut template, 100_000_000_000, OWNER);
+    push_input_normal_cell(&mut template, TOTAL_PAID, OWNER);
 
     // outputs
     template.push_sub_account_witness_v2(json!({
@@ -128,11 +129,11 @@ fn test_sub_account_create_flag_custom_script_without_args() {
         },
         "edit_key": "custom_script",
     }));
-    let total_profit = calculate_sub_account_custom_price(3);
-    let das_profit = total_profit * SUB_ACCOUNT_NEW_CUSTOM_PRICE_DAS_PROFIT_RATE / RATE_BASE;
-    let owner_profit = total_profit - das_profit;
+    let total_profit = util::gen_sub_account_register_fee(SUB_ACCOUNT_NEW_CUSTOM_PRICE, 3);
+    let (das_profit, owner_profit) = get_profit_of_each_role(total_profit, 3);
+
     push_simple_output_sub_account_cell_with_custom_script(&mut template, das_profit, owner_profit, "");
-    push_output_normal_cell(&mut template, 100_000_000_000 - total_profit, OWNER);
+    push_output_normal_cell(&mut template, TOTAL_PAID - total_profit, OWNER);
 
     test_tx(template.as_json())
 }
@@ -157,9 +158,8 @@ fn challenge_sub_account_create_flag_custom_script_flag_not_consistent() {
         "edit_key": "custom_script",
     }));
 
-    let total_profit = calculate_sub_account_custom_price(1);
-    let das_profit = total_profit * SUB_ACCOUNT_NEW_CUSTOM_PRICE_DAS_PROFIT_RATE / RATE_BASE;
-    let owner_profit = total_profit - das_profit;
+    let total_profit = util::gen_sub_account_register_fee(SUB_ACCOUNT_NEW_CUSTOM_PRICE, 1);
+    let (das_profit, owner_profit) = get_profit_of_each_role(total_profit, 1);
     push_output_sub_account_cell(
         &mut template,
         json!({
@@ -174,7 +174,7 @@ fn challenge_sub_account_create_flag_custom_script_flag_not_consistent() {
             }
         }),
     );
-    push_output_normal_cell(&mut template, 100_000_000_000 - total_profit, OWNER);
+    push_output_normal_cell(&mut template, TOTAL_PAID - total_profit, OWNER);
 
     challenge_tx(
         template.as_json(),
@@ -202,9 +202,9 @@ fn challenge_sub_account_create_flag_custom_script_script_code_hash_not_consiste
         "edit_key": "custom_script",
     }));
 
-    let total_profit = calculate_sub_account_custom_price(1);
-    let das_profit = total_profit * SUB_ACCOUNT_NEW_CUSTOM_PRICE_DAS_PROFIT_RATE / RATE_BASE;
-    let owner_profit = total_profit - das_profit;
+    let total_profit = util::gen_sub_account_register_fee(SUB_ACCOUNT_NEW_CUSTOM_PRICE, 1);
+    let (das_profit, owner_profit) = get_profit_of_each_role(total_profit, 1);
+
     push_output_sub_account_cell(
         &mut template,
         json!({
@@ -220,7 +220,7 @@ fn challenge_sub_account_create_flag_custom_script_script_code_hash_not_consiste
             }
         }),
     );
-    push_output_normal_cell(&mut template, 100_000_000_000 - total_profit, OWNER);
+    push_output_normal_cell(&mut template, TOTAL_PAID - total_profit, OWNER);
 
     challenge_tx(
         template.as_json(),
@@ -248,11 +248,11 @@ fn challenge_sub_account_create_flag_custom_script_script_args_not_consistent() 
         "edit_key": "custom_script",
     }));
 
-    let total_profit = calculate_sub_account_custom_price(1);
-    let das_profit = total_profit * SUB_ACCOUNT_NEW_CUSTOM_PRICE_DAS_PROFIT_RATE / RATE_BASE;
-    let owner_profit = total_profit - das_profit;
+    let total_profit = util::gen_sub_account_register_fee(SUB_ACCOUNT_NEW_CUSTOM_PRICE, 1);
+    let (das_profit, owner_profit) = get_profit_of_each_role(total_profit, 1);
+
     push_simple_output_sub_account_cell_with_custom_script(&mut template, das_profit, owner_profit, "");
-    push_output_normal_cell(&mut template, 100_000_000_000 - total_profit, OWNER);
+    push_output_normal_cell(&mut template, TOTAL_PAID - total_profit, OWNER);
 
     challenge_tx(
         template.as_json(),
@@ -282,11 +282,11 @@ fn challenge_sub_account_create_flag_custom_script_mix_custom_rule() {
         "edit_value": "0x00000000000000000000000000000000000000000000000000000000"
     }));
 
-    let total_profit = calculate_sub_account_custom_price(1);
-    let das_profit = total_profit * SUB_ACCOUNT_NEW_CUSTOM_PRICE_DAS_PROFIT_RATE / RATE_BASE;
-    let owner_profit = total_profit - das_profit;
+    let total_profit = util::gen_sub_account_register_fee(SUB_ACCOUNT_NEW_CUSTOM_PRICE, 1);
+    let (das_profit, owner_profit) = get_profit_of_each_role(total_profit, 1);
+
     push_simple_output_sub_account_cell_with_custom_script(&mut template, das_profit, owner_profit, SCRIPT_ARGS);
-    push_output_normal_cell(&mut template, 100_000_000_000 - total_profit, OWNER);
+    push_output_normal_cell(&mut template, TOTAL_PAID - total_profit, OWNER);
 
     challenge_tx(template.as_json(), SubAccountCellErrorCode::WitnessEditKeyInvalid);
 }
@@ -311,12 +311,12 @@ fn challenge_sub_account_create_flag_custom_script_different_lock_for_normal_cel
         "edit_key": "custom_script",
     }));
 
-    let total_profit = calculate_sub_account_custom_price(1);
-    let das_profit = total_profit * SUB_ACCOUNT_NEW_CUSTOM_PRICE_DAS_PROFIT_RATE / RATE_BASE;
-    let owner_profit = total_profit - das_profit;
+    let total_profit = util::gen_sub_account_register_fee(SUB_ACCOUNT_NEW_CUSTOM_PRICE, 1);
+    let (das_profit, owner_profit) = get_profit_of_each_role(total_profit, 1);
+
     push_simple_output_sub_account_cell_with_custom_script(&mut template, das_profit, owner_profit, SCRIPT_ARGS);
     // Simulate change to a different lock which is not the same as the lock in inputs.
-    push_output_normal_cell(&mut template, 100_000_000_000 - total_profit, OWNER_1);
+    push_output_normal_cell(&mut template, TOTAL_PAID - total_profit, OWNER_1);
 
     challenge_tx(
         template.as_json(),
@@ -344,12 +344,13 @@ fn challenge_sub_account_create_flag_custom_script_das_profit_not_enough() {
         "edit_key": "custom_script",
     }));
 
-    let total_profit = calculate_sub_account_custom_price(1);
+    let total_profit = util::gen_sub_account_register_fee(SUB_ACCOUNT_NEW_CUSTOM_PRICE, 1);
+    let (_, owner_profit) = get_profit_of_each_role(total_profit, 1);
+    let das_profit = util::gen_sub_account_register_fee(SUB_ACCOUNT_NEW_PRICE, 1);
+
     // Simulate the profit of DAS is less than expected value.
-    let das_profit = total_profit * SUB_ACCOUNT_NEW_CUSTOM_PRICE_DAS_PROFIT_RATE / RATE_BASE - 1;
-    let owner_profit = total_profit - das_profit;
-    push_simple_output_sub_account_cell_with_custom_script(&mut template, das_profit, owner_profit, SCRIPT_ARGS);
-    push_output_normal_cell(&mut template, 100_000_000_000 - total_profit, OWNER);
+    push_simple_output_sub_account_cell_with_custom_script(&mut template, das_profit - 1, owner_profit, SCRIPT_ARGS);
+    push_output_normal_cell(&mut template, TOTAL_PAID - total_profit, OWNER);
 
     challenge_tx(template.as_json(), SubAccountCellErrorCode::SubAccountProfitError);
 }
@@ -381,11 +382,11 @@ fn challenge_sub_account_create_flag_custom_script_spend_balance_cell_1() {
         },
         "edit_key": "custom_script",
     }));
-    let total_profit = calculate_sub_account_custom_price(1);
-    let das_profit = total_profit * SUB_ACCOUNT_NEW_CUSTOM_PRICE_DAS_PROFIT_RATE / RATE_BASE;
-    let owner_profit = total_profit - das_profit;
+    let total_profit = util::gen_sub_account_register_fee(SUB_ACCOUNT_NEW_CUSTOM_PRICE, 1);
+    let (das_profit, owner_profit) = get_profit_of_each_role(total_profit, 1);
+
     push_simple_output_sub_account_cell_with_custom_script(&mut template, das_profit, owner_profit, "");
-    push_output_normal_cell(&mut template, 100_000_000_000 - total_profit, OWNER);
+    push_output_normal_cell(&mut template, TOTAL_PAID - total_profit, OWNER);
 
     challenge_tx(
         template.as_json(),
@@ -420,11 +421,11 @@ fn challenge_sub_account_create_flag_custom_script_spend_balance_cell_2() {
         },
         "edit_key": "custom_script",
     }));
-    let total_profit = calculate_sub_account_custom_price(1);
-    let das_profit = total_profit * SUB_ACCOUNT_NEW_CUSTOM_PRICE_DAS_PROFIT_RATE / RATE_BASE;
-    let owner_profit = total_profit - das_profit;
+    let total_profit = util::gen_sub_account_register_fee(SUB_ACCOUNT_NEW_CUSTOM_PRICE, 1);
+    let (das_profit, owner_profit) = get_profit_of_each_role(total_profit, 1);
+
     push_simple_output_sub_account_cell_with_custom_script(&mut template, das_profit, owner_profit, "");
-    push_output_normal_cell(&mut template, 100_000_000_000 - total_profit, OWNER);
+    push_output_normal_cell(&mut template, TOTAL_PAID - total_profit, OWNER);
 
     challenge_tx(
         template.as_json(),

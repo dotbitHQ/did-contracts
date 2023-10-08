@@ -95,19 +95,11 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 ErrorCode::InvalidCellData,
                 "The ApplyRegisterCell.outputs_data should be 32 bytes or 48 bytes long."
             );
-            match verify_apply_height_with_since(index.to_owned(), config_apply_reader) {
-                Ok(_) => {}
-                Err(err) => {
-                    if err.as_i8() == PreAccountCellErrorCode::ApplySinceMismatch as i8
-                        && cells_with_super_lock.len() > 0
-                    {
-                        debug!("Skip ErrorCode::ApplySinceMismatch because of super lock.");
-                        // Ok
-                    } else {
-                        return Err(err);
-                    }
-                }
-            };
+            if cells_with_super_lock.len() > 0 {
+                debug!("Skip ApplyRegisterCell.data.since verification because of super lock.");
+            } else {
+                verify_apply_height_with_since(index.to_owned(), config_apply_reader)?
+            }
 
             debug!("Read witness of PreAccountCell ...");
 
@@ -124,7 +116,19 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             let config_price = parser.configs.price()?;
             let config_account = parser.configs.account()?;
-            let timestamp = util::load_oracle_data(OracleCellType::Time)?;
+
+            let timestamp = if cells_with_super_lock.len() > 0 {
+                debug!("Skip loading TimeCell because of super lock.");
+                u64::MAX
+            } else {
+                util::load_oracle_data(OracleCellType::Time)?
+            };
+
+            if cells_with_super_lock.len() > 0 {
+                debug!("Skip PreAccountCell.witness.quote verification because of super lock.");
+            } else {
+                verify_quote(&pre_account_cell_witness_reader)?;
+            }
 
             verifiers::misc::verify_always_success_lock(output_cells[0], Source::Output)?;
             verify_apply_hash(
@@ -133,57 +137,44 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 &apply_register_hash,
             )?;
             verify_owner_lock_args(&pre_account_cell_witness_reader)?;
-            verify_quote(&pre_account_cell_witness_reader)?;
             verify_invited_discount(config_price, &pre_account_cell_witness_reader)?;
             verify_price_and_capacity(config_account, config_price, &pre_account_cell_witness_reader, capacity)?;
             verify_account_id(&pre_account_cell_witness_reader, account_id)?;
-            // TODO Remove the PreAccountCell.witness.created_at field, it is no longer needed.
-            verify_created_at(timestamp, &pre_account_cell_witness_reader)?;
             verify_account_not_exist(dep_account_cells[0], account_id)?;
+
+            if cells_with_super_lock.len() > 0 {
+                debug!("Skip PreAccountCell.witness.created_at verification because of super lock.");
+            } else {
+                // TODO Remove the PreAccountCell.witness.created_at field, it is no longer needed.
+                verify_created_at(timestamp, &pre_account_cell_witness_reader)?;
+            }
 
             debug!("Verify if account is available for registration for now ...");
 
-            match verify_account_length_and_years(&pre_account_cell_witness_reader, timestamp) {
-                Ok(_) => {}
-                Err(err) => {
-                    if err.as_i8() == ErrorCode::AccountStillCanNotBeRegister as i8 && cells_with_super_lock.len() > 0 {
-                        debug!("Skip ErrorCode::AccountStillCanNotBeRegister because of super lock.");
-                        // Ok
-                    } else {
-                        return Err(err);
-                    }
-                }
+            if cells_with_super_lock.len() > 0 {
+                debug!("Skip account length and years verification because of super lock.");
+            } else {
+                verify_account_length_and_years(&pre_account_cell_witness_reader, timestamp)?
             }
 
             let config_release = parser.configs.release()?;
-            match verify_account_release_status(
-                config_release,
-                &pre_account_cell_witness_reader,
-                input_apply_register_cells[0],
-            ) {
-                Ok(_) => {}
-                Err(err) => {
-                    if err.as_i8() == ErrorCode::AccountStillCanNotBeRegister as i8 && cells_with_super_lock.len() > 0 {
-                        debug!("Skip ErrorCode::AccountStillCanNotBeRegister because of super lock.");
-                        // Ok
-                    } else {
-                        return Err(err);
-                    }
-                }
+            if cells_with_super_lock.len() > 0 {
+                debug!("Skip account release status verification because of super lock.");
+            } else {
+                verify_account_release_status(
+                    config_release,
+                    &pre_account_cell_witness_reader,
+                    input_apply_register_cells[0],
+                )?;
             }
 
             let account = pre_account_cell_witness_reader.account().as_readable();
-            match verifiers::account_cell::verify_preserved_accounts(&parser, &account) {
-                Ok(_) => {}
-                Err(err) => {
-                    if err.as_i8() == ErrorCode::AccountIsPreserved as i8 && cells_with_super_lock.len() > 0 {
-                        debug!("Skip ErrorCode::AccountIsPreserved because of super lock.");
-                        // Ok
-                    } else {
-                        return Err(err);
-                    }
-                }
+            if cells_with_super_lock.len() > 0 {
+                debug!("Skip preserved account verification because of super lock.");
+            } else {
+                verifiers::account_cell::verify_preserved_accounts(&parser, &account)?
             }
+
             verifiers::account_cell::verify_unavailable_accounts(&parser, &account)?;
 
             let chars_reader = pre_account_cell_witness_reader.account();

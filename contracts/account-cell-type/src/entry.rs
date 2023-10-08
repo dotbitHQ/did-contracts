@@ -93,10 +93,35 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             )?;
 
             match action {
-                b"transfer_account" => action_transfer_account(&mut parser, &input_account_cells, &output_account_cells, &input_cell_witness_reader, &output_cell_witness_reader)?,
-                b"edit_manager" => action_edit_manager(&mut parser, &input_account_cells, &output_account_cells, &input_cell_witness_reader, &output_cell_witness_reader)?,
-                b"edit_records" => action_edit_records(&mut parser, &input_account_cells, &output_account_cells, &input_cell_witness_reader, &output_cell_witness_reader)?,
-                b"lock_account_for_cross_chain" => action_lock_account_for_cross_chain(&mut parser, &input_account_cells, &output_account_cells, &input_cell_witness_reader, &output_cell_witness_reader, timestamp)?,
+                b"transfer_account" => action_transfer_account(
+                    &mut parser,
+                    &input_account_cells,
+                    &output_account_cells,
+                    &input_cell_witness_reader,
+                    &output_cell_witness_reader,
+                )?,
+                b"edit_manager" => action_edit_manager(
+                    &mut parser,
+                    &input_account_cells,
+                    &output_account_cells,
+                    &input_cell_witness_reader,
+                    &output_cell_witness_reader,
+                )?,
+                b"edit_records" => action_edit_records(
+                    &mut parser,
+                    &input_account_cells,
+                    &output_account_cells,
+                    &input_cell_witness_reader,
+                    &output_cell_witness_reader,
+                )?,
+                b"lock_account_for_cross_chain" => action_lock_account_for_cross_chain(
+                    &mut parser,
+                    &input_account_cells,
+                    &output_account_cells,
+                    &input_cell_witness_reader,
+                    &output_cell_witness_reader,
+                    timestamp,
+                )?,
                 _ => unreachable!(),
             }
 
@@ -1267,11 +1292,7 @@ fn action_lock_account_for_cross_chain<'a>(
         vec!["status"],
     )?;
 
-    verify_account_is_locked_for_cross_chain(
-        output_account_cells[0],
-        &output_cell_witness_reader,
-        timestamp,
-    )?;
+    verify_account_is_locked_for_cross_chain(output_account_cells[0], &output_cell_witness_reader, timestamp)?;
 
     Ok(())
 }
