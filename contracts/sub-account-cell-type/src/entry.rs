@@ -223,7 +223,7 @@ fn action_config_sub_account(_action: &[u8], parser: &mut WitnessesParser) -> Re
                     if data_type == DataType::SubAccountPriceRule {
                         for rule in rules.iter() {
                             das_assert!(
-                                rule.price > u64::from(config_sub_account.new_sub_account_price()),
+                                rule.price >= u64::from(config_sub_account.new_sub_account_price()),
                                 SubAccountCellErrorCode::ConfigRulesPriceError,
                                 "The SubAccountCell.witness.{} has price error, the minimal price should be {} in USD .",
                                 field,
