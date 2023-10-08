@@ -220,6 +220,18 @@ fn action_config_sub_account(_action: &[u8], parser: &mut WitnessesParser) -> Re
                         }
                     };
 
+                    if data_type == DataType::SubAccountPriceRule {
+                        for rule in rules.iter() {
+                            das_assert!(
+                                rule.price >= u64::from(config_sub_account.new_sub_account_price()),
+                                SubAccountCellErrorCode::ConfigRulesPriceError,
+                                "The SubAccountCell.witness.{} has price error, the minimal price should be {} in USD .",
+                                field,
+                                config_sub_account.new_sub_account_price()
+                            );
+                        }
+                    }
+
                     let mut dummy_account_chars_builder = AccountChars::new_builder();
                     dummy_account_chars_builder = dummy_account_chars_builder.push(AccountChar::default());
                     let dummy_account_chars = dummy_account_chars_builder.build();
@@ -827,6 +839,12 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
         let profit_from_manual_renew_by_other = sub_action.profit_from_manual_renew_by_other;
         let profit_total = sub_action.profit_total;
 
+        // debug!("minimal_required_das_profit: {:?}", minimal_required_das_profit);
+        // debug!("profit_from_manual_mint: {:?}", profit_from_manual_mint);
+        // debug!("profit_from_manual_renew: {:?}", profit_from_manual_renew);
+        // debug!("profit_from_manual_renew_by_other: {:?}", profit_from_manual_renew_by_other);
+        // debug!("profit_total: {:?}", profit_total);
+
         if profit_from_manual_renew_by_other > 0 {
             debug!("Found profit paied by others, verify if they only used NormalCells.");
 
@@ -852,6 +870,9 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
                 } else {
                     u64::from(config_sub_account.common_fee())
                 };
+
+                // debug!("sender_total_input_capacity: {:?}", sender_total_input_capacity);
+                // debug!("sender_total_output_capacity: {:?}", sender_total_output_capacity);
 
                 das_assert!(
                     sender_total_input_capacity - sender_total_output_capacity <= profit_from_manual_mint + profit_from_manual_renew + fee_to_pay,
@@ -1161,6 +1182,9 @@ fn verify_profit_to_das_with_manual(
     let input_das_profit = data_parser::sub_account_cell::get_das_profit(&input_data).unwrap();
     let output_das_profit = data_parser::sub_account_cell::get_das_profit(&output_data).unwrap();
 
+    // debug!("input_das_profit: {:?}", input_das_profit);
+    // debug!("output_das_profit: {:?}", output_das_profit);
+
     das_assert!(
         output_das_profit == input_das_profit + profit_to_das,
         SubAccountCellErrorCode::SubAccountProfitError,
@@ -1191,10 +1215,15 @@ fn verify_profit_to_das_with_custom_script(
     let total_profit = owner_profit + das_profit;
     let profit_rate = u32::from(config_sub_account.new_sub_account_custom_price_das_profit_rate());
 
+    // debug!("das_profit: {:?}", das_profit);
+    // debug!("owner_profit: {:?}", owner_profit);
+    // debug!("total_profit: {:?}", total_profit);
+
     das_assert!(
         das_profit >= minimal_profit_to_das,
         SubAccountCellErrorCode::SubAccountProfitError,
-        "The profit to DAS should be greater than or equal to the minimal profit which is 1 CKB per account. (das_profit: {}, minimal_profit_to_das: {})",
+        "The profit to DAS should be greater than or equal to the minimal profit which is {} USD per account. (das_profit: {}, minimal_profit_to_das: {})",
+        u64::from(config_sub_account.new_sub_account_price()),
         das_profit,
         minimal_profit_to_das
     );
@@ -1227,6 +1256,9 @@ fn verify_profit_to_das_with_custom_rule(
     let input_das_profit = data_parser::sub_account_cell::get_das_profit(&input_data).unwrap();
     let output_das_profit = data_parser::sub_account_cell::get_das_profit(&output_data).unwrap();
     let das_profit = output_das_profit - input_das_profit;
+
+    // debug!("input_das_profit: {:?}", input_das_profit);
+    // debug!("output_das_profit: {:?}", output_das_profit);
 
     das_assert!(
         expected_total_profit == das_profit,

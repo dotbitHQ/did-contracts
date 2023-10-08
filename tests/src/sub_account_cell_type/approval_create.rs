@@ -1,4 +1,4 @@
-use das_types_std::constants::*;
+use das_types::constants::*;
 use serde_json::{json, Value};
 
 use super::common::*;
@@ -120,8 +120,43 @@ fn test_sub_account_approval_create_edit_records() {
     push_simple_dep_account_cell(&mut template);
 
     // inputs
-    template.restore_sub_account_v2(vec![
-        json!({
+    template.restore_sub_account_v2(vec![json!({
+        "lock": {
+            "owner_lock_args": OWNER_1,
+            "manager_lock_args": MANAGER_1
+        },
+        "account": SUB_ACCOUNT_1,
+        "suffix": SUB_ACCOUNT_SUFFIX,
+        "registered_at": TIMESTAMP,
+        "expired_at": TIMESTAMP + YEAR_SEC,
+        "status": AccountStatus::ApprovedTransfer as u8,
+        "approval": {
+            "action": "transfer",
+            "params": {
+                "platform_lock": {
+                    "owner_lock_args": CHANNEL,
+                    "manager_lock_args": CHANNEL
+                },
+                "protected_until": TIMESTAMP + DAY_SEC,
+                "sealed_until": TIMESTAMP + DAY_SEC * 3,
+                "delay_count_remain": 1,
+                "to_lock": {
+                    "owner_lock_args": OWNER_2,
+                    "manager_lock_args": OWNER_2
+                }
+            }
+        }
+    })]);
+    push_simple_input_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
+
+    // outputs
+    template.push_sub_account_witness_v2(json!({
+        "action": SubAccountAction::Edit.to_string(),
+        "sign_role": "0x01",
+        "sign_expired_at": TIMESTAMP,
+        "old_sub_account_version": 2,
+        "new_sub_account_version": 2,
+        "sub_account": {
             "lock": {
                 "owner_lock_args": OWNER_1,
                 "manager_lock_args": MANAGER_1
@@ -147,56 +182,17 @@ fn test_sub_account_approval_create_edit_records() {
                     }
                 }
             }
-        }),
-    ]);
-    push_simple_input_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
-
-    // outputs
-    template.push_sub_account_witness_v2(
-        json!({
-            "action": SubAccountAction::Edit.to_string(),
-            "sign_role": "0x01",
-            "sign_expired_at": TIMESTAMP,
-            "old_sub_account_version": 2,
-            "new_sub_account_version": 2,
-            "sub_account": {
-                "lock": {
-                    "owner_lock_args": OWNER_1,
-                    "manager_lock_args": MANAGER_1
-                },
-                "account": SUB_ACCOUNT_1,
-                "suffix": SUB_ACCOUNT_SUFFIX,
-                "registered_at": TIMESTAMP,
-                "expired_at": TIMESTAMP + YEAR_SEC,
-                "status": AccountStatus::ApprovedTransfer as u8,
-                "approval": {
-                    "action": "transfer",
-                    "params": {
-                        "platform_lock": {
-                            "owner_lock_args": CHANNEL,
-                            "manager_lock_args": CHANNEL
-                        },
-                        "protected_until": TIMESTAMP + DAY_SEC,
-                        "sealed_until": TIMESTAMP + DAY_SEC * 3,
-                        "delay_count_remain": 1,
-                        "to_lock": {
-                            "owner_lock_args": OWNER_2,
-                            "manager_lock_args": OWNER_2
-                        }
-                    }
-                }
-            },
-            "edit_key": "records",
-            "edit_value": [
-                {
-                    "type": "profile",
-                    "key": "twitter",
-                    "label": "xxxxx",
-                    "value": "0x0000000000000000000000000000000000001111",
-                }
-            ]
-        })
-    );
+        },
+        "edit_key": "records",
+        "edit_value": [
+            {
+                "type": "profile",
+                "key": "twitter",
+                "label": "xxxxx",
+                "value": "0x0000000000000000000000000000000000001111",
+            }
+        ]
+    }));
     push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
 
     test_tx(template.as_json())
@@ -255,18 +251,16 @@ fn challenge_sub_account_approval_create_spend_balance_cell() {
     push_simple_dep_account_cell(&mut template);
 
     // inputs
-    template.restore_sub_account_v1(vec![
-        json!({
-            "lock": {
-                "owner_lock_args": OWNER_1,
-                "manager_lock_args": MANAGER_1
-            },
-            "account": SUB_ACCOUNT_1,
-            "suffix": SUB_ACCOUNT_SUFFIX,
-            "registered_at": TIMESTAMP,
-            "expired_at": TIMESTAMP + YEAR_SEC,
-        }),
-    ]);
+    template.restore_sub_account_v1(vec![json!({
+        "lock": {
+            "owner_lock_args": OWNER_1,
+            "manager_lock_args": MANAGER_1
+        },
+        "account": SUB_ACCOUNT_1,
+        "suffix": SUB_ACCOUNT_SUFFIX,
+        "registered_at": TIMESTAMP,
+        "expired_at": TIMESTAMP + YEAR_SEC,
+    })]);
     push_simple_input_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
     // Simulate spending BalanceCells in this transaction.
     push_input_balance_cell(&mut template, 100 * ONE_CKB, OWNER_1);
@@ -286,7 +280,10 @@ fn challenge_sub_account_approval_create_spend_balance_cell() {
     );
     push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
 
-    challenge_tx(template.as_json(), SubAccountCellErrorCode::SomeCellWithDasLockMayBeAbused)
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::SomeCellWithDasLockMayBeAbused,
+    )
 }
 
 #[test]
@@ -297,19 +294,17 @@ fn challenge_sub_account_approval_create_account_near_expired() {
     push_simple_dep_account_cell(&mut template);
 
     // inputs
-    template.restore_sub_account_v1(vec![
-        json!({
-            "lock": {
-                "owner_lock_args": OWNER_1,
-                "manager_lock_args": MANAGER_1
-            },
-            "account": SUB_ACCOUNT_1,
-            "suffix": SUB_ACCOUNT_SUFFIX,
-            "registered_at": TIMESTAMP,
-            // Simulate the account is near expired.
-            "expired_at": TIMESTAMP + DAY_SEC * 30 - 1,
-        }),
-    ]);
+    template.restore_sub_account_v1(vec![json!({
+        "lock": {
+            "owner_lock_args": OWNER_1,
+            "manager_lock_args": MANAGER_1
+        },
+        "account": SUB_ACCOUNT_1,
+        "suffix": SUB_ACCOUNT_SUFFIX,
+        "registered_at": TIMESTAMP,
+        // Simulate the account is near expired.
+        "expired_at": TIMESTAMP + DAY_SEC * 30 - 1,
+    })]);
     push_simple_input_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
 
     // outputs
@@ -492,7 +487,10 @@ fn challenge_sub_account_approval_create_platform_lock_error() {
     }));
     push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
 
-    challenge_tx(template.as_json(), SubAccountCellErrorCode::ApprovalParamsPlatformLockInvalid)
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::ApprovalParamsPlatformLockInvalid,
+    )
 }
 
 #[test]
@@ -537,7 +535,10 @@ fn challenge_sub_account_approval_create_protected_until_too_long() {
     }));
     push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
 
-    challenge_tx(template.as_json(), SubAccountCellErrorCode::ApprovalParamsProtectedUntilInvalid)
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::ApprovalParamsProtectedUntilInvalid,
+    )
 }
 
 #[test]
@@ -582,7 +583,10 @@ fn challenge_sub_account_approval_create_sealed_until_too_long() {
     }));
     push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
 
-    challenge_tx(template.as_json(), SubAccountCellErrorCode::ApprovalParamsSealedUntilInvalid)
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::ApprovalParamsSealedUntilInvalid,
+    )
 }
 
 #[test]
@@ -627,7 +631,10 @@ fn challenge_sub_account_approval_create_delay_count_invalid() {
     }));
     push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
 
-    challenge_tx(template.as_json(), SubAccountCellErrorCode::ApprovalParamsDelayCountRemainInvalid)
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::ApprovalParamsDelayCountRemainInvalid,
+    )
 }
 
 #[test]

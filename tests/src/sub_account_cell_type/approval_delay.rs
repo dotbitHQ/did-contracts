@@ -1,4 +1,4 @@
-use das_types_std::constants::*;
+use das_types::constants::*;
 use serde_json::{json, Value};
 
 use super::common::*;
@@ -181,7 +181,10 @@ fn challenge_sub_account_approval_delay_action_modified() {
     );
     push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
 
-    challenge_tx(template.as_json(), SubAccountCellErrorCode::ApprovalParamsCanNotBeChanged)
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::ApprovalParamsCanNotBeChanged,
+    )
 }
 
 #[test]
@@ -220,7 +223,10 @@ fn challenge_sub_account_approval_delay_platform_lock_modified() {
     );
     push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
 
-    challenge_tx(template.as_json(), SubAccountCellErrorCode::ApprovalParamsCanNotBeChanged)
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::ApprovalParamsCanNotBeChanged,
+    )
 }
 
 #[test]
@@ -259,7 +265,10 @@ fn challenge_sub_account_approval_delay_protected_until_modified() {
     );
     push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
 
-    challenge_tx(template.as_json(), SubAccountCellErrorCode::ApprovalParamsCanNotBeChanged)
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::ApprovalParamsCanNotBeChanged,
+    )
 }
 
 #[test]
@@ -298,7 +307,10 @@ fn challenge_sub_account_approval_delay_sealed_until_not_increased() {
     );
     push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
 
-    challenge_tx(template.as_json(), SubAccountCellErrorCode::ApprovalParamsSealedUntilIncrementError)
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::ApprovalParamsSealedUntilIncrementError,
+    )
 }
 
 #[test]
@@ -337,7 +349,10 @@ fn challenge_sub_account_approval_delay_sealed_until_increased_too_long() {
     );
     push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
 
-    challenge_tx(template.as_json(), SubAccountCellErrorCode::ApprovalParamsSealedUntilIncrementError)
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::ApprovalParamsSealedUntilIncrementError,
+    )
 }
 
 #[test]
@@ -348,36 +363,34 @@ fn challenge_sub_account_approval_delay_count_remain_is_empty() {
     push_simple_dep_account_cell(&mut template);
 
     // inputs
-    template.restore_sub_account_v2(vec![
-        json!({
-            "lock": {
-                "owner_lock_args": OWNER_1,
-                "manager_lock_args": MANAGER_1
-            },
-            "account": SUB_ACCOUNT_1,
-            "suffix": SUB_ACCOUNT_SUFFIX,
-            "registered_at": TIMESTAMP,
-            "expired_at": TIMESTAMP + YEAR_SEC,
-            "status": AccountStatus::ApprovedTransfer as u8,
-            "approval": {
-                "action": "transfer",
-                "params": {
-                    "platform_lock": {
-                        "owner_lock_args": CHANNEL,
-                        "manager_lock_args": CHANNEL
-                    },
-                    "protected_until": TIMESTAMP + DAY_SEC,
-                    // Simulate try to delay even the delay_count_remain is 0.
-                    "sealed_until": TIMESTAMP + DAY_SEC * 2,
-                    "delay_count_remain": 0,
-                    "to_lock": {
-                        "owner_lock_args": OWNER_2,
-                        "manager_lock_args": OWNER_2
-                    }
+    template.restore_sub_account_v2(vec![json!({
+        "lock": {
+            "owner_lock_args": OWNER_1,
+            "manager_lock_args": MANAGER_1
+        },
+        "account": SUB_ACCOUNT_1,
+        "suffix": SUB_ACCOUNT_SUFFIX,
+        "registered_at": TIMESTAMP,
+        "expired_at": TIMESTAMP + YEAR_SEC,
+        "status": AccountStatus::ApprovedTransfer as u8,
+        "approval": {
+            "action": "transfer",
+            "params": {
+                "platform_lock": {
+                    "owner_lock_args": CHANNEL,
+                    "manager_lock_args": CHANNEL
+                },
+                "protected_until": TIMESTAMP + DAY_SEC,
+                // Simulate try to delay even the delay_count_remain is 0.
+                "sealed_until": TIMESTAMP + DAY_SEC * 2,
+                "delay_count_remain": 0,
+                "to_lock": {
+                    "owner_lock_args": OWNER_2,
+                    "manager_lock_args": OWNER_2
                 }
             }
-        }),
-    ]);
+        }
+    })]);
     push_simple_input_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
 
     // outputs
@@ -416,7 +429,10 @@ fn challenge_sub_account_approval_delay_count_remain_is_empty() {
     );
     push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
 
-    challenge_tx(template.as_json(), SubAccountCellErrorCode::ApprovalParamsDelayCountNotEnough)
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::ApprovalParamsDelayCountNotEnough,
+    )
 }
 
 #[test]
@@ -454,7 +470,10 @@ fn challenge_sub_account_approval_delay_count_remain_not_decreased() {
     );
     push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
 
-    challenge_tx(template.as_json(), SubAccountCellErrorCode::ApprovalParamsDelayCountDecrementError)
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::ApprovalParamsDelayCountDecrementError,
+    )
 }
 
 #[test]
@@ -519,5 +538,8 @@ fn challenge_sub_account_approval_delay_to_lock_modified() {
 
     push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::Manual);
 
-    challenge_tx(template.as_json(), SubAccountCellErrorCode::ApprovalParamsCanNotBeChanged)
+    challenge_tx(
+        template.as_json(),
+        SubAccountCellErrorCode::ApprovalParamsCanNotBeChanged,
+    )
 }

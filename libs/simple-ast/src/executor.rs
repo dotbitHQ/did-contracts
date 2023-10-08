@@ -8,7 +8,7 @@ use alloc::string::ToString;
 #[cfg(feature = "no_std")]
 use das_types::{constants::*, packed, prelude::*};
 #[cfg(feature = "std")]
-use das_types_std::{constants::*, packed, prelude::*};
+use das_types::{constants::*, packed, prelude::*};
 
 use crate::error::ASTError;
 use crate::types::*;
@@ -512,7 +512,7 @@ fn in_list(
 
 #[cfg(test)]
 mod test {
-    use das_types_std::types;
+    use das_types::types;
     use serde_json::json;
 
     use super::*;

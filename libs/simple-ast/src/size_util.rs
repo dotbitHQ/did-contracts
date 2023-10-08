@@ -148,8 +148,8 @@ pub fn calc_binary_size(key: String, input: &[u8]) -> usize {
 
 #[cfg(test)]
 mod test {
-    use das_types_std::constants::CharSetType;
-    use das_types_std::packed;
+    use das_types::constants::CharSetType;
+    use das_types::packed;
 
     use super::super::util;
     use super::*;

@@ -1,5 +1,5 @@
-use das_types_std::constants::*;
-use das_types_std::packed::*;
+use das_types::constants::*;
+use das_types::packed::*;
 use serde_json::json;
 use sparse_merkle_tree::H256;
 
@@ -16,6 +16,9 @@ pub const SCRIPT_CODE_HASH: &str = "0x0000000000000000000000000000746573742d6375
 pub const SCRIPT_ARGS: &str = "0x0011223300";
 
 pub const DUMMY_CHANNEL: &str = "0x00000000000000000000000000000000000000000000000000000000";
+
+// total paid 100 USD
+pub const TOTAL_PAID: u64 = USD_1 * 100 / CKB_QUOTE * ONE_CKB;
 
 pub fn init(action: &str, params_opt: Option<&str>) -> TemplateGenerator {
     let mut template = TemplateGenerator::new(action, params_opt.map(|raw| Bytes::from(util::hex_to_bytes(raw))));
@@ -126,10 +129,10 @@ pub fn push_simple_output_sub_account_cell(
     );
 }
 
-pub fn push_common_output_cells(template: &mut TemplateGenerator, total_paied_years: u64, flag: SubAccountConfigFlag) {
-    let das_profit = calculate_sub_account_cost(total_paied_years);
+pub fn push_common_output_cells(template: &mut TemplateGenerator, total_paid_years: u64, flag: SubAccountConfigFlag) {
+    let das_profit = util::gen_sub_account_register_fee(SUB_ACCOUNT_NEW_PRICE, total_paid_years);
     push_simple_output_sub_account_cell(template, das_profit, 0, flag);
-    push_output_normal_cell(template, 10_000_000_000 - das_profit, OWNER);
+    push_output_normal_cell(template, TOTAL_PAID - das_profit, OWNER);
 }
 
 pub fn calculate_sub_account_cost(new_account_count: u64) -> u64 {
@@ -229,14 +232,21 @@ pub fn push_simple_output_sub_account_cell_with_custom_script(
     );
 }
 
-pub fn push_common_output_cells_with_custom_script(template: &mut TemplateGenerator, new_account_count: u64) {
-    let total_profit = calculate_sub_account_custom_price(new_account_count);
-    let das_profit = total_profit * SUB_ACCOUNT_NEW_CUSTOM_PRICE_DAS_PROFIT_RATE / RATE_BASE;
+pub fn get_profit_of_each_role(total_profit: u64, account_count: u64) -> (u64, u64) {
+    let minimal_das_profit = util::gen_sub_account_register_fee(SUB_ACCOUNT_NEW_PRICE, account_count);
+    let mut das_profit = total_profit * SUB_ACCOUNT_NEW_CUSTOM_PRICE_DAS_PROFIT_RATE / RATE_BASE;
+    if das_profit < minimal_das_profit {
+        das_profit = minimal_das_profit;
+    }
     let owner_profit = total_profit - das_profit;
-    push_simple_output_sub_account_cell_with_custom_script(template, das_profit, owner_profit, SCRIPT_ARGS);
-    push_output_normal_cell(template, 100_000_000_000 - total_profit, OWNER);
+
+    (das_profit, owner_profit)
 }
 
-pub fn calculate_sub_account_custom_price(new_account_count: u64) -> u64 {
-    SUB_ACCOUNT_NEW_CUSTOM_PRICE * new_account_count
+pub fn push_common_output_cells_with_custom_script(template: &mut TemplateGenerator, account_count: u64) {
+    let minimal_das_profit = util::gen_sub_account_register_fee(SUB_ACCOUNT_NEW_PRICE, account_count);
+    let total_profit = util::gen_sub_account_register_fee(SUB_ACCOUNT_NEW_CUSTOM_PRICE, account_count);
+    let (das_profit, owner_profit) = get_profit_of_each_role(total_profit, account_count);
+    push_simple_output_sub_account_cell_with_custom_script(template, das_profit, owner_profit, SCRIPT_ARGS);
+    push_output_normal_cell(template, TOTAL_PAID - minimal_das_profit, OWNER);
 }

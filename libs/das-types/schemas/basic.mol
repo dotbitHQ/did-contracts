@@ -1,0 +1,49 @@
+array Uint8   [byte; 1];
+array Uint32  [byte; 4];
+array Uint64  [byte; 8];
+
+array Byte10 [byte; 10];
+
+// The following byte vector represents data of arbitrary length, whether it is utf-8 encoded or
+// another structure will depend on the meaning of the field.
+vector Bytes <byte>;
+
+vector BytesVec <Bytes>;
+
+// The following array represents a fixed-length 32-byte array that is always used to store hashes.
+array Hash [byte; 32];
+
+// This represents the Script type in CKB.
+table Script {
+    code_hash: Hash,
+    hash_type: byte,
+    args:      Bytes,
+}
+
+option ScriptOpt (Script);
+
+// This represents the OutPoint type in CKB, which is used to indicate the location of live cells.
+struct OutPoint {
+    tx_hash: Hash,
+    index:   Uint32,
+}
+
+table Data {
+    // when cell is in cell_deps its data will be stored at here
+    dep: DataEntityOpt,
+    // when cell is in inputs its data will be stored at here
+    old: DataEntityOpt,
+    // when cell is in outputs its data will be stored at here
+    new: DataEntityOpt,
+}
+
+table DataEntity {
+    // Indicates the cell in cell_deps/inputs/outputs to which this entity data belongs.
+    index: Uint32,
+    // Indicates the version of the entity data structure.
+    version: Uint32,
+    // Indicates the data of the entity.
+    entity: Bytes,
+}
+
+option DataEntityOpt (DataEntity);

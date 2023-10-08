@@ -13,6 +13,6 @@ mainnet = ["das-core/mainnet"]
 ckb-std = { workspace = true }
 hex = { workspace = true, default-features = false }
 das-core = { workspace = true, default-features = false }
-das-types = { workspace = true, default-features = false }
+das-types = { workspace = true, default-features = false, features = ["no_std"] }
 sparse-merkle-tree = { workspace = true }
 das-dynamic-libs = { path = "../../libs/das-dynamic-libs" }
