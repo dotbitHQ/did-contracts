@@ -2,6 +2,7 @@
 use alloc::boxed::Box;
 #[cfg(feature = "no_std")]
 use alloc::string::ToString;
+
 use molecule::error::{VerificationError, VerificationResult};
 
 use super::schemas::packed::*;

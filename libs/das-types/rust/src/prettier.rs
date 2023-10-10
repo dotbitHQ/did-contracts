@@ -8,7 +8,6 @@ use alloc::string::String;
 use alloc::vec::Vec;
 #[cfg(feature = "no_std")]
 use core::convert::TryFrom;
-
 #[cfg(not(feature = "no_std"))]
 use std::convert::TryFrom;
 
