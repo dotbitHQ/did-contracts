@@ -9,6 +9,7 @@ use ckb_std::ckb_types::packed::{CellOutput, Script};
 use ckb_std::high_level::{load_cell, QueryIter};
 use ckb_std::syscalls::SysError;
 use das_core::error::ScriptError;
+use das_core::general_witness_parser::get_cell_indexer;
 use das_core::witness_parser::WitnessesParser;
 use das_core::{code_to_error, debug};
 use das_types::packed::ActionData;
@@ -95,15 +96,15 @@ pub struct MyContract {
     pub action_data: ActionData,
     pub parser: WitnessesParser,
     pub this_script: Script,
-    pub input_inner_cells: Vec<CellWithMeta>,
-    pub input_outer_cells: Vec<CellWithMeta>,
-    pub output_inner_cells: Vec<CellWithMeta>,
-    pub output_outer_cells: Vec<CellWithMeta>,
+    pub input_inner_cells: Vec<CellWithMeta<'static>>,
+    pub input_outer_cells: Vec<CellWithMeta<'static>>,
+    pub output_inner_cells: Vec<CellWithMeta<'static>>,
+    pub output_outer_cells: Vec<CellWithMeta<'static>>,
 }
 
 #[derive(Clone, Debug)]
-pub struct CellWithMeta {
-    pub cell: CellOutput,
+pub struct CellWithMeta<'a> {
+    pub cell: &'a CellOutput,
     pub meta: CellMeta,
 }
 
@@ -113,12 +114,12 @@ pub struct CellMeta {
     pub source: Source,
 }
 
-impl CellWithMeta {
+impl <'a> CellWithMeta<'a> {
     pub fn get_meta(&self) -> CellMeta {
         self.meta
     }
 
-    pub fn new(index: usize, source: Source, cell: CellOutput) -> Self {
+    pub fn new(index: usize, source: Source, cell: &'a CellOutput) -> Self {
         Self {
             meta: CellMeta { index, source },
             cell,
@@ -126,7 +127,7 @@ impl CellWithMeta {
     }
 }
 
-impl Deref for CellWithMeta {
+impl <'a> Deref for CellWithMeta<'a> {
     type Target = CellOutput;
 
     fn deref(&self) -> &Self::Target {
@@ -142,8 +143,9 @@ impl FSMContract for MyContract {
 
 impl MyContract {
     pub fn new(parser: WitnessesParser, action_data: ActionData) -> Result<Self, Box<dyn ScriptError>> {
-        fn load_cell_with_meta(index: usize, source: Source) -> Result<CellWithMeta, SysError> {
-            load_cell(index, source).map(|cell| CellWithMeta::new(index, source, cell))
+        fn load_cell_with_meta(index: usize, source: Source) -> Result<CellWithMeta<'static>, SysError> {
+            load_cell(index, source)
+                .map(|cell| CellWithMeta::new(index, source, Box::leak(cell.into())))
         }
         let this_script = ckb_std::high_level::load_script()?;
         let (input_inner_cells, input_outer_cells): (Vec<_>, Vec<_>) =
