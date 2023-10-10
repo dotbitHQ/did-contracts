@@ -1,17 +1,22 @@
 use alloc::borrow::ToOwned;
 use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
+use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
 use core::cell::OnceCell;
+use core::ops::Deref;
+use core::slice::SlicePattern;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::packed::{CellOutput, Script};
 use ckb_std::high_level::{
-    load_cell, load_cell_lock, load_cell_lock_hash, load_cell_type, load_cell_type_hash, QueryIter,
+    load_cell, load_cell_data, load_cell_lock, load_cell_lock_hash, load_cell_type, load_cell_type_hash, QueryIter,
 };
-use ckb_std::syscalls::{load_cell_data, load_witness, SysError};
+use ckb_std::syscalls::{load_witness, SysError};
 use das_types::constants::{DataType, WITNESS_HEADER_BYTES, WITNESS_TYPE_BYTES};
+use das_types::packed::{ConfigList, Data};
+use molecule::bytes::Bytes;
 use molecule::prelude::Entity;
 
 use crate::error::{ErrorCode, ScriptError};
@@ -24,28 +29,28 @@ pub struct GeneralWitnessParser {
     hashes: BTreeMap<[u8; 32], usize>,
 }
 
-struct PartialWitness {
-    buf: Vec<u8>,
-    actual_size: usize,
+pub struct PartialWitness {
+    pub buf: Vec<u8>,
+    pub actual_size: usize,
 }
 
-struct CompleteWitness {
-    buf: Vec<u8>,
-    parsed: bool,
+pub struct CompleteWitness {
+    pub buf: Vec<u8>,
+    pub parsed: bool,
 }
 
-struct WithMeta<T> {
-    item: T,
-    index: usize,
-    source: Source,
+pub struct WithMeta<T> {
+    pub item: T,
+    pub index: usize,
+    pub source: Source,
 }
 
-enum Witness {
+pub enum Witness {
     Loading(WithMeta<PartialWitness>),
     Loaded(WithMeta<CompleteWitness>),
 }
 
-trait FromWitness {
+pub trait FromWitness {
     type Error;
     fn from_witness(witness: &Witness) -> Result<Self, Self::Error>
     where
@@ -55,16 +60,17 @@ trait FromWitness {
 }
 
 pub struct ParsedWithHash<T> {
-    result: T,
-    hash: Option<[u8; 32]>,
+    pub result: T,
+    pub hash: Option<[u8; 32]>,
 }
 
-#[allow(dead_code)]
-pub enum Condition {
-    LockIs(Script),
-    TypeIs(Script),
-    LockHash([u8; 32]),
-    TypeHash([u8; 32]),
+pub enum Condition<'a> {
+    LockIs(&'a Script),
+    TypeIs(&'a Script),
+    CodeHashIs(&'a [u8; 32]),
+    LockHash(&'a [u8; 32]),
+    TypeHash(&'a [u8; 32]),
+    DataIs(&'a [u8]),
 }
 
 // enum CacheState<T> {
@@ -131,7 +137,7 @@ impl CellIndexer {
             });
 
             let mut data = [0; 32];
-            let res = load_cell_data(&mut data, 0, item.index, item.source);
+            let res = ckb_std::syscalls::load_cell_data(&mut data, 0, item.index, item.source);
             match res {
                 Ok(_) | Err(SysError::LengthNotEnough(_)) => {
                     self.by_hash
@@ -230,7 +236,12 @@ pub fn get_cell_indexer() -> &'static mut CellIndexer {
 }
 
 impl<T> ParsedWithHash<T> {
-    pub fn verify_at(&self, source: Source, index: usize, conditions: &[Condition]) -> Result<&T, Box<dyn ScriptError>> {
+    pub fn verify_at(
+        &self,
+        source: Source,
+        index: usize,
+        conditions: &[Condition],
+    ) -> Result<&T, Box<dyn ScriptError>> {
         for condition in conditions {
             match condition {
                 Condition::LockIs(script) => {
@@ -245,7 +256,7 @@ impl<T> ParsedWithHash<T> {
                 }
                 Condition::LockHash(h) => {
                     das_assert!(
-                        *h == load_cell_lock_hash(index, source)?,
+                        *h == &load_cell_lock_hash(index, source)?,
                         ErrorCode::WitnessDataHashOrTypeMissMatch,
                         "Cell {} in {:?} does not have lock hash {:?}",
                         index,
@@ -263,14 +274,37 @@ impl<T> ParsedWithHash<T> {
                         script
                     )
                 }
+                Condition::CodeHashIs(h) => {
+                    das_assert!(
+                        *h == load_cell_type(index, source)?
+                            .unwrap_or_default()
+                            .code_hash()
+                            .as_slice(),
+                        ErrorCode::WitnessDataHashOrTypeMissMatch,
+                        "Cell {} in {:?} does not have type id {:?}",
+                        index,
+                        source,
+                        h
+                    )
+                }
                 Condition::TypeHash(h) => {
                     das_assert!(
-                        *h == load_cell_type_hash(index, source)?.unwrap_or_default(),
+                        *h == &load_cell_type_hash(index, source)?.unwrap_or_default(),
                         ErrorCode::WitnessDataHashOrTypeMissMatch,
                         "Cell {} in {:?} does not have type hash {:?}",
                         index,
                         source,
                         h
+                    )
+                }
+                Condition::DataIs(d) => {
+                    das_assert!(
+                        *d == load_cell_data(index, source)?.as_slice(),
+                        ErrorCode::WitnessCannotBeVerified,
+                        "Data of Cell {} in {:?} does not match the hash({:?}) of the witness",
+                        index,
+                        source,
+                        d
                     )
                 }
             }
@@ -280,37 +314,153 @@ impl<T> ParsedWithHash<T> {
     }
 
     pub fn verify_unique(&self, source: Source, conditions: &[Condition]) -> Result<&T, Box<dyn ScriptError>> {
-        let index = match &self.hash {
-            None => return Err(code_to_error!(ErrorCode::WitnessCannotBeVerified)),
-            Some(h) => get_cell_indexer().find_by_hash(h, source, CellField::Data)
-        }
-        .ok_or(code_to_error!(ErrorCode::WitnessDataHashOrTypeMissMatch))
-        .and_then(|arr| if arr.len() == 1 {
-            Ok(arr[0])
-        } else {
-            Err(code_to_error!(ErrorCode::WitnessDataHashOrTypeMissMatch))
-        })?;
+        let hash_override = conditions.iter().find(|c| match c {
+            Condition::DataIs(_) => true,
+            _ => false,
+        });
+
+        let hash = match hash_override {
+            Some(Condition::DataIs(d)) => <&[u8; 32]>::try_from(*d).unwrap(),
+            _ => match &self.hash {
+                Some(h) => h,
+                None => return Err(code_to_error!(ErrorCode::WitnessCannotBeVerified)),
+            },
+        };
+
+        let index = get_cell_indexer()
+            .find_by_hash(hash, source, CellField::Data)
+            .ok_or(code_to_error!(ErrorCode::WitnessDataHashOrTypeMissMatch))
+            .and_then(|arr| {
+                if arr.len() == 1 {
+                    Ok(arr[0])
+                } else {
+                    Err(code_to_error!(ErrorCode::WitnessDataHashOrTypeMissMatch))
+                }
+            })?;
+        // let index = match &self.hash {
+        //     None => return Err(code_to_error!(ErrorCode::WitnessCannotBeVerified)),
+        //     Some(h) => get_cell_indexer().find_by_hash(h, source, CellField::Data),
+        // }
+        // .ok_or(code_to_error!(ErrorCode::WitnessDataHashOrTypeMissMatch))
+        // .and_then(|arr| {
+        //     if arr.len() == 1 {
+        //         Ok(arr[0])
+        //     } else {
+        //         Err(code_to_error!(ErrorCode::WitnessDataHashOrTypeMissMatch))
+        //     }
+        // })?;
         // let index = cell_found.index;
-        
+
         self.verify_at(source, index, conditions)
     }
 
     pub fn verify_any(&self, source: Source, conditions: &[Condition]) -> Result<&T, Box<dyn ScriptError>> {
-        let indices = match &self.hash {
-            None => return Err(code_to_error!(ErrorCode::WitnessCannotBeVerified)),
-            Some(h) => get_cell_indexer().find_by_hash(h, source, CellField::Data)
-        }
-        .ok_or(code_to_error!(ErrorCode::WitnessDataHashOrTypeMissMatch))?;
+        let hash_override = conditions.iter().find(|c| match c {
+            Condition::DataIs(_) => true,
+            _ => false,
+        });
+
+        let hash = match hash_override {
+            Some(Condition::DataIs(d)) => <&[u8; 32]>::try_from(*d).unwrap(),
+            _ => match &self.hash {
+                Some(h) => h,
+                None => return Err(code_to_error!(ErrorCode::WitnessCannotBeVerified)),
+            },
+        };
+
+        let indices = get_cell_indexer()
+            .find_by_hash(hash, source, CellField::Data)
+            .ok_or(code_to_error!(ErrorCode::WitnessDataHashOrTypeMissMatch))?;
         if indices.len() == 0 {
             return Err(code_to_error!(ErrorCode::WitnessDataHashOrTypeMissMatch));
         }
         for i in indices {
             match self.verify_at(source, *i, conditions) {
                 Ok(res) => return Ok(res),
-                Err(_) => continue
+                Err(_) => continue,
             }
         }
         Err(code_to_error!(ErrorCode::WitnessDataHashOrTypeMissMatch))
+    }
+}
+
+pub struct DataEntity<T> {
+    pub index: usize,
+    pub version: usize,
+    pub entity: T,
+}
+pub struct EntityWrapper<T> {
+    pub old: Option<DataEntity<T>>,
+    pub new: Option<DataEntity<T>>,
+    pub dep: Option<DataEntity<T>>,
+}
+
+pub struct ConfigMap(BTreeMap<String, Bytes>);
+impl Deref for ConfigMap {
+    type Target = BTreeMap<String, Bytes>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<ConfigList> for ConfigMap {
+    fn from(value: ConfigList) -> Self {
+        Self(
+            value
+                .into_iter()
+                .map(|e| {
+                    (
+                        String::from_utf8(e.key().as_slice().to_vec()).unwrap(),
+                        e.value().raw_data(),
+                    )
+                })
+                .collect(),
+        )
+    }
+}
+
+impl<T> FromWitness for EntityWrapper<T>
+where
+    T: Entity + 'static,
+{
+    type Error = Box<dyn ScriptError>;
+    fn from_witness(witness: &Witness) -> Result<Self, Box<dyn ScriptError>> {
+        if let Witness::Loaded(WithMeta { item, .. }) = witness {
+            let data = Data::from_compatible_slice(&item.buf[WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES..])
+                .map_err(|_| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
+            let new = data.new().to_opt().map(|e| DataEntity {
+                index: u32::from(e.index()) as usize,
+                version: u32::from_le_bytes(e.version().as_slice().try_into().unwrap()) as usize,
+                entity: T::from_compatible_slice(e.entity().raw_data().as_slice()).unwrap(),
+            });
+            let old = data.old().to_opt().map(|e| DataEntity {
+                index: u32::from_le_bytes(e.index().as_slice().try_into().unwrap()) as usize,
+                version: u32::from_le_bytes(e.version().as_slice().try_into().unwrap()) as usize,
+                entity: T::from_compatible_slice(e.entity().raw_data().as_slice()).unwrap(),
+            });
+            let dep = data.dep().to_opt().map(|e| DataEntity {
+                index: u32::from_le_bytes(e.index().as_slice().try_into().unwrap()) as usize,
+                version: u32::from_le_bytes(e.version().as_slice().try_into().unwrap()) as usize,
+                entity: T::from_compatible_slice(e.entity().raw_data().as_slice()).unwrap(),
+            });
+            Ok(Self { old, new, dep })
+        } else {
+            panic!("Witness is still parsing")
+        }
+    }
+
+    fn parsable(witness: &Witness) -> bool {
+        let type_constant = T::get_type_constant() as u32;
+        let header_bytes = match witness {
+            Witness::Loaded(WithMeta { item, .. }) => {
+                &item.buf[WITNESS_HEADER_BYTES..WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES]
+            }
+            Witness::Loading(WithMeta { item, .. }) => {
+                &item.buf[WITNESS_HEADER_BYTES..WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES]
+            }
+        };
+        type_constant == u32::from_le_bytes(header_bytes.try_into().unwrap())
     }
 }
 
@@ -319,16 +469,8 @@ where
     T: Entity + 'static,
 {
     type Error = Box<dyn ScriptError>;
-    fn from_witness(witness: &Witness) -> Result<Self, Box<dyn ScriptError>> {
+    default fn from_witness(witness: &Witness) -> Result<Self, Box<dyn ScriptError>> {
         if let Witness::Loaded(WithMeta { item, .. }) = witness {
-            // let type_constant = T::get_type_constant();
-            // das_assert!(
-            //     Self::parsable(witness),
-            //     ErrorCode::WitnessDataDecodingError,
-            //     "The data type constant: {:?} and the actual molecule structure: {} does not match",
-            //     type_constant,
-            //     T::NAME
-            // );
             Ok(
                 T::from_compatible_slice(&item.buf[WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES..])
                     .map_err(|_| code_to_error!(ErrorCode::WitnessDataDecodingError))?,
@@ -338,26 +480,17 @@ where
         }
     }
 
-    fn parsable(witness: &Witness) -> bool {
+    default fn parsable(witness: &Witness) -> bool {
         let type_constant = T::get_type_constant() as u32;
-        match witness {
+        let header_bytes = match witness {
             Witness::Loaded(WithMeta { item, .. }) => {
-                type_constant
-                    == u32::from_be_bytes(
-                        item.buf[WITNESS_HEADER_BYTES..WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES]
-                            .try_into()
-                            .unwrap(),
-                    )
+                &item.buf[WITNESS_HEADER_BYTES..WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES]
             }
             Witness::Loading(WithMeta { item, .. }) => {
-                type_constant
-                    == u32::from_be_bytes(
-                        item.buf[WITNESS_HEADER_BYTES..WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES]
-                            .try_into()
-                            .unwrap(),
-                    )
+                &item.buf[WITNESS_HEADER_BYTES..WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES]
             }
-        }
+        };
+        type_constant == u32::from_le_bytes(header_bytes.try_into().unwrap())
     }
 }
 
@@ -432,8 +565,7 @@ impl GeneralWitnessParser {
         Ok(())
     }
 
-    #[allow(dead_code)]
-    fn parse_witness<T: FromWitness<Error = impl Into<Box<dyn ScriptError>>> + 'static>(
+    pub fn parse_witness<T: FromWitness<Error = impl Into<Box<dyn ScriptError>>> + 'static>(
         &mut self,
         index: usize,
     ) -> Result<ParsedWithHash<T>, Box<dyn ScriptError>> {
@@ -447,8 +579,7 @@ impl GeneralWitnessParser {
         Ok(res)
     }
 
-    #[allow(dead_code)]
-    fn find<T: FromWitness<Error = impl Into<Box<dyn ScriptError>>> + 'static>(
+    pub fn find<T: FromWitness<Error = impl Into<Box<dyn ScriptError>>> + 'static>(
         &mut self,
     ) -> Result<Vec<ParsedWithHash<T>>, Box<dyn ScriptError>> {
         let mut res = Vec::new();
@@ -461,8 +592,26 @@ impl GeneralWitnessParser {
         Ok(res)
     }
 
-    #[allow(dead_code)]
-    fn find_by_hash<T: FromWitness<Error = impl Into<Box<dyn ScriptError>>> + 'static>(
+    pub fn find_unique<T: FromWitness<Error = impl Into<Box<dyn ScriptError>>> + 'static>(
+        &mut self,
+    ) -> Result<ParsedWithHash<T>, Box<dyn ScriptError>> {
+        let mut res = Vec::new();
+        for i in 0..self.witnesses.len() {
+            if !T::parsable(&self.witnesses[i]) {
+                continue;
+            }
+            res.push(self.parse_witness(i)?);
+        }
+        das_assert!(
+            res.len() == 1,
+            ErrorCode::WitnessCannotBeVerified,
+            "Multiple witness found"
+        );
+
+        Ok(res.pop().unwrap())
+    }
+
+    pub fn find_by_hash<T: FromWitness<Error = impl Into<Box<dyn ScriptError>>> + 'static>(
         &mut self,
         hash: &[u8; 32],
     ) -> Result<Option<ParsedWithHash<T>>, Box<dyn ScriptError>> {
@@ -566,7 +715,7 @@ where
             "ConfigCellCharSetTr" => DataType::ConfigCellCharSetTr,
             "ConfigCellCharSetTh" => DataType::ConfigCellCharSetTh,
             "ConfigCellCharSetVi" => DataType::ConfigCellCharSetVi,
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 }
