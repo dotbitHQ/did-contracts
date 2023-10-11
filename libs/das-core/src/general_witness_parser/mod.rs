@@ -5,6 +5,7 @@ use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
 use core::cell::OnceCell;
+use core::marker::PhantomData;
 use core::ops::Deref;
 use core::slice::SlicePattern;
 
@@ -14,7 +15,7 @@ use ckb_std::high_level::{
     load_cell, load_cell_data, load_cell_lock, load_cell_lock_hash, load_cell_type, load_cell_type_hash, QueryIter,
 };
 use ckb_std::syscalls::{load_witness, SysError};
-use das_types::constants::{DataType, WITNESS_HEADER_BYTES, WITNESS_TYPE_BYTES, WITNESS_HEADER};
+use das_types::constants::{DataType, WITNESS_HEADER, WITNESS_HEADER_BYTES, WITNESS_TYPE_BYTES};
 use das_types::packed::{ConfigList, Data};
 use molecule::bytes::Bytes;
 use molecule::prelude::Entity;
@@ -53,12 +54,9 @@ pub struct WithMeta<T> {
     pub meta: Meta,
 }
 
-impl <T> WithMeta<T> {
-    pub fn new(item: T, meta: Meta) -> Self{
-        Self {
-            item,
-            meta
-        }
+impl<T> WithMeta<T> {
+    pub fn new(item: T, meta: Meta) -> Self {
+        Self { item, meta }
     }
 
     pub fn get_meta(&self) -> &Meta {
@@ -92,7 +90,7 @@ pub trait FromWitness {
 
     fn parsable(witness: &Witness) -> bool;
 
-    fn hash(&self) -> Option<[u8;32]> {
+    fn hash(&self) -> Option<[u8; 32]> {
         None
     }
 }
@@ -438,10 +436,11 @@ pub struct DataEntity<T> {
     pub entity: T,
 }
 #[derive(Clone, Debug)]
-pub struct EntityWrapper<T> {
+pub struct EntityWrapper<T, H = ForDefault> {
     pub old: Option<DataEntity<T>>,
     pub new: Option<DataEntity<T>>,
     pub dep: Option<DataEntity<T>>,
+    _marker: PhantomData<H>,
 }
 
 #[derive(Clone, Debug)]
@@ -470,9 +469,81 @@ impl From<ConfigList> for ConfigMap {
     }
 }
 
-impl<T> FromWitness for EntityWrapper<T>
+pub struct ForOld();
+pub struct ForNew();
+pub struct ForDep();
+pub struct ForDefault();
+
+impl<T, A> EntityWrapper<T, A> {
+    pub fn into<B>(self) -> EntityWrapper<T, B> {
+        EntityWrapper {
+            old: self.old,
+            new: self.new,
+            dep: self.dep,
+            _marker: Default::default(),
+        }
+    }
+
+    pub fn from<B>(value: EntityWrapper<T, B>) -> Self {
+        Self {
+            old: value.old,
+            new: value.new,
+            dep: value.dep,
+            _marker: Default::default(),
+        }
+    }
+}
+
+impl<T> EntityWrapper<T, ForOld> {
+    pub fn into_inner(self) -> Option<T> {
+        self.old.map(|i| i.entity)
+    }
+}
+
+impl<T> EntityWrapper<T, ForNew> {
+    pub fn into_inner(self) -> Option<T> {
+        self.new.map(|i| i.entity)
+    }
+}
+
+impl<T> EntityWrapper<T, ForDep> {
+    pub fn into_inner(self) -> Option<T> {
+        self.dep.map(|i| i.entity)
+    }
+}
+
+trait GenHash {
+    fn gen_hash<T: Entity, H>(e: &EntityWrapper<T, H>) -> Option<[u8; 32]>;
+}
+
+impl GenHash for ForOld {
+    fn gen_hash<T: Entity, H>(e: &EntityWrapper<T, H>) -> Option<[u8; 32]> {
+        e.old.as_ref().map(|i| i.entity.blake2b_256())
+    }
+}
+
+impl GenHash for ForNew {
+    fn gen_hash<T: Entity, H>(e: &EntityWrapper<T, H>) -> Option<[u8; 32]> {
+        e.new.as_ref().map(|i| i.entity.blake2b_256())
+    }
+}
+
+impl GenHash for ForDep {
+    fn gen_hash<T: Entity, H>(e: &EntityWrapper<T, H>) -> Option<[u8; 32]> {
+        e.dep.as_ref().map(|i| i.entity.blake2b_256())
+    }
+}
+
+impl GenHash for ForDefault {
+    fn gen_hash<T: Entity, H>(_e: &EntityWrapper<T, H>) -> Option<[u8; 32]> {
+        None
+    }
+}
+
+impl<T, H> FromWitness for EntityWrapper<T, H>
 where
     T: Entity + 'static,
+    H: GenHash,
 {
     type Error = Box<dyn ScriptError>;
     fn from_witness(witness: &Witness) -> Result<Self, Box<dyn ScriptError>> {
@@ -494,7 +565,12 @@ where
                 version: u32::from_le_bytes(e.version().as_slice().try_into().unwrap()) as usize,
                 entity: T::from_compatible_slice(e.entity().raw_data().as_slice()).unwrap(),
             });
-            Ok(Self { old, new, dep })
+            Ok(Self {
+                old,
+                new,
+                dep,
+                _marker: Default::default(),
+            })
         } else {
             panic!("Witness is still parsing")
         }
@@ -503,14 +579,15 @@ where
     fn parsable(witness: &Witness) -> bool {
         let type_constant = T::get_type_constant() as u32;
         let header_bytes = match witness {
-            Witness::Loaded(WithMeta { item, .. }) => {
-                &item.buf[0..WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES]
-            }
-            Witness::Loading(WithMeta { item, .. }) => {
-                &item.buf[0..WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES]
-            }
+            Witness::Loaded(WithMeta { item, .. }) => &item.buf[0..WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES],
+            Witness::Loading(WithMeta { item, .. }) => &item.buf[0..WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES],
         };
-        &header_bytes[0..WITNESS_HEADER_BYTES] == &WITNESS_HEADER && type_constant == u32::from_le_bytes(header_bytes[WITNESS_HEADER_BYTES..].try_into().unwrap())
+        &header_bytes[0..WITNESS_HEADER_BYTES] == &WITNESS_HEADER
+            && type_constant == u32::from_le_bytes(header_bytes[WITNESS_HEADER_BYTES..].try_into().unwrap())
+    }
+
+    fn hash(&self) -> Option<[u8; 32]> {
+        H::gen_hash(self)
     }
 }
 
@@ -533,14 +610,15 @@ where
     default fn parsable(witness: &Witness) -> bool {
         let type_constant = T::get_type_constant() as u32;
         let header_bytes = match witness {
-            Witness::Loaded(WithMeta { item, .. }) => {
-                &item.buf[0..WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES]
-            }
-            Witness::Loading(WithMeta { item, .. }) => {
-                &item.buf[0..WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES]
-            }
+            Witness::Loaded(WithMeta { item, .. }) => &item.buf[0..WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES],
+            Witness::Loading(WithMeta { item, .. }) => &item.buf[0..WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES],
         };
-        &header_bytes[0..WITNESS_HEADER_BYTES] == &WITNESS_HEADER && type_constant == u32::from_le_bytes(header_bytes[WITNESS_HEADER_BYTES..].try_into().unwrap())
+        &header_bytes[0..WITNESS_HEADER_BYTES] == &WITNESS_HEADER
+            && type_constant == u32::from_le_bytes(header_bytes[WITNESS_HEADER_BYTES..].try_into().unwrap())
+    }
+
+    default fn hash(&self) -> Option<[u8; 32]> {
+        Some(self.blake2b_256())
     }
 }
 
@@ -564,8 +642,8 @@ impl Witness {
                     },
                     meta: parsing_witness.meta,
                 });
-            },
-            _ => ()
+            }
+            _ => (),
         };
 
         Ok(())
@@ -598,10 +676,11 @@ impl Witness {
         //     }
         // };
         let res = T::from_witness(self).map_err(|e| e.into())?;
-        use core::any::Any;
-        let hash = (&res as &dyn Any)
-            .downcast_ref::<&dyn Blake2BHash>()
-            .map(|res| res.blake2b_256());
+        let hash = res.hash();
+        // use core::any::Any;
+        // let hash = (&res as &dyn Any)
+        //     .downcast_ref::<&dyn Blake2BHash>()
+        //     .map(|res| res.blake2b_256());
         Ok(ParsedWithHash { result: res, hash })
     }
 }
@@ -645,22 +724,24 @@ impl GeneralWitnessParser {
     }
 
     pub fn get_das_witness(&mut self, index: usize) -> Result<&WithMeta<CompleteWitness>, Box<dyn ScriptError>> {
-        let res = self.witnesses.iter_mut().filter(|w| {
-            match w {
+        let res = self
+            .witnesses
+            .iter_mut()
+            .filter(|w| match w {
                 Witness::Loaded(w) => w.buf.starts_with(&WITNESS_HEADER[..]),
-                Witness::Loading(w) => w.buf.starts_with(&WITNESS_HEADER[..])
-            }
-        }).nth(index);
-        
+                Witness::Loading(w) => w.buf.starts_with(&WITNESS_HEADER[..]),
+            })
+            .nth(index);
+
         match res {
             Some(w) => {
                 w.load_complete()?;
                 match w {
                     Witness::Loaded(res) => Ok(res),
-                    _ => unreachable!()
+                    _ => unreachable!(),
                 }
-            },
-            None => Err(code_to_error!(ErrorCode::IndexOutOfBound))
+            }
+            None => Err(code_to_error!(ErrorCode::IndexOutOfBound)),
         }
     }
 
@@ -678,15 +759,17 @@ impl GeneralWitnessParser {
         Ok(res)
     }
 
-    pub fn parse_for_cell<T:  FromWitness<Error = impl Into<Box<dyn ScriptError>>> + 'static>(&mut self, meta: Meta) -> Result<ParsedWithHash<T>, Box<dyn ScriptError>> {
+    pub fn parse_for_cell<T: FromWitness<Error = impl Into<Box<dyn ScriptError>>> + 'static>(
+        &mut self,
+        meta: &Meta,
+    ) -> Result<ParsedWithHash<T>, Box<dyn ScriptError>> {
         let mut data = [0; 32];
         let res = ckb_std::syscalls::load_cell_data(&mut data, 0, meta.index, meta.source)?;
         if res != 32 {
-            return Err(code_to_error!(ErrorCode::InvalidCellData))
+            return Err(code_to_error!(ErrorCode::InvalidCellData));
         }
 
         self.find_by_hash(&data)
-
     }
 
     pub fn find<T: FromWitness<Error = impl Into<Box<dyn ScriptError>>> + 'static>(

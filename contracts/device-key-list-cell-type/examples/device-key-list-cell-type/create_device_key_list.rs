@@ -3,13 +3,14 @@ use alloc::boxed::Box;
 use ckb_std::ckb_types::packed::Script;
 use das_core::constants::das_lock;
 use das_core::error::ScriptError;
+use das_core::general_witness_parser::{get_witness_parser, EntityWrapper, ForNew};
 use das_core::{assert, code_to_error};
 use das_types::packed::{DeviceKeyList, DeviceKeyListCellData};
 use device_key_list_cell_type::error::ErrorCode;
 use molecule::prelude::Entity;
 
 use crate::helpers::ToNum;
-use crate::traits::{Action, GetCellWitness, Rule};
+use crate::traits::{Action, Rule};
 
 pub fn action() -> Action {
     let mut create_action = Action::new("create_device_key_list");
@@ -26,9 +27,11 @@ pub fn action() -> Action {
 
     create_action.add_verification(Rule::new("Verify key length", |contract| {
         let output_cell_meta = contract.get_output_inner_cells()[0].get_meta();
-        let key_list = contract
-            .get_parser()
-            .get_cell_witness::<DeviceKeyListCellData>(output_cell_meta)?;
+        let key_list = get_witness_parser()
+            .parse_for_cell::<EntityWrapper<DeviceKeyListCellData, ForNew>>(output_cell_meta)?
+            .result
+            .into_inner()
+            .unwrap();
         assert!(
             key_list.keys().item_count() == 1,
             ErrorCode::KeyListNumberIncorrect,
@@ -39,9 +42,11 @@ pub fn action() -> Action {
 
     create_action.add_verification(Rule::new("The lock arg of key list should be ", |contract| {
         let output_cell_meta = contract.get_output_inner_cells()[0].get_meta();
-        let key_list = contract
-            .get_parser()
-            .get_cell_witness::<DeviceKeyListCellData>(output_cell_meta)?;
+        let key_list = get_witness_parser()
+            .parse_for_cell::<EntityWrapper<DeviceKeyListCellData, ForNew>>(output_cell_meta)?
+            .result
+            .into_inner()
+            .unwrap();
         verify_key_list_lock_arg(&contract.get_output_inner_cells()[0].lock(), key_list.keys())?;
         Ok(())
     }));
@@ -69,9 +74,11 @@ pub fn action() -> Action {
 
     create_action.add_verification(Rule::new("Verify refund lock", |contract| {
         let output_cell_meta = contract.get_output_inner_cells()[0].get_meta();
-        let key_list = contract
-            .get_parser()
-            .get_cell_witness::<DeviceKeyListCellData>(output_cell_meta)?;
+        let key_list = get_witness_parser()
+            .parse_for_cell::<EntityWrapper<DeviceKeyListCellData, ForNew>>(output_cell_meta)?
+            .result
+            .into_inner()
+            .unwrap();
         let refund_lock = key_list.refund_lock();
         assert!(
             contract
