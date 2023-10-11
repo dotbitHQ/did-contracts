@@ -23,28 +23,62 @@ use crate::error::{ErrorCode, ScriptError};
 use crate::traits::Blake2BHash;
 // use crate::util::find_only_cell_by_type_id;
 
-#[derive(Default)]
+#[derive(Default, Clone, Debug)]
 pub struct GeneralWitnessParser {
     witnesses: Vec<Witness>,
     hashes: BTreeMap<[u8; 32], usize>,
 }
 
+#[derive(Clone, Debug)]
 pub struct PartialWitness {
     pub buf: Vec<u8>,
     pub actual_size: usize,
 }
 
+#[derive(Clone, Debug)]
 pub struct CompleteWitness {
     pub buf: Vec<u8>,
     pub parsed: bool,
 }
 
-pub struct WithMeta<T> {
-    pub item: T,
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct Meta {
     pub index: usize,
     pub source: Source,
 }
 
+#[derive(Clone, Debug)]
+pub struct WithMeta<T> {
+    pub item: T,
+    pub meta: Meta,
+}
+
+impl <T> WithMeta<T> {
+    pub fn new(item: T, meta: Meta) -> Self{
+        Self {
+            item,
+            meta
+        }
+    }
+
+    pub fn get_meta(&self) -> &Meta {
+        &self.meta
+    }
+
+    pub fn get_item(&self) -> &T {
+        &self.item
+    }
+}
+
+impl<T> Deref for WithMeta<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.item
+    }
+}
+
+#[derive(Clone, Debug)]
 pub enum Witness {
     Loading(WithMeta<PartialWitness>),
     Loaded(WithMeta<CompleteWitness>),
@@ -59,11 +93,13 @@ pub trait FromWitness {
     fn parsable(witness: &Witness) -> bool;
 }
 
+#[derive(Clone, Debug)]
 pub struct ParsedWithHash<T> {
     pub result: T,
     pub hash: Option<[u8; 32]>,
 }
 
+#[derive(Clone, Debug)]
 pub enum Condition<'a> {
     LockIs(&'a Script),
     TypeIs(&'a Script),
@@ -95,7 +131,7 @@ pub enum CellField {
 
 type SourceRepr = u64;
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct CellIndexer {
     // pub data: BTreeMap<(usize, u64), Vec<u8>>,
     // pub type_hash: BTreeMap<(usize, u64), Option<[u8;32]>>,
@@ -111,39 +147,38 @@ impl CellIndexer {
             let cell = load_cell(index, source)?;
             Ok(WithMeta {
                 item: cell,
-                index,
-                source,
+                meta: Meta { index, source },
             })
         };
         let mut index_fn = |item: WithMeta<CellOutput>| {
             self.by_hash
                 .entry((
                     item.item.lock().code_hash().as_slice().try_into().unwrap(),
-                    item.source as u64,
+                    item.meta.source as u64,
                     CellField::Lock,
                 ))
-                .and_modify(|v| v.push(item.index))
-                .or_insert(vec![item.index]);
+                .and_modify(|v| v.push(item.meta.index))
+                .or_insert(vec![item.meta.index]);
 
             item.item.type_().to_opt().map(|script| {
                 self.by_hash
                     .entry((
                         script.code_hash().as_slice().try_into().unwrap(),
-                        item.source as u64,
+                        item.meta.source as u64,
                         CellField::Type,
                     ))
-                    .and_modify(|v| v.push(item.index))
-                    .or_insert(vec![item.index])
+                    .and_modify(|v| v.push(item.meta.index))
+                    .or_insert(vec![item.meta.index])
             });
 
             let mut data = [0; 32];
-            let res = ckb_std::syscalls::load_cell_data(&mut data, 0, item.index, item.source);
+            let res = ckb_std::syscalls::load_cell_data(&mut data, 0, item.meta.index, item.meta.source);
             match res {
                 Ok(_) | Err(SysError::LengthNotEnough(_)) => {
                     self.by_hash
-                        .entry((data, item.source as u64, CellField::Data))
-                        .and_modify(|v| v.push(item.index))
-                        .or_insert(vec![item.index]);
+                        .entry((data, item.meta.source as u64, CellField::Data))
+                        .and_modify(|v| v.push(item.meta.index))
+                        .or_insert(vec![item.meta.index]);
                 }
                 _ => (),
             }
@@ -222,7 +257,11 @@ impl CellIndexer {
 pub fn get_witness_parser() -> &'static mut GeneralWitnessParser {
     static mut WITNESS_PARSER: OnceCell<GeneralWitnessParser> = OnceCell::new();
     unsafe {
-        WITNESS_PARSER.get_or_init(|| Default::default());
+        WITNESS_PARSER.get_or_init(|| {
+            let mut res = GeneralWitnessParser::default();
+            res.init().unwrap();
+            res
+        });
         WITNESS_PARSER.get_mut().unwrap()
     }
 }
@@ -230,7 +269,11 @@ pub fn get_witness_parser() -> &'static mut GeneralWitnessParser {
 pub fn get_cell_indexer() -> &'static mut CellIndexer {
     static mut CELL_INDEXER: OnceCell<CellIndexer> = OnceCell::new();
     unsafe {
-        CELL_INDEXER.get_or_init(|| Default::default());
+        CELL_INDEXER.get_or_init(|| {
+            let mut res = CellIndexer::default();
+            res.init().unwrap();
+            res
+        });
         CELL_INDEXER.get_mut().unwrap()
     }
 }
@@ -384,17 +427,20 @@ impl<T> ParsedWithHash<T> {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct DataEntity<T> {
     pub index: usize,
     pub version: usize,
     pub entity: T,
 }
+#[derive(Clone, Debug)]
 pub struct EntityWrapper<T> {
     pub old: Option<DataEntity<T>>,
     pub new: Option<DataEntity<T>>,
     pub dep: Option<DataEntity<T>>,
 }
 
+#[derive(Clone, Debug)]
 pub struct ConfigMap(BTreeMap<String, Bytes>);
 impl Deref for ConfigMap {
     type Target = BTreeMap<String, Bytes>;
@@ -454,13 +500,13 @@ where
         let type_constant = T::get_type_constant() as u32;
         let header_bytes = match witness {
             Witness::Loaded(WithMeta { item, .. }) => {
-                &item.buf[WITNESS_HEADER_BYTES..WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES]
+                &item.buf[0..WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES]
             }
             Witness::Loading(WithMeta { item, .. }) => {
-                &item.buf[WITNESS_HEADER_BYTES..WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES]
+                &item.buf[0..WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES]
             }
         };
-        type_constant == u32::from_le_bytes(header_bytes.try_into().unwrap())
+        &header_bytes[0..WITNESS_HEADER_BYTES] == "DAS".as_bytes() && type_constant == u32::from_le_bytes(header_bytes[WITNESS_HEADER_BYTES..].try_into().unwrap())
     }
 }
 
@@ -484,22 +530,19 @@ where
         let type_constant = T::get_type_constant() as u32;
         let header_bytes = match witness {
             Witness::Loaded(WithMeta { item, .. }) => {
-                &item.buf[WITNESS_HEADER_BYTES..WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES]
+                &item.buf[0..WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES]
             }
             Witness::Loading(WithMeta { item, .. }) => {
-                &item.buf[WITNESS_HEADER_BYTES..WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES]
+                &item.buf[0..WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES]
             }
         };
-        type_constant == u32::from_le_bytes(header_bytes.try_into().unwrap())
+        &header_bytes[0..WITNESS_HEADER_BYTES] == "DAS".as_bytes() && type_constant == u32::from_le_bytes(header_bytes[WITNESS_HEADER_BYTES..].try_into().unwrap())
     }
 }
 
 impl Witness {
-    fn parse<T: FromWitness<Error = impl Into<Box<dyn ScriptError>>> + 'static>(
-        &mut self,
-    ) -> Result<ParsedWithHash<T>, Box<dyn ScriptError>> {
-        let res = match self {
-            Witness::Loaded(_) => T::from_witness(self).map_err(|e| e.into())?,
+    fn load_complete(&mut self) -> Result<(), Box<dyn ScriptError>> {
+        match self {
             Witness::Loading(parsing_witness) => {
                 let mut buf_vec = vec![0u8; parsing_witness.item.actual_size];
                 let loaded_len = parsing_witness.item.buf.len();
@@ -507,7 +550,7 @@ impl Witness {
                 load_witness(
                     &mut buf_vec[loaded_len..],
                     loaded_len,
-                    parsing_witness.index,
+                    parsing_witness.meta.index,
                     Source::Input,
                 )?;
                 *self = Self::Loaded(WithMeta {
@@ -515,13 +558,42 @@ impl Witness {
                         buf: buf_vec,
                         parsed: true,
                     },
-                    index: parsing_witness.index,
-                    source: parsing_witness.source,
+                    meta: parsing_witness.meta,
                 });
-                T::from_witness(self).map_err(|e| e.into())?
-            }
+            },
+            _ => ()
         };
 
+        Ok(())
+    }
+
+    fn parse<T: FromWitness<Error = impl Into<Box<dyn ScriptError>>> + 'static>(
+        &mut self,
+    ) -> Result<ParsedWithHash<T>, Box<dyn ScriptError>> {
+        self.load_complete()?;
+        // let res = match self {
+        //     Witness::Loaded(_) => T::from_witness(self).map_err(|e| e.into())?,
+        //     Witness::Loading(parsing_witness) => {
+        //         // let mut buf_vec = vec![0u8; parsing_witness.item.actual_size];
+        //         // let loaded_len = parsing_witness.item.buf.len();
+        //         // buf_vec[..loaded_len].copy_from_slice(&parsing_witness.item.buf.as_slice());
+        //         // load_witness(
+        //         //     &mut buf_vec[loaded_len..],
+        //         //     loaded_len,
+        //         //     parsing_witness.meta.index,
+        //         //     Source::Input,
+        //         // )?;
+        //         // *self = Self::Loaded(WithMeta {
+        //         //     item: CompleteWitness {
+        //         //         buf: buf_vec,
+        //         //         parsed: true,
+        //         //     },
+        //         //     meta: parsing_witness.meta,
+        //         // });
+        //         T::from_witness(self).map_err(|e| e.into())?
+        //     }
+        // };
+        let res = T::from_witness(self).map_err(|e| e.into())?;
         use core::any::Any;
         let hash = (&res as &dyn Any)
             .downcast_ref::<&dyn Blake2BHash>()
@@ -531,7 +603,6 @@ impl Witness {
 }
 
 impl GeneralWitnessParser {
-    #[allow(dead_code)]
     fn init(&mut self) -> Result<(), Box<dyn ScriptError>> {
         let mut i = 0;
         let mut buf = [0u8; WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES];
@@ -545,16 +616,20 @@ impl GeneralWitnessParser {
                         buf: buf[..actual_size].to_owned(),
                         parsed: false,
                     },
-                    index: i,
-                    source: Source::Input,
+                    meta: Meta {
+                        index: i,
+                        source: Source::Input,
+                    },
                 }),
                 Err(ckb_std::syscalls::SysError::LengthNotEnough(actual_size)) => Witness::Loading(WithMeta {
                     item: PartialWitness {
                         buf: buf.to_vec(),
                         actual_size,
                     },
-                    index: i,
-                    source: Source::Input,
+                    meta: Meta {
+                        index: i,
+                        source: Source::Input,
+                    },
                 }),
                 Err(e) => return Err(e.into()),
             };
@@ -563,6 +638,26 @@ impl GeneralWitnessParser {
         }
         self.witnesses = witnesses;
         Ok(())
+    }
+
+    pub fn get_das_witness(&mut self, index: usize) -> Result<&WithMeta<CompleteWitness>, Box<dyn ScriptError>> {
+        let res = self.witnesses.iter_mut().filter(|w| {
+            match w {
+                Witness::Loaded(w) => w.buf.starts_with("DAS".as_bytes()),
+                Witness::Loading(w) => w.buf.starts_with("DAS".as_bytes())
+            }
+        }).nth(index);
+        
+        match res {
+            Some(w) => {
+                w.load_complete()?;
+                match w {
+                    Witness::Loaded(res) => Ok(res),
+                    _ => unreachable!()
+                }
+            },
+            None => Err(code_to_error!(ErrorCode::IndexOutOfBound))
+        }
     }
 
     pub fn parse_witness<T: FromWitness<Error = impl Into<Box<dyn ScriptError>>> + 'static>(
