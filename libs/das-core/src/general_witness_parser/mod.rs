@@ -14,7 +14,7 @@ use ckb_std::high_level::{
     load_cell, load_cell_data, load_cell_lock, load_cell_lock_hash, load_cell_type, load_cell_type_hash, QueryIter,
 };
 use ckb_std::syscalls::{load_witness, SysError};
-use das_types::constants::{DataType, WITNESS_HEADER_BYTES, WITNESS_TYPE_BYTES};
+use das_types::constants::{DataType, WITNESS_HEADER_BYTES, WITNESS_TYPE_BYTES, WITNESS_HEADER};
 use das_types::packed::{ConfigList, Data};
 use molecule::bytes::Bytes;
 use molecule::prelude::Entity;
@@ -91,6 +91,10 @@ pub trait FromWitness {
         Self: Sized;
 
     fn parsable(witness: &Witness) -> bool;
+
+    fn hash(&self) -> Option<[u8;32]> {
+        None
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -506,7 +510,7 @@ where
                 &item.buf[0..WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES]
             }
         };
-        &header_bytes[0..WITNESS_HEADER_BYTES] == "DAS".as_bytes() && type_constant == u32::from_le_bytes(header_bytes[WITNESS_HEADER_BYTES..].try_into().unwrap())
+        &header_bytes[0..WITNESS_HEADER_BYTES] == &WITNESS_HEADER && type_constant == u32::from_le_bytes(header_bytes[WITNESS_HEADER_BYTES..].try_into().unwrap())
     }
 }
 
@@ -536,7 +540,7 @@ where
                 &item.buf[0..WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES]
             }
         };
-        &header_bytes[0..WITNESS_HEADER_BYTES] == "DAS".as_bytes() && type_constant == u32::from_le_bytes(header_bytes[WITNESS_HEADER_BYTES..].try_into().unwrap())
+        &header_bytes[0..WITNESS_HEADER_BYTES] == &WITNESS_HEADER && type_constant == u32::from_le_bytes(header_bytes[WITNESS_HEADER_BYTES..].try_into().unwrap())
     }
 }
 
@@ -643,8 +647,8 @@ impl GeneralWitnessParser {
     pub fn get_das_witness(&mut self, index: usize) -> Result<&WithMeta<CompleteWitness>, Box<dyn ScriptError>> {
         let res = self.witnesses.iter_mut().filter(|w| {
             match w {
-                Witness::Loaded(w) => w.buf.starts_with("DAS".as_bytes()),
-                Witness::Loading(w) => w.buf.starts_with("DAS".as_bytes())
+                Witness::Loaded(w) => w.buf.starts_with(&WITNESS_HEADER[..]),
+                Witness::Loading(w) => w.buf.starts_with(&WITNESS_HEADER[..])
             }
         }).nth(index);
         
@@ -672,6 +676,17 @@ impl GeneralWitnessParser {
                 .is_some_and(|original| panic!("Witness {} and {} have same hash!", index, original));
         }
         Ok(res)
+    }
+
+    pub fn parse_for_cell<T:  FromWitness<Error = impl Into<Box<dyn ScriptError>>> + 'static>(&mut self, meta: Meta) -> Result<ParsedWithHash<T>, Box<dyn ScriptError>> {
+        let mut data = [0; 32];
+        let res = ckb_std::syscalls::load_cell_data(&mut data, 0, meta.index, meta.source)?;
+        if res != 32 {
+            return Err(code_to_error!(ErrorCode::InvalidCellData))
+        }
+
+        self.find_by_hash(&data)
+
     }
 
     pub fn find<T: FromWitness<Error = impl Into<Box<dyn ScriptError>>> + 'static>(
@@ -709,9 +724,9 @@ impl GeneralWitnessParser {
     pub fn find_by_hash<T: FromWitness<Error = impl Into<Box<dyn ScriptError>>> + 'static>(
         &mut self,
         hash: &[u8; 32],
-    ) -> Result<Option<ParsedWithHash<T>>, Box<dyn ScriptError>> {
+    ) -> Result<ParsedWithHash<T>, Box<dyn ScriptError>> {
         if let Some(index) = self.hashes.get(hash) {
-            return self.parse_witness(*index).map(Option::Some);
+            return self.parse_witness(*index);
         }
         for witness in self.witnesses.iter_mut() {
             let parsed = match witness {
@@ -727,13 +742,13 @@ impl GeneralWitnessParser {
             let res = witness.parse::<T>()?;
             match res.hash {
                 Some(h) if &h == hash => {
-                    return Ok(Some(res));
+                    return Ok(res);
                 }
                 _ => continue,
             }
         }
 
-        Ok(None)
+        Err(code_to_error!(ErrorCode::WitnessCannotBeVerified))
     }
 }
 
