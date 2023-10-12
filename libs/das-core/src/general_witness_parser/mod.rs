@@ -16,7 +16,7 @@ use ckb_std::high_level::{
 };
 use ckb_std::syscalls::{load_witness, SysError};
 use das_types::constants::{DataType, WITNESS_HEADER, WITNESS_HEADER_BYTES, WITNESS_TYPE_BYTES};
-use das_types::packed::{ConfigList, Data};
+use das_types::packed::{ConfigList, Data, DeviceKeyListCellData};
 use molecule::bytes::Bytes;
 use molecule::prelude::Entity;
 
@@ -577,7 +577,7 @@ where
     }
 
     fn parsable(witness: &Witness) -> bool {
-        let type_constant = T::get_type_constant() as u32;
+        let type_constant = EntityWrapper::<T, H>::get_type_constant() as u32;
         let header_bytes = match witness {
             Witness::Loaded(WithMeta { item, .. }) => &item.buf[0..WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES],
             Witness::Loading(WithMeta { item, .. }) => &item.buf[0..WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES],
@@ -623,6 +623,12 @@ where
 }
 
 impl Witness {
+    fn get_meta(&self) -> Meta {
+        match self {
+            Witness::Loaded(w) => w.meta,
+            Witness::Loading(w) => w.meta
+        }
+    }
     fn load_complete(&mut self) -> Result<(), Box<dyn ScriptError>> {
         match self {
             Witness::Loading(parsing_witness) => {
@@ -754,7 +760,14 @@ impl GeneralWitnessParser {
             let _ = self
                 .hashes
                 .insert(hash, index)
-                .is_some_and(|original| panic!("Witness {} and {} have same hash!", index, original));
+                // TODO: 不要用Panic
+                .is_some_and(|original| {
+                    if original != index {
+                        panic!("Witness {} and {} have same hash!", index, original)
+                    } else {
+                        false
+                    }
+                });
         }
         Ok(res)
     }
@@ -763,6 +776,7 @@ impl GeneralWitnessParser {
         &mut self,
         meta: &Meta,
     ) -> Result<ParsedWithHash<T>, Box<dyn ScriptError>> {
+        debug!("123123123");
         let mut data = [0; 32];
         let res = ckb_std::syscalls::load_cell_data(&mut data, 0, meta.index, meta.source)?;
         if res != 32 {
@@ -809,6 +823,7 @@ impl GeneralWitnessParser {
         hash: &[u8; 32],
     ) -> Result<ParsedWithHash<T>, Box<dyn ScriptError>> {
         if let Some(index) = self.hashes.get(hash) {
+            debug!("index: {}, hash: {:?}", index, hash);
             return self.parse_witness(*index);
         }
         for witness in self.witnesses.iter_mut() {
@@ -825,6 +840,7 @@ impl GeneralWitnessParser {
             let res = witness.parse::<T>()?;
             match res.hash {
                 Some(h) if &h == hash => {
+                    self.hashes.insert(h, witness.get_meta().index);
                     return Ok(res);
                 }
                 _ => continue,
@@ -839,11 +855,20 @@ pub trait GetDataType {
     fn get_type_constant() -> DataType;
 }
 
+impl<T, H> GetDataType for EntityWrapper<T, H> where T: Entity {
+    fn get_type_constant() -> DataType {
+        match T::NAME {
+            "DeviceKeyListCellData" => DataType::DeviceKeyListEntityData,
+            _ => unreachable!()
+        }
+    }
+}
+
 impl<T> GetDataType for T
 where
     T: Entity,
 {
-    fn get_type_constant() -> DataType {
+    default fn get_type_constant() -> DataType {
         match T::NAME {
             "ActionData" => DataType::ActionData,
             "AccountCellData" => DataType::AccountCellData,
@@ -858,7 +883,7 @@ where
             "ReverseRecord" => DataType::ReverseRecord,
             "SubAccountPriceRule" => DataType::SubAccountPriceRule,
             "SubAccountPreservedRule" => DataType::SubAccountPreservedRule,
-            "DeviceKeyListEntityData" => DataType::DeviceKeyListEntityData,
+            // "DeviceKeyListEntityData" => DataType::DeviceKeyListEntityData,
             "SubAccountRenewSign" => DataType::SubAccountRenewSign,
             "DeviceKeyListCellData" => DataType::DeviceKeyListCellData,
             "ConfigCellAccount" => DataType::ConfigCellAccount,
@@ -908,6 +933,7 @@ where
             "ConfigCellCharSetTr" => DataType::ConfigCellCharSetTr,
             "ConfigCellCharSetTh" => DataType::ConfigCellCharSetTh,
             "ConfigCellCharSetVi" => DataType::ConfigCellCharSetVi,
+            "Config" => DataType::ConfigCellMain,
             _ => unreachable!(),
         }
     }

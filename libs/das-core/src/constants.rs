@@ -2,10 +2,10 @@ use core::slice::SlicePattern;
 
 pub use ckb_std::ckb_types::core::ScriptHashType;
 use ckb_std::ckb_types::packed::*;
-use das_types::packed::Config;
+use das_types::{packed::Config, constants::DataType};
 use molecule::prelude::{Entity, Builder};
 
-use crate::general_witness_parser::{get_witness_parser, Condition};
+use crate::{general_witness_parser::{get_witness_parser, Condition}, traits::Blake2BHash};
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum ScriptType {
@@ -110,13 +110,18 @@ pub fn trusted_config_lock_hash() -> [u8; 32] {
 pub fn get_config_cell_main() -> Config {
     let config = get_witness_parser().find_unique::<Config>().unwrap();
     let trusted_lock = trusted_config_lock_hash();
-    let trusted_type = config_cell_type_id();
+    let trusted_type_id = config_cell_type_id();
+    let trusted_type_hash = ScriptBuilder::default()
+        .code_hash(Byte32::from_slice(trusted_type_id.as_ref()).unwrap())
+        .hash_type(ScriptHashType::Type.into())
+        .args(Bytes::from_slice((DataType::ConfigCellMain as u32).to_le_bytes().as_ref()).unwrap())
+        .build().blake2b_256();
     config
         .verify_unique(
             ckb_std::ckb_constants::Source::CellDep,
             &[
                 Condition::LockHash(&trusted_lock),
-                Condition::CodeHashIs(&trusted_type),
+                Condition::TypeHash(&trusted_type_hash),
                 Condition::DataIs(&config.hash.unwrap()),
             ],
         )
