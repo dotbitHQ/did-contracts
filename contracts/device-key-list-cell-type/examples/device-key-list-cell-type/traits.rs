@@ -1,7 +1,6 @@
 use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::vec::Vec;
-use core::ops::Deref;
 use core::slice::SlicePattern;
 
 use ckb_std::ckb_constants::Source;
@@ -9,14 +8,10 @@ use ckb_std::ckb_types::packed::{CellOutput, Script};
 use ckb_std::high_level::{load_cell, QueryIter};
 use ckb_std::syscalls::SysError;
 use das_core::error::ScriptError;
-use das_core::general_witness_parser::{get_cell_indexer, Meta, WithMeta};
-use das_core::witness_parser::WitnessesParser;
+use das_core::witness_parser::general_witness_parser::{Meta, WithMeta};
 use das_core::{code_to_error, debug};
 use das_types::packed::ActionData;
-use device_key_list_cell_type::error::ErrorCode;
 use molecule::prelude::Entity;
-
-use crate::helpers::GetDataType;
 
 pub struct Action {
     name: String,

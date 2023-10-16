@@ -1,4 +1,6 @@
 // #![feature(once_cell)]
+#![allow(incomplete_features)]
+#![feature(generic_const_exprs)]
 #![feature(min_specialization)]
 #![feature(slice_pattern)]
 #![feature(once_cell_try)]
@@ -21,4 +23,3 @@ pub mod types;
 pub mod util;
 pub mod verifiers;
 pub mod witness_parser;
-pub mod general_witness_parser;

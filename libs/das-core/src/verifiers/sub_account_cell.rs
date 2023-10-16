@@ -13,7 +13,7 @@ use das_types::prelude::Entity;
 use das_types::prettier::Prettier;
 
 use crate::constants::*;
-use crate::data_parser::webauthn_signature::WebAuthnSignature;
+use crate::witness_parser::webauthn_signature::WebAuthnSignature;
 use crate::error::*;
 use crate::witness_parser::sub_account::*;
 use crate::witness_parser::WitnessesParser;

@@ -7,7 +7,6 @@ use alloc::vec::Vec;
 use core::cell::OnceCell;
 use core::marker::PhantomData;
 use core::ops::Deref;
-use core::slice::SlicePattern;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::packed::{CellOutput, Script};
@@ -16,7 +15,7 @@ use ckb_std::high_level::{
 };
 use ckb_std::syscalls::{load_witness, SysError};
 use das_types::constants::{DataType, WITNESS_HEADER, WITNESS_HEADER_BYTES, WITNESS_TYPE_BYTES};
-use das_types::packed::{ConfigList, Data, DeviceKeyListCellData};
+use das_types::packed::{ConfigList, Data, DataEntity};
 use molecule::bytes::Bytes;
 use molecule::prelude::Entity;
 
@@ -429,17 +428,15 @@ impl<T> ParsedWithHash<T> {
     }
 }
 
+// #[derive(Clone, Debug)]
+// pub struct DataEntity<T> {
+//     pub index: usize,
+//     pub version: usize,
+//     pub entity: T,
+// }
 #[derive(Clone, Debug)]
-pub struct DataEntity<T> {
-    pub index: usize,
-    pub version: usize,
-    pub entity: T,
-}
-#[derive(Clone, Debug)]
-pub struct EntityWrapper<T, H = ForDefault> {
-    pub old: Option<DataEntity<T>>,
-    pub new: Option<DataEntity<T>>,
-    pub dep: Option<DataEntity<T>>,
+pub struct EntityWrapper<const T: u32, H = ForDefault> {
+    pub inner: Data,
     _marker: PhantomData<H>,
 }
 
@@ -474,101 +471,93 @@ pub struct ForNew();
 pub struct ForDep();
 pub struct ForDefault();
 
-impl<T, A> EntityWrapper<T, A> {
+impl<const T: u32, A> EntityWrapper<T, A> {
     pub fn into<B>(self) -> EntityWrapper<T, B> {
         EntityWrapper {
-            old: self.old,
-            new: self.new,
-            dep: self.dep,
+            inner: self.inner,
             _marker: Default::default(),
         }
     }
 
     pub fn from<B>(value: EntityWrapper<T, B>) -> Self {
         Self {
-            old: value.old,
-            new: value.new,
-            dep: value.dep,
+            inner: value.inner,
             _marker: Default::default(),
         }
     }
 }
 
-impl<T> EntityWrapper<T, ForOld> {
-    pub fn into_inner(self) -> Option<T> {
-        self.old.map(|i| i.entity)
+impl<const T: u32> EntityWrapper<T, ForOld> {
+    pub fn into_target(self) -> Option<DataEntity> {
+        self.inner.old().to_opt()
     }
 }
 
-impl<T> EntityWrapper<T, ForNew> {
-    pub fn into_inner(self) -> Option<T> {
-        self.new.map(|i| i.entity)
+impl<const T: u32> EntityWrapper<T, ForNew> {
+    pub fn into_target(self) -> Option<DataEntity> {
+        self.inner.new().to_opt()
     }
 }
 
-impl<T> EntityWrapper<T, ForDep> {
-    pub fn into_inner(self) -> Option<T> {
-        self.dep.map(|i| i.entity)
+impl<const T: u32> EntityWrapper<T, ForDep> {
+    pub fn into_target(self) -> Option<DataEntity> {
+        self.inner.dep().to_opt()
     }
 }
 
 trait GenHash {
-    fn gen_hash<T: Entity, H>(e: &EntityWrapper<T, H>) -> Option<[u8; 32]>;
+    fn gen_hash<const T: u32, H>(e: &EntityWrapper<T, H>) -> Option<[u8; 32]>;
 }
 
 impl GenHash for ForOld {
-    fn gen_hash<T: Entity, H>(e: &EntityWrapper<T, H>) -> Option<[u8; 32]> {
-        e.old.as_ref().map(|i| i.entity.blake2b_256())
+    fn gen_hash<const T: u32, H>(e: &EntityWrapper<T, H>) -> Option<[u8; 32]> {
+        e.inner.old().to_opt().as_ref().map(|i| i.blake2b_256())
     }
 }
 
 impl GenHash for ForNew {
-    fn gen_hash<T: Entity, H>(e: &EntityWrapper<T, H>) -> Option<[u8; 32]> {
-        e.new.as_ref().map(|i| i.entity.blake2b_256())
+    fn gen_hash<const T: u32, H>(e: &EntityWrapper<T, H>) -> Option<[u8; 32]> {
+        e.inner.new().to_opt().as_ref().map(|i| i.blake2b_256())
     }
 }
 
 impl GenHash for ForDep {
-    fn gen_hash<T: Entity, H>(e: &EntityWrapper<T, H>) -> Option<[u8; 32]> {
-        e.dep.as_ref().map(|i| i.entity.blake2b_256())
+    fn gen_hash<const T: u32, H>(e: &EntityWrapper<T, H>) -> Option<[u8; 32]> {
+        e.inner.dep().to_opt().as_ref().map(|i| i.blake2b_256())
     }
 }
 
 impl GenHash for ForDefault {
-    fn gen_hash<T: Entity, H>(_e: &EntityWrapper<T, H>) -> Option<[u8; 32]> {
+    fn gen_hash<const T: u32, H>(_e: &EntityWrapper<T, H>) -> Option<[u8; 32]> {
         None
     }
 }
 
-impl<T, H> FromWitness for EntityWrapper<T, H>
-where
-    T: Entity + 'static,
-    H: GenHash,
+impl<const T: u32, H: GenHash> FromWitness for EntityWrapper<T, H> where [u8; T as usize]: Sized
 {
     type Error = Box<dyn ScriptError>;
     fn from_witness(witness: &Witness) -> Result<Self, Box<dyn ScriptError>> {
         if let Witness::Loaded(WithMeta { item, .. }) = witness {
-            let data = Data::from_compatible_slice(&item.buf[WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES..])
-                .map_err(|_| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
-            let new = data.new().to_opt().map(|e| DataEntity {
-                index: u32::from(e.index()) as usize,
-                version: u32::from_le_bytes(e.version().as_slice().try_into().unwrap()) as usize,
-                entity: T::from_compatible_slice(e.entity().raw_data().as_slice()).unwrap(),
-            });
-            let old = data.old().to_opt().map(|e| DataEntity {
-                index: u32::from_le_bytes(e.index().as_slice().try_into().unwrap()) as usize,
-                version: u32::from_le_bytes(e.version().as_slice().try_into().unwrap()) as usize,
-                entity: T::from_compatible_slice(e.entity().raw_data().as_slice()).unwrap(),
-            });
-            let dep = data.dep().to_opt().map(|e| DataEntity {
-                index: u32::from_le_bytes(e.index().as_slice().try_into().unwrap()) as usize,
-                version: u32::from_le_bytes(e.version().as_slice().try_into().unwrap()) as usize,
-                entity: T::from_compatible_slice(e.entity().raw_data().as_slice()).unwrap(),
-            });
+            // let data = Data::from_compatible_slice(&item.buf[WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES..])
+            //     .map_err(|_| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
+            // let new = data.new().to_opt().map(|e| DataEntity {
+            //     index: u32::from(e.index()) as usize,
+            //     version: u32::from_le_bytes(e.version().as_slice().try_into().unwrap()) as usize,
+            //     entity: T::from_compatible_slice(e.entity().raw_data().as_slice()).unwrap(),
+            // });
+            // let old = data.old().to_opt().map(|e| DataEntity {
+            //     index: u32::from_le_bytes(e.index().as_slice().try_into().unwrap()) as usize,
+            //     version: u32::from_le_bytes(e.version().as_slice().try_into().unwrap()) as usize,
+            //     entity: T::from_compatible_slice(e.entity().raw_data().as_slice()).unwrap(),
+            // });
+            // let dep = data.dep().to_opt().map(|e| DataEntity {
+            //     index: u32::from_le_bytes(e.index().as_slice().try_into().unwrap()) as usize,
+            //     version: u32::from_le_bytes(e.version().as_slice().try_into().unwrap()) as usize,
+            //     entity: T::from_compatible_slice(e.entity().raw_data().as_slice()).unwrap(),
+            // });
+            let inner = Data::from_compatible_slice(&item.buf[WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES..]).map_err(|_| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
             Ok(Self {
-                old,
-                new,
-                dep,
+                inner,
                 _marker: Default::default(),
             })
         } else {
@@ -577,7 +566,7 @@ where
     }
 
     fn parsable(witness: &Witness) -> bool {
-        let type_constant = EntityWrapper::<T, H>::get_type_constant() as u32;
+        let type_constant = [0; T as usize].len() as u32;
         let header_bytes = match witness {
             Witness::Loaded(WithMeta { item, .. }) => &item.buf[0..WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES],
             Witness::Loading(WithMeta { item, .. }) => &item.buf[0..WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES],
@@ -751,6 +740,8 @@ impl GeneralWitnessParser {
         }
     }
 
+
+    // TODO: should support DepGroup
     pub fn parse_witness<T: FromWitness<Error = impl Into<Box<dyn ScriptError>>> + 'static>(
         &mut self,
         index: usize,
@@ -760,7 +751,6 @@ impl GeneralWitnessParser {
             let _ = self
                 .hashes
                 .insert(hash, index)
-                // TODO: 不要用Panic
                 .is_some_and(|original| {
                     if original != index {
                         panic!("Witness {} and {} have same hash!", index, original)
@@ -776,7 +766,6 @@ impl GeneralWitnessParser {
         &mut self,
         meta: &Meta,
     ) -> Result<ParsedWithHash<T>, Box<dyn ScriptError>> {
-        debug!("123123123");
         let mut data = [0; 32];
         let res = ckb_std::syscalls::load_cell_data(&mut data, 0, meta.index, meta.source)?;
         if res != 32 {
@@ -823,7 +812,6 @@ impl GeneralWitnessParser {
         hash: &[u8; 32],
     ) -> Result<ParsedWithHash<T>, Box<dyn ScriptError>> {
         if let Some(index) = self.hashes.get(hash) {
-            debug!("index: {}, hash: {:?}", index, hash);
             return self.parse_witness(*index);
         }
         for witness in self.witnesses.iter_mut() {
@@ -855,14 +843,14 @@ pub trait GetDataType {
     fn get_type_constant() -> DataType;
 }
 
-impl<T, H> GetDataType for EntityWrapper<T, H> where T: Entity {
-    fn get_type_constant() -> DataType {
-        match T::NAME {
-            "DeviceKeyListCellData" => DataType::DeviceKeyListEntityData,
-            _ => unreachable!()
-        }
-    }
-}
+// impl<T, H> GetDataType for EntityWrapper<T, H> where T: Entity {
+//     fn get_type_constant() -> DataType {
+//         match T::NAME {
+//             "DeviceKeyListCellData" => DataType::DeviceKeyListEntityData,
+//             _ => unreachable!()
+//         }
+//     }
+// }
 
 impl<T> GetDataType for T
 where
@@ -936,5 +924,30 @@ where
             "Config" => DataType::ConfigCellMain,
             _ => unreachable!(),
         }
+    }
+}
+
+
+pub trait TryFromBytes<T> {
+    fn try_from_bytes(value: T) -> molecule::error::VerificationResult<Self> where Self: Sized;
+}
+
+impl <A> TryFromBytes<Bytes> for A where A: Entity + Sized {
+    fn try_from_bytes(value: Bytes) -> molecule::error::VerificationResult<Self> {
+        Self::from_compatible_slice(&value)
+    }
+} 
+
+
+impl <A> TryFromBytes<das_types::packed::Bytes> for A where A: Entity + Sized {
+    fn try_from_bytes(value: das_types::packed::Bytes) -> molecule::error::VerificationResult<Self> {
+        debug!("value: {:?}", value);
+        Self::from_compatible_slice(&value.as_bytes())
+    }
+}
+
+impl <A> TryFromBytes<ckb_std::ckb_types::packed::Bytes> for A where A: Entity + Sized {
+    fn try_from_bytes(value: ckb_std::ckb_types::packed::Bytes) -> molecule::error::VerificationResult<Self> {
+        Self::from_compatible_slice(&value.as_bytes())
     }
 }
