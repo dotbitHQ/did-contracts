@@ -1,7 +1,6 @@
 use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::vec::Vec;
-use core::ops::Deref;
 use core::slice::SlicePattern;
 
 use ckb_std::ckb_constants::Source;
@@ -9,13 +8,10 @@ use ckb_std::ckb_types::packed::{CellOutput, Script};
 use ckb_std::high_level::{load_cell, QueryIter};
 use ckb_std::syscalls::SysError;
 use das_core::error::ScriptError;
-use das_core::witness_parser::WitnessesParser;
+use das_core::witness_parser::general_witness_parser::{Meta, WithMeta};
 use das_core::{code_to_error, debug};
 use das_types::packed::ActionData;
-use device_key_list_cell_type::error::ErrorCode;
 use molecule::prelude::Entity;
-
-use crate::helpers::GetDataType;
 
 pub struct Action {
     name: String,
@@ -90,10 +86,11 @@ pub trait FSMContract: Contract + Sized {
     fn get_action_data(&self) -> &ActionData;
 }
 
+type CellWithMeta = WithMeta<CellOutput>;
+
 pub struct MyContract {
     pub registered_actions: Vec<Action>,
     pub action_data: ActionData,
-    pub parser: WitnessesParser,
     pub this_script: Script,
     pub input_inner_cells: Vec<CellWithMeta>,
     pub input_outer_cells: Vec<CellWithMeta>,
@@ -101,38 +98,38 @@ pub struct MyContract {
     pub output_outer_cells: Vec<CellWithMeta>,
 }
 
-#[derive(Clone, Debug)]
-pub struct CellWithMeta {
-    pub cell: CellOutput,
-    pub meta: CellMeta,
-}
+// #[derive(Clone, Debug)]
+// pub struct CellWithMeta<'a> {
+//     pub cell: &'a CellOutput,
+//     pub meta: CellMeta,
+// }
 
-#[derive(Clone, Copy, Debug)]
-pub struct CellMeta {
-    pub index: usize,
-    pub source: Source,
-}
+// #[derive(Clone, Copy, Debug)]
+// pub struct CellMeta {
+//     pub index: usize,
+//     pub source: Source,
+// }
 
-impl CellWithMeta {
-    pub fn get_meta(&self) -> CellMeta {
-        self.meta
-    }
+// impl <'a> CellWithMeta<'a> {
+//     pub fn get_meta(&self) -> CellMeta {
+//         self.meta
+//     }
 
-    pub fn new(index: usize, source: Source, cell: CellOutput) -> Self {
-        Self {
-            meta: CellMeta { index, source },
-            cell,
-        }
-    }
-}
+//     pub fn new(index: usize, source: Source, cell: &'a CellOutput) -> Self {
+//         Self {
+//             meta: CellMeta { index, source },
+//             cell,
+//         }
+//     }
+// }
 
-impl Deref for CellWithMeta {
-    type Target = CellOutput;
+// impl <'a> Deref for CellWithMeta<'a> {
+//     type Target = CellOutput;
 
-    fn deref(&self) -> &Self::Target {
-        &self.cell
-    }
-}
+//     fn deref(&self) -> &Self::Target {
+//         &self.cell
+//     }
+// }
 
 impl FSMContract for MyContract {
     fn get_action_data(&self) -> &ActionData {
@@ -141,9 +138,9 @@ impl FSMContract for MyContract {
 }
 
 impl MyContract {
-    pub fn new(parser: WitnessesParser, action_data: ActionData) -> Result<Self, Box<dyn ScriptError>> {
+    pub fn new(action_data: ActionData) -> Result<Self, Box<dyn ScriptError>> {
         fn load_cell_with_meta(index: usize, source: Source) -> Result<CellWithMeta, SysError> {
-            load_cell(index, source).map(|cell| CellWithMeta::new(index, source, cell))
+            load_cell(index, source).map(|cell| WithMeta::new(cell, Meta { index, source }))
         }
         let this_script = ckb_std::high_level::load_script()?;
         let (input_inner_cells, input_outer_cells): (Vec<_>, Vec<_>) =
@@ -155,7 +152,6 @@ impl MyContract {
         Ok(Self {
             registered_actions: Vec::new(),
             action_data,
-            parser,
             this_script,
             input_inner_cells,
             input_outer_cells,
@@ -171,22 +167,21 @@ pub trait Contract {
     fn get_output_inner_cells(&self) -> &Vec<CellWithMeta>;
     fn get_output_outer_cells(&self) -> &Vec<CellWithMeta>;
     fn get_this_script(&self) -> &Script;
-    fn get_parser(&mut self) -> &mut WitnessesParser;
 }
 
-pub trait GetCellWitness {
-    fn get_cell_witness<T: Entity>(&self, meta: CellMeta) -> Result<T, Box<dyn ScriptError>>;
-}
+// pub trait GetCellWitness {
+//     fn get_cell_witness<T: Entity>(&self, meta: CellMeta) -> Result<T, Box<dyn ScriptError>>;
+// }
 
-impl GetCellWitness for WitnessesParser {
-    fn get_cell_witness<T: Entity>(&self, meta: CellMeta) -> Result<T, Box<dyn ScriptError>> {
-        let data_type = T::get_type_constant();
-        let (_, _, bytes) = self.verify_and_get(data_type, meta.index, meta.source)?;
-        let res =
-            T::from_compatible_slice(&bytes.raw_data()).map_err(|_| code_to_error!(ErrorCode::VerificationError))?;
-        Ok(res)
-    }
-}
+// impl GetCellWitness for WitnessesParser {
+//     fn get_cell_witness<T: Entity>(&self, meta: CellMeta) -> Result<T, Box<dyn ScriptError>> {
+//         let data_type = T::get_type_constant();
+//         let (_, _, bytes) = self.verify_and_get(data_type, meta.index, meta.source)?;
+//         let res =
+//             T::from_compatible_slice(&bytes.raw_data()).map_err(|_| code_to_error!(ErrorCode::VerificationError))?;
+//         Ok(res)
+//     }
+// }
 
 impl Contract for MyContract {
     fn get_input_inner_cells(&self) -> &Vec<CellWithMeta> {
@@ -209,9 +204,9 @@ impl Contract for MyContract {
         &self.this_script
     }
 
-    fn get_parser(&mut self) -> &mut WitnessesParser {
-        &mut self.parser
-    }
+    // fn get_parser(&mut self) -> &mut WitnessesParser {
+    //     &mut self.parser
+    // }
 }
 
 #[derive(Default)]

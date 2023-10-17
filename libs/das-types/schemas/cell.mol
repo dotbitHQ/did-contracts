@@ -692,3 +692,17 @@ table DeviceKeyListCellData {
     // On destroy-device-key-list, send the remaining capacity to refund_lock.
     refund_lock: Script,
 }
+
+table MapEntry {
+    // Map key
+    key: Bytes,
+    // Map value
+    value: Bytes,
+}
+
+vector ConfigList <MapEntry>;
+
+table Config {
+    status: Uint8,
+    configs: ConfigList,
+}
