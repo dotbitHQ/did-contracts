@@ -100,6 +100,33 @@ pub fn to_semantic_capacity(capacity: u64) -> String {
     ret
 }
 
+
+pub fn to_semantic_currency(value: u64, unit: &str) -> String {
+    let capacity_str = value.to_string();
+    let length = capacity_str.len();
+    let mut ret = String::new();
+    if length > 8 {
+        let integer = &capacity_str[0..length - 8];
+        let mut decimal = &capacity_str[length - 8..length];
+        decimal = decimal.trim_end_matches("0");
+        if decimal.is_empty() {
+            ret = ret + integer + " " + unit;
+        } else {
+            ret = ret + integer + "." + decimal + " " + unit;
+        }
+    } else {
+        if capacity_str == "0" {
+            ret = format!("0 {}", unit);
+        } else {
+            let padded_str = format!("{:0>8}", capacity_str);
+            let decimal = padded_str.trim_end_matches("0");
+            ret = ret + "0." + decimal + " " + unit;
+        }
+    }
+
+    ret
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

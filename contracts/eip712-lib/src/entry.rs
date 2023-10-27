@@ -15,7 +15,7 @@ use das_types::constants::{DataType, LockRole};
 use das_types::mixer::AccountCellDataMixer;
 use das_types::packed::*;
 use das_types::prelude::*;
-use eip712::util::to_semantic_capacity;
+use eip712::util::{to_semantic_capacity, to_semantic_currency};
 
 use super::eip712::{to_semantic_address, verify_eip712_hashes_if_has_das_lock};
 
@@ -53,6 +53,8 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
         b"create_approval" => create_approval_to_semantic,
         b"delay_approval" => delay_approval_to_semantic,
         b"fulfill_approval" => fulfill_approval_to_semantic,
+        b"transfer_dp" => transfer_dp_to_semantic,
+        b"burn_dp" => burn_dp_to_semantic,
         _ => transfer_to_semantic,
     };
 
@@ -501,4 +503,97 @@ fn transfer_to_semantic(parser: &WitnessesParser) -> Result<String, Box<dyn Scri
     let outputs = sum_cells(parser, Source::Output)?;
 
     Ok(format!("TRANSFER FROM {} TO {}", inputs, outputs))
+}
+
+fn transfer_dp_to_semantic(parser: &WitnessesParser) -> Result<String, Box<dyn ScriptError>> {
+    let type_id_table_reader = parser.configs.main()?.type_id_table();
+    let (input_cells, output_cells) =
+        util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, type_id_table_reader.dpoint_cell())?;
+
+    fn sum_cells(parser: &WitnessesParser, cells: Vec<usize>, source: Source) -> Result<String, Box<dyn ScriptError>> {
+        let mut dp_map = Map::new();
+        for i in cells.into_iter() {
+            let ret = high_level::load_cell_data(i, source);
+            match ret {
+                Ok(data) => {
+                    let value = data_parser::dpoint_cell::get_value(&data).unwrap_or(0);
+                    let lock =
+                        Script::from(high_level::load_cell_lock(i, source).map_err(|e| Error::<ErrorCode>::from(e))?);
+                    let address = to_semantic_address(parser, lock.as_reader(), LockRole::Owner)?;
+                    map_util::add(&mut dp_map, address, value);
+                }
+                Err(SysError::IndexOutOfBound) => {
+                    break;
+                }
+                Err(err) => {
+                    return Err(Error::<ErrorCode>::from(err).into());
+                }
+            }
+        }
+
+        let mut comma = "";
+        let mut ret = String::new();
+        for (address, capacity) in dp_map.items {
+            ret += format!("{}{}({})", comma, address, to_semantic_currency(capacity, "DP")).as_str();
+            comma = ", ";
+        }
+
+        Ok(ret)
+    }
+
+    let inputs = sum_cells(parser, input_cells, Source::Input)?;
+    let outputs = sum_cells(parser, output_cells, Source::Output)?;
+
+    debug!("inputs: {:?}", inputs);
+    debug!("outputs: {:?}", outputs);
+    Ok(format!("TRANSFER FROM {} TO {}", inputs, outputs))
+}
+
+fn burn_dp_to_semantic(parser: &WitnessesParser) -> Result<String, Box<dyn ScriptError>> {
+    let type_id_table_reader = parser.configs.main()?.type_id_table();
+    let (input_cells, output_cells) =
+        util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, type_id_table_reader.dpoint_cell())?;
+
+    // TODO
+    fn sum_cells(parser: &WitnessesParser, cells: Vec<usize>, source: Source) -> Result<Map<String, u64>, Box<dyn ScriptError>> {
+        let mut dp_map = Map::new();
+        for i in cells.into_iter() {
+            let ret = high_level::load_cell_data(i, source);
+            match ret {
+                Ok(data) => {
+                    let value = data_parser::dpoint_cell::get_value(&data).unwrap_or(0);
+                    let lock =
+                        Script::from(high_level::load_cell_lock(i, source).map_err(|e| Error::<ErrorCode>::from(e))?);
+                    let address = to_semantic_address(parser, lock.as_reader(), LockRole::Owner)?;
+                    map_util::add(&mut dp_map, address, value);
+                }
+                Err(err) => {
+                    return Err(Error::<ErrorCode>::from(err).into());
+                }
+            }
+        }
+
+        Ok(dp_map)
+    }
+
+    let input_dp_map = sum_cells(parser, input_cells, Source::Input)?;
+
+    assert!(
+        input_dp_map.len() == 1,
+        ErrorCode::EIP712SematicError,
+        "The DPCells in inputs should be the same lock."
+    );
+
+    let (burn_address, input_dp) = input_dp_map.items.get(0).unwrap();
+    let mut burn_dp = input_dp.to_owned();
+
+    let output_dp_map = sum_cells(parser, output_cells, Source::Output)?;
+
+    for (address, dp) in output_dp_map.items.iter() {
+        if burn_address == address {
+            burn_dp -= dp.to_owned();
+        }
+    }
+
+    Ok(format!("BURN {} DP FROM {}", burn_dp, burn_address))
 }
