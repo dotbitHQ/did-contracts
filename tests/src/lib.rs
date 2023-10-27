@@ -19,5 +19,6 @@ mod reverse_record_cell_type;
 mod reverse_record_root_cell_type;
 mod sub_account_cell_type;
 mod witness_parser;
+mod dpoint_cell_type;
 
 mod gen_type_id_table;

@@ -242,6 +242,10 @@ lazy_static! {
             "device-key-list-cell-type",
             "0x982f5e9cc7503f4cd0d0e2ed7115b70f9007f6adcdbdefb5465228d39c94f12a"
         );
+        map.insert(
+            "dpoint-cell-type",
+            "0x2de294cbd18800cb5cee3bb264e85d376922938c8726e40d89c5ee59d3695afd"
+        );
         map
     };
     pub static ref RE_VARIABLE: Regex = Regex::new(r"\{\{([\w\-\.]+)\}\}").unwrap();

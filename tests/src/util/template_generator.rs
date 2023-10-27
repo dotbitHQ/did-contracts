@@ -696,6 +696,8 @@ impl TemplateGenerator {
             .reverse_record_root_cell(Hash::try_from(util::get_type_id_bytes("reverse-record-root-cell-type")).unwrap())
             .sub_account_cell(Hash::try_from(util::get_type_id_bytes("sub-account-cell-type")).unwrap())
             .eip712_lib(Hash::try_from(util::get_type_id_bytes("eip712-lib")).unwrap())
+            .key_list_config_cell(Hash::try_from(util::get_type_id_bytes("device-key-list-cell-type")).unwrap())
+            .dpoint_cell(Hash::try_from(util::get_type_id_bytes("dpoint-cell-type")).unwrap())
             .build();
 
         let das_lock_type_id_table = DasLockTypeIdTable::new_builder()
@@ -841,6 +843,11 @@ impl TemplateGenerator {
         let cell_data = blake2b_256(entity.as_slice()).to_vec();
 
         (cell_data, EntityWrapper::ConfigCellSubAccount(entity))
+    }
+
+    fn gen_config_cell_dpoint(&mut self) -> (Vec<u8>, EntityWrapper) {
+        // TODO DPoint
+        unimplemented!()
     }
 
     fn gen_config_cell_record_key_namespace(&mut self) -> (Vec<u8>, Vec<u8>) {
@@ -1118,6 +1125,7 @@ impl TemplateGenerator {
             DataType::ConfigCellSecondaryMarket => push_cell!(@entity gen_config_cell_secondary_market),
             DataType::ConfigCellReverseResolution => push_cell!(@entity gen_config_cell_reverse_resolution),
             DataType::ConfigCellSubAccount => push_cell!(@entity gen_config_cell_sub_account),
+            DataType::ConfigCellDPoint => push_cell!(@entity gen_config_cell_dpoint),
             // ConfigCells with raw binary data.
             DataType::ConfigCellRecordKeyNamespace => push_cell!(@raw gen_config_cell_record_key_namespace),
             DataType::ConfigCellUnAvailableAccount => push_cell!(@raw gen_config_cell_unavailable_account),
@@ -1361,6 +1369,7 @@ impl TemplateGenerator {
                     }
                     "apply-register-cell-type" => push_cell!(gen_apply_register_cell, cell),
                     "balance-cell-type" => push_cell!(gen_balance_cell, cell),
+                    "dpoint-cell-type" => push_cell!(gen_dpoint_cell, cell),
                     "sub-account-cell-type" => push_cell!(gen_sub_account_cell, cell),
                     "reverse-record-cell-type" => push_cell!(gen_reverse_record_cell, cell),
                     "reverse-record-root-cell-type" => push_cell!(gen_reverse_record_root_cell, cell),
@@ -2534,6 +2543,51 @@ impl TemplateGenerator {
             util::bytes_to_hex(&util::parse_json_hex("cell.data", &cell["data"]))
         } else {
             String::from("0x")
+        };
+
+        (
+            json!({
+                "tmp_header": cell["header"],
+                "tmp_type": "full",
+                "capacity": capacity,
+                "lock": lock_script,
+                "type": type_script,
+                "tmp_data": outputs_data
+            }),
+            None,
+        )
+    }
+
+    /// Cell structure:
+    ///
+    /// ```json
+    /// json!({
+    ///     "capacity": u64,
+    ///     "lock": {
+    ///         "owner_lock_args": "0x...",
+    ///         "manager_lock_args": "0x...",
+    ///     },
+    ///     "type": {
+    ///         "code_hash": "{{dpoint-cell-type}}"
+    ///     },
+    ///     "data": {
+    ///         "value": u64
+    ///     }
+    /// })
+    /// ```
+    fn gen_dpoint_cell(&mut self, cell: Value) -> (Value, Option<EntityWrapper>) {
+        let capacity: u64 = util::parse_json_u64("cell.capacity", &cell["capacity"], Some(0));
+        let lock_script = parse_json_script_das_lock("cell.lock", &cell["lock"]);
+        let type_script = parse_json_script("cell.type", &cell["type"]);
+
+        let outputs_data = if cell["data"].is_null() {
+            String::from("0x")
+        } else {
+            let dp = util::parse_json_u64("cell.data.value", &cell["data"]["value"], None);
+            let bytes_length = 4u32.to_le_bytes();
+            let outputs_data = [bytes_length.to_vec(), dp.to_le_bytes().to_vec()].concat();
+
+            util::bytes_to_hex(&outputs_data)
         };
 
         (
