@@ -1,21 +1,23 @@
 import basic;
 import cell;
 
-table AccountCellDataV1 {
+table AccountCellDataV2 {
     // The first 160 bits of the hash of account.
     id: AccountId,
     // Separate chars of account.
     account: AccountChars,
     // AccountCell register timestamp.
     registered_at: Uint64,
-    // AccountCell update timestamp.
-    updated_at: Uint64,
+    // AccountCell last action timestamp.
+    last_transfer_account_at: Uint64,
+    last_edit_manager_at: Uint64,
+    last_edit_records_at: Uint64,
     // The status of the account, 0x00 means normal, 0x01 means being sold, 0x02 means being auctioned.
     status: Uint8,
     records: Records,
 }
 
-table PreAccountCellDataV1 {
+table PreAccountCellDataV2 {
     // Separate chars of account.
     account: AccountChars,
     // If the PreAccountCell cannot be registered, this field specifies to whom the refund should be given.
@@ -36,29 +38,6 @@ table PreAccountCellDataV1 {
     invited_discount: Uint32,
     // The created timestamp of the PreAccountCell.
     created_at: Uint64,
-}
-
-table SubAccountV1 {
-    // The lock of owner and manager
-    lock: Script,
-    // The first 160 bits of the hash of account.
-    id: AccountId,
-    // Separate chars of account.
-    account: AccountChars,
-    // The suffix of this sub-account, it is always .bit currently.
-    suffix: Bytes,
-    // The sub-account register timestamp.
-    registered_at: Uint64,
-    // The sub-account expiration timestamp.
-    expired_at: Uint64,
-    // The status of the account, 0x00 means normal, 0x01 means being sold, 0x02 means being auctioned.
-    status: Uint8,
-    // Resolving records of this sub-account.
-    records: Records,
-    // This is a count field, it mainly used to prevent replay attacks.
-    nonce: Uint64,
-    // If sub-account of sub-account is enabled.
-    enable_sub_account: Uint8,
-    // The price of renew sub-account of this sub-account.
-    renew_sub_account_price: Uint64,
+    // The initial records should be write into the AccountCell when it is created successfully.
+    initial_records: Records,
 }

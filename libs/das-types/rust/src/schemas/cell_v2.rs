@@ -5,8 +5,8 @@ use molecule::prelude::*;
 use super::basic::*;
 use super::cell::*;
 #[derive(Clone)]
-pub struct AccountCellDataV1(molecule::bytes::Bytes);
-impl ::core::fmt::LowerHex for AccountCellDataV1 {
+pub struct AccountCellDataV2(molecule::bytes::Bytes);
+impl ::core::fmt::LowerHex for AccountCellDataV2 {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         use molecule::hex_string;
         if f.alternate() {
@@ -15,18 +15,25 @@ impl ::core::fmt::LowerHex for AccountCellDataV1 {
         write!(f, "{}", hex_string(self.as_slice()))
     }
 }
-impl ::core::fmt::Debug for AccountCellDataV1 {
+impl ::core::fmt::Debug for AccountCellDataV2 {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         write!(f, "{}({:#x})", Self::NAME, self)
     }
 }
-impl ::core::fmt::Display for AccountCellDataV1 {
+impl ::core::fmt::Display for AccountCellDataV2 {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         write!(f, "{} {{ ", Self::NAME)?;
         write!(f, "{}: {}", "id", self.id())?;
         write!(f, ", {}: {}", "account", self.account())?;
         write!(f, ", {}: {}", "registered_at", self.registered_at())?;
-        write!(f, ", {}: {}", "updated_at", self.updated_at())?;
+        write!(
+            f,
+            ", {}: {}",
+            "last_transfer_account_at",
+            self.last_transfer_account_at()
+        )?;
+        write!(f, ", {}: {}", "last_edit_manager_at", self.last_edit_manager_at())?;
+        write!(f, ", {}: {}", "last_edit_records_at", self.last_edit_records_at())?;
         write!(f, ", {}: {}", "status", self.status())?;
         write!(f, ", {}: {}", "records", self.records())?;
         let extra_count = self.count_extra_fields();
@@ -36,18 +43,18 @@ impl ::core::fmt::Display for AccountCellDataV1 {
         write!(f, " }}")
     }
 }
-impl ::core::default::Default for AccountCellDataV1 {
+impl ::core::default::Default for AccountCellDataV2 {
     fn default() -> Self {
         let v: Vec<u8> = vec![
-            73, 0, 0, 0, 28, 0, 0, 0, 48, 0, 0, 0, 52, 0, 0, 0, 60, 0, 0, 0, 68, 0, 0, 0, 69, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            4, 0, 0, 0,
+            97, 0, 0, 0, 36, 0, 0, 0, 56, 0, 0, 0, 60, 0, 0, 0, 68, 0, 0, 0, 76, 0, 0, 0, 84, 0, 0, 0, 92, 0, 0, 0, 93,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0,
         ];
-        AccountCellDataV1::new_unchecked(v.into())
+        AccountCellDataV2::new_unchecked(v.into())
     }
 }
-impl AccountCellDataV1 {
-    pub const FIELD_COUNT: usize = 6;
+impl AccountCellDataV2 {
+    pub const FIELD_COUNT: usize = 8;
     pub fn total_size(&self) -> usize {
         molecule::unpack_number(self.as_slice()) as usize
     }
@@ -82,37 +89,49 @@ impl AccountCellDataV1 {
         let end = molecule::unpack_number(&slice[16..]) as usize;
         Uint64::new_unchecked(self.0.slice(start..end))
     }
-    pub fn updated_at(&self) -> Uint64 {
+    pub fn last_transfer_account_at(&self) -> Uint64 {
         let slice = self.as_slice();
         let start = molecule::unpack_number(&slice[16..]) as usize;
         let end = molecule::unpack_number(&slice[20..]) as usize;
         Uint64::new_unchecked(self.0.slice(start..end))
     }
-    pub fn status(&self) -> Uint8 {
+    pub fn last_edit_manager_at(&self) -> Uint64 {
         let slice = self.as_slice();
         let start = molecule::unpack_number(&slice[20..]) as usize;
         let end = molecule::unpack_number(&slice[24..]) as usize;
+        Uint64::new_unchecked(self.0.slice(start..end))
+    }
+    pub fn last_edit_records_at(&self) -> Uint64 {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[24..]) as usize;
+        let end = molecule::unpack_number(&slice[28..]) as usize;
+        Uint64::new_unchecked(self.0.slice(start..end))
+    }
+    pub fn status(&self) -> Uint8 {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[28..]) as usize;
+        let end = molecule::unpack_number(&slice[32..]) as usize;
         Uint8::new_unchecked(self.0.slice(start..end))
     }
     pub fn records(&self) -> Records {
         let slice = self.as_slice();
-        let start = molecule::unpack_number(&slice[24..]) as usize;
+        let start = molecule::unpack_number(&slice[32..]) as usize;
         if self.has_extra_fields() {
-            let end = molecule::unpack_number(&slice[28..]) as usize;
+            let end = molecule::unpack_number(&slice[36..]) as usize;
             Records::new_unchecked(self.0.slice(start..end))
         } else {
             Records::new_unchecked(self.0.slice(start..))
         }
     }
-    pub fn as_reader<'r>(&'r self) -> AccountCellDataV1Reader<'r> {
-        AccountCellDataV1Reader::new_unchecked(self.as_slice())
+    pub fn as_reader<'r>(&'r self) -> AccountCellDataV2Reader<'r> {
+        AccountCellDataV2Reader::new_unchecked(self.as_slice())
     }
 }
-impl molecule::prelude::Entity for AccountCellDataV1 {
-    type Builder = AccountCellDataV1Builder;
-    const NAME: &'static str = "AccountCellDataV1";
+impl molecule::prelude::Entity for AccountCellDataV2 {
+    type Builder = AccountCellDataV2Builder;
+    const NAME: &'static str = "AccountCellDataV2";
     fn new_unchecked(data: molecule::bytes::Bytes) -> Self {
-        AccountCellDataV1(data)
+        AccountCellDataV2(data)
     }
     fn as_bytes(&self) -> molecule::bytes::Bytes {
         self.0.clone()
@@ -121,10 +140,10 @@ impl molecule::prelude::Entity for AccountCellDataV1 {
         &self.0[..]
     }
     fn from_slice(slice: &[u8]) -> molecule::error::VerificationResult<Self> {
-        AccountCellDataV1Reader::from_slice(slice).map(|reader| reader.to_entity())
+        AccountCellDataV2Reader::from_slice(slice).map(|reader| reader.to_entity())
     }
     fn from_compatible_slice(slice: &[u8]) -> molecule::error::VerificationResult<Self> {
-        AccountCellDataV1Reader::from_compatible_slice(slice).map(|reader| reader.to_entity())
+        AccountCellDataV2Reader::from_compatible_slice(slice).map(|reader| reader.to_entity())
     }
     fn new_builder() -> Self::Builder {
         ::core::default::Default::default()
@@ -134,14 +153,16 @@ impl molecule::prelude::Entity for AccountCellDataV1 {
             .id(self.id())
             .account(self.account())
             .registered_at(self.registered_at())
-            .updated_at(self.updated_at())
+            .last_transfer_account_at(self.last_transfer_account_at())
+            .last_edit_manager_at(self.last_edit_manager_at())
+            .last_edit_records_at(self.last_edit_records_at())
             .status(self.status())
             .records(self.records())
     }
 }
 #[derive(Clone, Copy)]
-pub struct AccountCellDataV1Reader<'r>(&'r [u8]);
-impl<'r> ::core::fmt::LowerHex for AccountCellDataV1Reader<'r> {
+pub struct AccountCellDataV2Reader<'r>(&'r [u8]);
+impl<'r> ::core::fmt::LowerHex for AccountCellDataV2Reader<'r> {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         use molecule::hex_string;
         if f.alternate() {
@@ -150,18 +171,25 @@ impl<'r> ::core::fmt::LowerHex for AccountCellDataV1Reader<'r> {
         write!(f, "{}", hex_string(self.as_slice()))
     }
 }
-impl<'r> ::core::fmt::Debug for AccountCellDataV1Reader<'r> {
+impl<'r> ::core::fmt::Debug for AccountCellDataV2Reader<'r> {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         write!(f, "{}({:#x})", Self::NAME, self)
     }
 }
-impl<'r> ::core::fmt::Display for AccountCellDataV1Reader<'r> {
+impl<'r> ::core::fmt::Display for AccountCellDataV2Reader<'r> {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         write!(f, "{} {{ ", Self::NAME)?;
         write!(f, "{}: {}", "id", self.id())?;
         write!(f, ", {}: {}", "account", self.account())?;
         write!(f, ", {}: {}", "registered_at", self.registered_at())?;
-        write!(f, ", {}: {}", "updated_at", self.updated_at())?;
+        write!(
+            f,
+            ", {}: {}",
+            "last_transfer_account_at",
+            self.last_transfer_account_at()
+        )?;
+        write!(f, ", {}: {}", "last_edit_manager_at", self.last_edit_manager_at())?;
+        write!(f, ", {}: {}", "last_edit_records_at", self.last_edit_records_at())?;
         write!(f, ", {}: {}", "status", self.status())?;
         write!(f, ", {}: {}", "records", self.records())?;
         let extra_count = self.count_extra_fields();
@@ -171,8 +199,8 @@ impl<'r> ::core::fmt::Display for AccountCellDataV1Reader<'r> {
         write!(f, " }}")
     }
 }
-impl<'r> AccountCellDataV1Reader<'r> {
-    pub const FIELD_COUNT: usize = 6;
+impl<'r> AccountCellDataV2Reader<'r> {
+    pub const FIELD_COUNT: usize = 8;
     pub fn total_size(&self) -> usize {
         molecule::unpack_number(self.as_slice()) as usize
     }
@@ -207,37 +235,49 @@ impl<'r> AccountCellDataV1Reader<'r> {
         let end = molecule::unpack_number(&slice[16..]) as usize;
         Uint64Reader::new_unchecked(&self.as_slice()[start..end])
     }
-    pub fn updated_at(&self) -> Uint64Reader<'r> {
+    pub fn last_transfer_account_at(&self) -> Uint64Reader<'r> {
         let slice = self.as_slice();
         let start = molecule::unpack_number(&slice[16..]) as usize;
         let end = molecule::unpack_number(&slice[20..]) as usize;
         Uint64Reader::new_unchecked(&self.as_slice()[start..end])
     }
-    pub fn status(&self) -> Uint8Reader<'r> {
+    pub fn last_edit_manager_at(&self) -> Uint64Reader<'r> {
         let slice = self.as_slice();
         let start = molecule::unpack_number(&slice[20..]) as usize;
         let end = molecule::unpack_number(&slice[24..]) as usize;
+        Uint64Reader::new_unchecked(&self.as_slice()[start..end])
+    }
+    pub fn last_edit_records_at(&self) -> Uint64Reader<'r> {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[24..]) as usize;
+        let end = molecule::unpack_number(&slice[28..]) as usize;
+        Uint64Reader::new_unchecked(&self.as_slice()[start..end])
+    }
+    pub fn status(&self) -> Uint8Reader<'r> {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[28..]) as usize;
+        let end = molecule::unpack_number(&slice[32..]) as usize;
         Uint8Reader::new_unchecked(&self.as_slice()[start..end])
     }
     pub fn records(&self) -> RecordsReader<'r> {
         let slice = self.as_slice();
-        let start = molecule::unpack_number(&slice[24..]) as usize;
+        let start = molecule::unpack_number(&slice[32..]) as usize;
         if self.has_extra_fields() {
-            let end = molecule::unpack_number(&slice[28..]) as usize;
+            let end = molecule::unpack_number(&slice[36..]) as usize;
             RecordsReader::new_unchecked(&self.as_slice()[start..end])
         } else {
             RecordsReader::new_unchecked(&self.as_slice()[start..])
         }
     }
 }
-impl<'r> molecule::prelude::Reader<'r> for AccountCellDataV1Reader<'r> {
-    type Entity = AccountCellDataV1;
-    const NAME: &'static str = "AccountCellDataV1Reader";
+impl<'r> molecule::prelude::Reader<'r> for AccountCellDataV2Reader<'r> {
+    type Entity = AccountCellDataV2;
+    const NAME: &'static str = "AccountCellDataV2Reader";
     fn to_entity(&self) -> Self::Entity {
         Self::Entity::new_unchecked(self.as_slice().to_owned().into())
     }
     fn new_unchecked(slice: &'r [u8]) -> Self {
-        AccountCellDataV1Reader(slice)
+        AccountCellDataV2Reader(slice)
     }
     fn as_slice(&self) -> &'r [u8] {
         self.0
@@ -283,22 +323,26 @@ impl<'r> molecule::prelude::Reader<'r> for AccountCellDataV1Reader<'r> {
         AccountCharsReader::verify(&slice[offsets[1]..offsets[2]], compatible)?;
         Uint64Reader::verify(&slice[offsets[2]..offsets[3]], compatible)?;
         Uint64Reader::verify(&slice[offsets[3]..offsets[4]], compatible)?;
-        Uint8Reader::verify(&slice[offsets[4]..offsets[5]], compatible)?;
-        RecordsReader::verify(&slice[offsets[5]..offsets[6]], compatible)?;
+        Uint64Reader::verify(&slice[offsets[4]..offsets[5]], compatible)?;
+        Uint64Reader::verify(&slice[offsets[5]..offsets[6]], compatible)?;
+        Uint8Reader::verify(&slice[offsets[6]..offsets[7]], compatible)?;
+        RecordsReader::verify(&slice[offsets[7]..offsets[8]], compatible)?;
         Ok(())
     }
 }
 #[derive(Debug, Default)]
-pub struct AccountCellDataV1Builder {
+pub struct AccountCellDataV2Builder {
     pub(crate) id: AccountId,
     pub(crate) account: AccountChars,
     pub(crate) registered_at: Uint64,
-    pub(crate) updated_at: Uint64,
+    pub(crate) last_transfer_account_at: Uint64,
+    pub(crate) last_edit_manager_at: Uint64,
+    pub(crate) last_edit_records_at: Uint64,
     pub(crate) status: Uint8,
     pub(crate) records: Records,
 }
-impl AccountCellDataV1Builder {
-    pub const FIELD_COUNT: usize = 6;
+impl AccountCellDataV2Builder {
+    pub const FIELD_COUNT: usize = 8;
     pub fn id(mut self, v: AccountId) -> Self {
         self.id = v;
         self
@@ -311,8 +355,16 @@ impl AccountCellDataV1Builder {
         self.registered_at = v;
         self
     }
-    pub fn updated_at(mut self, v: Uint64) -> Self {
-        self.updated_at = v;
+    pub fn last_transfer_account_at(mut self, v: Uint64) -> Self {
+        self.last_transfer_account_at = v;
+        self
+    }
+    pub fn last_edit_manager_at(mut self, v: Uint64) -> Self {
+        self.last_edit_manager_at = v;
+        self
+    }
+    pub fn last_edit_records_at(mut self, v: Uint64) -> Self {
+        self.last_edit_records_at = v;
         self
     }
     pub fn status(mut self, v: Uint8) -> Self {
@@ -324,15 +376,17 @@ impl AccountCellDataV1Builder {
         self
     }
 }
-impl molecule::prelude::Builder for AccountCellDataV1Builder {
-    type Entity = AccountCellDataV1;
-    const NAME: &'static str = "AccountCellDataV1Builder";
+impl molecule::prelude::Builder for AccountCellDataV2Builder {
+    type Entity = AccountCellDataV2;
+    const NAME: &'static str = "AccountCellDataV2Builder";
     fn expected_length(&self) -> usize {
         molecule::NUMBER_SIZE * (Self::FIELD_COUNT + 1)
             + self.id.as_slice().len()
             + self.account.as_slice().len()
             + self.registered_at.as_slice().len()
-            + self.updated_at.as_slice().len()
+            + self.last_transfer_account_at.as_slice().len()
+            + self.last_edit_manager_at.as_slice().len()
+            + self.last_edit_records_at.as_slice().len()
             + self.status.as_slice().len()
             + self.records.as_slice().len()
     }
@@ -346,7 +400,11 @@ impl molecule::prelude::Builder for AccountCellDataV1Builder {
         offsets.push(total_size);
         total_size += self.registered_at.as_slice().len();
         offsets.push(total_size);
-        total_size += self.updated_at.as_slice().len();
+        total_size += self.last_transfer_account_at.as_slice().len();
+        offsets.push(total_size);
+        total_size += self.last_edit_manager_at.as_slice().len();
+        offsets.push(total_size);
+        total_size += self.last_edit_records_at.as_slice().len();
         offsets.push(total_size);
         total_size += self.status.as_slice().len();
         offsets.push(total_size);
@@ -358,7 +416,9 @@ impl molecule::prelude::Builder for AccountCellDataV1Builder {
         writer.write_all(self.id.as_slice())?;
         writer.write_all(self.account.as_slice())?;
         writer.write_all(self.registered_at.as_slice())?;
-        writer.write_all(self.updated_at.as_slice())?;
+        writer.write_all(self.last_transfer_account_at.as_slice())?;
+        writer.write_all(self.last_edit_manager_at.as_slice())?;
+        writer.write_all(self.last_edit_records_at.as_slice())?;
         writer.write_all(self.status.as_slice())?;
         writer.write_all(self.records.as_slice())?;
         Ok(())
@@ -367,12 +427,12 @@ impl molecule::prelude::Builder for AccountCellDataV1Builder {
         let mut inner = Vec::with_capacity(self.expected_length());
         self.write(&mut inner)
             .unwrap_or_else(|_| panic!("{} build should be ok", Self::NAME));
-        AccountCellDataV1::new_unchecked(inner.into())
+        AccountCellDataV2::new_unchecked(inner.into())
     }
 }
 #[derive(Clone)]
-pub struct PreAccountCellDataV1(molecule::bytes::Bytes);
-impl ::core::fmt::LowerHex for PreAccountCellDataV1 {
+pub struct PreAccountCellDataV2(molecule::bytes::Bytes);
+impl ::core::fmt::LowerHex for PreAccountCellDataV2 {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         use molecule::hex_string;
         if f.alternate() {
@@ -381,12 +441,12 @@ impl ::core::fmt::LowerHex for PreAccountCellDataV1 {
         write!(f, "{}", hex_string(self.as_slice()))
     }
 }
-impl ::core::fmt::Debug for PreAccountCellDataV1 {
+impl ::core::fmt::Debug for PreAccountCellDataV2 {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         write!(f, "{}({:#x})", Self::NAME, self)
     }
 }
-impl ::core::fmt::Display for PreAccountCellDataV1 {
+impl ::core::fmt::Display for PreAccountCellDataV2 {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         write!(f, "{} {{ ", Self::NAME)?;
         write!(f, "{}: {}", "account", self.account())?;
@@ -399,6 +459,7 @@ impl ::core::fmt::Display for PreAccountCellDataV1 {
         write!(f, ", {}: {}", "quote", self.quote())?;
         write!(f, ", {}: {}", "invited_discount", self.invited_discount())?;
         write!(f, ", {}: {}", "created_at", self.created_at())?;
+        write!(f, ", {}: {}", "initial_records", self.initial_records())?;
         let extra_count = self.count_extra_fields();
         if extra_count != 0 {
             write!(f, ", .. ({} fields)", extra_count)?;
@@ -406,20 +467,21 @@ impl ::core::fmt::Display for PreAccountCellDataV1 {
         write!(f, " }}")
     }
 }
-impl ::core::default::Default for PreAccountCellDataV1 {
+impl ::core::default::Default for PreAccountCellDataV2 {
     fn default() -> Self {
         let v: Vec<u8> = vec![
-            162, 0, 0, 0, 44, 0, 0, 0, 48, 0, 0, 0, 101, 0, 0, 0, 105, 0, 0, 0, 109, 0, 0, 0, 109, 0, 0, 0, 109, 0, 0,
-            0, 142, 0, 0, 0, 150, 0, 0, 0, 154, 0, 0, 0, 4, 0, 0, 0, 53, 0, 0, 0, 16, 0, 0, 0, 48, 0, 0, 0, 49, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 33, 0, 0, 0, 16, 0, 0, 0, 17, 0, 0, 0, 25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            170, 0, 0, 0, 48, 0, 0, 0, 52, 0, 0, 0, 105, 0, 0, 0, 109, 0, 0, 0, 113, 0, 0, 0, 113, 0, 0, 0, 113, 0, 0,
+            0, 146, 0, 0, 0, 154, 0, 0, 0, 158, 0, 0, 0, 166, 0, 0, 0, 4, 0, 0, 0, 53, 0, 0, 0, 16, 0, 0, 0, 48, 0, 0,
+            0, 49, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 33, 0, 0, 0, 16, 0, 0, 0, 17, 0, 0, 0, 25, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0,
+            0, 0,
         ];
-        PreAccountCellDataV1::new_unchecked(v.into())
+        PreAccountCellDataV2::new_unchecked(v.into())
     }
 }
-impl PreAccountCellDataV1 {
-    pub const FIELD_COUNT: usize = 10;
+impl PreAccountCellDataV2 {
+    pub const FIELD_COUNT: usize = 11;
     pub fn total_size(&self) -> usize {
         molecule::unpack_number(self.as_slice()) as usize
     }
@@ -493,22 +555,28 @@ impl PreAccountCellDataV1 {
     pub fn created_at(&self) -> Uint64 {
         let slice = self.as_slice();
         let start = molecule::unpack_number(&slice[40..]) as usize;
+        let end = molecule::unpack_number(&slice[44..]) as usize;
+        Uint64::new_unchecked(self.0.slice(start..end))
+    }
+    pub fn initial_records(&self) -> Records {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[44..]) as usize;
         if self.has_extra_fields() {
-            let end = molecule::unpack_number(&slice[44..]) as usize;
-            Uint64::new_unchecked(self.0.slice(start..end))
+            let end = molecule::unpack_number(&slice[48..]) as usize;
+            Records::new_unchecked(self.0.slice(start..end))
         } else {
-            Uint64::new_unchecked(self.0.slice(start..))
+            Records::new_unchecked(self.0.slice(start..))
         }
     }
-    pub fn as_reader<'r>(&'r self) -> PreAccountCellDataV1Reader<'r> {
-        PreAccountCellDataV1Reader::new_unchecked(self.as_slice())
+    pub fn as_reader<'r>(&'r self) -> PreAccountCellDataV2Reader<'r> {
+        PreAccountCellDataV2Reader::new_unchecked(self.as_slice())
     }
 }
-impl molecule::prelude::Entity for PreAccountCellDataV1 {
-    type Builder = PreAccountCellDataV1Builder;
-    const NAME: &'static str = "PreAccountCellDataV1";
+impl molecule::prelude::Entity for PreAccountCellDataV2 {
+    type Builder = PreAccountCellDataV2Builder;
+    const NAME: &'static str = "PreAccountCellDataV2";
     fn new_unchecked(data: molecule::bytes::Bytes) -> Self {
-        PreAccountCellDataV1(data)
+        PreAccountCellDataV2(data)
     }
     fn as_bytes(&self) -> molecule::bytes::Bytes {
         self.0.clone()
@@ -517,10 +585,10 @@ impl molecule::prelude::Entity for PreAccountCellDataV1 {
         &self.0[..]
     }
     fn from_slice(slice: &[u8]) -> molecule::error::VerificationResult<Self> {
-        PreAccountCellDataV1Reader::from_slice(slice).map(|reader| reader.to_entity())
+        PreAccountCellDataV2Reader::from_slice(slice).map(|reader| reader.to_entity())
     }
     fn from_compatible_slice(slice: &[u8]) -> molecule::error::VerificationResult<Self> {
-        PreAccountCellDataV1Reader::from_compatible_slice(slice).map(|reader| reader.to_entity())
+        PreAccountCellDataV2Reader::from_compatible_slice(slice).map(|reader| reader.to_entity())
     }
     fn new_builder() -> Self::Builder {
         ::core::default::Default::default()
@@ -537,11 +605,12 @@ impl molecule::prelude::Entity for PreAccountCellDataV1 {
             .quote(self.quote())
             .invited_discount(self.invited_discount())
             .created_at(self.created_at())
+            .initial_records(self.initial_records())
     }
 }
 #[derive(Clone, Copy)]
-pub struct PreAccountCellDataV1Reader<'r>(&'r [u8]);
-impl<'r> ::core::fmt::LowerHex for PreAccountCellDataV1Reader<'r> {
+pub struct PreAccountCellDataV2Reader<'r>(&'r [u8]);
+impl<'r> ::core::fmt::LowerHex for PreAccountCellDataV2Reader<'r> {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         use molecule::hex_string;
         if f.alternate() {
@@ -550,12 +619,12 @@ impl<'r> ::core::fmt::LowerHex for PreAccountCellDataV1Reader<'r> {
         write!(f, "{}", hex_string(self.as_slice()))
     }
 }
-impl<'r> ::core::fmt::Debug for PreAccountCellDataV1Reader<'r> {
+impl<'r> ::core::fmt::Debug for PreAccountCellDataV2Reader<'r> {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         write!(f, "{}({:#x})", Self::NAME, self)
     }
 }
-impl<'r> ::core::fmt::Display for PreAccountCellDataV1Reader<'r> {
+impl<'r> ::core::fmt::Display for PreAccountCellDataV2Reader<'r> {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         write!(f, "{} {{ ", Self::NAME)?;
         write!(f, "{}: {}", "account", self.account())?;
@@ -568,6 +637,7 @@ impl<'r> ::core::fmt::Display for PreAccountCellDataV1Reader<'r> {
         write!(f, ", {}: {}", "quote", self.quote())?;
         write!(f, ", {}: {}", "invited_discount", self.invited_discount())?;
         write!(f, ", {}: {}", "created_at", self.created_at())?;
+        write!(f, ", {}: {}", "initial_records", self.initial_records())?;
         let extra_count = self.count_extra_fields();
         if extra_count != 0 {
             write!(f, ", .. ({} fields)", extra_count)?;
@@ -575,8 +645,8 @@ impl<'r> ::core::fmt::Display for PreAccountCellDataV1Reader<'r> {
         write!(f, " }}")
     }
 }
-impl<'r> PreAccountCellDataV1Reader<'r> {
-    pub const FIELD_COUNT: usize = 10;
+impl<'r> PreAccountCellDataV2Reader<'r> {
+    pub const FIELD_COUNT: usize = 11;
     pub fn total_size(&self) -> usize {
         molecule::unpack_number(self.as_slice()) as usize
     }
@@ -650,22 +720,28 @@ impl<'r> PreAccountCellDataV1Reader<'r> {
     pub fn created_at(&self) -> Uint64Reader<'r> {
         let slice = self.as_slice();
         let start = molecule::unpack_number(&slice[40..]) as usize;
+        let end = molecule::unpack_number(&slice[44..]) as usize;
+        Uint64Reader::new_unchecked(&self.as_slice()[start..end])
+    }
+    pub fn initial_records(&self) -> RecordsReader<'r> {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[44..]) as usize;
         if self.has_extra_fields() {
-            let end = molecule::unpack_number(&slice[44..]) as usize;
-            Uint64Reader::new_unchecked(&self.as_slice()[start..end])
+            let end = molecule::unpack_number(&slice[48..]) as usize;
+            RecordsReader::new_unchecked(&self.as_slice()[start..end])
         } else {
-            Uint64Reader::new_unchecked(&self.as_slice()[start..])
+            RecordsReader::new_unchecked(&self.as_slice()[start..])
         }
     }
 }
-impl<'r> molecule::prelude::Reader<'r> for PreAccountCellDataV1Reader<'r> {
-    type Entity = PreAccountCellDataV1;
-    const NAME: &'static str = "PreAccountCellDataV1Reader";
+impl<'r> molecule::prelude::Reader<'r> for PreAccountCellDataV2Reader<'r> {
+    type Entity = PreAccountCellDataV2;
+    const NAME: &'static str = "PreAccountCellDataV2Reader";
     fn to_entity(&self) -> Self::Entity {
         Self::Entity::new_unchecked(self.as_slice().to_owned().into())
     }
     fn new_unchecked(slice: &'r [u8]) -> Self {
-        PreAccountCellDataV1Reader(slice)
+        PreAccountCellDataV2Reader(slice)
     }
     fn as_slice(&self) -> &'r [u8] {
         self.0
@@ -717,11 +793,12 @@ impl<'r> molecule::prelude::Reader<'r> for PreAccountCellDataV1Reader<'r> {
         Uint64Reader::verify(&slice[offsets[7]..offsets[8]], compatible)?;
         Uint32Reader::verify(&slice[offsets[8]..offsets[9]], compatible)?;
         Uint64Reader::verify(&slice[offsets[9]..offsets[10]], compatible)?;
+        RecordsReader::verify(&slice[offsets[10]..offsets[11]], compatible)?;
         Ok(())
     }
 }
 #[derive(Debug, Default)]
-pub struct PreAccountCellDataV1Builder {
+pub struct PreAccountCellDataV2Builder {
     pub(crate) account: AccountChars,
     pub(crate) refund_lock: Script,
     pub(crate) owner_lock_args: Bytes,
@@ -732,9 +809,10 @@ pub struct PreAccountCellDataV1Builder {
     pub(crate) quote: Uint64,
     pub(crate) invited_discount: Uint32,
     pub(crate) created_at: Uint64,
+    pub(crate) initial_records: Records,
 }
-impl PreAccountCellDataV1Builder {
-    pub const FIELD_COUNT: usize = 10;
+impl PreAccountCellDataV2Builder {
+    pub const FIELD_COUNT: usize = 11;
     pub fn account(mut self, v: AccountChars) -> Self {
         self.account = v;
         self
@@ -775,10 +853,14 @@ impl PreAccountCellDataV1Builder {
         self.created_at = v;
         self
     }
+    pub fn initial_records(mut self, v: Records) -> Self {
+        self.initial_records = v;
+        self
+    }
 }
-impl molecule::prelude::Builder for PreAccountCellDataV1Builder {
-    type Entity = PreAccountCellDataV1;
-    const NAME: &'static str = "PreAccountCellDataV1Builder";
+impl molecule::prelude::Builder for PreAccountCellDataV2Builder {
+    type Entity = PreAccountCellDataV2;
+    const NAME: &'static str = "PreAccountCellDataV2Builder";
     fn expected_length(&self) -> usize {
         molecule::NUMBER_SIZE * (Self::FIELD_COUNT + 1)
             + self.account.as_slice().len()
@@ -791,6 +873,7 @@ impl molecule::prelude::Builder for PreAccountCellDataV1Builder {
             + self.quote.as_slice().len()
             + self.invited_discount.as_slice().len()
             + self.created_at.as_slice().len()
+            + self.initial_records.as_slice().len()
     }
     fn write<W: molecule::io::Write>(&self, writer: &mut W) -> molecule::io::Result<()> {
         let mut total_size = molecule::NUMBER_SIZE * (Self::FIELD_COUNT + 1);
@@ -815,6 +898,8 @@ impl molecule::prelude::Builder for PreAccountCellDataV1Builder {
         total_size += self.invited_discount.as_slice().len();
         offsets.push(total_size);
         total_size += self.created_at.as_slice().len();
+        offsets.push(total_size);
+        total_size += self.initial_records.as_slice().len();
         writer.write_all(&molecule::pack_number(total_size as molecule::Number))?;
         for offset in offsets.into_iter() {
             writer.write_all(&molecule::pack_number(offset as molecule::Number))?;
@@ -829,505 +914,13 @@ impl molecule::prelude::Builder for PreAccountCellDataV1Builder {
         writer.write_all(self.quote.as_slice())?;
         writer.write_all(self.invited_discount.as_slice())?;
         writer.write_all(self.created_at.as_slice())?;
+        writer.write_all(self.initial_records.as_slice())?;
         Ok(())
     }
     fn build(&self) -> Self::Entity {
         let mut inner = Vec::with_capacity(self.expected_length());
         self.write(&mut inner)
             .unwrap_or_else(|_| panic!("{} build should be ok", Self::NAME));
-        PreAccountCellDataV1::new_unchecked(inner.into())
-    }
-}
-#[derive(Clone)]
-pub struct SubAccountV1(molecule::bytes::Bytes);
-impl ::core::fmt::LowerHex for SubAccountV1 {
-    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-        use molecule::hex_string;
-        if f.alternate() {
-            write!(f, "0x")?;
-        }
-        write!(f, "{}", hex_string(self.as_slice()))
-    }
-}
-impl ::core::fmt::Debug for SubAccountV1 {
-    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-        write!(f, "{}({:#x})", Self::NAME, self)
-    }
-}
-impl ::core::fmt::Display for SubAccountV1 {
-    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-        write!(f, "{} {{ ", Self::NAME)?;
-        write!(f, "{}: {}", "lock", self.lock())?;
-        write!(f, ", {}: {}", "id", self.id())?;
-        write!(f, ", {}: {}", "account", self.account())?;
-        write!(f, ", {}: {}", "suffix", self.suffix())?;
-        write!(f, ", {}: {}", "registered_at", self.registered_at())?;
-        write!(f, ", {}: {}", "expired_at", self.expired_at())?;
-        write!(f, ", {}: {}", "status", self.status())?;
-        write!(f, ", {}: {}", "records", self.records())?;
-        write!(f, ", {}: {}", "nonce", self.nonce())?;
-        write!(f, ", {}: {}", "enable_sub_account", self.enable_sub_account())?;
-        write!(f, ", {}: {}", "renew_sub_account_price", self.renew_sub_account_price())?;
-        let extra_count = self.count_extra_fields();
-        if extra_count != 0 {
-            write!(f, ", .. ({} fields)", extra_count)?;
-        }
-        write!(f, " }}")
-    }
-}
-impl ::core::default::Default for SubAccountV1 {
-    fn default() -> Self {
-        let v: Vec<u8> = vec![
-            167, 0, 0, 0, 48, 0, 0, 0, 101, 0, 0, 0, 121, 0, 0, 0, 125, 0, 0, 0, 129, 0, 0, 0, 137, 0, 0, 0, 145, 0, 0,
-            0, 146, 0, 0, 0, 150, 0, 0, 0, 158, 0, 0, 0, 159, 0, 0, 0, 53, 0, 0, 0, 16, 0, 0, 0, 48, 0, 0, 0, 49, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        ];
-        SubAccountV1::new_unchecked(v.into())
-    }
-}
-impl SubAccountV1 {
-    pub const FIELD_COUNT: usize = 11;
-    pub fn total_size(&self) -> usize {
-        molecule::unpack_number(self.as_slice()) as usize
-    }
-    pub fn field_count(&self) -> usize {
-        if self.total_size() == molecule::NUMBER_SIZE {
-            0
-        } else {
-            (molecule::unpack_number(&self.as_slice()[molecule::NUMBER_SIZE..]) as usize / 4) - 1
-        }
-    }
-    pub fn count_extra_fields(&self) -> usize {
-        self.field_count() - Self::FIELD_COUNT
-    }
-    pub fn has_extra_fields(&self) -> bool {
-        Self::FIELD_COUNT != self.field_count()
-    }
-    pub fn lock(&self) -> Script {
-        let slice = self.as_slice();
-        let start = molecule::unpack_number(&slice[4..]) as usize;
-        let end = molecule::unpack_number(&slice[8..]) as usize;
-        Script::new_unchecked(self.0.slice(start..end))
-    }
-    pub fn id(&self) -> AccountId {
-        let slice = self.as_slice();
-        let start = molecule::unpack_number(&slice[8..]) as usize;
-        let end = molecule::unpack_number(&slice[12..]) as usize;
-        AccountId::new_unchecked(self.0.slice(start..end))
-    }
-    pub fn account(&self) -> AccountChars {
-        let slice = self.as_slice();
-        let start = molecule::unpack_number(&slice[12..]) as usize;
-        let end = molecule::unpack_number(&slice[16..]) as usize;
-        AccountChars::new_unchecked(self.0.slice(start..end))
-    }
-    pub fn suffix(&self) -> Bytes {
-        let slice = self.as_slice();
-        let start = molecule::unpack_number(&slice[16..]) as usize;
-        let end = molecule::unpack_number(&slice[20..]) as usize;
-        Bytes::new_unchecked(self.0.slice(start..end))
-    }
-    pub fn registered_at(&self) -> Uint64 {
-        let slice = self.as_slice();
-        let start = molecule::unpack_number(&slice[20..]) as usize;
-        let end = molecule::unpack_number(&slice[24..]) as usize;
-        Uint64::new_unchecked(self.0.slice(start..end))
-    }
-    pub fn expired_at(&self) -> Uint64 {
-        let slice = self.as_slice();
-        let start = molecule::unpack_number(&slice[24..]) as usize;
-        let end = molecule::unpack_number(&slice[28..]) as usize;
-        Uint64::new_unchecked(self.0.slice(start..end))
-    }
-    pub fn status(&self) -> Uint8 {
-        let slice = self.as_slice();
-        let start = molecule::unpack_number(&slice[28..]) as usize;
-        let end = molecule::unpack_number(&slice[32..]) as usize;
-        Uint8::new_unchecked(self.0.slice(start..end))
-    }
-    pub fn records(&self) -> Records {
-        let slice = self.as_slice();
-        let start = molecule::unpack_number(&slice[32..]) as usize;
-        let end = molecule::unpack_number(&slice[36..]) as usize;
-        Records::new_unchecked(self.0.slice(start..end))
-    }
-    pub fn nonce(&self) -> Uint64 {
-        let slice = self.as_slice();
-        let start = molecule::unpack_number(&slice[36..]) as usize;
-        let end = molecule::unpack_number(&slice[40..]) as usize;
-        Uint64::new_unchecked(self.0.slice(start..end))
-    }
-    pub fn enable_sub_account(&self) -> Uint8 {
-        let slice = self.as_slice();
-        let start = molecule::unpack_number(&slice[40..]) as usize;
-        let end = molecule::unpack_number(&slice[44..]) as usize;
-        Uint8::new_unchecked(self.0.slice(start..end))
-    }
-    pub fn renew_sub_account_price(&self) -> Uint64 {
-        let slice = self.as_slice();
-        let start = molecule::unpack_number(&slice[44..]) as usize;
-        if self.has_extra_fields() {
-            let end = molecule::unpack_number(&slice[48..]) as usize;
-            Uint64::new_unchecked(self.0.slice(start..end))
-        } else {
-            Uint64::new_unchecked(self.0.slice(start..))
-        }
-    }
-    pub fn as_reader<'r>(&'r self) -> SubAccountV1Reader<'r> {
-        SubAccountV1Reader::new_unchecked(self.as_slice())
-    }
-}
-impl molecule::prelude::Entity for SubAccountV1 {
-    type Builder = SubAccountV1Builder;
-    const NAME: &'static str = "SubAccountV1";
-    fn new_unchecked(data: molecule::bytes::Bytes) -> Self {
-        SubAccountV1(data)
-    }
-    fn as_bytes(&self) -> molecule::bytes::Bytes {
-        self.0.clone()
-    }
-    fn as_slice(&self) -> &[u8] {
-        &self.0[..]
-    }
-    fn from_slice(slice: &[u8]) -> molecule::error::VerificationResult<Self> {
-        SubAccountV1Reader::from_slice(slice).map(|reader| reader.to_entity())
-    }
-    fn from_compatible_slice(slice: &[u8]) -> molecule::error::VerificationResult<Self> {
-        SubAccountV1Reader::from_compatible_slice(slice).map(|reader| reader.to_entity())
-    }
-    fn new_builder() -> Self::Builder {
-        ::core::default::Default::default()
-    }
-    fn as_builder(self) -> Self::Builder {
-        Self::new_builder()
-            .lock(self.lock())
-            .id(self.id())
-            .account(self.account())
-            .suffix(self.suffix())
-            .registered_at(self.registered_at())
-            .expired_at(self.expired_at())
-            .status(self.status())
-            .records(self.records())
-            .nonce(self.nonce())
-            .enable_sub_account(self.enable_sub_account())
-            .renew_sub_account_price(self.renew_sub_account_price())
-    }
-}
-#[derive(Clone, Copy)]
-pub struct SubAccountV1Reader<'r>(&'r [u8]);
-impl<'r> ::core::fmt::LowerHex for SubAccountV1Reader<'r> {
-    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-        use molecule::hex_string;
-        if f.alternate() {
-            write!(f, "0x")?;
-        }
-        write!(f, "{}", hex_string(self.as_slice()))
-    }
-}
-impl<'r> ::core::fmt::Debug for SubAccountV1Reader<'r> {
-    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-        write!(f, "{}({:#x})", Self::NAME, self)
-    }
-}
-impl<'r> ::core::fmt::Display for SubAccountV1Reader<'r> {
-    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-        write!(f, "{} {{ ", Self::NAME)?;
-        write!(f, "{}: {}", "lock", self.lock())?;
-        write!(f, ", {}: {}", "id", self.id())?;
-        write!(f, ", {}: {}", "account", self.account())?;
-        write!(f, ", {}: {}", "suffix", self.suffix())?;
-        write!(f, ", {}: {}", "registered_at", self.registered_at())?;
-        write!(f, ", {}: {}", "expired_at", self.expired_at())?;
-        write!(f, ", {}: {}", "status", self.status())?;
-        write!(f, ", {}: {}", "records", self.records())?;
-        write!(f, ", {}: {}", "nonce", self.nonce())?;
-        write!(f, ", {}: {}", "enable_sub_account", self.enable_sub_account())?;
-        write!(f, ", {}: {}", "renew_sub_account_price", self.renew_sub_account_price())?;
-        let extra_count = self.count_extra_fields();
-        if extra_count != 0 {
-            write!(f, ", .. ({} fields)", extra_count)?;
-        }
-        write!(f, " }}")
-    }
-}
-impl<'r> SubAccountV1Reader<'r> {
-    pub const FIELD_COUNT: usize = 11;
-    pub fn total_size(&self) -> usize {
-        molecule::unpack_number(self.as_slice()) as usize
-    }
-    pub fn field_count(&self) -> usize {
-        if self.total_size() == molecule::NUMBER_SIZE {
-            0
-        } else {
-            (molecule::unpack_number(&self.as_slice()[molecule::NUMBER_SIZE..]) as usize / 4) - 1
-        }
-    }
-    pub fn count_extra_fields(&self) -> usize {
-        self.field_count() - Self::FIELD_COUNT
-    }
-    pub fn has_extra_fields(&self) -> bool {
-        Self::FIELD_COUNT != self.field_count()
-    }
-    pub fn lock(&self) -> ScriptReader<'r> {
-        let slice = self.as_slice();
-        let start = molecule::unpack_number(&slice[4..]) as usize;
-        let end = molecule::unpack_number(&slice[8..]) as usize;
-        ScriptReader::new_unchecked(&self.as_slice()[start..end])
-    }
-    pub fn id(&self) -> AccountIdReader<'r> {
-        let slice = self.as_slice();
-        let start = molecule::unpack_number(&slice[8..]) as usize;
-        let end = molecule::unpack_number(&slice[12..]) as usize;
-        AccountIdReader::new_unchecked(&self.as_slice()[start..end])
-    }
-    pub fn account(&self) -> AccountCharsReader<'r> {
-        let slice = self.as_slice();
-        let start = molecule::unpack_number(&slice[12..]) as usize;
-        let end = molecule::unpack_number(&slice[16..]) as usize;
-        AccountCharsReader::new_unchecked(&self.as_slice()[start..end])
-    }
-    pub fn suffix(&self) -> BytesReader<'r> {
-        let slice = self.as_slice();
-        let start = molecule::unpack_number(&slice[16..]) as usize;
-        let end = molecule::unpack_number(&slice[20..]) as usize;
-        BytesReader::new_unchecked(&self.as_slice()[start..end])
-    }
-    pub fn registered_at(&self) -> Uint64Reader<'r> {
-        let slice = self.as_slice();
-        let start = molecule::unpack_number(&slice[20..]) as usize;
-        let end = molecule::unpack_number(&slice[24..]) as usize;
-        Uint64Reader::new_unchecked(&self.as_slice()[start..end])
-    }
-    pub fn expired_at(&self) -> Uint64Reader<'r> {
-        let slice = self.as_slice();
-        let start = molecule::unpack_number(&slice[24..]) as usize;
-        let end = molecule::unpack_number(&slice[28..]) as usize;
-        Uint64Reader::new_unchecked(&self.as_slice()[start..end])
-    }
-    pub fn status(&self) -> Uint8Reader<'r> {
-        let slice = self.as_slice();
-        let start = molecule::unpack_number(&slice[28..]) as usize;
-        let end = molecule::unpack_number(&slice[32..]) as usize;
-        Uint8Reader::new_unchecked(&self.as_slice()[start..end])
-    }
-    pub fn records(&self) -> RecordsReader<'r> {
-        let slice = self.as_slice();
-        let start = molecule::unpack_number(&slice[32..]) as usize;
-        let end = molecule::unpack_number(&slice[36..]) as usize;
-        RecordsReader::new_unchecked(&self.as_slice()[start..end])
-    }
-    pub fn nonce(&self) -> Uint64Reader<'r> {
-        let slice = self.as_slice();
-        let start = molecule::unpack_number(&slice[36..]) as usize;
-        let end = molecule::unpack_number(&slice[40..]) as usize;
-        Uint64Reader::new_unchecked(&self.as_slice()[start..end])
-    }
-    pub fn enable_sub_account(&self) -> Uint8Reader<'r> {
-        let slice = self.as_slice();
-        let start = molecule::unpack_number(&slice[40..]) as usize;
-        let end = molecule::unpack_number(&slice[44..]) as usize;
-        Uint8Reader::new_unchecked(&self.as_slice()[start..end])
-    }
-    pub fn renew_sub_account_price(&self) -> Uint64Reader<'r> {
-        let slice = self.as_slice();
-        let start = molecule::unpack_number(&slice[44..]) as usize;
-        if self.has_extra_fields() {
-            let end = molecule::unpack_number(&slice[48..]) as usize;
-            Uint64Reader::new_unchecked(&self.as_slice()[start..end])
-        } else {
-            Uint64Reader::new_unchecked(&self.as_slice()[start..])
-        }
-    }
-}
-impl<'r> molecule::prelude::Reader<'r> for SubAccountV1Reader<'r> {
-    type Entity = SubAccountV1;
-    const NAME: &'static str = "SubAccountV1Reader";
-    fn to_entity(&self) -> Self::Entity {
-        Self::Entity::new_unchecked(self.as_slice().to_owned().into())
-    }
-    fn new_unchecked(slice: &'r [u8]) -> Self {
-        SubAccountV1Reader(slice)
-    }
-    fn as_slice(&self) -> &'r [u8] {
-        self.0
-    }
-    fn verify(slice: &[u8], compatible: bool) -> molecule::error::VerificationResult<()> {
-        use molecule::verification_error as ve;
-        let slice_len = slice.len();
-        if slice_len < molecule::NUMBER_SIZE {
-            return ve!(Self, HeaderIsBroken, molecule::NUMBER_SIZE, slice_len);
-        }
-        let total_size = molecule::unpack_number(slice) as usize;
-        if slice_len != total_size {
-            return ve!(Self, TotalSizeNotMatch, total_size, slice_len);
-        }
-        if slice_len == molecule::NUMBER_SIZE && Self::FIELD_COUNT == 0 {
-            return Ok(());
-        }
-        if slice_len < molecule::NUMBER_SIZE * 2 {
-            return ve!(Self, HeaderIsBroken, molecule::NUMBER_SIZE * 2, slice_len);
-        }
-        let offset_first = molecule::unpack_number(&slice[molecule::NUMBER_SIZE..]) as usize;
-        if offset_first % molecule::NUMBER_SIZE != 0 || offset_first < molecule::NUMBER_SIZE * 2 {
-            return ve!(Self, OffsetsNotMatch);
-        }
-        if slice_len < offset_first {
-            return ve!(Self, HeaderIsBroken, offset_first, slice_len);
-        }
-        let field_count = offset_first / molecule::NUMBER_SIZE - 1;
-        if field_count < Self::FIELD_COUNT {
-            return ve!(Self, FieldCountNotMatch, Self::FIELD_COUNT, field_count);
-        } else if !compatible && field_count > Self::FIELD_COUNT {
-            return ve!(Self, FieldCountNotMatch, Self::FIELD_COUNT, field_count);
-        };
-        let mut offsets: Vec<usize> = slice[molecule::NUMBER_SIZE..offset_first]
-            .chunks_exact(molecule::NUMBER_SIZE)
-            .map(|x| molecule::unpack_number(x) as usize)
-            .collect();
-        offsets.push(total_size);
-        if offsets.windows(2).any(|i| i[0] > i[1]) {
-            return ve!(Self, OffsetsNotMatch);
-        }
-        ScriptReader::verify(&slice[offsets[0]..offsets[1]], compatible)?;
-        AccountIdReader::verify(&slice[offsets[1]..offsets[2]], compatible)?;
-        AccountCharsReader::verify(&slice[offsets[2]..offsets[3]], compatible)?;
-        BytesReader::verify(&slice[offsets[3]..offsets[4]], compatible)?;
-        Uint64Reader::verify(&slice[offsets[4]..offsets[5]], compatible)?;
-        Uint64Reader::verify(&slice[offsets[5]..offsets[6]], compatible)?;
-        Uint8Reader::verify(&slice[offsets[6]..offsets[7]], compatible)?;
-        RecordsReader::verify(&slice[offsets[7]..offsets[8]], compatible)?;
-        Uint64Reader::verify(&slice[offsets[8]..offsets[9]], compatible)?;
-        Uint8Reader::verify(&slice[offsets[9]..offsets[10]], compatible)?;
-        Uint64Reader::verify(&slice[offsets[10]..offsets[11]], compatible)?;
-        Ok(())
-    }
-}
-#[derive(Debug, Default)]
-pub struct SubAccountV1Builder {
-    pub(crate) lock: Script,
-    pub(crate) id: AccountId,
-    pub(crate) account: AccountChars,
-    pub(crate) suffix: Bytes,
-    pub(crate) registered_at: Uint64,
-    pub(crate) expired_at: Uint64,
-    pub(crate) status: Uint8,
-    pub(crate) records: Records,
-    pub(crate) nonce: Uint64,
-    pub(crate) enable_sub_account: Uint8,
-    pub(crate) renew_sub_account_price: Uint64,
-}
-impl SubAccountV1Builder {
-    pub const FIELD_COUNT: usize = 11;
-    pub fn lock(mut self, v: Script) -> Self {
-        self.lock = v;
-        self
-    }
-    pub fn id(mut self, v: AccountId) -> Self {
-        self.id = v;
-        self
-    }
-    pub fn account(mut self, v: AccountChars) -> Self {
-        self.account = v;
-        self
-    }
-    pub fn suffix(mut self, v: Bytes) -> Self {
-        self.suffix = v;
-        self
-    }
-    pub fn registered_at(mut self, v: Uint64) -> Self {
-        self.registered_at = v;
-        self
-    }
-    pub fn expired_at(mut self, v: Uint64) -> Self {
-        self.expired_at = v;
-        self
-    }
-    pub fn status(mut self, v: Uint8) -> Self {
-        self.status = v;
-        self
-    }
-    pub fn records(mut self, v: Records) -> Self {
-        self.records = v;
-        self
-    }
-    pub fn nonce(mut self, v: Uint64) -> Self {
-        self.nonce = v;
-        self
-    }
-    pub fn enable_sub_account(mut self, v: Uint8) -> Self {
-        self.enable_sub_account = v;
-        self
-    }
-    pub fn renew_sub_account_price(mut self, v: Uint64) -> Self {
-        self.renew_sub_account_price = v;
-        self
-    }
-}
-impl molecule::prelude::Builder for SubAccountV1Builder {
-    type Entity = SubAccountV1;
-    const NAME: &'static str = "SubAccountV1Builder";
-    fn expected_length(&self) -> usize {
-        molecule::NUMBER_SIZE * (Self::FIELD_COUNT + 1)
-            + self.lock.as_slice().len()
-            + self.id.as_slice().len()
-            + self.account.as_slice().len()
-            + self.suffix.as_slice().len()
-            + self.registered_at.as_slice().len()
-            + self.expired_at.as_slice().len()
-            + self.status.as_slice().len()
-            + self.records.as_slice().len()
-            + self.nonce.as_slice().len()
-            + self.enable_sub_account.as_slice().len()
-            + self.renew_sub_account_price.as_slice().len()
-    }
-    fn write<W: molecule::io::Write>(&self, writer: &mut W) -> molecule::io::Result<()> {
-        let mut total_size = molecule::NUMBER_SIZE * (Self::FIELD_COUNT + 1);
-        let mut offsets = Vec::with_capacity(Self::FIELD_COUNT);
-        offsets.push(total_size);
-        total_size += self.lock.as_slice().len();
-        offsets.push(total_size);
-        total_size += self.id.as_slice().len();
-        offsets.push(total_size);
-        total_size += self.account.as_slice().len();
-        offsets.push(total_size);
-        total_size += self.suffix.as_slice().len();
-        offsets.push(total_size);
-        total_size += self.registered_at.as_slice().len();
-        offsets.push(total_size);
-        total_size += self.expired_at.as_slice().len();
-        offsets.push(total_size);
-        total_size += self.status.as_slice().len();
-        offsets.push(total_size);
-        total_size += self.records.as_slice().len();
-        offsets.push(total_size);
-        total_size += self.nonce.as_slice().len();
-        offsets.push(total_size);
-        total_size += self.enable_sub_account.as_slice().len();
-        offsets.push(total_size);
-        total_size += self.renew_sub_account_price.as_slice().len();
-        writer.write_all(&molecule::pack_number(total_size as molecule::Number))?;
-        for offset in offsets.into_iter() {
-            writer.write_all(&molecule::pack_number(offset as molecule::Number))?;
-        }
-        writer.write_all(self.lock.as_slice())?;
-        writer.write_all(self.id.as_slice())?;
-        writer.write_all(self.account.as_slice())?;
-        writer.write_all(self.suffix.as_slice())?;
-        writer.write_all(self.registered_at.as_slice())?;
-        writer.write_all(self.expired_at.as_slice())?;
-        writer.write_all(self.status.as_slice())?;
-        writer.write_all(self.records.as_slice())?;
-        writer.write_all(self.nonce.as_slice())?;
-        writer.write_all(self.enable_sub_account.as_slice())?;
-        writer.write_all(self.renew_sub_account_price.as_slice())?;
-        Ok(())
-    }
-    fn build(&self) -> Self::Entity {
-        let mut inner = Vec::with_capacity(self.expected_length());
-        self.write(&mut inner)
-            .unwrap_or_else(|_| panic!("{} build should be ok", Self::NAME));
-        SubAccountV1::new_unchecked(inner.into())
+        PreAccountCellDataV2::new_unchecked(inner.into())
     }
 }

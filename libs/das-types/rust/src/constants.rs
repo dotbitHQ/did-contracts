@@ -51,6 +51,7 @@ pub enum DataType {
     ConfigCellSubAccountBetaList,         // args: 0x72000000
     ConfigCellSystemStatus,               // args: 0x73000000
     ConfigCellSMTNodeWhitelist,           // args: 0x74000000
+    ConfigCellDPoint,                     // args: 0x75000000
     ConfigCellPreservedAccount00 = 10000, // args: 0x10270000
     ConfigCellPreservedAccount01,
     ConfigCellPreservedAccount02,
