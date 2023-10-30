@@ -14,13 +14,13 @@ use ckb_std::high_level::{
     load_cell, load_cell_data, load_cell_lock, load_cell_lock_hash, load_cell_type, load_cell_type_hash, QueryIter,
 };
 use ckb_std::syscalls::{load_witness, SysError};
-use das_types::constants::{DataType, WITNESS_HEADER, WITNESS_HEADER_BYTES, WITNESS_TYPE_BYTES};
+use das_types::constants::{WITNESS_HEADER, WITNESS_HEADER_BYTES, WITNESS_TYPE_BYTES};
 use das_types::packed::{ConfigList, Data, DataEntity};
 use molecule::bytes::Bytes;
 use molecule::prelude::Entity;
 
 use crate::error::{ErrorCode, ScriptError};
-use crate::traits::Blake2BHash;
+use crate::traits::{Blake2BHash, GetDataType};
 // use crate::util::find_only_cell_by_type_id;
 
 #[derive(Default, Clone, Debug)]
@@ -533,7 +533,9 @@ impl GenHash for ForDefault {
     }
 }
 
-impl<const T: u32, H: GenHash> FromWitness for EntityWrapper<T, H> where [u8; T as usize]: Sized
+impl<const T: u32, H: GenHash> FromWitness for EntityWrapper<T, H>
+where
+    [u8; T as usize]: Sized,
 {
     type Error = Box<dyn ScriptError>;
     fn from_witness(witness: &Witness) -> Result<Self, Box<dyn ScriptError>> {
@@ -555,7 +557,8 @@ impl<const T: u32, H: GenHash> FromWitness for EntityWrapper<T, H> where [u8; T 
             //     version: u32::from_le_bytes(e.version().as_slice().try_into().unwrap()) as usize,
             //     entity: T::from_compatible_slice(e.entity().raw_data().as_slice()).unwrap(),
             // });
-            let inner = Data::from_compatible_slice(&item.buf[WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES..]).map_err(|_| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
+            let inner = Data::from_compatible_slice(&item.buf[WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES..])
+                .map_err(|_| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
             Ok(Self {
                 inner,
                 _marker: Default::default(),
@@ -615,7 +618,7 @@ impl Witness {
     fn get_meta(&self) -> Meta {
         match self {
             Witness::Loaded(w) => w.meta,
-            Witness::Loading(w) => w.meta
+            Witness::Loading(w) => w.meta,
         }
     }
     fn load_complete(&mut self) -> Result<(), Box<dyn ScriptError>> {
@@ -740,7 +743,6 @@ impl GeneralWitnessParser {
         }
     }
 
-
     // TODO: should support DepGroup
     pub fn parse_witness<T: FromWitness<Error = impl Into<Box<dyn ScriptError>>> + 'static>(
         &mut self,
@@ -748,16 +750,13 @@ impl GeneralWitnessParser {
     ) -> Result<ParsedWithHash<T>, Box<dyn ScriptError>> {
         let res = self.witnesses[index].parse::<T>()?;
         if let Some(hash) = res.hash {
-            let _ = self
-                .hashes
-                .insert(hash, index)
-                .is_some_and(|original| {
-                    if original != index {
-                        panic!("Witness {} and {} have same hash!", index, original)
-                    } else {
-                        false
-                    }
-                });
+            let _ = self.hashes.insert(hash, index).is_some_and(|original| {
+                if original != index {
+                    panic!("Witness {} and {} have same hash!", index, original)
+                } else {
+                    false
+                }
+            });
         }
         Ok(res)
     }
@@ -836,118 +835,5 @@ impl GeneralWitnessParser {
         }
 
         Err(code_to_error!(ErrorCode::WitnessCannotBeVerified))
-    }
-}
-
-pub trait GetDataType {
-    fn get_type_constant() -> DataType;
-}
-
-// impl<T, H> GetDataType for EntityWrapper<T, H> where T: Entity {
-//     fn get_type_constant() -> DataType {
-//         match T::NAME {
-//             "DeviceKeyListCellData" => DataType::DeviceKeyListEntityData,
-//             _ => unreachable!()
-//         }
-//     }
-// }
-
-impl<T> GetDataType for T
-where
-    T: Entity,
-{
-    default fn get_type_constant() -> DataType {
-        match T::NAME {
-            "ActionData" => DataType::ActionData,
-            "AccountCellData" => DataType::AccountCellData,
-            "AccountSaleCellData" => DataType::AccountSaleCellData,
-            "AccountAuctionCellData" => DataType::AccountAuctionCellData,
-            "ProposalCellData" => DataType::ProposalCellData,
-            "PreAccountCellData" => DataType::PreAccountCellData,
-            "IncomeCellData" => DataType::IncomeCellData,
-            "OfferCellData" => DataType::OfferCellData,
-            "SubAccount" => DataType::SubAccount,
-            "SubAccountMintSign" => DataType::SubAccountMintSign,
-            "ReverseRecord" => DataType::ReverseRecord,
-            "SubAccountPriceRule" => DataType::SubAccountPriceRule,
-            "SubAccountPreservedRule" => DataType::SubAccountPreservedRule,
-            // "DeviceKeyListEntityData" => DataType::DeviceKeyListEntityData,
-            "SubAccountRenewSign" => DataType::SubAccountRenewSign,
-            "DeviceKeyListCellData" => DataType::DeviceKeyListCellData,
-            "ConfigCellAccount" => DataType::ConfigCellAccount,
-            "ConfigCellApply" => DataType::ConfigCellApply,
-            "ConfigCellIncome" => DataType::ConfigCellIncome,
-            "ConfigCellMain" => DataType::ConfigCellMain,
-            "ConfigCellPrice" => DataType::ConfigCellPrice,
-            "ConfigCellProposal" => DataType::ConfigCellProposal,
-            "ConfigCellProfitRate" => DataType::ConfigCellProfitRate,
-            "ConfigCellRecordKeyNamespace" => DataType::ConfigCellRecordKeyNamespace,
-            "ConfigCellRelease" => DataType::ConfigCellRelease,
-            "ConfigCellUnAvailableAccount" => DataType::ConfigCellUnAvailableAccount,
-            "ConfigCellSecondaryMarket" => DataType::ConfigCellSecondaryMarket,
-            "ConfigCellReverseResolution" => DataType::ConfigCellReverseResolution,
-            "ConfigCellSubAccount" => DataType::ConfigCellSubAccount,
-            "ConfigCellSubAccountBetaList" => DataType::ConfigCellSubAccountBetaList,
-            "ConfigCellSystemStatus" => DataType::ConfigCellSystemStatus,
-            "ConfigCellSMTNodeWhitelist" => DataType::ConfigCellSMTNodeWhitelist,
-            "ConfigCellPreservedAccount00" => DataType::ConfigCellPreservedAccount00,
-            "ConfigCellPreservedAccount01" => DataType::ConfigCellPreservedAccount01,
-            "ConfigCellPreservedAccount02" => DataType::ConfigCellPreservedAccount02,
-            "ConfigCellPreservedAccount03" => DataType::ConfigCellPreservedAccount03,
-            "ConfigCellPreservedAccount04" => DataType::ConfigCellPreservedAccount04,
-            "ConfigCellPreservedAccount05" => DataType::ConfigCellPreservedAccount05,
-            "ConfigCellPreservedAccount06" => DataType::ConfigCellPreservedAccount06,
-            "ConfigCellPreservedAccount07" => DataType::ConfigCellPreservedAccount07,
-            "ConfigCellPreservedAccount08" => DataType::ConfigCellPreservedAccount08,
-            "ConfigCellPreservedAccount09" => DataType::ConfigCellPreservedAccount09,
-            "ConfigCellPreservedAccount10" => DataType::ConfigCellPreservedAccount10,
-            "ConfigCellPreservedAccount11" => DataType::ConfigCellPreservedAccount11,
-            "ConfigCellPreservedAccount12" => DataType::ConfigCellPreservedAccount12,
-            "ConfigCellPreservedAccount13" => DataType::ConfigCellPreservedAccount13,
-            "ConfigCellPreservedAccount14" => DataType::ConfigCellPreservedAccount14,
-            "ConfigCellPreservedAccount15" => DataType::ConfigCellPreservedAccount15,
-            "ConfigCellPreservedAccount16" => DataType::ConfigCellPreservedAccount16,
-            "ConfigCellPreservedAccount17" => DataType::ConfigCellPreservedAccount17,
-            "ConfigCellPreservedAccount18" => DataType::ConfigCellPreservedAccount18,
-            "ConfigCellPreservedAccount19" => DataType::ConfigCellPreservedAccount19,
-            "ConfigCellCharSetEmoji" => DataType::ConfigCellCharSetEmoji,
-            "ConfigCellCharSetDigit" => DataType::ConfigCellCharSetDigit,
-            "ConfigCellCharSetEn" => DataType::ConfigCellCharSetEn,
-            "ConfigCellCharSetZhHans" => DataType::ConfigCellCharSetZhHans,
-            "ConfigCellCharSetZhHant" => DataType::ConfigCellCharSetZhHant,
-            "ConfigCellCharSetJa" => DataType::ConfigCellCharSetJa,
-            "ConfigCellCharSetKo" => DataType::ConfigCellCharSetKo,
-            "ConfigCellCharSetRu" => DataType::ConfigCellCharSetRu,
-            "ConfigCellCharSetTr" => DataType::ConfigCellCharSetTr,
-            "ConfigCellCharSetTh" => DataType::ConfigCellCharSetTh,
-            "ConfigCellCharSetVi" => DataType::ConfigCellCharSetVi,
-            "Config" => DataType::ConfigCellMain,
-            _ => unreachable!(),
-        }
-    }
-}
-
-
-pub trait TryFromBytes<T> {
-    fn try_from_bytes(value: T) -> molecule::error::VerificationResult<Self> where Self: Sized;
-}
-
-impl <A> TryFromBytes<Bytes> for A where A: Entity + Sized {
-    fn try_from_bytes(value: Bytes) -> molecule::error::VerificationResult<Self> {
-        Self::from_compatible_slice(&value)
-    }
-} 
-
-
-impl <A> TryFromBytes<das_types::packed::Bytes> for A where A: Entity + Sized {
-    fn try_from_bytes(value: das_types::packed::Bytes) -> molecule::error::VerificationResult<Self> {
-        debug!("value: {:?}", value);
-        Self::from_compatible_slice(&value.as_bytes())
-    }
-}
-
-impl <A> TryFromBytes<ckb_std::ckb_types::packed::Bytes> for A where A: Entity + Sized {
-    fn try_from_bytes(value: ckb_std::ckb_types::packed::Bytes) -> molecule::error::VerificationResult<Self> {
-        Self::from_compatible_slice(&value.as_bytes())
     }
 }

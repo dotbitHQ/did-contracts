@@ -2,8 +2,10 @@ use alloc::boxed::Box;
 
 use ckb_std::ckb_types::packed::Script;
 use das_core::constants::das_lock;
+use das_core::contract::defult_structs::{Action, Rule};
 use das_core::error::ScriptError;
-use das_core::witness_parser::general_witness_parser::{get_witness_parser, EntityWrapper, ForNew, TryFromBytes};
+use das_core::traits::TryFromBytes;
+use das_core::witness_parser::general_witness_parser::{get_witness_parser, EntityWrapper, ForNew};
 use das_core::{assert, code_to_error};
 use das_types::constants::DataType;
 use das_types::packed::{DeviceKeyList, DeviceKeyListCellData};
@@ -11,7 +13,6 @@ use device_key_list_cell_type::error::ErrorCode;
 use molecule::prelude::Entity;
 
 use crate::helpers::ToNum;
-use crate::traits::{Action, Rule};
 
 pub fn action() -> Action {
     let mut create_action = Action::new("create_device_key_list");
@@ -29,10 +30,10 @@ pub fn action() -> Action {
     create_action.add_verification(Rule::new("Verify key length", |contract| {
         let output_cell_meta = contract.get_output_inner_cells()[0].get_meta();
         let key_list = get_witness_parser()
-            .parse_for_cell::<EntityWrapper<{ DataType::DeviceKeyListEntityData as u32}, ForNew>>(output_cell_meta)?
+            .parse_for_cell::<EntityWrapper<{ DataType::DeviceKeyListEntityData as u32 }, ForNew>>(output_cell_meta)?
             .result
             .into_target()
-            .map(|e|  DeviceKeyListCellData::try_from_bytes(e.entity().raw_data()))
+            .map(|e| DeviceKeyListCellData::try_from_bytes(e.entity().raw_data()))
             .unwrap()?;
         assert!(
             key_list.keys().item_count() == 1,
@@ -45,10 +46,10 @@ pub fn action() -> Action {
     create_action.add_verification(Rule::new("The lock arg of key list should be ", |contract| {
         let output_cell_meta = contract.get_output_inner_cells()[0].get_meta();
         let key_list = get_witness_parser()
-            .parse_for_cell::<EntityWrapper<{ DataType::DeviceKeyListEntityData as u32}, ForNew>>(output_cell_meta)?
+            .parse_for_cell::<EntityWrapper<{ DataType::DeviceKeyListEntityData as u32 }, ForNew>>(output_cell_meta)?
             .result
             .into_target()
-            .map(|e|  DeviceKeyListCellData::try_from_bytes(e.entity().raw_data()))
+            .map(|e| DeviceKeyListCellData::try_from_bytes(e.entity().raw_data()))
             .unwrap()?;
         verify_key_list_lock_arg(&contract.get_output_inner_cells()[0].lock(), key_list.keys())?;
         Ok(())
@@ -78,10 +79,10 @@ pub fn action() -> Action {
     create_action.add_verification(Rule::new("Verify refund lock", |contract| {
         let output_cell_meta = contract.get_output_inner_cells()[0].get_meta();
         let key_list = get_witness_parser()
-            .parse_for_cell::<EntityWrapper<{ DataType::DeviceKeyListEntityData as u32}, ForNew>>(output_cell_meta)?
+            .parse_for_cell::<EntityWrapper<{ DataType::DeviceKeyListEntityData as u32 }, ForNew>>(output_cell_meta)?
             .result
             .into_target()
-            .map(|e|  DeviceKeyListCellData::try_from_bytes(e.entity().raw_data()))
+            .map(|e| DeviceKeyListCellData::try_from_bytes(e.entity().raw_data()))
             .unwrap()?;
         let refund_lock = key_list.refund_lock();
         assert!(

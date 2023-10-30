@@ -1,9 +1,17 @@
 #!/bin/bash
 
-SCHEMA_PATH="${PWD}/schemas"
-DIST_RUST_PATH="${PWD}/rust"
-DIST_GO_PATH="${PWD}/go"
-DIST_JS_PATH="${PWD}/js"
+SOURCE=${BASH_SOURCE[0]}
+while [ -L "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
+  DIR=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
+  SOURCE=$(readlink "$SOURCE")
+  [[ $SOURCE != /* ]] && SOURCE=$DIR/$SOURCE # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+done
+BASEDIR=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
+
+SCHEMA_PATH="${BASEDIR}/schemas"
+DIST_RUST_PATH="${BASEDIR}/rust"
+DIST_GO_PATH="${BASEDIR}/go"
+DIST_JS_PATH="${BASEDIR}/js"
 
 function compile() {
     local language=$1
@@ -47,7 +55,8 @@ function compile() {
 case $1 in
 rust)
     compile rust $SCHEMA_PATH $DIST_RUST_PATH/src/schemas
-    cargo fmt
+    cd $DIST_RUST_PATH
+    cargo fmt --manifest-path="${BASEDIR}/Cargo.toml"
     ;;
 go)
     compile go $SCHEMA_PATH $DIST_GO_PATH/src

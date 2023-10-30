@@ -83,6 +83,7 @@ pub enum DataType {
     ConfigCellCharSetTr,
     ConfigCellCharSetTh,
     ConfigCellCharSetVi,
+    OrderInfo = 199999,
 }
 
 impl TryFrom<Uint32> for DataType {

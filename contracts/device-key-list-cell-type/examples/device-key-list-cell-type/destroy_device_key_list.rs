@@ -1,4 +1,5 @@
-use das_core::witness_parser::general_witness_parser::{get_witness_parser, EntityWrapper, ForOld, TryFromBytes};
+use das_core::traits::TryFromBytes;
+use das_core::witness_parser::general_witness_parser::{get_witness_parser, EntityWrapper, ForOld};
 use das_core::{assert, code_to_error};
 use das_types::constants::DataType;
 use das_types::packed::DeviceKeyListCellData;
@@ -6,7 +7,7 @@ use device_key_list_cell_type::error::ErrorCode;
 use molecule::prelude::Entity;
 
 use crate::helpers::ToNum;
-use crate::traits::{Action, Rule};
+use das_core::contract::defult_structs::{Action, Rule};
 
 pub fn action() -> Action {
     let mut destroy_action = Action::new("destroy_device_key_list");
@@ -24,10 +25,10 @@ pub fn action() -> Action {
     destroy_action.add_verification(Rule::new("Verify refund lock", |contract| {
         let input_cell_meta = contract.get_input_inner_cells()[0].get_meta();
         let key_list_in_input: DeviceKeyListCellData = get_witness_parser()
-            .parse_for_cell::<EntityWrapper<{DataType::DeviceKeyListEntityData as u32}, ForOld>>(input_cell_meta)?
+            .parse_for_cell::<EntityWrapper<{ DataType::DeviceKeyListEntityData as u32 }, ForOld>>(input_cell_meta)?
             .result
             .into_target()
-            .map(|e|  DeviceKeyListCellData::try_from_bytes(e.entity().raw_data()))
+            .map(|e| DeviceKeyListCellData::try_from_bytes(e.entity().raw_data()))
             .unwrap()?;
         let refund_lock = key_list_in_input.refund_lock();
         assert!(

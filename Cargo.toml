@@ -25,6 +25,7 @@ members = [
     "contracts/sub-account-cell-type",
     "contracts/eip712-lib",
     "contracts/device-key-list-cell-type",
+    "contracts/dpoint-cell-type",
     # Only for unit tests
     "tests",
     "contracts/test-env",

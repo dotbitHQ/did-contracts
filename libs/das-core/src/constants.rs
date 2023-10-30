@@ -4,7 +4,7 @@ use alloc::vec::Vec;
 pub use ckb_std::ckb_types::core::ScriptHashType;
 use ckb_std::ckb_types::packed::*;
 use das_types::constants::DataType;
-use das_types::packed::Config;
+use das_types::packed::{Config, ConfigCellMain};
 use molecule::prelude::{Builder, Entity};
 
 use super::types::ScriptLiteral;
@@ -92,8 +92,8 @@ pub const TYPE_ID_CODE_HASH: [u8; 32] = [
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 84, 89, 80, 69, 95, 73, 68,
 ];
 
-pub fn get_config_cell_main() -> Config {
-    let config = get_witness_parser().find_unique::<Config>().unwrap();
+pub fn get_config_cell_main() -> ConfigCellMain {
+    let config = get_witness_parser().find_unique::<ConfigCellMain>().unwrap();
     let trusted_lock = das_lock();
     let trusted_type = config_cell_type()
         .as_builder()
