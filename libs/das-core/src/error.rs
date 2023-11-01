@@ -510,7 +510,6 @@ impl fmt::Debug for Box<dyn ScriptError> {
     }
 }
 
-
 impl From<molecule::error::VerificationError> for Box<dyn ScriptError> {
     fn from(_err: molecule::error::VerificationError) -> Box<dyn ScriptError> {
         code_to_error!(ErrorCode::WitnessDataDecodingError)

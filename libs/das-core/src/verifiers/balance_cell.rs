@@ -64,6 +64,7 @@ pub fn verify_das_lock_always_with_type(
                             push_type_script!(account_auction_cell);
                             push_type_script!(offer_cell);
                             push_type_script!(reverse_record_cell);
+                            push_type_script!(dpoint_cell);
                         }
 
                         for script in available_type_scripts.iter() {

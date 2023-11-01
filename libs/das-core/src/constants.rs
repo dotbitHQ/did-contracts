@@ -4,13 +4,13 @@ use alloc::vec::Vec;
 pub use ckb_std::ckb_types::core::ScriptHashType;
 use ckb_std::ckb_types::packed::*;
 use das_types::constants::DataType;
-use das_types::packed::{Config, ConfigCellMain};
+use das_types::packed::ConfigCellMain;
 use molecule::prelude::{Builder, Entity};
 
 use super::types::ScriptLiteral;
 use super::util;
-use crate::witness_parser::general_witness_parser::{Condition, get_witness_parser};
 use crate::traits::Blake2BHash;
+use crate::witness_parser::general_witness_parser::{get_witness_parser, Condition};
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum ScriptType {

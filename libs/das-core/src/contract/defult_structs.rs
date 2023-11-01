@@ -1,7 +1,8 @@
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec::Vec;
 use core::slice::SlicePattern;
 
-use alloc::{string::String, boxed::Box};
-use alloc::vec::Vec;
 use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::packed::Script;
 use ckb_std::high_level::{load_cell, QueryIter};
@@ -9,13 +10,14 @@ use ckb_std::syscalls::SysError;
 use das_types::packed::ActionData;
 use molecule::prelude::Entity;
 
+use super::traits::{CellWithMeta, Contract, FSMContract, Verification};
 use crate::error::ScriptError;
-use crate::witness_parser::general_witness_parser::{WithMeta, Meta};
-
-use super::traits::{Verification, FSMContract, Contract, CellWithMeta};
+use crate::witness_parser::general_witness_parser::{Meta, WithMeta};
 
 pub struct Action {
-    pub(crate) name: String,
+    // TODO Refactor this to an enum; otherwise, it could be seriously misleading if anyone gives two actions the same name.
+    pub name: String,
+    pub is_default: bool,
     pub(crate) verifications: Vec<Box<dyn Verification>>,
 }
 
@@ -23,8 +25,13 @@ impl Action {
     pub fn new(name: impl Into<String>) -> Self {
         Self {
             name: name.into(),
+            is_default: false,
             verifications: Vec::new(),
         }
+    }
+
+    pub fn set_default(&mut self) {
+        self.is_default = true;
     }
 
     pub fn add_verification(&mut self, verification: impl Verification + 'static) {
@@ -194,12 +201,22 @@ impl RegisteredActions {
     }
 
     pub fn get_active_action(&mut self, action_data: &ActionData) -> Option<Action> {
+        let mut default_action = None;
         while let Some(action) = self.registered_actions.pop() {
             if action.name.as_bytes() == action_data.action().raw_data().as_slice() {
+                debug!("==== Route to action {} ====", action.name);
                 return Some(action);
             }
+
+            if action.is_default {
+                default_action = Some(action)
+            }
         }
-        None
+
+        if let Some(action) = default_action.as_ref() {
+            debug!("==== Route to action {} ====", action.name);
+        }
+
+        default_action
     }
 }
-

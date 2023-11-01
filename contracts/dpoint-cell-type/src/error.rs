@@ -7,8 +7,20 @@ pub enum ErrorCode {
     ItemMissing,
     LengthNotEnough,
     Encoding,
+    InvalidTransactionStructure = 6,
 
-    SomeError = 50,
+    SuperLockIsRequired = 50,
+    WhitelistLockIsRequired,
+    InitialCapacityError,
+    InitialOwnerError,
+    TheValueFieldIsMissing,
+    TheDPointCanNotDecreased,
+    TheDPointShouldDecreased,
+    OnlyOneUserIsAllowed,
+    SpendTooMuchFee,
+    CanNotSpendAnyFee,
+    ThereShouldBeSomeDPointCellInInput,
+    CapacityRecycleError,
 }
 
 impl From<SysError> for ErrorCode {

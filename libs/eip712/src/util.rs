@@ -100,7 +100,6 @@ pub fn to_semantic_capacity(capacity: u64) -> String {
     ret
 }
 
-
 pub fn to_semantic_currency(value: u64, unit: &str) -> String {
     let capacity_str = value.to_string();
     let length = capacity_str.len();

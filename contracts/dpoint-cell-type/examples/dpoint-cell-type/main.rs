@@ -11,7 +11,11 @@
 #![feature(panic_info_message)]
 #![feature(slice_pattern)]
 
+mod burn_dp;
 mod entry;
+mod mint_dp;
+mod transfer_dp;
+mod util;
 
 use ckb_std::default_alloc;
 

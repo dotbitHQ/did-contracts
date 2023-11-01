@@ -12,6 +12,7 @@ extern crate alloc;
 pub mod macros;
 
 pub mod constants;
+pub mod contract;
 pub mod data_parser;
 pub mod error;
 pub mod helpers;
@@ -23,4 +24,3 @@ pub mod types;
 pub mod util;
 pub mod verifiers;
 pub mod witness_parser;
-pub mod contract;

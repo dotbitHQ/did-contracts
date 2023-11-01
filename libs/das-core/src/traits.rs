@@ -54,8 +54,6 @@ where
     }
 }
 
-
-
 pub trait GetDataType {
     fn get_type_constant() -> DataType;
 }
