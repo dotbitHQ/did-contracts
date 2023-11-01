@@ -158,6 +158,7 @@ pub enum EntityWrapper {
     ConfigCellReverseResolution(ConfigCellReverseResolution),
     ConfigCellSubAccount(ConfigCellSubAccount),
     ConfigCellSytemStatus(ConfigCellSystemStatus),
+    ConfigCellDPoint(ConfigCellDPoint),
 }
 
 // The function returns Bytes which is not the proper type required by the transaction builder, which case so many places
@@ -214,6 +215,7 @@ pub fn wrap_entity_witness_v4(data_type: DataType, entity: EntityWrapper) -> Vec
         EntityWrapper::ConfigCellReverseResolution(entity) => entity.as_slice().to_vec(),
         EntityWrapper::ConfigCellSubAccount(entity) => entity.as_slice().to_vec(),
         EntityWrapper::ConfigCellSytemStatus(entity) => entity.as_slice().to_vec(),
+        EntityWrapper::ConfigCellDPoint(entity) => entity.as_slice().to_vec(),
         _ => unreachable!(),
     };
     data.append(&mut entity_bytes);

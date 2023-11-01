@@ -8172,7 +8172,9 @@ impl ::core::fmt::Debug for ConfigCellDPoint {
 impl ::core::fmt::Display for ConfigCellDPoint {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         write!(f, "{} {{ ", Self::NAME)?;
-        write!(f, "{}: {}", "transfer_whitelist", self.transfer_whitelist())?;
+        write!(f, "{}: {}", "basic_capacity", self.basic_capacity())?;
+        write!(f, ", {}: {}", "prepared_fee_capacity", self.prepared_fee_capacity())?;
+        write!(f, ", {}: {}", "transfer_whitelist", self.transfer_whitelist())?;
         write!(
             f,
             ", {}: {}",
@@ -8188,12 +8190,15 @@ impl ::core::fmt::Display for ConfigCellDPoint {
 }
 impl ::core::default::Default for ConfigCellDPoint {
     fn default() -> Self {
-        let v: Vec<u8> = vec![20, 0, 0, 0, 12, 0, 0, 0, 16, 0, 0, 0, 4, 0, 0, 0, 4, 0, 0, 0];
+        let v: Vec<u8> = vec![
+            44, 0, 0, 0, 20, 0, 0, 0, 28, 0, 0, 0, 36, 0, 0, 0, 40, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 4, 0, 0, 0, 4, 0, 0, 0,
+        ];
         ConfigCellDPoint::new_unchecked(v.into())
     }
 }
 impl ConfigCellDPoint {
-    pub const FIELD_COUNT: usize = 2;
+    pub const FIELD_COUNT: usize = 4;
     pub fn total_size(&self) -> usize {
         molecule::unpack_number(self.as_slice()) as usize
     }
@@ -8210,17 +8215,29 @@ impl ConfigCellDPoint {
     pub fn has_extra_fields(&self) -> bool {
         Self::FIELD_COUNT != self.field_count()
     }
-    pub fn transfer_whitelist(&self) -> Scripts {
+    pub fn basic_capacity(&self) -> Uint64 {
         let slice = self.as_slice();
         let start = molecule::unpack_number(&slice[4..]) as usize;
         let end = molecule::unpack_number(&slice[8..]) as usize;
+        Uint64::new_unchecked(self.0.slice(start..end))
+    }
+    pub fn prepared_fee_capacity(&self) -> Uint64 {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[8..]) as usize;
+        let end = molecule::unpack_number(&slice[12..]) as usize;
+        Uint64::new_unchecked(self.0.slice(start..end))
+    }
+    pub fn transfer_whitelist(&self) -> Scripts {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[12..]) as usize;
+        let end = molecule::unpack_number(&slice[16..]) as usize;
         Scripts::new_unchecked(self.0.slice(start..end))
     }
     pub fn capacity_recycle_whitelist(&self) -> Scripts {
         let slice = self.as_slice();
-        let start = molecule::unpack_number(&slice[8..]) as usize;
+        let start = molecule::unpack_number(&slice[16..]) as usize;
         if self.has_extra_fields() {
-            let end = molecule::unpack_number(&slice[12..]) as usize;
+            let end = molecule::unpack_number(&slice[20..]) as usize;
             Scripts::new_unchecked(self.0.slice(start..end))
         } else {
             Scripts::new_unchecked(self.0.slice(start..))
@@ -8253,6 +8270,8 @@ impl molecule::prelude::Entity for ConfigCellDPoint {
     }
     fn as_builder(self) -> Self::Builder {
         Self::new_builder()
+            .basic_capacity(self.basic_capacity())
+            .prepared_fee_capacity(self.prepared_fee_capacity())
             .transfer_whitelist(self.transfer_whitelist())
             .capacity_recycle_whitelist(self.capacity_recycle_whitelist())
     }
@@ -8276,7 +8295,9 @@ impl<'r> ::core::fmt::Debug for ConfigCellDPointReader<'r> {
 impl<'r> ::core::fmt::Display for ConfigCellDPointReader<'r> {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         write!(f, "{} {{ ", Self::NAME)?;
-        write!(f, "{}: {}", "transfer_whitelist", self.transfer_whitelist())?;
+        write!(f, "{}: {}", "basic_capacity", self.basic_capacity())?;
+        write!(f, ", {}: {}", "prepared_fee_capacity", self.prepared_fee_capacity())?;
+        write!(f, ", {}: {}", "transfer_whitelist", self.transfer_whitelist())?;
         write!(
             f,
             ", {}: {}",
@@ -8291,7 +8312,7 @@ impl<'r> ::core::fmt::Display for ConfigCellDPointReader<'r> {
     }
 }
 impl<'r> ConfigCellDPointReader<'r> {
-    pub const FIELD_COUNT: usize = 2;
+    pub const FIELD_COUNT: usize = 4;
     pub fn total_size(&self) -> usize {
         molecule::unpack_number(self.as_slice()) as usize
     }
@@ -8308,17 +8329,29 @@ impl<'r> ConfigCellDPointReader<'r> {
     pub fn has_extra_fields(&self) -> bool {
         Self::FIELD_COUNT != self.field_count()
     }
-    pub fn transfer_whitelist(&self) -> ScriptsReader<'r> {
+    pub fn basic_capacity(&self) -> Uint64Reader<'r> {
         let slice = self.as_slice();
         let start = molecule::unpack_number(&slice[4..]) as usize;
         let end = molecule::unpack_number(&slice[8..]) as usize;
+        Uint64Reader::new_unchecked(&self.as_slice()[start..end])
+    }
+    pub fn prepared_fee_capacity(&self) -> Uint64Reader<'r> {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[8..]) as usize;
+        let end = molecule::unpack_number(&slice[12..]) as usize;
+        Uint64Reader::new_unchecked(&self.as_slice()[start..end])
+    }
+    pub fn transfer_whitelist(&self) -> ScriptsReader<'r> {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[12..]) as usize;
+        let end = molecule::unpack_number(&slice[16..]) as usize;
         ScriptsReader::new_unchecked(&self.as_slice()[start..end])
     }
     pub fn capacity_recycle_whitelist(&self) -> ScriptsReader<'r> {
         let slice = self.as_slice();
-        let start = molecule::unpack_number(&slice[8..]) as usize;
+        let start = molecule::unpack_number(&slice[16..]) as usize;
         if self.has_extra_fields() {
-            let end = molecule::unpack_number(&slice[12..]) as usize;
+            let end = molecule::unpack_number(&slice[20..]) as usize;
             ScriptsReader::new_unchecked(&self.as_slice()[start..end])
         } else {
             ScriptsReader::new_unchecked(&self.as_slice()[start..])
@@ -8374,18 +8407,30 @@ impl<'r> molecule::prelude::Reader<'r> for ConfigCellDPointReader<'r> {
         if offsets.windows(2).any(|i| i[0] > i[1]) {
             return ve!(Self, OffsetsNotMatch);
         }
-        ScriptsReader::verify(&slice[offsets[0]..offsets[1]], compatible)?;
-        ScriptsReader::verify(&slice[offsets[1]..offsets[2]], compatible)?;
+        Uint64Reader::verify(&slice[offsets[0]..offsets[1]], compatible)?;
+        Uint64Reader::verify(&slice[offsets[1]..offsets[2]], compatible)?;
+        ScriptsReader::verify(&slice[offsets[2]..offsets[3]], compatible)?;
+        ScriptsReader::verify(&slice[offsets[3]..offsets[4]], compatible)?;
         Ok(())
     }
 }
 #[derive(Debug, Default)]
 pub struct ConfigCellDPointBuilder {
+    pub(crate) basic_capacity: Uint64,
+    pub(crate) prepared_fee_capacity: Uint64,
     pub(crate) transfer_whitelist: Scripts,
     pub(crate) capacity_recycle_whitelist: Scripts,
 }
 impl ConfigCellDPointBuilder {
-    pub const FIELD_COUNT: usize = 2;
+    pub const FIELD_COUNT: usize = 4;
+    pub fn basic_capacity(mut self, v: Uint64) -> Self {
+        self.basic_capacity = v;
+        self
+    }
+    pub fn prepared_fee_capacity(mut self, v: Uint64) -> Self {
+        self.prepared_fee_capacity = v;
+        self
+    }
     pub fn transfer_whitelist(mut self, v: Scripts) -> Self {
         self.transfer_whitelist = v;
         self
@@ -8400,12 +8445,18 @@ impl molecule::prelude::Builder for ConfigCellDPointBuilder {
     const NAME: &'static str = "ConfigCellDPointBuilder";
     fn expected_length(&self) -> usize {
         molecule::NUMBER_SIZE * (Self::FIELD_COUNT + 1)
+            + self.basic_capacity.as_slice().len()
+            + self.prepared_fee_capacity.as_slice().len()
             + self.transfer_whitelist.as_slice().len()
             + self.capacity_recycle_whitelist.as_slice().len()
     }
     fn write<W: molecule::io::Write>(&self, writer: &mut W) -> molecule::io::Result<()> {
         let mut total_size = molecule::NUMBER_SIZE * (Self::FIELD_COUNT + 1);
         let mut offsets = Vec::with_capacity(Self::FIELD_COUNT);
+        offsets.push(total_size);
+        total_size += self.basic_capacity.as_slice().len();
+        offsets.push(total_size);
+        total_size += self.prepared_fee_capacity.as_slice().len();
         offsets.push(total_size);
         total_size += self.transfer_whitelist.as_slice().len();
         offsets.push(total_size);
@@ -8414,6 +8465,8 @@ impl molecule::prelude::Builder for ConfigCellDPointBuilder {
         for offset in offsets.into_iter() {
             writer.write_all(&molecule::pack_number(offset as molecule::Number))?;
         }
+        writer.write_all(self.basic_capacity.as_slice())?;
+        writer.write_all(self.prepared_fee_capacity.as_slice())?;
         writer.write_all(self.transfer_whitelist.as_slice())?;
         writer.write_all(self.capacity_recycle_whitelist.as_slice())?;
         Ok(())

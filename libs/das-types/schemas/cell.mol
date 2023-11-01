@@ -267,7 +267,13 @@ table ContractStatus {
 }
 
 table ConfigCellDPoint {
+    // The basic capacity DPointCell required, it is bigger than or equal to DPointCell occupied capacity.
+    basic_capacity: Uint64,
+    // The fees prepared for various transactions.
+    prepared_fee_capacity: Uint64,
+    // The addresses can transfer and receive DPointCells.
     transfer_whitelist: Scripts,
+    // The addresses for recycling the CKB occupied by DPointCells.
     capacity_recycle_whitelist: Scripts,
 }
 

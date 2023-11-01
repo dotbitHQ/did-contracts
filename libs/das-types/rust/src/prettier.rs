@@ -170,6 +170,26 @@ impl<'a> Prettier for ScriptOptReader<'a> {
     }
 }
 
+impl Prettier for Scripts {
+    fn as_prettier(&self) -> String {
+        self.as_reader().as_prettier()
+    }
+}
+
+impl<'a> Prettier for ScriptsReader<'a> {
+    fn as_prettier(&self) -> String {
+        let mut output = String::from("[ ");
+        let mut comma = "";
+        for script_reader in self.iter() {
+            output += comma;
+            output += script_reader.as_prettier().as_str();
+            comma = ", ";
+        }
+        output += " ]";
+        output
+    }
+}
+
 impl Prettier for OutPoint {
     fn as_prettier(&self) -> String {
         self.as_reader().as_prettier()
@@ -1386,6 +1406,23 @@ impl<'a> Prettier for SubAccountRuleReader<'a> {
             price,
             status,
             (ast -> "...")
+        })
+    }
+}
+
+impl Prettier for ConfigCellDPoint {
+    fn as_prettier(&self) -> String {
+        self.as_reader().as_prettier()
+    }
+}
+
+impl<'a> Prettier for ConfigCellDPointReader<'a> {
+    fn as_prettier(&self) -> String {
+        print_fields!(self, "ConfigCellDPoint", {
+            basic_capacity,
+            prepared_fee_capacity,
+            transfer_whitelist,
+            capacity_recycle_whitelist
         })
     }
 }
