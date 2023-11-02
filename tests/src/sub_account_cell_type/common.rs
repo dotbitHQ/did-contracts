@@ -182,56 +182,6 @@ pub fn get_compiled_proof(smt: &SMTWithHistory, key: &str) -> String {
     format!("0x{}", hex::encode(proof))
 }
 
-pub fn push_simple_input_sub_account_cell_with_custom_script(
-    template: &mut TemplateGenerator,
-    das_profit: u64,
-    owner_profit: u64,
-    script_args: &str,
-) {
-    push_input_sub_account_cell_v2(
-        template,
-        json!({
-            "header": {
-                "height": HEIGHT - 1,
-                "timestamp": TIMESTAMP - DAY_SEC,
-            },
-            "data": {
-                "das_profit": das_profit,
-                "owner_profit": owner_profit,
-                "flag": SubAccountConfigFlag::CustomScript as u8,
-                // 0x0000000000000000000000000000746573742d637573746f6d2d7363726970740011223300 means args of type ID 0x0c133a395b06d1bdb953f4a7f02bbd0d2eba99d3eb50de9de80ac7c741ed11e7 of custom script.
-                "custom_script": "0x0000000000000000000000000000746573742d637573746f6d2d736372697074",
-                "script_args": script_args
-            }
-        }),
-        ACCOUNT_1,
-    );
-}
-
-pub fn push_simple_output_sub_account_cell_with_custom_script(
-    template: &mut TemplateGenerator,
-    das_profit: u64,
-    owner_profit: u64,
-    script_args: &str,
-) {
-    let current_root = template.smt_with_history.current_root();
-    push_output_sub_account_cell_v2(
-        template,
-        json!({
-            "data": {
-                "root": String::from("0x") + &hex::encode(&current_root),
-                "das_profit": das_profit,
-                "owner_profit": owner_profit,
-                "flag": SubAccountConfigFlag::CustomScript as u8,
-                // 0x0000000000000000000000000000746573742d637573746f6d2d7363726970740011223300 means args of type ID 0x0c133a395b06d1bdb953f4a7f02bbd0d2eba99d3eb50de9de80ac7c741ed11e7 of custom script.
-                "custom_script": "0x0000000000000000000000000000746573742d637573746f6d2d736372697074",
-                "script_args": script_args
-            }
-        }),
-        ACCOUNT_1,
-    );
-}
-
 pub fn get_profit_of_each_role(total_profit: u64, account_count: u64) -> (u64, u64) {
     let minimal_das_profit = util::gen_sub_account_register_fee(SUB_ACCOUNT_NEW_PRICE, account_count);
     let mut das_profit = total_profit * SUB_ACCOUNT_NEW_CUSTOM_PRICE_DAS_PROFIT_RATE / RATE_BASE;
@@ -241,12 +191,4 @@ pub fn get_profit_of_each_role(total_profit: u64, account_count: u64) -> (u64, u
     let owner_profit = total_profit - das_profit;
 
     (das_profit, owner_profit)
-}
-
-pub fn push_common_output_cells_with_custom_script(template: &mut TemplateGenerator, account_count: u64) {
-    let minimal_das_profit = util::gen_sub_account_register_fee(SUB_ACCOUNT_NEW_PRICE, account_count);
-    let total_profit = util::gen_sub_account_register_fee(SUB_ACCOUNT_NEW_CUSTOM_PRICE, account_count);
-    let (das_profit, owner_profit) = get_profit_of_each_role(total_profit, account_count);
-    push_simple_output_sub_account_cell_with_custom_script(template, das_profit, owner_profit, SCRIPT_ARGS);
-    push_output_normal_cell(template, TOTAL_PAID - minimal_das_profit, OWNER);
 }

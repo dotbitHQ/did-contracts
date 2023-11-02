@@ -873,10 +873,6 @@ pub fn verify_sub_account_cell_is_consistent(
         );
 
         match input_flag {
-            Some(SubAccountConfigFlag::CustomScript) => {
-                das_assert_field_consistent_if_not_except!("custom_script", get_custom_script);
-                das_assert_field_consistent_if_not_except!("custom_script_args", get_custom_script_args);
-            }
             Some(SubAccountConfigFlag::CustomRule) => {
                 das_assert_field_consistent_if_not_except!("custom_rule_status_flag", get_custom_rule_status_flag);
                 das_assert_field_consistent_if_not_except!("price_rules_hash", get_price_rules_hash);

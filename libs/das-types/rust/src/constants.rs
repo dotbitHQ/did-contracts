@@ -214,7 +214,7 @@ pub enum SubAccountAction {
 #[repr(u8)]
 pub enum SubAccountConfigFlag {
     Manual,
-    CustomScript,
+    CustomScript, // deprecated
     CustomRule = 255,
 }
 

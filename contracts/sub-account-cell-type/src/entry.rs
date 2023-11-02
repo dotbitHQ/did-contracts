@@ -3,12 +3,10 @@ use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
-use core::ffi::CStr;
 use core::result::Result;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::packed;
-use ckb_std::error::SysError;
 use ckb_std::high_level;
 use das_core::constants::*;
 use das_core::error::*;
@@ -59,7 +57,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             )?;
         }
         b"config_sub_account" => action_config_sub_account(action, &mut parser)?,
-        b"config_sub_account_custom_script" => action_config_sub_account_custom_script(action, &mut parser)?,
         b"update_sub_account" => action_update_sub_account(action, &mut parser)?,
         b"collect_sub_account_profit" | b"collect_sub_account_channel_profit" => {
             action_collect_sub_account_profit(action, &mut parser)?
@@ -256,125 +253,15 @@ fn action_config_sub_account(_action: &[u8], parser: &mut WitnessesParser) -> Re
             verifiers::sub_account_cell::verify_config_is_manual(output_sub_account_cells[0], Source::Output)?;
         }
         _ => {
-            warn!("The flag should be either CustomRule or Manual for now.");
-            return Err(code_to_error!(SubAccountCellErrorCode::ConfigFlagInvalid));
+            warn!("The flag CustomScript is no longer supported.");
+            return Err(code_to_error!(ErrorCode::HardCodedError));
         }
     }
 
     Ok(())
 }
 
-fn action_config_sub_account_custom_script(
-    _action: &[u8],
-    parser: &mut WitnessesParser,
-) -> Result<(), Box<dyn ScriptError>> {
-    parser.parse_cell()?;
-    let config_main = parser.configs.main()?;
-    let config_account = parser.configs.account()?;
-    let config_sub_account = parser.configs.sub_account()?;
-
-    let timestamp = util::load_oracle_data(OracleCellType::Time)?;
-
-    let (input_account_cells, output_account_cells) = util::find_cells_by_type_id_in_inputs_and_outputs(
-        ScriptType::Type,
-        config_main.type_id_table().account_cell(),
-    )?;
-    verifiers::common::verify_cell_number_and_position(
-        "AccountCell",
-        &input_account_cells,
-        &[0],
-        &output_account_cells,
-        &[0],
-    )?;
-
-    let sender_lock = util::derive_owner_lock_from_cell(input_account_cells[0], Source::Input)?;
-    verifiers::misc::verify_no_more_cells_with_same_lock(sender_lock.as_reader(), &input_account_cells, Source::Input)?;
-
-    let input_account_cell_witness = util::parse_account_cell_witness(&parser, input_account_cells[0], Source::Input)?;
-    let input_account_cell_reader = input_account_cell_witness.as_reader();
-    let output_account_cell_witness =
-        util::parse_account_cell_witness(&parser, output_account_cells[0], Source::Output)?;
-    let output_account_cell_reader = output_account_cell_witness.as_reader();
-
-    verifiers::account_cell::verify_status_v2(
-        &input_account_cell_reader,
-        &[AccountStatus::Normal, AccountStatus::ApprovedTransfer],
-        input_account_cells[0],
-        Source::Input,
-    )?;
-
-    verifiers::account_cell::verify_account_expiration(
-        config_account,
-        input_account_cells[0],
-        Source::Input,
-        timestamp,
-    )?;
-
-    verifiers::account_cell::verify_account_capacity_not_decrease(input_account_cells[0], output_account_cells[0])?;
-
-    verifiers::account_cell::verify_account_cell_consistent_with_exception(
-        input_account_cells[0],
-        output_account_cells[0],
-        &input_account_cell_reader,
-        &output_account_cell_reader,
-        None,
-        vec![],
-        vec![],
-    )?;
-
-    let (input_sub_account_cells, output_sub_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
-    verifiers::common::verify_cell_number_and_position(
-        "SubAccountCell",
-        &input_sub_account_cells,
-        &[1],
-        &output_sub_account_cells,
-        &[1],
-    )?;
-
-    verifiers::sub_account_cell::verify_sub_account_parent_id(
-        input_sub_account_cells[0],
-        Source::Input,
-        input_account_cell_reader.id().raw_data(),
-    )?;
-
-    let input_sub_account_capacity = high_level::load_cell_capacity(input_sub_account_cells[0], Source::Input)?;
-    let output_sub_account_capacity = high_level::load_cell_capacity(output_sub_account_cells[0], Source::Output)?;
-    let input_sub_account_data = high_level::load_cell_data(input_sub_account_cells[0], Source::Input)?;
-    let output_sub_account_data = high_level::load_cell_data(output_sub_account_cells[0], Source::Output)?;
-
-    verify_sub_account_transaction_fee(
-        config_sub_account,
-        input_sub_account_capacity,
-        &input_sub_account_data,
-        output_sub_account_capacity,
-        &output_sub_account_data,
-    )?;
-
-    let input_sub_account_custom_script = data_parser::sub_account_cell::get_custom_script(&input_sub_account_data);
-    let output_sub_account_custom_script = data_parser::sub_account_cell::get_custom_script(&output_sub_account_data);
-    let input_sub_account_script_args = data_parser::sub_account_cell::get_custom_script_args(&input_sub_account_data);
-    let output_sub_account_script_args =
-        data_parser::sub_account_cell::get_custom_script_args(&output_sub_account_data);
-
-    // manual::verify_custom_script_changed
-    das_assert!(
-        input_sub_account_custom_script != output_sub_account_custom_script
-            || input_sub_account_script_args != output_sub_account_script_args,
-        SubAccountCellErrorCode::SubAccountCustomScriptError,
-        "outputs[{}] The custom script of SubAccountCell should be different in inputs and outputs.",
-        output_sub_account_cells[0]
-    );
-
-    verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
-        input_sub_account_cells[0],
-        output_sub_account_cells[0],
-        vec!["flag", "custom_script", "custom_script_args"],
-    )?;
-
-    Ok(())
-}
-
-fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Result<(), Box<dyn ScriptError>> {
+fn action_update_sub_account(_action: &[u8], parser: &mut WitnessesParser) -> Result<(), Box<dyn ScriptError>> {
     parser.parse_cell()?;
     let config_main = parser.configs.main()?;
     let config_account = parser.configs.account()?;
@@ -515,9 +402,6 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
     let mut manual_renew_list_smt_root = None;
     let mut sender_lock = packed::Script::default();
 
-    let mut custom_script_params = Vec::new();
-    let mut custom_script_type_id = None;
-
     let mut custom_rule_flag = SubAccountCustomRuleFlag::Off;
     let mut custom_price_rules = None;
     let mut custom_preserved_rules = None;
@@ -608,58 +492,6 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
         debug!("The SubAccountCell.data.flag is {} .", flag.to_string());
 
         match flag {
-            SubAccountConfigFlag::CustomScript => {
-                verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
-                    input_sub_account_cells[0],
-                    output_sub_account_cells[0],
-                    vec!["smt_root", "das_profit", "owner_profit"],
-                )?;
-
-                debug!("Push action into custom_script_params.");
-
-                // TODO This can be removed now, but we need update the custom script first.
-                let action_str = String::from_utf8(action.to_vec()).unwrap();
-                custom_script_params.push(action_str);
-
-                debug!("Try to find the QuoteCell from cell_deps and push quote into custom_script_params.");
-
-                let quote = util::load_oracle_data(OracleCellType::Quote)?;
-                custom_script_params.push(util::hex_string(&quote.to_le_bytes()));
-
-                let input_das_profit = data_parser::sub_account_cell::get_das_profit(&input_sub_account_data).unwrap();
-                let output_das_profit =
-                    data_parser::sub_account_cell::get_das_profit(&output_sub_account_data).unwrap();
-                let input_owner_profit =
-                    data_parser::sub_account_cell::get_owner_profit(&input_sub_account_data).unwrap();
-                let output_owner_profit =
-                    data_parser::sub_account_cell::get_owner_profit(&output_sub_account_data).unwrap();
-                let owner_profit = output_owner_profit - input_owner_profit;
-                let das_profit = output_das_profit - input_das_profit;
-
-                custom_script_params.push(util::hex_string(&owner_profit.to_le_bytes()));
-                custom_script_params.push(util::hex_string(&das_profit.to_le_bytes()));
-
-                let custom_script_args =
-                    data_parser::sub_account_cell::get_custom_script_args(&input_sub_account_data).unwrap();
-                custom_script_params.push(util::hex_string(custom_script_args));
-
-                let args = match data_parser::sub_account_cell::get_custom_script(&input_sub_account_data) {
-                    Some(val) => val,
-                    None => {
-                        return Err(code_to_error!(SubAccountCellErrorCode::SubAccountCustomScriptEmpty));
-                    }
-                };
-                let type_of_custom_script = Script::new_builder()
-                    .code_hash(Hash::from(TYPE_ID_CODE_HASH))
-                    .hash_type(Byte::from(1))
-                    .args(Bytes::from(args))
-                    .build();
-                let type_id = util::blake2b_256(type_of_custom_script.as_slice());
-
-                debug!("The type ID of custom script is: 0x{}", util::hex_string(&type_id));
-
-                custom_script_type_id = Some(type_id);
-            }
             SubAccountConfigFlag::CustomRule => {
                 verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
                     input_sub_account_cells[0],
@@ -799,7 +631,6 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
         parent_expired_at,
         &manual_mint_list_smt_root,
         &manual_renew_list_smt_root,
-        custom_script_params,
         &custom_preserved_rules,
         &custom_price_rules,
     );
@@ -833,7 +664,7 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
     if sub_account_parser.contains_creation || sub_account_parser.contains_renew {
         debug!("Verify if the profit distribution is correct.");
 
-        let minimal_required_das_profit = sub_action.minimal_required_das_profit;
+        let _minimal_required_das_profit = sub_action.minimal_required_das_profit;
         let profit_from_manual_mint = sub_action.profit_from_manual_mint;
         let profit_from_manual_renew = sub_action.profit_from_manual_renew;
         let profit_from_manual_renew_by_other = sub_action.profit_from_manual_renew_by_other;
@@ -887,46 +718,6 @@ fn action_update_sub_account(action: &[u8], parser: &mut WitnessesParser) -> Res
         }
 
         match flag {
-            SubAccountConfigFlag::CustomScript => {
-                verify_there_is_only_one_lock_for_normal_cells(
-                    input_sub_account_cells[0],
-                    output_sub_account_cells[0],
-                )?;
-
-                verify_profit_to_das_with_custom_script(
-                    config_sub_account,
-                    minimal_required_das_profit,
-                    &input_sub_account_data,
-                    &output_sub_account_data,
-                )?;
-
-                let type_id = custom_script_type_id.unwrap();
-
-                debug!("Execute custom script by type ID: 0x{}", util::hex_string(&type_id));
-
-                let params_with_nul = sub_action
-                    .custom_script_params
-                    .iter()
-                    .map(|val| {
-                        let mut ret = val.as_bytes().to_vec();
-                        ret.push(0);
-                        ret
-                    })
-                    .collect::<Vec<_>>();
-                let mut total_size = 0;
-                let params = params_with_nul
-                    .iter()
-                    .map(|val| unsafe {
-                        total_size += val.len();
-                        CStr::from_bytes_with_nul_unchecked(val.as_slice())
-                    })
-                    .collect::<Vec<_>>();
-
-                debug!("The total size of custom script params: {} bytes", total_size);
-
-                high_level::exec_cell(&type_id, ScriptHashType::Type, 0, 0, &params)
-                    .map_err(Error::<ErrorCode>::from)?;
-            }
             SubAccountConfigFlag::CustomRule => {
                 debug!("Verify if all the profit have been accounted for .bit ...");
 
@@ -1198,53 +989,6 @@ fn verify_profit_to_das_with_manual(
     Ok(())
 }
 
-fn verify_profit_to_das_with_custom_script(
-    config_sub_account: ConfigCellSubAccountReader,
-    minimal_profit_to_das: u64,
-    input_data: &[u8],
-    output_data: &[u8],
-) -> Result<(), Box<dyn ScriptError>> {
-    debug!("Verify the profit to DAS is calculated from rate of config properly.");
-
-    let input_das_profit = data_parser::sub_account_cell::get_das_profit(&input_data).unwrap();
-    let output_das_profit = data_parser::sub_account_cell::get_das_profit(&output_data).unwrap();
-    let input_owner_profit = data_parser::sub_account_cell::get_owner_profit(&input_data).unwrap();
-    let output_owner_profit = data_parser::sub_account_cell::get_owner_profit(&output_data).unwrap();
-    let owner_profit = output_owner_profit - input_owner_profit;
-    let das_profit = output_das_profit - input_das_profit;
-    let total_profit = owner_profit + das_profit;
-    let profit_rate = u32::from(config_sub_account.new_sub_account_custom_price_das_profit_rate());
-
-    // debug!("das_profit: {:?}", das_profit);
-    // debug!("owner_profit: {:?}", owner_profit);
-    // debug!("total_profit: {:?}", total_profit);
-
-    das_assert!(
-        das_profit >= minimal_profit_to_das,
-        SubAccountCellErrorCode::SubAccountProfitError,
-        "The profit to DAS should be greater than or equal to the minimal profit which is {} USD per account. (das_profit: {}, minimal_profit_to_das: {})",
-        u64::from(config_sub_account.new_sub_account_price()),
-        das_profit,
-        minimal_profit_to_das
-    );
-
-    // CAREFUL: Overflow risk
-    let mut expected_das_profit = total_profit * profit_rate as u64 / RATE_BASE;
-    if expected_das_profit < minimal_profit_to_das {
-        expected_das_profit = minimal_profit_to_das;
-    }
-
-    das_assert!(
-        expected_das_profit == das_profit,
-        SubAccountCellErrorCode::SubAccountProfitError,
-        "The profit to DAS should be calculated from rate of config properly. (expected_das_profit: {}, das_profit: {})",
-        expected_das_profit,
-        das_profit
-    );
-
-    Ok(())
-}
-
 fn verify_profit_to_das_with_custom_rule(
     _config_sub_account: ConfigCellSubAccountReader,
     input_data: &[u8],
@@ -1267,54 +1011,6 @@ fn verify_profit_to_das_with_custom_rule(
         expected_total_profit,
         das_profit
     );
-
-    Ok(())
-}
-
-fn verify_there_is_only_one_lock_for_normal_cells(
-    input_sub_account_cell: usize,
-    output_sub_account_cell: usize,
-) -> Result<(), Box<dyn ScriptError>> {
-    debug!("Verify there is only one lock for cells which is not SubAccountCell.");
-
-    let mut lock_hash = None;
-    for (field_name, source) in [("inputs", Source::Input), ("outputs", Source::Output)] {
-        let mut i = 0;
-        loop {
-            if source == Source::Input && i == input_sub_account_cell {
-                i += 1;
-                continue;
-            } else if source == Source::Output && i == output_sub_account_cell {
-                i += 1;
-                continue;
-            }
-
-            let ret = high_level::load_cell_lock_hash(i, source);
-            match ret {
-                Ok(val) => {
-                    if lock_hash.is_none() {
-                        lock_hash = Some(val);
-                    } else {
-                        das_assert!(
-                            lock_hash == Some(val),
-                            SubAccountCellErrorCode::SubAccountNormalCellLockLimit,
-                            "{}[{}] There should be only one lock for cells which is not SubAccountCell.",
-                            field_name,
-                            i
-                        );
-                    }
-                }
-                Err(SysError::IndexOutOfBound) => {
-                    break;
-                }
-                Err(err) => {
-                    return Err(Error::<ErrorCode>::from(err).into());
-                }
-            }
-
-            i += 1;
-        }
-    }
 
     Ok(())
 }

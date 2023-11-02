@@ -1799,16 +1799,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "test-custom-script"
-version = "1.0.0"
-dependencies = [
- "ckb-std",
- "das-core",
- "das-types",
- "hex",
-]
-
-[[package]]
 name = "test-env"
 version = "1.0.0"
 dependencies = [

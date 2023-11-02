@@ -29,7 +29,6 @@ members = [
     # Only for unit tests
     "tests",
     "contracts/test-env",
-    "contracts/test-custom-script",
     "contracts/playground",
 ]
 
