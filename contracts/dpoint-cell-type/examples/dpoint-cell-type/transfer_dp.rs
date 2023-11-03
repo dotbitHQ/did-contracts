@@ -16,7 +16,12 @@ use dpoint_cell_type::error::ErrorCode;
 use super::util;
 
 pub fn action() -> Result<Action, Box<dyn ScriptError>> {
-    let parser = WitnessesParser::new()?;
+    let mut parser = WitnessesParser::new()?;
+    let witness_action = match parser.parse_action_with_params()? {
+        Some((action, _)) => action.to_vec(),
+        None => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
+    };
+
     core_util::is_system_off(&parser)?;
 
     let config_dpoint_reader = parser.configs.dpoint()?;
@@ -126,18 +131,31 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
         Ok(())
     }));
 
-    let action_name = action.name.clone();
-    let inner_input_cells = input_cells.clone();
-    let inner_output_cells = output_cells.clone();
     let basic_capacity = u64::from(config_dpoint_reader.basic_capacity());
     let prepared_fee_capacity = u64::from(config_dpoint_reader.prepared_fee_capacity());
     let expected_capacity = basic_capacity + prepared_fee_capacity;
+    let mut recycle_capacity = 0;
+    let mut fill_capacity = 0;
+    if input_cells.len() > output_cells.len() {
+        let start = output_cells.len();
+        for index in input_cells[start..].iter() {
+            let capacity = high_level::load_cell_capacity(*index, Source::Input)?;
+            recycle_capacity += capacity;
+        }
+    } else if input_cells.len() < output_cells.len() {
+        let count = output_cells.len() - input_cells.len();
+        fill_capacity = (basic_capacity + prepared_fee_capacity) * count as u64;
+    }
     // TODO load this value from new ConfigCellMain
     let common_fee = 20000;
+
+    let inner_witness_action = witness_action.clone();
+    let inner_input_cells = input_cells.clone();
+    let inner_output_cells = output_cells.clone();
     action.add_verification(Rule::new(
         "Verify if the transaction fee spent properly.",
         move |_contract| {
-            let can_spend_fee = action_name == "transfer_dp";
+            let can_spend_fee = inner_witness_action.as_slice() == b"transfer_dp";
 
             let mut input_capacities = vec![];
             let mut total_input = 0;
@@ -155,7 +173,7 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
                     Some(input_capacity) => {
                         if can_spend_fee {
                             das_assert!(
-                                capacity + 20000 >= *input_capacity,
+                                capacity + common_fee >= *input_capacity,
                                 ErrorCode::SpendTooMuchFee,
                                 "outputs[{}] The capacity of DPointCell spent more than the fee limit.",
                                 index
@@ -187,13 +205,13 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
 
             if can_spend_fee {
                 das_assert!(
-                    total_output + common_fee >= total_input,
+                    total_output - fill_capacity  + common_fee >= total_input - recycle_capacity,
                     ErrorCode::SpendTooMuchFee,
                     "The total capacity of outputs spent more than the fee limit."
                 );
             } else {
                 das_assert!(
-                    total_output == total_input,
+                    total_output - fill_capacity >= total_input - recycle_capacity,
                     ErrorCode::CanNotSpendAnyFee,
                     "This transaction need to pay the fee from Other cells."
                 );
@@ -203,7 +221,44 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
         },
     ));
 
-    if &action.name == "transfer_dp" {
+    if recycle_capacity > 0 {
+        let recycle_whitelist = config_dpoint_reader.capacity_recycle_whitelist();
+        let recycle_whitelist_hashes = recycle_whitelist
+            .iter()
+            .map(|lock| core_util::blake2b_256(lock.as_slice()))
+            .collect::<Vec<_>>();
+        action.add_verification(Rule::new("Verify if the DPoints' capacity recycled properly.", move |_contract| {
+            let mut actual_recycle = 0;
+            let mut i = 0;
+            loop {
+                let ret = high_level::load_cell_lock_hash(i, Source::Output);
+                match ret {
+                    Ok(lock_hash) => {
+                        if recycle_whitelist_hashes.contains(&lock_hash) {
+                            let capacity = high_level::load_cell_capacity(i, Source::Output)?;
+                            actual_recycle += capacity;
+                        }
+                    }
+                    Err(_) => break,
+                }
+
+                i += 1;
+            }
+
+            das_assert!(
+                actual_recycle >= recycle_capacity - common_fee,
+                ErrorCode::CapacityRecycleError,
+                "The total capacity should be recycled is {}.(expected: {}, actual: {})",
+                recycle_capacity,
+                recycle_capacity,
+                actual_recycle
+            );
+
+            Ok(())
+        }));
+    }
+
+    if witness_action.as_slice() == b"transfer_dp" {
         action.add_verification(Rule::new("Verify the EIP712 signature.", move |_contract| {
             core_util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
             Ok(())

@@ -8,6 +8,7 @@ pub enum ErrorCode {
     LengthNotEnough,
     Encoding,
     InvalidTransactionStructure = 6,
+    ActionNotSupported = 27,
 
     SuperLockIsRequired = 50,
     WhitelistLockIsRequired,
