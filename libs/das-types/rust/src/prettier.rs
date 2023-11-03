@@ -725,6 +725,72 @@ impl<'a> Prettier for ConfigCellMainReader<'a> {
     }
 }
 
+impl Prettier for ConfigCellMainV11 {
+    fn as_prettier(&self) -> String {
+        self.as_reader().as_prettier()
+    }
+}
+
+impl<'a> Prettier for ConfigCellMainV11Reader<'a> {
+    fn as_prettier(&self) -> String {
+        print_fields!(self, "ConfigCellMainV11", {
+            status,
+            type_id_table,
+            das_lock_out_point_table,
+            das_lock_type_id_table
+        })
+    }
+}
+
+impl Prettier for ConfigCellMainV10 {
+    fn as_prettier(&self) -> String {
+        self.as_reader().as_prettier()
+    }
+}
+
+impl<'a> Prettier for ConfigCellMainV10Reader<'a> {
+    fn as_prettier(&self) -> String {
+        print_fields!(self, "ConfigCellMainV10", {
+            status,
+            type_id_table,
+            das_lock_out_point_table,
+            das_lock_type_id_table
+        })
+    }
+}
+
+impl Prettier for ConfigCellMainV9 {
+    fn as_prettier(&self) -> String {
+        self.as_reader().as_prettier()
+    }
+}
+
+impl<'a> Prettier for ConfigCellMainV9Reader<'a> {
+    fn as_prettier(&self) -> String {
+        print_fields!(self, "ConfigCellMainV9", {
+            status,
+            type_id_table,
+            das_lock_out_point_table
+        })
+    }
+}
+
+impl Prettier for ConfigCellMainV8 {
+    fn as_prettier(&self) -> String {
+        self.as_reader().as_prettier()
+    }
+}
+
+impl<'a> Prettier for ConfigCellMainV8Reader<'a> {
+    fn as_prettier(&self) -> String {
+        print_fields!(self, "ConfigCellMainV8", {
+            status,
+            type_id_table,
+            das_lock_out_point_table
+        })
+    }
+}
+
 impl Prettier for ConfigCellMainV7 {
     fn as_prettier(&self) -> String {
         self.as_reader().as_prettier()
@@ -859,7 +925,62 @@ impl<'a> Prettier for TypeIdTableReader<'a> {
             reverse_record_root_cell,
             sub_account_cell,
             key_list_config_cell,
-            eip712_lib
+            eip712_lib,reverse_record_root_cell,
+            key_list_config_cell,
+            dpoint_cell
+        })
+    }
+}
+
+impl Prettier for TypeIdTableV8 {
+    fn as_prettier(&self) -> String {
+        self.as_reader().as_prettier()
+    }
+}
+
+impl<'a> Prettier for TypeIdTableV8Reader<'a> {
+    fn as_prettier(&self) -> String {
+        print_fields!(self, "TypeIdTableV8", {
+            account_cell,
+            apply_register_cell,
+            balance_cell,
+            income_cell,
+            pre_account_cell,
+            proposal_cell,
+            account_sale_cell,
+            account_auction_cell,
+            offer_cell,
+            reverse_record_cell,
+            sub_account_cell,
+            eip712_lib,
+            reverse_record_root_cell,
+            key_list_config_cell
+        })
+    }
+}
+
+impl Prettier for TypeIdTableV7 {
+    fn as_prettier(&self) -> String {
+        self.as_reader().as_prettier()
+    }
+}
+
+impl<'a> Prettier for TypeIdTableV7Reader<'a> {
+    fn as_prettier(&self) -> String {
+        print_fields!(self, "TypeIdTableV7", {
+            account_cell,
+            apply_register_cell,
+            balance_cell,
+            income_cell,
+            pre_account_cell,
+            proposal_cell,
+            account_sale_cell,
+            account_auction_cell,
+            offer_cell,
+            reverse_record_cell,
+            sub_account_cell,
+            eip712_lib,
+            reverse_record_root_cell
         })
     }
 }
