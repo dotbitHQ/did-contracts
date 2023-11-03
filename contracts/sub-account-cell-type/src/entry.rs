@@ -557,16 +557,19 @@ fn action_update_sub_account(_action: &[u8], parser: &mut WitnessesParser) -> Re
         util::find_cells_by_type_id(ScriptType::Lock, das_lock.code_hash().as_reader().into(), Source::Input)?;
     let mut sender_total_input_capacity = 0;
     if sign_verified {
+        let dpoint_type_id = parser.configs.main()?.type_id_table().dpoint_cell();
         let input_sender_balance_cells = util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Input)?;
 
-        verifiers::misc::verify_no_more_cells_with_same_lock(
+        verifiers::misc::verify_no_more_cells_with_same_lock_except_type(
             sender_lock.as_reader(),
             &input_sender_balance_cells,
             Source::Input,
+            dpoint_type_id,
         )?;
 
+        let input_sender_cells = util::find_cells_by_script(ScriptType::Lock, sender_lock.as_reader(), Source::Input)?;
         das_assert!(
-            all_inputs_with_das_lock == input_sender_balance_cells,
+            all_inputs_with_das_lock == input_sender_cells,
             SubAccountCellErrorCode::SomeCellWithDasLockMayBeAbused,
             "Some cells with das-lock have may be abused.(invalid_inputs: {:?})",
             all_inputs_with_das_lock
