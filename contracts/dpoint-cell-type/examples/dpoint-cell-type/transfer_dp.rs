@@ -120,8 +120,8 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
     let inner_input_cells = input_cells.clone();
     let inner_output_cells = output_cells.clone();
     action.add_verification(Rule::new("Verify the DPoints is not decreased.", move |_contract| {
-        let total_input_dp = util::get_total_dpoint(&inner_input_cells, Source::Input)?;
-        let total_output_dp = util::get_total_dpoint(&inner_output_cells, Source::Output)?;
+        let total_input_dp = core_util::get_total_dpoint(&inner_input_cells, Source::Input)?;
+        let total_output_dp = core_util::get_total_dpoint(&inner_output_cells, Source::Output)?;
         das_assert!(
             total_input_dp == total_output_dp,
             ErrorCode::TheDPointCanNotDecreased,
@@ -227,35 +227,38 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
             .iter()
             .map(|lock| core_util::blake2b_256(lock.as_slice()))
             .collect::<Vec<_>>();
-        action.add_verification(Rule::new("Verify if the DPoints' capacity recycled properly.", move |_contract| {
-            let mut actual_recycle = 0;
-            let mut i = 0;
-            loop {
-                let ret = high_level::load_cell_lock_hash(i, Source::Output);
-                match ret {
-                    Ok(lock_hash) => {
-                        if recycle_whitelist_hashes.contains(&lock_hash) {
-                            let capacity = high_level::load_cell_capacity(i, Source::Output)?;
-                            actual_recycle += capacity;
+        action.add_verification(Rule::new(
+            "Verify if the DPoints' capacity recycled properly.",
+            move |_contract| {
+                let mut actual_recycle = 0;
+                let mut i = 0;
+                loop {
+                    let ret = high_level::load_cell_lock_hash(i, Source::Output);
+                    match ret {
+                        Ok(lock_hash) => {
+                            if recycle_whitelist_hashes.contains(&lock_hash) {
+                                let capacity = high_level::load_cell_capacity(i, Source::Output)?;
+                                actual_recycle += capacity;
+                            }
                         }
+                        Err(_) => break,
                     }
-                    Err(_) => break,
+
+                    i += 1;
                 }
 
-                i += 1;
-            }
+                das_assert!(
+                    actual_recycle >= recycle_capacity - common_fee,
+                    ErrorCode::CapacityRecycleError,
+                    "The total capacity should be recycled is {}.(expected: {}, actual: {})",
+                    recycle_capacity,
+                    recycle_capacity,
+                    actual_recycle
+                );
 
-            das_assert!(
-                actual_recycle >= recycle_capacity - common_fee,
-                ErrorCode::CapacityRecycleError,
-                "The total capacity should be recycled is {}.(expected: {}, actual: {})",
-                recycle_capacity,
-                recycle_capacity,
-                actual_recycle
-            );
-
-            Ok(())
-        }));
+                Ok(())
+            },
+        ));
     }
 
     if witness_action.as_slice() == b"transfer_dp" {

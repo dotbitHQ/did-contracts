@@ -213,8 +213,8 @@ impl RegisteredActions {
             }
         }
 
-        if let Some(action) = default_action.as_ref() {
-            debug!("==== Route to action {} ====", action.name);
+        if let Some(_action) = default_action.as_ref() {
+            debug!("==== Route to action {} ====", _action.name);
         }
 
         default_action

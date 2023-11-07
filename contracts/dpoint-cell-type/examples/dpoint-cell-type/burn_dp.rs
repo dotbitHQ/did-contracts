@@ -8,11 +8,9 @@ use das_core::constants::TypeScript;
 use das_core::contract::defult_structs::{Action, Rule};
 use das_core::error::ScriptError;
 use das_core::witness_parser::WitnessesParser;
-use das_core::{code_to_error, das_assert, debug, util as core_util, warn};
+use das_core::{code_to_error, das_assert, debug, util as core_util};
 use das_types::packed::*;
 use dpoint_cell_type::error::ErrorCode;
-
-use crate::util;
 
 pub fn action() -> Result<Action, Box<dyn ScriptError>> {
     let parser = WitnessesParser::new()?;
@@ -66,8 +64,8 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
     let input_dpoint_cells = input_cells.clone();
     let output_dpoint_cells = output_cells.clone();
     action.add_verification(Rule::new("Verify the DPoints is decreased.", move |_contract| {
-        let total_input_dp = util::get_total_dpoint(&input_dpoint_cells, Source::Input)?;
-        let total_output_dp = util::get_total_dpoint(&output_dpoint_cells, Source::Output)?;
+        let total_input_dp = core_util::get_total_dpoint(&input_dpoint_cells, Source::Input)?;
+        let total_output_dp = core_util::get_total_dpoint(&output_dpoint_cells, Source::Output)?;
         das_assert!(
             total_input_dp > total_output_dp,
             ErrorCode::TheDPointShouldDecreased,
@@ -113,58 +111,72 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
         },
     ));
 
+    let mut recycle_capacity = 0;
     if input_cells.len() > output_cells.len() {
+        let start = output_cells.len();
+        for index in input_cells[start..].iter() {
+            let capacity = high_level::load_cell_capacity(*index, Source::Input)?;
+            recycle_capacity += capacity;
+        }
+    }
+
+    // TODO load this value from new ConfigCellMain
+    let common_fee = 20000;
+
+    if output_cells.len() > 0 {
         let inner_input_cells = input_cells.clone();
         let inner_output_cells = output_cells.clone();
+        action.add_verification(Rule::new(
+            "Verify if the remaining DPointCell is charged for fee properly.",
+            move |_contract| {
+                let mut input_capacities = vec![];
+                let mut total_input = 0;
+                for index in inner_input_cells.iter() {
+                    let capacity = high_level::load_cell_capacity(*index, Source::Input)?;
+                    input_capacities.push(capacity);
+                    total_input += capacity;
+                }
+
+                let mut total_output = 0;
+                for (i, index) in inner_output_cells.iter().enumerate() {
+                    let capacity = high_level::load_cell_capacity(*index, Source::Output)?;
+
+                    match input_capacities.get(i) {
+                        Some(input_capacity) => {
+                            das_assert!(
+                                capacity + common_fee >= *input_capacity,
+                                ErrorCode::SpendTooMuchFee,
+                                "outputs[{}] The capacity of DPointCell spent more than the fee limit.",
+                                index
+                            );
+                        }
+                        None => unreachable!(),
+                    }
+
+                    total_output += capacity;
+                }
+
+                das_assert!(
+                    total_output + common_fee >= total_input - recycle_capacity,
+                    ErrorCode::SpendTooMuchFee,
+                    "The total capacity of outputs spent more than the fee limit."
+                );
+
+                Ok(())
+            },
+        ));
+    }
+
+    if recycle_capacity > 0 {
         let recycle_whitelist = config_dpoint_reader.capacity_recycle_whitelist();
         let recycle_whitelist_hashes = recycle_whitelist
             .iter()
             .map(|lock| core_util::blake2b_256(lock.as_slice()))
             .collect::<Vec<_>>();
         action.add_verification(Rule::new(
-            "Verify if the DPoint is changed properly.",
+            "Verify if the DPoints' capacity recycled properly.",
             move |_contract| {
-                let mut expected_change = 0;
-                if inner_output_cells.len() > 0 {
-                    let mut input_capacities = vec![];
-                    let mut total_input = 0;
-                    for index in inner_input_cells.iter() {
-                        let capacity = high_level::load_cell_capacity(*index, Source::Input)?;
-                        input_capacities.push(capacity);
-                        total_input += capacity;
-                    }
-
-                    let mut total_output = 0;
-                    for (i, index) in inner_output_cells.iter().enumerate() {
-                        let capacity = high_level::load_cell_capacity(*index, Source::Output)?;
-
-                        match input_capacities.get(i) {
-                            Some(input_capacity) => {
-                                das_assert!(
-                                    capacity + 20000 >= *input_capacity,
-                                    ErrorCode::SpendTooMuchFee,
-                                    "outputs[{}] The capacity of DPointCell spent more than the fee limit.",
-                                    index
-                                );
-                            }
-                            None => {
-                                warn!("outputs[{}] Creating new DPointCells is not allowed.", index);
-                                return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
-                            }
-                        }
-
-                        total_output += capacity;
-                    }
-
-                    expected_change = total_input - total_output;
-                } else {
-                    for index in inner_input_cells.iter() {
-                        let capacity = high_level::load_cell_capacity(*index, Source::Input)?;
-                        expected_change += capacity;
-                    }
-                }
-
-                let mut actual_change = 0;
+                let mut actual_recycle = 0;
                 let mut i = 0;
                 loop {
                     let ret = high_level::load_cell_lock_hash(i, Source::Output);
@@ -172,7 +184,7 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
                         Ok(lock_hash) => {
                             if recycle_whitelist_hashes.contains(&lock_hash) {
                                 let capacity = high_level::load_cell_capacity(i, Source::Output)?;
-                                actual_change += capacity;
+                                actual_recycle += capacity;
                             }
                         }
                         Err(_) => break,
@@ -182,12 +194,12 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
                 }
 
                 das_assert!(
-                    expected_change == actual_change,
+                    actual_recycle >= recycle_capacity - common_fee,
                     ErrorCode::CapacityRecycleError,
                     "The total capacity should be recycled is {}.(expected: {}, actual: {})",
-                    expected_change,
-                    expected_change,
-                    actual_change
+                    recycle_capacity,
+                    recycle_capacity,
+                    actual_recycle
                 );
 
                 Ok(())
@@ -197,12 +209,10 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
         debug!("Skip verifying if the DPointCells' capacity is recycled properly.")
     }
 
-    if &action.name == "burn_dp" {
-        action.add_verification(Rule::new("Verify the EIP712 signature.", move |_contract| {
-            core_util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
-            Ok(())
-        }));
-    }
+    action.add_verification(Rule::new("Verify the EIP712 signature.", move |_contract| {
+        core_util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
+        Ok(())
+    }));
 
     Ok(action)
 }
