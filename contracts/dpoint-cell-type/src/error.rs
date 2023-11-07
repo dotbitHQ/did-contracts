@@ -13,6 +13,7 @@ pub enum ErrorCode {
     SuperLockIsRequired = 50,
     WhitelistLockIsRequired,
     InitialCapacityError,
+    InitialDataError,
     InitialOwnerError,
     TheValueFieldIsMissing,
     TheDPointCanNotDecreased,

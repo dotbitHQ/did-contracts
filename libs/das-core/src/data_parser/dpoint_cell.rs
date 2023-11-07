@@ -1,5 +1,15 @@
 pub fn get_value(data: &[u8]) -> Option<u64> {
-    data.get(4..12)
-        .map(|v| u64::from_le_bytes(v.try_into().unwrap()))
-        .or(Some(0))
+    let header = match data.get(0..4) {
+        Some(bytes) => u32::from_le_bytes(bytes.try_into().unwrap()),
+        None => return None,
+    };
+
+    if header != 8 {
+        return None;
+    }
+
+    match data.get(4..12) {
+        Some(bytes) => Some(u64::from_le_bytes(bytes.try_into().unwrap())),
+        None => None,
+    }
 }

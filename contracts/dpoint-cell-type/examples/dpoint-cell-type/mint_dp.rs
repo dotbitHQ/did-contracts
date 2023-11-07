@@ -8,9 +8,10 @@ use das_core::constants::{super_lock, ScriptType};
 use das_core::contract::defult_structs::{Action, Rule};
 use das_core::error::ScriptError;
 use das_core::witness_parser::WitnessesParser;
-use das_core::{code_to_error, das_assert, util as core_util, verifiers};
+use das_core::{code_to_error, das_assert, data_parser, util as core_util, verifiers};
 use das_types::packed::*;
 use dpoint_cell_type::error::ErrorCode;
+use molecule::hex_string;
 
 pub fn action() -> Result<Action, Box<dyn ScriptError>> {
     let parser = WitnessesParser::new()?;
@@ -67,6 +68,27 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
                     expected_capacity,
                     expected_capacity,
                     capacity
+                )
+            }
+
+            Ok(())
+        },
+    ));
+
+    let inner_output_cells = output_cells.clone();
+    action.add_verification(Rule::new(
+        "Verify if all the DPointCells has valid data.",
+        move |_contract| {
+            for index in inner_output_cells.iter() {
+                let data = high_level::load_cell_data(*index, Source::Output)?;
+                let value = data_parser::dpoint_cell::get_value(&data);
+
+                das_assert!(
+                    value.is_some(),
+                    ErrorCode::InitialDataError,
+                    "outputs[{}] The value of new DPointCell should be some LV structure u64 data.(current: {})",
+                    index,
+                    hex_string(&data)
                 )
             }
 
