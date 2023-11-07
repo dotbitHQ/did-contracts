@@ -753,6 +753,7 @@ fn get_type_id(
         TypeScript::ReverseRecordCellType => config.type_id_table().reverse_record_cell(),
         TypeScript::SubAccountCellType => config.type_id_table().sub_account_cell(),
         TypeScript::ReverseRecordRootCellType => config.type_id_table().reverse_record_root_cell(),
+        TypeScript::DPointCellType => config.type_id_table().dpoint_cell(),
         TypeScript::EIP712Lib => config.type_id_table().eip712_lib(),
     };
 
@@ -1146,4 +1147,21 @@ pub fn get_timestamp_from_header(header: HeaderReader) -> u64 {
     u64::from(das_packed::Uint64Reader::new_unchecked(
         header.raw().timestamp().raw_data(),
     )) / 1000
+}
+
+pub fn get_total_dpoint(indexes: &[usize], source: Source) -> Result<u64, Box<dyn ScriptError>> {
+    let mut total = 0;
+    for i in indexes.iter() {
+        let data = high_level::load_cell_data(*i, source)?;
+        let dp = match data_parser::dpoint_cell::get_value(&data) {
+            Some(dp) => dp,
+            None => {
+                warn!("{:?}[{}] The data of DPointCell is corrupted.", source, i);
+                return Err(code_to_error!(ErrorCode::InvalidCellData));
+            }
+        };
+        total += dp;
+    }
+
+    Ok(total)
 }

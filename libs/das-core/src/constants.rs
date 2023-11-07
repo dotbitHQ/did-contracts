@@ -33,6 +33,7 @@ pub enum TypeScript {
     ReverseRecordCellType,
     SubAccountCellType,
     ReverseRecordRootCellType,
+    DPointCellType,
     EIP712Lib,
 }
 

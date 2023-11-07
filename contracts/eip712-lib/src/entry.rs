@@ -554,46 +554,13 @@ fn burn_dp_to_semantic(parser: &WitnessesParser) -> Result<String, Box<dyn Scrip
     let (input_cells, output_cells) =
         util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, type_id_table_reader.dpoint_cell())?;
 
-    // TODO
-    fn sum_cells(parser: &WitnessesParser, cells: Vec<usize>, source: Source) -> Result<Map<String, u64>, Box<dyn ScriptError>> {
-        let mut dp_map = Map::new();
-        for i in cells.into_iter() {
-            let ret = high_level::load_cell_data(i, source);
-            match ret {
-                Ok(data) => {
-                    let value = data_parser::dpoint_cell::get_value(&data).unwrap_or(0);
-                    let lock =
-                        Script::from(high_level::load_cell_lock(i, source).map_err(|e| Error::<ErrorCode>::from(e))?);
-                    let address = to_semantic_address(parser, lock.as_reader(), LockRole::Owner)?;
-                    map_util::add(&mut dp_map, address, value);
-                }
-                Err(err) => {
-                    return Err(Error::<ErrorCode>::from(err).into());
-                }
-            }
-        }
+    let input_dp = util::get_total_dpoint(&input_cells, Source::Input)?;
+    let output_dp = util::get_total_dpoint(&output_cells, Source::Output)?;
 
-        Ok(dp_map)
-    }
+    let lock = Script::from(high_level::load_cell_lock(input_cells[0], Source::Input)?);
+    let burn_address = to_semantic_address(parser, lock.as_reader(), LockRole::Owner)?;
 
-    let input_dp_map = sum_cells(parser, input_cells, Source::Input)?;
-
-    assert!(
-        input_dp_map.len() == 1,
-        ErrorCode::EIP712SematicError,
-        "The DPCells in inputs should be the same lock."
-    );
-
-    let (burn_address, input_dp) = input_dp_map.items.get(0).unwrap();
-    let mut burn_dp = input_dp.to_owned();
-
-    let output_dp_map = sum_cells(parser, output_cells, Source::Output)?;
-
-    for (address, dp) in output_dp_map.items.iter() {
-        if burn_address == address {
-            burn_dp -= dp.to_owned();
-        }
-    }
+    let burn_dp = if input_dp > output_dp { input_dp - output_dp } else { 0 };
 
     Ok(format!("BURN {} DP FROM {}", burn_dp, burn_address))
 }

@@ -344,6 +344,7 @@ impl WitnessesParser {
             x if util::is_reader_eq(x, type_id_table_reader.reverse_record_root_cell()) => {
                 Some(TypeScript::ReverseRecordRootCellType)
             }
+            x if util::is_reader_eq(x, type_id_table_reader.dpoint_cell()) => Some(TypeScript::DPointCellType),
             x if util::is_reader_eq(x, self.config_cell_type_id.as_reader()) => Some(TypeScript::ConfigCellType),
             _ => None,
         }
