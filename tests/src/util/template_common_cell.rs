@@ -644,10 +644,10 @@ pub fn push_input_playground_cell(template: &mut TemplateGenerator) {
     template.push_empty_witness();
 }
 
-pub fn push_input_dpoint_cell(template: &mut TemplateGenerator, dp: u64, owner: &str) {
+pub fn push_input_dpoint_cell(template: &mut TemplateGenerator, dpoint: u64, owner: &str) {
     template.push_input(
         json!({
-            "capacity": 161,
+            "capacity": DPOINT_BASIC_CAPACITY + DPOINT_PREPARED_FEE_CAPACITY,
             "lock": {
                 "owner_lock_args": owner,
                 "manager_lock_args": owner,
@@ -656,7 +656,7 @@ pub fn push_input_dpoint_cell(template: &mut TemplateGenerator, dp: u64, owner: 
                 "code_hash": "{{dpoint-cell-type}}"
             },
             "data": {
-                "value": dp
+                "value": dpoint * USD_1
             }
         }),
         None,
@@ -665,10 +665,10 @@ pub fn push_input_dpoint_cell(template: &mut TemplateGenerator, dp: u64, owner: 
     template.push_das_lock_witness("0000000000000000000000000000000000000000000000000000000000000000");
 }
 
-pub fn push_output_dpoint_cell(template: &mut TemplateGenerator, dp: u64, owner: &str) {
+pub fn push_output_dpoint_cell(template: &mut TemplateGenerator, dpoint: u64, owner: &str) {
     template.push_output(
         json!({
-            "capacity": 16_100_000_000u64,
+            "capacity": DPOINT_BASIC_CAPACITY + DPOINT_PREPARED_FEE_CAPACITY,
             "lock": {
                 "owner_lock_args": owner,
                 "manager_lock_args": owner,
@@ -677,7 +677,7 @@ pub fn push_output_dpoint_cell(template: &mut TemplateGenerator, dp: u64, owner:
                 "code_hash": "{{dpoint-cell-type}}"
             },
             "data": {
-                "value": dp
+                "value": dpoint * USD_1
             }
         }),
         None,

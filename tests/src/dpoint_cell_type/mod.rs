@@ -1,4 +1,5 @@
 mod common;
 
-mod transfer_dp;
 mod burn_dp;
+mod mint_dp;
+mod transfer_dp;

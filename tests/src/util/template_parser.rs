@@ -25,9 +25,7 @@ use das_types::{
 use serde_json::Value;
 
 use super::constants::*;
-use super::error::*;
 use super::util;
-use crate::util::template_generator::TemplateGenerator;
 
 const BINARY_VERSION: &str = "BINARY_VERSION";
 
@@ -113,15 +111,6 @@ pub fn challenge_tx(tx: Value, expected_error: impl Into<i8> + Clone + Debug) {
             );
         }
     }
-}
-
-// another style of text_tx/challenge_tx
-pub fn test_tx2(tx: fn() -> TemplateGenerator) {
-    test_tx(tx().as_json())
-}
-
-pub fn challenge_tx2(expected_error: ErrorCode, tx: fn() -> TemplateGenerator) {
-    challenge_tx(tx().as_json(), expected_error)
 }
 
 pub struct TemplateParser {

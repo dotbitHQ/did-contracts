@@ -75,6 +75,9 @@ pub const SUB_ACCOUNT_EDIT_FEE: u64 = 30_000;
 pub const SUB_ACCOUNT_RENEW_FEE: u64 = 30_000;
 pub const SUB_ACCOUNT_RECYCLE_FEE: u64 = 30_000;
 
+pub const DPOINT_BASIC_CAPACITY: u64 = 20_000_000_000;
+pub const DPOINT_PREPARED_FEE_CAPACITY: u64 = 1_000_000_000;
+
 pub const HOUR_SEC: u64 = 3600;
 pub const DAY_SEC: u64 = 86400;
 pub const MONTH_SEC: u64 = DAY_SEC * 30;

@@ -846,8 +846,39 @@ impl TemplateGenerator {
     }
 
     fn gen_config_cell_dpoint(&mut self) -> (Vec<u8>, EntityWrapper) {
-        // TODO DPoint
-        unimplemented!()
+        let mut transfer_whitelist_builder = Scripts::new_builder();
+        let lines = util::read_lines("dp_transfer_whitelist.txt")
+            .expect("Expect file ./tests/data/dp_transfer_whitelist.txt exist.");
+        for line in lines {
+            if let Ok(raw) = line {
+                let bytes = util::hex_to_bytes(&raw);
+                let lock = Script::from_slice(bytes.as_slice()).unwrap();
+                transfer_whitelist_builder = transfer_whitelist_builder.push(lock);
+            }
+        }
+        let transfer_whitelist = transfer_whitelist_builder.build();
+
+        let mut recycle_whitelist_builder = Scripts::new_builder();
+        let lines = util::read_lines("dp_recycle_whitelist.txt")
+            .expect("Expect file ./tests/data/dp_recycle_whitelist.txt exist.");
+        for line in lines {
+            if let Ok(raw) = line {
+                let bytes = util::hex_to_bytes(&raw);
+                let lock = Script::from_slice(bytes.as_slice()).unwrap();
+                recycle_whitelist_builder = recycle_whitelist_builder.push(lock);
+            }
+        }
+        let capacity_recycle_whitelist = recycle_whitelist_builder.build();
+
+        let entity = ConfigCellDPoint::new_builder()
+            .basic_capacity(Uint64::from(DPOINT_BASIC_CAPACITY))
+            .prepared_fee_capacity(Uint64::from(DPOINT_PREPARED_FEE_CAPACITY))
+            .transfer_whitelist(transfer_whitelist)
+            .capacity_recycle_whitelist(capacity_recycle_whitelist)
+            .build();
+        let cell_data = blake2b_256(entity.as_slice()).to_vec();
+
+        (cell_data, EntityWrapper::ConfigCellDPoint(entity))
     }
 
     fn gen_config_cell_record_key_namespace(&mut self) -> (Vec<u8>, Vec<u8>) {
@@ -2583,9 +2614,10 @@ impl TemplateGenerator {
         let outputs_data = if cell["data"].is_null() {
             String::from("0x")
         } else {
-            let dp = util::parse_json_u64("cell.data.value", &cell["data"]["value"], None);
-            let bytes_length = 4u32.to_le_bytes();
-            let outputs_data = [bytes_length.to_vec(), dp.to_le_bytes().to_vec()].concat();
+            let value = util::parse_json_u64("cell.data.value", &cell["data"]["value"], None);
+            let value_bytes = value.to_le_bytes().to_vec();
+            let value_length = (value_bytes.len() as u32).to_le_bytes().to_vec();
+            let outputs_data = [value_length, value_bytes].concat();
 
             util::bytes_to_hex(&outputs_data)
         };

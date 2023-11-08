@@ -1,5 +1,8 @@
+use ckb_types::prelude::Reader;
 use serde_json::json;
 
+use crate::util;
+use crate::util::accounts::*;
 use crate::util::constants::*;
 use crate::util::template_common_cell::*;
 use crate::util::template_generator::*;
@@ -29,4 +32,59 @@ fn xxx_playground() {
     push_input_playground_cell(&mut template);
 
     test_tx(template.as_json());
+}
+
+#[test]
+fn xxx_gen_fake_das_lock() {
+    println!("Transfer whitelist:");
+    println!(
+        "{}",
+        util::bytes_to_hex(
+            gen_fake_das_lock(&util::gen_das_lock_args(DP_TRANSFER_WHITELIST_1, None))
+                .as_reader()
+                .as_slice()
+        )
+    );
+    println!(
+        "{}",
+        util::bytes_to_hex(
+            gen_fake_das_lock(&util::gen_das_lock_args(DP_TRANSFER_WHITELIST_2, None))
+                .as_reader()
+                .as_slice()
+        )
+    );
+    println!(
+        "{}",
+        util::bytes_to_hex(
+            gen_fake_das_lock(&util::gen_das_lock_args(DP_TRANSFER_WHITELIST_3, None))
+                .as_reader()
+                .as_slice()
+        )
+    );
+
+    println!("Recycle whitelist:");
+    println!(
+        "{}",
+        util::bytes_to_hex(
+            gen_fake_das_lock(&util::gen_das_lock_args(DP_RECYCLE_WHITELIST_1, None))
+                .as_reader()
+                .as_slice()
+        )
+    );
+    println!(
+        "{}",
+        util::bytes_to_hex(
+            gen_fake_das_lock(&util::gen_das_lock_args(DP_RECYCLE_WHITELIST_2, None))
+                .as_reader()
+                .as_slice()
+        )
+    );
+    println!(
+        "{}",
+        util::bytes_to_hex(
+            gen_fake_das_lock(&util::gen_das_lock_args(DP_RECYCLE_WHITELIST_3, None))
+                .as_reader()
+                .as_slice()
+        )
+    );
 }
