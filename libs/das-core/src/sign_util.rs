@@ -98,7 +98,7 @@ pub fn calc_digest_by_input_group(
         None => Err(code_to_error!(ErrorCode::WitnessArgsInvalid)),
         Some(witness_args_lock) => {
             debug!(
-                "  inputs[{}] Generating digest ... (sign_type: {:?}, witness_args.lock: 0x{}",
+                "  inputs[{}] Generating digest ... (sign_type: {:?}, witness_args.lock: {}",
                 init_witness_idx,
                 sign_type,
                 util::first_n_bytes_to_hex(witness_args_lock.raw_data(), 20)

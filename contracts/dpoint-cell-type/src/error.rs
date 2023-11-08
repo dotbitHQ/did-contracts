@@ -16,7 +16,7 @@ pub enum ErrorCode {
     InitialDataError,
     InitialOwnerError,
     TheValueFieldIsMissing,
-    TheDPointCanNotDecreased,
+    TheTotalDPointCanNotChange,
     TheDPointShouldDecreased,
     OnlyOneUserIsAllowed,
     SpendTooMuchFee,

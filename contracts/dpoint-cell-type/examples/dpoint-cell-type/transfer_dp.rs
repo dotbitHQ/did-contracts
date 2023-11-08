@@ -70,7 +70,7 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
         das_assert!(
             input_user_group_locks.len() <= 1 && output_user_group_locks.len() <= 1,
             ErrorCode::OnlyOneUserIsAllowed,
-            "Only one owner is allowed in each transfer."
+            "Each transfer is limited to one owner."
         );
 
         if input_user_group_locks.len() == 1 && output_user_group_locks.len() == 1 {
@@ -119,17 +119,20 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
 
     let inner_input_cells = input_cells.clone();
     let inner_output_cells = output_cells.clone();
-    action.add_verification(Rule::new("Verify the DPoints is not decreased.", move |_contract| {
-        let total_input_dp = core_util::get_total_dpoint(&inner_input_cells, Source::Input)?;
-        let total_output_dp = core_util::get_total_dpoint(&inner_output_cells, Source::Output)?;
-        das_assert!(
-            total_input_dp == total_output_dp,
-            ErrorCode::TheDPointCanNotDecreased,
-            "The total input DPoint should be equal to the total output DPoint."
-        );
+    action.add_verification(Rule::new(
+        "Verify the DPoints is not increased or decreased.",
+        move |_contract| {
+            let total_input_dp = core_util::get_total_dpoint(&inner_input_cells, Source::Input)?;
+            let total_output_dp = core_util::get_total_dpoint(&inner_output_cells, Source::Output)?;
+            das_assert!(
+                total_input_dp == total_output_dp,
+                ErrorCode::TheTotalDPointCanNotChange,
+                "The total input DPoint should be equal to the total output DPoint."
+            );
 
-        Ok(())
-    }));
+            Ok(())
+        },
+    ));
 
     let basic_capacity = u64::from(config_dpoint_reader.basic_capacity());
     let prepared_fee_capacity = u64::from(config_dpoint_reader.prepared_fee_capacity());
