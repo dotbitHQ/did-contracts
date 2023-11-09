@@ -82,6 +82,12 @@ table ConfigCellAccount {
     edit_manager_throttle: Uint32,
     edit_records_throttle: Uint32,
     common_throttle: Uint32,
+    // Auction duration for expired accounts
+    expiration_auction_period: Uint32,
+    // Shipping time after auction ends
+    expiration_deliver_period: Uint32,
+    // Premium at initial auction for expired accounts
+    expiration_auction_start_premiums: Uint32,
 }
 
 table ConfigCellApply {

@@ -1,9 +1,11 @@
 use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::vec;
+use alloc::vec::Vec;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::prelude::*;
+use ckb_std::error::SysError;
 use ckb_std::high_level;
 use das_core::constants::*;
 use das_core::error::*;
@@ -1170,6 +1172,159 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 );
             }
         }
+        b"bid_expired_account_auction" => {
+            parser.parse_cell()?;
+
+            //get configs
+            let config_main = parser.configs.main()?;
+            let config_account = parser.configs.account()?;
+            let config_prices = parser.configs.price()?.prices();
+
+            let timestamp = util::load_oracle_data(OracleCellType::Time)?;
+            let quote = util::load_oracle_data(OracleCellType::Quote)?;
+
+            debug!("Verify if there is no redundant AccountCells.");
+            let (input_account_cells, output_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
+            verifiers::common::verify_cell_number_and_position(
+                "AccountCell",
+                &input_account_cells,
+                &[0],
+                &output_account_cells,
+                &[0],
+            )?;
+
+            //get account witness parser
+            let input_cell_witness = util::parse_account_cell_witness(&parser, input_account_cells[0], Source::Input)?;
+            let input_cell_witness_reader = input_cell_witness.as_reader();
+            let output_cell_witness =
+                util::parse_account_cell_witness(&parser, output_account_cells[0], Source::Output)?;
+            let output_cell_witness_reader = output_cell_witness.as_reader();
+
+            //transaction fee paid by input AccountCell
+            verify_transaction_fee_spent_correctly(
+                action,
+                config_account,
+                input_account_cells[0],
+                output_account_cells[0],
+            )?;
+
+            verifiers::account_cell::verify_account_cell_consistent_with_exception(
+                input_account_cells[0],
+                output_account_cells[0],
+                &input_cell_witness_reader,
+                &output_cell_witness_reader,
+                Some("Owner"),
+                vec!["expired_at"],
+                vec!["register_at", "records"],
+            )?;
+
+            verifiers::account_cell::verify_account_witness_record_empty(
+                &output_cell_witness_reader,
+                output_account_cells[0],
+                Source::Output,
+            )?;
+
+            // Verify if the input account cell status is Normal
+            verifiers::account_cell::verify_status(
+                &input_cell_witness_reader,
+                AccountStatus::Normal,
+                input_account_cells[0],
+                Source::Input,
+            )?;
+
+            debug!("Check whether the date of the account cell in the output is one year later.");
+
+            let input_data = util::load_cell_data(input_account_cells[0], Source::Input)?;
+            let output_data = util::load_cell_data(output_account_cells[0], Source::Output)?;
+            let input_expired_at = data_parser::account_cell::get_expired_at(&input_data);
+            let output_expired_at = data_parser::account_cell::get_expired_at(&output_data);
+            let output_registered_at = u64::from(input_cell_witness_reader.registered_at());
+
+            //register_at should be the same as timestamp
+            das_assert!(
+                output_registered_at == timestamp,
+                ErrorCode::InvalidTransactionStructure,
+                "The register_at field should not be changed."
+            );
+
+            //expired_at should be timestamp + 1year
+            let duration = output_expired_at - input_expired_at;
+            let one_year_in_seconds = 31536000; //365 * 86400;
+            das_assert!(
+                duration == one_year_in_seconds,
+                ErrorCode::InvalidTransactionStructure,
+                "The expired_at field should be changed to {}.",
+                timestamp + one_year_in_seconds
+            );
+
+            debug!("Check if the old owner has received the refund.");
+            let expired_account_capacity = high_level::load_cell_capacity(input_account_cells[0], Source::Input)?;
+            let available_fee = u64::from(config_account.common_fee());
+            let sender_lock = util::derive_owner_lock_from_cell(input_account_cells[0], Source::Input)?;
+            let sender_args = sender_lock.as_reader().args().raw_data();
+            let owner_args = data_parser::das_lock_args::get_owner_lock_args(sender_args);
+
+            if owner_args == &CROSS_CHAIN_BLACK_ARGS {
+                debug!("The lock of inputs AccountCell is the black hole lock, please check whether the account is cross-chain first.");
+                return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
+            }
+
+            //debug!("Check if account cell refund to owner properly."); //balance
+            verifiers::misc::verify_user_get_change(
+                config_main,
+                sender_lock.as_reader(),
+                expired_account_capacity - available_fee,
+            )?;
+
+            //get basic capacity
+            let account_name_storage = data_parser::account_cell::get_account(&output_data).len() as u64;
+            let receiver_lock = util::derive_owner_lock_from_cell(output_account_cells[0], Source::Output)?;
+            let storage_capacity = util::calc_account_storage_capacity(
+                config_account,
+                account_name_storage,
+                receiver_lock.args().as_reader().into(),
+            );
+            let storage_price_in_usd = storage_capacity / quote;
+
+            // calculate the price when bid
+            let length_in_price = util::get_length_in_price(output_cell_witness_reader.account().len() as u64);
+
+            // Find out register price in from ConfigCellRegister.
+            let price = config_prices
+                .iter()
+                .find(|item| u8::from(item.length()) == length_in_price)
+                .ok_or(ErrorCode::ItemMissing)?;
+
+            let new_price_in_usd = u64::from(price.new()); // x USD
+
+            let basic_price_in_usd = storage_price_in_usd + new_price_in_usd;
+            debug!(
+                "The basic price is {} USD = {}(storage_price) + {}(new_price)",
+                basic_price_in_usd, storage_price_in_usd, new_price_in_usd
+            );
+
+            //Get the price paid by the user during the auction.
+            let bid_price = match verify_user_dp_spent(&parser, receiver_lock.args().as_reader().raw_data()) {
+                Ok(price) => price,
+                Err(err) => {
+                    warn!("DP payment error");
+                    return Err(err);
+                }
+            };
+
+            // Verify that this account is within the Dutch auction period.
+            debug!("Check if it satisfies the auction logic");
+            verifiers::account_cell::verify_account_in_auction(
+                config_account,
+                input_account_cells[0],
+                Source::Input,
+                timestamp,
+                bid_price,
+                basic_price_in_usd,
+            )?;
+
+
+        }
         b"create_approval" | b"delay_approval" | b"revoke_approval" | b"fulfill_approval" => {
             action_approve(action, &mut parser)?
         }
@@ -1502,6 +1657,124 @@ fn verify_transaction_fee_spent_correctly(
     Ok(())
 }
 
+fn verify_user_dp_spent(parser: &WitnessesParser, user_lock: &[u8]) -> Result<u64, Box<dyn ScriptError>> {
+    let type_id_table_reader = parser.configs.main()?.type_id_table();
+    let (input_cells, output_cells) =
+        util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, type_id_table_reader.dpoint_cell())?;
+
+    let user_lock_args = util::hex_string(user_lock);
+    //sum all cells
+    fn sum_cells(
+        _parser: &WitnessesParser,
+        cells: Vec<usize>,
+        source: Source,
+    ) -> Result<Map<String, u64>, Box<dyn ScriptError>> {
+        let mut dp_map = Map::new();
+        for i in cells.into_iter() {
+            let ret = high_level::load_cell_data(i, source);
+            match ret {
+                Ok(data) => {
+                    let value = data_parser::dpoint_cell::get_value(&data).unwrap_or(0);
+                    let lock =
+                        Script::from(high_level::load_cell_lock(i, source).map_err(|e| Error::<ErrorCode>::from(e))?);
+
+                    //choose lock_args as keys, because it's always das-lock
+                    let lock_args = lock.as_reader().args().raw_data();
+                    let owner_args = data_parser::das_lock_args::get_owner_lock_args(lock_args);
+                    let payload_string = util::hex_string(owner_args);
+                    map_util::add(&mut dp_map, payload_string, value);
+                }
+                Err(SysError::IndexOutOfBound) => {
+                    break;
+                }
+                Err(err) => {
+                    return Err(Error::<ErrorCode>::from(err).into());
+                }
+            }
+        }
+        Ok(dp_map)
+    }
+
+    //table of dp in inputs and outputs
+    let dp_inputs = sum_cells(&parser, input_cells, Source::Input)?;
+    let dp_outputs = sum_cells(&parser, output_cells, Source::Output)?;
+
+    //check inputs dp, only one
+    if dp_inputs.len() != 1 {
+        debug!("Only one user's dp address should appear in the inputs.");
+        return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
+    }
+    // check outputs dp, no more than 2,
+    if dp_outputs.len() > 2 {
+        debug!("No more than 2 users' dp addresses should appear in the outputs.");
+        return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
+    }
+
+    //by default, inputs dp only have one addr, outputs dp have two addr
+    let outputs_lock_args = match dp_outputs.get_all_keys() {
+        None => {
+            return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
+        }
+        Some(keys) => keys,
+    };
+
+    //if cannot get, the addr of the dp cell indicating payment is different from the shipping address of the account cell.
+    let user_input_dp = match dp_inputs.get(&user_lock_args) {
+        None => {
+            debug!(
+                "The lock args in AccountCell of outputs should be the same as the lock args in DPointCell of inputs."
+            );
+            return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
+        }
+        Some(value) => *value,
+    };
+
+    //if cannot get, no change dp cell for user.
+    let user_output_dp = dp_outputs.get(&user_lock_args).unwrap_or(&0);
+    let user_spend_dp = if user_input_dp > *user_output_dp {
+        user_input_dp - user_output_dp
+    } else {
+        debug!("The number of DID points inputted by the user is not greater than the output");
+        return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
+    };
+
+    let did_server_lock_args;
+
+    match outputs_lock_args.len() {
+        1 => {
+            //no did-server dp addr in outputs
+            if *outputs_lock_args[0] == user_lock_args {
+                debug!("The dp address of the DID server receiving payment is missing in the outputs.");
+                return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
+            } else {
+                did_server_lock_args = outputs_lock_args[0];
+            }
+        }
+        2 => {
+            if *outputs_lock_args[0] == user_lock_args {
+                did_server_lock_args = outputs_lock_args[1];
+            } else if *outputs_lock_args[1] == user_lock_args {
+                did_server_lock_args = outputs_lock_args[0];
+            } else {
+                debug!("The dp address of the DID server receiving payment is missing in the outputs.");
+                return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
+            }
+        }
+        _ => {
+            debug!("There are more than two addresses of dp cells in outputs.");
+            return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
+        }
+    }
+    let did_server_dp = dp_outputs.get(did_server_lock_args).unwrap_or(&0);
+    debug!("Check whether all the dp paid by the user has been given to the payment address.");
+    //note: need check the did_server addr, do it in dpoint-cell-type
+    das_assert!(
+        user_spend_dp == *did_server_dp,
+        ErrorCode::InvalidTransactionStructure,
+        "user spend dp should equal to did server dp"
+    );
+    Ok(user_spend_dp)
+}
 fn verify_action_throttle<'a>(
     action: &[u8],
     config: ConfigCellAccountReader,

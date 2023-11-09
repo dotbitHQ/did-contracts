@@ -245,6 +245,31 @@ table ConfigCellAccountV1 {
     edit_records_throttle: Uint32,
 }
 
+table ConfigCellAccountV2 {
+    // The maximum length of accounts in characters.
+    max_length: Uint32,
+    // The basic capacity AccountCell required, it is bigger than or equal to AccountCell occupied capacity.
+    basic_capacity: Uint64,
+    // The fees prepared for various transactions for operating an account.
+    prepared_fee_capacity: Uint64,
+    // The grace period for account expiration in seconds
+    expiration_grace_period: Uint32,
+    // The minimum ttl of record in seconds
+    record_min_ttl: Uint32,
+    // The maximum size of all records in molecule encoding
+    record_size_limit: Uint32,
+    // The fee of each action
+    transfer_account_fee: Uint64,
+    edit_manager_fee: Uint64,
+    edit_records_fee: Uint64,
+    // The frequency limit of actions which manipulating account
+    transfer_account_throttle: Uint32,
+    edit_manager_throttle: Uint32,
+    edit_records_throttle: Uint32,
+    common_throttle: Uint32,
+}
+
+
 // ConfigCellProfitRate
 
 table ConfigCellProfitRateV1 {

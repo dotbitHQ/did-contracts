@@ -1165,3 +1165,56 @@ pub fn get_total_dpoint(indexes: &[usize], source: Source) -> Result<u64, Box<dy
 
     Ok(total)
 }
+
+
+use ethnum::U256;
+
+const BIT1: U256 = U256::from_words(0, 999989423469314432);
+const BIT2: U256 = U256::from_words(0, 999978847050491904);
+const BIT3: U256 = U256::from_words(0, 999957694548431104);
+const BIT4: U256 = U256::from_words(0, 999915390886613504);
+const BIT5: U256 = U256::from_words(0, 999830788931929088);
+const BIT6: U256 = U256::from_words(0, 999661606496243712);
+const BIT7: U256 = U256::from_words(0, 999323327502650752);
+const BIT8: U256 = U256::from_words(0, 998647112890970240);
+const BIT9: U256 = U256::from_words(0, 997296056085470080);
+const BIT10: U256 = U256::from_words(0, 994599423483633152);
+const BIT11: U256 = U256::from_words(0, 989228013193975424);
+const BIT12: U256 = U256::from_words(0, 978572062087700096);
+const BIT13: U256 = U256::from_words(0, 957603280698573696);
+const BIT14: U256 = U256::from_words(0, 917004043204671232);
+const BIT15: U256 = U256::from_words(0, 840896415253714560);
+const BIT16: U256 = U256::from_words(0, 707106781186547584);
+
+// const PRECISION: U256 = U256::try_from(1_000_000_000_000_000_000).unwrap();
+const PRECISION: U256 = U256::from_words(0, 1_000_000_000_000_000_000);
+
+pub fn calculate_dutch_auction_price(auction_started_time: u64, start_premium: u64) -> u64 {
+    debug!("cal auction_started_time = {:?}", auction_started_time);
+    debug!("cal start_premium = {:?}", start_premium);
+
+    let bits_table = [
+        BIT1, BIT2, BIT3, BIT4, BIT5, BIT6, BIT7, BIT8, BIT9, BIT10, BIT11, BIT12, BIT13, BIT14, BIT15, BIT16,
+    ];
+    //let start_premium = 100_000_000;
+    let one_day = 86400; //24 * 60 * 60
+
+    let elapsed = U256::from_words(0, auction_started_time as u128);
+    let days_past = (elapsed * PRECISION) / one_day;
+    let int_days = days_past / PRECISION;
+    let int_days_u8 = int_days.as_u8();
+    let premium = start_premium >> int_days_u8;
+    let part_days = days_past - int_days * PRECISION;
+
+    let tmp_2_pow_16 = U256::from_words(0, 65536u128); //2u32.pow(16);
+    let fraction = (part_days * tmp_2_pow_16) / PRECISION;
+
+    let mut premium_new = U256::from_words(0, premium as u128);
+
+    for i in 0..16 {
+        if fraction & (1 << i) != 0 {
+            premium_new = (premium_new * bits_table[i]) / PRECISION;
+        }
+    }
+    return premium_new.as_u64();
+}

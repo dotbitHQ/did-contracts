@@ -85,6 +85,71 @@ pub fn verify_account_expiration(
     Ok(())
 }
 
+pub fn verify_account_in_auction(
+    config: ConfigCellAccountReader,
+    index: usize,
+    source: Source,
+    current_timestamp: u64,
+    bid_price: u64,
+    basic_price: u64,
+) -> Result<(), Box<dyn ScriptError>> {
+    debug!(
+        "{:?}[{}] Verify whether this account is in the Dutch auction period.",
+        source, index
+    );
+
+    let data = util::load_cell_data(index, source)?;
+    let expired_at = data_parser::account_cell::get_expired_at(data.as_slice());
+    let expiration_grace_period = u32::from(config.expiration_grace_period()) as u64;
+    let expiration_auction_period = u32::from(config.expiration_auction_period()) as u64;
+    let expiration_auction_start_premium = u32::from(config.expiration_auction_start_premiums()) as u64;
+
+    debug!("expired_at = {} ", expired_at);
+    debug!("expiration_grace_period = {} ", expiration_grace_period);
+    debug!("expiration_auction_period = {} ", expiration_auction_period);
+    debug!(
+        "expiration_auction_start_premium = {} ",
+        expiration_auction_start_premium
+    );
+
+    if current_timestamp > expired_at {
+        let duration_after_expired = current_timestamp - expired_at;
+        let auction_start_time = expiration_grace_period;
+        let auction_end_time = auction_start_time + expiration_auction_period;
+
+        debug!("duration_after_expired = {} ", duration_after_expired);
+        debug!("auction_start_time = {} ", auction_start_time);
+        debug!("auction_end_time = {} ", auction_end_time);
+
+        if duration_after_expired > auction_end_time {
+            warn!("The AccountCell has been expired. Will be recycled soon2.");
+            return Err(code_to_error!(AccountCellErrorCode::AccountCellHasExpired));
+        } else if duration_after_expired < auction_start_time {
+            warn!("The AccountCell has been in expiration grace period. Need to be renew as soon as possible.");
+            return Err(code_to_error!(AccountCellErrorCode::AccountCellInExpirationGracePeriod));
+        }
+
+        //Check whether the bidding price is less than the expected price
+        let duration_in_auction = duration_after_expired - auction_start_time;
+        let premium = util::calculate_dutch_auction_price(duration_in_auction, expiration_auction_start_premium);
+        let expected_price = basic_price + premium;
+
+        //
+        if bid_price < expected_price {
+            warn!(
+                "The bid price is too low. The expected price is {}. basic_price is {}",
+                expected_price, basic_price
+            );
+            return Err(code_to_error!(AccountCellErrorCode::AccountCellBidPriceTooLow));
+        }
+    } else {
+        debug!("current_timestamp: {}, expired_at: {}", current_timestamp, expired_at);
+        warn!("The AccountCell has not been expired.");
+        return Err(code_to_error!(AccountCellErrorCode::AccountCellIsNotExpired));
+    }
+
+    Ok(())
+}
 pub fn verify_account_lock_consistent(
     input_account_index: usize,
     output_account_index: usize,

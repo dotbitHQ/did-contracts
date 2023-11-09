@@ -30,6 +30,7 @@ das-dynamic-libs = { path = "../das-dynamic-libs" }
 paste = "1.0"
 molecule = { workspace = true }
 hex = { workspace = true, default-features = false }
+ethnum = "1.4"
 
 [dev-dependencies]
 hex = { version = "0.4", default-features = false }
