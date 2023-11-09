@@ -1,17 +1,17 @@
-use core::convert::TryFrom;
+#[cfg(feature = "no_std")]
 use alloc::borrow::ToOwned;
+#[cfg(feature = "no_std")]
+use core::convert::TryFrom;
+#[cfg(not(feature = "no_std"))]
+use std::convert::TryFrom;
 
 use super::super::constants::DasLockType;
 
-pub fn get_owner_type_opt(data: &[u8]) -> Option<u8> {
+pub fn get_owner_type(data: &[u8]) -> Option<u8> {
     data.get(0).map(|v| v.to_owned())
 }
 
-pub fn get_owner_type(data: &[u8]) -> u8 {
-    get_owner_type_opt(data).expect("Das-lock should have some bytes for owner lock hash.")
-}
-
-pub fn get_owner_lock_args_opt(data: &[u8]) -> Option<&[u8]> {
+pub fn get_owner_lock_args(data: &[u8]) -> Option<&[u8]> {
     // TODO move the args length to a enum in das-types
     let ret = match data[0] {
         1 => data.get(1..29),
@@ -24,12 +24,7 @@ pub fn get_owner_lock_args_opt(data: &[u8]) -> Option<&[u8]> {
 
     ret
 }
-
-pub fn get_owner_lock_args(data: &[u8]) -> &[u8] {
-    get_owner_lock_args_opt(data).expect("Das-lock should have some bytes for owner lock hash.")
-}
-
-pub fn get_manager_type_opt(data: &[u8]) -> Option<u8> {
+pub fn get_manager_type(data: &[u8]) -> Option<u8> {
     let ret = match data[0] {
         1 => data.get(29),
         6 => data.get(33),
@@ -41,13 +36,9 @@ pub fn get_manager_type_opt(data: &[u8]) -> Option<u8> {
     ret.map(|v| v.to_owned())
 }
 
-pub fn get_manager_type(data: &[u8]) -> u8 {
-    get_manager_type_opt(data).expect("Das-lock should have some bytes for manager lock hash.")
-}
-
-pub fn get_manager_lock_args_opt(data: &[u8]) -> Option<&[u8]> {
+pub fn get_manager_lock_args(data: &[u8]) -> Option<&[u8]> {
     // Validate if the algorithm id of manager is valid
-    match get_manager_type_opt(data) {
+    match get_manager_type(data) {
         Some(v) => {
             if DasLockType::try_from(v).is_err() {
                 return None;
@@ -66,8 +57,4 @@ pub fn get_manager_lock_args_opt(data: &[u8]) -> Option<&[u8]> {
     };
 
     ret
-}
-
-pub fn get_manager_lock_args(data: &[u8]) -> &[u8] {
-    get_manager_lock_args_opt(data).expect("Das-lock should have some bytes for manager lock hash.")
 }

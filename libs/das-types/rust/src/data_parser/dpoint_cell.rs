@@ -1,4 +1,7 @@
+#[cfg(feature = "no_std")]
 use core::convert::TryInto;
+#[cfg(not(feature = "no_std"))]
+use std::convert::TryInto;
 
 pub fn get_value(data: &[u8]) -> Option<u64> {
     let header = match data.get(0..4) {
