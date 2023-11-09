@@ -8,6 +8,7 @@ pub mod mixer;
 pub mod prettier;
 pub mod types;
 pub mod util;
+pub mod data_parser;
 
 mod schemas;
 
