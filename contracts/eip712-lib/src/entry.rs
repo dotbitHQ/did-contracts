@@ -130,7 +130,7 @@ fn bid_expired_account_auction_to_semantic(parser: &WitnessesParser) -> Result<S
     let output_dp = util::get_total_dpoint_by_lock(lock.as_reader().into(), &output_dpoint_cells, Source::Output)?;
     let spent_dp = input_dp - output_dp;
 
-    Ok(format!("BID EXPIRED ACCOUNT {} WITH {} DP", account, spent_dp))
+    Ok(format!("BID EXPIRED ACCOUNT {} WITH {}", account, to_semantic_currency(spent_dp, "DP")))
 }
 
 fn start_account_sale_to_semantic(parser: &WitnessesParser) -> Result<String, Box<dyn ScriptError>> {
