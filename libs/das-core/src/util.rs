@@ -1166,6 +1166,28 @@ pub fn get_total_dpoint(indexes: &[usize], source: Source) -> Result<u64, Box<dy
     Ok(total)
 }
 
+pub fn get_total_dpoint_by_lock(lock: ScriptReader, indexes: &[usize], source: Source) -> Result<u64, Box<dyn ScriptError>> {
+    let mut total = 0;
+    let lock_hash = blake2b_256(lock.as_slice());
+    for i in indexes.iter() {
+        let cell_lock_hash = high_level::load_cell_lock_hash(*i, source)?;
+        if lock_hash != cell_lock_hash {
+            continue;
+        }
+
+        let data = high_level::load_cell_data(*i, source)?;
+        let dp = match data_parser::dpoint_cell::get_value(&data) {
+            Some(dp) => dp,
+            None => {
+                warn!("{:?}[{}] The data of DPointCell is corrupted.", source, i);
+                return Err(code_to_error!(ErrorCode::InvalidCellData));
+            }
+        };
+        total += dp;
+    }
+
+    Ok(total)
+}
 
 use ethnum::U256;
 

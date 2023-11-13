@@ -40,6 +40,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
         b"transfer_account" => transfer_account_to_semantic,
         b"edit_manager" => edit_manager_to_semantic,
         b"edit_records" => edit_records_to_semantic,
+        b"bid_expired_account_auction" => bid_expired_account_auction_to_semantic,
         b"start_account_sale" => start_account_sale_to_semantic,
         b"cancel_account_sale" => cancel_account_sale_to_semantic,
         b"buy_account" => buy_account_to_semantic,
@@ -109,6 +110,27 @@ fn edit_records_to_semantic(parser: &WitnessesParser) -> Result<String, Box<dyn 
 
     // TODO Improve semantic message of this transaction.
     Ok(format!("EDIT RECORDS OF ACCOUNT {}", account))
+}
+
+fn bid_expired_account_auction_to_semantic(parser: &WitnessesParser) -> Result<String, Box<dyn ScriptError>> {
+    let type_id_table_reader = parser.configs.main()?.type_id_table();
+    let (input_account_cells, _output_account_cells) =
+        util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, type_id_table_reader.account_cell())?;
+
+    // Parse account from the data of the AccountCell in inputs.
+    let data_in_bytes = util::load_cell_data(input_account_cells[0], Source::Input)?;
+    let account_in_bytes = data_parser::account_cell::get_account(&data_in_bytes);
+    let account = String::from_utf8(account_in_bytes.to_vec()).map_err(|_| ErrorCode::EIP712SerializationError)?;
+
+    let (input_dpoint_cells, output_dpoint_cells) =
+        util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, type_id_table_reader.dpoint_cell())?;
+    let lock = Script::from(high_level::load_cell_lock(input_dpoint_cells[0], Source::Input)?);
+
+    let input_dp = util::get_total_dpoint_by_lock(lock.as_reader().into(), &input_dpoint_cells, Source::Input)?;
+    let output_dp = util::get_total_dpoint_by_lock(lock.as_reader().into(), &output_dpoint_cells, Source::Output)?;
+    let spent_dp = input_dp - output_dp;
+
+    Ok(format!("BID EXPIRED ACCOUNT {} WITH {} DP", account, spent_dp))
 }
 
 fn start_account_sale_to_semantic(parser: &WitnessesParser) -> Result<String, Box<dyn ScriptError>> {

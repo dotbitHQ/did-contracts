@@ -1323,7 +1323,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 basic_price_in_usd,
             )?;
 
-
+            util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
         }
         b"create_approval" | b"delay_approval" | b"revoke_approval" | b"fulfill_approval" => {
             action_approve(action, &mut parser)?
