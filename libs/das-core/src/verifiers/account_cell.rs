@@ -131,9 +131,12 @@ pub fn verify_account_in_auction(
 
         //Check whether the bidding price is less than the expected price
         let duration_in_auction = duration_after_expired - auction_start_time;
+        debug!("duration_in_auction = {}", duration_in_auction);
         let premium = util::calculate_dutch_auction_price(duration_in_auction, expiration_auction_start_premium);
-        let expected_price = basic_price + premium;
+        debug!("premium = {}", premium);
 
+        let expected_price = basic_price + premium * 1000000;
+        debug!("expected_price = {} ", expected_price);
         //
         if bid_price < expected_price {
             warn!(
@@ -363,13 +366,14 @@ pub fn verify_account_witness_consistent<'a>(
         input_witness_reader,
         output_witness_reader,
         (id, "id"),
-        (account, "account"),
-        (registered_at, "registered_at")
+        (account, "account")
+        //(registered_at, "registered_at")  // warning: mv to "if_not_except"
     );
 
     das_assert_field_consistent_if_not_except!(
         input_witness_reader,
         output_witness_reader,
+        (registered_at, "registered_at"),
         (records, "records"),
         (last_transfer_account_at, "last_transfer_account_at"),
         (last_edit_manager_at, "last_edit_manager_at"),

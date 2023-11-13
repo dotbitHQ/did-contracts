@@ -1208,14 +1208,17 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 output_account_cells[0],
             )?;
 
-            verifiers::account_cell::verify_account_cell_consistent_with_exception(
+            verifiers::account_cell::verify_account_data_consistent(
+                input_account_cells[0],
+                output_account_cells[0],
+                vec!["expired_at"],
+            )?;
+            verifiers::account_cell::verify_account_witness_consistent(
                 input_account_cells[0],
                 output_account_cells[0],
                 &input_cell_witness_reader,
                 &output_cell_witness_reader,
-                Some("Owner"),
-                vec!["expired_at"],
-                vec!["register_at", "records"],
+                vec!["registered_at", "last_transfer_account_at", "last_edit_manager_at", "last_edit_records_at", "records"],
             )?;
 
             verifiers::account_cell::verify_account_witness_record_empty(
@@ -1238,22 +1241,44 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let output_data = util::load_cell_data(output_account_cells[0], Source::Output)?;
             let input_expired_at = data_parser::account_cell::get_expired_at(&input_data);
             let output_expired_at = data_parser::account_cell::get_expired_at(&output_data);
-            let output_registered_at = u64::from(input_cell_witness_reader.registered_at());
+            let output_registered_at = u64::from(output_cell_witness_reader.registered_at());
+            let output_last_transfer_account_at = u64::from(output_cell_witness_reader.last_transfer_account_at());
+            let output_last_edit_manager_at = u64::from(output_cell_witness_reader.last_edit_manager_at());
+            let output_last_edit_records_at = u64::from(output_cell_witness_reader.last_edit_records_at());
 
+            debug!(
+                "input_expired_at: {}, output_expired_at: {}, output_registered_at: {}",
+                input_expired_at, output_expired_at, output_registered_at
+            );
             //register_at should be the same as timestamp
             das_assert!(
                 output_registered_at == timestamp,
                 ErrorCode::InvalidTransactionStructure,
-                "The register_at field should not be changed."
+                "The register_at field in output AccountCell should be changed to current time."
+            );
+            das_assert!(
+                output_last_transfer_account_at == timestamp,
+                ErrorCode::InvalidTransactionStructure,
+                "The last_transfer_account_at field in output AccountCell should be changed to current time."
+            );
+            das_assert!(
+                output_last_edit_manager_at == timestamp,
+                ErrorCode::InvalidTransactionStructure,
+                "The last_edit_manager_at field in output AccountCell should be changed to current time."
+            );
+            das_assert!(
+                output_last_edit_records_at == timestamp,
+                ErrorCode::InvalidTransactionStructure,
+                "The last_edit_records_at field in output AccountCell should be changed to current time."
             );
 
             //expired_at should be timestamp + 1year
-            let duration = output_expired_at - input_expired_at;
+            let duration = output_expired_at - timestamp;
             let one_year_in_seconds = 31536000; //365 * 86400;
             das_assert!(
                 duration == one_year_in_seconds,
                 ErrorCode::InvalidTransactionStructure,
-                "The expired_at field should be changed to {}.",
+                "The expired_at field in outputs AccountCell should be changed to {}.",
                 timestamp + one_year_in_seconds
             );
 
@@ -1269,7 +1294,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
             }
 
-            //debug!("Check if account cell refund to owner properly."); //balance
+            debug!("Check if account cell refund to old owner properly."); //balance
             verifiers::misc::verify_user_get_change(
                 config_main,
                 sender_lock.as_reader(),
@@ -1284,7 +1309,9 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 account_name_storage,
                 receiver_lock.args().as_reader().into(),
             );
-            let storage_price_in_usd = storage_capacity / quote;
+            debug!("The storage capacity is {} shannon", storage_capacity);
+
+            let storage_price_in_usd = storage_capacity * quote / 100000000;
 
             // calculate the price when bid
             let length_in_price = util::get_length_in_price(output_cell_witness_reader.account().len() as u64);
@@ -1303,17 +1330,29 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 basic_price_in_usd, storage_price_in_usd, new_price_in_usd
             );
 
+            //Check owner and manager is equal.
+            let receiver_lock_args = receiver_lock.args();
+            let receiver_lock_args_u8 = receiver_lock_args.as_reader().raw_data();
+            let receiver_owner = data_parser::das_lock_args::get_owner_lock_args(receiver_lock_args_u8);
+            let receiver_manager = data_parser::das_lock_args::get_manager_lock_args(receiver_lock_args_u8);
+            das_assert!(
+                receiver_owner == receiver_manager,
+                AccountCellErrorCode::AccountCellPermissionDenied,
+                "The owner and manager of the AccountCell in outputs should be the same."
+            );
+
             //Get the price paid by the user during the auction.
-            let bid_price = match verify_user_dp_spent(&parser, receiver_lock.args().as_reader().raw_data()) {
+            let bid_price = match verify_user_dp_spent(&parser, receiver_owner) {
                 Ok(price) => price,
                 Err(err) => {
-                    warn!("DP payment error");
+                    warn!("Failed to get the dp amount paid by the user");
                     return Err(err);
                 }
             };
+            debug!("The bidding ammount paid by user is {} USD", bid_price);
 
             // Verify that this account is within the Dutch auction period.
-            debug!("Check if it satisfies the auction logic");
+            debug!("Check that the amount complies with Dutch auction price rules.");
             verifiers::account_cell::verify_account_in_auction(
                 config_account,
                 input_account_cells[0],
@@ -1704,7 +1743,7 @@ fn verify_user_dp_spent(parser: &WitnessesParser, user_lock: &[u8]) -> Result<u6
         debug!("Only one user's dp address should appear in the inputs.");
         return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
     }
-    // check outputs dp, no more than 2,
+    // check outputs dp cell, not greater than 2,
     if dp_outputs.len() > 2 {
         debug!("No more than 2 users' dp addresses should appear in the outputs.");
         return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
@@ -1732,6 +1771,9 @@ fn verify_user_dp_spent(parser: &WitnessesParser, user_lock: &[u8]) -> Result<u6
     //if cannot get, no change dp cell for user.
     let user_output_dp = dp_outputs.get(&user_lock_args).unwrap_or(&0);
     let user_spend_dp = if user_input_dp > *user_output_dp {
+        debug!("user input dp = {}", user_input_dp);
+        debug!("user output dp = {}", user_output_dp);
+
         user_input_dp - user_output_dp
     } else {
         debug!("The number of DID points inputted by the user is not greater than the output");
