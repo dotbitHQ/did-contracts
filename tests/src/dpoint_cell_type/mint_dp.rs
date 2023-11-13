@@ -109,3 +109,53 @@ fn challenge_dpoint_mint_dp_invalid_capacity() {
 
     challenge_tx(template.as_json(), ErrorCode::InitialCapacityError);
 }
+
+#[test]
+fn challenge_dpoint_mint_dp_violate_min_limit() {
+    let mut template = before_each();
+    // outputs
+    template.push_output(
+        json!({
+            "capacity": DPOINT_BASIC_CAPACITY + DPOINT_PREPARED_FEE_CAPACITY,
+            "lock": {
+                "owner_lock_args": DP_TRANSFER_WHITELIST_1,
+                "manager_lock_args": DP_TRANSFER_WHITELIST_1,
+            },
+            "type": {
+                "code_hash": "{{dpoint-cell-type}}"
+            },
+            "data": {
+                // Simulate providing a invalid value
+                "value": 0,
+            }
+        }),
+        None,
+    );
+
+    challenge_tx(template.as_json(), ErrorCode::InitialDataError);
+}
+
+#[test]
+fn challenge_dpoint_mint_dp_violate_max_limit() {
+    let mut template = before_each();
+    // outputs
+    template.push_output(
+        json!({
+            "capacity": DPOINT_BASIC_CAPACITY + DPOINT_PREPARED_FEE_CAPACITY,
+            "lock": {
+                "owner_lock_args": DP_TRANSFER_WHITELIST_1,
+                "manager_lock_args": DP_TRANSFER_WHITELIST_1,
+            },
+            "type": {
+                "code_hash": "{{dpoint-cell-type}}"
+            },
+            "data": {
+                // Simulate providing a invalid value
+                "value": 10_000_000 * USD_1 + 1,
+            }
+        }),
+        None,
+    );
+
+    challenge_tx(template.as_json(), ErrorCode::InitialDataError);
+}

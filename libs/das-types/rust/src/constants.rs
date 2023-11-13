@@ -14,6 +14,7 @@ pub enum SystemStatus {
     On,
 }
 
+pub const ACCOUNT_ID_LENGTH: usize = 20;
 pub const PRESERVED_ACCOUNT_CELL_COUNT: u8 = 20;
 
 #[derive(Debug, PartialEq, Copy, Clone, TryFromPrimitive, EnumString, Display)]

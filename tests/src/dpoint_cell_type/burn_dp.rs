@@ -133,6 +133,37 @@ fn challenge_dpoint_burn_dp_split() {
 }
 
 #[test]
+fn challenge_dpoint_burn_dp_violate_min_limit() {
+    let mut template = before_each();
+    // outputs
+    template.push_output(
+        json!({
+            "capacity": DPOINT_BASIC_CAPACITY + DPOINT_PREPARED_FEE_CAPACITY,
+            "lock": {
+                "owner_lock_args": OWNER,
+                "manager_lock_args": OWNER,
+            },
+            "type": {
+                "code_hash": "{{dpoint-cell-type}}"
+            },
+            "data": {
+                // Simulate providing a invalid value
+                "value": 0
+            }
+        }),
+        None,
+    );
+
+    push_output_balance_cell(
+        &mut template,
+        (DPOINT_BASIC_CAPACITY + DPOINT_PREPARED_FEE_CAPACITY) * 2,
+        DP_RECYCLE_WHITELIST_1,
+    );
+
+    challenge_tx(template.as_json(), ErrorCode::InitialDataError);
+}
+
+#[test]
 fn challenge_dpoint_burn_dp_value_increased() {
     let mut template = before_each();
 

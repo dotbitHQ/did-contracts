@@ -4,6 +4,7 @@ extern crate alloc;
 
 pub mod constants;
 pub mod convert;
+pub mod data_parser;
 pub mod mixer;
 pub mod prettier;
 pub mod types;
