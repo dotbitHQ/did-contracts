@@ -555,8 +555,8 @@ fn transfer_dp_to_semantic(parser: &WitnessesParser) -> Result<String, Box<dyn S
 
         let mut comma = "";
         let mut ret = String::new();
-        for (address, capacity) in dp_map.items {
-            ret += format!("{}{}({})", comma, address, to_semantic_currency(capacity, "DP")).as_str();
+        for (address, dp) in dp_map.items {
+            ret += format!("{}{}({})", comma, address, to_semantic_currency(dp, "DP")).as_str();
             comma = ", ";
         }
 
@@ -566,8 +566,6 @@ fn transfer_dp_to_semantic(parser: &WitnessesParser) -> Result<String, Box<dyn S
     let inputs = sum_cells(parser, input_cells, Source::Input)?;
     let outputs = sum_cells(parser, output_cells, Source::Output)?;
 
-    debug!("inputs: {:?}", inputs);
-    debug!("outputs: {:?}", outputs);
     Ok(format!("TRANSFER FROM {} TO {}", inputs, outputs))
 }
 
@@ -584,5 +582,5 @@ fn burn_dp_to_semantic(parser: &WitnessesParser) -> Result<String, Box<dyn Scrip
 
     let burn_dp = if input_dp > output_dp { input_dp - output_dp } else { 0 };
 
-    Ok(format!("BURN {} DP FROM {}", burn_dp, burn_address))
+    Ok(format!("BURN {} FROM {}", to_semantic_currency(burn_dp, "DP"), burn_address))
 }

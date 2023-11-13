@@ -15,7 +15,7 @@ fn before_each() -> TemplateGenerator {
     push_input_dpoint_cell(&mut template, 100, OWNER);
     push_input_dpoint_cell(&mut template, 100, OWNER);
     push_input_dpoint_cell(&mut template, 100, OWNER);
-    push_input_balance_cell(&mut template, 0, DP_TRANSFER_WHITELIST_1);
+    push_input_balance_cell(&mut template, 0, DP_RECYCLE_WHITELIST_1);
 
     template
 }
@@ -51,7 +51,25 @@ fn test_dpoint_burn_dp_merge() {
 }
 
 #[test]
-fn challenge_dpoint_burn_dp_without_transfer_whitelist_address() {
+fn test_dpoint_burn_dp_split() {
+    let mut template = before_each();
+
+    // outputs
+    push_output_dpoint_cell(&mut template, 50, OWNER);
+    push_output_dpoint_cell(&mut template, 50, OWNER);
+    push_output_dpoint_cell(&mut template, 50, OWNER);
+    push_output_dpoint_cell(&mut template, 50, OWNER);
+    push_output_balance_cell(
+        &mut template,
+        (DPOINT_BASIC_CAPACITY + DPOINT_PREPARED_FEE_CAPACITY) * 2,
+        DP_RECYCLE_WHITELIST_1,
+    );
+
+    test_tx(template.as_json());
+}
+
+#[test]
+fn challenge_dpoint_burn_dp_without_any_whitelist_address() {
     let mut template = init(json!({ "action": "burn_dp" }));
 
     // inputs
@@ -116,20 +134,6 @@ fn challenge_dpoint_burn_dp_multiple_owner_2() {
     );
 
     challenge_tx(template.as_json(), ErrorCode::OnlyOneUserIsAllowed);
-}
-
-#[test]
-fn challenge_dpoint_burn_dp_split() {
-    let mut template = before_each();
-
-    // outputs
-    // Simulate increase the DPointCell number in the outputs
-    push_output_dpoint_cell(&mut template, 20, OWNER);
-    push_output_dpoint_cell(&mut template, 20, OWNER);
-    push_output_dpoint_cell(&mut template, 20, OWNER);
-    push_output_dpoint_cell(&mut template, 20, OWNER);
-
-    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure);
 }
 
 #[test]
