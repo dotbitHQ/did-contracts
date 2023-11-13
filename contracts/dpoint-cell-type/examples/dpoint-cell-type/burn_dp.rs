@@ -26,9 +26,9 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
     let inner_output_cells = output_cells.clone();
     action.add_verification(Rule::new("Verify the transaction structure.", move |_contract| {
         das_assert!(
-            inner_input_cells.len() > 0 && inner_input_cells.len() >= inner_output_cells.len(),
+            inner_input_cells.len() > 0,
             ErrorCode::InvalidTransactionStructure,
-            "There should be more than 0 DPointCells in the inputs, and creating new DPointCells is not allowed."
+            "There should be more than 0 DPointCells in the inputs."
         );
 
         let mut owner_lock = None;
@@ -111,6 +111,11 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
         .iter()
         .map(|lock| core_util::blake2b_256(lock.as_slice()))
         .collect::<Vec<_>>();
+    let recycle_whitelist = config_dpoint_reader.capacity_recycle_whitelist();
+    let recycle_whitelist_hashes = recycle_whitelist
+        .iter()
+        .map(|lock| core_util::blake2b_256(lock.as_slice()))
+        .collect::<Vec<_>>();
     action.add_verification(Rule::new(
         "Verify if there is any address in inputs exist in whitelist.",
         move |_contract| {
@@ -121,7 +126,7 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
                 let ret = high_level::load_cell_lock_hash(i, Source::Input);
                 match ret {
                     Ok(lock_hash) => {
-                        if transfer_whitelist_hashes.contains(&lock_hash) {
+                        if transfer_whitelist_hashes.contains(&lock_hash) || recycle_whitelist_hashes.contains(&lock_hash) {
                             has_whitelist_lock = true;
                             break;
                         }
@@ -142,13 +147,20 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
         },
     ));
 
+    let basic_capacity = u64::from(config_dpoint_reader.basic_capacity());
+    let prepared_fee_capacity = u64::from(config_dpoint_reader.prepared_fee_capacity());
+    let expected_capacity = basic_capacity + prepared_fee_capacity;
     let mut recycle_capacity = 0;
+    let mut fill_capacity = 0;
     if input_cells.len() > output_cells.len() {
         let start = output_cells.len();
         for index in input_cells[start..].iter() {
             let capacity = high_level::load_cell_capacity(*index, Source::Input)?;
             recycle_capacity += capacity;
         }
+    } else if input_cells.len() < output_cells.len() {
+        let count = output_cells.len() - input_cells.len();
+        fill_capacity = (basic_capacity + prepared_fee_capacity) * count as u64;
     }
 
     // TODO load this value from new ConfigCellMain
@@ -181,14 +193,24 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
                                 index
                             );
                         }
-                        None => unreachable!(),
+                        None => {
+                            das_assert!(
+                                capacity == expected_capacity,
+                                ErrorCode::InitialCapacityError,
+                                "outputs[{}] The capacity of new DPointCell should be {} shannon.(expected: {}, current: {})",
+                                index,
+                                expected_capacity,
+                                expected_capacity,
+                                capacity
+                            );
+                        },
                     }
 
                     total_output += capacity;
                 }
 
                 das_assert!(
-                    total_output + common_fee >= total_input - recycle_capacity,
+                    total_output - fill_capacity + common_fee >= total_input - recycle_capacity,
                     ErrorCode::SpendTooMuchFee,
                     "The total capacity of outputs spent more than the fee limit."
                 );
