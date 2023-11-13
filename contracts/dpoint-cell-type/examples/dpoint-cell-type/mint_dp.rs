@@ -4,14 +4,13 @@ use core::cmp::Ordering;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
-use das_core::constants::{super_lock, ScriptType};
+use das_core::constants::{super_lock, ScriptType, DPOINT_MAX_LIMIT};
 use das_core::contract::defult_structs::{Action, Rule};
 use das_core::error::ScriptError;
 use das_core::witness_parser::WitnessesParser;
 use das_core::{code_to_error, das_assert, data_parser, util as core_util, verifiers};
 use das_types::packed::*;
 use dpoint_cell_type::error::ErrorCode;
-use molecule::hex_string;
 
 pub fn action() -> Result<Action, Box<dyn ScriptError>> {
     let parser = WitnessesParser::new()?;
@@ -88,8 +87,18 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
                     ErrorCode::InitialDataError,
                     "outputs[{}] The value of new DPointCell should be some LV structure u64 data.(current: {})",
                     index,
-                    hex_string(&data)
-                )
+                    core_util::hex_string(&data)
+                );
+
+                let value = value.unwrap();
+                das_assert!(
+                    value > 0 && value <= DPOINT_MAX_LIMIT,
+                    ErrorCode::InitialDataError,
+                    "outputs[{}] The value of each new DPointCell should be 0 < x <= {}.(current: {})",
+                    index,
+                    DPOINT_MAX_LIMIT,
+                    value
+                );
             }
 
             Ok(())

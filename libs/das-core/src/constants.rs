@@ -65,7 +65,10 @@ pub enum CellField {
 pub const CKB_HASH_DIGEST: usize = 32;
 pub const CKB_HASH_PERSONALIZATION: &[u8] = b"ckb-default-hash";
 
-pub const CELL_BASIC_CAPACITY: u64 = 6_100_000_000;
+pub const ONE_CKB: u64 = 100_000_000;
+pub const CELL_BASIC_CAPACITY: u64 = 6_1 * ONE_CKB;
+pub const ONE_USD: u64 = 1_000_000;
+pub const DPOINT_MAX_LIMIT: u64 = 10_000_000 * ONE_USD;
 
 pub const RATE_BASE: u64 = 10_000;
 
