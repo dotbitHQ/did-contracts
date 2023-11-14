@@ -16,6 +16,7 @@ use ckb_std::ckb_types::packed::*;
 use ckb_std::ckb_types::prelude::*;
 use ckb_std::error::SysError;
 use ckb_std::{high_level, syscalls};
+use ckb_std::syscalls::debug;
 use das_types::constants::{DasLockType, DataType, LockRole, ACCOUNT_ID_LENGTH, WITNESS_HEADER};
 use das_types::mixer::*;
 use das_types::packed::{self as das_packed};
@@ -1187,6 +1188,22 @@ pub fn get_total_dpoint_by_lock(lock: ScriptReader, indexes: &[usize], source: S
     }
 
     Ok(total)
+}
+
+pub fn get_spent_dpoint_by_lock(lock: Script, inputs_indexes: &[usize], outputs_indexes: &[usize] ) -> Result<u64, Box<dyn ScriptError>> {
+    // debug!("get_spent_dpoint_by_lock");
+    // debug!("inputs_indexes = {:?}", inputs_indexes);
+    // debug!("outputs_indexes = {:?}", outputs_indexes);
+
+    let lock_reader = lock.as_reader();
+    let total_input = get_total_dpoint_by_lock(lock_reader, inputs_indexes, Source::Input)?;
+    let total_output = get_total_dpoint_by_lock(lock_reader, outputs_indexes, Source::Output)?;
+    if total_input < total_output {
+        warn!("The total DPoint in inputs is less than that in outputs.");
+        return Err(code_to_error!(ErrorCode::InvalidCellData));
+    }
+
+    Ok(total_input - total_output)
 }
 
 use ethnum::U256;

@@ -15,6 +15,7 @@ use crate::constants::*;
 use crate::error::*;
 use crate::witness_parser::WitnessesParser;
 use crate::{data_parser, util};
+use crate::util::print_dp;
 
 pub fn verify_unlock_role(action: &[u8], params: &[Bytes]) -> Result<(), Box<dyn ScriptError>> {
     let required_role_opt = util::get_action_required_role(action);
@@ -56,14 +57,12 @@ pub fn verify_account_expiration(
     let data = util::load_cell_data(index, source)?;
     let expired_at = data_parser::account_cell::get_expired_at(data.as_slice());
     let expiration_grace_period = u32::from(config.expiration_grace_period()) as u64;
-    // let expiration_auction_period = u32::from(config.expiration_auction_period()) as u64;
-    let expiration_auction_period = 0;
-    // let expiration_auction_confirmation_period = u32::from(config.expiration_auction_confirmation_period()) as u64;
-    let expiration_auction_confirmation_period = 0;
+    let expiration_auction_period = u32::from(config.expiration_auction_period()) as u64;
+    let expiration_deliver_period = u32::from(config.expiration_deliver_period()) as u64;
 
     if current_timestamp > expired_at {
         let duration = current_timestamp - expired_at;
-        if duration > expiration_grace_period + expiration_auction_period + expiration_auction_confirmation_period {
+        if duration > expiration_grace_period + expiration_auction_period + expiration_deliver_period {
             warn!("The AccountCell has been expired. Will be recycled soon.");
             return Err(code_to_error!(AccountCellErrorCode::AccountCellHasExpired));
         } else if duration > expiration_grace_period + expiration_auction_period {
@@ -133,15 +132,14 @@ pub fn verify_account_in_auction(
         let duration_in_auction = duration_after_expired - auction_start_time;
         debug!("duration_in_auction = {}", duration_in_auction);
         let premium = util::calculate_dutch_auction_price(duration_in_auction, expiration_auction_start_premium);
-        debug!("premium = {}", premium);
-
-        let expected_price = basic_price + premium * 1000000;
-        debug!("expected_price = {} ", expected_price);
+        debug!("premium calculated = {}", premium);
+        let expected_price = basic_price + premium * ONE_USD;
+        debug!("The expected price is {} ", print_dp(&expected_price));
         //
         if bid_price < expected_price {
             warn!(
-                "The bid price is too low. The expected price is {}. basic_price is {}",
-                expected_price, basic_price
+                "The bid is too low and the auction fails. The expected price is {} the actual price is {}.",
+                expected_price, bid_price
             );
             return Err(code_to_error!(AccountCellErrorCode::AccountCellBidPriceTooLow));
         }

@@ -112,14 +112,14 @@ json!({
             },
             "witness": {
                 "registered_at": TIMESTAMP,
-                "last_transfer_account_at": TIMESTAMP,
-                "last_edit_manager_at": TIMESTAMP,
-                "last_edit_records_at": TIMESTAMP,
+                "last_transfer_account_at": 0,
+                "last_edit_manager_at": 0,
+                "last_edit_records_at": 0,
             }
         }),
     );
-    push_output_dpoint_cell_float(&mut template, 100818219, DP_TRANSFER_WHITELIST_1);
-    push_output_dpoint_cell_float(&mut template, 899181781, BIDDER);
+    push_output_dpoint_cell_float(&mut template, 100818208, DP_TRANSFER_WHITELIST_1);
+    push_output_dpoint_cell_float(&mut template, 899181792, BIDDER);
 
     push_output_normal_cell(&mut template, 10 * SHANNON, DP_SVR);
     push_output_normal_cell(&mut template, 90 * SHANNON, DID_SVR);
@@ -262,9 +262,9 @@ fn common_when_auction_have_started(account_expired_at: u64, premium: u64) -> Te
             },
             "witness": {
                 "registered_at": TIMESTAMP,
-                "last_transfer_account_at": TIMESTAMP,
-                "last_edit_manager_at": TIMESTAMP,
-                "last_edit_records_at": TIMESTAMP,
+                "last_transfer_account_at": 0,
+                "last_edit_manager_at": 0,
+                "last_edit_records_at": 0,
             }
         }),
     );
@@ -295,13 +295,13 @@ fn test_bid_expired_success_when_auction_started_00_00() {
     let account_expired_at = TIMESTAMP - ACCOUNT_EXPIRATION_GRACE_PERIOD;
     let template = common_when_auction_have_started(account_expired_at, 100000000);
 
-    //note: The value of each new DPointCell should be 0 < x <= 10000000000000.(current: 100000005818208)
+    //note: The value of each new DPointCell should be 0 < x <= 10 000 000 000 000.(current: 100000005818208)
     challenge_tx(template.as_json(), DPointCellErrorCode::InitialDataError);
     //test_tx(template.as_json());
 }
 
 #[test]
-fn test_bid_expired_failed_when_auction_has_not_started() {
+fn challenge_bid_expired_failed_when_auction_has_not_started() {
 
     let account_expired_at = TIMESTAMP - ACCOUNT_EXPIRATION_GRACE_PERIOD + 1;
     let template = common_when_auction_have_started(account_expired_at, 0);
@@ -316,7 +316,7 @@ fn test_bid_expired_success_when_auction_started_27_days_00_00() {
     test_tx(template.as_json());
 }
 #[test]
-fn test_bid_expired_failed_when_auction_started_27_days_00_01() {
+fn challenge_bid_expired_failed_when_auction_started_27_days_00_01() {
     let account_expired_at = TIMESTAMP - ACCOUNT_EXPIRATION_GRACE_PERIOD - ACCOUNT_EXPIRATION_AUCTION_PERIOD - 1;
     let template = common_when_auction_have_started(account_expired_at, 0);
     //test_tx(template.as_json());
@@ -324,7 +324,7 @@ fn test_bid_expired_failed_when_auction_started_27_days_00_01() {
 }
 
 #[test]
-fn test_bid_failed_account_auction_registered_at() {
+fn challenge_bid_failed_account_auction_registered_at() {
     let mut template = init("bid_expired_account_auction");
 
     //push inputs

@@ -10,7 +10,7 @@ use ckb_std::high_level;
 use das_core::constants::*;
 use das_core::error::*;
 use das_core::witness_parser::WitnessesParser;
-use das_core::{assert as das_assert, code_to_error, data_parser, debug, sign_util, util, verifiers, warn};
+use das_core::{assert as das_assert, code_to_error, das_assert_custom, data_parser, debug, sign_util, util, verifiers, warn};
 use das_dynamic_libs::constants::DynLibName;
 use das_dynamic_libs::sign_lib::SignLib;
 use das_dynamic_libs::{load_1_method, load_2_methods, load_3_methods, load_lib, log_loading, new_context};
@@ -19,7 +19,7 @@ use das_map::util as map_util;
 use das_types::constants::*;
 use das_types::mixer::*;
 use das_types::packed::*;
-use das_core::util::print_dp;
+use das_core::util::{get_spent_dpoint_by_lock, print_dp};
 use crate::approval;
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
@@ -621,6 +621,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 timestamp,
             );
             if let Err(err) = ret {
+                //todo
                 das_assert!(
                     err.as_i8() == AccountCellErrorCode::AccountCellInExpirationAuctionPeriod as i8
                         || err.as_i8() == AccountCellErrorCode::AccountCellInExpirationAuctionConfirmationPeriod as i8
@@ -1200,7 +1201,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 util::parse_account_cell_witness(&parser, output_account_cells[0], Source::Output)?;
             let output_cell_witness_reader = output_cell_witness.as_reader();
 
-            //transaction fee paid by input AccountCell
+            //transaction fee paid by input AccountCell or did_svr
             verify_transaction_fee_spent_correctly(
                 action,
                 config_account,
@@ -1218,7 +1219,9 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 output_account_cells[0],
                 &input_cell_witness_reader,
                 &output_cell_witness_reader,
-                vec!["registered_at", "last_transfer_account_at", "last_edit_manager_at", "last_edit_records_at", "records"],
+                vec!["registered_at",
+                     "last_transfer_account_at", "last_edit_manager_at", "last_edit_records_at",
+                     "records"],
             )?;
 
             verifiers::account_cell::verify_account_witness_record_empty(
@@ -1251,35 +1254,20 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 input_expired_at, output_expired_at, output_registered_at
             );
             //register_at should be the same as timestamp
-            das_assert!(
-                output_registered_at == timestamp,
-                ErrorCode::InvalidTransactionStructure,
-                "The register_at field in output AccountCell should be changed to current time."
-            );
-            das_assert!(
-                output_last_transfer_account_at == timestamp,
-                ErrorCode::InvalidTransactionStructure,
-                "The last_transfer_account_at field in output AccountCell should be changed to current time."
-            );
-            das_assert!(
-                output_last_edit_manager_at == timestamp,
-                ErrorCode::InvalidTransactionStructure,
-                "The last_edit_manager_at field in output AccountCell should be changed to current time."
-            );
-            das_assert!(
-                output_last_edit_records_at == timestamp,
-                ErrorCode::InvalidTransactionStructure,
-                "The last_edit_records_at field in output AccountCell should be changed to current time."
+            das_assert_custom!(
+                output_registered_at == timestamp, "The register_at field in output AccountCell should be changed to current time.",
+                output_last_transfer_account_at == 0, "The last_transfer_account_at in the output AccountCell should be set to 0.",
+                output_last_edit_manager_at == 0, "The last_edit_manager_at in the output AccountCell should be set to 0.",
+                output_last_edit_records_at == 0, "The last_edit_records_at in the output AccountCell should be set to 0."
             );
 
             //expired_at should be timestamp + 1year
             let duration = output_expired_at - timestamp;
-            let one_year_in_seconds = 31536000; //365 * 86400;
             das_assert!(
-                duration == one_year_in_seconds,
+                duration == YEAR_SEC,
                 ErrorCode::InvalidTransactionStructure,
                 "The expired_at field in outputs AccountCell should be changed to {}.",
-                timestamp + one_year_in_seconds
+                timestamp + YEAR_SEC
             );
 
             debug!("Check if the old owner has received the refund.");
@@ -1311,7 +1299,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             );
             debug!("The storage capacity is {} shannon", storage_capacity);
 
-            let storage_price_in_usd = storage_capacity * quote / 100000000;
+            let storage_price_in_usd = storage_capacity * quote / ONE_CKB;
 
             // calculate the price when bid
             let length_in_price = util::get_length_in_price(output_cell_witness_reader.account().len() as u64);
@@ -1338,18 +1326,26 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             das_assert!(
                 receiver_owner == receiver_manager,
                 AccountCellErrorCode::AccountCellPermissionDenied,
-                "The owner and manager of the AccountCell in outputs should be the same."
+                "The owner and manager of the AccountCell in the outputs should be the same."
             );
 
-            //Get the price paid by the user during the auction.
-            let bid_price = match verify_user_dp_spent(&parser, receiver_owner) {
+            //just for test
+            #[cfg(any(feature = "dev", feature = "testnet"))]
+            let _bid_price = match get_user_dp_spent(&parser, receiver_owner) {
                 Ok(price) => price,
                 Err(err) => {
-                    warn!("Failed to verify the dp amount paid by the user");
+                    warn!("Failed to get the dp amount paid by the user");
                     return Err(err);
                 }
             };
-            debug!("The bidding ammount paid by user is {} USD", bid_price);
+
+            //Get the price paid by the user during the auction.
+            let type_id_table_reader = config_main.type_id_table();
+            let (input_dp_cells, output_dp_cells) =
+                util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, type_id_table_reader.dpoint_cell())?;
+            let bid_price = util::get_spent_dpoint_by_lock(receiver_lock, &input_dp_cells, &output_dp_cells)?;
+
+            debug!("The amount spent by the user is {} USD.", bid_price);
 
             // Verify that this account is within the Dutch auction period.
             debug!("Check that the amount complies with Dutch auction price rules.");
@@ -1695,8 +1691,8 @@ fn verify_transaction_fee_spent_correctly(
 
     Ok(())
 }
-
-fn verify_user_dp_spent(parser: &WitnessesParser, user_lock: &[u8]) -> Result<u64, Box<dyn ScriptError>> {
+//deprecated
+fn get_user_dp_spent(parser: &WitnessesParser, user_lock: &[u8]) -> Result<u64, Box<dyn ScriptError>> {
     let type_id_table_reader = parser.configs.main()?.type_id_table();
     let (input_cells, output_cells) =
         util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, type_id_table_reader.dpoint_cell())?;
@@ -1752,15 +1748,17 @@ fn verify_user_dp_spent(parser: &WitnessesParser, user_lock: &[u8]) -> Result<u6
         }
     }
     //check inputs dp, only one
-    if dp_inputs.len() != 1 {
-        debug!("Only one user's dp address should appear in the inputs.");
-        return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
-    }
+    //todo dp ensure
+    // if dp_inputs.len() != 1 {
+    //     debug!("Only one user's dp address should appear in the inputs.");
+    //     return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
+    // }
+
     // check outputs dp cell, not greater than 2,
-    if dp_outputs.len() > 2 {
-        debug!("No more than 2 users' dp addresses should appear in the outputs.");
-        return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
-    }
+    // if dp_outputs.len() > 2 {
+    //     debug!("No more than 2 users' dp addresses should appear in the outputs.");
+    //     return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
+    // }
 
     //by default, inputs dp only have one addr, outputs dp have two addr
     let outputs_lock_args = match dp_outputs.get_all_keys() {
