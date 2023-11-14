@@ -1240,3 +1240,8 @@ pub fn calculate_dutch_auction_price(auction_started_time: u64, start_premium: u
     }
     return premium_new.as_u64();
 }
+pub fn print_dp(dp: &u64) -> String{
+    let integer = dp / 1000000;
+    let fraction = dp % 1000000;
+    format!("{}.{}", integer, fraction)
+}

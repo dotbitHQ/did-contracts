@@ -19,7 +19,7 @@ use das_map::util as map_util;
 use das_types::constants::*;
 use das_types::mixer::*;
 use das_types::packed::*;
-
+use das_core::util::print_dp;
 use crate::approval;
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
@@ -1345,7 +1345,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let bid_price = match verify_user_dp_spent(&parser, receiver_owner) {
                 Ok(price) => price,
                 Err(err) => {
-                    warn!("Failed to get the dp amount paid by the user");
+                    warn!("Failed to verify the dp amount paid by the user");
                     return Err(err);
                 }
             };
@@ -1737,7 +1737,20 @@ fn verify_user_dp_spent(parser: &WitnessesParser, user_lock: &[u8]) -> Result<u6
     //table of dp in inputs and outputs
     let dp_inputs = sum_cells(&parser, input_cells, Source::Input)?;
     let dp_outputs = sum_cells(&parser, output_cells, Source::Output)?;
-
+    //just for test
+    #[cfg(any(feature = "dev", feature = "testnet"))]
+    {
+        let a = dp_inputs.clone();
+        let b = a.get_all_keys();
+        for k in b.unwrap() {
+            debug!("jason inputs[{}] dp: {} ", k, print_dp(dp_inputs.clone().get(k).unwrap()));
+        }
+        let c = dp_outputs.clone();
+        let d = c.get_all_keys();
+        for k in d.unwrap() {
+            debug!("jason outputs[{}] dp: {} ", k, print_dp(dp_outputs.clone().get(k).unwrap()));
+        }
+    }
     //check inputs dp, only one
     if dp_inputs.len() != 1 {
         debug!("Only one user's dp address should appear in the inputs.");
@@ -1771,8 +1784,8 @@ fn verify_user_dp_spent(parser: &WitnessesParser, user_lock: &[u8]) -> Result<u6
     //if cannot get, no change dp cell for user.
     let user_output_dp = dp_outputs.get(&user_lock_args).unwrap_or(&0);
     let user_spend_dp = if user_input_dp > *user_output_dp {
-        debug!("user input dp = {}", user_input_dp);
-        debug!("user output dp = {}", user_output_dp);
+        debug!("user input dp = {}", print_dp(&user_input_dp));
+        debug!("user output dp = {}", print_dp(&user_output_dp));
 
         user_input_dp - user_output_dp
     } else {

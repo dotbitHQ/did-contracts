@@ -122,10 +122,10 @@ pub fn verify_account_in_auction(
         debug!("auction_end_time = {} ", auction_end_time);
 
         if duration_after_expired > auction_end_time {
-            warn!("The AccountCell has been expired. Will be recycled soon2.");
+            warn!("The expired account auction has ended. Will be recycled soon.");
             return Err(code_to_error!(AccountCellErrorCode::AccountCellHasExpired));
         } else if duration_after_expired < auction_start_time {
-            warn!("The AccountCell has been in expiration grace period. Need to be renew as soon as possible.");
+            warn!("The AccountCell has been in expiration grace period. Cannot conduct auction.");
             return Err(code_to_error!(AccountCellErrorCode::AccountCellInExpirationGracePeriod));
         }
 

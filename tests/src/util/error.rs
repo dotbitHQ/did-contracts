@@ -364,3 +364,36 @@ impl Into<i8> for ReverseRecordRootCellErrorCode {
         self as i8
     }
 }
+
+
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+#[repr(i8)]
+pub enum DPointCellErrorCode {
+    IndexOutOfBound = 1,
+    ItemMissing,
+    LengthNotEnough,
+    Encoding,
+    InvalidTransactionStructure = 6,
+    ActionNotSupported = 27,
+
+    SuperLockIsRequired = 50,
+    WhitelistLockIsRequired,
+    InitialCapacityError,
+    InitialDataError,
+    InitialOwnerError,
+    TheValueFieldIsMissing,
+    TheTotalDPointCanNotChange,
+    TheDPointShouldDecreased,
+    OnlyOneUserIsAllowed,
+    SpendTooMuchFee,
+    CanNotSpendAnyFee,
+    ThereShouldBeSomeDPointCellInInput,
+    CapacityRecycleError,
+}
+
+impl Into<i8> for DPointCellErrorCode {
+    fn into(self) -> i8 {
+        self as i8
+    }
+}
