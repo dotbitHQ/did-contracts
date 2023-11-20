@@ -69,6 +69,7 @@ pub struct Configs {
     pub secondary_market: OnceCell<ConfigCellSecondaryMarket>,
     pub reverse_resolution: OnceCell<ConfigCellReverseResolution>,
     pub sub_account: OnceCell<ConfigCellSubAccount>,
+    pub dpoint: OnceCell<ConfigCellDPoint>,
     pub record_key_namespace: OnceCell<Vec<u8>>,
     pub preserved_account: OnceCell<Vec<u8>>,
     pub unavailable_account: OnceCell<Vec<u8>>,
@@ -92,6 +93,7 @@ impl Configs {
             secondary_market: OnceCell::new(),
             reverse_resolution: OnceCell::new(),
             sub_account: OnceCell::new(),
+            dpoint: OnceCell::new(),
             record_key_namespace: OnceCell::new(),
             preserved_account: OnceCell::new(),
             unavailable_account: OnceCell::new(),
@@ -181,6 +183,10 @@ impl Configs {
 
     pub fn sub_account(&self) -> Result<ConfigCellSubAccountReader, Box<dyn ScriptError>> {
         get_or_try_init!(self, sub_account, ConfigCellSubAccount, DataType::ConfigCellSubAccount)
+    }
+
+    pub fn dpoint(&self) -> Result<ConfigCellDPointReader, Box<dyn ScriptError>> {
+        get_or_try_init!(self, dpoint, ConfigCellDPoint, DataType::ConfigCellDPoint)
     }
 
     pub fn record_key_namespace(&self) -> Result<&Vec<u8>, Box<dyn ScriptError>> {

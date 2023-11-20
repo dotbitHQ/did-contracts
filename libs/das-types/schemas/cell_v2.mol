@@ -1,0 +1,43 @@
+import basic;
+import cell;
+
+table AccountCellDataV2 {
+    // The first 160 bits of the hash of account.
+    id: AccountId,
+    // Separate chars of account.
+    account: AccountChars,
+    // AccountCell register timestamp.
+    registered_at: Uint64,
+    // AccountCell last action timestamp.
+    last_transfer_account_at: Uint64,
+    last_edit_manager_at: Uint64,
+    last_edit_records_at: Uint64,
+    // The status of the account, 0x00 means normal, 0x01 means being sold, 0x02 means being auctioned.
+    status: Uint8,
+    records: Records,
+}
+
+table PreAccountCellDataV2 {
+    // Separate chars of account.
+    account: AccountChars,
+    // If the PreAccountCell cannot be registered, this field specifies to whom the refund should be given.
+    refund_lock: Script,
+    // If the PreAccountCell is registered successfully, this field specifies to whom the account should be given.
+    owner_lock_args: Bytes,
+    // The account ID of inviter, it will not be used for any verification, just for front-end identification.
+    inviter_id: Bytes,
+    // The lock script of inviter.
+    inviter_lock: ScriptOpt,
+    // The lock script of channel.
+    channel_lock: ScriptOpt,
+    // Price of the account at the moment of registration.
+    price: PriceConfig,
+    // The exchange rate between CKB and USD.
+    quote: Uint64,
+    // The discount rate for invited user
+    invited_discount: Uint32,
+    // The created timestamp of the PreAccountCell.
+    created_at: Uint64,
+    // The initial records should be write into the AccountCell when it is created successfully.
+    initial_records: Records,
+}

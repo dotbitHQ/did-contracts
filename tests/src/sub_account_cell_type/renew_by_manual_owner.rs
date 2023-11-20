@@ -56,7 +56,7 @@ fn before_each() -> TemplateGenerator {
 }
 
 #[test]
-fn test_sub_account_renew_flag_manual_by_owner() {
+fn test_sub_account_renew_flag_manual_by_owner_without_dpoint() {
     let mut template = before_each();
 
     // outputs
@@ -98,6 +98,64 @@ fn test_sub_account_renew_flag_manual_by_owner() {
         }
     }));
     push_common_output_cells(&mut template, 3, SubAccountConfigFlag::Manual);
+
+    test_tx(template.as_json())
+}
+
+#[test]
+fn test_sub_account_renew_flag_manual_by_owner_with_dpoint() {
+    let mut template = before_each();
+
+    template.push_contract_cell("dpoint-cell-type", ContractType::Contract);
+    template.push_config_cell(DataType::ConfigCellDPoint, Source::CellDep);
+
+    // Payment in DPoint
+    push_input_dpoint_cell(&mut template, TOTAL_PAID_DP, OWNER);
+
+    // outputs
+    let smt = push_commen_renew_sign_witness(&mut template);
+    template.push_sub_account_witness_v2(json!({
+        "action": SubAccountAction::Renew.to_string(),
+        "sub_account": {
+            "lock": {
+                "owner_lock_args": OWNER_1,
+                "manager_lock_args": MANAGER_1
+            },
+            "account": SUB_ACCOUNT_1,
+            "suffix": SUB_ACCOUNT_SUFFIX,
+            "registered_at": TIMESTAMP,
+            "expired_at": TIMESTAMP,
+        },
+        "edit_key": "manual",
+        "edit_value": {
+            "expired_at": TIMESTAMP + YEAR_SEC,
+            "rest": get_compiled_proof(&smt, SUB_ACCOUNT_1),
+        }
+    }));
+    template.push_sub_account_witness_v2(json!({
+        "action": SubAccountAction::Renew.to_string(),
+        "sub_account": {
+            "lock": {
+                "owner_lock_args": OWNER_2,
+                "manager_lock_args": MANAGER_2
+            },
+            "account": SUB_ACCOUNT_2,
+            "suffix": SUB_ACCOUNT_SUFFIX,
+            "registered_at": TIMESTAMP,
+            "expired_at": TIMESTAMP,
+        },
+        "edit_key": "manual",
+        "edit_value": {
+            "expired_at": TIMESTAMP + YEAR_SEC * 2,
+            "rest": get_compiled_proof(&smt, SUB_ACCOUNT_2),
+        }
+    }));
+    push_common_output_cells(&mut template, 3, SubAccountConfigFlag::Manual);
+
+    // Profit in DPoint
+    let das_profit = SUB_ACCOUNT_NEW_PRICE * 3;
+    push_output_dpoint_cell(&mut template, TOTAL_PAID_DP - das_profit, OWNER);
+    push_output_dpoint_cell(&mut template, das_profit, DP_TRANSFER_WHITELIST_1);
 
     test_tx(template.as_json())
 }

@@ -51,7 +51,7 @@ fn before_each() -> TemplateGenerator {
             "expired_at": TIMESTAMP - ACCOUNT_EXPIRATION_GRACE_PERIOD - 1,
         }),
     ]);
-    push_simple_input_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomScript);
+    push_simple_input_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomRule);
 
     template
 }
@@ -87,7 +87,7 @@ fn test_sub_account_recycle() {
             },
         }),
     );
-    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomScript);
+    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomRule);
 
     test_tx(template.as_json())
 }
@@ -151,7 +151,7 @@ fn test_sub_account_recycle_when_parent_expired() {
             "expired_at": TIMESTAMP - ACCOUNT_EXPIRATION_GRACE_PERIOD - 1,
         }),
     ]);
-    push_simple_input_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomScript);
+    push_simple_input_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomRule);
 
     // outputs
     // This transaction only contains recycle sub action, so it should pass the verification even if the parent account
@@ -170,7 +170,7 @@ fn test_sub_account_recycle_when_parent_expired() {
             },
         }),
     );
-    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomScript);
+    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomRule);
 
     test_tx(template.as_json())
 }
@@ -196,7 +196,7 @@ fn challenge_sub_account_recycle_account_not_expired() {
             },
         }),
     );
-    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomScript);
+    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomRule);
 
     challenge_tx(
         template.as_json(),
@@ -225,7 +225,7 @@ fn challenge_sub_account_recycle_account_in_grace_period() {
             },
         }),
     );
-    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomScript);
+    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomRule);
 
     challenge_tx(
         template.as_json(),
@@ -255,7 +255,7 @@ fn challenge_sub_account_recycle_smt_not_clear() {
             "edit_value": "0xFF00000000000000000000000000000000000000000000000000000000000000"
         }),
     );
-    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomScript);
+    push_simple_output_sub_account_cell(&mut template, 0, 0, SubAccountConfigFlag::CustomRule);
 
     challenge_tx(template.as_json(), SubAccountCellErrorCode::WitnessEditKeyInvalid);
 }

@@ -1,13 +1,16 @@
 use alloc::vec::Vec;
 
 use das_core::helpers::Comparable;
+use das_core::traits::TryFromBytes;
+use das_core::witness_parser::general_witness_parser::{get_witness_parser, EntityWrapper, ForNew, ForOld};
 use das_core::{assert, code_to_error, debug};
+use das_types::constants::DataType;
 use das_types::packed::{DeviceKey, DeviceKeyListCellData};
 use device_key_list_cell_type::error::ErrorCode;
 use molecule::prelude::Entity;
 
 use crate::helpers::ToNum;
-use crate::traits::{Action, GetCellWitness, Rule};
+use das_core::contract::defult_structs::{Action, Rule};
 
 pub fn action() -> Action {
     let mut update_action = Action::new("update_device_key_list");
@@ -52,12 +55,18 @@ pub fn action() -> Action {
     update_action.add_verification(Rule::new("Verify key list structure", |contract| {
         let input_cell_meta = contract.get_input_inner_cells()[0].get_meta();
         let output_cell_meta = contract.get_output_inner_cells()[0].get_meta();
-        let key_list_in_input = contract
-            .get_parser()
-            .get_cell_witness::<DeviceKeyListCellData>(input_cell_meta)?;
-        let key_list_in_output = contract
-            .get_parser()
-            .get_cell_witness::<DeviceKeyListCellData>(output_cell_meta)?;
+        let key_list_in_input = get_witness_parser()
+            .parse_for_cell::<EntityWrapper<{ DataType::DeviceKeyListEntityData as u32 }, ForOld>>(input_cell_meta)?
+            .result
+            .into_target()
+            .map(|e| DeviceKeyListCellData::try_from_bytes(e.entity().raw_data()))
+            .unwrap()?;
+        let key_list_in_output = get_witness_parser()
+            .parse_for_cell::<EntityWrapper<{ DataType::DeviceKeyListEntityData as u32 }, ForNew>>(output_cell_meta)?
+            .result
+            .into_target()
+            .map(|e| DeviceKeyListCellData::try_from_bytes(e.entity().raw_data()))
+            .unwrap()?;
 
         assert!(
             key_list_in_input.refund_lock().as_slice() == key_list_in_output.refund_lock().as_slice(),
