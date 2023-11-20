@@ -165,7 +165,7 @@ fn challenge_sub_account_config_change_custom_script() {
         ACCOUNT_1,
     );
 
-    challenge_tx(template.as_json(), SubAccountCellErrorCode::ConfigFlagInvalid)
+    challenge_tx(template.as_json(), ErrorCode::HardCodedError)
 }
 
 #[test]

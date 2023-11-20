@@ -70,6 +70,7 @@ pub enum ErrorCode {
     SMTNewRootMismatch, // 55
     SMTProofVerifyFailed,
     SignMethodUnsupported,
+    WitnessCannotBeVerified,
     ApplyRegisterNeedWaitLonger = 60,
     ApplyRegisterHasTimeout,
     ApplyLockMustBeUnique,
@@ -215,6 +216,7 @@ pub enum AccountCellErrorCode {
     ApprovalParamsSealedUntilInvalid,
     ApprovalParamsDelayCountRemainInvalid,
     ApprovalParamsToLockInvalid,
+    //80
     ApprovalParamsCanNotBeChanged,
     ApprovalParamsDelayCountNotEnough,
     ApprovalParamsDelayCountDecrementError,
@@ -222,6 +224,8 @@ pub enum AccountCellErrorCode {
     ApprovalNotRevoked,
     ApprovalInProtectionPeriod,
     ApprovalFulfillError,
+    //87
+    AccountCellBidPriceTooLow,
 }
 
 impl From<SysError> for AccountCellErrorCode {
@@ -506,5 +510,11 @@ impl fmt::Debug for Box<dyn ScriptError> {
         f.debug_struct("Box<dyn ScriptError>")
             .field("code", &self.as_i8())
             .finish()
+    }
+}
+
+impl From<molecule::error::VerificationError> for Box<dyn ScriptError> {
+    fn from(_err: molecule::error::VerificationError) -> Box<dyn ScriptError> {
+        code_to_error!(ErrorCode::WitnessDataDecodingError)
     }
 }

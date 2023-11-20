@@ -57,7 +57,18 @@ macro_rules! das_assert {
         }
     };
 }
-
+#[macro_export]
+macro_rules! das_assert_custom {
+    ($($condition:expr, $msg:expr),*) => {
+        $(
+            das_assert!(
+                $condition,
+                ErrorCode::InvalidTransactionStructure,
+                $msg
+            );
+        )*
+    };
+}
 #[macro_export]
 macro_rules! assert_lock_equal {
     (($cell_a_index:expr, $cell_a_source:expr), ($cell_b_index:expr, $cell_b_source:expr), $error_code:expr, $fmt:literal) => {{

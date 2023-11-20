@@ -105,7 +105,6 @@ function build() {
     binary_path="/code/target/${COMPILING_TARGET}/${profile}/${contract}"
   fi
 
-  command="${command} && ckb-binary-patcher -i ${binary_path} -o ${binary_path}"
   echo "Run build command: "$command
 
     # Build release version
@@ -128,7 +127,7 @@ function build() {
 function build_all() {
   local dirs=$(ls -a contracts)
   for contract in $dirs; do
-    if [[ $contract != "." && $contract != ".." && $contract != "test-env" && $contract != "test-custom-script" && $contract != "playground" && -d contracts/$contract ]]; then
+    if [[ $contract != "." && $contract != ".." && $contract != "test-env" && $contract != "playground" && -d contracts/$contract ]]; then
       build $contract $1
     fi
   done

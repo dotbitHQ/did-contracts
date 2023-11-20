@@ -19,20 +19,21 @@ pub const APPLY_MIN_WAITING_BLOCK: u64 = 1;
 pub const APPLY_MAX_WAITING_BLOCK: u64 = 5760;
 pub const APPLY_REFUND_REWARD: u64 = 100_000_000;
 
-pub const ACCOUNT_ID_LENGTH: usize = 20;
 pub const ACCOUNT_BASIC_CAPACITY: u64 = 20_600_000_000;
 pub const ACCOUNT_PREPARED_FEE_CAPACITY: u64 = 100_000_000;
 pub const ACCOUNT_OPERATE_FEE: u64 = 10_000;
-pub const ACCOUNT_EXPIRATION_GRACE_PERIOD: u64 = 2_592_000;
+pub const ACCOUNT_EXPIRATION_GRACE_PERIOD: u64 = 7_776_000;
 // pub const ACCOUNT_EXPIRATION_AUCTION_PERIOD: u64 = 2_592_000;
-pub const ACCOUNT_EXPIRATION_AUCTION_PERIOD: u64 = 0;
+pub const ACCOUNT_EXPIRATION_AUCTION_PERIOD: u64 = 2_332_800;
+pub const ACCOUNT_EXPIRATION_DELIVER_PERIOD: u64 = 259_200;
+pub const ACCOUNT_EXPIRATION_AUCTION_START_PREMIUMS: u64 = 100_000_000;
 // pub const ACCOUNT_EXPIRATION_AUCTION_CONFIRMATION_PERIOD: u64 = 86400;
 pub const ACCOUNT_EXPIRATION_AUCTION_CONFIRMATION_PERIOD: u64 = 0;
 
 pub const ACCOUNT_PRICE_1_CHAR: u64 = 0;
 pub const ACCOUNT_PRICE_2_CHAR: u64 = 1000_000_000;
 pub const ACCOUNT_PRICE_3_CHAR: u64 = 700_000_000;
-pub const ACCOUNT_PRICE_4_CHAR: u64 = 170_000_000;
+pub const ACCOUNT_PRICE_4_CHAR: u64 = 160_000_000;
 pub const ACCOUNT_PRICE_5_CHAR: u64 = 5_000_000;
 pub const INVITED_DISCOUNT: u64 = 500;
 pub const CONSOLIDATING_FEE: u64 = 100;
@@ -74,6 +75,9 @@ pub const SUB_ACCOUNT_CREATE_FEE: u64 = 30_000;
 pub const SUB_ACCOUNT_EDIT_FEE: u64 = 30_000;
 pub const SUB_ACCOUNT_RENEW_FEE: u64 = 30_000;
 pub const SUB_ACCOUNT_RECYCLE_FEE: u64 = 30_000;
+
+pub const DPOINT_BASIC_CAPACITY: u64 = 20_000_000_000;
+pub const DPOINT_PREPARED_FEE_CAPACITY: u64 = 0;
 
 pub const HOUR_SEC: u64 = 3600;
 pub const DAY_SEC: u64 = 86400;
@@ -241,6 +245,10 @@ lazy_static! {
         map.insert(
             "device-key-list-cell-type",
             "0x982f5e9cc7503f4cd0d0e2ed7115b70f9007f6adcdbdefb5465228d39c94f12a"
+        );
+        map.insert(
+            "dpoint-cell-type",
+            "0x2de294cbd18800cb5cee3bb264e85d376922938c8726e40d89c5ee59d3695afd"
         );
         map
     };

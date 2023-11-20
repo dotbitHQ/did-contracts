@@ -65,6 +65,17 @@ impl<K: Debug + PartialEq, V: Clone + Debug + PartialEq> Map<K, V> {
         None
     }
 
+    pub fn get_all_keys(&self) -> Option<Vec<&K>> {
+        let mut keys = Vec::new();
+        if self.is_empty() {
+            return None;
+        }
+        for item in self.items.iter() {
+            keys.push(&item.0);
+        }
+        Some(keys)
+    }
+
     pub fn find(&self, value: &V) -> Option<&K> {
         for item in self.items.iter() {
             if &item.1 == value {

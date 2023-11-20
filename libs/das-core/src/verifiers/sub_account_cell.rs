@@ -14,9 +14,9 @@ use das_types::prelude::*;
 use das_types::prettier::Prettier;
 
 use crate::constants::*;
-use crate::data_parser::webauthn_signature::WebAuthnSignature;
 use crate::error::*;
 use crate::witness_parser::sub_account::*;
+use crate::witness_parser::webauthn_signature::WebAuthnSignature;
 use crate::witness_parser::WitnessesParser;
 use crate::{data_parser, util, verifiers};
 
@@ -873,10 +873,6 @@ pub fn verify_sub_account_cell_is_consistent(
         );
 
         match input_flag {
-            Some(SubAccountConfigFlag::CustomScript) => {
-                das_assert_field_consistent_if_not_except!("custom_script", get_custom_script);
-                das_assert_field_consistent_if_not_except!("custom_script_args", get_custom_script_args);
-            }
             Some(SubAccountConfigFlag::CustomRule) => {
                 das_assert_field_consistent_if_not_except!("custom_rule_status_flag", get_custom_rule_status_flag);
                 das_assert_field_consistent_if_not_except!("price_rules_hash", get_price_rules_hash);

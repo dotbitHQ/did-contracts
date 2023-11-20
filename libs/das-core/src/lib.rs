@@ -1,4 +1,7 @@
 // #![feature(once_cell)]
+#![allow(incomplete_features)]
+#![feature(generic_const_exprs)]
+#![feature(min_specialization)]
 #![feature(slice_pattern)]
 #![feature(once_cell_try)]
 #![no_std]
@@ -9,6 +12,7 @@ extern crate alloc;
 pub mod macros;
 
 pub mod constants;
+pub mod contract;
 pub mod data_parser;
 pub mod error;
 pub mod helpers;

@@ -14,9 +14,11 @@ pub enum SystemStatus {
     On,
 }
 
+pub const ACCOUNT_ID_LENGTH: usize = 20;
 pub const PRESERVED_ACCOUNT_CELL_COUNT: u8 = 20;
 
 #[derive(Debug, PartialEq, Copy, Clone, TryFromPrimitive, EnumString, Display)]
+#[cfg_attr(not(feature = "no_std"), derive(Eq, Hash))]
 #[repr(u32)]
 pub enum DataType {
     ActionData = 0,
@@ -51,6 +53,7 @@ pub enum DataType {
     ConfigCellSubAccountBetaList,         // args: 0x72000000
     ConfigCellSystemStatus,               // args: 0x73000000
     ConfigCellSMTNodeWhitelist,           // args: 0x74000000
+    ConfigCellDPoint,                     // args: 0x75000000
     ConfigCellPreservedAccount00 = 10000, // args: 0x10270000
     ConfigCellPreservedAccount01,
     ConfigCellPreservedAccount02,
@@ -82,6 +85,7 @@ pub enum DataType {
     ConfigCellCharSetTr,
     ConfigCellCharSetTh,
     ConfigCellCharSetVi,
+    OrderInfo = 199999,
 }
 
 impl TryFrom<Uint32> for DataType {
@@ -212,7 +216,7 @@ pub enum SubAccountAction {
 #[repr(u8)]
 pub enum SubAccountConfigFlag {
     Manual,
-    CustomScript,
+    CustomScript, // deprecated
     CustomRule = 255,
 }
 

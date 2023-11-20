@@ -13,7 +13,7 @@ use crate::util::template_parser::*;
 const INIT_DAS_PROFIT: u64 = 10_000_000_000;
 const INIT_OWNER_PROFIT: u64 = 10_000_000_000;
 
-fn before_each_without_custom_script() -> TemplateGenerator {
+fn before_each_without_custom_rule() -> TemplateGenerator {
     let mut template = init_update();
 
     // cell_deps
@@ -81,11 +81,11 @@ fn before_each() -> TemplateGenerator {
             "expired_at": TIMESTAMP + YEAR_SEC,
         }),
     ]);
-    push_simple_input_sub_account_cell_with_custom_script(
+    push_simple_input_sub_account_cell(
         &mut template,
         INIT_DAS_PROFIT,
         INIT_OWNER_PROFIT,
-        SCRIPT_ARGS,
+        SubAccountConfigFlag::CustomRule,
     );
     push_input_normal_cell(&mut template, TOTAL_PAID, OWNER);
 
@@ -93,8 +93,8 @@ fn before_each() -> TemplateGenerator {
 }
 
 #[test]
-fn test_sub_account_update_without_custom_script() {
-    let mut template = before_each_without_custom_script();
+fn test_sub_account_update_without_custom_rule() {
+    let mut template = before_each_without_custom_rule();
 
     // outputs
     let smt = push_commen_mint_sign_witness(&mut template);
@@ -137,58 +137,6 @@ fn test_sub_account_update_without_custom_script() {
         INIT_OWNER_PROFIT,
         SubAccountConfigFlag::Manual,
     );
-
-    test_tx(template.as_json())
-}
-
-#[test]
-fn test_sub_account_update_with_custom_script() {
-    let mut template = before_each();
-
-    // outputs
-    let smt = push_commen_mint_sign_witness(&mut template);
-    template.push_sub_account_witness_v2(json!({
-        "action": SubAccountAction::Edit.to_string(),
-        "sign_role": "0x00",
-        "sign_expired_at": TIMESTAMP,
-        "sub_account": {
-            "lock": {
-                "owner_lock_args": OWNER_1,
-                "manager_lock_args": MANAGER_1
-            },
-            "account": SUB_ACCOUNT_1,
-            "suffix": SUB_ACCOUNT_SUFFIX,
-            "registered_at": TIMESTAMP,
-            "expired_at": TIMESTAMP + YEAR_SEC,
-        },
-        "edit_key": "manager",
-        // Simulate modifying manager.
-        "edit_value": gen_das_lock_args(OWNER_1, Some(MANAGER_2))
-    }));
-    template.push_sub_account_witness_v2(json!({
-        "action": SubAccountAction::Create.to_string(),
-        "sub_account": {
-            "lock": {
-                "owner_lock_args": OWNER_2,
-                "manager_lock_args": MANAGER_2
-            },
-            "account": SUB_ACCOUNT_2,
-            "suffix": SUB_ACCOUNT_SUFFIX,
-            "registered_at": TIMESTAMP,
-            "expired_at": TIMESTAMP + YEAR_SEC,
-        },
-        "edit_value": get_compiled_proof(&smt, SUB_ACCOUNT_2)
-    }));
-
-    let total_profit = util::gen_sub_account_register_fee(SUB_ACCOUNT_NEW_CUSTOM_PRICE, 1);
-    let (das_profit, owner_profit) = get_profit_of_each_role(total_profit, 1);
-    push_simple_output_sub_account_cell_with_custom_script(
-        &mut template,
-        INIT_DAS_PROFIT + das_profit,
-        INIT_OWNER_PROFIT + owner_profit,
-        SCRIPT_ARGS,
-    );
-    push_output_normal_cell(&mut template, TOTAL_PAID - total_profit, OWNER);
 
     test_tx(template.as_json())
 }

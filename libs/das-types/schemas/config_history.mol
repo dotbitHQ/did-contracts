@@ -132,6 +132,15 @@ table ConfigCellMainV7 {
     das_lock_out_point_table: DasLockOutPointTable,
 }
 
+table ConfigCellMainV8 {
+    // Global DAS system switch, 0x01 means system on, 0x00 means system off.
+    status: Uint8,
+    // table of type ID of all kinds of cells
+    type_id_table: TypeIdTableV6,
+    // table code_hash of dynamic libs of das-lock
+    das_lock_out_point_table: DasLockOutPointTable,
+}
+
 table TypeIdTableV6 {
     account_cell: Hash,
     apply_register_cell: Hash,
@@ -145,6 +154,70 @@ table TypeIdTableV6 {
     reverse_record_cell: Hash,
     sub_account_cell: Hash,
     eip712_lib: Hash,
+}
+
+table ConfigCellMainV9 {
+    // Global DAS system switch, 0x01 means system on, 0x00 means system off.
+    status: Uint8,
+    // table of type ID of all kinds of cells
+    type_id_table: TypeIdTableV7,
+    // table code_hash of dynamic libs of das-lock
+    das_lock_out_point_table: DasLockOutPointTable,
+}
+
+table TypeIdTableV7 {
+    account_cell: Hash,
+    apply_register_cell: Hash,
+    balance_cell: Hash,
+    income_cell: Hash,
+    pre_account_cell: Hash,
+    proposal_cell: Hash,
+    account_sale_cell: Hash,
+    account_auction_cell: Hash,
+    offer_cell: Hash,
+    reverse_record_cell: Hash,
+    sub_account_cell: Hash,
+    eip712_lib: Hash,
+    reverse_record_root_cell: Hash,
+}
+
+table ConfigCellMainV10 {
+    // Global DAS system switch, 0x01 means system on, 0x00 means system off.
+    status: Uint8,
+    // table of type ID of all kinds of cells
+    type_id_table: TypeIdTableV7,
+    // table code_hash of dynamic libs of das-lock
+    das_lock_out_point_table: DasLockOutPointTable,
+    // table of type ID of das-lock dynamic libs
+    das_lock_type_id_table: DasLockTypeIdTable,
+}
+
+table ConfigCellMainV11 {
+    // Global DAS system switch, 0x01 means system on, 0x00 means system off.
+    status: Uint8,
+    // table of type ID of all kinds of cells
+    type_id_table: TypeIdTableV8,
+    // table code_hash of dynamic libs of das-lock
+    das_lock_out_point_table: DasLockOutPointTable,
+    // table of type ID of das-lock dynamic libs
+    das_lock_type_id_table: DasLockTypeIdTable,
+}
+
+table TypeIdTableV8 {
+    account_cell: Hash,
+    apply_register_cell: Hash,
+    balance_cell: Hash,
+    income_cell: Hash,
+    pre_account_cell: Hash,
+    proposal_cell: Hash,
+    account_sale_cell: Hash,
+    account_auction_cell: Hash,
+    offer_cell: Hash,
+    reverse_record_cell: Hash,
+    sub_account_cell: Hash,
+    eip712_lib: Hash,
+    reverse_record_root_cell: Hash,
+    key_list_config_cell: Hash,
 }
 
 // ConfigCellAccount
@@ -171,6 +244,31 @@ table ConfigCellAccountV1 {
     edit_manager_throttle: Uint32,
     edit_records_throttle: Uint32,
 }
+
+table ConfigCellAccountV2 {
+    // The maximum length of accounts in characters.
+    max_length: Uint32,
+    // The basic capacity AccountCell required, it is bigger than or equal to AccountCell occupied capacity.
+    basic_capacity: Uint64,
+    // The fees prepared for various transactions for operating an account.
+    prepared_fee_capacity: Uint64,
+    // The grace period for account expiration in seconds
+    expiration_grace_period: Uint32,
+    // The minimum ttl of record in seconds
+    record_min_ttl: Uint32,
+    // The maximum size of all records in molecule encoding
+    record_size_limit: Uint32,
+    // The fee of each action
+    transfer_account_fee: Uint64,
+    edit_manager_fee: Uint64,
+    edit_records_fee: Uint64,
+    // The frequency limit of actions which manipulating account
+    transfer_account_throttle: Uint32,
+    edit_manager_throttle: Uint32,
+    edit_records_throttle: Uint32,
+    common_throttle: Uint32,
+}
+
 
 // ConfigCellProfitRate
 

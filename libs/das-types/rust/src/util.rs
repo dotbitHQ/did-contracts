@@ -18,6 +18,11 @@ pub fn is_reader_eq<'a, T: Reader<'a>>(a: T, b: T) -> bool {
     a.as_slice() == b.as_slice()
 }
 
+pub fn is_config_data_type(data_type: &DataType) -> bool {
+    let data_type_in_int = data_type.to_owned() as u32;
+    data_type_in_int >= 100 && data_type_in_int <= 199999
+}
+
 pub fn data_type_to_char_set(data_type: DataType) -> CharSetType {
     CharSetType::try_from(data_type as u32 - 100000).unwrap()
 }
@@ -104,20 +109,6 @@ pub fn wrap_entity_witness_v2(data_type: DataType, entity: impl Entity) -> Vec<u
     data
 }
 
-// The function returns Bytes which is not the proper type required by the transaction builder, which case so many places
-// use Bytes.as_reader().raw_data() to retrieve the wrapped binary, so we should remove it from the repostiories gradually.
-#[deprecated]
-#[cfg(not(feature = "no_std"))]
-pub fn wrap_action_witness(action: &str, params_opt: Option<Bytes>) -> Bytes {
-    let mut builder = ActionData::new_builder().action(Bytes::from(action.as_bytes()));
-
-    if let Some(params) = params_opt {
-        builder = builder.params(params);
-    }
-
-    wrap_entity_witness(DataType::ActionData, builder.build())
-}
-
 #[cfg(not(feature = "no_std"))]
 pub fn wrap_action_witness_v2(action: &str, params_opt: Option<Bytes>) -> Vec<u8> {
     let mut builder = ActionData::new_builder().action(Bytes::from(action.as_bytes()));
@@ -158,6 +149,7 @@ pub enum EntityWrapper {
     ConfigCellReverseResolution(ConfigCellReverseResolution),
     ConfigCellSubAccount(ConfigCellSubAccount),
     ConfigCellSytemStatus(ConfigCellSystemStatus),
+    ConfigCellDPoint(ConfigCellDPoint),
 }
 
 // The function returns Bytes which is not the proper type required by the transaction builder, which case so many places
@@ -214,6 +206,7 @@ pub fn wrap_entity_witness_v4(data_type: DataType, entity: EntityWrapper) -> Vec
         EntityWrapper::ConfigCellReverseResolution(entity) => entity.as_slice().to_vec(),
         EntityWrapper::ConfigCellSubAccount(entity) => entity.as_slice().to_vec(),
         EntityWrapper::ConfigCellSytemStatus(entity) => entity.as_slice().to_vec(),
+        EntityWrapper::ConfigCellDPoint(entity) => entity.as_slice().to_vec(),
         _ => unreachable!(),
     };
     data.append(&mut entity_bytes);

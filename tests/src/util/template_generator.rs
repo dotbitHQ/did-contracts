@@ -651,6 +651,9 @@ impl TemplateGenerator {
             .transfer_account_throttle(Uint32::from(86400))
             .edit_manager_throttle(Uint32::from(3600))
             .edit_records_throttle(Uint32::from(600))
+            .expiration_auction_period(Uint32::from(ACCOUNT_EXPIRATION_AUCTION_PERIOD as u32))
+            .expiration_deliver_period(Uint32::from(ACCOUNT_EXPIRATION_DELIVER_PERIOD as u32))
+            .expiration_auction_start_premiums(Uint32::from(ACCOUNT_EXPIRATION_AUCTION_START_PREMIUMS as u32))
             .build();
 
         let cell_data = blake2b_256(entity.as_slice()).to_vec();
@@ -696,6 +699,8 @@ impl TemplateGenerator {
             .reverse_record_root_cell(Hash::try_from(util::get_type_id_bytes("reverse-record-root-cell-type")).unwrap())
             .sub_account_cell(Hash::try_from(util::get_type_id_bytes("sub-account-cell-type")).unwrap())
             .eip712_lib(Hash::try_from(util::get_type_id_bytes("eip712-lib")).unwrap())
+            .key_list_config_cell(Hash::try_from(util::get_type_id_bytes("device-key-list-cell-type")).unwrap())
+            .dpoint_cell(Hash::try_from(util::get_type_id_bytes("dpoint-cell-type")).unwrap())
             .build();
 
         let das_lock_type_id_table = DasLockTypeIdTable::new_builder()
@@ -841,6 +846,42 @@ impl TemplateGenerator {
         let cell_data = blake2b_256(entity.as_slice()).to_vec();
 
         (cell_data, EntityWrapper::ConfigCellSubAccount(entity))
+    }
+
+    fn gen_config_cell_dpoint(&mut self) -> (Vec<u8>, EntityWrapper) {
+        let mut transfer_whitelist_builder = Scripts::new_builder();
+        let lines = util::read_lines("dp_transfer_whitelist.txt")
+            .expect("Expect file ./tests/data/dp_transfer_whitelist.txt exist.");
+        for line in lines {
+            if let Ok(raw) = line {
+                let bytes = util::hex_to_bytes(&raw);
+                let lock = Script::from_slice(bytes.as_slice()).unwrap();
+                transfer_whitelist_builder = transfer_whitelist_builder.push(lock);
+            }
+        }
+        let transfer_whitelist = transfer_whitelist_builder.build();
+
+        let mut recycle_whitelist_builder = Scripts::new_builder();
+        let lines = util::read_lines("dp_recycle_whitelist.txt")
+            .expect("Expect file ./tests/data/dp_recycle_whitelist.txt exist.");
+        for line in lines {
+            if let Ok(raw) = line {
+                let bytes = util::hex_to_bytes(&raw);
+                let lock = Script::from_slice(bytes.as_slice()).unwrap();
+                recycle_whitelist_builder = recycle_whitelist_builder.push(lock);
+            }
+        }
+        let capacity_recycle_whitelist = recycle_whitelist_builder.build();
+
+        let entity = ConfigCellDPoint::new_builder()
+            .basic_capacity(Uint64::from(DPOINT_BASIC_CAPACITY))
+            .prepared_fee_capacity(Uint64::from(DPOINT_PREPARED_FEE_CAPACITY))
+            .transfer_whitelist(transfer_whitelist)
+            .capacity_recycle_whitelist(capacity_recycle_whitelist)
+            .build();
+        let cell_data = blake2b_256(entity.as_slice()).to_vec();
+
+        (cell_data, EntityWrapper::ConfigCellDPoint(entity))
     }
 
     fn gen_config_cell_record_key_namespace(&mut self) -> (Vec<u8>, Vec<u8>) {
@@ -1118,6 +1159,7 @@ impl TemplateGenerator {
             DataType::ConfigCellSecondaryMarket => push_cell!(@entity gen_config_cell_secondary_market),
             DataType::ConfigCellReverseResolution => push_cell!(@entity gen_config_cell_reverse_resolution),
             DataType::ConfigCellSubAccount => push_cell!(@entity gen_config_cell_sub_account),
+            DataType::ConfigCellDPoint => push_cell!(@entity gen_config_cell_dpoint),
             // ConfigCells with raw binary data.
             DataType::ConfigCellRecordKeyNamespace => push_cell!(@raw gen_config_cell_record_key_namespace),
             DataType::ConfigCellUnAvailableAccount => push_cell!(@raw gen_config_cell_unavailable_account),
@@ -1361,6 +1403,7 @@ impl TemplateGenerator {
                     }
                     "apply-register-cell-type" => push_cell!(gen_apply_register_cell, cell),
                     "balance-cell-type" => push_cell!(gen_balance_cell, cell),
+                    "dpoint-cell-type" => push_cell!(gen_dpoint_cell, cell),
                     "sub-account-cell-type" => push_cell!(gen_sub_account_cell, cell),
                     "reverse-record-cell-type" => push_cell!(gen_reverse_record_cell, cell),
                     "reverse-record-root-cell-type" => push_cell!(gen_reverse_record_root_cell, cell),
@@ -2534,6 +2577,52 @@ impl TemplateGenerator {
             util::bytes_to_hex(&util::parse_json_hex("cell.data", &cell["data"]))
         } else {
             String::from("0x")
+        };
+
+        (
+            json!({
+                "tmp_header": cell["header"],
+                "tmp_type": "full",
+                "capacity": capacity,
+                "lock": lock_script,
+                "type": type_script,
+                "tmp_data": outputs_data
+            }),
+            None,
+        )
+    }
+
+    /// Cell structure:
+    ///
+    /// ```json
+    /// json!({
+    ///     "capacity": u64,
+    ///     "lock": {
+    ///         "owner_lock_args": "0x...",
+    ///         "manager_lock_args": "0x...",
+    ///     },
+    ///     "type": {
+    ///         "code_hash": "{{dpoint-cell-type}}"
+    ///     },
+    ///     "data": {
+    ///         "value": u64
+    ///     }
+    /// })
+    /// ```
+    fn gen_dpoint_cell(&mut self, cell: Value) -> (Value, Option<EntityWrapper>) {
+        let capacity: u64 = util::parse_json_u64("cell.capacity", &cell["capacity"], Some(0));
+        let lock_script = parse_json_script_das_lock("cell.lock", &cell["lock"]);
+        let type_script = parse_json_script("cell.type", &cell["type"]);
+
+        let outputs_data = if cell["data"].is_null() {
+            String::from("0x")
+        } else {
+            let value = util::parse_json_u64("cell.data.value", &cell["data"]["value"], None);
+            let value_bytes = value.to_le_bytes().to_vec();
+            let value_length = (value_bytes.len() as u32).to_le_bytes().to_vec();
+            let outputs_data = [value_length, value_bytes].concat();
+
+            util::bytes_to_hex(&outputs_data)
         };
 
         (

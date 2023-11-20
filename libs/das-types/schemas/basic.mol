@@ -22,6 +22,8 @@ table Script {
 
 option ScriptOpt (Script);
 
+vector Scripts <Script>;
+
 // This represents the OutPoint type in CKB, which is used to indicate the location of live cells.
 struct OutPoint {
     tx_hash: Hash,

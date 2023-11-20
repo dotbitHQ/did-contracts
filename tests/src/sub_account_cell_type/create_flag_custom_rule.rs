@@ -420,7 +420,7 @@ fn challenge_sub_account_create_flag_custom_rule_flag_not_consistent() {
                 "das_profit": total_profit,
                 "owner_profit": 0,
                 // Simulate the flag is not consistent.
-                "flag": SubAccountConfigFlag::CustomScript as u8,
+                "flag": SubAccountConfigFlag::Manual as u8,
             }
         }),
         ACCOUNT_1,

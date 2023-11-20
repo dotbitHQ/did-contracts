@@ -1,0 +1,22 @@
+import basic;
+import cell;
+
+table AccountCellDataV3 {
+    // The first 160 bits of the hash of account.
+    id: AccountId,
+    // Separate chars of account.
+    account: AccountChars,
+    // AccountCell register timestamp.
+    registered_at: Uint64,
+    // AccountCell last action timestamp.
+    last_transfer_account_at: Uint64,
+    last_edit_manager_at: Uint64,
+    last_edit_records_at: Uint64,
+    // The status of the account, 0x00 means normal, 0x01 means being sold, 0x02 means being auctioned.
+    status: Uint8,
+    records: Records,
+    // The status of sub-account function, 0x00 means disabled, 0x01 means enabled.
+    enable_sub_account: Uint8,
+    // The price of renewing sub-account for one year.
+    renew_sub_account_price: Uint64,
+}

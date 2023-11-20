@@ -7,7 +7,7 @@ use core::result::Result;
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
 use das_core::constants::CellField;
-use das_core::data_parser::webauthn_signature::WebAuthnSignature;
+use das_core::witness_parser::webauthn_signature::WebAuthnSignature;
 use das_core::error::*;
 use das_core::witness_parser::reverse_record::{ReverseRecordWitness, ReverseRecordWitnessesParser};
 use das_core::witness_parser::WitnessesParser;

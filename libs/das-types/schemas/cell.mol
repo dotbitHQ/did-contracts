@@ -34,7 +34,9 @@ table TypeIdTable {
     sub_account_cell: Hash,
     eip712_lib: Hash,
     reverse_record_root_cell: Hash,
+    // TODO rename to the contract name
     key_list_config_cell: Hash,
+    dpoint_cell: Hash,
 }
 
 table DasLockOutPointTable {
@@ -80,6 +82,12 @@ table ConfigCellAccount {
     edit_manager_throttle: Uint32,
     edit_records_throttle: Uint32,
     common_throttle: Uint32,
+    // Auction duration for expired accounts
+    expiration_auction_period: Uint32,
+    // Shipping time after auction ends
+    expiration_deliver_period: Uint32,
+    // Premium at initial auction for expired accounts
+    expiration_auction_start_premiums: Uint32,
 }
 
 table ConfigCellApply {
@@ -264,6 +272,17 @@ table ContractStatus {
     version: Bytes,
 }
 
+table ConfigCellDPoint {
+    // The basic capacity DPointCell required, it is bigger than or equal to DPointCell occupied capacity.
+    basic_capacity: Uint64,
+    // The fees prepared for various transactions.
+    prepared_fee_capacity: Uint64,
+    // The addresses can transfer and receive DPointCells.
+    transfer_whitelist: Scripts,
+    // The addresses for recycling the CKB occupied by DPointCells.
+    capacity_recycle_whitelist: Scripts,
+}
+
 // ProposalCellData
 
 table ProposalCellData {
@@ -300,43 +319,6 @@ table IncomeRecord {
 }
 
 // AccountCellData
-
-table AccountCellDataV2 {
-    // The first 160 bits of the hash of account.
-    id: AccountId,
-    // Separate chars of account.
-    account: AccountChars,
-    // AccountCell register timestamp.
-    registered_at: Uint64,
-    // AccountCell last action timestamp.
-    last_transfer_account_at: Uint64,
-    last_edit_manager_at: Uint64,
-    last_edit_records_at: Uint64,
-    // The status of the account, 0x00 means normal, 0x01 means being sold, 0x02 means being auctioned.
-    status: Uint8,
-    records: Records,
-}
-
-table AccountCellDataV3 {
-    // The first 160 bits of the hash of account.
-    id: AccountId,
-    // Separate chars of account.
-    account: AccountChars,
-    // AccountCell register timestamp.
-    registered_at: Uint64,
-    // AccountCell last action timestamp.
-    last_transfer_account_at: Uint64,
-    last_edit_manager_at: Uint64,
-    last_edit_records_at: Uint64,
-    // The status of the account, 0x00 means normal, 0x01 means being sold, 0x02 means being auctioned.
-    status: Uint8,
-    records: Records,
-    // The status of sub-account function, 0x00 means disabled, 0x01 means enabled.
-    enable_sub_account: Uint8,
-    // The price of renewing sub-account for one year.
-    renew_sub_account_price: Uint64,
-}
-
 table AccountCellData {
     // The first 160 bits of the hash of account.
     id: AccountId,
@@ -440,55 +422,6 @@ table AccountAuctionCellData {
 }
 
 // PreAccountCellData
-
-table PreAccountCellDataV1 {
-    // Separate chars of account.
-    account: AccountChars,
-    // If the PreAccountCell cannot be registered, this field specifies to whom the refund should be given.
-    refund_lock: Script,
-    // If the PreAccountCell is registered successfully, this field specifies to whom the account should be given.
-    owner_lock_args: Bytes,
-    // The account ID of inviter, it will not be used for any verification, just for front-end identification.
-    inviter_id: Bytes,
-    // The lock script of inviter.
-    inviter_lock: ScriptOpt,
-    // The lock script of channel.
-    channel_lock: ScriptOpt,
-    // Price of the account at the moment of registration.
-    price: PriceConfig,
-    // The exchange rate between CKB and USD.
-    quote: Uint64,
-    // The discount rate for invited user
-    invited_discount: Uint32,
-    // The created timestamp of the PreAccountCell.
-    created_at: Uint64,
-}
-
-table PreAccountCellDataV2 {
-    // Separate chars of account.
-    account: AccountChars,
-    // If the PreAccountCell cannot be registered, this field specifies to whom the refund should be given.
-    refund_lock: Script,
-    // If the PreAccountCell is registered successfully, this field specifies to whom the account should be given.
-    owner_lock_args: Bytes,
-    // The account ID of inviter, it will not be used for any verification, just for front-end identification.
-    inviter_id: Bytes,
-    // The lock script of inviter.
-    inviter_lock: ScriptOpt,
-    // The lock script of channel.
-    channel_lock: ScriptOpt,
-    // Price of the account at the moment of registration.
-    price: PriceConfig,
-    // The exchange rate between CKB and USD.
-    quote: Uint64,
-    // The discount rate for invited user
-    invited_discount: Uint32,
-    // The created timestamp of the PreAccountCell.
-    created_at: Uint64,
-    // The initial records should be write into the AccountCell when it is created successfully.
-    initial_records: Records,
-}
-
 table PreAccountCellData {
     // Separate chars of account.
     account: AccountChars,
@@ -548,32 +481,6 @@ table OfferCellData {
 }
 
 // SubAccountData
-
-table SubAccountV1 {
-    // The lock of owner and manager
-    lock: Script,
-    // The first 160 bits of the hash of account.
-    id: AccountId,
-    // Separate chars of account.
-    account: AccountChars,
-    // The suffix of this sub-account, it is always .bit currently.
-    suffix: Bytes,
-    // The sub-account register timestamp.
-    registered_at: Uint64,
-    // The sub-account expiration timestamp.
-    expired_at: Uint64,
-    // The status of the account, 0x00 means normal, 0x01 means being sold, 0x02 means being auctioned.
-    status: Uint8,
-    // Resolving records of this sub-account.
-    records: Records,
-    // This is a count field, it mainly used to prevent replay attacks.
-    nonce: Uint64,
-    // If sub-account of sub-account is enabled.
-    enable_sub_account: Uint8,
-    // The price of renew sub-account of this sub-account.
-    renew_sub_account_price: Uint64,
-}
-
 table SubAccount {
     // The lock of owner and manager
     lock: Script,
@@ -691,4 +598,22 @@ table DeviceKeyListCellData {
     keys: DeviceKeyList,
     // On destroy-device-key-list, send the remaining capacity to refund_lock.
     refund_lock: Script,
+}
+
+table MapEntry {
+    // Map key
+    key: Bytes,
+    // Map value
+    value: Bytes,
+}
+
+vector ConfigList <MapEntry>;
+
+table Config {
+    status: Uint8,
+    configs: ConfigList,
+}
+
+table OrderInfo {
+    memo: Bytes,
 }
