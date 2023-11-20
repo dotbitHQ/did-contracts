@@ -216,6 +216,7 @@ pub enum AccountCellErrorCode {
     ApprovalParamsSealedUntilInvalid,
     ApprovalParamsDelayCountRemainInvalid,
     ApprovalParamsToLockInvalid,
+    //80
     ApprovalParamsCanNotBeChanged,
     ApprovalParamsDelayCountNotEnough,
     ApprovalParamsDelayCountDecrementError,
@@ -223,6 +224,8 @@ pub enum AccountCellErrorCode {
     ApprovalNotRevoked,
     ApprovalInProtectionPeriod,
     ApprovalFulfillError,
+    //87
+    AccountCellBidPriceTooLow,
 }
 
 impl From<SysError> for AccountCellErrorCode {

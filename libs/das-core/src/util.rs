@@ -1165,3 +1165,141 @@ pub fn get_total_dpoint(indexes: &[usize], source: Source) -> Result<u64, Box<dy
 
     Ok(total)
 }
+
+pub fn get_total_dpoint_by_lock(lock: ScriptReader, indexes: &[usize], source: Source) -> Result<u64, Box<dyn ScriptError>> {
+    let mut total = 0;
+    let lock_hash = blake2b_256(lock.as_slice());
+    for i in indexes.iter() {
+        let cell_lock_hash = high_level::load_cell_lock_hash(*i, source)?;
+        if lock_hash != cell_lock_hash {
+            continue;
+        }
+
+        let data = high_level::load_cell_data(*i, source)?;
+        let dp = match data_parser::dpoint_cell::get_value(&data) {
+            Some(dp) => dp,
+            None => {
+                warn!("{:?}[{}] The data of DPointCell is corrupted.", source, i);
+                return Err(code_to_error!(ErrorCode::InvalidCellData));
+            }
+        };
+        total += dp;
+    }
+
+    Ok(total)
+}
+
+pub fn get_spent_dpoint_by_lock(lock_reader: ScriptReader, inputs_indexes: &[usize], outputs_indexes: &[usize] ) -> Result<u64, Box<dyn ScriptError>> {
+    // debug!("get_spent_dpoint_by_lock");
+    // debug!("inputs_indexes = {:?}", inputs_indexes);
+    // debug!("outputs_indexes = {:?}", outputs_indexes);
+
+    let total_input = get_total_dpoint_by_lock(lock_reader, inputs_indexes, Source::Input)?;
+    let total_output = get_total_dpoint_by_lock(lock_reader, outputs_indexes, Source::Output)?;
+    if total_input < total_output {
+        warn!("The total DPoint in inputs is less than that in outputs.");
+        return Err(code_to_error!(ErrorCode::InvalidCellData));
+    }
+
+    Ok(total_input - total_output)
+}
+
+// use ethnum::U256;
+//
+// const BIT1: U256 = U256::from_words(0, 999989423469314432);
+// const BIT2: U256 = U256::from_words(0, 999978847050491904);
+// const BIT3: U256 = U256::from_words(0, 999957694548431104);
+// const BIT4: U256 = U256::from_words(0, 999915390886613504);
+// const BIT5: U256 = U256::from_words(0, 999830788931929088);
+// const BIT6: U256 = U256::from_words(0, 999661606496243712);
+// const BIT7: U256 = U256::from_words(0, 999323327502650752);
+// const BIT8: U256 = U256::from_words(0, 998647112890970240);
+// const BIT9: U256 = U256::from_words(0, 997296056085470080);
+// const BIT10: U256 = U256::from_words(0, 994599423483633152);
+// const BIT11: U256 = U256::from_words(0, 989228013193975424);
+// const BIT12: U256 = U256::from_words(0, 978572062087700096);
+// const BIT13: U256 = U256::from_words(0, 957603280698573696);
+// const BIT14: U256 = U256::from_words(0, 917004043204671232);
+// const BIT15: U256 = U256::from_words(0, 840896415253714560);
+// const BIT16: U256 = U256::from_words(0, 707106781186547584);
+//
+// const PRECISION: U256 = U256::from_words(0, 1_000_000_000_000_000_000);
+//
+// pub fn calculate_dutch_auction_price(auction_started_time: u64, start_premium: u64) -> u64 {
+//     debug!("cal auction_started_time = {:?}", auction_started_time);
+//     debug!("cal start_premium = {:?}", start_premium);
+//
+//     let bits_table = [
+//         BIT1, BIT2, BIT3, BIT4, BIT5, BIT6, BIT7, BIT8, BIT9, BIT10, BIT11, BIT12, BIT13, BIT14, BIT15, BIT16,
+//     ];
+//     //let start_premium = 100_000_000;
+//     let one_day = 86400; //24 * 60 * 60
+//
+//     let elapsed = U256::from_words(0, auction_started_time as u128);
+//     let days_past = (elapsed * PRECISION) / one_day;
+//     let int_days = days_past / PRECISION;
+//     let int_days_u8 = int_days.as_u8();
+//     let premium = start_premium >> int_days_u8;
+//     let part_days = days_past - int_days * PRECISION;
+//
+//     let tmp_2_pow_16 = U256::from_words(0, 65536u128); //2u32.pow(16);
+//     let fraction = (part_days * tmp_2_pow_16) / PRECISION;
+//
+//     let mut premium_new = U256::from_words(0, premium as u128);
+//
+//     for i in 0..16 {
+//         if fraction & (1 << i) != 0 {
+//             premium_new = (premium_new * bits_table[i]) / PRECISION;
+//         }
+//     }
+//     return premium_new.as_u64();
+// }
+
+const TABLE_ALLOWED_PRECISION: [u64;6] = [10_000_000, 1_000_000, 500_000, 50_000, 10_000, 1_000];
+const TABLE_LOWEST_PRICE: [u64;60] = [
+    70710678118655, 50000000000000, 35355339059327, 25000000000000, 17677669529664, 12500000000000,
+    8838834764832, 6250000000000, 4419417382416, 3125000000000, 2209708691208, 1562500000000,
+    1104854345604, 781250000000, 552427172802, 390625000000, 276213586401, 195312500000,
+    138106793200, 97656250000, 69053396600, 48828125000, 34526698300, 24414062500,
+    17263349150, 12207031250, 8631674575, 6103515625, 4315837288, 3051757812,
+    2157918644, 1525878906, 1078959322, 762939453, 539479661, 381469727,
+    269739830, 190734863, 134869915, 95367432, 67434958, 47683716,
+    33717479, 23841858, 16858739, 11920929, 8429370, 5960464,
+    4214685, 2980232, 2107342, 1490116, 1053671, 745058,
+    526836, 372529, 263418, 186265, 131709, 93132,
+];
+const HALF_ONE_DAY: u64 = 43200;
+const FIVE_DAYS: u64 = 432000;
+pub fn calculate_dutch_auction_premium(auction_started_time: u64, start_premium: u64) -> u64 {
+    debug!("cal auction_started_time = {:?}", auction_started_time);
+    debug!("cal start_premium = {:?}", start_premium);
+
+    let n = auction_started_time as f32;
+    let m = n / 86400.0;
+    let denominator = libm::powf(2.0, m as f32);
+
+    let numerator = start_premium as f32;
+
+    let result = numerator / denominator;
+    let ret = (result * ONE_USD as f32) as u64;
+
+    //ensure that the price is not lower than the lowest price in the table,
+    let idx_lowest_price = (auction_started_time / HALF_ONE_DAY) as usize;
+    let lowest_price = TABLE_LOWEST_PRICE[idx_lowest_price];
+    let ret = if ret < lowest_price {
+        lowest_price
+    } else {
+        ret
+    };
+
+    let idx_allowed_precision = (auction_started_time / FIVE_DAYS) as usize;
+    let allowed_precision = TABLE_ALLOWED_PRECISION[idx_allowed_precision];
+    let ret = ret - allowed_precision;
+
+    ret
+}
+pub fn print_dp(dp: &u64) -> String{
+    let integer = dp / 1000000;
+    let fraction = dp % 1000000;
+    format!("{}.{}", integer, fraction)
+}

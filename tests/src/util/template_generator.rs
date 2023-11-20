@@ -651,6 +651,9 @@ impl TemplateGenerator {
             .transfer_account_throttle(Uint32::from(86400))
             .edit_manager_throttle(Uint32::from(3600))
             .edit_records_throttle(Uint32::from(600))
+            .expiration_auction_period(Uint32::from(ACCOUNT_EXPIRATION_AUCTION_PERIOD as u32))
+            .expiration_deliver_period(Uint32::from(ACCOUNT_EXPIRATION_DELIVER_PERIOD as u32))
+            .expiration_auction_start_premiums(Uint32::from(ACCOUNT_EXPIRATION_AUCTION_START_PREMIUMS as u32))
             .build();
 
         let cell_data = blake2b_256(entity.as_slice()).to_vec();

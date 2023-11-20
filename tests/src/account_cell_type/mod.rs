@@ -14,3 +14,4 @@ mod lock_account_for_cross_chain;
 mod recycle_expired_account;
 mod renew_account;
 mod unlock_account_for_cross_chain;
+mod bid_expired_account_auction;

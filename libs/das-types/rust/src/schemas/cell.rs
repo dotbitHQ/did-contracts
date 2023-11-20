@@ -2061,6 +2061,24 @@ impl ::core::fmt::Display for ConfigCellAccount {
         write!(f, ", {}: {}", "edit_manager_throttle", self.edit_manager_throttle())?;
         write!(f, ", {}: {}", "edit_records_throttle", self.edit_records_throttle())?;
         write!(f, ", {}: {}", "common_throttle", self.common_throttle())?;
+        write!(
+            f,
+            ", {}: {}",
+            "expiration_auction_period",
+            self.expiration_auction_period()
+        )?;
+        write!(
+            f,
+            ", {}: {}",
+            "expiration_deliver_period",
+            self.expiration_deliver_period()
+        )?;
+        write!(
+            f,
+            ", {}: {}",
+            "expiration_auction_start_premiums",
+            self.expiration_auction_start_premiums()
+        )?;
         let extra_count = self.count_extra_fields();
         if extra_count != 0 {
             write!(f, ", .. ({} fields)", extra_count)?;
@@ -2071,17 +2089,17 @@ impl ::core::fmt::Display for ConfigCellAccount {
 impl ::core::default::Default for ConfigCellAccount {
     fn default() -> Self {
         let v: Vec<u8> = vec![
-            140, 0, 0, 0, 60, 0, 0, 0, 64, 0, 0, 0, 72, 0, 0, 0, 80, 0, 0, 0, 84, 0, 0, 0, 88, 0, 0, 0, 92, 0, 0, 0,
-            100, 0, 0, 0, 108, 0, 0, 0, 116, 0, 0, 0, 124, 0, 0, 0, 128, 0, 0, 0, 132, 0, 0, 0, 136, 0, 0, 0, 0, 0, 0,
+            164, 0, 0, 0, 72, 0, 0, 0, 76, 0, 0, 0, 84, 0, 0, 0, 92, 0, 0, 0, 96, 0, 0, 0, 100, 0, 0, 0, 104, 0, 0, 0,
+            112, 0, 0, 0, 120, 0, 0, 0, 128, 0, 0, 0, 136, 0, 0, 0, 140, 0, 0, 0, 144, 0, 0, 0, 148, 0, 0, 0, 152, 0,
+            0, 0, 156, 0, 0, 0, 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ];
         ConfigCellAccount::new_unchecked(v.into())
     }
 }
 impl ConfigCellAccount {
-    pub const FIELD_COUNT: usize = 14;
+    pub const FIELD_COUNT: usize = 17;
     pub fn total_size(&self) -> usize {
         molecule::unpack_number(self.as_slice()) as usize
     }
@@ -2179,8 +2197,26 @@ impl ConfigCellAccount {
     pub fn common_throttle(&self) -> Uint32 {
         let slice = self.as_slice();
         let start = molecule::unpack_number(&slice[56..]) as usize;
+        let end = molecule::unpack_number(&slice[60..]) as usize;
+        Uint32::new_unchecked(self.0.slice(start..end))
+    }
+    pub fn expiration_auction_period(&self) -> Uint32 {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[60..]) as usize;
+        let end = molecule::unpack_number(&slice[64..]) as usize;
+        Uint32::new_unchecked(self.0.slice(start..end))
+    }
+    pub fn expiration_deliver_period(&self) -> Uint32 {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[64..]) as usize;
+        let end = molecule::unpack_number(&slice[68..]) as usize;
+        Uint32::new_unchecked(self.0.slice(start..end))
+    }
+    pub fn expiration_auction_start_premiums(&self) -> Uint32 {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[68..]) as usize;
         if self.has_extra_fields() {
-            let end = molecule::unpack_number(&slice[60..]) as usize;
+            let end = molecule::unpack_number(&slice[72..]) as usize;
             Uint32::new_unchecked(self.0.slice(start..end))
         } else {
             Uint32::new_unchecked(self.0.slice(start..))
@@ -2227,6 +2263,9 @@ impl molecule::prelude::Entity for ConfigCellAccount {
             .edit_manager_throttle(self.edit_manager_throttle())
             .edit_records_throttle(self.edit_records_throttle())
             .common_throttle(self.common_throttle())
+            .expiration_auction_period(self.expiration_auction_period())
+            .expiration_deliver_period(self.expiration_deliver_period())
+            .expiration_auction_start_premiums(self.expiration_auction_start_premiums())
     }
 }
 #[derive(Clone, Copy)]
@@ -2267,6 +2306,24 @@ impl<'r> ::core::fmt::Display for ConfigCellAccountReader<'r> {
         write!(f, ", {}: {}", "edit_manager_throttle", self.edit_manager_throttle())?;
         write!(f, ", {}: {}", "edit_records_throttle", self.edit_records_throttle())?;
         write!(f, ", {}: {}", "common_throttle", self.common_throttle())?;
+        write!(
+            f,
+            ", {}: {}",
+            "expiration_auction_period",
+            self.expiration_auction_period()
+        )?;
+        write!(
+            f,
+            ", {}: {}",
+            "expiration_deliver_period",
+            self.expiration_deliver_period()
+        )?;
+        write!(
+            f,
+            ", {}: {}",
+            "expiration_auction_start_premiums",
+            self.expiration_auction_start_premiums()
+        )?;
         let extra_count = self.count_extra_fields();
         if extra_count != 0 {
             write!(f, ", .. ({} fields)", extra_count)?;
@@ -2275,7 +2332,7 @@ impl<'r> ::core::fmt::Display for ConfigCellAccountReader<'r> {
     }
 }
 impl<'r> ConfigCellAccountReader<'r> {
-    pub const FIELD_COUNT: usize = 14;
+    pub const FIELD_COUNT: usize = 17;
     pub fn total_size(&self) -> usize {
         molecule::unpack_number(self.as_slice()) as usize
     }
@@ -2373,8 +2430,26 @@ impl<'r> ConfigCellAccountReader<'r> {
     pub fn common_throttle(&self) -> Uint32Reader<'r> {
         let slice = self.as_slice();
         let start = molecule::unpack_number(&slice[56..]) as usize;
+        let end = molecule::unpack_number(&slice[60..]) as usize;
+        Uint32Reader::new_unchecked(&self.as_slice()[start..end])
+    }
+    pub fn expiration_auction_period(&self) -> Uint32Reader<'r> {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[60..]) as usize;
+        let end = molecule::unpack_number(&slice[64..]) as usize;
+        Uint32Reader::new_unchecked(&self.as_slice()[start..end])
+    }
+    pub fn expiration_deliver_period(&self) -> Uint32Reader<'r> {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[64..]) as usize;
+        let end = molecule::unpack_number(&slice[68..]) as usize;
+        Uint32Reader::new_unchecked(&self.as_slice()[start..end])
+    }
+    pub fn expiration_auction_start_premiums(&self) -> Uint32Reader<'r> {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[68..]) as usize;
         if self.has_extra_fields() {
-            let end = molecule::unpack_number(&slice[60..]) as usize;
+            let end = molecule::unpack_number(&slice[72..]) as usize;
             Uint32Reader::new_unchecked(&self.as_slice()[start..end])
         } else {
             Uint32Reader::new_unchecked(&self.as_slice()[start..])
@@ -2444,6 +2519,9 @@ impl<'r> molecule::prelude::Reader<'r> for ConfigCellAccountReader<'r> {
         Uint32Reader::verify(&slice[offsets[11]..offsets[12]], compatible)?;
         Uint32Reader::verify(&slice[offsets[12]..offsets[13]], compatible)?;
         Uint32Reader::verify(&slice[offsets[13]..offsets[14]], compatible)?;
+        Uint32Reader::verify(&slice[offsets[14]..offsets[15]], compatible)?;
+        Uint32Reader::verify(&slice[offsets[15]..offsets[16]], compatible)?;
+        Uint32Reader::verify(&slice[offsets[16]..offsets[17]], compatible)?;
         Ok(())
     }
 }
@@ -2463,9 +2541,12 @@ pub struct ConfigCellAccountBuilder {
     pub(crate) edit_manager_throttle: Uint32,
     pub(crate) edit_records_throttle: Uint32,
     pub(crate) common_throttle: Uint32,
+    pub(crate) expiration_auction_period: Uint32,
+    pub(crate) expiration_deliver_period: Uint32,
+    pub(crate) expiration_auction_start_premiums: Uint32,
 }
 impl ConfigCellAccountBuilder {
-    pub const FIELD_COUNT: usize = 14;
+    pub const FIELD_COUNT: usize = 17;
     pub fn max_length(mut self, v: Uint32) -> Self {
         self.max_length = v;
         self
@@ -2522,6 +2603,18 @@ impl ConfigCellAccountBuilder {
         self.common_throttle = v;
         self
     }
+    pub fn expiration_auction_period(mut self, v: Uint32) -> Self {
+        self.expiration_auction_period = v;
+        self
+    }
+    pub fn expiration_deliver_period(mut self, v: Uint32) -> Self {
+        self.expiration_deliver_period = v;
+        self
+    }
+    pub fn expiration_auction_start_premiums(mut self, v: Uint32) -> Self {
+        self.expiration_auction_start_premiums = v;
+        self
+    }
 }
 impl molecule::prelude::Builder for ConfigCellAccountBuilder {
     type Entity = ConfigCellAccount;
@@ -2542,6 +2635,9 @@ impl molecule::prelude::Builder for ConfigCellAccountBuilder {
             + self.edit_manager_throttle.as_slice().len()
             + self.edit_records_throttle.as_slice().len()
             + self.common_throttle.as_slice().len()
+            + self.expiration_auction_period.as_slice().len()
+            + self.expiration_deliver_period.as_slice().len()
+            + self.expiration_auction_start_premiums.as_slice().len()
     }
     fn write<W: molecule::io::Write>(&self, writer: &mut W) -> molecule::io::Result<()> {
         let mut total_size = molecule::NUMBER_SIZE * (Self::FIELD_COUNT + 1);
@@ -2574,6 +2670,12 @@ impl molecule::prelude::Builder for ConfigCellAccountBuilder {
         total_size += self.edit_records_throttle.as_slice().len();
         offsets.push(total_size);
         total_size += self.common_throttle.as_slice().len();
+        offsets.push(total_size);
+        total_size += self.expiration_auction_period.as_slice().len();
+        offsets.push(total_size);
+        total_size += self.expiration_deliver_period.as_slice().len();
+        offsets.push(total_size);
+        total_size += self.expiration_auction_start_premiums.as_slice().len();
         writer.write_all(&molecule::pack_number(total_size as molecule::Number))?;
         for offset in offsets.into_iter() {
             writer.write_all(&molecule::pack_number(offset as molecule::Number))?;
@@ -2592,6 +2694,9 @@ impl molecule::prelude::Builder for ConfigCellAccountBuilder {
         writer.write_all(self.edit_manager_throttle.as_slice())?;
         writer.write_all(self.edit_records_throttle.as_slice())?;
         writer.write_all(self.common_throttle.as_slice())?;
+        writer.write_all(self.expiration_auction_period.as_slice())?;
+        writer.write_all(self.expiration_deliver_period.as_slice())?;
+        writer.write_all(self.expiration_auction_start_premiums.as_slice())?;
         Ok(())
     }
     fn build(&self) -> Self::Entity {

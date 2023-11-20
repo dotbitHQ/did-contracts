@@ -15,6 +15,7 @@ use crate::constants::*;
 use crate::error::*;
 use crate::witness_parser::WitnessesParser;
 use crate::{data_parser, util};
+use crate::util::print_dp;
 
 pub fn verify_unlock_role(action: &[u8], params: &[Bytes]) -> Result<(), Box<dyn ScriptError>> {
     let required_role_opt = util::get_action_required_role(action);
@@ -56,14 +57,12 @@ pub fn verify_account_expiration(
     let data = util::load_cell_data(index, source)?;
     let expired_at = data_parser::account_cell::get_expired_at(data.as_slice());
     let expiration_grace_period = u32::from(config.expiration_grace_period()) as u64;
-    // let expiration_auction_period = u32::from(config.expiration_auction_period()) as u64;
-    let expiration_auction_period = 0;
-    // let expiration_auction_confirmation_period = u32::from(config.expiration_auction_confirmation_period()) as u64;
-    let expiration_auction_confirmation_period = 0;
+    let expiration_auction_period = u32::from(config.expiration_auction_period()) as u64;
+    let expiration_deliver_period = u32::from(config.expiration_deliver_period()) as u64;
 
     if current_timestamp > expired_at {
         let duration = current_timestamp - expired_at;
-        if duration > expiration_grace_period + expiration_auction_period + expiration_auction_confirmation_period {
+        if duration > expiration_grace_period + expiration_auction_period + expiration_deliver_period {
             warn!("The AccountCell has been expired. Will be recycled soon.");
             return Err(code_to_error!(AccountCellErrorCode::AccountCellHasExpired));
         } else if duration > expiration_grace_period + expiration_auction_period {
@@ -85,6 +84,73 @@ pub fn verify_account_expiration(
     Ok(())
 }
 
+pub fn verify_account_in_auction(
+    config: ConfigCellAccountReader,
+    index: usize,
+    source: Source,
+    current_timestamp: u64,
+    bid_price: u64,
+    basic_price: u64,
+) -> Result<(), Box<dyn ScriptError>> {
+    debug!(
+        "{:?}[{}] Verify whether this account is in the Dutch auction period.",
+        source, index
+    );
+
+    let data = util::load_cell_data(index, source)?;
+    let expired_at = data_parser::account_cell::get_expired_at(data.as_slice());
+    let expiration_grace_period = u32::from(config.expiration_grace_period()) as u64;
+    let expiration_auction_period = u32::from(config.expiration_auction_period()) as u64;
+    let expiration_auction_start_premium = u32::from(config.expiration_auction_start_premiums()) as u64;
+
+    debug!("expired_at = {} ", expired_at);
+    debug!("expiration_grace_period = {} ", expiration_grace_period);
+    debug!("expiration_auction_period = {} ", expiration_auction_period);
+    debug!(
+        "expiration_auction_start_premium = {} ",
+        expiration_auction_start_premium
+    );
+
+    if current_timestamp > expired_at {
+        let duration_after_expired = current_timestamp - expired_at;
+        let auction_start_time = expiration_grace_period;
+        let auction_end_time = auction_start_time + expiration_auction_period;
+
+        debug!("duration_after_expired = {} ", duration_after_expired);
+        debug!("auction_start_time = {} ", auction_start_time);
+        debug!("auction_end_time = {} ", auction_end_time);
+
+        if duration_after_expired > auction_end_time {
+            warn!("The expired account auction has ended. Will be recycled soon.");
+            return Err(code_to_error!(AccountCellErrorCode::AccountCellHasExpired));
+        } else if duration_after_expired < auction_start_time {
+            warn!("The AccountCell has been in expiration grace period. Cannot conduct auction.");
+            return Err(code_to_error!(AccountCellErrorCode::AccountCellInExpirationGracePeriod));
+        }
+
+        //Check whether the bidding price is less than the expected price
+        let duration_in_auction = duration_after_expired - auction_start_time;
+        debug!("duration_in_auction = {}", duration_in_auction);
+        let premium = util::calculate_dutch_auction_premium(duration_in_auction, expiration_auction_start_premium);
+        debug!("premium calculated = {}", premium);
+        let expected_price = basic_price + premium;
+        debug!("The expected price is {} ", print_dp(&expected_price));
+        //
+        if bid_price < expected_price {
+            warn!(
+                "The bid is too low and the auction fails. The expected price is {} the actual price is {}.",
+                expected_price, bid_price
+            );
+            return Err(code_to_error!(AccountCellErrorCode::AccountCellBidPriceTooLow));
+        }
+    } else {
+        debug!("current_timestamp: {}, expired_at: {}", current_timestamp, expired_at);
+        warn!("The AccountCell has not been expired.");
+        return Err(code_to_error!(AccountCellErrorCode::AccountCellIsNotExpired));
+    }
+
+    Ok(())
+}
 pub fn verify_account_lock_consistent(
     input_account_index: usize,
     output_account_index: usize,
@@ -298,13 +364,14 @@ pub fn verify_account_witness_consistent<'a>(
         input_witness_reader,
         output_witness_reader,
         (id, "id"),
-        (account, "account"),
-        (registered_at, "registered_at")
+        (account, "account")
+        //(registered_at, "registered_at")  // warning: mv to "if_not_except"
     );
 
     das_assert_field_consistent_if_not_except!(
         input_witness_reader,
         output_witness_reader,
+        (registered_at, "registered_at"),
         (records, "records"),
         (last_transfer_account_at, "last_transfer_account_at"),
         (last_edit_manager_at, "last_edit_manager_at"),

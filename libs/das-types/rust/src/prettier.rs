@@ -1195,7 +1195,10 @@ impl<'a> Prettier for ConfigCellAccountReader<'a> {
             transfer_account_throttle,
             edit_manager_throttle,
             edit_records_throttle,
-            common_throttle
+            common_throttle,
+            expiration_auction_period,
+            expiration_deliver_period,
+            expiration_auction_start_premiums
         })
     }
 }
@@ -1225,6 +1228,31 @@ impl<'a> Prettier for ConfigCellAccountV1Reader<'a> {
     }
 }
 
+impl Prettier for ConfigCellAccountV2 {
+    fn as_prettier(&self) -> String {
+        self.as_reader().as_prettier()
+    }
+}
+
+impl<'a> Prettier for ConfigCellAccountV2Reader<'a> {
+    fn as_prettier(&self) -> String {
+        print_fields!(self, "ConfigCellAccountV2", {
+            max_length,
+            basic_capacity,
+            prepared_fee_capacity,
+            expiration_grace_period,
+            record_min_ttl,
+            record_size_limit,
+            transfer_account_fee,
+            edit_manager_fee,
+            edit_records_fee,
+            transfer_account_throttle,
+            edit_manager_throttle,
+            edit_records_throttle,
+            common_throttle
+        })
+    }
+}
 impl Prettier for ConfigCellApply {
     fn as_prettier(&self) -> String {
         self.as_reader().as_prettier()
