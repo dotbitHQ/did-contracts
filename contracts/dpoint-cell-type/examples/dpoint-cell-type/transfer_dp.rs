@@ -16,6 +16,7 @@ use super::util;
 
 #[derive(PartialEq)]
 enum TransferType {
+    WhitelistToWhitelist,
     WhitelistToUser,
     UserToWhitelist,
 }
@@ -43,8 +44,13 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
         .map(|lock| core_util::blake2b_256(lock.as_slice()))
         .collect::<Vec<_>>();
     let transfer_type = if grouped_input_cells.iter().any(|(key, _)| transfer_whitelist_hashes.contains(key)) {
-        debug!("This transfer is treat as server in whitelist to user type.");
-        TransferType::WhitelistToUser
+        if grouped_output_cells.iter().all(|(key, _)| transfer_whitelist_hashes.contains(key)) {
+            debug!("This transfer is treat as server to server in whitelist type.");
+            TransferType::WhitelistToWhitelist
+        } else {
+            debug!("This transfer is treat as server in whitelist to user type.");
+            TransferType::WhitelistToUser
+        }
     } else {
         debug!("This transfer is treat as user to server in whitelist type.");
         TransferType::UserToWhitelist
@@ -88,7 +94,7 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
                 ErrorCode::OnlyOneUserIsAllowed,
                 "There must be 1 user lock to receive the DPoint."
             );
-        } else {
+        } else if transfer_type == TransferType::UserToWhitelist {
             das_assert!(
                 input_user_group_locks.len() == 1 && output_user_group_locks.len() <= 1,
                 ErrorCode::OnlyOneUserIsAllowed,

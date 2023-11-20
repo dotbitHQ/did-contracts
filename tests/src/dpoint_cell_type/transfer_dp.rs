@@ -62,6 +62,27 @@ fn test_dpoint_transfer_dp_merge() {
 }
 
 #[test]
+fn test_dpoint_transfer_dp_whitelist_mix() {
+    let mut template = init(json!({ "action": "transfer_dp" }));
+
+    // inputs
+    push_input_dpoint_cell(&mut template, 100 * USD_1, DP_TRANSFER_WHITELIST_1);
+    push_input_dpoint_cell(&mut template, 100 * USD_1, DP_TRANSFER_WHITELIST_1);
+    push_input_dpoint_cell(&mut template, 100 * USD_1, DP_TRANSFER_WHITELIST_1);
+
+    // outputs
+    push_output_dpoint_cell(&mut template, 100 * USD_1, DP_TRANSFER_WHITELIST_1);
+    push_output_dpoint_cell(&mut template, 200 * USD_1, DP_TRANSFER_WHITELIST_2);
+    push_output_balance_cell(
+        &mut template,
+        (DPOINT_BASIC_CAPACITY + DPOINT_PREPARED_FEE_CAPACITY) * 1,
+        DP_RECYCLE_WHITELIST_1,
+    );
+
+    test_tx(template.as_json());
+}
+
+#[test]
 fn challenge_dpoint_transfer_dp_without_transfer_whitelist_address() {
     let mut template = before_each();
 

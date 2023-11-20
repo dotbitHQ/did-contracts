@@ -205,7 +205,7 @@ fn test_bid_expired_success_four_letters_account() {
 }
 
 fn common_when_auction_have_started(account_expired_at: u64, premium: u64) -> TemplateGenerator {
-    let mut template = init("bid_expired_account_auction");
+    let mut template = init("bid_expired_account_dutch_auction");
 
     let account_expired_at = account_expired_at;
     let registered_at = account_expired_at - SECONDS_ONE_YEAR;
