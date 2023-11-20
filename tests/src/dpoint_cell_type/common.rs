@@ -3,8 +3,6 @@ use serde_json::Value;
 
 use crate::util::template_generator::*;
 
-pub const FEE: u64 = 20000;
-
 pub fn init(args: Value) -> TemplateGenerator {
     let action = args["action"].as_str().unwrap_or("transfer_dp");
     let mut template = TemplateGenerator::new(action, None);

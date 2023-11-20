@@ -19,7 +19,6 @@ pub enum ErrorCode {
     TheTotalDPointCanNotChange,
     TheDPointShouldDecreased,
     OnlyOneUserIsAllowed,
-    SpendTooMuchFee,
     CanNotSpendAnyFee,
     ThereShouldBeSomeDPointCellInInput,
     CapacityRecycleError,

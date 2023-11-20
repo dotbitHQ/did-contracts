@@ -22,9 +22,9 @@ fn test_dpoint_mint_dp() {
     let mut template = before_each();
 
     // outputs
-    push_output_dpoint_cell(&mut template, 100, DP_TRANSFER_WHITELIST_1);
-    push_output_dpoint_cell(&mut template, 100, DP_TRANSFER_WHITELIST_2);
-    push_output_dpoint_cell(&mut template, 100, DP_TRANSFER_WHITELIST_3);
+    push_output_dpoint_cell(&mut template, 100 * USD_1, DP_TRANSFER_WHITELIST_1);
+    push_output_dpoint_cell(&mut template, 100 * USD_1, DP_TRANSFER_WHITELIST_2);
+    push_output_dpoint_cell(&mut template, 100 * USD_1, DP_TRANSFER_WHITELIST_3);
 
     test_tx(template.as_json());
 }
@@ -38,7 +38,7 @@ fn challenge_dpoint_mint_dp_without_super_lock() {
     push_input_normal_cell(&mut template, 0, CHANNEL);
 
     // outputs
-    push_output_dpoint_cell(&mut template, 100, DP_TRANSFER_WHITELIST_1);
+    push_output_dpoint_cell(&mut template, 100 * USD_1, DP_TRANSFER_WHITELIST_1);
 
     challenge_tx(template.as_json(), ErrorCode::SuperLockIsRequired);
 }
@@ -49,7 +49,7 @@ fn challenge_dpoint_mint_dp_to_invalid_owner() {
 
     // outputs
     // Simulate minting DP to an address now in whitelist
-    push_output_dpoint_cell(&mut template, 100, CHANNEL);
+    push_output_dpoint_cell(&mut template, 100 * USD_1, CHANNEL);
 
     challenge_tx(template.as_json(), ErrorCode::InitialOwnerError);
 }
@@ -60,11 +60,11 @@ fn challenge_dpoint_mint_dp_with_burn_dp() {
 
     // inputs
     // Simulate burning DP in this action
-    push_input_dpoint_cell(&mut template, 50, DP_TRANSFER_WHITELIST_1);
+    push_input_dpoint_cell(&mut template, 50 * USD_1, DP_TRANSFER_WHITELIST_1);
     push_input_normal_cell(&mut template, 0, SUPER_LOCK_ARGS);
 
     // outputs
-    push_output_dpoint_cell(&mut template, 100, DP_TRANSFER_WHITELIST_1);
+    push_output_dpoint_cell(&mut template, 100 * USD_1, DP_TRANSFER_WHITELIST_1);
 
     challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure);
 }
@@ -75,12 +75,12 @@ fn challenge_dpoint_mint_dp_with_spend_dp() {
 
     // inputs
     // Simulate spending DP in this action
-    push_input_dpoint_cell(&mut template, 50, DP_TRANSFER_WHITELIST_1);
+    push_input_dpoint_cell(&mut template, 50 * USD_1, DP_TRANSFER_WHITELIST_1);
     push_input_normal_cell(&mut template, 0, SUPER_LOCK_ARGS);
 
     // outputs
-    push_input_dpoint_cell(&mut template, 50, DP_TRANSFER_WHITELIST_1);
-    push_output_dpoint_cell(&mut template, 100, DP_TRANSFER_WHITELIST_1);
+    push_input_dpoint_cell(&mut template, 50 * USD_1, DP_TRANSFER_WHITELIST_1);
+    push_output_dpoint_cell(&mut template, 100 * USD_1, DP_TRANSFER_WHITELIST_1);
 
     challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure);
 }

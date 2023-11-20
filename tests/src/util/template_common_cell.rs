@@ -656,7 +656,7 @@ pub fn push_input_dpoint_cell(template: &mut TemplateGenerator, dpoint: u64, own
                 "code_hash": "{{dpoint-cell-type}}"
             },
             "data": {
-                "value": dpoint * USD_1
+                "value": dpoint
             }
         }),
         None,
@@ -677,7 +677,7 @@ pub fn push_output_dpoint_cell(template: &mut TemplateGenerator, dpoint: u64, ow
                 "code_hash": "{{dpoint-cell-type}}"
             },
             "data": {
-                "value": dpoint * USD_1
+                "value": dpoint
             }
         }),
         None,

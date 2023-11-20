@@ -18,6 +18,7 @@ pub const ACCOUNT_ID_LENGTH: usize = 20;
 pub const PRESERVED_ACCOUNT_CELL_COUNT: u8 = 20;
 
 #[derive(Debug, PartialEq, Copy, Clone, TryFromPrimitive, EnumString, Display)]
+#[cfg_attr(not(feature = "no_std"), derive(Eq, Hash))]
 #[repr(u32)]
 pub enum DataType {
     ActionData = 0,

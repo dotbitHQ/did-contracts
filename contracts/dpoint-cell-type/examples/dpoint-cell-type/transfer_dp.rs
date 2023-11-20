@@ -1,5 +1,4 @@
 use alloc::boxed::Box;
-use alloc::vec;
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 
@@ -9,11 +8,17 @@ use das_core::constants::{TypeScript, DPOINT_MAX_LIMIT};
 use das_core::contract::defult_structs::{Action, Rule};
 use das_core::error::ScriptError;
 use das_core::witness_parser::WitnessesParser;
-use das_core::{code_to_error, das_assert, data_parser, util as core_util, verifiers};
+use das_core::{code_to_error, das_assert, data_parser, util as core_util, verifiers, debug};
 use das_types::packed::*;
 use dpoint_cell_type::error::ErrorCode;
 
 use super::util;
+
+#[derive(PartialEq)]
+enum TransferType {
+    WhitelistToUser,
+    UserToWhitelist,
+}
 
 pub fn action() -> Result<Action, Box<dyn ScriptError>> {
     let mut parser = WitnessesParser::new()?;
@@ -37,6 +42,13 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
         .iter()
         .map(|lock| core_util::blake2b_256(lock.as_slice()))
         .collect::<Vec<_>>();
+    let transfer_type = if grouped_input_cells.iter().any(|(key, _)| transfer_whitelist_hashes.contains(key)) {
+        debug!("This transfer is treat as server in whitelist to user type.");
+        TransferType::WhitelistToUser
+    } else {
+        debug!("This transfer is treat as user to server in whitelist type.");
+        TransferType::UserToWhitelist
+    };
 
     let inner_input_cells = input_cells.clone();
     let inner_output_cells = output_cells.clone();
@@ -44,6 +56,7 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
     let inner_grouped_output_cells = grouped_output_cells.clone();
     let inner_expected_lock_hashes = transfer_whitelist_hashes.clone();
     action.add_verification(Rule::new("Verify the transaction structure.", move |_contract| {
+        // In case there is no DPointCell, so verify the cell number range first.
         verifiers::common::verify_cell_number_range(
             "DPointCell",
             &inner_input_cells,
@@ -51,6 +64,12 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
             &inner_output_cells,
             (Ordering::Greater, 0),
         )?;
+
+        das_assert!(
+            inner_grouped_input_cells.len() == 1,
+            ErrorCode::OnlyOneUserIsAllowed,
+            "Each transfer is limited to one payment lock."
+        );
 
         let input_user_group_locks: Vec<&[u8; 32]> = inner_grouped_input_cells
             .iter()
@@ -63,26 +82,54 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
             .map(|(key, _)| key)
             .collect();
 
-        // Covered cases:
-        // Server in whitelist -> User
-        // User -> Server in whitelist
-        // Server in whitelist -> Server in whitelist
-        das_assert!(
-            input_user_group_locks.len() <= 1 && output_user_group_locks.len() <= 1,
-            ErrorCode::OnlyOneUserIsAllowed,
-            "Each transfer is limited to one owner."
-        );
-
-        if input_user_group_locks.len() == 1 && output_user_group_locks.len() == 1 {
+        if transfer_type == TransferType::WhitelistToUser {
             das_assert!(
-                input_user_group_locks[0] == output_user_group_locks[0],
+                input_user_group_locks.len() == 0 && output_user_group_locks.len() == 1,
                 ErrorCode::OnlyOneUserIsAllowed,
-                "The owner in inputs and outputs should be the same."
+                "There must be 1 user lock to receive the DPoint."
             );
+        } else {
+            das_assert!(
+                input_user_group_locks.len() == 1 && output_user_group_locks.len() <= 1,
+                ErrorCode::OnlyOneUserIsAllowed,
+                "There must be 1 user lock to send the DPoint, and it may be have some change."
+            );
+
+            if output_user_group_locks.len() == 1 {
+                das_assert!(
+                    input_user_group_locks[0] == output_user_group_locks[0],
+                    ErrorCode::OnlyOneUserIsAllowed,
+                    "The owner in inputs and outputs should be the same."
+                );
+            }
         }
 
         Ok(())
     }));
+
+    let inner_output_cells = output_cells.clone();
+    let basic_capacity = u64::from(config_dpoint_reader.basic_capacity());
+    let prepared_fee_capacity = u64::from(config_dpoint_reader.prepared_fee_capacity());
+    let expected_capacity = basic_capacity + prepared_fee_capacity;
+    action.add_verification(Rule::new(
+        "Verify if all the DPointCells keeping enough capacity.",
+        move |_contract| {
+            for index in inner_output_cells.iter() {
+                let capacity = high_level::load_cell_capacity(*index, Source::Output)?;
+                das_assert!(
+                    capacity == expected_capacity,
+                    ErrorCode::InitialCapacityError,
+                    "outputs[{}] The capacity of new DPointCell should be {} shannon.(expected: {}, current: {})",
+                    index,
+                    expected_capacity,
+                    expected_capacity,
+                    capacity
+                )
+            }
+
+            Ok(())
+        },
+    ));
 
     let inner_output_cells = output_cells.clone();
     action.add_verification(Rule::new(
@@ -102,6 +149,7 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
 
                 let value = value.unwrap();
                 das_assert!(
+                    // TODO 限制总额 1 千万
                     value > 0 && value <= DPOINT_MAX_LIMIT,
                     ErrorCode::InitialDataError,
                     "outputs[{}] The value of each new DPointCell should be 0 < x <= {}.(current: {})",
@@ -165,97 +213,14 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
         },
     ));
 
-    let basic_capacity = u64::from(config_dpoint_reader.basic_capacity());
-    let prepared_fee_capacity = u64::from(config_dpoint_reader.prepared_fee_capacity());
-    let expected_capacity = basic_capacity + prepared_fee_capacity;
-    let mut recycle_capacity = 0;
-    let mut fill_capacity = 0;
     if input_cells.len() > output_cells.len() {
+        let mut recycle_capacity = 0;
         let start = output_cells.len();
         for index in input_cells[start..].iter() {
             let capacity = high_level::load_cell_capacity(*index, Source::Input)?;
             recycle_capacity += capacity;
         }
-    } else if input_cells.len() < output_cells.len() {
-        let count = output_cells.len() - input_cells.len();
-        fill_capacity = (basic_capacity + prepared_fee_capacity) * count as u64;
-    }
-    // TODO load this value from new ConfigCellMain
-    let common_fee = 20000;
 
-    let inner_witness_action = witness_action.clone();
-    let inner_input_cells = input_cells.clone();
-    let inner_output_cells = output_cells.clone();
-    action.add_verification(Rule::new(
-        "Verify if the transaction fee spent properly.",
-        move |_contract| {
-            let can_spend_fee = inner_witness_action.as_slice() == b"transfer_dp";
-
-            let mut input_capacities = vec![];
-            let mut total_input = 0;
-            for index in inner_input_cells.iter() {
-                let capacity = high_level::load_cell_capacity(*index, Source::Input)?;
-                input_capacities.push(capacity);
-                total_input += capacity;
-            }
-
-            let mut total_output = 0;
-            for (i, index) in inner_output_cells.iter().enumerate() {
-                let capacity = high_level::load_cell_capacity(*index, Source::Output)?;
-
-                match input_capacities.get(i) {
-                    Some(input_capacity) => {
-                        if can_spend_fee {
-                            das_assert!(
-                                capacity + common_fee >= *input_capacity,
-                                ErrorCode::SpendTooMuchFee,
-                                "outputs[{}] The capacity of DPointCell spent more than the fee limit.",
-                                index
-                            );
-                        } else {
-                            das_assert!(
-                                capacity == *input_capacity,
-                                ErrorCode::CanNotSpendAnyFee,
-                                "outputs[{}] The capacity of DPointCell should be equal to the input.",
-                                index
-                            );
-                        }
-                    },
-                    None => {
-                        das_assert!(
-                            capacity == expected_capacity,
-                            ErrorCode::InitialCapacityError,
-                            "outputs[{}] The capacity of new DPointCell should be {} shannon.(expected: {}, current: {})",
-                            index,
-                            expected_capacity,
-                            expected_capacity,
-                            capacity
-                        );
-                    }
-                }
-
-                total_output += capacity;
-            }
-
-            if can_spend_fee {
-                das_assert!(
-                    total_output - fill_capacity  + common_fee >= total_input - recycle_capacity,
-                    ErrorCode::SpendTooMuchFee,
-                    "The total capacity of outputs spent more than the fee limit."
-                );
-            } else {
-                das_assert!(
-                    total_output - fill_capacity >= total_input - recycle_capacity,
-                    ErrorCode::CanNotSpendAnyFee,
-                    "This transaction need to pay the fee from Other cells."
-                );
-            }
-
-            Ok(())
-        },
-    ));
-
-    if recycle_capacity > 0 {
         let recycle_whitelist = config_dpoint_reader.capacity_recycle_whitelist();
         let recycle_whitelist_hashes = recycle_whitelist
             .iter()
@@ -282,7 +247,7 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
                 }
 
                 das_assert!(
-                    actual_recycle >= recycle_capacity - common_fee,
+                    actual_recycle >= recycle_capacity,
                     ErrorCode::CapacityRecycleError,
                     "The total capacity should be recycled is {}.(expected: {}, actual: {})",
                     recycle_capacity,

@@ -1,5 +1,4 @@
 use alloc::boxed::Box;
-use alloc::vec;
 use alloc::vec::Vec;
 
 use ckb_std::ckb_constants::Source;
@@ -60,6 +59,30 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
 
         Ok(())
     }));
+
+    let inner_output_cells = output_cells.clone();
+    let basic_capacity = u64::from(config_dpoint_reader.basic_capacity());
+    let prepared_fee_capacity = u64::from(config_dpoint_reader.prepared_fee_capacity());
+    let expected_capacity = basic_capacity + prepared_fee_capacity;
+    action.add_verification(Rule::new(
+        "Verify if all the DPointCells keeping enough capacity.",
+        move |_contract| {
+            for index in inner_output_cells.iter() {
+                let capacity = high_level::load_cell_capacity(*index, Source::Output)?;
+                das_assert!(
+                    capacity == expected_capacity,
+                    ErrorCode::InitialCapacityError,
+                    "outputs[{}] The capacity of new DPointCell should be {} shannon.(expected: {}, current: {})",
+                    index,
+                    expected_capacity,
+                    expected_capacity,
+                    capacity
+                )
+            }
+
+            Ok(())
+        },
+    ));
 
     let inner_output_cells = output_cells.clone();
     action.add_verification(Rule::new(
@@ -147,80 +170,14 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
         },
     ));
 
-    let basic_capacity = u64::from(config_dpoint_reader.basic_capacity());
-    let prepared_fee_capacity = u64::from(config_dpoint_reader.prepared_fee_capacity());
-    let expected_capacity = basic_capacity + prepared_fee_capacity;
-    let mut recycle_capacity = 0;
-    let mut fill_capacity = 0;
     if input_cells.len() > output_cells.len() {
+        let mut recycle_capacity = 0;
         let start = output_cells.len();
         for index in input_cells[start..].iter() {
             let capacity = high_level::load_cell_capacity(*index, Source::Input)?;
             recycle_capacity += capacity;
         }
-    } else if input_cells.len() < output_cells.len() {
-        let count = output_cells.len() - input_cells.len();
-        fill_capacity = (basic_capacity + prepared_fee_capacity) * count as u64;
-    }
 
-    // TODO load this value from new ConfigCellMain
-    let common_fee = 20000;
-
-    if output_cells.len() > 0 {
-        let inner_input_cells = input_cells.clone();
-        let inner_output_cells = output_cells.clone();
-        action.add_verification(Rule::new(
-            "Verify if the remaining DPointCell is charged for fee properly.",
-            move |_contract| {
-                let mut input_capacities = vec![];
-                let mut total_input = 0;
-                for index in inner_input_cells.iter() {
-                    let capacity = high_level::load_cell_capacity(*index, Source::Input)?;
-                    input_capacities.push(capacity);
-                    total_input += capacity;
-                }
-
-                let mut total_output = 0;
-                for (i, index) in inner_output_cells.iter().enumerate() {
-                    let capacity = high_level::load_cell_capacity(*index, Source::Output)?;
-
-                    match input_capacities.get(i) {
-                        Some(input_capacity) => {
-                            das_assert!(
-                                capacity + common_fee >= *input_capacity,
-                                ErrorCode::SpendTooMuchFee,
-                                "outputs[{}] The capacity of DPointCell spent more than the fee limit.",
-                                index
-                            );
-                        }
-                        None => {
-                            das_assert!(
-                                capacity == expected_capacity,
-                                ErrorCode::InitialCapacityError,
-                                "outputs[{}] The capacity of new DPointCell should be {} shannon.(expected: {}, current: {})",
-                                index,
-                                expected_capacity,
-                                expected_capacity,
-                                capacity
-                            );
-                        },
-                    }
-
-                    total_output += capacity;
-                }
-
-                das_assert!(
-                    total_output - fill_capacity + common_fee >= total_input - recycle_capacity,
-                    ErrorCode::SpendTooMuchFee,
-                    "The total capacity of outputs spent more than the fee limit."
-                );
-
-                Ok(())
-            },
-        ));
-    }
-
-    if recycle_capacity > 0 {
         let recycle_whitelist = config_dpoint_reader.capacity_recycle_whitelist();
         let recycle_whitelist_hashes = recycle_whitelist
             .iter()
@@ -247,7 +204,7 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
                 }
 
                 das_assert!(
-                    actual_recycle >= recycle_capacity - common_fee,
+                    actual_recycle >= recycle_capacity,
                     ErrorCode::CapacityRecycleError,
                     "The total capacity should be recycled is {}.(expected: {}, actual: {})",
                     recycle_capacity,
