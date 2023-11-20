@@ -39,7 +39,7 @@ pub fn verify_eip712_hashes(
         // In accept_offer transaction, the inputs[0] is belong to buyer, because it is seller to send this transaction for accepting offer,
         // so we do not need the buyer's signature here.
         b"accept_offer" => 1,
-        b"bid_expired_account_auction" => {
+        b"bid_expired_account_dutch_auction" => {
             //todo: Maybe replace it with an all-0 check
             let config_main = parser.configs.main()?;
             let type_id_table_reader = config_main.type_id_table();
