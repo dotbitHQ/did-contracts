@@ -19,7 +19,7 @@ use das_map::util as map_util;
 use das_types::constants::*;
 use das_types::mixer::*;
 use das_types::packed::*;
-use das_core::util::{get_spent_dpoint_by_lock, print_dp};
+use das_core::util::{print_dp};
 use crate::approval;
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
@@ -146,6 +146,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let output_cell_witness =
                 util::parse_account_cell_witness(&parser, output_account_cells[0], Source::Output)?;
             let output_cell_witness_reader = output_cell_witness.as_reader();
+
 
             verifiers::account_cell::verify_account_capacity_not_decrease(
                 input_account_cells[0],
@@ -1173,7 +1174,8 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 );
             }
         }
-        b"bid_expired_account_auction" => {
+
+        b"bid_expired_account_dutch_auction" => {
             parser.parse_cell()?;
 
             //get configs
@@ -1209,6 +1211,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 output_account_cells[0],
             )?;
 
+
             verifiers::account_cell::verify_account_data_consistent(
                 input_account_cells[0],
                 output_account_cells[0],
@@ -1224,11 +1227,12 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                      "records"],
             )?;
 
-            verifiers::account_cell::verify_account_witness_record_empty(
-                &output_cell_witness_reader,
-                output_account_cells[0],
-                Source::Output,
-            )?;
+            let records_len = output_cell_witness_reader.records().len();
+            das_assert!(
+                records_len == 1,
+                  ErrorCode::InvalidTransactionStructure,
+                "The records field in output AccountCell should not be empty."
+            );
 
             // Verify if the input account cell status is Normal
             verifiers::account_cell::verify_status(
@@ -1253,6 +1257,9 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 "input_expired_at: {}, output_expired_at: {}, output_registered_at: {}",
                 input_expired_at, output_expired_at, output_registered_at
             );
+            debug!("output_last_transfer_account_at: {}, output_last_edit_manager_at: {}, output_last_edit_records_at: {}",
+                   output_last_transfer_account_at, output_last_edit_manager_at, output_last_edit_records_at);
+
             //register_at should be the same as timestamp
             das_assert_custom!(
                 output_registered_at == timestamp, "The register_at field in output AccountCell should be changed to current time.",
@@ -1277,20 +1284,20 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let sender_args = sender_lock.as_reader().args().raw_data();
             let owner_args = data_parser::das_lock_args::get_owner_lock_args(sender_args);
 
-            if owner_args == &CROSS_CHAIN_BLACK_ARGS {
-                debug!("The lock of inputs AccountCell is the black hole lock, please check whether the account is cross-chain first.");
-                return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
+            //If it is a black hole address, the contract does not verify the returned funds.
+            if owner_args != &CROSS_CHAIN_BLACK_ARGS {
+                debug!("Check if account cell refund to old owner properly."); //balance
+                verifiers::misc::verify_user_get_change(
+                    config_main,
+                    sender_lock.as_reader(),
+                    expired_account_capacity - available_fee,
+                )?;
             }
-
-            debug!("Check if account cell refund to old owner properly."); //balance
-            verifiers::misc::verify_user_get_change(
-                config_main,
-                sender_lock.as_reader(),
-                expired_account_capacity - available_fee,
-            )?;
 
             //get basic capacity
             let account_name_storage = data_parser::account_cell::get_account(&output_data).len() as u64;
+            debug!("account_name_storage: {}", account_name_storage);
+
             let receiver_lock = util::derive_owner_lock_from_cell(output_account_cells[0], Source::Output)?;
             let storage_capacity = util::calc_account_storage_capacity(
                 config_account,
@@ -1299,6 +1306,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             );
             debug!("The storage capacity is {} shannon", storage_capacity);
 
+            //warning: there is a possibility of overflow in u64 here.
             let storage_price_in_usd = storage_capacity * quote / ONE_CKB;
 
             // calculate the price when bid
@@ -1343,7 +1351,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let type_id_table_reader = config_main.type_id_table();
             let (input_dp_cells, output_dp_cells) =
                 util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, type_id_table_reader.dpoint_cell())?;
-            let bid_price = util::get_spent_dpoint_by_lock(receiver_lock, &input_dp_cells, &output_dp_cells)?;
+            let bid_price = util::get_spent_dpoint_by_lock(receiver_lock.as_reader(), &input_dp_cells, &output_dp_cells)?;
 
             debug!("The amount spent by the user is {} USD.", bid_price);
 

@@ -39,6 +39,24 @@ pub fn verify_eip712_hashes(
         // In accept_offer transaction, the inputs[0] is belong to buyer, because it is seller to send this transaction for accepting offer,
         // so we do not need the buyer's signature here.
         b"accept_offer" => 1,
+        b"bid_expired_account_auction" => {
+            //todo: Maybe replace it with an all-0 check
+            let config_main = parser.configs.main()?;
+            let type_id_table_reader = config_main.type_id_table();
+            let input_dp_cells =
+                util::find_cells_by_type_id(ScriptType::Type, type_id_table_reader.dpoint_cell(), Source::Input)?;
+
+            //get first input dpcell lock args
+            let input_first_dp_cell = input_dp_cells[0];
+            let first_dp_cell_lock_args = high_level::load_cell_lock_hash(input_first_dp_cell, Source::Input)?;
+            let account_cell_lock_args = high_level::load_cell_lock_hash(0, Source::Input)?;
+            if first_dp_cell_lock_args == account_cell_lock_args {
+                0
+            } else {
+                1
+            }
+            //get account cell lock args
+        },
         _ => 0,
     };
     let mut input_groups_idxs: BTreeMap<Vec<u8>, Vec<usize>> = BTreeMap::new();
@@ -76,7 +94,7 @@ pub fn verify_eip712_hashes(
         i += 1;
     }
 
-    // debug!("input_groups_idxs = {:?}", input_groups_idxs);
+    debug!("input_groups_idxs = {:?}", input_groups_idxs);
     if input_groups_idxs.is_empty() {
         debug!("There is no cell in inputs has das-lock with correct type byte, skip checking hashes in witnesses ...");
     } else {
@@ -120,6 +138,7 @@ pub fn verify_eip712_hashes_if_has_das_lock(
     let das_lock = das_lock();
     let input_cells =
         util::find_cells_by_type_id(ScriptType::Lock, das_lock.as_reader().code_hash().into(), Source::Input)?;
+    debug!("input_cells = {:?}", input_cells);
     if input_cells.len() > 0 {
         verify_eip712_hashes(parser, tx_to_das_message)
     } else {

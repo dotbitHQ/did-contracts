@@ -131,9 +131,9 @@ pub fn verify_account_in_auction(
         //Check whether the bidding price is less than the expected price
         let duration_in_auction = duration_after_expired - auction_start_time;
         debug!("duration_in_auction = {}", duration_in_auction);
-        let premium = util::calculate_dutch_auction_price(duration_in_auction, expiration_auction_start_premium);
+        let premium = util::calculate_dutch_auction_premium(duration_in_auction, expiration_auction_start_premium);
         debug!("premium calculated = {}", premium);
-        let expected_price = basic_price + premium * ONE_USD;
+        let expected_price = basic_price + premium;
         debug!("The expected price is {} ", print_dp(&expected_price));
         //
         if bid_price < expected_price {
