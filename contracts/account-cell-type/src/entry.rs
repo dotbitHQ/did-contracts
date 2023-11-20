@@ -11,6 +11,7 @@ use das_core::constants::*;
 use das_core::error::*;
 use das_core::witness_parser::WitnessesParser;
 use das_core::{assert as das_assert, code_to_error, das_assert_custom, data_parser, debug, sign_util, util, verifiers, warn};
+use das_core::error::ErrorCode::InvalidTransactionStructure;
 use das_dynamic_libs::constants::DynLibName;
 use das_dynamic_libs::sign_lib::SignLib;
 use das_dynamic_libs::{load_1_method, load_2_methods, load_3_methods, load_lib, log_loading, new_context};
@@ -1196,6 +1197,9 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 &[0],
             )?;
 
+            //There can only be account cell and dp cell in inputs
+            verifiers::account_cell::verify_account_no_other_type_cell_use_das_lock_in_inputs(config_main.type_id_table())?;
+
             //get account witness parser
             let input_cell_witness = util::parse_account_cell_witness(&parser, input_account_cells[0], Source::Input)?;
             let input_cell_witness_reader = input_cell_witness.as_reader();
@@ -1210,7 +1214,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 input_account_cells[0],
                 output_account_cells[0],
             )?;
-
 
             verifiers::account_cell::verify_account_data_consistent(
                 input_account_cells[0],
@@ -1231,7 +1234,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             das_assert!(
                 records_len == 1,
                   ErrorCode::InvalidTransactionStructure,
-                "The records field in output AccountCell should not be empty."
+                "The records field in output AccountCell should only one, but {}.", records_len
             );
 
             // Verify if the input account cell status is Normal
@@ -1346,7 +1349,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                     return Err(err);
                 }
             };
-
             //Get the price paid by the user during the auction.
             let type_id_table_reader = config_main.type_id_table();
             let (input_dp_cells, output_dp_cells) =
@@ -1747,12 +1749,12 @@ fn get_user_dp_spent(parser: &WitnessesParser, user_lock: &[u8]) -> Result<u64, 
         let a = dp_inputs.clone();
         let b = a.get_all_keys();
         for k in b.unwrap() {
-            debug!("jason inputs[{}] dp: {} ", k, print_dp(dp_inputs.clone().get(k).unwrap()));
+            debug!("inputs[{}] dp: {} ", k, print_dp(dp_inputs.clone().get(k).unwrap()));
         }
         let c = dp_outputs.clone();
         let d = c.get_all_keys();
         for k in d.unwrap() {
-            debug!("jason outputs[{}] dp: {} ", k, print_dp(dp_outputs.clone().get(k).unwrap()));
+            debug!("outputs[{}] dp: {} ", k, print_dp(dp_outputs.clone().get(k).unwrap()));
         }
     }
     //check inputs dp, only one

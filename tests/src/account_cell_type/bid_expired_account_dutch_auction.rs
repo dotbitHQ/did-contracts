@@ -14,7 +14,7 @@ use crate::util;
 
 use crate::util::constants::{ACCOUNT_EXPIRATION_AUCTION_PERIOD, ACCOUNT_EXPIRATION_GRACE_PERIOD, HEIGHT, OracleCellType, TIMESTAMP};
 use crate::util::template_common_cell::{push_input_account_cell, push_input_dpoint_cell, push_input_dpoint_cell_float, push_input_normal_cell, push_output_account_cell, push_output_balance_cell, push_output_dpoint_cell, push_output_dpoint_cell_float, push_output_normal_cell};
-use crate::util::accounts::{SENDER, RECEIVER, DP_TRANSFER_WHITELIST_1};
+use crate::util::accounts::{SENDER, RECEIVER, DP_TRANSFER_WHITELIST_1, CHANNEL};
 use crate::util::error::{AccountCellErrorCode, ErrorCode, DPointCellErrorCode};
 //BIDDER, DID_SVR, SECONDS_ONE_DAY, SECONDS_ONE_YEAR, DURATION_AFTER_EXPIRED, ACCOUNT_EXPIRED_AT, ACCOUNT_REGISTERED_AT, DP_SVR};
 use crate::util::template_generator::{
@@ -22,11 +22,12 @@ use crate::util::template_generator::{
     ContractType,
 };
 use crate::util::template_parser::{challenge_tx, test_tx};
+use crate::util::template_generator::{gen_das_lock_args};
 const ACCOUNT_FOUR_LETTER: &str = "1234.bit";
 const ACCOUNT_FIVE_LETTER: &str = "12345.bit";
 const SECONDS_ONE_DAY: u64 = 24 * 3600;
 const SECONDS_ONE_YEAR: u64 = 365 * SECONDS_ONE_DAY;
-const DURATION_AFTER_EXPIRED: u64 = ACCOUNT_EXPIRATION_GRACE_PERIOD + 20 * SECONDS_ONE_DAY; //day20, 95$
+const DURATION_AFTER_EXPIRED: u64 = ACCOUNT_EXPIRATION_GRACE_PERIOD + 20 * SECONDS_ONE_DAY; //day20, $95.367432
 const ACCOUNT_EXPIRED_AT: u64 = TIMESTAMP - DURATION_AFTER_EXPIRED;
 const ACCOUNT_REGISTERED_AT: u64 = TIMESTAMP - DURATION_AFTER_EXPIRED - SECONDS_ONE_YEAR;
 const BIDDER: &str = "0x050000000000000000000000000000000000008888";
@@ -65,7 +66,7 @@ fn init(action: &str) -> TemplateGenerator {
 
 #[test]
 fn test_bid_expired_account_auction_success_normal() {
-    let mut template = init("bid_expired_account_auction");
+    let mut template = init("bid_expired_account_dutch_auction");
 
     //push inputs
     push_input_account_cell(
@@ -83,6 +84,14 @@ json!({
                 "last_transfer_account_at": ACCOUNT_REGISTERED_AT + 123 * SECONDS_ONE_DAY,
                 "last_edit_manager_at": ACCOUNT_REGISTERED_AT + 124 * SECONDS_ONE_DAY,
                 "last_edit_records_at": ACCOUNT_REGISTERED_AT + 125 * SECONDS_ONE_DAY,
+                "records": [
+                        {
+                            "type": "address",
+                            "key": "eth",
+                            "label": "Personal",
+                            "value": "0x0000000000000000000000000000000000000000",
+                    }
+            ]
             }
         }),
     );
@@ -115,11 +124,18 @@ json!({
                 "last_transfer_account_at": 0,
                 "last_edit_manager_at": 0,
                 "last_edit_records_at": 0,
+                "records": [
+                        {
+                            "type": "address",
+                            "key": "eth",
+                            "label": "Personal",
+                            "value": "0x0000000000000000000000000000000000000000",
+                    }]
             }
         }),
     );
-    push_output_dpoint_cell_float(&mut template, 100818208, DP_TRANSFER_WHITELIST_1);
-    push_output_dpoint_cell_float(&mut template, 899181792, BIDDER);
+    push_output_dpoint_cell_float(&mut template, 101185640, DP_TRANSFER_WHITELIST_1);
+    push_output_dpoint_cell_float(&mut template, 898814360, BIDDER);
 
     push_output_normal_cell(&mut template, 10 * SHANNON, DP_SVR);
     push_output_normal_cell(&mut template, 90 * SHANNON, DID_SVR);
@@ -132,7 +148,7 @@ json!({
 
 #[test]
 fn test_bid_expired_success_four_letters_account() {
-    let mut template = init("bid_expired_account_auction");
+    let mut template = init("bid_expired_account_dutch_auction");
 
     //push inputs
     push_input_account_cell(
@@ -154,6 +170,14 @@ fn test_bid_expired_success_four_letters_account() {
                 "last_transfer_account_at": ACCOUNT_REGISTERED_AT + 123 * SECONDS_ONE_DAY,
                 "last_edit_manager_at": ACCOUNT_REGISTERED_AT + 124 * SECONDS_ONE_DAY,
                 "last_edit_records_at": ACCOUNT_REGISTERED_AT + 125 * SECONDS_ONE_DAY,
+                "records": [
+                        {
+                            "type": "address",
+                            "key": "eth",
+                            "label": "Personal",
+                            "value": "0x0000000000000000000000000000000000000000",
+                    }
+            ]
             }
         }),
     );
@@ -185,15 +209,24 @@ fn test_bid_expired_success_four_letters_account() {
             "witness": {
                 "account": ACCOUNT_FOUR_LETTER,
                 "registered_at": TIMESTAMP,
-                "last_transfer_account_at": TIMESTAMP,
-                "last_edit_manager_at": TIMESTAMP,
-                "last_edit_records_at": TIMESTAMP,
+                "last_transfer_account_at": 0,
+                "last_edit_manager_at": 0,
+                "last_edit_records_at": 0,
+                "records": [
+                        {
+                            "type": "address",
+                            "key": "eth",
+                            "label": "Personal",
+                            "value": "0x0000000000000000000000000000000000000000",
+                    }
+            ]
             }
         }),
     );
+
     //note: the basic price is 160,
-    push_output_dpoint_cell_float(&mut template, 255814420, DP_TRANSFER_WHITELIST_1);
-    push_output_dpoint_cell_float(&mut template, 744185580, BIDDER);
+    push_output_dpoint_cell_float(&mut template, 256181852, DP_TRANSFER_WHITELIST_1);
+    push_output_dpoint_cell_float(&mut template, 743818148, BIDDER);
 
     push_output_normal_cell(&mut template, 10 * SHANNON, DP_SVR);
     push_output_normal_cell(&mut template, 90 * SHANNON, DID_SVR);
@@ -205,7 +238,7 @@ fn test_bid_expired_success_four_letters_account() {
 }
 
 fn common_when_auction_have_started(account_expired_at: u64, premium: u64) -> TemplateGenerator {
-    let mut template = init("bid_expired_account_auction");
+    let mut template = init("bid_expired_account_dutch_auction");
 
     let account_expired_at = account_expired_at;
     let registered_at = account_expired_at - SECONDS_ONE_YEAR;
@@ -213,7 +246,7 @@ fn common_when_auction_have_started(account_expired_at: u64, premium: u64) -> Te
     let last_edit_manager_at = registered_at + 124 * SECONDS_ONE_DAY;
     let last_edit_records_at = registered_at + 125 * SECONDS_ONE_DAY;
 
-    let basic_price_five_letters_account = 5818208;
+    let basic_price_five_letters_account = 5814420;
     let outputs_user_dp_amount = 1 * DECIMAL_PRECISION ;
     let outputs_das_dp_amount = premium * DECIMAL_PRECISION + basic_price_five_letters_account;
     let inputs_user_dp_amount = outputs_das_dp_amount + outputs_user_dp_amount ;
@@ -233,6 +266,14 @@ fn common_when_auction_have_started(account_expired_at: u64, premium: u64) -> Te
                 "last_transfer_account_at": last_transfer_account_at,
                 "last_edit_manager_at": last_edit_manager_at,
                 "last_edit_records_at": last_edit_records_at,
+                 "records": [
+                        {
+                            "type": "address",
+                            "key": "eth",
+                            "label": "Personal",
+                            "value": "0x0000000000000000000000000000000000000000",
+                    }
+                    ]
             }
         }),
     );
@@ -265,6 +306,14 @@ fn common_when_auction_have_started(account_expired_at: u64, premium: u64) -> Te
                 "last_transfer_account_at": 0,
                 "last_edit_manager_at": 0,
                 "last_edit_records_at": 0,
+                 "records": [
+                        {
+                            "type": "address",
+                            "key": "eth",
+                            "label": "Personal",
+                            "value": "0x0000000000000000000000000000000000000000",
+                    }
+                    ]
             }
         }),
     );
@@ -309,23 +358,24 @@ fn challenge_bid_expired_failed_when_auction_has_not_started() {
     challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellInExpirationGracePeriod,);
     //test_tx(template.as_json());
 }
-#[test]
-fn test_bid_expired_success_when_auction_started_27_days_00_00() {
-    let account_expired_at = TIMESTAMP - ACCOUNT_EXPIRATION_GRACE_PERIOD - ACCOUNT_EXPIRATION_AUCTION_PERIOD;
-    let template = common_when_auction_have_started(account_expired_at, 0);
-    test_tx(template.as_json());
-}
+// the premium will not decrease to 0 in 27 days
+// #[test]
+// fn test_bid_expired_success_when_auction_started_27_days_00_00() {
+//     let account_expired_at = TIMESTAMP - ACCOUNT_EXPIRATION_GRACE_PERIOD - ACCOUNT_EXPIRATION_AUCTION_PERIOD;
+//     let template = common_when_auction_have_started(account_expired_at, 0);
+//     test_tx(template.as_json());
+// }
 #[test]
 fn challenge_bid_expired_failed_when_auction_started_27_days_00_01() {
     let account_expired_at = TIMESTAMP - ACCOUNT_EXPIRATION_GRACE_PERIOD - ACCOUNT_EXPIRATION_AUCTION_PERIOD - 1;
     let template = common_when_auction_have_started(account_expired_at, 0);
     //test_tx(template.as_json());
-    challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure);
+    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellHasExpired);
 }
 
 #[test]
 fn challenge_bid_failed_account_auction_registered_at() {
-    let mut template = init("bid_expired_account_auction");
+    let mut template = init("bid_expired_account_dutch_auction");
 
     //push inputs
     push_input_account_cell(
@@ -343,6 +393,14 @@ fn challenge_bid_failed_account_auction_registered_at() {
                 "last_transfer_account_at": ACCOUNT_REGISTERED_AT + 123 * SECONDS_ONE_DAY,
                 "last_edit_manager_at": ACCOUNT_REGISTERED_AT + 124 * SECONDS_ONE_DAY,
                 "last_edit_records_at": ACCOUNT_REGISTERED_AT + 125 * SECONDS_ONE_DAY,
+                                 "records": [
+                        {
+                            "type": "address",
+                            "key": "eth",
+                            "label": "Personal",
+                            "value": "0x0000000000000000000000000000000000000000",
+                    }
+                    ]
             }
         }),
     );
@@ -372,14 +430,22 @@ fn challenge_bid_failed_account_auction_registered_at() {
             },
             "witness": {
                 //"registered_at": TIMESTAMP,
-                "last_transfer_account_at": TIMESTAMP,
-                "last_edit_manager_at": TIMESTAMP,
-                "last_edit_records_at": TIMESTAMP,
+                "last_transfer_account_at": 0,
+                "last_edit_manager_at": 0,
+                "last_edit_records_at": 0,
+                                 "records": [
+                        {
+                            "type": "address",
+                            "key": "eth",
+                            "label": "Personal",
+                            "value": "0x0000000000000000000000000000000000000000",
+                    }
+                    ]
             }
         }),
     );
-    push_output_dpoint_cell_float(&mut template, 100818219, DP_TRANSFER_WHITELIST_1);
-    push_output_dpoint_cell_float(&mut template, 899181781, BIDDER);
+    push_output_dpoint_cell_float(&mut template, 101185640, DP_TRANSFER_WHITELIST_1);
+    push_output_dpoint_cell_float(&mut template, 898814360, BIDDER);
 
     push_output_normal_cell(&mut template, 10 * SHANNON, DP_SVR);
     push_output_normal_cell(&mut template, 90 * SHANNON, DID_SVR);

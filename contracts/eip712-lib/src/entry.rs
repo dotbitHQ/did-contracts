@@ -40,7 +40,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
         b"transfer_account" => transfer_account_to_semantic,
         b"edit_manager" => edit_manager_to_semantic,
         b"edit_records" => edit_records_to_semantic,
-        b"bid_expired_account_auction" => bid_expired_account_auction_to_semantic,
+        b"bid_expired_account_dutch_auction" => bid_expired_account_dutch_auction_to_semantic,
         b"start_account_sale" => start_account_sale_to_semantic,
         b"cancel_account_sale" => cancel_account_sale_to_semantic,
         b"buy_account" => buy_account_to_semantic,
@@ -112,7 +112,7 @@ fn edit_records_to_semantic(parser: &WitnessesParser) -> Result<String, Box<dyn 
     Ok(format!("EDIT RECORDS OF ACCOUNT {}", account))
 }
 
-fn bid_expired_account_auction_to_semantic(parser: &WitnessesParser) -> Result<String, Box<dyn ScriptError>> {
+fn bid_expired_account_dutch_auction_to_semantic(parser: &WitnessesParser) -> Result<String, Box<dyn ScriptError>> {
     let type_id_table_reader = parser.configs.main()?.type_id_table();
     let (input_account_cells, _output_account_cells) =
         util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, type_id_table_reader.account_cell())?;

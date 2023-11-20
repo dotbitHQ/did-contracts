@@ -15,7 +15,7 @@ use crate::constants::*;
 use crate::error::*;
 use crate::witness_parser::WitnessesParser;
 use crate::{data_parser, util};
-use crate::util::print_dp;
+use crate::util::{blake2b_256, find_cells_by_script, print_dp};
 
 pub fn verify_unlock_role(action: &[u8], params: &[Bytes]) -> Result<(), Box<dyn ScriptError>> {
     let required_role_opt = util::get_action_required_role(action);
@@ -133,6 +133,8 @@ pub fn verify_account_in_auction(
         debug!("duration_in_auction = {}", duration_in_auction);
         let premium = util::calculate_dutch_auction_premium(duration_in_auction, expiration_auction_start_premium);
         debug!("premium calculated = {}", premium);
+        debug!("basic price = {}", basic_price);
+
         let expected_price = basic_price + premium;
         debug!("The expected price is {} ", print_dp(&expected_price));
         //
@@ -494,6 +496,36 @@ pub fn verify_account_witness_record_empty<'a>(
         );
     }
 
+    Ok(())
+}
+
+pub fn verify_account_no_other_type_cell_use_das_lock_in_inputs(
+    type_id_table: TypeIdTableReader,
+) -> Result<(), Box<dyn ScriptError>> {
+
+
+    let das_lock = das_lock();
+    let input_cells_with_das_lock = find_cells_by_script(ScriptType::Lock, das_lock.as_reader(), Source::Input)?;
+    let account_cell_type_id = type_id_table.account_cell();
+    let dp_cell_type_id = type_id_table.dpoint_cell();
+
+    let account_cell_type_id_hash = blake2b_256(account_cell_type_id.as_slice());
+    let dp_cell_type_id_hash = blake2b_256(dp_cell_type_id.as_slice());
+
+    for i in input_cells_with_das_lock {
+        let cell_type_id = high_level::load_cell_type_hash(i, Source::Input)?;
+        if let Some(cell_type_id) = cell_type_id {
+            if cell_type_id == account_cell_type_id_hash || cell_type_id == dp_cell_type_id_hash {
+                continue;
+            }else {
+                debug!("The input cell type id is not account cell or dp cell.");
+                return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
+            }
+        }else {
+            debug!("The input cell type id is none.");
+            return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
+        }
+    }
     Ok(())
 }
 
