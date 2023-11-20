@@ -1,7 +1,9 @@
 [package]
-name = "test-custom-script"
-version = "1.0.0"
+name = "dpoint-cell-type"
+version = "0.1.0"
 edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
 dev = ["das-core/dev"]
@@ -11,6 +13,8 @@ mainnet = ["das-core/mainnet"]
 
 [dependencies]
 ckb-std = { workspace = true }
-hex = { default-features = false, version = "0.4.2" }
+
+[dev-dependencies]
 das-core = { workspace = true, default-features = false }
-das-types = { workspace = true, default-features = false, features = ["no_std"] }
+das-types = { workspace = true }
+molecule = { workspace = true }

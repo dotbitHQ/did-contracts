@@ -76,6 +76,46 @@ pub fn verify_no_more_cells_with_same_lock(
     Ok(())
 }
 
+pub fn verify_no_more_cells_with_same_lock_except_type(
+    lock: ckb_packed::ScriptReader,
+    cells: &[usize],
+    source: Source,
+    type_id: HashReader,
+) -> Result<(), Box<dyn ScriptError>> {
+    let cells_with_same_lock = find_cells_by_script(ScriptType::Lock, lock, source)?;
+
+    for i in cells_with_same_lock {
+        if !cells.contains(&i) {
+            let type_script = match high_level::load_cell_type(i, source)? {
+                Some(type_script) => type_script,
+                None => {
+                    warn!(
+                        "{:?}[{}] There should be no more cells with the same lock.(lock_script: {})",
+                        source, i, lock
+                    );
+                    return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
+                }
+            };
+
+            let type_script: Hash = type_script.code_hash().into();
+            if util::is_reader_eq(type_script.as_reader(), type_id) {
+                debug!(
+                    "{:?}[{}] The cell used the type script in whitelist, skip it.(type_id: {})",
+                    source, i, type_id
+                );
+            } else {
+                warn!(
+                    "{:?}[{}] There should be no more cells with the same lock.(lock_script: {})",
+                    source, i, lock
+                );
+                return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
+            }
+        }
+    }
+
+    Ok(())
+}
+
 /// CAREFUL The codes below just support das-lock.
 pub fn verify_user_get_change(
     config_main: ConfigCellMainReader,

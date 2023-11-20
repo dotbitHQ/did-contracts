@@ -47,9 +47,6 @@ pub struct SubAction<'a> {
     manual_mint_list_smt_root: &'a Option<[u8; 32]>,
     manual_renew_list_smt_root: &'a Option<[u8; 32]>,
 
-    // custom script fields
-    pub custom_script_params: Vec<String>,
-
     // custom rule fields
     custom_preserved_rules: &'a Option<Vec<ast_types::SubAccountRule>>,
     custom_price_rules: &'a Option<Vec<ast_types::SubAccountRule>>,
@@ -70,7 +67,6 @@ impl<'a> SubAction<'a> {
         parent_expired_at: u64,
         manual_mint_list_smt_root: &'a Option<[u8; 32]>,
         manual_renew_list_smt_root: &'a Option<[u8; 32]>,
-        custom_script_params: Vec<String>,
         custom_preserved_rules: &'a Option<Vec<ast_types::SubAccountRule>>,
         custom_price_rules: &'a Option<Vec<ast_types::SubAccountRule>>,
     ) -> Self {
@@ -93,7 +89,6 @@ impl<'a> SubAction<'a> {
             profit_from_manual_renew_by_other: 0,
             manual_mint_list_smt_root,
             manual_renew_list_smt_root,
-            custom_script_params,
             custom_preserved_rules,
             custom_price_rules,
         }
@@ -246,30 +241,6 @@ impl<'a> SubAction<'a> {
 
         if !is_manual_minted {
             match self.flag {
-                SubAccountConfigFlag::CustomScript => {
-                    debug!(
-                        "  witnesses[{:>2}] Record registered years and pass to custom scripts later ...",
-                        witness.index
-                    );
-
-                    let mut custom_script_param = expiration_years.to_le_bytes().to_vec();
-                    custom_script_param.append(&mut sub_account_reader.account().as_slice().to_vec());
-                    self.custom_script_params.push(util::hex_string(&custom_script_param));
-
-                    // This variable will be treat as the minimal profit to DAS no matter the custom script exist or not.
-                    self.minimal_required_das_profit += calc_basic_profit(
-                        self.config_sub_account.new_sub_account_price(),
-                        self.quote,
-                        expiration_years,
-                    );
-
-                    das_assert!(
-                        matches!(witness.edit_value, SubAccountEditValue::None),
-                        SubAccountCellErrorCode::WitnessEditValueError,
-                        "  witnesses[{:>2}] The edit_value should be none when the account is Custom Script Mint.",
-                        witness.index
-                    );
-                }
                 SubAccountConfigFlag::CustomRule => {
                     debug!(
                         "  witnesses[{:>2}] Execute the custome rules to check if the account is preserved and calculate its price ...",
@@ -445,13 +416,6 @@ impl<'a> SubAction<'a> {
         }
 
         match self.flag {
-            SubAccountConfigFlag::CustomScript => {
-                warn!(
-                    "  witnesses[{:>2}] The sub-accounts with custom script are not supported for now.",
-                    witness.index
-                );
-                return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
-            }
             SubAccountConfigFlag::CustomRule => {
                 if self.custom_rule_flag == SubAccountCustomRuleFlag::Off {
                     warn!(

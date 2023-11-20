@@ -606,6 +606,7 @@ impl SubAccountWitnessesParser {
 
                         SubAccountEditValue::Proof
                     }
+                    // TODO Remove when CustomScript no longer exists
                     b"custom_script" => {
                         das_assert!(
                             flag == SubAccountConfigFlag::CustomScript,
@@ -663,6 +664,7 @@ impl SubAccountWitnessesParser {
                 edit_value = SubAccountEditValue::ExpiredAt(new_expired_at);
 
                 match edit_key {
+                    // TODO Remove when CustomScript no longer exists
                     b"custom_script" => {
                         das_assert!(
                             flag == SubAccountConfigFlag::CustomScript,

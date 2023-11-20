@@ -19,7 +19,9 @@ bs58 = { version = "0.4.0", default-features = false, features = ["alloc"] }
 sha2 = { version = "0.9.6", default-features = false }
 ckb-std = { workspace = true }
 sparse-merkle-tree = { workspace = true }
-das-types = { workspace = true, default-features = false, features = ["no_std"] }
+das-types = { workspace = true, default-features = false, features = [
+    "no_std",
+] }
 simple-ast = { workspace = true, features = [
     "no_std",
 ], default-features = false }
@@ -31,3 +33,6 @@ hex = { workspace = true, default-features = false }
 
 [dev-dependencies]
 hex = { version = "0.4", default-features = false }
+
+[build-dependencies]
+dotenvy = { version = "0.15" }

@@ -10,6 +10,7 @@ mod apply_register_cell_type;
 mod balance_cell_type;
 mod config_cell_type;
 mod device_key_list_cell_type;
+mod dpoint_cell_type;
 mod income_cell_type;
 mod offer_cell_type;
 mod playground;

@@ -9,6 +9,7 @@ use ckb_std::syscalls;
 use das_types::constants::{DataType, WITNESS_HEADER, WITNESS_HEADER_BYTES, WITNESS_LENGTH_BYTES, WITNESS_TYPE_BYTES};
 use das_types::packed::*;
 use das_types::prelude::*;
+use das_types::util as types_util;
 
 use super::super::constants::*;
 use super::super::error::*;
@@ -31,11 +32,6 @@ pub struct WitnessesParser {
 }
 
 impl WitnessesParser {
-    fn is_config_data_type(data_type: &DataType) -> bool {
-        let data_type_in_int = data_type.to_owned() as u32;
-        data_type_in_int >= 100 && data_type_in_int <= 199999
-    }
-
     pub fn new() -> Result<Self, Box<dyn ScriptError>> {
         let mut witnesses = Vec::new();
         let mut config_witnesses = BTreeMap::new();
@@ -101,7 +97,7 @@ impl WitnessesParser {
                             }
 
                             // If there is any ConfigCells in cell_deps, store its index and expected witness hash.
-                            if Self::is_config_data_type(&data_type) {
+                            if types_util::is_config_data_type(&data_type) {
                                 debug!(
                                     "witnesses[{:>2}] Presume that the type of the witness is {:?} .",
                                     i, data_type
@@ -344,6 +340,7 @@ impl WitnessesParser {
             x if util::is_reader_eq(x, type_id_table_reader.reverse_record_root_cell()) => {
                 Some(TypeScript::ReverseRecordRootCellType)
             }
+            x if util::is_reader_eq(x, type_id_table_reader.dpoint_cell()) => Some(TypeScript::DPointCellType),
             x if util::is_reader_eq(x, self.config_cell_type_id.as_reader()) => Some(TypeScript::ConfigCellType),
             _ => None,
         }
@@ -356,7 +353,7 @@ impl WitnessesParser {
         for (_i, witness) in self.witnesses.iter().enumerate() {
             let (index, data_type) = witness.to_owned();
             // Skip ActionData witness and ConfigCells' witnesses.
-            if data_type == DataType::ActionData || Self::is_config_data_type(&data_type) {
+            if data_type == DataType::ActionData || types_util::is_config_data_type(&data_type) {
                 continue;
             }
 
