@@ -8,10 +8,13 @@ use ckb_std::ckb_types::prelude::*;
 use ckb_std::error::SysError;
 use ckb_std::high_level;
 use das_core::constants::*;
-use das_core::error::*;
-use das_core::witness_parser::WitnessesParser;
-use das_core::{assert as das_assert, code_to_error, das_assert_custom, data_parser, debug, sign_util, util, verifiers, warn};
 use das_core::error::ErrorCode::InvalidTransactionStructure;
+use das_core::error::*;
+use das_core::util::print_dp;
+use das_core::witness_parser::WitnessesParser;
+use das_core::{
+    assert as das_assert, code_to_error, das_assert_custom, data_parser, debug, sign_util, util, verifiers, warn,
+};
 use das_dynamic_libs::constants::DynLibName;
 use das_dynamic_libs::sign_lib::SignLib;
 use das_dynamic_libs::{load_1_method, load_2_methods, load_3_methods, load_lib, log_loading, new_context};
@@ -20,7 +23,7 @@ use das_map::util as map_util;
 use das_types::constants::*;
 use das_types::mixer::*;
 use das_types::packed::*;
-use das_core::util::{print_dp};
+
 use crate::approval;
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
@@ -147,7 +150,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let output_cell_witness =
                 util::parse_account_cell_witness(&parser, output_account_cells[0], Source::Output)?;
             let output_cell_witness_reader = output_cell_witness.as_reader();
-
 
             verifiers::account_cell::verify_account_capacity_not_decrease(
                 input_account_cells[0],
@@ -623,7 +625,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 timestamp,
             );
             if let Err(err) = ret {
-                //todo
+
                 das_assert!(
                     err.as_i8() == AccountCellErrorCode::AccountCellInExpirationAuctionPeriod as i8
                         || err.as_i8() == AccountCellErrorCode::AccountCellInExpirationAuctionConfirmationPeriod as i8
@@ -1198,7 +1200,9 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             )?;
 
             //There can only be account cell and dp cell in inputs
-            verifiers::account_cell::verify_account_no_other_type_cell_use_das_lock_in_inputs(config_main.type_id_table())?;
+            verifiers::account_cell::verify_account_no_other_type_cell_use_das_lock_in_inputs(
+                config_main.type_id_table(),
+            )?;
 
             //get account witness parser
             let input_cell_witness = util::parse_account_cell_witness(&parser, input_account_cells[0], Source::Input)?;
@@ -1225,16 +1229,21 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 output_account_cells[0],
                 &input_cell_witness_reader,
                 &output_cell_witness_reader,
-                vec!["registered_at",
-                     "last_transfer_account_at", "last_edit_manager_at", "last_edit_records_at",
-                     "records"],
+                vec![
+                    "registered_at",
+                    "last_transfer_account_at",
+                    "last_edit_manager_at",
+                    "last_edit_records_at",
+                    "records",
+                ],
             )?;
 
             let records_len = output_cell_witness_reader.records().len();
             das_assert!(
                 records_len == 1,
-                  ErrorCode::InvalidTransactionStructure,
-                "The records field in output AccountCell should only one, but {}.", records_len
+                ErrorCode::InvalidTransactionStructure,
+                "The records field in output AccountCell should only one, but {}.",
+                records_len
             );
 
             // Verify if the input account cell status is Normal
@@ -1260,15 +1269,21 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 "input_expired_at: {}, output_expired_at: {}, output_registered_at: {}",
                 input_expired_at, output_expired_at, output_registered_at
             );
-            debug!("output_last_transfer_account_at: {}, output_last_edit_manager_at: {}, output_last_edit_records_at: {}",
-                   output_last_transfer_account_at, output_last_edit_manager_at, output_last_edit_records_at);
+            debug!(
+                "output_last_transfer_account_at: {}, output_last_edit_manager_at: {}, output_last_edit_records_at: {}",
+                output_last_transfer_account_at, output_last_edit_manager_at, output_last_edit_records_at
+            );
 
             //register_at should be the same as timestamp
             das_assert_custom!(
-                output_registered_at == timestamp, "The register_at field in output AccountCell should be changed to current time.",
-                output_last_transfer_account_at == 0, "The last_transfer_account_at in the output AccountCell should be set to 0.",
-                output_last_edit_manager_at == 0, "The last_edit_manager_at in the output AccountCell should be set to 0.",
-                output_last_edit_records_at == 0, "The last_edit_records_at in the output AccountCell should be set to 0."
+                output_registered_at == timestamp,
+                "The register_at field in output AccountCell should be changed to current time.",
+                output_last_transfer_account_at == 0,
+                "The last_transfer_account_at in the output AccountCell should be set to 0.",
+                output_last_edit_manager_at == 0,
+                "The last_edit_manager_at in the output AccountCell should be set to 0.",
+                output_last_edit_records_at == 0,
+                "The last_edit_records_at in the output AccountCell should be set to 0."
             );
 
             //expired_at should be timestamp + 1year
@@ -1351,9 +1366,12 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             };
             //Get the price paid by the user during the auction.
             let type_id_table_reader = config_main.type_id_table();
-            let (input_dp_cells, output_dp_cells) =
-                util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, type_id_table_reader.dpoint_cell())?;
-            let bid_price = util::get_spent_dpoint_by_lock(receiver_lock.as_reader(), &input_dp_cells, &output_dp_cells)?;
+            let (input_dp_cells, output_dp_cells) = util::find_cells_by_type_id_in_inputs_and_outputs(
+                ScriptType::Type,
+                type_id_table_reader.dpoint_cell(),
+            )?;
+            let bid_price =
+                util::get_spent_dpoint_by_lock(receiver_lock.as_reader(), &input_dp_cells, &output_dp_cells)?;
 
             debug!("The amount spent by the user is {} USD.", bid_price);
 
