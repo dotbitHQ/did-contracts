@@ -18,6 +18,17 @@ pub fn is_reader_eq<'a, T: Reader<'a>>(a: T, b: T) -> bool {
     a.as_slice() == b.as_slice()
 }
 
+pub fn is_sub_account_data_type(data_type: &DataType) -> bool {
+    [
+        DataType::SubAccount,
+        DataType::SubAccountRenewSign,
+        DataType::SubAccountPriceRule,
+        DataType::SubAccountPreservedRule,
+        DataType::DeviceKeyListCellData,
+        DataType::SubAccountMintSign,
+    ].contains(data_type)
+}
+
 pub fn is_config_data_type(data_type: &DataType) -> bool {
     let data_type_in_int = data_type.to_owned() as u32;
     data_type_in_int >= 100 && data_type_in_int <= 199999

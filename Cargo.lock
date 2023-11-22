@@ -686,6 +686,7 @@ dependencies = [
  "dotenvy",
  "eip712",
  "hex",
+ "libm",
  "molecule",
  "paste",
  "sha2 0.9.9",
