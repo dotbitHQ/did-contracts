@@ -14,6 +14,7 @@ pub const DAS_PROFIT: u64 = 10_000_000_000;
 pub const OWNER_PROFIT: u64 = 10_000_000_000;
 
 pub const EXPIERD_ACCOUNT_TIME_STAMP: u64 =  TIMESTAMP - ACCOUNT_EXPIRATION_GRACE_PERIOD - ACCOUNT_EXPIRATION_AUCTION_PERIOD - ACCOUNT_EXPIRATION_DELIVER_PERIOD - 1;
+
 fn push_prev_account_cell(template: &mut TemplateGenerator) {
     push_input_account_cell(
         template,

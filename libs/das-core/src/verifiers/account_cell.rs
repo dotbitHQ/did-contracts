@@ -103,22 +103,10 @@ pub fn verify_account_in_auction(
     let expiration_auction_period = u32::from(config.expiration_auction_period()) as u64;
     let expiration_auction_start_premium = u32::from(config.expiration_auction_start_premiums()) as u64;
 
-    debug!("expired_at = {} ", expired_at);
-    debug!("expiration_grace_period = {} ", expiration_grace_period);
-    debug!("expiration_auction_period = {} ", expiration_auction_period);
-    debug!(
-        "expiration_auction_start_premium = {} ",
-        expiration_auction_start_premium
-    );
-
     if current_timestamp > expired_at {
         let duration_after_expired = current_timestamp - expired_at;
         let auction_start_time = expiration_grace_period;
         let auction_end_time = auction_start_time + expiration_auction_period;
-
-        debug!("duration_after_expired = {} ", duration_after_expired);
-        debug!("auction_start_time = {} ", auction_start_time);
-        debug!("auction_end_time = {} ", auction_end_time);
 
         if duration_after_expired > auction_end_time {
             warn!("The expired account auction has ended. Will be recycled soon.");
@@ -130,14 +118,12 @@ pub fn verify_account_in_auction(
 
         //Check whether the bidding price is less than the expected price
         let duration_in_auction = duration_after_expired - auction_start_time;
-        debug!("duration_in_auction = {}", duration_in_auction);
         let premium = util::calculate_dutch_auction_premium(duration_in_auction, expiration_auction_start_premium);
-        debug!("premium calculated = {}", premium);
-        debug!("basic price = {}", basic_price);
 
         let expected_price = basic_price + premium;
-        debug!("The expected price is {} ", print_dp(&expected_price));
-        //
+
+        debug!("The expected price is {} .", print_dp(&expected_price));
+
         if bid_price < expected_price {
             warn!(
                 "The bid is too low and the auction fails. The expected price is {} the actual price is {}.",
@@ -146,7 +132,6 @@ pub fn verify_account_in_auction(
             return Err(code_to_error!(AccountCellErrorCode::AccountCellBidPriceTooLow));
         }
     } else {
-        debug!("current_timestamp: {}, expired_at: {}", current_timestamp, expired_at);
         warn!("The AccountCell has not been expired.");
         return Err(code_to_error!(AccountCellErrorCode::AccountCellIsNotExpired));
     }
@@ -518,11 +503,11 @@ pub fn verify_account_no_other_type_cell_use_das_lock_in_inputs(
             if cell_type_id == account_cell_type_id_hash || cell_type_id == dp_cell_type_id_hash {
                 continue;
             }else {
-                debug!("The input cell type id is not account cell or dp cell.");
+                warn!("The input cell type id is not account cell or dp cell.");
                 return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
             }
         }else {
-            debug!("The input cell type id is none.");
+            warn!("The input cell type id is none.");
             return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
         }
     }
