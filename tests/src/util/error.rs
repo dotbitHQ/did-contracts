@@ -365,8 +365,6 @@ impl Into<i8> for ReverseRecordRootCellErrorCode {
     }
 }
 
-
-
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[repr(i8)]
 pub enum DPointCellErrorCode {

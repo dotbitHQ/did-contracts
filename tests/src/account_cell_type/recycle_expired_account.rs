@@ -13,6 +13,8 @@ use crate::util::{self};
 pub const DAS_PROFIT: u64 = 10_000_000_000;
 pub const OWNER_PROFIT: u64 = 10_000_000_000;
 
+pub const EXPIERD_ACCOUNT_TIME_STAMP: u64 =  TIMESTAMP - ACCOUNT_EXPIRATION_GRACE_PERIOD - ACCOUNT_EXPIRATION_AUCTION_PERIOD - ACCOUNT_EXPIRATION_DELIVER_PERIOD - 1;
+
 fn push_prev_account_cell(template: &mut TemplateGenerator) {
     push_input_account_cell(
         template,
@@ -35,7 +37,7 @@ fn push_expired_account_cell(template: &mut TemplateGenerator) {
             "data": {
                 "account": "das00002.bit",
                 "next": "das00003.bit",
-                "expired_at": TIMESTAMP - ACCOUNT_EXPIRATION_GRACE_PERIOD - ACCOUNT_EXPIRATION_AUCTION_PERIOD - ACCOUNT_EXPIRATION_AUCTION_CONFIRMATION_PERIOD - 1,
+                "expired_at": EXPIERD_ACCOUNT_TIME_STAMP,
             },
             "witness": {
                 "account": "das00002.bit",
@@ -85,7 +87,7 @@ fn test_account_recycle_without_sub_account() {
             "data": {
                 "account": "das00002.bit",
                 "next": "das00003.bit",
-                "expired_at": TIMESTAMP - ACCOUNT_EXPIRATION_GRACE_PERIOD - ACCOUNT_EXPIRATION_AUCTION_PERIOD - ACCOUNT_EXPIRATION_AUCTION_CONFIRMATION_PERIOD - 1,
+                "expired_at": EXPIERD_ACCOUNT_TIME_STAMP,
             },
             "witness": {
                 "enable_sub_account": 0,
@@ -125,7 +127,7 @@ fn test_account_recycle_without_sub_account_from_black_hole() {
             "data": {
                 "account": "das00002.bit",
                 "next": "das00003.bit",
-                "expired_at": TIMESTAMP - ACCOUNT_EXPIRATION_GRACE_PERIOD - ACCOUNT_EXPIRATION_AUCTION_PERIOD - ACCOUNT_EXPIRATION_AUCTION_CONFIRMATION_PERIOD - 1,
+                "expired_at": EXPIERD_ACCOUNT_TIME_STAMP,
             },
             "witness": {
                 "enable_sub_account": 0,
@@ -387,7 +389,7 @@ fn challenge_account_recycle_status_locked() {
             "data": {
                 "account": "das00002.bit",
                 "next": "das00003.bit",
-                "expired_at": TIMESTAMP - DAY_SEC * 90,
+                "expired_at": EXPIERD_ACCOUNT_TIME_STAMP,
             },
             "witness": {
                 // Simulate the AccountCell is in some status which can not be recycled directly.
@@ -435,7 +437,8 @@ fn challenge_account_recycle_with_wrong_prev_account() {
             "data": {
                 "account": "das00002.bit",
                 "next": "das00003.bit",
-                "expired_at": TIMESTAMP - DAY_SEC * 90,
+                "expired_at": EXPIERD_ACCOUNT_TIME_STAMP,
+                //"expired_at": TIMESTAMP - DAY_SEC * 90,
             },
         }),
     );

@@ -56,7 +56,7 @@ pub fn verify_eip712_hashes(
                 1
             }
             //get account cell lock args
-        },
+        }
         _ => 0,
     };
     let mut input_groups_idxs: BTreeMap<Vec<u8>, Vec<usize>> = BTreeMap::new();

@@ -1,28 +1,18 @@
-// use ckb_types::prelude::Reader;
-// use serde_json::json;
-//use super::common::*;
-// use crate::util::accounts::*;
-//use crate::util::constants::*;
-// use crate::util::error::*;
-// use crate::util::template_common_cell::*;
-//use crate::util::template_generator::*;
-//use crate::util::template_parser::*;
-
+use das_types::constants::{DataType, Source};
 use serde_json::json;
-use das_types::constants::{AccountStatus, DataType, Source};
-use crate::util;
 
-use crate::util::constants::{ACCOUNT_EXPIRATION_AUCTION_PERIOD, ACCOUNT_EXPIRATION_GRACE_PERIOD, HEIGHT, OracleCellType, TIMESTAMP};
-use crate::util::template_common_cell::{push_input_account_cell, push_input_dpoint_cell, push_input_dpoint_cell_float, push_input_normal_cell, push_output_account_cell, push_output_balance_cell, push_output_dpoint_cell, push_output_dpoint_cell_float, push_output_normal_cell};
-use crate::util::accounts::{SENDER, RECEIVER, DP_TRANSFER_WHITELIST_1, CHANNEL};
-use crate::util::error::{AccountCellErrorCode, ErrorCode, DPointCellErrorCode};
-//BIDDER, DID_SVR, SECONDS_ONE_DAY, SECONDS_ONE_YEAR, DURATION_AFTER_EXPIRED, ACCOUNT_EXPIRED_AT, ACCOUNT_REGISTERED_AT, DP_SVR};
-use crate::util::template_generator::{
-    TemplateGenerator,
-    ContractType,
+use crate::util;
+use crate::util::accounts::{DP_TRANSFER_WHITELIST_1, SENDER};
+use crate::util::constants::{
+    OracleCellType, ACCOUNT_EXPIRATION_AUCTION_PERIOD, ACCOUNT_EXPIRATION_GRACE_PERIOD, TIMESTAMP,
 };
+use crate::util::error::{AccountCellErrorCode, DPointCellErrorCode, ErrorCode};
+use crate::util::template_common_cell::{
+    push_input_account_cell, push_input_dpoint_cell_float, push_input_normal_cell, push_output_account_cell,
+    push_output_balance_cell, push_output_dpoint_cell_float, push_output_normal_cell,
+};
+use crate::util::template_generator::{ContractType, TemplateGenerator};
 use crate::util::template_parser::{challenge_tx, test_tx};
-use crate::util::template_generator::{gen_das_lock_args};
 const ACCOUNT_FOUR_LETTER: &str = "1234.bit";
 const ACCOUNT_FIVE_LETTER: &str = "12345.bit";
 const SECONDS_ONE_DAY: u64 = 24 * 3600;
@@ -63,7 +53,6 @@ fn init(action: &str) -> TemplateGenerator {
     template
 }
 
-
 #[test]
 fn test_bid_expired_account_auction_success_normal() {
     let mut template = init("bid_expired_account_dutch_auction");
@@ -71,7 +60,7 @@ fn test_bid_expired_account_auction_success_normal() {
     //push inputs
     push_input_account_cell(
         &mut template,
-json!({
+        json!({
             "lock": {
                 "owner_lock_args": SENDER,
                 "manager_lock_args": SENDER,
@@ -95,18 +84,8 @@ json!({
             }
         }),
     );
-    push_input_dpoint_cell_float(
-        &mut template,
-        1000 * DECIMAL_PRECISION,
-        BIDDER,
-
-    );
-    push_input_normal_cell(
-        &mut template,
-        100 * SHANNON,
-        DID_SVR,
-
-    );
+    push_input_dpoint_cell_float(&mut template, 1000 * DECIMAL_PRECISION, BIDDER);
+    push_input_normal_cell(&mut template, 100 * SHANNON, DID_SVR);
 
     //push outputs
     push_output_account_cell(
@@ -139,7 +118,6 @@ json!({
 
     push_output_normal_cell(&mut template, 10 * SHANNON, DP_SVR);
     push_output_normal_cell(&mut template, 90 * SHANNON, DID_SVR);
-
 
     push_output_balance_cell(&mut template, util::gen_account_cell_capacity(5), SENDER);
 
@@ -181,18 +159,8 @@ fn test_bid_expired_success_four_letters_account() {
             }
         }),
     );
-    push_input_dpoint_cell_float(
-        &mut template,
-        1000 * DECIMAL_PRECISION,
-        BIDDER,
-
-    );
-    push_input_normal_cell(
-        &mut template,
-        100 * SHANNON,
-        DID_SVR,
-
-    );
+    push_input_dpoint_cell_float(&mut template, 1000 * DECIMAL_PRECISION, BIDDER);
+    push_input_normal_cell(&mut template, 100 * SHANNON, DID_SVR);
 
     //push outputs
     push_output_account_cell(
@@ -231,7 +199,6 @@ fn test_bid_expired_success_four_letters_account() {
     push_output_normal_cell(&mut template, 10 * SHANNON, DP_SVR);
     push_output_normal_cell(&mut template, 90 * SHANNON, DID_SVR);
 
-
     push_output_balance_cell(&mut template, util::gen_account_cell_capacity(4), SENDER);
 
     test_tx(template.as_json());
@@ -247,9 +214,9 @@ fn common_when_auction_have_started(account_expired_at: u64, premium: u64) -> Te
     let last_edit_records_at = registered_at + 125 * SECONDS_ONE_DAY;
 
     let basic_price_five_letters_account = 5814420;
-    let outputs_user_dp_amount = 1 * DECIMAL_PRECISION ;
+    let outputs_user_dp_amount = 1 * DECIMAL_PRECISION;
     let outputs_das_dp_amount = premium * DECIMAL_PRECISION + basic_price_five_letters_account;
-    let inputs_user_dp_amount = outputs_das_dp_amount + outputs_user_dp_amount ;
+    let inputs_user_dp_amount = outputs_das_dp_amount + outputs_user_dp_amount;
     //push inputs
     push_input_account_cell(
         &mut template,
@@ -277,18 +244,8 @@ fn common_when_auction_have_started(account_expired_at: u64, premium: u64) -> Te
             }
         }),
     );
-    push_input_dpoint_cell_float(
-        &mut template,
-        inputs_user_dp_amount,
-        BIDDER,
-
-    );
-    push_input_normal_cell(
-        &mut template,
-        100 * SHANNON,
-        DID_SVR,
-
-    );
+    push_input_dpoint_cell_float(&mut template, inputs_user_dp_amount, BIDDER);
+    push_input_normal_cell(&mut template, 100 * SHANNON, DID_SVR);
 
     //push outputs
     push_output_account_cell(
@@ -317,30 +274,26 @@ fn common_when_auction_have_started(account_expired_at: u64, premium: u64) -> Te
             }
         }),
     );
-    let basic_price = 5818208;
     push_output_dpoint_cell_float(&mut template, outputs_das_dp_amount, DP_TRANSFER_WHITELIST_1);
     push_output_dpoint_cell_float(&mut template, outputs_user_dp_amount, BIDDER);
 
     push_output_normal_cell(&mut template, 10 * SHANNON, DP_SVR);
     push_output_normal_cell(&mut template, 90 * SHANNON, DID_SVR);
 
-
     push_output_balance_cell(&mut template, util::gen_account_cell_capacity(5), SENDER);
 
     template
-
 }
 
 /*
 
-    auction_start_timestamp = expired_at + grace_period;
-    auction_end_timestamp = expired_at + grace_period + auction_period;
-    auction during [auction_start_timestamp, auction_end_timestamp]
+   auction_start_timestamp = expired_at + grace_period;
+   auction_end_timestamp = expired_at + grace_period + auction_period;
+   auction during [auction_start_timestamp, auction_end_timestamp]
 
- */
+*/
 #[test]
 fn test_bid_expired_success_when_auction_started_00_00() {
-
     let account_expired_at = TIMESTAMP - ACCOUNT_EXPIRATION_GRACE_PERIOD;
     let template = common_when_auction_have_started(account_expired_at, 100000000);
 
@@ -351,11 +304,13 @@ fn test_bid_expired_success_when_auction_started_00_00() {
 
 #[test]
 fn challenge_bid_expired_failed_when_auction_has_not_started() {
-
     let account_expired_at = TIMESTAMP - ACCOUNT_EXPIRATION_GRACE_PERIOD + 1;
     let template = common_when_auction_have_started(account_expired_at, 0);
 
-    challenge_tx(template.as_json(), AccountCellErrorCode::AccountCellInExpirationGracePeriod,);
+    challenge_tx(
+        template.as_json(),
+        AccountCellErrorCode::AccountCellInExpirationGracePeriod,
+    );
     //test_tx(template.as_json());
 }
 // the premium will not decrease to 0 in 27 days
@@ -404,18 +359,8 @@ fn challenge_bid_failed_account_auction_registered_at() {
             }
         }),
     );
-    push_input_dpoint_cell_float(
-        &mut template,
-        1000 * DECIMAL_PRECISION,
-        BIDDER,
-
-    );
-    push_input_normal_cell(
-        &mut template,
-        100 * SHANNON,
-        DID_SVR,
-
-    );
+    push_input_dpoint_cell_float(&mut template, 1000 * DECIMAL_PRECISION, BIDDER);
+    push_input_normal_cell(&mut template, 100 * SHANNON, DID_SVR);
 
     //push outputs
     push_output_account_cell(
@@ -449,7 +394,6 @@ fn challenge_bid_failed_account_auction_registered_at() {
 
     push_output_normal_cell(&mut template, 10 * SHANNON, DP_SVR);
     push_output_normal_cell(&mut template, 90 * SHANNON, DID_SVR);
-
 
     push_output_balance_cell(&mut template, util::gen_account_cell_capacity(5), SENDER);
     challenge_tx(template.as_json(), ErrorCode::InvalidTransactionStructure);

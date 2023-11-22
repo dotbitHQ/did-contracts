@@ -1166,7 +1166,11 @@ pub fn get_total_dpoint(indexes: &[usize], source: Source) -> Result<u64, Box<dy
     Ok(total)
 }
 
-pub fn get_total_dpoint_by_lock(lock: ScriptReader, indexes: &[usize], source: Source) -> Result<u64, Box<dyn ScriptError>> {
+pub fn get_total_dpoint_by_lock(
+    lock: ScriptReader,
+    indexes: &[usize],
+    source: Source,
+) -> Result<u64, Box<dyn ScriptError>> {
     let mut total = 0;
     let lock_hash = blake2b_256(lock.as_slice());
     for i in indexes.iter() {
@@ -1189,7 +1193,11 @@ pub fn get_total_dpoint_by_lock(lock: ScriptReader, indexes: &[usize], source: S
     Ok(total)
 }
 
-pub fn get_spent_dpoint_by_lock(lock_reader: ScriptReader, inputs_indexes: &[usize], outputs_indexes: &[usize] ) -> Result<u64, Box<dyn ScriptError>> {
+pub fn get_spent_dpoint_by_lock(
+    lock_reader: ScriptReader,
+    inputs_indexes: &[usize],
+    outputs_indexes: &[usize],
+) -> Result<u64, Box<dyn ScriptError>> {
     // debug!("get_spent_dpoint_by_lock");
     // debug!("inputs_indexes = {:?}", inputs_indexes);
     // debug!("outputs_indexes = {:?}", outputs_indexes);
@@ -1255,18 +1263,68 @@ pub fn get_spent_dpoint_by_lock(lock_reader: ScriptReader, inputs_indexes: &[usi
 //     return premium_new.as_u64();
 // }
 
-const TABLE_ALLOWED_PRECISION: [u64;6] = [10_000_000, 1_000_000, 500_000, 50_000, 10_000, 1_000];
-const TABLE_LOWEST_PRICE: [u64;60] = [
-    70710678118655, 50000000000000, 35355339059327, 25000000000000, 17677669529664, 12500000000000,
-    8838834764832, 6250000000000, 4419417382416, 3125000000000, 2209708691208, 1562500000000,
-    1104854345604, 781250000000, 552427172802, 390625000000, 276213586401, 195312500000,
-    138106793200, 97656250000, 69053396600, 48828125000, 34526698300, 24414062500,
-    17263349150, 12207031250, 8631674575, 6103515625, 4315837288, 3051757812,
-    2157918644, 1525878906, 1078959322, 762939453, 539479661, 381469727,
-    269739830, 190734863, 134869915, 95367432, 67434958, 47683716,
-    33717479, 23841858, 16858739, 11920929, 8429370, 5960464,
-    4214685, 2980232, 2107342, 1490116, 1053671, 745058,
-    526836, 372529, 263418, 186265, 131709, 93132,
+const TABLE_ALLOWED_PRECISION: [u64; 6] = [10_000_000, 1_000_000, 500_000, 50_000, 10_000, 1_000];
+const TABLE_LOWEST_PRICE: [u64; 60] = [
+    70710678118655,
+    50000000000000,
+    35355339059327,
+    25000000000000,
+    17677669529664,
+    12500000000000,
+    8838834764832,
+    6250000000000,
+    4419417382416,
+    3125000000000,
+    2209708691208,
+    1562500000000,
+    1104854345604,
+    781250000000,
+    552427172802,
+    390625000000,
+    276213586401,
+    195312500000,
+    138106793200,
+    97656250000,
+    69053396600,
+    48828125000,
+    34526698300,
+    24414062500,
+    17263349150,
+    12207031250,
+    8631674575,
+    6103515625,
+    4315837288,
+    3051757812,
+    2157918644,
+    1525878906,
+    1078959322,
+    762939453,
+    539479661,
+    381469727,
+    269739830,
+    190734863,
+    134869915,
+    95367432,
+    67434958,
+    47683716,
+    33717479,
+    23841858,
+    16858739,
+    11920929,
+    8429370,
+    5960464,
+    4214685,
+    2980232,
+    2107342,
+    1490116,
+    1053671,
+    745058,
+    526836,
+    372529,
+    263418,
+    186265,
+    131709,
+    93132,
 ];
 const HALF_ONE_DAY: u64 = 43200;
 const FIVE_DAYS: u64 = 432000;
@@ -1286,11 +1344,7 @@ pub fn calculate_dutch_auction_premium(auction_started_time: u64, start_premium:
     //ensure that the price is not lower than the lowest price in the table,
     let idx_lowest_price = (auction_started_time / HALF_ONE_DAY) as usize;
     let lowest_price = TABLE_LOWEST_PRICE[idx_lowest_price];
-    let ret = if ret < lowest_price {
-        lowest_price
-    } else {
-        ret
-    };
+    let ret = if ret < lowest_price { lowest_price } else { ret };
 
     let idx_allowed_precision = (auction_started_time / FIVE_DAYS) as usize;
     let allowed_precision = TABLE_ALLOWED_PRECISION[idx_allowed_precision];
@@ -1298,7 +1352,7 @@ pub fn calculate_dutch_auction_premium(auction_started_time: u64, start_premium:
 
     ret
 }
-pub fn print_dp(dp: &u64) -> String{
+pub fn print_dp(dp: &u64) -> String {
     let integer = dp / 1000000;
     let fraction = dp % 1000000;
     format!("{}.{}", integer, fraction)
