@@ -15,7 +15,7 @@ mod create_device_key_list;
 mod destroy_device_key_list;
 mod entry;
 mod helpers;
-// mod traits;
+mod traits;
 mod update_device_key_list;
 
 use ckb_std::default_alloc;
