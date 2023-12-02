@@ -2,7 +2,7 @@
 name = "das-types"
 version = "1.11.0"
 authors = ["Link <link@blockabc.com>"]
-edition = "2018"
+edition = "2021"
 license = "MIT"
 
 [lib]
