@@ -586,5 +586,9 @@ fn burn_dp_to_semantic(parser: &WitnessesParser) -> Result<String, Box<dyn Scrip
 
     let burn_dp = if input_dp > output_dp { input_dp - output_dp } else { 0 };
 
-    Ok(format!("BURN {} FROM {}", to_semantic_currency(burn_dp, "DP"), burn_address))
+    Ok(format!(
+        "BURN {} FROM {}",
+        to_semantic_currency(burn_dp, "DP"),
+        burn_address
+    ))
 }

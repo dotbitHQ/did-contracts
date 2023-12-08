@@ -4,7 +4,6 @@ use alloc::collections::btree_map::BTreeMap;
 use alloc::format;
 #[cfg(feature = "no_std")]
 use alloc::string::String;
-use das_types::prettier::Prettier;
 #[cfg(feature = "no_std")]
 use core::cell::OnceCell;
 #[cfg(feature = "std")]

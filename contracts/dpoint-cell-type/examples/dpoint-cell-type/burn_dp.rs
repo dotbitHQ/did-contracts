@@ -149,7 +149,9 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
                 let ret = high_level::load_cell_lock_hash(i, Source::Input);
                 match ret {
                     Ok(lock_hash) => {
-                        if transfer_whitelist_hashes.contains(&lock_hash) || recycle_whitelist_hashes.contains(&lock_hash) {
+                        if transfer_whitelist_hashes.contains(&lock_hash)
+                            || recycle_whitelist_hashes.contains(&lock_hash)
+                        {
                             has_whitelist_lock = true;
                             break;
                         }

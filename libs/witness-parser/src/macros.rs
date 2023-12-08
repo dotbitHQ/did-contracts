@@ -5,12 +5,6 @@ macro_rules! debug {
     };
 }
 
-macro_rules! warn {
-    ($($arg:tt)*) => {
-        ckb_std::syscalls::debug(alloc::format!($($arg)*));
-    };
-}
-
 macro_rules! err_assert {
     ($condition:expr, $error_code:expr) => {
         if !$condition {

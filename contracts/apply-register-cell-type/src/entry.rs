@@ -10,8 +10,7 @@ use das_core::error::*;
 use das_core::since_util::SinceFlag;
 use das_core::witness_parser::WitnessesParser;
 use das_core::{assert, code_to_error, debug, since_util, util, verifiers};
-use das_types::constants::{Action, self};
-use witness_parser::traits::WitnessQueryable;
+use das_types::constants::Action;
 use witness_parser::WitnessesParserV1;
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {

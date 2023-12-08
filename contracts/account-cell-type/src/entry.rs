@@ -621,7 +621,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 timestamp,
             );
             if let Err(err) = ret {
-
                 das_assert!(
                     err.as_i8() == AccountCellErrorCode::AccountCellInExpirationAuctionPeriod as i8
                         || err.as_i8() == AccountCellErrorCode::AccountCellInExpirationAuctionConfirmationPeriod as i8

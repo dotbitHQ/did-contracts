@@ -8,7 +8,7 @@ use das_core::constants::{TypeScript, DPOINT_MAX_LIMIT};
 use das_core::contract::defult_structs::{Action, Rule};
 use das_core::error::ScriptError;
 use das_core::witness_parser::WitnessesParser;
-use das_core::{code_to_error, das_assert, data_parser, util as core_util, verifiers, debug};
+use das_core::{code_to_error, das_assert, data_parser, debug, util as core_util, verifiers};
 use das_types::packed::*;
 use dpoint_cell_type::error::ErrorCode;
 
@@ -43,8 +43,14 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
         .iter()
         .map(|lock| core_util::blake2b_256(lock.as_slice()))
         .collect::<Vec<_>>();
-    let transfer_type = if grouped_input_cells.iter().any(|(key, _)| transfer_whitelist_hashes.contains(key)) {
-        if grouped_output_cells.iter().all(|(key, _)| transfer_whitelist_hashes.contains(key)) {
+    let transfer_type = if grouped_input_cells
+        .iter()
+        .any(|(key, _)| transfer_whitelist_hashes.contains(key))
+    {
+        if grouped_output_cells
+            .iter()
+            .all(|(key, _)| transfer_whitelist_hashes.contains(key))
+        {
             debug!("This transfer is treat as server to server in whitelist type.");
             TransferType::WhitelistToWhitelist
         } else {
