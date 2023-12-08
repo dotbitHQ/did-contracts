@@ -1,25 +1,32 @@
 [package]
 name = "das-types"
 version = "1.11.0"
-authors = ["Link <link@blockabc.com>"]
 edition = "2021"
-license = "MIT"
 
 [lib]
 path = "rust/src/lib.rs"
 
 [features]
-default = [ "dep:serde", "ckb-types" ]
-no_std = []
+default = [ "dep:serde", "ckb-types", "blake2b-rs" ]
+no_std = [
+    "ckb-std",
+    "blake2b-ref",
+]
 
 [dependencies]
-ckb-std = { workspace = true }
+# ckb crates
+ckb-std = { workspace = true, optional = true }
 ckb-types = { workspace = true, optional = true }
+# third-party crates
+blake2b-rs = { version = "0.2", optional = true }
+blake2b-ref = { version = "0.3", optional = true }
 # CAREFUL! This version should be the same as which in ckb-standalone-types, otherwise will occur many type error in current codes.
 molecule = { version = "0.7", default-features = false }
 strum = { version = "0.24", features = ["derive"], default-features = false }
 num_enum = { version = "0.6.1", default-features = false }
 serde = { version = "1.0", features = ["derive"], optional = true }
+hex = { workspace = true }
+dotenvy_macro = { workspace = true }
 
-[dev-dependencies]
-hex = "0.4"
+[build-dependencies]
+dotenvy = { workspace = true }

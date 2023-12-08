@@ -91,7 +91,6 @@ impl DeviceKeyListCell {
             Source::Input => Data::new_builder().old(data_entity_opt).build(),
             Source::Output => Data::new_builder().new(data_entity_opt).build(),
             Source::CellDep => Data::new_builder().dep(data_entity_opt).build(),
-            _ => unreachable!(),
         };
 
         let mut outer_witness = Vec::new();

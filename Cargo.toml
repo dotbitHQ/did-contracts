@@ -1,4 +1,7 @@
 [workspace]
+package.authors = ["Link <link@d.id>"]
+package.edition = "2021"
+package.license = "MIT"
 resolver = "2"
 members = [
     # Common libs
@@ -9,6 +12,7 @@ members = [
     "libs/eip712",
     "libs/simple-ast",
     "libs/das-types",
+    "libs/witness-parser",
     # Contracts
     "contracts/always-success",
     "contracts/account-cell-type",
@@ -59,6 +63,7 @@ simple-ast = { path = "libs/simple-ast", default-features = false }
 das-map = { path = "libs/das-map", default-features = false }
 das-core = { path = "libs/das-core", default-features = false }
 das-sorted-list = { path = "libs/das-sorted-list", default-features = false }
+witness-parser = { path = "libs/witness-parser", default-features = false }
 sparse-merkle-tree = { version = "0.6.1", default-features = false, features = [
     "smtc",
 ] }

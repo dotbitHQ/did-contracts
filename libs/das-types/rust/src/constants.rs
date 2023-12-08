@@ -1,11 +1,26 @@
+#[cfg(feature = "no_std")]
+use alloc::vec::Vec;
+use core::cell::OnceCell;
 use core::convert::TryFrom;
 
+#[cfg(feature = "no_std")]
+use ckb_std::ckb_constants::Source as CkbSource;
+#[cfg(feature = "no_std")]
+use ckb_std::ckb_types::core::ScriptHashType;
+#[cfg(feature = "no_std")]
+use ckb_std::ckb_types::packed::Byte;
+#[cfg(not(feature = "no_std"))]
+use ckb_types::core::ScriptHashType;
+#[cfg(not(feature = "no_std"))]
+use ckb_types::packed::Byte;
+use dotenvy_macro::dotenv;
+use molecule::prelude::{Builder, Entity};
 use num_enum::{TryFromPrimitive, TryFromPrimitiveError};
 #[cfg(not(feature = "no_std"))]
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
 
-use super::schemas::packed::{Uint32, Uint32Reader};
+use super::schemas::packed::{Hash, Script, Uint32, Uint32Reader};
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 #[repr(u8)]
@@ -17,8 +32,11 @@ pub enum SystemStatus {
 pub const ACCOUNT_ID_LENGTH: usize = 20;
 pub const PRESERVED_ACCOUNT_CELL_COUNT: u8 = 20;
 
-#[derive(Debug, PartialEq, Copy, Clone, TryFromPrimitive, EnumString, Display)]
-#[cfg_attr(not(feature = "no_std"), derive(Eq, Hash))]
+pub const CKB_HASH_DIGEST: usize = 32;
+pub const CKB_HASH_PERSONALIZATION: &[u8] = b"ckb-default-hash";
+
+#[derive(Debug, Copy, Clone, TryFromPrimitive, EnumString, Display, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(not(feature = "no_std"), derive(Hash))]
 #[repr(u32)]
 pub enum DataType {
     ActionData = 0,
@@ -171,6 +189,25 @@ pub enum SubAccountEnableStatus {
     On,
 }
 
+#[derive(Debug, Clone)]
+pub enum TypeScript {
+    AccountCellType,
+    AccountSaleCellType,
+    AccountAuctionCellType,
+    ApplyRegisterCellType,
+    BalanceCellType,
+    ConfigCellType,
+    IncomeCellType,
+    OfferCellType,
+    PreAccountCellType,
+    ProposalCellType,
+    ReverseRecordCellType,
+    SubAccountCellType,
+    ReverseRecordRootCellType,
+    DPointCellType,
+    EIP712Lib,
+}
+
 #[derive(Debug, PartialEq, Copy, Clone, TryFromPrimitive, Display)]
 #[repr(u8)]
 pub enum DasLockType {
@@ -253,14 +290,113 @@ pub const REVERSE_RECORD_WITNESS_VERSION_BYTES: usize = 8;
 // WARNING! This constant maybe need to be enlarger in the future.
 pub const REVERSE_RECORD_WITNESS_ACTION_BYTES: usize = 4 + 10;
 
-#[cfg(not(feature = "no_std"))]
-#[derive(Eq, PartialEq, Debug, Clone, Copy)]
-#[repr(u64)]
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Ord, Eq)]
 pub enum Source {
     Input = 1,
     Output = 2,
     CellDep = 3,
-    HeaderDep = 4,
-    GroupInput = 0x0100000000000001,
-    GroupOutput = 0x0100000000000002,
+}
+
+#[cfg(feature = "no_std")]
+impl From<CkbSource> for Source {
+    fn from(source: CkbSource) -> Self {
+        match source {
+            CkbSource::Input => Source::Input,
+            CkbSource::Output => Source::Output,
+            CkbSource::CellDep => Source::CellDep,
+            _ => unreachable!(),
+        }
+    }
+}
+
+#[cfg(feature = "no_std")]
+impl Into<CkbSource> for Source {
+    fn into(self) -> CkbSource {
+        match self {
+            Source::Input => CkbSource::Input,
+            Source::Output => CkbSource::Output,
+            Source::CellDep => CkbSource::CellDep,
+        }
+    }
+}
+
+#[derive(Debug, Default, PartialEq, EnumString, Display)]
+pub enum Action {
+    #[strum(serialize = "apply_register")]
+    ApplyRegister,
+    #[strum(serialize = "refund_apply")]
+    RefundApply,
+    #[strum(serialize = "pre_register")]
+    PreRegister,
+    #[strum(serialize = "confirm_proposal")]
+    ConfirmProposal,
+    #[strum(serialize = "renew_account")]
+    RenewAccount,
+    #[strum(serialize = "accept_offer")]
+    AcceptOffer,
+    #[strum(serialize = "unlock_account_for_cross_chain")]
+    UnlockAccountForCrossChain,
+    #[strum(serialize = "force_recover_account_status")]
+    ForceRecoverAccountStatus,
+    #[strum(serialize = "recycle_expired_account")]
+    RecycleExpiredAccount,
+    #[strum(serialize = "edit_records")]
+    EditRecords,
+    #[strum(serialize = "create_sub_account")]
+    CreateSubAccount,
+    #[strum(serialize = "update_sub_account")]
+    UpdateSubAccount,
+    #[strum(serialize = "config_sub_account")]
+    ConfigSubAccount,
+    #[strum(serialize = "config_sub_account_custom_script")]
+    ConfigSubAccountCustomScript,
+    #[strum(serialize = "buy_account")]
+    BuyAccount,
+    #[strum(serialize = "enable_sub_account")]
+    EnableSubAccount,
+    #[strum(serialize = "revoke_approval")]
+    RevokeApproval,
+    #[strum(serialize = "fulfill_approval")]
+    FulfillApproval,
+    #[strum(serialize = "bid_expired_account_dutch_auction")]
+    BidExpiredAccountDutchAuction,
+    #[strum(serialize = "lock_account_for_cross_chain")]
+    LockAccountForCrossChain,
+    #[default]
+    Others,
+}
+
+#[derive(Debug, Default, PartialEq)]
+pub enum ActionParams {
+    LockAccountForCrossChain {
+        coin_type: u64,
+        chain_id: u64,
+        role: LockRole,
+    },
+    BuyAccount {
+        inviter_lock_args: Vec<u8>,
+        channel_lock_args: Vec<u8>,
+        role: LockRole,
+    },
+    Role(LockRole),
+    #[default]
+    None,
+}
+
+pub fn config_cell_type() -> &'static Script {
+    static mut CONFIG_TYPE_SCRIPT: OnceCell<Script> = OnceCell::new();
+
+    let config_type_id_hex = dotenv!("CONFIG_CELL_TYPE_ID").trim_start_matches("0x");
+    let config_type_id = hex::decode(config_type_id_hex).expect("The CONFIG_CELL_TYPE_ID should be a hex string.");
+
+    unsafe {
+        CONFIG_TYPE_SCRIPT.get_or_init(|| {
+            let script = Script::new_builder()
+                .code_hash(Hash::try_from(config_type_id).unwrap())
+                .hash_type(Byte::new(ScriptHashType::Type.into()))
+                .build();
+            script
+        });
+        CONFIG_TYPE_SCRIPT.get_mut().unwrap()
+    }
 }
