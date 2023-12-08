@@ -10,7 +10,12 @@ testnet = ["das-core/testnet"]
 mainnet = ["das-core/mainnet"]
 
 [dependencies]
-ckb-std = { workspace = true }
-hex = { workspace = true, default-features = false }
+# workspace crates
 das-core = { workspace = true, default-features = false }
 das-types = { workspace = true, default-features = false, features = ["no_std"] }
+witness-parser = { workspace = true, default-features = false, features = ["no_std"] }
+# ckb crates
+ckb-std = { workspace = true }
+# third party crates
+hex = { workspace = true, default-features = false }
+anyhow = { workspace = true, default-features = false }

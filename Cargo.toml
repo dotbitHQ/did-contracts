@@ -58,19 +58,28 @@ default-members = [
 ]
 
 [workspace.dependencies]
+# workspace crates
 das-types = { path = "libs/das-types", default-features = false }
 simple-ast = { path = "libs/simple-ast", default-features = false }
 das-map = { path = "libs/das-map", default-features = false }
 das-core = { path = "libs/das-core", default-features = false }
 das-sorted-list = { path = "libs/das-sorted-list", default-features = false }
 witness-parser = { path = "libs/witness-parser", default-features = false }
+# ckb crates
 sparse-merkle-tree = { version = "0.6.1", default-features = false, features = [
     "smtc",
 ] }
 ckb-std = "0.13.0"
 ckb-types = { version = "=0.108.0" }
 molecule = { version = "0.7", default-features = false }
+# third party crates
 hex = { default-features = false, version = "0.4.2" }
+# Temporarily use thiserror-no-std
+thiserror = { version = "1.0" }
+thiserror-no-std = { version = "=2.0.2", default-features = false }
+anyhow = { version = "1.0", default-features = false }
+dotenvy = { version = "0.15" }
+dotenvy_macro = { version = "0.15" }
 
 [profile.release]
 overflow-checks = true
