@@ -17,7 +17,9 @@ use das_core::{assert as das_assert, code_to_error, data_parser, debug, verifier
 use das_dynamic_libs::constants::DynLibName;
 use das_dynamic_libs::sign_lib::SignLib;
 use das_dynamic_libs::{load_2_methods, load_3_methods, load_lib, log_loading, new_context};
-use das_types::constants::{AccountStatus, DataType, LockRole, SubAccountConfigFlag, SubAccountCustomRuleFlag};
+use das_types::constants::{
+    AccountStatus, DataType, LockRole, SubAccountConfigFlag, SubAccountCustomRuleFlag, TypeScript,
+};
 use das_types::packed::*;
 use das_types::prelude::{Builder, Entity};
 use simple_ast::executor::match_rule_with_account_chars;

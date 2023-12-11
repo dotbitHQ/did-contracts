@@ -18,25 +18,6 @@ pub enum ScriptType {
     Type,
 }
 
-#[derive(Debug, Clone)]
-pub enum TypeScript {
-    AccountCellType,
-    AccountSaleCellType,
-    AccountAuctionCellType,
-    ApplyRegisterCellType,
-    BalanceCellType,
-    ConfigCellType,
-    IncomeCellType,
-    OfferCellType,
-    PreAccountCellType,
-    ProposalCellType,
-    ReverseRecordCellType,
-    SubAccountCellType,
-    ReverseRecordRootCellType,
-    DPointCellType,
-    EIP712Lib,
-}
-
 #[derive(Debug)]
 pub enum LockScript {
     AlwaysSuccessLock,

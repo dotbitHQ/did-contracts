@@ -16,7 +16,7 @@ use ckb_std::ckb_types::packed::*;
 use ckb_std::ckb_types::prelude::*;
 use ckb_std::error::SysError;
 use ckb_std::{high_level, syscalls};
-use das_types::constants::{DasLockType, DataType, LockRole, ACCOUNT_ID_LENGTH, WITNESS_HEADER};
+use das_types::constants::{DasLockType, DataType, LockRole, TypeScript, ACCOUNT_ID_LENGTH, WITNESS_HEADER};
 use das_types::mixer::*;
 use das_types::packed::{self as das_packed};
 pub use das_types::util::{hex_string, is_entity_eq, is_reader_eq};
@@ -426,6 +426,7 @@ pub fn load_oracle_data(type_: OracleCellType) -> Result<u64, Box<dyn ScriptErro
         }
     }
 
+    // TODO Verify the lock script of the Cell.
     // There must be one OracleCell in the cell_deps, no more and no less.
     let ret = find_cells_by_script(ScriptType::Type, type_script.as_reader(), Source::CellDep)?;
     das_assert!(

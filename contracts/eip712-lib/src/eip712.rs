@@ -13,7 +13,7 @@ use das_core::constants::*;
 use das_core::error::*;
 use das_core::witness_parser::WitnessesParser;
 use das_core::{assert as das_assert, code_to_error, data_parser, debug, sign_util, util, warn};
-use das_types::constants::{DasLockType, DataType, LockRole};
+use das_types::constants::{DasLockType, DataType, LockRole, TypeScript};
 use das_types::mixer::AccountCellDataMixer;
 use das_types::packed as das_packed;
 use das_types::prelude::*;

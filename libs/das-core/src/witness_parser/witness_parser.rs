@@ -6,7 +6,9 @@ use core::convert::{TryFrom, TryInto};
 use ckb_std::ckb_constants::Source;
 use ckb_std::error::SysError;
 use ckb_std::syscalls;
-use das_types::constants::{DataType, WITNESS_HEADER, WITNESS_HEADER_BYTES, WITNESS_LENGTH_BYTES, WITNESS_TYPE_BYTES};
+use das_types::constants::{
+    DataType, TypeScript, WITNESS_HEADER, WITNESS_HEADER_BYTES, WITNESS_LENGTH_BYTES, WITNESS_TYPE_BYTES,
+};
 use das_types::packed::*;
 use das_types::prelude::*;
 use das_types::util as types_util;

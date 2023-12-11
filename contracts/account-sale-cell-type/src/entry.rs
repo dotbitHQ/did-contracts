@@ -11,7 +11,7 @@ use das_core::witness_parser::WitnessesParser;
 use das_core::{assert, assert_lock_equal, code_to_error, data_parser, debug, util, verifiers, warn};
 use das_map::map::Map;
 use das_map::util as map_util;
-use das_types::constants::AccountStatus;
+use das_types::constants::{AccountStatus, TypeScript};
 use das_types::mixer::*;
 use das_types::packed::*;
 

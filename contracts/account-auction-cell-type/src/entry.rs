@@ -1,10 +1,10 @@
 use alloc::boxed::Box;
 
 use ckb_std::ckb_constants::Source;
-use das_core::constants::*;
 use das_core::error::*;
 use das_core::witness_parser::WitnessesParser;
 use das_core::{code_to_error, debug, util};
+use das_types::constants::TypeScript;
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running account-auction-cell-type ======");
