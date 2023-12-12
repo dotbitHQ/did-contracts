@@ -11,6 +11,6 @@ testnet = []
 mainnet = []
 
 [dependencies]
+das-types = { workspace = true, features = ["no_std"] }
 ckb-std = { workspace = true }
-blake2b-ref = "0.3"
-das-types = { workspace = true, default-features = false, features = ["no_std"] }
+blake2b-ref = { workspace = true }

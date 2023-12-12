@@ -10,9 +10,9 @@ testnet = ["das-core/testnet"]
 mainnet = ["das-core/mainnet"]
 
 [dependencies]
+das-core = { workspace = true }
+das-types = { workspace = true, features = ["no_std"] }
+das-dynamic-libs = { workspace = true }
 ckb-std = { workspace = true }
-hex = { workspace = true, default-features = false }
-das-core = { workspace = true, default-features = false }
-das-types = { workspace = true, default-features = false, features = ["no_std"] }
 sparse-merkle-tree = { workspace = true }
-das-dynamic-libs = { path = "../../libs/das-dynamic-libs" }
+hex = { workspace = true }

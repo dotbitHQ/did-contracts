@@ -10,7 +10,7 @@ path = "src/lib.rs"
 default = ["std"]
 std = [
     "num_enum/std",
-    "das-types",
+    "das-types/std",
     "hex/std",
     "serde",
     "serde_json",
@@ -27,24 +27,18 @@ no_std = [
 ]
 
 [dependencies]
-# ckb crates
+das-types = { workspace = true, optional = true }
 ckb-std = { workspace = true }
 ckb-types = { workspace = true, optional = true }
-# CAREFUL! This version should be the same as which in ckb-standalone-types, otherwise will occur many type error in current codes.
-molecule = { version = "0.7", default-features = false }
-# third party crates
-# Temporarily use thiserror-no-std
+molecule = { workspace = true }
+blake2b-rs = { workspace = true, optional = true }
+blake2b-ref = { workspace = true, optional = true }
 thiserror = { workspace = true, optional = true }
 thiserror-no-std = { workspace = true, optional = true }
-log = "0.4.0"
-hex = { version = "0.4", default-features = false }
-serde = { version = "1.0", features = ["derive"], optional = true }
-serde_json = { version = "1.0", optional = true }
-# macro
-paste = "1.0"
-num_enum = { version = "0.6", default-features = false }
-strum = { version = "0.24", features = ["derive"], default-features = false, optional = true }
-# dotbit
-blake2b-rs = { version = "0.2", optional = true }
-blake2b-ref = { version = "0.3", optional = true }
-das-types = { workspace = true, optional = true, default-features = false }
+log = { workspace = true }
+hex = { workspace = true }
+serde = { workspace = true, features = ["derive"], optional = true }
+serde_json = { workspace = true, optional = true }
+paste = { workspace = true }
+num_enum = { workspace = true }
+strum = { workspace = true, optional = true }

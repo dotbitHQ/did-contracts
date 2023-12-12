@@ -14,7 +14,8 @@ mainnet = ["das-core/mainnet"]
 [dependencies]
 ckb-std = { workspace = true }
 
+# WARNING DO NOT move these to [dependencies], it will break the unit tests
 [dev-dependencies]
-das-core = { workspace = true, default-features = false }
+das-core = { workspace = true }
 das-types = { workspace = true }
 molecule = { workspace = true }

@@ -10,8 +10,8 @@ testnet = ["das-core/testnet", "eip712/testnet"]
 mainnet = ["das-core/mainnet", "eip712/mainnet"]
 
 [dependencies]
+das-core = { workspace = true }
+das-types = { workspace = true, features = ["no_std"] }
+das-map = { workspace = true }
+eip712 = { workspace = true }
 ckb-std = { workspace = true }
-das-core = { workspace = true, default-features = false }
-das-types = { workspace = true, default-features = false, features = ["no_std"] }
-das-map = { workspace = true, default-features = false }
-eip712 = { path = "../../libs/eip712" }

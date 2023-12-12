@@ -10,12 +10,12 @@ testnet = ["das-core/testnet", "das-dynamic-libs/testnet"]
 mainnet = ["das-core/mainnet", "das-dynamic-libs/mainnet"]
 
 [dependencies]
-ckb-std = { workspace = true }
-hex = { workspace = true, default-features = false }
-das-core = { workspace = true, default-features = false }
-das-types = { workspace = true, default-features = false, features = ["no_std"] }
-sparse-merkle-tree = { workspace = true }
-das-dynamic-libs = { path = "../../libs/das-dynamic-libs" }
+das-core = { workspace = true }
+das-types = { workspace = true, features = ["no_std"] }
+das-dynamic-libs = { workspace = true }
 das-map = { workspace = true }
-simple-ast = { workspace = true, features = ["no_std"], default-features = false }
+simple-ast = { workspace = true, features = ["no_std"] }
+ckb-std = { workspace = true }
+sparse-merkle-tree = { workspace = true }
+hex = { workspace = true }
 blake2b-ref = "0.3"

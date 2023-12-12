@@ -10,7 +10,7 @@ testnet = ["das-core/testnet"]
 mainnet = ["das-core/mainnet"]
 
 [dependencies]
-ckb-std = { workspace = true }
-das-core = { workspace = true, default-features = false }
-das-types = { workspace = true, default-features = false, features = ["no_std"] }
+das-core = { workspace = true }
+das-types = { workspace = true, features = ["no_std"] }
 das-map = { workspace = true }
+ckb-std = { workspace = true }
