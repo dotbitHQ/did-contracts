@@ -10,7 +10,7 @@ use das_core::witness_parser::sub_account::{SubAccountEditValue, SubAccountWitne
 use das_core::witness_parser::WitnessesParser;
 use das_core::{code_to_error, das_assert, data_parser, debug, verifiers, warn};
 use das_dynamic_libs::sign_lib::SignLib;
-use das_types::constants::*;
+use das_types::constants::{das_lock, *};
 use das_types::mixer::SubAccountReaderMixer;
 use das_types::packed::*;
 use das_types::prelude::{Builder, Entity};
@@ -1019,7 +1019,7 @@ fn generate_new_sub_account_by_edit_value(witness: &SubAccountWitness) -> Result
         SubAccountAction::Edit => {
             match edit_value {
                 SubAccountEditValue::Owner(val) | SubAccountEditValue::Manager(val) => {
-                    let mut lock_builder = Script::from(das_lock()).as_builder();
+                    let mut lock_builder = das_lock().clone().as_builder();
                     // Verify if the edit_value is a valid format.
                     data_parser::das_lock_args::get_owner_and_manager(val)?;
                     lock_builder = lock_builder.args(Bytes::from(val.to_owned()));

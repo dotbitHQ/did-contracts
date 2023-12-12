@@ -16,7 +16,10 @@ use ckb_std::ckb_types::packed::*;
 use ckb_std::ckb_types::prelude::*;
 use ckb_std::error::SysError;
 use ckb_std::{high_level, syscalls};
-use das_types::constants::{DasLockType, DataType, LockRole, TypeScript, ACCOUNT_ID_LENGTH, WITNESS_HEADER};
+use das_types::constants::{
+    das_lock, height_cell_type, quote_cell_type, super_lock, time_cell_type, DasLockType, DataType, LockRole,
+    TypeScript, ACCOUNT_ID_LENGTH, WITNESS_HEADER,
+};
 use das_types::mixer::*;
 use das_types::packed::{self as das_packed};
 pub use das_types::util::{hex_string, is_entity_eq, is_reader_eq};
@@ -26,7 +29,6 @@ use hex::FromHexError;
 use super::constants::*;
 use super::data_parser;
 use super::error::*;
-use super::types::ScriptLiteral;
 use super::witness_parser::WitnessesParser;
 
 #[cfg(test)]
@@ -65,14 +67,6 @@ pub fn first_n_bytes_to_hex(bytes: &[u8], n: usize) -> String {
         .map(|v| format!("0x{}...", hex_string(v)))
         .or(Some(String::from("0x")))
         .unwrap()
-}
-
-pub fn script_literal_to_script(script: ScriptLiteral) -> Script {
-    Script::new_builder()
-        .code_hash(script.code_hash.pack())
-        .hash_type(Byte::new(script.hash_type as u8))
-        .args(bytes::Bytes::from(script.args).pack())
-        .build()
 }
 
 pub fn type_id_to_script(type_id: das_packed::HashReader) -> das_packed::Script {
@@ -249,11 +243,12 @@ pub fn payload_to_das_lock(lock_type: DasLockType, payload: &[u8]) -> Script {
     compatible_args.extend(compatible_args.clone().iter());
 
     let compatible_lock = das_lock()
+        .clone()
         .as_builder()
         .args(das_packed::Bytes::from(compatible_args).into())
         .build();
 
-    compatible_lock
+    compatible_lock.into()
 }
 
 pub fn find_cells_by_das_lock_payload(
@@ -293,7 +288,7 @@ pub fn find_balance_cells(
     source: Source,
 ) -> Result<Vec<usize>, Box<dyn ScriptError>> {
     let das_lock = das_lock();
-    if is_type_id_equal(das_lock.as_reader(), user_lock_reader) {
+    if is_type_id_equal(das_lock.as_reader().into(), user_lock_reader) {
         let args = user_lock_reader.args().raw_data();
         let lock_type = match DasLockType::try_from(data_parser::das_lock_args::get_owner_type(args)) {
             Ok(val) => val,
@@ -428,7 +423,7 @@ pub fn load_oracle_data(type_: OracleCellType) -> Result<u64, Box<dyn ScriptErro
 
     // TODO Verify the lock script of the Cell.
     // There must be one OracleCell in the cell_deps, no more and no less.
-    let ret = find_cells_by_script(ScriptType::Type, type_script.as_reader(), Source::CellDep)?;
+    let ret = find_cells_by_script(ScriptType::Type, type_script.as_reader().into(), Source::CellDep)?;
     das_assert!(
         ret.len() == 1,
         ErrorCode::OracleCellIsRequired,
@@ -795,7 +790,8 @@ pub fn require_type_script(
 
 pub fn require_super_lock() -> Result<(), Box<dyn ScriptError>> {
     let super_lock = super_lock();
-    let has_super_lock = find_cells_by_script(ScriptType::Lock, super_lock.as_reader(), Source::Input)?.len() > 0;
+    let has_super_lock =
+        find_cells_by_script(ScriptType::Lock, super_lock.as_reader().into(), Source::Input)?.len() > 0;
 
     das_assert!(
         has_super_lock,

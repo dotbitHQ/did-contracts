@@ -6,14 +6,16 @@ use core::convert::TryFrom;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
-use das_types::constants::*;
+use das_types::constants::{das_lock, *};
 use das_types::mixer::AccountCellDataReaderMixer;
 use das_types::packed::*;
 use das_types::util as das_types_util;
 
 use crate::constants::*;
 use crate::error::*;
-use crate::util::{blake2b_256, find_cells_by_script, print_dp};
+#[cfg(debug_assertions)]
+use crate::util::print_dp;
+use crate::util::{blake2b_256, find_cells_by_script};
 use crate::witness_parser::WitnessesParser;
 use crate::{data_parser, util};
 
@@ -487,7 +489,7 @@ pub fn verify_account_no_other_type_cell_use_das_lock_in_inputs(
     type_id_table: TypeIdTableReader,
 ) -> Result<(), Box<dyn ScriptError>> {
     let das_lock = das_lock();
-    let input_cells_with_das_lock = find_cells_by_script(ScriptType::Lock, das_lock.as_reader(), Source::Input)?;
+    let input_cells_with_das_lock = find_cells_by_script(ScriptType::Lock, das_lock.as_reader().into(), Source::Input)?;
     let account_cell_type_id = type_id_table.account_cell();
     let dp_cell_type_id = type_id_table.dpoint_cell();
 

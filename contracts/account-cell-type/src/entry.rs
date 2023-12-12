@@ -16,7 +16,7 @@ use das_dynamic_libs::sign_lib::SignLib;
 use das_dynamic_libs::{load_1_method, load_2_methods, load_3_methods, load_lib, log_loading, new_context};
 use das_map::map::Map;
 use das_map::util as map_util;
-use das_types::constants::*;
+use das_types::constants::{cross_chain_lock, *};
 use das_types::mixer::*;
 use das_types::packed::*;
 
@@ -200,7 +200,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             // TODO Unify the following codes to calculate profit from duration.
 
             let mut profit_map = Map::new();
-            let das_wallet_lock = Script::from(das_wallet_lock());
+            let das_wallet_lock = wallet_lock().clone();
 
             let (input_income_cells, output_income_cells) = util::find_cells_by_type_id_in_inputs_and_outputs(
                 ScriptType::Type,
@@ -491,9 +491,9 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
                 debug!("The lock is the black hole lock, so all the refunds should be sent to DAS first.");
 
-                let das_wallet_lock = das_wallet_lock();
+                let das_wallet_lock = wallet_lock();
                 let das_wallet_cells =
-                    util::find_cells_by_script(ScriptType::Lock, das_wallet_lock.as_reader(), Source::Output)?;
+                    util::find_cells_by_script(ScriptType::Lock, das_wallet_lock.as_reader().into(), Source::Output)?;
                 let expected_das_wallet_cells_count = if refund_from_sub_account_cell_to_das >= CELL_BASIC_CAPACITY {
                     // If the profit of DAS is more than a cell's basic capacity, there should be a single cell carrying the profit.
                     2

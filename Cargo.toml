@@ -82,7 +82,6 @@ thiserror = { version = "1.0" }
 thiserror-no-std = { version = "=2.0.2", default-features = false }
 anyhow = { version = "1.0", default-features = false }
 dotenvy = { version = "0.15" }
-dotenvy_macro = { version = "0.15" }
 no-std-compat = { version = "0.4", features = [ "alloc", "compat_macros" ] }
 strum = { version = "0.25", features = ["derive"], default-features = false }
 num_enum = { version = "0.7.1", default-features = false }

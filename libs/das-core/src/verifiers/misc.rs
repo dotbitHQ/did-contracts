@@ -4,6 +4,7 @@ use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::packed as ckb_packed;
 use ckb_std::high_level;
 use ckb_std::syscalls::SysError;
+use das_types::constants::always_success_lock;
 use das_types::packed::*;
 
 use crate::constants::*;
@@ -170,7 +171,7 @@ pub fn verify_always_success_lock(index: usize, source: Source) -> Result<(), Bo
     let always_success_lock_reader = always_success_lock.as_reader();
 
     assert!(
-        util::is_reader_eq(lock_reader.code_hash(), always_success_lock_reader.code_hash())
+        util::is_reader_eq(lock_reader.code_hash(), always_success_lock_reader.code_hash().into())
             && lock_reader.hash_type() == always_success_lock_reader.hash_type(),
         ErrorCode::AlwaysSuccessLockIsRequired,
         "The cell at {:?}[{}] should use always-success lock.(expected_code_hash: {})",

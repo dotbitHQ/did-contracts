@@ -13,7 +13,7 @@ use das_core::since_util::SinceFlag;
 use das_core::witness_parser::WitnessesParser;
 use das_core::{assert, code_to_error, data_parser, debug, since_util, util, verifiers, warn};
 use das_sorted_list::util as sorted_list_util;
-use das_types::constants::*;
+use das_types::constants::{super_lock, *};
 use das_types::mixer::PreAccountCellDataReaderMixer;
 use das_types::packed::*;
 use das_types::prelude::*;
@@ -88,7 +88,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let apply_register_hash = data_parser::apply_register_cell::get_account_hash(&data)?;
 
             let cells_with_super_lock =
-                util::find_cells_by_script(ScriptType::Lock, super_lock().as_reader(), Source::Input)?;
+                util::find_cells_by_script(ScriptType::Lock, super_lock().as_reader().into(), Source::Input)?;
 
             assert!(
                 data.len() == 32 || data.len() == 48,

@@ -2,11 +2,11 @@ use alloc::boxed::Box;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
-use das_core::constants::{das_lock, ScriptType};
+use das_core::constants::ScriptType;
 use das_core::error::*;
 use das_core::witness_parser::WitnessesParser;
 use das_core::{code_to_error, debug, util, verifiers};
-use das_types::constants::TypeScript;
+use das_types::constants::{das_lock, TypeScript};
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running balance-cell-type ======");

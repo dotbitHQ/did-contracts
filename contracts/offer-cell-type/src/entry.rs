@@ -10,7 +10,7 @@ use das_core::witness_parser::WitnessesParser;
 use das_core::{assert, assert_lock_equal, code_to_error, data_parser, debug, util, verifiers};
 use das_map::map::Map;
 use das_map::util as map_util;
-use das_types::constants::{AccountStatus, TypeScript};
+use das_types::constants::{das_lock, wallet_lock, AccountStatus, TypeScript};
 use das_types::packed::*;
 use das_types::prelude::*;
 
@@ -88,7 +88,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let expected_lock = das_lock();
             let current_lock = high_level::load_cell_lock(output_cells[0], Source::Output)?;
             assert!(
-                util::is_type_id_equal(expected_lock.as_reader(), current_lock.as_reader()),
+                util::is_type_id_equal(expected_lock.as_reader().into(), current_lock.as_reader()),
                 ErrorCode::OfferCellLockError,
                 "The OfferCell.lock should be the das-lock."
             );
@@ -465,7 +465,7 @@ fn verify_profit_distribution(
     }
 
     let profit = price / RATE_BASE * profit_rate_of_das;
-    let das_wallet_lock = das_wallet_lock();
+    let das_wallet_lock = wallet_lock();
 
     map_util::add(&mut profit_map, das_wallet_lock.as_slice().to_vec(), profit);
     profit_of_seller -= profit;

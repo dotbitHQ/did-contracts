@@ -11,7 +11,7 @@ use das_core::witness_parser::WitnessesParser;
 use das_core::{assert, assert_lock_equal, code_to_error, data_parser, debug, util, verifiers, warn};
 use das_map::map::Map;
 use das_map::util as map_util;
-use das_types::constants::{AccountStatus, TypeScript};
+use das_types::constants::{wallet_lock, AccountStatus, TypeScript};
 use das_types::mixer::*;
 use das_types::packed::*;
 
@@ -676,7 +676,7 @@ fn verify_profit_distribution<'a>(
     let profit = price / RATE_BASE * profit_rate_of_das;
     debug!("  The profit of DAS: {}", profit);
     if profit > 0 {
-        let das_wallet_lock = das_wallet_lock();
+        let das_wallet_lock = wallet_lock();
 
         map_util::add(&mut profit_map, das_wallet_lock.as_slice().to_vec(), profit);
         profit_of_seller -= profit;

@@ -18,7 +18,8 @@ use das_dynamic_libs::constants::DynLibName;
 use das_dynamic_libs::sign_lib::SignLib;
 use das_dynamic_libs::{load_2_methods, load_3_methods, load_lib, log_loading, new_context};
 use das_types::constants::{
-    AccountStatus, DataType, LockRole, SubAccountConfigFlag, SubAccountCustomRuleFlag, TypeScript,
+    das_lock, profit_manager_lock, signhash_lock, AccountStatus, DataType, LockRole, SubAccountConfigFlag,
+    SubAccountCustomRuleFlag, TypeScript,
 };
 use das_types::packed::*;
 use das_types::prelude::{Builder, Entity};
@@ -684,7 +685,7 @@ fn action_update_sub_account(_action: &[u8], parser: &mut WitnessesParser) -> Re
         if profit_from_manual_renew_by_other > 0 {
             debug!("Found profit paied by others, verify if they only used NormalCells.");
 
-            let lock = signall_lock();
+            let lock = signhash_lock();
             let normal_cells =
                 util::find_cells_by_type_id(ScriptType::Lock, lock.as_reader().code_hash().into(), Source::Input)?;
             // 0 is SubAccountCell, all_inputs_with_das_lock are BalanceCells paied by owner/manager
@@ -856,7 +857,7 @@ fn action_collect_sub_account_profit(action: &[u8], parser: &mut WitnessesParser
         b"collect_sub_account_channel_profit" => {
             let profit_manage_lock = profit_manager_lock();
             let input_profit_manage_cells =
-                util::find_cells_by_script(ScriptType::Lock, profit_manage_lock.as_reader(), Source::Input)?;
+                util::find_cells_by_script(ScriptType::Lock, profit_manage_lock.as_reader().into(), Source::Input)?;
 
             das_assert!(
                 !input_profit_manage_cells.is_empty(),

@@ -10,7 +10,7 @@ use das_core::constants::*;
 use das_core::error::*;
 use das_core::witness_parser::WitnessesParser;
 use das_core::{assert, code_to_error, util, verifiers, warn};
-use das_types::constants::{DasLockType, DataType, TypeScript};
+use das_types::constants::{das_lock, wallet_lock, DasLockType, DataType, TypeScript};
 use das_types::packed::*;
 use das_types::prelude::*;
 
@@ -134,8 +134,8 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             }
 
             // Always include DAS in the members which is free from consolidating fee.
-            let das_wallet_lock = das_wallet_lock();
-            creators.push(das_wallet_lock.into());
+            let das_wallet_lock = wallet_lock().clone();
+            creators.push(das_wallet_lock);
 
             debug!("Classify all income records in inputs for comparing them with outputs later.");
 

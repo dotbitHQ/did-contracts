@@ -3,7 +3,7 @@ use alloc::vec::Vec;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
-use das_types::constants::DasLockType;
+use das_types::constants::{das_lock, DasLockType};
 use das_types::packed as das_packed;
 use das_types::prelude::{Builder, Entity, Reader};
 

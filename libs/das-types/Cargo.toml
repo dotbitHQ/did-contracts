@@ -28,7 +28,6 @@ strum = { workspace = true }
 num_enum = { workspace = true }
 serde = { workspace = true, optional = true }
 hex = { workspace = true }
-dotenvy_macro = { workspace = true }
 
 [build-dependencies]
 dotenvy = { workspace = true }

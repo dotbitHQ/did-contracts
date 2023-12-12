@@ -1,4 +1,5 @@
 use alloc::boxed::Box;
+#[cfg(debug_assertions)]
 use alloc::string::ToString;
 use core::cmp::Ordering;
 use core::result::Result;

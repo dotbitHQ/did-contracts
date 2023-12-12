@@ -13,7 +13,7 @@ use das_core::constants::*;
 use das_core::error::*;
 use das_core::witness_parser::WitnessesParser;
 use das_core::{assert as das_assert, code_to_error, data_parser, debug, sign_util, util, warn};
-use das_types::constants::{DasLockType, DataType, LockRole, TypeScript};
+use das_types::constants::{das_lock, DasLockType, DataType, LockRole, TypeScript};
 use das_types::mixer::AccountCellDataMixer;
 use das_types::packed as das_packed;
 use das_types::prelude::*;
@@ -66,7 +66,7 @@ pub fn verify_eip712_hashes(
             Ok(lock) => {
                 let lock_reader = lock.as_reader();
                 // Only take care of inputs with das-lock
-                if util::is_type_id_equal(das_lock_reader, lock_reader) {
+                if util::is_type_id_equal(das_lock_reader.into(), lock_reader) {
                     let args = lock_reader.args().raw_data().to_vec();
                     let type_of_args = if required_role_opt.is_some() && required_role_opt == Some(LockRole::Manager) {
                         data_parser::das_lock_args::get_manager_type(lock_reader.args().raw_data())

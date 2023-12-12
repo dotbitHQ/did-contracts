@@ -1,7 +1,10 @@
 #[cfg(feature = "no_std")]
+use alloc::vec;
+#[cfg(feature = "no_std")]
 use alloc::vec::Vec;
 use core::cell::OnceCell;
 use core::convert::TryFrom;
+use core::env;
 
 #[cfg(feature = "no_std")]
 use ckb_std::ckb_constants::Source as CkbSource;
@@ -13,14 +16,13 @@ use ckb_std::ckb_types::packed::Byte;
 use ckb_types::core::ScriptHashType;
 #[cfg(not(feature = "no_std"))]
 use ckb_types::packed::Byte;
-use dotenvy_macro::dotenv;
 use molecule::prelude::{Builder, Entity};
 use num_enum::{TryFromPrimitive, TryFromPrimitiveError};
 #[cfg(not(feature = "no_std"))]
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
 
-use super::schemas::packed::{Hash, Script, Uint32, Uint32Reader};
+use super::schemas::packed::{self, Hash, Script, Uint32, Uint32Reader};
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 #[repr(u8)]
@@ -364,6 +366,35 @@ pub enum Action {
     LockAccountForCrossChain,
     #[default]
     Others,
+    // Unit test only,
+    #[strum(serialize = "test_parse_witness_entity_config")]
+    TestParseWitnessEntityConfig,
+    #[strum(serialize = "test_parse_witness_raw_config")]
+    TestParseWitnessRawConfig,
+    #[strum(serialize = "test_parse_witness_cells")]
+    TestParseWitnessCells,
+    #[strum(serialize = "test_parse_sub_account_witness_empty")]
+    TestParseSubAccountWitnessEmpty,
+    #[strum(serialize = "test_parse_sub_account_witness_create_only")]
+    TestParseSubAccountWitnessCreateOnly,
+    #[strum(serialize = "test_parse_sub_account_witness_edit_only")]
+    TestParseSubAccountWitnessEditOnly,
+    #[strum(serialize = "test_parse_sub_account_witness_mixed")]
+    TestParseSubAccountWitnessMixed,
+    #[strum(serialize = "test_parser_sub_account_rules_witness_empty")]
+    TestParserSubAccountRulesWitnessEmpty,
+    #[strum(serialize = "test_parser_sub_account_rules_witness")]
+    TestParserSubAccountRulesWitness,
+    #[strum(serialize = "test_parse_reverse_record_witness_empty")]
+    TestParseReverseRecordWitnessEmpty,
+    #[strum(serialize = "test_parse_reverse_record_witness_update_only")]
+    TestParseReverseRecordWitnessUpdateOnly,
+    #[strum(serialize = "test_parse_reverse_record_witness_remove_only")]
+    TestParseReverseRecordWitnessRemoveOnly,
+    #[strum(serialize = "test_parse_reverse_record_witness_mixed")]
+    TestParseReverseRecordWitnessMixed,
+    #[strum(serialize = "test_dotenv_loaded_properly")]
+    TestDotEnvLoadedProperly,
 }
 
 #[derive(Debug, Default, PartialEq)]
@@ -383,20 +414,231 @@ pub enum ActionParams {
     None,
 }
 
-pub fn config_cell_type() -> &'static Script {
-    static mut CONFIG_TYPE_SCRIPT: OnceCell<Script> = OnceCell::new();
+pub fn super_lock() -> &'static Script {
+    static mut SUPER_LOCK: OnceCell<Script> = OnceCell::new();
 
-    let config_type_id_hex = dotenv!("CONFIG_CELL_TYPE_ID").trim_start_matches("0x");
-    let config_type_id = hex::decode(config_type_id_hex).expect("The CONFIG_CELL_TYPE_ID should be a hex string.");
+    let code_hash = env!("SUPER_CODE_HASH").trim_start_matches("0x");
+    let code_hash = hex::decode(code_hash).expect("The SUPER_CODE_HASH should be a hex string.");
+
+    let args = env!("SUPER_ARGS").trim_start_matches("0x");
+    let args = hex::decode(args).expect("The SUPER_ARGS should be a hex string.");
 
     unsafe {
-        CONFIG_TYPE_SCRIPT.get_or_init(|| {
+        SUPER_LOCK.get_or_init(|| {
             let script = Script::new_builder()
-                .code_hash(Hash::try_from(config_type_id).unwrap())
+                .code_hash(Hash::try_from(code_hash).unwrap())
+                .hash_type(Byte::new(ScriptHashType::Type.into()))
+                .args(packed::Bytes::from(args))
+                .build();
+            script
+        })
+    }
+}
+
+pub fn wallet_lock() -> &'static Script {
+    static mut WALLET_LOCK: OnceCell<Script> = OnceCell::new();
+
+    let code_hash = env!("WALLET_CODE_HASH").trim_start_matches("0x");
+    let code_hash = hex::decode(code_hash).expect("The WALLET_CODE_HASH should be a hex string.");
+
+    let args = env!("WALLET_ARGS").trim_start_matches("0x");
+    let args = hex::decode(args).expect("The WALLET_ARGS should be a hex string.");
+
+    unsafe {
+        WALLET_LOCK.get_or_init(|| {
+            let script = Script::new_builder()
+                .code_hash(Hash::try_from(code_hash).unwrap())
+                .hash_type(Byte::new(ScriptHashType::Type.into()))
+                .args(packed::Bytes::from(args))
+                .build();
+            script
+        })
+    }
+}
+
+pub fn cross_chain_lock() -> &'static Script {
+    static mut CROSS_CHAIN_LOCK: OnceCell<Script> = OnceCell::new();
+
+    let code_hash = env!("CROSS_CHAIN_CODE_HASH").trim_start_matches("0x");
+    let code_hash = hex::decode(code_hash).expect("The CROSS_CHAIN_CODE_HASH should be a hex string.");
+
+    let args = env!("CROSS_CHAIN_ARGS").trim_start_matches("0x");
+    let args = hex::decode(args).expect("The CROSS_CHAIN_ARGS should be a hex string.");
+
+    unsafe {
+        CROSS_CHAIN_LOCK.get_or_init(|| {
+            let script = Script::new_builder()
+                .code_hash(Hash::try_from(code_hash).unwrap())
+                .hash_type(Byte::new(ScriptHashType::Type.into()))
+                .args(packed::Bytes::from(args))
+                .build();
+            script
+        })
+    }
+}
+
+pub fn profit_manager_lock() -> &'static Script {
+    static mut PROFIT_MANAGER_LOCK: OnceCell<Script> = OnceCell::new();
+
+    let code_hash = env!("PROFIT_MANAGER_CODE_HASH").trim_start_matches("0x");
+    let code_hash = hex::decode(code_hash).expect("The PROFIT_MANAGER_CODE_HASH should be a hex string.");
+
+    let args = env!("PROFIT_MANAGER_ARGS").trim_start_matches("0x");
+    let args = hex::decode(args).expect("The PROFIT_MANAGER_ARGS should be a hex string.");
+
+    unsafe {
+        PROFIT_MANAGER_LOCK.get_or_init(|| {
+            let script = Script::new_builder()
+                .code_hash(Hash::try_from(code_hash).unwrap())
+                .hash_type(Byte::new(ScriptHashType::Type.into()))
+                .args(packed::Bytes::from(args))
+                .build();
+            script
+        })
+    }
+}
+
+pub fn das_lock() -> &'static Script {
+    static mut DAS_LOCK: OnceCell<Script> = OnceCell::new();
+
+    let type_id = env!("DAS_LOCK_TYPE_ID").trim_start_matches("0x");
+    let type_id = hex::decode(type_id).expect("The DAS_LOCK_TYPE_ID should be a hex string.");
+
+    unsafe {
+        DAS_LOCK.get_or_init(|| {
+            let script = Script::new_builder()
+                .code_hash(Hash::try_from(type_id).unwrap())
                 .hash_type(Byte::new(ScriptHashType::Type.into()))
                 .build();
             script
-        });
-        CONFIG_TYPE_SCRIPT.get_mut().unwrap()
+        })
+    }
+}
+
+pub fn always_success_lock() -> &'static Script {
+    static mut ALWAYS_SUCCESS_LOCK: OnceCell<Script> = OnceCell::new();
+
+    let type_id = env!("ALWAYS_SUCCESS_LOCK_TYPE_ID").trim_start_matches("0x");
+    let type_id = hex::decode(type_id).expect("The ALWAYS_SUCCESS_LOCK_TYPE_ID should be a hex string.");
+
+    unsafe {
+        ALWAYS_SUCCESS_LOCK.get_or_init(|| {
+            let script = Script::new_builder()
+                .code_hash(Hash::try_from(type_id).unwrap())
+                .hash_type(Byte::new(ScriptHashType::Type.into()))
+                .build();
+            script
+        })
+    }
+}
+
+pub fn signhash_lock() -> &'static Script {
+    static mut SIGNHASH_LOCK: OnceCell<Script> = OnceCell::new();
+
+    let type_id = env!("SIGNHASH_LOCK_TYPE_ID").trim_start_matches("0x");
+    let type_id = hex::decode(type_id).expect("The SIGNHASH_LOCK_TYPE_ID should be a hex string.");
+
+    unsafe {
+        SIGNHASH_LOCK.get_or_init(|| {
+            let script = Script::new_builder()
+                .code_hash(Hash::try_from(type_id).unwrap())
+                .hash_type(Byte::new(ScriptHashType::Type.into()))
+                .build();
+            script
+        })
+    }
+}
+
+pub fn multisign_lock() -> &'static Script {
+    static mut MULTISIGN_LOCK: OnceCell<Script> = OnceCell::new();
+
+    let type_id = env!("MULTISIG_LOCK_TYPE_ID").trim_start_matches("0x");
+    let type_id = hex::decode(type_id).expect("The MULTISIG_LOCK_TYPE_ID should be a hex string.");
+
+    unsafe {
+        MULTISIGN_LOCK.get_or_init(|| {
+            let script = Script::new_builder()
+                .code_hash(Hash::try_from(type_id).unwrap())
+                .hash_type(Byte::new(ScriptHashType::Type.into()))
+                .build();
+            script
+        })
+    }
+}
+
+pub fn config_cell_type() -> &'static Script {
+    static mut CONFIG_CELL_TYPE: OnceCell<Script> = OnceCell::new();
+
+    let type_id = env!("CONFIG_CELL_TYPE_ID").trim_start_matches("0x");
+    let type_id = hex::decode(type_id).expect("The CONFIG_CELL_TYPE_ID should be a hex string.");
+
+    unsafe {
+        CONFIG_CELL_TYPE.get_or_init(|| {
+            let script = Script::new_builder()
+                .code_hash(Hash::try_from(type_id).unwrap())
+                .hash_type(Byte::new(ScriptHashType::Type.into()))
+                .build();
+            script
+        })
+    }
+}
+
+pub fn quote_cell_type() -> &'static Script {
+    static mut QUOTE_CELL_TYPE: OnceCell<Script> = OnceCell::new();
+
+    let code_hash = env!("ORACLE_CELL_TYPE_ID").trim_start_matches("0x");
+    let code_hash = hex::decode(code_hash).expect("The ORACLE_CELL_TYPE_ID should be a hex string.");
+
+    let args = vec![0u8];
+
+    unsafe {
+        QUOTE_CELL_TYPE.get_or_init(|| {
+            let script = Script::new_builder()
+                .code_hash(Hash::try_from(code_hash).unwrap())
+                .hash_type(Byte::new(ScriptHashType::Type.into()))
+                .args(packed::Bytes::from(args))
+                .build();
+            script
+        })
+    }
+}
+
+pub fn time_cell_type() -> &'static Script {
+    static mut TIME_CELL_TYPE: OnceCell<Script> = OnceCell::new();
+
+    let code_hash = env!("ORACLE_CELL_TYPE_ID").trim_start_matches("0x");
+    let code_hash = hex::decode(code_hash).expect("The ORACLE_CELL_TYPE_ID should be a hex string.");
+
+    let args = vec![1u8];
+
+    unsafe {
+        TIME_CELL_TYPE.get_or_init(|| {
+            let script = Script::new_builder()
+                .code_hash(Hash::try_from(code_hash).unwrap())
+                .hash_type(Byte::new(ScriptHashType::Type.into()))
+                .args(packed::Bytes::from(args))
+                .build();
+            script
+        })
+    }
+}
+
+pub fn height_cell_type() -> &'static Script {
+    static mut HEIGHT_CELL_TYPE: OnceCell<Script> = OnceCell::new();
+
+    let code_hash = env!("ORACLE_CELL_TYPE_ID").trim_start_matches("0x");
+    let code_hash = hex::decode(code_hash).expect("The ORACLE_CELL_TYPE_ID should be a hex string.");
+
+    let args = vec![2u8];
+
+    unsafe {
+        HEIGHT_CELL_TYPE.get_or_init(|| {
+            let script = Script::new_builder()
+                .code_hash(Hash::try_from(code_hash).unwrap())
+                .hash_type(Byte::new(ScriptHashType::Type.into()))
+                .args(packed::Bytes::from(args))
+                .build();
+            script
+        })
     }
 }

@@ -7,7 +7,8 @@ use ckb_std::ckb_constants::Source;
 use ckb_std::error::SysError;
 use ckb_std::syscalls;
 use das_types::constants::{
-    DataType, TypeScript, WITNESS_HEADER, WITNESS_HEADER_BYTES, WITNESS_LENGTH_BYTES, WITNESS_TYPE_BYTES,
+    always_success_lock, config_cell_type, das_lock, multisign_lock, signhash_lock, DataType, TypeScript,
+    WITNESS_HEADER, WITNESS_HEADER_BYTES, WITNESS_LENGTH_BYTES, WITNESS_TYPE_BYTES,
 };
 use das_types::packed::*;
 use das_types::prelude::*;
@@ -106,10 +107,10 @@ impl WitnessesParser {
                                 );
 
                                 let args = Bytes::from((data_type.to_owned() as u32).to_le_bytes().to_vec());
-                                let type_script = config_cell_type().as_builder().args(args.into()).build();
+                                let type_script = config_cell_type().clone().as_builder().args(args.into()).build();
                                 let config_cells = util::find_cells_by_script(
                                     ScriptType::Type,
-                                    type_script.as_reader(),
+                                    type_script.as_reader().into(),
                                     Source::CellDep,
                                 )?;
 
@@ -170,10 +171,10 @@ impl WitnessesParser {
         }
 
         let lock_type_id_table = LockScriptTypeIdTable {
-            always_success: always_success_lock().into(),
-            das_lock: das_lock().into(),
-            secp256k1_blake160_signhash_all: signall_lock().into(),
-            secp256k1_blake160_multisig_all: multisign_lock().into(),
+            always_success: always_success_lock().clone(),
+            das_lock: das_lock().clone(),
+            secp256k1_blake160_signhash_all: signhash_lock().clone(),
+            secp256k1_blake160_multisig_all: multisign_lock().clone(),
         };
 
         Ok(WitnessesParser {

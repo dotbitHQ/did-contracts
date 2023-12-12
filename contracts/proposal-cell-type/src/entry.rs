@@ -14,7 +14,7 @@ use das_core::{assert, code_to_error, data_parser, debug, util, verifiers, warn}
 use das_map::map::Map;
 use das_map::util as map_util;
 use das_sorted_list::DasSortedList;
-use das_types::constants::*;
+use das_types::constants::{das_lock, *};
 use das_types::mixer::{AccountCellDataMixer, PreAccountCellDataReaderMixer};
 use das_types::packed::*;
 use das_types::prelude::*;
@@ -612,7 +612,7 @@ fn verify_proposal_execution_result(
     #[cfg(debug_assertions)]
     inspect_slices(proposal_cell_data_reader.slices())?;
 
-    let das_wallet_lock = das_wallet_lock();
+    let das_wallet_lock = wallet_lock();
     let proposer_lock_reader = proposal_cell_data_reader.proposer_lock();
     let slices_reader = proposal_cell_data_reader.slices();
 
@@ -992,9 +992,9 @@ fn is_new_account_cell_lock_correct<'a>(
         item_index
     );
 
-    let das_lock = das_lock();
+    let das_lock = das_lock().clone();
     let owner_lock_args = input_cell_witness_reader.owner_lock_args().raw_data().to_owned();
-    let output_cell_lock = load_cell_lock(output_cell_index, Source::Output)?;
+    let output_cell_lock = Script::from(load_cell_lock(output_cell_index, Source::Output)?);
 
     let expected_lock = das_lock.as_builder().args(Bytes::from(owner_lock_args).into()).build();
 

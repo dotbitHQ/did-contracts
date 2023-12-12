@@ -9,7 +9,7 @@ use das_core::constants::*;
 use das_core::error::*;
 use das_core::witness_parser::WitnessesParser;
 use das_core::{assert, code_to_error, util, warn};
-use das_types::constants::DataType;
+use das_types::constants::{super_lock, DataType};
 use das_types::prelude::Entity;
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {

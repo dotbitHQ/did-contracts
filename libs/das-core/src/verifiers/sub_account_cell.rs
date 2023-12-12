@@ -7,7 +7,7 @@ use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
 use das_dynamic_libs::error::Error as DasDynamicLibError;
 use das_dynamic_libs::sign_lib::SignLib;
-use das_types::constants::*;
+use das_types::constants::{das_lock, *};
 use das_types::mixer::SubAccountReaderMixer;
 use das_types::packed::*;
 use das_types::prelude::*;
@@ -186,7 +186,7 @@ fn verify_initial_lock<'a>(
     let current_lock = sub_account_reader.lock();
 
     das_assert!(
-        util::is_type_id_equal(expected_lock.as_reader(), current_lock.into()),
+        util::is_type_id_equal(expected_lock.as_reader().into(), current_lock.into()),
         SubAccountCellErrorCode::SubAccountInitialValueError,
         "  witnesses[{:>2}] The witness.sub_account.lock of {} must be a das-lock.",
         sub_account_index,

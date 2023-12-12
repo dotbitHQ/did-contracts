@@ -3,7 +3,7 @@ use alloc::string::{String, ToString};
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
-use das_core::constants::{das_lock, DAY_SEC};
+use das_core::constants::DAY_SEC;
 use das_core::error::*;
 use das_core::{code_to_error, das_assert, data_parser, debug, util, verifiers, warn};
 use das_types::constants::*;
@@ -103,7 +103,7 @@ pub fn transfer_approval_create<'a>(
     let limit_days = 10;
 
     das_assert!(
-        util::is_type_id_equal(platform_lock.into(), das_lock_reader),
+        util::is_type_id_equal(platform_lock.into(), das_lock_reader.into()),
         AccountCellErrorCode::ApprovalParamsPlatformLockInvalid,
         "{:?}[{}] The approval.params.platform_lock should use das-lock.",
         Source::Output,
@@ -145,7 +145,7 @@ pub fn transfer_approval_create<'a>(
     );
 
     das_assert!(
-        util::is_type_id_equal(to_lock.into(), das_lock_reader),
+        util::is_type_id_equal(to_lock.into(), das_lock_reader.into()),
         AccountCellErrorCode::ApprovalParamsToLockInvalid,
         "{:?}[{}] The approval.params.to_lock should use das-lock.",
         Source::Output,
