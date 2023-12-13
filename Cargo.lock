@@ -3,17 +3,6 @@
 version = 3
 
 [[package]]
-name = "account-auction-cell-type"
-version = "1.0.0"
-dependencies = [
- "chrono",
- "ckb-std",
- "das-core",
- "das-map",
- "das-types",
-]
-
-[[package]]
 name = "account-cell-type"
 version = "1.7.0"
 dependencies = [
@@ -106,6 +95,7 @@ dependencies = [
  "das-core",
  "das-map",
  "das-types",
+ "witness-parser",
 ]
 
 [[package]]
@@ -577,6 +567,7 @@ dependencies = [
  "das-core",
  "das-types",
  "hex",
+ "witness-parser",
 ]
 
 [[package]]
@@ -677,6 +668,7 @@ dependencies = [
  "paste",
  "simple-ast",
  "sparse-merkle-tree",
+ "witness-parser",
 ]
 
 [[package]]
@@ -767,6 +759,7 @@ dependencies = [
  "das-core",
  "das-types",
  "molecule",
+ "witness-parser",
 ]
 
 [[package]]
@@ -796,6 +789,7 @@ dependencies = [
  "das-map",
  "das-types",
  "eip712",
+ "witness-parser",
 ]
 
 [[package]]
@@ -988,6 +982,7 @@ dependencies = [
  "das-core",
  "das-types",
  "hex",
+ "witness-parser",
 ]
 
 [[package]]
@@ -1200,6 +1195,7 @@ dependencies = [
  "das-core",
  "das-map",
  "das-types",
+ "witness-parser",
 ]
 
 [[package]]
@@ -1310,6 +1306,7 @@ dependencies = [
  "das-sorted-list",
  "das-types",
  "hex",
+ "witness-parser",
 ]
 
 [[package]]
@@ -1341,6 +1338,7 @@ dependencies = [
  "das-map",
  "das-sorted-list",
  "das-types",
+ "witness-parser",
 ]
 
 [[package]]
@@ -1479,6 +1477,7 @@ dependencies = [
  "das-core",
  "das-types",
  "hex",
+ "witness-parser",
 ]
 
 [[package]]
@@ -1491,6 +1490,7 @@ dependencies = [
  "das-types",
  "hex",
  "sparse-merkle-tree",
+ "witness-parser",
 ]
 
 [[package]]
@@ -1725,6 +1725,7 @@ dependencies = [
  "hex",
  "simple-ast",
  "sparse-merkle-tree",
+ "witness-parser",
 ]
 
 [[package]]
