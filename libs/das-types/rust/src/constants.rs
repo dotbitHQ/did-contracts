@@ -191,7 +191,7 @@ pub enum SubAccountEnableStatus {
     On,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Copy, Debug, Clone)]
 pub enum TypeScript {
     AccountCellType,
     AccountSaleCellType,
@@ -324,12 +324,16 @@ impl Into<CkbSource> for Source {
 
 #[derive(Debug, Default, PartialEq, EnumString, Display)]
 pub enum Action {
+    #[strum(serialize = "config")]
+    Config,
     #[strum(serialize = "apply_register")]
     ApplyRegister,
     #[strum(serialize = "refund_apply")]
     RefundApply,
     #[strum(serialize = "pre_register")]
     PreRegister,
+    #[strum(serialize = "refund_pre_register")]
+    RefundPreRegister,
     #[strum(serialize = "confirm_proposal")]
     ConfirmProposal,
     #[strum(serialize = "renew_account")]

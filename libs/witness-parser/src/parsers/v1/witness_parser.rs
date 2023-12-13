@@ -117,11 +117,14 @@ impl WitnessesParser {
                                 }
                             }
                         }
-                        Err(WitnessParserError::UndefinedDataType { index, date_type }) => {
+                        Err(WitnessParserError::UndefinedDataType {
+                            index: _index,
+                            date_type: _date_type,
+                        }) => {
                             // Ignore unknown DataTypes which will make adding new DataType much easier and no need to update every contracts.
                             debug!(
                                 "witnesses[{:>2}] Ignored unknown DataType {:?} for compatible purpose.",
-                                index, date_type
+                                _index, _date_type
                             );
                         }
                         Err(err) => {
@@ -138,6 +141,10 @@ impl WitnessesParser {
 
         self.inited = true;
         Ok(())
+    }
+
+    pub fn is_inited(&self) -> bool {
+        self.inited
     }
 
     fn push_witness_wrap_in_config(&mut self, index: usize, data_type: DataType) -> Result<(), WitnessParserError> {
@@ -259,7 +266,7 @@ impl WitnessesParser {
         );
 
         let mut expected_entity_hash = [0u8; 32];
-        expected_entity_hash.copy_from_slice(&data);
+        expected_entity_hash.copy_from_slice(&data[..32]);
 
         Ok(expected_entity_hash)
     }
@@ -275,6 +282,32 @@ impl WitnessesParser {
 }
 
 impl WitnessQueryable for WitnessesParser {
+    fn get_witness_meta_by_index(&mut self, index: usize) -> Result<WitnessMeta, WitnessParserError> {
+        err_assert!(self.inited, WitnessParserError::InitializationRequired);
+
+        let witness = self
+            .witnesses
+            .get(index)
+            .ok_or(WitnessParserError::CanNotFindWitnessByIndex { index })?;
+
+        Ok(witness.to_owned())
+    }
+
+    fn get_witness_meta_by_cell_meta(&mut self, cell_meta: CellMeta) -> Result<WitnessMeta, WitnessParserError> {
+        err_assert!(self.inited, WitnessParserError::InitializationRequired);
+
+        let index = self
+            .cell_meta_map
+            .get(&cell_meta)
+            .ok_or(WitnessParserError::CanNotFindWitnessByCellMeta {
+                source: cell_meta.source,
+                index: cell_meta.index,
+            })?
+            .to_owned();
+
+        self.get_witness_meta_by_index(index)
+    }
+
     fn get_type_id(&mut self, type_script: TypeScript) -> Result<Hash, WitnessParserError> {
         err_assert!(self.inited, WitnessParserError::InitializationRequired);
 

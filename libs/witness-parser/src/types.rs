@@ -8,6 +8,12 @@ pub struct CellMeta {
     pub source: Source,
 }
 
+impl CellMeta {
+    pub fn new(index: usize, source: Source) -> Self {
+        Self { index, source }
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct WitnessMeta {
     pub index: usize,

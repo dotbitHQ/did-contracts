@@ -5,9 +5,13 @@ use das_types::constants::{DataType, TypeScript};
 use molecule::prelude::Entity;
 
 use crate::error::WitnessParserError;
-use crate::types::{CellMeta, Hash};
+use crate::types::{CellMeta, Hash, WitnessMeta};
 
 pub trait WitnessQueryable {
+    fn get_witness_meta_by_index(&mut self, index: usize) -> Result<WitnessMeta, WitnessParserError>;
+
+    fn get_witness_meta_by_cell_meta(&mut self, cell_meta: CellMeta) -> Result<WitnessMeta, WitnessParserError>;
+
     fn get_type_id(&mut self, type_script: TypeScript) -> Result<Hash, WitnessParserError>;
 
     fn get_entity_by_cell_meta<T: Entity>(&mut self, cell_meta: CellMeta) -> Result<T, WitnessParserError>;
