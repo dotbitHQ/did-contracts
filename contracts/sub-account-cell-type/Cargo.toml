@@ -15,6 +15,7 @@ das-types = { workspace = true, features = ["no_std"] }
 das-dynamic-libs = { workspace = true }
 das-map = { workspace = true }
 simple-ast = { workspace = true, features = ["no_std"] }
+witness-parser = { workspace = true, features = ["no_std"] }
 ckb-std = { workspace = true }
 sparse-merkle-tree = { workspace = true }
 hex = { workspace = true }

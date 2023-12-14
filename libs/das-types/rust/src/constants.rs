@@ -191,22 +191,49 @@ pub enum SubAccountEnableStatus {
     On,
 }
 
-#[derive(Copy, Debug, Clone)]
+#[derive(Copy, Debug, Clone, EnumString, Display)]
+pub enum LockScript {
+    #[strum(serialize = "always-success-lock")]
+    AlwaysSuccessLock,
+    #[strum(serialize = "das-lock")]
+    DasLock,
+    #[strum(serialize = "secp256k1-blake-signhash-lock")]
+    Secp256k1Blake160SignhashLock,
+    #[strum(serialize = "secp256k1-blake-multisig-lock")]
+    Secp256k1Blake160MultisigLock,
+}
+
+#[derive(Copy, Debug, Clone, EnumString, Display)]
 pub enum TypeScript {
+    #[strum(serialize = "account-cell-type")]
     AccountCellType,
+    #[strum(serialize = "account-sale-cell-type")]
     AccountSaleCellType,
+    #[strum(serialize = "account-auction-cell-type")]
     AccountAuctionCellType,
+    #[strum(serialize = "apply-register-cell-type")]
     ApplyRegisterCellType,
+    #[strum(serialize = "balance-cell-type")]
     BalanceCellType,
+    #[strum(serialize = "config-cell-type")]
     ConfigCellType,
+    #[strum(serialize = "income-cell-type")]
     IncomeCellType,
+    #[strum(serialize = "offer-cell-type")]
     OfferCellType,
+    #[strum(serialize = "pre-account-cell-type")]
     PreAccountCellType,
+    #[strum(serialize = "proposal-cell-type")]
     ProposalCellType,
+    #[strum(serialize = "reverse-record-cell-type")]
     ReverseRecordCellType,
+    #[strum(serialize = "sub-account-cell-type")]
     SubAccountCellType,
+    #[strum(serialize = "reverse-record-root-cell-type")]
     ReverseRecordRootCellType,
+    #[strum(serialize = "dpoint-cell-type")]
     DPointCellType,
+    #[strum(serialize = "eip-lib")]
     EIP712Lib,
 }
 
@@ -322,7 +349,7 @@ impl Into<CkbSource> for Source {
     }
 }
 
-#[derive(Debug, Default, PartialEq, EnumString, Display)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, EnumString, Display)]
 pub enum Action {
     #[strum(serialize = "config")]
     Config,
@@ -334,40 +361,86 @@ pub enum Action {
     PreRegister,
     #[strum(serialize = "refund_pre_register")]
     RefundPreRegister,
+    #[strum(serialize = "propose")]
+    Propose,
+    #[strum(serialize = "extend_proposal")]
+    ExtendProposal,
     #[strum(serialize = "confirm_proposal")]
     ConfirmProposal,
+    #[strum(serialize = "recycle_proposal")]
+    RecycleProposal,
+    #[strum(serialize = "init_account_chain")]
+    InitAccountChain,
+    #[strum(serialize = "transfer_account")]
+    TransferAccount,
+    #[strum(serialize = "edit_manager")]
+    EditManager,
+    #[strum(serialize = "edit_records")]
+    EditRecords,
     #[strum(serialize = "renew_account")]
     RenewAccount,
-    #[strum(serialize = "accept_offer")]
-    AcceptOffer,
+    #[strum(serialize = "retract_reverse_record")]
+    RetractReverseRecord,
+    #[strum(serialize = "create_reverse_record_root")]
+    CreateReverseRecordRoot,
+    #[strum(serialize = "update_reverse_record_root")]
+    UpdateReverseRecordRoot,
+    #[strum(serialize = "create_approval")]
+    CreateApproval,
+    #[strum(serialize = "delay_approval")]
+    DelayApproval,
+    #[strum(serialize = "revoke_approval")]
+    RevokeApproval,
+    #[strum(serialize = "fulfill_approval")]
+    FulfillApproval,
+    #[strum(serialize = "lock_account_for_cross_chain")]
+    LockAccountForCrossChain,
     #[strum(serialize = "unlock_account_for_cross_chain")]
     UnlockAccountForCrossChain,
     #[strum(serialize = "force_recover_account_status")]
     ForceRecoverAccountStatus,
     #[strum(serialize = "recycle_expired_account")]
     RecycleExpiredAccount,
-    #[strum(serialize = "edit_records")]
-    EditRecords,
-    #[strum(serialize = "create_sub_account")]
-    CreateSubAccount,
+    #[strum(serialize = "start_account_sale")]
+    StartAccountSale,
+    #[strum(serialize = "cancel_account_sale")]
+    CancelAccountSale,
+    #[strum(serialize = "edit_account_sale")]
+    EditAccountSale,
+    #[strum(serialize = "buy_account")]
+    BuyAccount,
+    #[strum(serialize = "make_offer")]
+    MakeOffer,
+    #[strum(serialize = "edit_offer")]
+    EditOffer,
+    #[strum(serialize = "cancel_offer")]
+    CancelOffer,
+    #[strum(serialize = "accept_offer")]
+    AcceptOffer,
+    #[strum(serialize = "enable_sub_account")]
+    EnableSubAccount,
     #[strum(serialize = "update_sub_account")]
     UpdateSubAccount,
     #[strum(serialize = "config_sub_account")]
     ConfigSubAccount,
-    #[strum(serialize = "config_sub_account_custom_script")]
-    ConfigSubAccountCustomScript,
-    #[strum(serialize = "buy_account")]
-    BuyAccount,
-    #[strum(serialize = "enable_sub_account")]
-    EnableSubAccount,
-    #[strum(serialize = "revoke_approval")]
-    RevokeApproval,
-    #[strum(serialize = "fulfill_approval")]
-    FulfillApproval,
+    #[strum(serialize = "collect_sub_account_profit")]
+    CollectSubAccountProfit,
+    #[strum(serialize = "collect_sub_account_channel_profit")]
+    CollectSubAccountChannelProfit,
     #[strum(serialize = "bid_expired_account_dutch_auction")]
     BidExpiredAccountDutchAuction,
-    #[strum(serialize = "lock_account_for_cross_chain")]
-    LockAccountForCrossChain,
+    #[strum(serialize = "mint_dp")]
+    MintDP,
+    #[strum(serialize = "transfer_dp")]
+    TransferDP,
+    #[strum(serialize = "burn_dp")]
+    BurnDP,
+    #[strum(serialize = "create_income")]
+    CreateIncome,
+    #[strum(serialize = "consolidate_income")]
+    ConsolidateIncome,
+    #[strum(serialize = "transfer")]
+    Transfer,
     #[default]
     Others,
     // Unit test only,
@@ -401,7 +474,7 @@ pub enum Action {
     TestDotEnvLoadedProperly,
 }
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub enum ActionParams {
     LockAccountForCrossChain {
         coin_type: u64,
@@ -409,13 +482,32 @@ pub enum ActionParams {
         role: LockRole,
     },
     BuyAccount {
-        inviter_lock_args: Vec<u8>,
-        channel_lock_args: Vec<u8>,
+        inviter_lock_bytes: Vec<u8>,
+        channel_lock_bytes: Vec<u8>,
         role: LockRole,
     },
     Role(LockRole),
     #[default]
     None,
+}
+
+impl ActionParams {
+    pub fn get_role(&self) -> Option<LockRole> {
+        match self {
+            Self::BuyAccount {
+                inviter_lock_bytes: _,
+                channel_lock_bytes: _,
+                role,
+            } => Some(*role),
+            Self::LockAccountForCrossChain {
+                coin_type: _,
+                chain_id: _,
+                role,
+            } => Some(*role),
+            Self::Role(role) => Some(*role),
+            _ => None,
+        }
+    }
 }
 
 pub fn super_lock() -> &'static Script {

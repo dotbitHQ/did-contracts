@@ -9,7 +9,7 @@ use ckb_std::ckb_types::packed::{CellOutput, Script};
 use ckb_std::high_level::{load_cell, QueryIter};
 use ckb_std::syscalls::SysError;
 use das_core::error::ScriptError;
-use das_core::witness_parser::WitnessesParser;
+use das_core::witness_parser::WitnessesParserLegacy;
 use das_core::{code_to_error, debug};
 use das_types::packed::ActionData;
 use device_key_list_cell_type::error::ErrorCode;
@@ -93,7 +93,7 @@ pub trait FSMContract: Contract + Sized {
 pub struct MyContract {
     pub registered_actions: Vec<Action>,
     pub action_data: ActionData,
-    pub parser: WitnessesParser,
+    pub parser: WitnessesParserLegacy,
     pub this_script: Script,
     pub input_inner_cells: Vec<CellWithMeta>,
     pub input_outer_cells: Vec<CellWithMeta>,
@@ -141,7 +141,7 @@ impl FSMContract for MyContract {
 }
 
 impl MyContract {
-    pub fn new(parser: WitnessesParser, action_data: ActionData) -> Result<Self, Box<dyn ScriptError>> {
+    pub fn new(parser: WitnessesParserLegacy, action_data: ActionData) -> Result<Self, Box<dyn ScriptError>> {
         fn load_cell_with_meta(index: usize, source: Source) -> Result<CellWithMeta, SysError> {
             load_cell(index, source).map(|cell| CellWithMeta::new(index, source, cell))
         }
@@ -171,14 +171,14 @@ pub trait Contract {
     fn get_output_inner_cells(&self) -> &Vec<CellWithMeta>;
     fn get_output_outer_cells(&self) -> &Vec<CellWithMeta>;
     fn get_this_script(&self) -> &Script;
-    fn get_parser(&mut self) -> &mut WitnessesParser;
+    fn get_parser(&mut self) -> &mut WitnessesParserLegacy;
 }
 
 pub trait GetCellWitness {
     fn get_cell_witness<T: Entity>(&self, meta: CellMeta) -> Result<T, Box<dyn ScriptError>>;
 }
 
-impl GetCellWitness for WitnessesParser {
+impl GetCellWitness for WitnessesParserLegacy {
     fn get_cell_witness<T: Entity>(&self, meta: CellMeta) -> Result<T, Box<dyn ScriptError>> {
         let data_type = T::get_type_constant();
         let (_, _, bytes) = self.verify_and_get(data_type, meta.index, meta.source)?;
@@ -209,7 +209,7 @@ impl Contract for MyContract {
         &self.this_script
     }
 
-    fn get_parser(&mut self) -> &mut WitnessesParser {
+    fn get_parser(&mut self) -> &mut WitnessesParserLegacy {
         &mut self.parser
     }
 }

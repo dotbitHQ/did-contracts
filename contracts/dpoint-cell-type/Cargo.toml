@@ -19,3 +19,4 @@ ckb-std = { workspace = true }
 das-core = { workspace = true }
 das-types = { workspace = true }
 molecule = { workspace = true }
+witness-parser = { workspace = true, features = ["no_std"] }

@@ -43,6 +43,30 @@ pub fn is_config_data_type(data_type: &DataType) -> bool {
     data_type_in_int >= 100 && data_type_in_int <= 199999
 }
 
+pub fn get_action_required_sign_role(action: Action) -> Option<LockRole> {
+    let owner_sign_actions = vec![
+        Action::TransferAccount,
+        Action::EditManager,
+        Action::LockAccountForCrossChain,
+        Action::EnableSubAccount,
+        Action::CreateApproval,
+        Action::DelayApproval,
+        Action::RevokeApproval,
+        Action::FulfillApproval,
+        Action::StartAccountSale,
+        Action::CancelAccountSale,
+        Action::EditAccountSale,
+    ];
+
+    let manager_sign_action = vec![Action::EditRecords];
+
+    match action {
+        x if owner_sign_actions.contains(&x) => Some(LockRole::Owner),
+        x if manager_sign_action.contains(&x) => Some(LockRole::Manager),
+        _ => None,
+    }
+}
+
 pub fn blake2b_256<T: AsRef<[u8]>>(s: T) -> [u8; 32] {
     let mut result = [0u8; CKB_HASH_DIGEST];
     let mut blake2b = Blake2bBuilder::new(CKB_HASH_DIGEST)

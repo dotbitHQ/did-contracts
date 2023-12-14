@@ -11,7 +11,10 @@ use molecule::prelude::Entity;
 
 use crate::error::WitnessParserError;
 
-pub fn parse_action(index: usize, buf: Vec<u8>) -> Result<(Action, ActionParams), WitnessParserError> {
+pub fn parse_action(
+    index: usize,
+    buf: Vec<u8>,
+) -> Result<(packed::ActionData, Action, ActionParams), WitnessParserError> {
     let action_data = match buf.get((WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES)..) {
         Some(buf) => match packed::ActionData::from_slice(buf) {
             Ok(data) => data,
@@ -37,7 +40,7 @@ pub fn parse_action(index: usize, buf: Vec<u8>) -> Result<(Action, ActionParams)
     })?;
 
     let action_params = match action {
-        Action::BuyAccount => parse_buy_action(index, action_data.as_reader())?,
+        Action::BuyAccount => parse_buy_account(index, action_data.as_reader())?,
         Action::LockAccountForCrossChain => parse_lock_account_for_cross_chain(index, action_data.as_reader())?,
         _ => {
             if action_data.params().is_empty() {
@@ -52,17 +55,17 @@ pub fn parse_action(index: usize, buf: Vec<u8>) -> Result<(Action, ActionParams)
         }
     };
 
-    Ok((action, action_params))
+    Ok((action_data, action, action_params))
 }
 
-fn parse_buy_action(index: usize, action_data: ActionDataReader) -> Result<ActionParams, WitnessParserError> {
+fn parse_buy_account(index: usize, action_data: ActionDataReader) -> Result<ActionParams, WitnessParserError> {
     // TODO replace this implement with LV parser
     let bytes = action_data.params().raw_data();
     let first_header = bytes
         .get(..4)
         .ok_or(WitnessParserError::DecodingActionParamsFailed { index })?;
     let length_of_inviter_lock = u32::from_le_bytes(first_header.try_into().unwrap()) as usize;
-    let inviter_lock_args = bytes
+    let inviter_lock_bytes = bytes
         .get(..length_of_inviter_lock)
         .ok_or(WitnessParserError::DecodingActionParamsFailed { index })?
         .to_vec();
@@ -71,10 +74,11 @@ fn parse_buy_action(index: usize, action_data: ActionDataReader) -> Result<Actio
         .get(length_of_inviter_lock..(length_of_inviter_lock + 4))
         .ok_or(WitnessParserError::DecodingActionParamsFailed { index })?;
     let length_of_channel_lock = u32::from_le_bytes(second_header.try_into().unwrap()) as usize;
-    let channel_lock_args = bytes
+    let channel_lock_bytes = bytes
         .get(length_of_inviter_lock..(length_of_inviter_lock + length_of_channel_lock))
         .ok_or(WitnessParserError::DecodingActionParamsFailed { index })?
         .to_vec();
+
     let bytes_of_role = bytes
         .get((length_of_inviter_lock + length_of_channel_lock)..)
         .ok_or(WitnessParserError::DecodingActionParamsFailed { index })?;
@@ -92,8 +96,8 @@ fn parse_buy_action(index: usize, action_data: ActionDataReader) -> Result<Actio
     // debug!("bytes_of_channel_lock = 0x{}", hex::encode(bytes_of_channel_lock));
 
     Ok(ActionParams::BuyAccount {
-        inviter_lock_args,
-        channel_lock_args,
+        inviter_lock_bytes,
+        channel_lock_bytes,
         role,
     })
 }

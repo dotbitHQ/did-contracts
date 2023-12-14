@@ -7,7 +7,6 @@ use das_core::constants::*;
 use das_core::error::{ErrorCode, ScriptError, SubAccountCellErrorCode};
 use das_core::util::{self, blake2b_256};
 use das_core::witness_parser::sub_account::{SubAccountEditValue, SubAccountWitness, SubAccountWitnessesParser};
-use das_core::witness_parser::WitnessesParser;
 use das_core::{code_to_error, das_assert, data_parser, debug, verifiers, warn};
 use das_dynamic_libs::sign_lib::SignLib;
 use das_types::constants::{das_lock, *};
@@ -30,7 +29,6 @@ pub struct SubAction<'a> {
     custom_rule_flag: SubAccountCustomRuleFlag,
     sub_account_last_updated_at: u64,
 
-    parser: &'a WitnessesParser,
     config_account: ConfigCellAccountReader<'a>,
     config_sub_account: ConfigCellSubAccountReader<'a>,
     parent_account: &'a [u8],
@@ -60,7 +58,6 @@ impl<'a> SubAction<'a> {
         flag: SubAccountConfigFlag,
         custom_rule_flag: SubAccountCustomRuleFlag,
         sub_account_last_updated_at: u64,
-        parser: &'a WitnessesParser,
         config_account: ConfigCellAccountReader<'a>,
         config_sub_account: ConfigCellSubAccountReader<'a>,
         parent_account: &'a [u8],
@@ -77,7 +74,6 @@ impl<'a> SubAction<'a> {
             flag,
             custom_rule_flag,
             sub_account_last_updated_at,
-            parser,
             config_account,
             config_sub_account,
             parent_account,
@@ -158,16 +154,11 @@ impl<'a> SubAction<'a> {
 
         let (account, account_chars_reader) = gen_account_from_witness(&sub_account_reader_mixer)?;
 
-        verifiers::account_cell::verify_account_chars(self.parser, account_chars_reader)?;
+        verifiers::account_cell::verify_account_chars(account_chars_reader)?;
         verifiers::account_cell::verify_account_chars_min_length(account_chars_reader)?;
-        verifiers::account_cell::verify_account_chars_max_length(self.parser, account_chars_reader)?;
+        verifiers::account_cell::verify_account_chars_max_length(account_chars_reader)?;
 
-        verifiers::sub_account_cell::verify_initial_properties(
-            self.parser,
-            witness.index,
-            sub_account_reader,
-            self.timestamp,
-        )?;
+        verifiers::sub_account_cell::verify_initial_properties(witness.index, sub_account_reader, self.timestamp)?;
 
         // The verifiers::sub_account_cell::verify_initial_properties has ensured the expiration_years is >= 1 year.
         let expired_at = u64::from(sub_account_reader.expired_at());
@@ -599,7 +590,7 @@ impl<'a> SubAction<'a> {
                     &[AccountStatus::Normal, AccountStatus::ApprovedTransfer],
                 )?;
 
-                verifiers::account_cell::verify_records_keys(self.parser, records.as_reader())?;
+                verifiers::account_cell::verify_records_keys(records.as_reader())?;
             }
             // manual::verify_edit_value_not_empty
             SubAccountEditValue::None | _ => {

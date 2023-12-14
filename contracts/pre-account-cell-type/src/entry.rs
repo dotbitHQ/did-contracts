@@ -1,54 +1,49 @@
 use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
 use alloc::string::String;
+#[cfg(debug_assertions)]
+use alloc::string::ToString;
 use core::cmp::Ordering;
 use core::convert::{TryFrom, TryInto};
 use core::result::Result;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
+use das_core::config::Config;
 use das_core::constants::*;
 use das_core::error::*;
 use das_core::since_util::SinceFlag;
-use das_core::witness_parser::WitnessesParser;
 use das_core::{assert, code_to_error, data_parser, debug, since_util, util, verifiers, warn};
 use das_sorted_list::util as sorted_list_util;
 use das_types::constants::{super_lock, *};
 use das_types::mixer::PreAccountCellDataReaderMixer;
 use das_types::packed::*;
 use das_types::prelude::*;
+use witness_parser::WitnessesParserV1;
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running pre-account-cell-type ======");
 
-    let mut parser = WitnessesParser::new()?;
-    let action_cp = match parser.parse_action_with_params()? {
-        Some((action, _)) => action.to_vec(),
-        None => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
-    };
-    let action = action_cp.as_slice();
+    let parser = WitnessesParserV1::get_instance();
+    parser
+        .init()
+        .map_err(|_err| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
 
-    util::is_system_off(&parser)?;
+    util::is_system_off()?;
 
-    debug!(
-        "Route to {:?} action ...",
-        alloc::string::String::from_utf8(action.to_vec()).map_err(|_| ErrorCode::ActionNotSupported)?
-    );
-
-    match action {
-        b"confirm_proposal" => {
+    debug!("Route to {:?} action ...", parser.action.to_string());
+    match parser.action {
+        Action::ConfirmProposal => {
             util::require_type_script(
-                &parser,
                 TypeScript::ProposalCellType,
                 Source::Input,
                 ErrorCode::InvalidTransactionStructure,
             )?;
         }
-        b"pre_register" => {
+        Action::PreRegister => {
             debug!("Find out PreAccountCell ...");
 
-            parser.parse_cell()?;
-            let config_main_reader = parser.configs.main()?;
+            let config_main_reader = Config::get_instance().main()?;
 
             debug!("Parse cells in transaction ...");
 
@@ -79,7 +74,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             debug!("Read data of ApplyRegisterCell ...");
 
-            let config_apply_reader = parser.configs.apply()?;
+            let config_apply_reader = Config::get_instance().apply()?;
 
             // Read the hash from outputs_data of the ApplyRegisterCell.
             let index = &input_apply_register_cells[0];
@@ -108,14 +103,13 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let account_id = data_parser::pre_account_cell::get_id(&data);
             let capacity = high_level::load_cell_capacity(output_cells[0], Source::Output)?;
 
-            let pre_account_cell_witness =
-                util::parse_pre_account_cell_witness(&parser, output_cells[0], Source::Output)?;
+            let pre_account_cell_witness = util::parse_pre_account_cell_witness(output_cells[0], Source::Output)?;
             let pre_account_cell_witness_reader = pre_account_cell_witness.as_reader();
 
             debug!("Verify various fields of PreAccountCell ...");
 
-            let config_price = parser.configs.price()?;
-            let config_account = parser.configs.account()?;
+            let config_price = Config::get_instance().price()?;
+            let config_account = Config::get_instance().account()?;
 
             let timestamp = if cells_with_super_lock.len() > 0 {
                 debug!("Skip loading TimeCell because of super lock.");
@@ -157,7 +151,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 verify_account_length_and_years(&pre_account_cell_witness_reader, timestamp)?
             }
 
-            let config_release = parser.configs.release()?;
+            let config_release = Config::get_instance().release()?;
             if cells_with_super_lock.len() > 0 {
                 debug!("Skip account release status verification because of super lock.");
             } else {
@@ -172,19 +166,19 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             if cells_with_super_lock.len() > 0 {
                 debug!("Skip preserved account verification because of super lock.");
             } else {
-                verifiers::account_cell::verify_preserved_accounts(&parser, &account)?
+                verifiers::account_cell::verify_preserved_accounts(&account)?
             }
 
-            verifiers::account_cell::verify_unavailable_accounts(&parser, &account)?;
+            verifiers::account_cell::verify_unavailable_accounts(&account)?;
 
             let chars_reader = pre_account_cell_witness_reader.account();
-            verifiers::account_cell::verify_account_chars(&parser, chars_reader)?;
-            verifiers::account_cell::verify_account_chars_max_length(&parser, chars_reader)?;
+            verifiers::account_cell::verify_account_chars(chars_reader)?;
+            verifiers::account_cell::verify_account_chars_max_length(chars_reader)?;
 
             match pre_account_cell_witness_reader.version() {
                 2 => {
                     if let Ok(reader) = pre_account_cell_witness_reader.try_into_v2() {
-                        verifiers::account_cell::verify_records_keys(&parser, reader.initial_records())?;
+                        verifiers::account_cell::verify_records_keys(reader.initial_records())?;
                     } else {
                         warn!("The PreAccountCellDataReaderMixer.version returned a mismatched version number.");
                         return Err(code_to_error!(ErrorCode::HardCodedError));
@@ -192,7 +186,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 }
                 3 => {
                     if let Ok(reader) = pre_account_cell_witness_reader.try_into_latest() {
-                        verifiers::account_cell::verify_records_keys(&parser, reader.initial_records())?;
+                        verifiers::account_cell::verify_records_keys(reader.initial_records())?;
                     } else {
                         warn!("The PreAccountCellDataReaderMixer.version returned a mismatched version number.");
                         return Err(code_to_error!(ErrorCode::HardCodedError));
@@ -201,9 +195,8 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 _ => {}
             }
         }
-        b"refund_pre_register" => {
-            parser.parse_cell()?;
-            let config_main_reader = parser.configs.main()?;
+        Action::RefundPreRegister => {
+            let config_main_reader = Config::get_instance().main()?;
             let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
 
             verifiers::common::verify_cell_number_range(
@@ -216,8 +209,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             debug!("Find if any cell with refund_lock in inputs ...");
 
-            let pre_account_cell_witness =
-                util::parse_pre_account_cell_witness(&parser, input_cells[0], Source::Input)?;
+            let pre_account_cell_witness = util::parse_pre_account_cell_witness(input_cells[0], Source::Input)?;
             let pre_account_cell_witness_reader = pre_account_cell_witness.as_reader();
             let refund_lock = pre_account_cell_witness_reader.refund_lock();
 
@@ -250,7 +242,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             let mut refund_map = BTreeMap::new();
             for index in input_cells {
-                let pre_account_cell_witness = util::parse_pre_account_cell_witness(&parser, index, Source::Input)?;
+                let pre_account_cell_witness = util::parse_pre_account_cell_witness(index, Source::Input)?;
                 let pre_account_cell_witness_reader = pre_account_cell_witness.as_reader();
                 let capacity = high_level::load_cell_capacity(index, Source::Input)?;
                 let since = high_level::load_input_since(index, Source::Input)?;
@@ -554,20 +546,22 @@ fn verify_price_and_capacity<'a>(
 
 fn verify_account_length_and_years<'a>(
     reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>,
-    current_timestamp: u64,
+    _current_timestamp: u64,
 ) -> Result<(), Box<dyn ScriptError>> {
-    use chrono::{DateTime, NaiveDateTime, Utc};
-
     let account_length = reader.account().len();
-    let _current = DateTime::<Utc>::from_utc(
-        NaiveDateTime::from_timestamp_opt(current_timestamp as i64, 0).unwrap(),
-        Utc,
-    );
 
-    debug!(
-        "Check if the account is available for registration now. (length: {}, current: {:#?})",
-        account_length, _current
-    );
+    #[cfg(debug_assertions)]
+    {
+        use chrono::{DateTime, NaiveDateTime, Utc};
+        let _current = DateTime::<Utc>::from_utc(
+            NaiveDateTime::from_timestamp_opt(_current_timestamp as i64, 0).unwrap(),
+            Utc,
+        );
+        debug!(
+            "Check if the account is available for registration now. (length: {}, current: {:#?})",
+            account_length, _current
+        );
+    }
 
     // On CKB main net, AKA Lina, accounts of less lengths can be registered only after a specific number of years.
     // CAREFUL Triple check.

@@ -9,18 +9,18 @@ use ckb_std::high_level;
 use das_types::constants::{das_lock, *};
 use das_types::mixer::AccountCellDataReaderMixer;
 use das_types::packed::*;
-use das_types::util as das_types_util;
+use das_types::util as types_util;
 
+use crate::config::Config;
 use crate::constants::*;
 use crate::error::*;
 #[cfg(debug_assertions)]
 use crate::util::print_dp;
 use crate::util::{blake2b_256, find_cells_by_script};
-use crate::witness_parser::WitnessesParser;
 use crate::{data_parser, util};
 
-pub fn verify_unlock_role(action: &[u8], params: &[Bytes]) -> Result<(), Box<dyn ScriptError>> {
-    let required_role_opt = util::get_action_required_role(action);
+pub fn verify_unlock_role(action: Action, role: Option<LockRole>) -> Result<(), Box<dyn ScriptError>> {
+    let required_role_opt = types_util::get_action_required_sign_role(action);
     if required_role_opt.is_none() {
         debug!("Skip checking the required role of the transaction.");
         return Ok(());
@@ -29,20 +29,10 @@ pub fn verify_unlock_role(action: &[u8], params: &[Bytes]) -> Result<(), Box<dyn
     debug!("Check if the transaction is unlocked by expected role.");
 
     das_assert!(
-        params.len() > 0,
-        AccountCellErrorCode::AccountCellPermissionDenied,
-        "This transaction should have a role param."
-    );
-
-    let required_role = required_role_opt.unwrap();
-    // It is a convention that the param of role should always be the last param.
-    let current_role = params[params.len() - 1].raw_data()[0];
-
-    das_assert!(
-        current_role == required_role as u8,
+        required_role_opt == role,
         AccountCellErrorCode::AccountCellPermissionDenied,
         "This transaction should be unlocked by the {:?}'s signature.",
-        required_role
+        required_role_opt.unwrap()
     );
 
     Ok(())
@@ -673,14 +663,14 @@ pub fn verify_account_cell_consistent_with_exception<'a>(
     Ok(())
 }
 
-pub fn verify_preserved_accounts(parser: &WitnessesParser, account: &[u8]) -> Result<(), Box<dyn ScriptError>> {
+pub fn verify_preserved_accounts(account: &[u8]) -> Result<(), Box<dyn ScriptError>> {
     debug!("Verify if account is preserved.");
 
     let account_hash = util::blake2b_256(account);
     let account_id = account_hash.get(..ACCOUNT_ID_LENGTH).unwrap();
     let index = (account_id[0] % PRESERVED_ACCOUNT_CELL_COUNT) as usize;
-    let data_type = das_types_util::preserved_accounts_group_to_data_type(index);
-    let preserved_accounts = parser.configs.preserved_account(data_type)?;
+    let data_type = types_util::preserved_accounts_group_to_data_type(index);
+    let preserved_accounts = Config::get_instance().preserved_account(data_type)?;
 
     // debug!(
     //     "account: {}, account ID: {:?}, data_type: {:?}",
@@ -703,12 +693,12 @@ pub fn verify_preserved_accounts(parser: &WitnessesParser, account: &[u8]) -> Re
 }
 
 /// Verify if the account can never be registered.
-pub fn verify_unavailable_accounts(parser: &WitnessesParser, account: &[u8]) -> Result<(), Box<dyn ScriptError>> {
+pub fn verify_unavailable_accounts(account: &[u8]) -> Result<(), Box<dyn ScriptError>> {
     debug!("Verify if account if unavailable");
 
     let account_hash = util::blake2b_256(account);
     let account_id = account_hash.get(..ACCOUNT_ID_LENGTH).unwrap();
-    let unavailable_accounts = parser.configs.unavailable_account()?;
+    let unavailable_accounts = Config::get_instance().unavailable_account()?;
 
     if util::is_account_id_in_collection(account_id, unavailable_accounts) {
         warn!(
@@ -723,19 +713,17 @@ pub fn verify_unavailable_accounts(parser: &WitnessesParser, account: &[u8]) -> 
     Ok(())
 }
 
-pub fn verify_account_chars(
-    parser: &WitnessesParser,
-    chars_reader: AccountCharsReader,
-) -> Result<(), Box<dyn ScriptError>> {
+pub fn verify_account_chars(chars_reader: AccountCharsReader) -> Result<(), Box<dyn ScriptError>> {
+    debug!("1");
+
     let mut prev_char_set_name: Option<_> = None;
     for account_char in chars_reader.iter() {
         // Loading different charset configs on demand.
-        let data_type =
-            das_types_util::char_set_to_data_type(CharSetType::try_from(account_char.char_set_name()).unwrap());
-        let char_set_index = das_types_util::data_type_to_char_set(data_type) as usize;
+        let data_type = types_util::char_set_to_data_type(CharSetType::try_from(account_char.char_set_name()).unwrap());
+        let char_set_index = types_util::data_type_to_char_set(data_type) as usize;
 
         // Check if account contains only one non-global character set.
-        match parser.configs.char_set(char_set_index) {
+        match Config::get_instance().char_set(char_set_index) {
             Some(Ok(char_set)) => {
                 if !char_set.global {
                     if prev_char_set_name.is_none() {
@@ -756,7 +744,7 @@ pub fn verify_account_chars(
                 return Err(err);
             }
             None => {
-                warn!("Chan not found CharSet[{}].", char_set_index);
+                warn!("[1] Chan not found CharSet[{}].", char_set_index);
                 return Err(code_to_error!(ErrorCode::CharSetIsUndefined));
             }
         }
@@ -767,13 +755,13 @@ pub fn verify_account_chars(
     for account_char in chars_reader.iter() {
         let char_set_index = u32::from(account_char.char_set_name()) as usize;
         if required_char_sets[char_set_index].len() <= 1 {
-            let char_set = match parser.configs.char_set(char_set_index) {
+            let char_set = match Config::get_instance().char_set(char_set_index) {
                 Some(Ok(char_set)) => char_set,
                 Some(Err(err)) => {
                     return Err(err);
                 }
                 None => {
-                    warn!("Chan not found CharSet[{}].", char_set_index);
+                    warn!("[2] Chan not found CharSet[{}].", char_set_index);
                     return Err(code_to_error!(ErrorCode::CharSetIsUndefined));
                 }
             };
@@ -808,11 +796,8 @@ pub fn verify_account_chars(
     Ok(())
 }
 
-pub fn verify_account_chars_max_length(
-    parser: &WitnessesParser,
-    chars_reader: AccountCharsReader,
-) -> Result<(), Box<dyn ScriptError>> {
-    let config = parser.configs.account()?;
+pub fn verify_account_chars_max_length(chars_reader: AccountCharsReader) -> Result<(), Box<dyn ScriptError>> {
+    let config = Config::get_instance().account()?;
     let max_chars_length = u32::from(config.max_length());
     let account_chars_length = chars_reader.len() as u32;
 
@@ -842,11 +827,11 @@ pub fn verify_account_chars_min_length(chars_reader: AccountCharsReader) -> Resu
     Ok(())
 }
 
-pub fn verify_records_keys(parser: &WitnessesParser, records: RecordsReader) -> Result<(), Box<dyn ScriptError>> {
+pub fn verify_records_keys(records: RecordsReader) -> Result<(), Box<dyn ScriptError>> {
     debug!("Check if records keys are available.");
 
-    let config_account = parser.configs.account()?;
-    let record_key_namespace = parser.configs.record_key_namespace()?;
+    let config_account = Config::get_instance().account()?;
+    let record_key_namespace = Config::get_instance().record_key_namespace()?;
     let records_max_size = u32::from(config_account.record_size_limit()) as usize;
 
     das_assert!(

@@ -13,6 +13,7 @@ mainnet = ["das-core/mainnet"]
 das-core = { workspace = true }
 das-sorted-list = { workspace = true }
 das-types = { workspace = true, features = ["no_std"] }
+witness-parser = { workspace = true, features = ["no_std"] }
 ckb-std = { workspace = true }
 hex = { workspace = true }
 chrono = { workspace = true }

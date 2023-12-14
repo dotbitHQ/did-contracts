@@ -21,7 +21,7 @@ use super::super::util;
 use crate::util::load_data;
 
 #[derive(Debug)]
-pub struct WitnessesParser {
+pub struct WitnessesParserLegacy {
     pub witnesses: Vec<(usize, DataType)>,
     pub configs: Configs,
     pub action: Vec<u8>,
@@ -34,7 +34,7 @@ pub struct WitnessesParser {
     new: Vec<(u32, u32, DataType, Vec<u8>, Bytes)>,
 }
 
-impl WitnessesParser {
+impl WitnessesParserLegacy {
     pub fn new() -> Result<Self, Box<dyn ScriptError>> {
         let mut witnesses = Vec::new();
         let mut config_witnesses = BTreeMap::new();
@@ -177,7 +177,7 @@ impl WitnessesParser {
             secp256k1_blake160_multisig_all: multisign_lock().clone(),
         };
 
-        Ok(WitnessesParser {
+        Ok(WitnessesParserLegacy {
             witnesses,
             configs: Configs::new(config_witnesses),
             action: Vec::new(),

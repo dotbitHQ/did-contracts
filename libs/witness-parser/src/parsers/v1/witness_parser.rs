@@ -31,6 +31,7 @@ use crate::util;
 pub struct WitnessesParser {
     pub action: Action,
     pub action_params: ActionParams,
+    pub action_data: packed::ActionData,
 
     inited: bool,
     witnesses: Vec<WitnessMeta>,
@@ -147,37 +148,51 @@ impl WitnessesParser {
         self.inited
     }
 
+    pub fn get_action_data(&self) -> &packed::ActionData {
+        &self.action_data
+    }
+
     fn push_witness_wrap_in_config(&mut self, index: usize, data_type: DataType) -> Result<(), WitnessParserError> {
         debug!(
             "witnesses[{:>2}] Presume that the type of the witness is {:?} .",
             index, data_type
         );
 
-        let source = Source::CellDep;
-        let args = packed::Bytes::from((data_type.to_owned() as u32).to_le_bytes().to_vec());
-        let type_script = config_cell_type().clone().as_builder().args(args).build();
-        let config_cells = util::find_cells_by_script(index, ScriptType::Type, type_script.as_reader(), source)?;
+        let mut found_config_cell = false;
+        for source in [Source::CellDep, Source::Input, Source::Output] {
+            let args = packed::Bytes::from((data_type.to_owned() as u32).to_le_bytes().to_vec());
+            let type_script = config_cell_type().clone().as_builder().args(args).build();
+            let config_cells = util::find_cells_by_script(index, ScriptType::Type, type_script.as_reader(), source)?;
 
-        // For any type of ConfigCell, there should be one Cell in the cell_deps, no more and no less.
+            // For any type of ConfigCell, there should be one Cell in the cell_deps, no more and no less.
+            match config_cells.len() {
+                0 => continue,
+                1 => {
+                    found_config_cell = true;
+                }
+                _ => return Err(WitnessParserError::DuplicatedConfigCellFound { index, data_type }),
+            }
+
+            let cell_index = config_cells[0];
+            let hash_in_cell_data = Self::load_witness_hash_from_cell(index, cell_index, source)?;
+
+            self.data_type_map.insert(data_type, self.witnesses.len());
+            self.witnesses.push(WitnessMeta {
+                index,
+                version: 0,
+                data_type,
+                cell_meta: CellMeta {
+                    index: cell_index,
+                    source: source,
+                },
+                hash_in_cell_data,
+            });
+        }
+
         err_assert!(
-            config_cells.len() == 1,
-            WitnessParserError::DuplicatedConfigCellFound { index, data_type }
+            found_config_cell,
+            WitnessParserError::ConfigCellNotFound { index, data_type }
         );
-
-        let cell_index = config_cells[0];
-        let hash_in_cell_data = Self::load_witness_hash_from_cell(index, cell_index, source)?;
-
-        self.data_type_map.insert(data_type, self.witnesses.len());
-        self.witnesses.push(WitnessMeta {
-            index,
-            version: 0,
-            data_type,
-            cell_meta: CellMeta {
-                index: cell_index,
-                source: source,
-            },
-            hash_in_cell_data,
-        });
 
         Ok(())
     }
@@ -273,7 +288,8 @@ impl WitnessesParser {
 
     fn parse_action(&mut self, index: usize) -> Result<(), WitnessParserError> {
         let bytes = util::load_das_witnesses(index)?;
-        let (action, action_params) = parse_action(index, bytes)?;
+        let (action_data, action, action_params) = parse_action(index, bytes)?;
+        self.action_data = action_data;
         self.action = action;
         self.action_params = action_params;
 

@@ -1,45 +1,39 @@
 use alloc::boxed::Box;
+#[cfg(debug_assertions)]
+use alloc::string::ToString;
 use alloc::vec;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::packed as ckb_packed;
 use ckb_std::ckb_types::prelude::*;
 use ckb_std::high_level;
+use das_core::config::Config;
 use das_core::constants::*;
 use das_core::error::*;
-use das_core::witness_parser::WitnessesParser;
 use das_core::{assert, assert_lock_equal, code_to_error, data_parser, debug, util, verifiers, warn};
 use das_map::map::Map;
 use das_map::util as map_util;
-use das_types::constants::{wallet_lock, AccountStatus, TypeScript};
+use das_types::constants::{wallet_lock, AccountStatus, Action, ActionParams, TypeScript};
 use das_types::mixer::*;
-use das_types::packed::*;
+use witness_parser::WitnessesParserV1;
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running account-sale-cell-type ======");
 
-    let mut parser = WitnessesParser::new()?;
-    let action_cp = match parser.parse_action_with_params()? {
-        Some((action, _)) => action.to_vec(),
-        None => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
-    };
-    let action = action_cp.as_slice();
+    let parser = WitnessesParserV1::get_instance();
+    parser
+        .init()
+        .map_err(|_err| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
 
-    util::is_system_off(&parser)?;
+    util::is_system_off()?;
 
-    debug!(
-        "Route to {:?} action ...",
-        alloc::string::String::from_utf8(action.to_vec()).map_err(|_| ErrorCode::ActionNotSupported)?
-    );
-    match action {
-        b"start_account_sale" | b"cancel_account_sale" | b"buy_account" => {
+    debug!("Route to {:?} action ...", parser.action.to_string());
+    match parser.action {
+        Action::StartAccountSale | Action::CancelAccountSale | Action::BuyAccount => {
             let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
-            parser.parse_cell()?;
-
-            let config_main = parser.configs.main()?;
-            let config_account = parser.configs.account()?;
-            let config_secondary_market = parser.configs.secondary_market()?;
+            let config_main = Config::get_instance().main()?;
+            let config_secondary_market = Config::get_instance().secondary_market()?;
 
             let account_cell_type_id = config_main.type_id_table().account_cell();
             let (input_account_cells, output_account_cells) =
@@ -53,16 +47,15 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 &[0],
             )?;
 
-            let input_account_cell_witness =
-                util::parse_account_cell_witness(&parser, input_account_cells[0], Source::Input)?;
+            let input_account_cell_witness = util::parse_account_cell_witness(input_account_cells[0], Source::Input)?;
             let input_account_cell_witness_reader = input_account_cell_witness.as_reader();
             let output_account_cell_witness =
-                util::parse_account_cell_witness(&parser, output_account_cells[0], Source::Output)?;
+                util::parse_account_cell_witness(output_account_cells[0], Source::Output)?;
             let output_account_cell_witness_reader = output_account_cell_witness.as_reader();
 
-            match action {
-                b"start_account_sale" => {
-                    verifiers::account_cell::verify_unlock_role(action, &parser.params)?;
+            match parser.action {
+                Action::StartAccountSale => {
+                    verifiers::account_cell::verify_unlock_role(parser.action, parser.action_params.get_role())?;
                     verifiers::common::verify_cell_number_and_position(
                         "AccountSaleCell",
                         &input_sale_cells,
@@ -91,7 +84,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                     )?;
 
                     verify_account_cell_expiration_status_and_consistent(
-                        config_account,
                         timestamp,
                         input_account_cells[0],
                         output_account_cells[0],
@@ -105,18 +97,18 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                     debug!("Verify if all fields of AccountSaleCell is properly set.");
 
                     let output_sale_cell_witness =
-                        util::parse_account_sale_cell_witness(&parser, output_sale_cells[0], Source::Output)?;
+                        util::parse_account_sale_cell_witness(output_sale_cells[0], Source::Output)?;
                     let output_sale_cell_witness_reader = output_sale_cell_witness.as_reader();
 
-                    verify_sale_cell_capacity(config_secondary_market, output_sale_cells[0])?;
+                    verify_sale_cell_capacity(output_sale_cells[0])?;
                     verify_sale_cell_account_and_id(input_account_cells[0], &output_sale_cell_witness_reader)?;
-                    verify_price(config_secondary_market, &output_sale_cell_witness_reader)?;
-                    verify_description(config_secondary_market, &output_sale_cell_witness_reader)?;
+                    verify_price(&output_sale_cell_witness_reader)?;
+                    verify_description(&output_sale_cell_witness_reader)?;
                     verify_buyer_inviter_profit_rate(&output_sale_cell_witness_reader)?;
                     verify_started_at(timestamp, &output_sale_cell_witness_reader)?;
                 }
-                b"cancel_account_sale" => {
-                    verifiers::account_cell::verify_unlock_role(action, &parser.params)?;
+                Action::CancelAccountSale => {
+                    verifiers::account_cell::verify_unlock_role(parser.action, parser.action_params.get_role())?;
                     verifiers::common::verify_cell_number_and_position(
                         "AccountSaleCell",
                         &input_sale_cells,
@@ -143,7 +135,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                     )?;
 
                     verify_account_cell_expiration_status_and_consistent(
-                        config_account,
                         timestamp,
                         input_account_cells[0],
                         output_account_cells[0],
@@ -157,12 +148,12 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                     debug!("Verify if the AccountSaleCell has the same account ID with the AccountCell inputs.");
 
                     let input_sale_cell_witness =
-                        util::parse_account_sale_cell_witness(&parser, input_sale_cells[0], Source::Input)?;
+                        util::parse_account_sale_cell_witness(input_sale_cells[0], Source::Input)?;
                     let input_sale_cell_witness_reader = input_sale_cell_witness.as_reader();
 
                     verify_sale_cell_account_and_id(input_account_cells[0], &input_sale_cell_witness_reader)?;
                 }
-                b"buy_account" => {
+                Action::BuyAccount => {
                     verifiers::common::verify_cell_number_and_position(
                         "AccountSaleCell",
                         &input_sale_cells,
@@ -184,7 +175,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                     )?;
 
                     verify_account_cell_expiration_status_and_consistent(
-                        config_account,
                         timestamp,
                         input_account_cells[0],
                         output_account_cells[0],
@@ -198,7 +188,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                     debug!("Verify if the AccountSaleCell is belong to the AccountCell.");
 
                     let input_sale_cell_witness =
-                        util::parse_account_sale_cell_witness(&parser, input_sale_cells[0], Source::Input)?;
+                        util::parse_account_sale_cell_witness(input_sale_cells[0], Source::Input)?;
                     let input_sale_cell_witness_reader = input_sale_cell_witness.as_reader();
 
                     verify_sale_cell_account_and_id(input_account_cells[0], &input_sale_cell_witness_reader)?;
@@ -242,14 +232,12 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                     debug!("Verify if the profit is distribute correctly.");
 
                     let seller_lock = util::derive_owner_lock_from_cell(input_account_cells[0], Source::Input)?;
-                    let (inviter_lock, channel_lock) = decode_scripts_from_params(&parser.params)?;
+                    let (inviter_lock, channel_lock) = decode_scripts_from_params(parser.action_params.clone())?;
                     let account_sale_cell_capacity =
                         high_level::load_cell_capacity(input_sale_cells[0], Source::Input)?;
                     let common_fee = u64::from(config_secondary_market.common_fee());
 
                     verify_profit_distribution(
-                        &parser,
-                        config_main,
                         seller_lock.as_reader(),
                         inviter_lock.as_reader(),
                         channel_lock.as_reader(),
@@ -261,14 +249,12 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 _ => unreachable!(),
             }
 
-            util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
+            util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
         }
-        b"edit_account_sale" => {
-            verifiers::account_cell::verify_unlock_role(action, &parser.params)?;
+        Action::EditAccountSale => {
+            verifiers::account_cell::verify_unlock_role(parser.action, parser.action_params.get_role())?;
 
-            parser.parse_cell()?;
-
-            let config_secondary_market_reader = parser.configs.secondary_market()?;
+            let config_secondary_market_reader = Config::get_instance().secondary_market()?;
 
             let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
             verifiers::common::verify_cell_number_and_position(
@@ -283,9 +269,9 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             verifiers::misc::verify_no_more_cells(&input_cells, Source::Input)?;
 
-            let input_cell_witness = util::parse_account_sale_cell_witness(&parser, input_cells[0], Source::Input)?;
+            let input_cell_witness = util::parse_account_sale_cell_witness(input_cells[0], Source::Input)?;
             let input_cell_witness_reader = input_cell_witness.as_reader();
-            let output_cell_witness = util::parse_account_sale_cell_witness(&parser, output_cells[0], Source::Output)?;
+            let output_cell_witness = util::parse_account_sale_cell_witness(output_cells[0], Source::Output)?;
             let output_cell_witness_reader = output_cell_witness.as_reader();
 
             verify_account_sale_cell_consistent(
@@ -311,7 +297,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 debug!(
                     "Sale price has been changed, verify if it higher than ConfigCellSecondaryMarket.sale_min_price."
                 );
-                verify_price(config_secondary_market_reader, &output_cell_witness_reader)?;
+                verify_price(&output_cell_witness_reader)?;
                 changed = true;
             }
 
@@ -319,7 +305,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let output_description = output_cell_witness_reader.description();
             if !util::is_reader_eq(input_description, output_description) {
                 debug!("Description has been changed, verify if its size is less than ConfigCellSecondaryMarket.sale_description_bytes_limit.");
-                verify_description(config_secondary_market_reader, &output_cell_witness_reader)?;
+                verify_description(&output_cell_witness_reader)?;
                 changed = true;
             }
 
@@ -355,11 +341,10 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 "Either price or description should be modified."
             );
 
-            util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
+            util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
         }
-        b"force_recover_account_status" => {
+        Action::ForceRecoverAccountStatus => {
             util::require_type_script(
-                &parser,
                 TypeScript::AccountCellType,
                 Source::Input,
                 ErrorCode::InvalidTransactionStructure,
@@ -372,29 +357,37 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 }
 
 fn decode_scripts_from_params(
-    params: &[Bytes],
+    params: ActionParams,
 ) -> Result<(ckb_packed::Script, ckb_packed::Script), Box<dyn ScriptError>> {
-    macro_rules! decode_script {
-        ($param:expr, $name:expr) => {
-            ckb_packed::Script::from_slice($param.raw_data()).map_err(|_| {
+    match params {
+        ActionParams::BuyAccount {
+            inviter_lock_bytes,
+            channel_lock_bytes,
+            ..
+        } => {
+            let inviter_lock = ckb_packed::Script::from_slice(&inviter_lock_bytes).map_err(|_| {
                 warn!(
-                    "Decoding {} in params failed.(bytes: 0x{})",
-                    $name,
-                    util::hex_string($param.raw_data())
+                    "Decoding inviter lock in params failed.(bytes: 0x{})",
+                    util::hex_string(&inviter_lock_bytes)
                 );
                 ErrorCode::ParamsDecodingError
-            })?
-        };
+            })?;
+
+            let channel_lock = ckb_packed::Script::from_slice(&channel_lock_bytes).map_err(|_| {
+                warn!(
+                    "Decoding channel lock in params failed.(bytes: 0x{})",
+                    util::hex_string(&channel_lock_bytes)
+                );
+                ErrorCode::ParamsDecodingError
+            })?;
+
+            Ok((inviter_lock, channel_lock))
+        }
+        _ => unreachable!(),
     }
-
-    let inviter_lock = decode_script!(params[0].as_reader(), "inviter_lock");
-    let channel_lock = decode_script!(params[1].as_reader(), "channel_lock");
-
-    Ok((inviter_lock, channel_lock))
 }
 
 fn verify_account_cell_expiration_status_and_consistent<'a>(
-    config_account: ConfigCellAccountReader,
     timestamp: u64,
     input_account_cell: usize,
     output_account_cell: usize,
@@ -405,6 +398,8 @@ fn verify_account_cell_expiration_status_and_consistent<'a>(
     owner_changed: bool,
 ) -> Result<(), Box<dyn ScriptError>> {
     debug!("Verify if the AccountCell is expired and its status is Selling.");
+
+    let config_account = Config::get_instance().account()?;
 
     verifiers::account_cell::verify_account_expiration(config_account, input_account_cell, Source::Input, timestamp)?;
 
@@ -451,10 +446,8 @@ fn verify_account_cell_expiration_status_and_consistent<'a>(
     Ok(())
 }
 
-fn verify_sale_cell_capacity(
-    config_reader: ConfigCellSecondaryMarketReader,
-    output_sale_cell_index: usize,
-) -> Result<(), Box<dyn ScriptError>> {
+fn verify_sale_cell_capacity(output_sale_cell_index: usize) -> Result<(), Box<dyn ScriptError>> {
+    let config_reader = Config::get_instance().secondary_market()?;
     let account_sale_cell_capacity = high_level::load_cell_capacity(output_sale_cell_index, Source::Output)?;
     let expected = u64::from(config_reader.sale_cell_basic_capacity())
         + u64::from(config_reader.sale_cell_prepared_fee_capacity());
@@ -498,10 +491,8 @@ fn verify_sale_cell_account_and_id<'a>(
     Ok(())
 }
 
-fn verify_price<'a>(
-    config_reader: ConfigCellSecondaryMarketReader,
-    witness_reader: &Box<dyn AccountSaleCellDataReaderMixer + 'a>,
-) -> Result<(), Box<dyn ScriptError>> {
+fn verify_price<'a>(witness_reader: &Box<dyn AccountSaleCellDataReaderMixer + 'a>) -> Result<(), Box<dyn ScriptError>> {
+    let config_reader = Config::get_instance().secondary_market()?;
     let price = u64::from(witness_reader.price());
     let sale_min_price = u64::from(config_reader.sale_min_price());
     assert!(
@@ -516,9 +507,9 @@ fn verify_price<'a>(
 }
 
 fn verify_description<'a>(
-    config_reader: ConfigCellSecondaryMarketReader,
     witness_reader: &Box<dyn AccountSaleCellDataReaderMixer + 'a>,
 ) -> Result<(), Box<dyn ScriptError>> {
+    let config_reader = Config::get_instance().secondary_market()?;
     let description = witness_reader.description();
     let bytes_limit = u32::from(config_reader.sale_description_bytes_limit());
     assert!(
@@ -620,8 +611,6 @@ fn verify_account_sale_cell_consistent<'a>(
 }
 
 fn verify_profit_distribution<'a>(
-    parser: &WitnessesParser,
-    config_main: ConfigCellMainReader,
     seller_lock_reader: ckb_packed::ScriptReader,
     inviter_lock_reader: ckb_packed::ScriptReader,
     channel_lock_reader: ckb_packed::ScriptReader,
@@ -629,7 +618,8 @@ fn verify_profit_distribution<'a>(
     account_sale_cell_capacity: u64,
     common_fee: u64,
 ) -> Result<(), Box<dyn ScriptError>> {
-    let config_profit_rate = parser.configs.profit_rate()?;
+    let config_main = Config::get_instance().main()?;
+    let config_profit_rate = Config::get_instance().profit_rate()?;
     let price = u64::from(input_sale_cell_witness_reader.price());
 
     let default_script = ckb_packed::Script::default();
@@ -687,7 +677,7 @@ fn verify_profit_distribution<'a>(
     let expected_capacity = profit_of_seller + account_sale_cell_capacity - common_fee;
     verifiers::misc::verify_user_get_change(config_main, seller_lock_reader, expected_capacity)?;
 
-    verifiers::income_cell::verify_income_cells(parser, profit_map)?;
+    verifiers::income_cell::verify_income_cells(profit_map)?;
 
     Ok(())
 }

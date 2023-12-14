@@ -789,7 +789,6 @@ dependencies = [
  "das-map",
  "das-types",
  "eip712",
- "witness-parser",
 ]
 
 [[package]]

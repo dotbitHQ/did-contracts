@@ -6,10 +6,10 @@ use core::result::Result;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
+use das_core::config::Config;
 use das_core::constants::ScriptType;
 use das_core::error::*;
 use das_core::since_util::SinceFlag;
-use das_core::witness_parser::WitnessesParser;
 use das_core::{assert, code_to_error, debug, since_util, util, verifiers};
 use das_types::constants::{Action, TypeScript};
 use witness_parser::WitnessesParserV1;
@@ -22,8 +22,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
         .init()
         .map_err(|_err| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
 
-    let parser_legacy = WitnessesParser::new()?;
-    util::is_system_off(&parser_legacy)?;
+    util::is_system_off()?;
 
     debug!("Route to {:?} action ...", parser.action.to_string());
     match parser.action {
@@ -48,7 +47,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             );
         }
         Action::RefundApply => {
-            let config = parser_legacy.configs.apply()?;
+            let config = Config::get_instance().apply()?;
             let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
 
             verifiers::common::verify_cell_number_range(
@@ -111,12 +110,11 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 refund_capacity
             );
 
-            let config_main_reader = parser_legacy.configs.main()?;
+            let config_main_reader = Config::get_instance().main()?;
             verifiers::balance_cell::verify_das_lock_always_with_type(config_main_reader)?;
         }
         Action::PreRegister => {
             util::require_type_script(
-                &parser_legacy,
                 TypeScript::PreAccountCellType,
                 Source::Output,
                 ErrorCode::InvalidTransactionStructure,

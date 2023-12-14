@@ -1,44 +1,41 @@
 use alloc::boxed::Box;
 use alloc::string::String;
+#[cfg(debug_assertions)]
+use alloc::string::ToString;
 use core::result::Result;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
+use das_core::config::Config;
 use das_core::constants::*;
 use das_core::error::*;
-use das_core::witness_parser::WitnessesParser;
 use das_core::{assert, assert_lock_equal, code_to_error, data_parser, debug, util, verifiers};
 use das_map::map::Map;
 use das_map::util as map_util;
-use das_types::constants::{das_lock, wallet_lock, AccountStatus, TypeScript};
+use das_types::constants::{das_lock, wallet_lock, AccountStatus, Action, TypeScript};
 use das_types::packed::*;
 use das_types::prelude::*;
+use witness_parser::WitnessesParserV1;
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running offer-cell-type ======");
 
-    let mut parser = WitnessesParser::new()?;
-    let action_cp = match parser.parse_action_with_params()? {
-        Some((action, _)) => action.to_vec(),
-        None => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
-    };
-    let action = action_cp.as_slice();
+    let parser = WitnessesParserV1::get_instance();
+    parser
+        .init()
+        .map_err(|_err| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
 
-    util::is_system_off(&parser)?;
+    util::is_system_off()?;
 
     let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
 
-    debug!(
-        "Route to {:?} action ...",
-        String::from_utf8(action.to_vec()).map_err(|_| ErrorCode::ActionNotSupported)?
-    );
-    match action {
-        b"make_offer" | b"edit_offer" => {
-            parser.parse_cell()?;
-            let config_main = parser.configs.main()?;
-            let config_second_market = parser.configs.secondary_market()?;
+    debug!("Route to {:?} action ...", parser.action.to_string());
+    match parser.action {
+        Action::MakeOffer | Action::EditOffer => {
+            let config_main = Config::get_instance().main()?;
+            let config_second_market = Config::get_instance().secondary_market()?;
 
-            if action == b"make_offer" {
+            if parser.action == Action::MakeOffer {
                 verifiers::common::verify_cell_number_and_position(
                     "OfferCell",
                     &input_cells,
@@ -58,7 +55,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             let sender_lock = high_level::load_cell_lock(0, Source::Input)?;
             let balance_cells = util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Input)?;
-            let all_input_cells = if action == b"make_offer" {
+            let all_input_cells = if parser.action == Action::MakeOffer {
                 balance_cells
             } else {
                 [input_cells.clone(), balance_cells].concat()
@@ -102,10 +99,10 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 "The OfferCell.lock should be the same as the lock of inputs[0]."
             );
 
-            let output_offer_cell_witness = util::parse_offer_cell_witness(&parser, output_cells[0], Source::Output)?;
+            let output_offer_cell_witness = util::parse_offer_cell_witness(output_cells[0], Source::Output)?;
             let output_offer_cell_witness_reader = output_offer_cell_witness.as_reader();
 
-            if action == b"make_offer" {
+            if parser.action == Action::MakeOffer {
                 debug!("Verify if the fields of the OfferCell is set correctly.");
 
                 verify_price(
@@ -117,7 +114,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 )?;
                 verify_message_length(config_second_market, output_offer_cell_witness_reader)?;
             } else {
-                let input_offer_cell_witness = util::parse_offer_cell_witness(&parser, input_cells[0], Source::Input)?;
+                let input_offer_cell_witness = util::parse_offer_cell_witness(input_cells[0], Source::Input)?;
                 let input_offer_cell_witness_reader = input_offer_cell_witness.as_reader();
 
                 debug!("Verify if the fields of the OfferCell is modified propoerly.");
@@ -201,14 +198,13 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             let account = output_offer_cell_witness_reader.account().raw_data();
             let account_without_suffix = &account[0..account.len() - 4];
-            verifiers::account_cell::verify_unavailable_accounts(&parser, account_without_suffix)?;
+            verifiers::account_cell::verify_unavailable_accounts(account_without_suffix)?;
 
-            util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
+            util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
         }
-        b"cancel_offer" => {
-            parser.parse_cell()?;
-            let config_main = parser.configs.main()?;
-            let config_second_market = parser.configs.secondary_market()?;
+        Action::CancelOffer => {
+            let config_main = Config::get_instance().main()?;
+            let config_second_market = Config::get_instance().secondary_market()?;
 
             assert!(
                 input_cells.len() >= 1 && output_cells.len() == 0,
@@ -245,16 +241,14 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 total_input_capacity - common_fee,
             )?;
 
-            util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
+            util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
         }
-        b"accept_offer" => {
+        Action::AcceptOffer => {
             let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
-            parser.parse_cell()?;
-
-            let config_main = parser.configs.main()?;
-            let config_account = parser.configs.account()?;
-            let config_secondary_market = parser.configs.secondary_market()?;
+            let config_main = Config::get_instance().main()?;
+            let config_account = Config::get_instance().account()?;
+            let config_secondary_market = Config::get_instance().secondary_market()?;
 
             verifiers::common::verify_cell_number("AccountSaleCell", &input_cells, 1, &output_cells, 0)?;
 
@@ -269,11 +263,10 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 &[0],
             )?;
 
-            let input_account_cell_witness =
-                util::parse_account_cell_witness(&parser, input_account_cells[0], Source::Input)?;
+            let input_account_cell_witness = util::parse_account_cell_witness(input_account_cells[0], Source::Input)?;
             let input_account_cell_witness_reader = input_account_cell_witness.as_reader();
             let output_account_cell_witness =
-                util::parse_account_cell_witness(&parser, output_account_cells[0], Source::Output)?;
+                util::parse_account_cell_witness(output_account_cells[0], Source::Output)?;
             let output_account_cell_witness_reader = output_account_cell_witness.as_reader();
 
             let buyer_lock = high_level::load_cell_lock(input_cells[0], Source::Input)?;
@@ -329,7 +322,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let account_cell_data = high_level::load_cell_data(input_account_cells[0], Source::Input)?;
             let current_account = data_parser::account_cell::get_account(&account_cell_data);
 
-            let input_offer_cell_witness = util::parse_offer_cell_witness(&parser, input_cells[0], Source::Input)?;
+            let input_offer_cell_witness = util::parse_offer_cell_witness(input_cells[0], Source::Input)?;
             let input_offer_cell_witness_reader = input_offer_cell_witness.as_reader();
 
             let expected_account = input_offer_cell_witness_reader.account().raw_data();
@@ -351,7 +344,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let common_fee = u64::from(config_secondary_market.common_fee());
 
             verify_profit_distribution(
-                &parser,
                 config_main,
                 seller_lock.as_reader().into(),
                 inviter_lock,
@@ -361,7 +353,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 offer_cell_capacity,
             )?;
 
-            util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
+            util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
         }
         _ => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
     }
@@ -422,7 +414,6 @@ fn verify_price(
 }
 
 fn verify_profit_distribution(
-    parser: &WitnessesParser,
     config_main: ConfigCellMainReader,
     seller_lock_reader: ScriptReader,
     inviter_lock_reader: ScriptReader,
@@ -431,7 +422,7 @@ fn verify_profit_distribution(
     common_fee: u64,
     offer_cell_capacity: u64,
 ) -> Result<(), Box<dyn ScriptError>> {
-    let config_profit_rate = parser.configs.profit_rate()?;
+    let config_profit_rate = Config::get_instance().profit_rate()?;
     let default_script = Script::default();
     let default_script_reader = default_script.as_reader();
 
@@ -482,7 +473,7 @@ fn verify_profit_distribution(
     };
     verifiers::misc::verify_user_get_change(config_main, seller_lock_reader.into(), expected_capacity)?;
 
-    verifiers::income_cell::verify_income_cells(parser, profit_map)?;
+    verifiers::income_cell::verify_income_cells(profit_map)?;
 
     Ok(())
 }

@@ -13,4 +13,5 @@ mainnet = ["das-core/mainnet"]
 das-map = { workspace = true }
 das-core = { workspace = true }
 das-types = { workspace = true, features = ["no_std"] }
+witness-parser = { workspace = true, features = ["no_std"] }
 ckb-std = { workspace = true }

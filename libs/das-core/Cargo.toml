@@ -14,6 +14,7 @@ mainnet = ["eip712/mainnet"]
 das-map = { workspace = true }
 das-types = { workspace = true, features = [ "no_std" ] }
 simple-ast = { workspace = true, features = ["no_std"] }
+witness-parser = { workspace = true, features = ["no_std"] }
 eip712 = { workspace = true }
 das-dynamic-libs = { workspace = true }
 ckb-std = { workspace = true }

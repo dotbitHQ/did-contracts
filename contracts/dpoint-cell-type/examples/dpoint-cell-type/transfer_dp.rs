@@ -4,14 +4,15 @@ use core::cmp::Ordering;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
+use das_core::config::Config;
 use das_core::constants::DPOINT_MAX_LIMIT;
-use das_core::contract::defult_structs::{Action, Rule};
+use das_core::contract::defult_structs::{Action as ContractAction, Rule};
 use das_core::error::ScriptError;
-use das_core::witness_parser::WitnessesParser;
 use das_core::{code_to_error, das_assert, data_parser, debug, util as core_util, verifiers};
-use das_types::constants::TypeScript;
+use das_types::constants::{Action, TypeScript};
 use das_types::packed::*;
 use dpoint_cell_type::error::ErrorCode;
+use witness_parser::WitnessesParserV1;
 
 use super::util;
 
@@ -22,18 +23,10 @@ enum TransferType {
     UserToWhitelist,
 }
 
-pub fn action() -> Result<Action, Box<dyn ScriptError>> {
-    let mut parser = WitnessesParser::new()?;
-    let witness_action = match parser.parse_action_with_params()? {
-        Some((action, _)) => action.to_vec(),
-        None => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
-    };
+pub fn action() -> Result<ContractAction, Box<dyn ScriptError>> {
+    let config_dpoint_reader = Config::get_instance().dpoint()?;
 
-    core_util::is_system_off(&parser)?;
-
-    let config_dpoint_reader = parser.configs.dpoint()?;
-
-    let mut action = Action::new("transfer_dp");
+    let mut action = ContractAction::new("transfer_dp");
     action.is_default = true;
 
     let (input_cells, output_cells) = core_util::load_self_cells_in_inputs_and_outputs()?;
@@ -273,9 +266,10 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
         ));
     }
 
-    if witness_action.as_slice() == b"transfer_dp" {
+    let parser = WitnessesParserV1::get_instance();
+    if parser.action == Action::TransferDP {
         action.add_verification(Rule::new("Verify the EIP712 signature.", move |_contract| {
-            core_util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
+            core_util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
             Ok(())
         }));
     }

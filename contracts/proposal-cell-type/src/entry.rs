@@ -2,14 +2,16 @@ use alloc::borrow::ToOwned;
 use alloc::boxed::Box;
 #[cfg(debug_assertions)]
 use alloc::string::String;
+#[cfg(debug_assertions)]
+use alloc::string::ToString;
 use core::convert::TryFrom;
 use core::result::Result;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level::{self, load_cell_capacity, load_cell_lock, load_cell_type, load_script};
+use das_core::config::Config;
 use das_core::constants::*;
 use das_core::error::*;
-use das_core::witness_parser::WitnessesParser;
 use das_core::{assert, code_to_error, data_parser, debug, util, verifiers, warn};
 use das_map::map::Map;
 use das_map::util as map_util;
@@ -19,18 +21,15 @@ use das_types::mixer::{AccountCellDataMixer, PreAccountCellDataReaderMixer};
 use das_types::packed::*;
 use das_types::prelude::*;
 use das_types::prettier::Prettier;
+use witness_parser::WitnessesParserV1;
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running proposal-cell-type ======");
 
-    let mut parser = WitnessesParser::new()?;
-    let action_cp = match parser.parse_action_with_params()? {
-        Some((action, _)) => action.to_vec(),
-        None => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
-    };
-    let action = action_cp.as_slice();
-
-    util::is_system_off(&parser)?;
+    let parser = WitnessesParserV1::get_instance();
+    parser
+        .init()
+        .map_err(|_err| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
 
     debug!("Find out ProposalCell ...");
 
@@ -40,19 +39,15 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
     let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
     let dep_cells = util::find_cells_by_script(ScriptType::Type, this_type_script_reader, Source::CellDep)?;
 
-    debug!(
-        "Route to {:?} action ...",
-        alloc::string::String::from_utf8(action.to_vec()).map_err(|_| ErrorCode::ActionNotSupported)?
-    );
-    match action {
-        b"propose" | b"extend_proposal" => {
+    debug!("Route to {:?} action ...", parser.action.to_string());
+    match parser.action {
+        Action::Propose | Action::ExtendProposal => {
             let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
-            parser.parse_cell()?;
-            let config_main = parser.configs.main()?;
-            let config_proposal = parser.configs.proposal()?;
+            let config_main = Config::get_instance().main()?;
+            let config_proposal = Config::get_instance().proposal()?;
 
-            if action == b"propose" {
+            if parser.action == Action::Propose {
                 assert!(
                     dep_cells.len() == 0,
                     ErrorCode::InvalidTransactionStructure,
@@ -72,13 +67,13 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let dep_cell_witness;
             let dep_cell_witness_reader;
             let mut prev_slices_reader_opt = None;
-            if action == b"extend_proposal" {
-                dep_cell_witness = util::parse_proposal_cell_witness(&parser, dep_cells[0], Source::CellDep)?;
+            if parser.action == Action::ExtendProposal {
+                dep_cell_witness = util::parse_proposal_cell_witness(dep_cells[0], Source::CellDep)?;
                 dep_cell_witness_reader = dep_cell_witness.as_reader();
                 prev_slices_reader_opt = Some(dep_cell_witness_reader.slices());
             }
 
-            let output_cell_witness = util::parse_proposal_cell_witness(&parser, output_cells[0], Source::Output)?;
+            let output_cell_witness = util::parse_proposal_cell_witness(output_cells[0], Source::Output)?;
             let output_cell_witness_reader = output_cell_witness.as_reader();
 
             let required_cells_count = verify_slices(config_proposal, output_cell_witness_reader.slices())?;
@@ -87,7 +82,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             #[cfg(debug_assertions)]
             inspect_slices(output_cell_witness_reader.slices())?;
             #[cfg(debug_assertions)]
-            inspect_related_cells(&parser, config_main, dep_related_cells.clone(), Source::CellDep)?;
+            inspect_related_cells(config_main, dep_related_cells.clone(), Source::CellDep)?;
 
             assert!(
                 required_cells_count == dep_related_cells.len(),
@@ -98,7 +93,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             );
 
             verify_slices_relevant_cells(
-                &parser,
                 timestamp,
                 config_main,
                 output_cell_witness_reader.slices(),
@@ -106,18 +100,17 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 prev_slices_reader_opt,
             )?;
         }
-        b"confirm_proposal" => {
+        Action::ConfirmProposal => {
             let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
-            parser.parse_cell()?;
-            let config_account = parser.configs.account()?;
-            let config_main = parser.configs.main()?;
-            let config_profit_rate = parser.configs.profit_rate()?;
-            let config_proposal_reader = parser.configs.proposal()?;
+            let config_account = Config::get_instance().account()?;
+            let config_main = Config::get_instance().main()?;
+            let config_profit_rate = Config::get_instance().profit_rate()?;
+            let config_proposal_reader = Config::get_instance().proposal()?;
 
             verifiers::common::verify_cell_number("ProposalCell", &input_cells, 1, &output_cells, 0)?;
 
-            let input_cell_witness = util::parse_proposal_cell_witness(&parser, input_cells[0], Source::Input)?;
+            let input_cell_witness = util::parse_proposal_cell_witness(input_cells[0], Source::Input)?;
             let input_cell_witness_reader = input_cell_witness.as_reader();
 
             debug!("Check if the ProposalCell is able to be confirmed.");
@@ -136,7 +129,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             debug!("Check all AccountCells are updated or created base on proposal.");
 
             verify_proposal_execution_result(
-                &parser,
                 config_account,
                 config_main,
                 config_profit_rate,
@@ -146,15 +138,14 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             verify_refund_correct(input_cells[0], input_cell_witness_reader, 0)?;
         }
-        b"recycle_proposal" => {
-            parser.parse_cell()?;
-            let config_proposal_reader = parser.configs.proposal()?;
+        Action::RecycleProposal => {
+            let config_proposal_reader = Config::get_instance().proposal()?;
 
             verifiers::common::verify_cell_number("ProposalCell", &input_cells, 1, &output_cells, 0)?;
 
             debug!("Check if ProposalCell can be recycled.");
 
-            let input_cell_witness = util::parse_proposal_cell_witness(&parser, input_cells[0], Source::Input)?;
+            let input_cell_witness = util::parse_proposal_cell_witness(input_cells[0], Source::Input)?;
             let input_cell_witness_reader = input_cell_witness.as_reader();
 
             let height = util::load_oracle_data(OracleCellType::Height)?;
@@ -206,7 +197,6 @@ fn inspect_slices(slices_reader: SliceListReader) -> Result<(), Box<dyn ScriptEr
 
 #[cfg(debug_assertions)]
 fn inspect_related_cells(
-    parser: &WitnessesParser,
     config_main: ConfigCellMainReader,
     related_cells: Vec<usize>,
     related_cells_source: Source,
@@ -219,23 +209,25 @@ fn inspect_related_cells(
         let data = util::load_cell_data(i, related_cells_source)?;
 
         if util::is_reader_eq(config_main.type_id_table().account_cell(), code_hash.as_reader()) {
-            let (version, _, _) = parser.verify_and_get(DataType::AccountCellData, i, related_cells_source)?;
+            let account_cell_data_mixer = util::parse_pre_account_cell_witness(i, related_cells_source)?;
+
             debug!(
                 "  {:?}[{}] AccountCell(v{}): {{ id: 0x{}, next: 0x{}, account: {} }}",
                 related_cells_source,
                 i,
-                version,
+                account_cell_data_mixer.version(),
                 util::hex_string(data_parser::account_cell::get_id(&data)),
                 util::hex_string(data_parser::account_cell::get_next(&data)),
                 String::from_utf8(data_parser::account_cell::get_account(&data).to_vec()).unwrap()
             );
         } else if util::is_reader_eq(config_main.type_id_table().pre_account_cell(), code_hash.as_reader()) {
-            let (version, _, _) = parser.verify_and_get(DataType::PreAccountCellData, i, related_cells_source)?;
+            let pre_account_cell_data_mixer = util::parse_pre_account_cell_witness(i, related_cells_source)?;
+
             debug!(
                 "  {:?}[{}] PreAccountCell(v{}): {{ id: 0x{} }}",
                 related_cells_source,
                 i,
-                version,
+                pre_account_cell_data_mixer.version(),
                 util::hex_string(data_parser::pre_account_cell::get_id(&data))
             );
         }
@@ -469,7 +461,6 @@ fn find_output_account_cells(config: ConfigCellMainReader) -> Result<Vec<usize>,
 }
 
 fn verify_slices_relevant_cells(
-    parser: &WitnessesParser,
     timestamp: u64,
     config: ConfigCellMainReader,
     slices_reader: SliceListReader,
@@ -515,8 +506,7 @@ fn verify_slices_relevant_cells(
                     item_account_id.raw_data(),
                 )?;
 
-                let pre_account_cell_witness =
-                    util::parse_pre_account_cell_witness(&parser, cell_index, Source::CellDep)?;
+                let pre_account_cell_witness = util::parse_pre_account_cell_witness(cell_index, Source::CellDep)?;
                 let pre_account_cell_witness_reader = pre_account_cell_witness.as_reader();
 
                 // For protecting register, do not allow PreAccountCell exists more than a week to be confirmed.
@@ -600,7 +590,6 @@ fn find_item_contains_account_id(
 }
 
 fn verify_proposal_execution_result(
-    parser: &WitnessesParser,
     config_account: ConfigCellAccountReader,
     config_main: ConfigCellMainReader,
     config_profit_rate: ConfigCellProfitRateReader,
@@ -622,9 +611,9 @@ fn verify_proposal_execution_result(
     let output_account_cells = find_output_account_cells(config_main)?;
 
     #[cfg(debug_assertions)]
-    inspect_related_cells(&parser, config_main, input_related_cells.clone(), Source::Input)?;
+    inspect_related_cells(config_main, input_related_cells.clone(), Source::Input)?;
     #[cfg(debug_assertions)]
-    inspect_related_cells(&parser, config_main, output_account_cells.clone(), Source::Output)?;
+    inspect_related_cells(config_main, output_account_cells.clone(), Source::Output)?;
 
     let mut profit_map = Map::new();
     let inviter_profit_rate = u32::from(config_profit_rate.inviter()) as u64;
@@ -703,11 +692,11 @@ fn verify_proposal_execution_result(
                 is_next_correct(item_index, &output_cell_data, item_next)?;
 
                 let input_cell_witness: Box<dyn AccountCellDataMixer> =
-                    util::parse_account_cell_witness(&parser, input_related_cells[i], Source::Input)?;
+                    util::parse_account_cell_witness(input_related_cells[i], Source::Input)?;
                 let input_cell_witness_reader = input_cell_witness.as_reader();
 
                 let output_cell_witness: Box<dyn AccountCellDataMixer> =
-                    util::parse_account_cell_witness(&parser, output_account_cells[i], Source::Output)?;
+                    util::parse_account_cell_witness(output_account_cells[i], Source::Output)?;
                 let output_cell_witness_reader = output_cell_witness.as_reader();
 
                 verifiers::account_cell::verify_account_witness_consistent(
@@ -753,12 +742,10 @@ fn verify_proposal_execution_result(
                     item_account_id,
                 )?;
 
-                let input_cell_witness =
-                    util::parse_pre_account_cell_witness(&parser, input_related_cells[i], Source::Input)?;
+                let input_cell_witness = util::parse_pre_account_cell_witness(input_related_cells[i], Source::Input)?;
                 let input_cell_witness_reader = input_cell_witness.as_reader();
 
-                let output_cell_witness =
-                    util::parse_account_cell_witness(&parser, output_account_cells[i], Source::Output)?;
+                let output_cell_witness = util::parse_account_cell_witness(output_account_cells[i], Source::Output)?;
                 let output_cell_witness_reader = if let Ok(reader) = output_cell_witness.as_reader().try_into_latest() {
                     reader
                 } else {
@@ -888,7 +875,7 @@ fn verify_proposal_execution_result(
         }
     }
 
-    verifiers::income_cell::verify_income_cells(&parser, profit_map)?;
+    verifiers::income_cell::verify_income_cells(profit_map)?;
 
     Ok(())
 }

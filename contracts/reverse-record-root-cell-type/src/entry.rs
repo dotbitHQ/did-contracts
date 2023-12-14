@@ -6,41 +6,36 @@ use core::result::Result;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
+use das_core::config::Config;
 use das_core::constants::CellField;
 use das_core::error::*;
 use das_core::witness_parser::reverse_record::{ReverseRecordWitness, ReverseRecordWitnessesParser};
 use das_core::witness_parser::webauthn_signature::WebAuthnSignature;
-use das_core::witness_parser::WitnessesParser;
 use das_core::{assert as das_assert, code_to_error, debug, util, verifiers, warn};
 use das_dynamic_libs::constants::DynLibName;
 use das_dynamic_libs::error::Error as DasDynamicLibError;
 use das_dynamic_libs::sign_lib::SignLib;
 use das_dynamic_libs::{load_2_methods, load_3_methods, load_lib, log_loading, new_context};
-use das_types::constants::DasLockType;
+use das_types::constants::{Action, DasLockType};
 use das_types::prelude::Entity;
+use witness_parser::WitnessesParserV1;
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running reverse-record-root-cell-type ======");
 
-    let mut parser = WitnessesParser::new()?;
-    let action_cp = match parser.parse_action_with_params()? {
-        Some((action, _)) => action.to_vec(),
-        None => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
-    };
-    let action = action_cp.as_slice();
-
-    debug!(
-        "Route to {:?} action ...",
-        alloc::string::String::from_utf8(action.to_vec()).map_err(|_| ErrorCode::ActionNotSupported)?
-    );
+    let parser = WitnessesParserV1::get_instance();
+    parser
+        .init()
+        .map_err(|_err| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
 
     let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
-    match action {
-        b"create_reverse_record_root" => {
+
+    debug!("Route to {:?} action ...", parser.action.to_string());
+    match parser.action {
+        Action::CreateReverseRecordRoot => {
             util::require_super_lock()?;
 
-            parser.parse_cell()?;
-            let config_reverse_resolution = parser.configs.reverse_resolution()?;
+            let config_reverse_resolution = Config::get_instance().reverse_resolution()?;
 
             verifiers::common::verify_cell_number_and_position(
                 "ReverseRecordRootCell",
@@ -75,13 +70,13 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 "The initial outputs_data of ReverseRecordRootCell should be 32 bytes of 0x00."
             );
         }
-        b"update_reverse_record_root" => {
-            util::is_system_off(&parser)?;
-            let config_main = parser.configs.main()?;
-            let config_smt_white_list = parser.configs.smt_node_white_list()?;
+        Action::UpdateReverseRecordRoot => {
+            util::is_system_off()?;
+            let config_main = Config::get_instance().main()?;
+            let config_smt_white_list = Config::get_instance().smt_node_white_list()?;
             verify_has_some_lock_in_white_list(1, config_smt_white_list)?;
 
-            let _config_reverse = parser.configs.reverse_resolution()?;
+            let _config_reverse = Config::get_instance().reverse_resolution()?;
 
             verifiers::common::verify_cell_number_and_position(
                 "ReverseRecordRootCell",

@@ -4,7 +4,6 @@ mod edit_manager;
 mod edit_records;
 mod force_recover_account_status;
 // mod init_account_chain;
-// mod confirm_expired_account_auction;
 mod approval_create;
 mod approval_delay;
 mod approval_fulfill;

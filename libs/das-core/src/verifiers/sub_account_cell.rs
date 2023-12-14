@@ -17,7 +17,6 @@ use crate::constants::*;
 use crate::error::*;
 use crate::witness_parser::sub_account::*;
 use crate::witness_parser::webauthn_signature::WebAuthnSignature;
-use crate::witness_parser::WitnessesParser;
 use crate::{data_parser, util, verifiers};
 
 pub fn verify_cell_initial_properties(data: &[u8]) -> Result<(), Box<dyn ScriptError>> {
@@ -240,7 +239,6 @@ fn verify_initial_registered_at<'a>(
 }
 
 pub fn verify_initial_properties<'a>(
-    parser: &WitnessesParser,
     sub_account_index: usize,
     sub_account_reader: SubAccountReader<'a>,
     current_timestamp: u64,
@@ -266,7 +264,7 @@ pub fn verify_initial_properties<'a>(
         );
 
         let records_reader = sub_account_reader.records();
-        verifiers::account_cell::verify_records_keys(parser, records_reader)?;
+        verifiers::account_cell::verify_records_keys(records_reader)?;
     } else {
         warn!(
             "  witnesses[{:>2}] The witness.sub_account.records of {} should be empty or only one default record.",
@@ -770,38 +768,6 @@ pub fn verify_sub_account_parent_id(
         AccountCellErrorCode::AccountCellIdNotMatch,
         "inputs[{}] The account ID of the SubAccountCell is not match with the expired AccountCell.",
         sub_account_index
-    );
-
-    Ok(())
-}
-
-const SUB_ACCOUNT_BETA_LIST_WILDCARD: [u8; 20] = [
-    216, 59, 196, 4, 163, 94, 224, 196, 194, 5, 93, 90, 193, 58, 92, 50, 58, 174, 73, 74,
-];
-
-/// Verify if the account can join sub-account feature beta.
-pub fn verify_beta_list(parser: &WitnessesParser, account: &[u8]) -> Result<(), Box<dyn ScriptError>> {
-    debug!("Verify if the account can join sub-account feature beta");
-
-    let account_hash = util::blake2b_256(account);
-    let account_id = account_hash.get(..ACCOUNT_ID_LENGTH).unwrap();
-    let sub_account_beta_list = parser.configs.sub_account_beta_list()?;
-
-    if sub_account_beta_list == &SUB_ACCOUNT_BETA_LIST_WILDCARD {
-        debug!("The wildcard '*' of beta list is matched.");
-        return Ok(());
-    } else if !util::is_account_id_in_collection(account_id, sub_account_beta_list) {
-        warn!(
-            "The account is not allow to enable sub-account feature in beta test.(account: {}, account_id: 0x{})",
-            String::from_utf8(account.to_vec()).unwrap(),
-            util::hex_string(account_id)
-        );
-        return Err(code_to_error!(SubAccountCellErrorCode::SubAccountJoinBetaError));
-    }
-
-    debug!(
-        "Found account {:?} in the beta list.",
-        String::from_utf8(account.to_vec())
     );
 
     Ok(())

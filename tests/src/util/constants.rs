@@ -206,10 +206,6 @@ lazy_static! {
             "0x444c2ed8b24700700fcac7cdc0989e1db41380b9c79cc1cf30159e5336ba7d4a",
         );
         map.insert(
-            "test-custom-script",
-            "0x0c133a395b06d1bdb953f4a7f02bbd0d2eba99d3eb50de9de80ac7c741ed11e7",
-        );
-        map.insert(
             "playground",
             "0xca4d966895b1467702bad4038396b037d8c8f045cae9cf5a7db4eadefa347887",
         );
