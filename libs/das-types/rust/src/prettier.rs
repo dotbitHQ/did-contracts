@@ -685,7 +685,9 @@ impl<'a> Prettier for ConfigCellSystemStatusReader<'a> {
             income_cell_type,
             reverse_record_cell_type,
             reverse_record_root_cell_type,
-            eip712_lib
+            eip712_lib,
+            key_list_config_cell_type,
+            dpoint_cell_type
         })
     }
 }

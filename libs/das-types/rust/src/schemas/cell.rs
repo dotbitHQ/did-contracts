@@ -7475,6 +7475,13 @@ impl ::core::fmt::Display for ConfigCellSystemStatus {
             self.reverse_record_root_cell_type()
         )?;
         write!(f, ", {}: {}", "eip712_lib", self.eip712_lib())?;
+        write!(
+            f,
+            ", {}: {}",
+            "key_list_config_cell_type",
+            self.key_list_config_cell_type()
+        )?;
+        write!(f, ", {}: {}", "dpoint_cell_type", self.dpoint_cell_type())?;
         let extra_count = self.count_extra_fields();
         if extra_count != 0 {
             write!(f, ", .. ({} fields)", extra_count)?;
@@ -7485,21 +7492,22 @@ impl ::core::fmt::Display for ConfigCellSystemStatus {
 impl ::core::default::Default for ConfigCellSystemStatus {
     fn default() -> Self {
         let v: Vec<u8> = vec![
-            21, 1, 0, 0, 56, 0, 0, 0, 73, 0, 0, 0, 90, 0, 0, 0, 107, 0, 0, 0, 124, 0, 0, 0, 141, 0, 0, 0, 158, 0, 0, 0,
-            175, 0, 0, 0, 192, 0, 0, 0, 209, 0, 0, 0, 226, 0, 0, 0, 243, 0, 0, 0, 4, 1, 0, 0, 17, 0, 0, 0, 12, 0, 0, 0,
-            13, 0, 0, 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 12, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 12, 0, 0, 0,
-            13, 0, 0, 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 12, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 12, 0, 0, 0,
-            13, 0, 0, 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 12, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 12, 0, 0, 0,
-            13, 0, 0, 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 12, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 12, 0, 0, 0,
-            13, 0, 0, 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 12, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 12, 0, 0, 0,
-            13, 0, 0, 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 12, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 12, 0, 0, 0,
-            13, 0, 0, 0, 0, 0, 0, 0, 0,
+            63, 1, 0, 0, 64, 0, 0, 0, 81, 0, 0, 0, 98, 0, 0, 0, 115, 0, 0, 0, 132, 0, 0, 0, 149, 0, 0, 0, 166, 0, 0, 0,
+            183, 0, 0, 0, 200, 0, 0, 0, 217, 0, 0, 0, 234, 0, 0, 0, 251, 0, 0, 0, 12, 1, 0, 0, 29, 1, 0, 0, 46, 1, 0,
+            0, 17, 0, 0, 0, 12, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 12, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0,
+            0, 17, 0, 0, 0, 12, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 12, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0,
+            0, 17, 0, 0, 0, 12, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 12, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0,
+            0, 17, 0, 0, 0, 12, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 12, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0,
+            0, 17, 0, 0, 0, 12, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 12, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0,
+            0, 17, 0, 0, 0, 12, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 12, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0,
+            0, 17, 0, 0, 0, 12, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 12, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0,
+            0, 17, 0, 0, 0, 12, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0, 0,
         ];
         ConfigCellSystemStatus::new_unchecked(v.into())
     }
 }
 impl ConfigCellSystemStatus {
-    pub const FIELD_COUNT: usize = 13;
+    pub const FIELD_COUNT: usize = 15;
     pub fn total_size(&self) -> usize {
         molecule::unpack_number(self.as_slice()) as usize
     }
@@ -7591,8 +7599,20 @@ impl ConfigCellSystemStatus {
     pub fn eip712_lib(&self) -> ContractStatus {
         let slice = self.as_slice();
         let start = molecule::unpack_number(&slice[52..]) as usize;
+        let end = molecule::unpack_number(&slice[56..]) as usize;
+        ContractStatus::new_unchecked(self.0.slice(start..end))
+    }
+    pub fn key_list_config_cell_type(&self) -> ContractStatus {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[56..]) as usize;
+        let end = molecule::unpack_number(&slice[60..]) as usize;
+        ContractStatus::new_unchecked(self.0.slice(start..end))
+    }
+    pub fn dpoint_cell_type(&self) -> ContractStatus {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[60..]) as usize;
         if self.has_extra_fields() {
-            let end = molecule::unpack_number(&slice[56..]) as usize;
+            let end = molecule::unpack_number(&slice[64..]) as usize;
             ContractStatus::new_unchecked(self.0.slice(start..end))
         } else {
             ContractStatus::new_unchecked(self.0.slice(start..))
@@ -7638,6 +7658,8 @@ impl molecule::prelude::Entity for ConfigCellSystemStatus {
             .reverse_record_cell_type(self.reverse_record_cell_type())
             .reverse_record_root_cell_type(self.reverse_record_root_cell_type())
             .eip712_lib(self.eip712_lib())
+            .key_list_config_cell_type(self.key_list_config_cell_type())
+            .dpoint_cell_type(self.dpoint_cell_type())
     }
 }
 #[derive(Clone, Copy)]
@@ -7682,6 +7704,13 @@ impl<'r> ::core::fmt::Display for ConfigCellSystemStatusReader<'r> {
             self.reverse_record_root_cell_type()
         )?;
         write!(f, ", {}: {}", "eip712_lib", self.eip712_lib())?;
+        write!(
+            f,
+            ", {}: {}",
+            "key_list_config_cell_type",
+            self.key_list_config_cell_type()
+        )?;
+        write!(f, ", {}: {}", "dpoint_cell_type", self.dpoint_cell_type())?;
         let extra_count = self.count_extra_fields();
         if extra_count != 0 {
             write!(f, ", .. ({} fields)", extra_count)?;
@@ -7690,7 +7719,7 @@ impl<'r> ::core::fmt::Display for ConfigCellSystemStatusReader<'r> {
     }
 }
 impl<'r> ConfigCellSystemStatusReader<'r> {
-    pub const FIELD_COUNT: usize = 13;
+    pub const FIELD_COUNT: usize = 15;
     pub fn total_size(&self) -> usize {
         molecule::unpack_number(self.as_slice()) as usize
     }
@@ -7782,8 +7811,20 @@ impl<'r> ConfigCellSystemStatusReader<'r> {
     pub fn eip712_lib(&self) -> ContractStatusReader<'r> {
         let slice = self.as_slice();
         let start = molecule::unpack_number(&slice[52..]) as usize;
+        let end = molecule::unpack_number(&slice[56..]) as usize;
+        ContractStatusReader::new_unchecked(&self.as_slice()[start..end])
+    }
+    pub fn key_list_config_cell_type(&self) -> ContractStatusReader<'r> {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[56..]) as usize;
+        let end = molecule::unpack_number(&slice[60..]) as usize;
+        ContractStatusReader::new_unchecked(&self.as_slice()[start..end])
+    }
+    pub fn dpoint_cell_type(&self) -> ContractStatusReader<'r> {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[60..]) as usize;
         if self.has_extra_fields() {
-            let end = molecule::unpack_number(&slice[56..]) as usize;
+            let end = molecule::unpack_number(&slice[64..]) as usize;
             ContractStatusReader::new_unchecked(&self.as_slice()[start..end])
         } else {
             ContractStatusReader::new_unchecked(&self.as_slice()[start..])
@@ -7852,6 +7893,8 @@ impl<'r> molecule::prelude::Reader<'r> for ConfigCellSystemStatusReader<'r> {
         ContractStatusReader::verify(&slice[offsets[10]..offsets[11]], compatible)?;
         ContractStatusReader::verify(&slice[offsets[11]..offsets[12]], compatible)?;
         ContractStatusReader::verify(&slice[offsets[12]..offsets[13]], compatible)?;
+        ContractStatusReader::verify(&slice[offsets[13]..offsets[14]], compatible)?;
+        ContractStatusReader::verify(&slice[offsets[14]..offsets[15]], compatible)?;
         Ok(())
     }
 }
@@ -7870,9 +7913,11 @@ pub struct ConfigCellSystemStatusBuilder {
     pub(crate) reverse_record_cell_type: ContractStatus,
     pub(crate) reverse_record_root_cell_type: ContractStatus,
     pub(crate) eip712_lib: ContractStatus,
+    pub(crate) key_list_config_cell_type: ContractStatus,
+    pub(crate) dpoint_cell_type: ContractStatus,
 }
 impl ConfigCellSystemStatusBuilder {
-    pub const FIELD_COUNT: usize = 13;
+    pub const FIELD_COUNT: usize = 15;
     pub fn apply_register_cell_type(mut self, v: ContractStatus) -> Self {
         self.apply_register_cell_type = v;
         self
@@ -7925,6 +7970,14 @@ impl ConfigCellSystemStatusBuilder {
         self.eip712_lib = v;
         self
     }
+    pub fn key_list_config_cell_type(mut self, v: ContractStatus) -> Self {
+        self.key_list_config_cell_type = v;
+        self
+    }
+    pub fn dpoint_cell_type(mut self, v: ContractStatus) -> Self {
+        self.dpoint_cell_type = v;
+        self
+    }
 }
 impl molecule::prelude::Builder for ConfigCellSystemStatusBuilder {
     type Entity = ConfigCellSystemStatus;
@@ -7944,6 +7997,8 @@ impl molecule::prelude::Builder for ConfigCellSystemStatusBuilder {
             + self.reverse_record_cell_type.as_slice().len()
             + self.reverse_record_root_cell_type.as_slice().len()
             + self.eip712_lib.as_slice().len()
+            + self.key_list_config_cell_type.as_slice().len()
+            + self.dpoint_cell_type.as_slice().len()
     }
     fn write<W: molecule::io::Write>(&self, writer: &mut W) -> molecule::io::Result<()> {
         let mut total_size = molecule::NUMBER_SIZE * (Self::FIELD_COUNT + 1);
@@ -7974,6 +8029,10 @@ impl molecule::prelude::Builder for ConfigCellSystemStatusBuilder {
         total_size += self.reverse_record_root_cell_type.as_slice().len();
         offsets.push(total_size);
         total_size += self.eip712_lib.as_slice().len();
+        offsets.push(total_size);
+        total_size += self.key_list_config_cell_type.as_slice().len();
+        offsets.push(total_size);
+        total_size += self.dpoint_cell_type.as_slice().len();
         writer.write_all(&molecule::pack_number(total_size as molecule::Number))?;
         for offset in offsets.into_iter() {
             writer.write_all(&molecule::pack_number(offset as molecule::Number))?;
@@ -7991,6 +8050,8 @@ impl molecule::prelude::Builder for ConfigCellSystemStatusBuilder {
         writer.write_all(self.reverse_record_cell_type.as_slice())?;
         writer.write_all(self.reverse_record_root_cell_type.as_slice())?;
         writer.write_all(self.eip712_lib.as_slice())?;
+        writer.write_all(self.key_list_config_cell_type.as_slice())?;
+        writer.write_all(self.dpoint_cell_type.as_slice())?;
         Ok(())
     }
     fn build(&self) -> Self::Entity {
