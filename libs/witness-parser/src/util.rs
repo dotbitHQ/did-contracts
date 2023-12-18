@@ -4,6 +4,8 @@ use alloc::string::{String, ToString};
 use alloc::vec;
 #[cfg(feature = "no_std")]
 use alloc::vec::Vec;
+#[cfg(feature = "std")]
+use std::vec;
 
 #[cfg(feature = "no_std")]
 use ckb_std::high_level;
@@ -57,50 +59,20 @@ pub fn load_das_witnesses(index: usize) -> Result<Vec<u8>, WitnessParserError> {
     }
 }
 
-pub fn load_data<F: Fn(&mut [u8], usize) -> Result<usize, SysError>>(syscall: F) -> Result<Vec<u8>, SysError> {
-    // The buffer length should be a little bigger than the size of the biggest data.
-    let mut buf = [0u8; 2000];
-    let extend_buf = [0u8; 5000];
-    match syscall(&mut buf, 0) {
-        Ok(len) => {
-            let data = buf[..len].to_vec();
-            // debug!("{:?}", data);
-            Ok(data)
-        }
-        Err(SysError::LengthNotEnough(actual_size)) => {
-            debug!("Actual data size: {}", actual_size);
-            // read 30000 bytes in 733165 cycles
-            // read 2500 bytes in 471424 cycles
-            let mut data = Vec::with_capacity(actual_size);
-            loop {
-                if data.len() >= actual_size {
-                    break;
-                }
-                data.extend(extend_buf.iter());
-            }
-            let loaded_len = buf.len();
-            data[..loaded_len].copy_from_slice(&buf);
-            let len = syscall(&mut data[loaded_len..], loaded_len)?;
-            debug_assert_eq!(len + loaded_len, actual_size);
-
-            // read 30000 bytes in 22806311 cycles
-            // read 2500 bytes in 2223269 cycles
-            // let mut data = Vec::with_capacity(actual_size);
-            // data.resize(actual_size, 0);
-            // let loaded_len = buf.len();
-            // data[..loaded_len].copy_from_slice(&buf);
-            // let len = syscall(&mut data[loaded_len..], loaded_len)?;
-            // debug_assert_eq!(len + loaded_len, actual_size);
-
-            Ok(data)
-        }
-        Err(err) => Err(err),
-    }
-}
-
 pub fn load_cell_data(index: usize, source: Source) -> Result<Vec<u8>, WitnessParserError> {
-    load_data(|buf, offset| syscalls::load_cell_data(buf, offset, index, source.into()))
-        .map_err(|err| WitnessParserError::SysError { index, err })
+    let mut buf = vec![0u8; 32];
+    let ret = syscalls::load_cell_data(&mut buf, 0, index, source.into());
+
+    match ret {
+        Ok(_) => Ok(buf),
+        Err(SysError::LengthNotEnough(actual_size)) => {
+            let mut buf = vec![0u8; actual_size];
+            syscalls::load_cell_data(&mut buf, 0, index, source.into())
+                .map_err(|err| WitnessParserError::SysError { index, err })?;
+            Ok(buf)
+        }
+        Err(e) => Err(WitnessParserError::SysError { index, err: e }),
+    }
 }
 
 pub fn parse_date_type_from_witness(index: usize, buf: &[u8]) -> Result<DataType, WitnessParserError> {

@@ -8,6 +8,8 @@ use alloc::string::String;
 use core::cell::OnceCell;
 #[cfg(feature = "std")]
 use std::collections::BTreeMap;
+#[cfg(feature = "std")]
+use std::format;
 
 #[cfg(feature = "no_std")]
 use ckb_std::error::SysError;
@@ -56,6 +58,8 @@ impl WitnessesParser {
     pub fn init(&mut self) -> Result<(), WitnessParserError> {
         let mut das_witnesses_started = false;
         let mut i = 0;
+
+        debug!("=== Init witness parser ===");
 
         loop {
             let mut buf = [0u8; (WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES)];
@@ -140,6 +144,8 @@ impl WitnessesParser {
             }
         }
 
+        debug!("=== Witness parser inited ===");
+
         self.inited = true;
         Ok(())
     }
@@ -154,7 +160,7 @@ impl WitnessesParser {
 
     fn push_witness_wrap_in_config(&mut self, index: usize, data_type: DataType) -> Result<(), WitnessParserError> {
         debug!(
-            "witnesses[{:>2}] Presume that the type of the witness is {:?} .",
+            "  witnesses[{:>2}] Presume that the type of the witness is {:?} .",
             index, data_type
         );
 
@@ -175,6 +181,15 @@ impl WitnessesParser {
 
             let cell_index = config_cells[0];
             let hash_in_cell_data = Self::load_witness_hash_from_cell(index, cell_index, source)?;
+
+            debug!(
+                "  witnesses[{:>2}] {{ data_type: {:?}, index: {}, source: {:?}, hash_in_cell: {} }}",
+                index,
+                data_type,
+                cell_index,
+                source,
+                hex::encode(&hash_in_cell_data)
+            );
 
             self.data_type_map.insert(data_type, self.witnesses.len());
             self.witnesses.push(WitnessMeta {
@@ -199,61 +214,74 @@ impl WitnessesParser {
 
     fn push_witness_wrap_in_data(&mut self, index: usize, data_type: DataType) -> Result<(), WitnessParserError> {
         debug!(
-            "witnesses[{:>2}] Presume that the type of the witness is {:?} .",
+            "  witnesses[{:>2}] Presume that the type of the witness is {:?} .",
             index, data_type
         );
 
         let buf = util::load_das_witnesses(index)?;
         let data = util::parse_data_from_witness(index, &buf)?;
 
-        let source;
-        let data_entity;
+        let mut entities = vec![];
+        let mut found_entity = false;
         if data.dep().to_opt().is_some() {
-            source = Source::CellDep;
-            data_entity = data.dep().to_opt().unwrap();
-        } else if data.old().to_opt().is_some() {
-            source = Source::Input;
-            data_entity = data.old().to_opt().unwrap();
-        } else if data.new().to_opt().is_some() {
-            source = Source::Output;
-            data_entity = data.new().to_opt().unwrap();
-        } else {
-            return Err(WitnessParserError::DecodingDataFailed {
-                index,
-                err: String::from("The witness should contains at least one of dep/old/new."),
-            });
+            let source = Source::CellDep;
+            let data_entity = data.dep().to_opt().unwrap();
+            entities.push((source, data_entity));
+            found_entity = true;
+        }
+        if data.old().to_opt().is_some() {
+            let source = Source::Input;
+            let data_entity = data.old().to_opt().unwrap();
+            entities.push((source, data_entity));
+            found_entity = true;
+        }
+        if data.new().to_opt().is_some() {
+            let source = Source::Output;
+            let data_entity = data.new().to_opt().unwrap();
+            entities.push((source, data_entity));
+            found_entity = true;
         }
 
-        let cell_index = u32::from(data_entity.index()) as usize;
-        let version = u32::from(data_entity.version());
-        let hash_in_cell_data = Self::load_witness_hash_from_cell(index, cell_index, source)?;
-
-        debug!(
-            "  witnesses[{:>2}] {{ source: {:?}, index: {}, data_type: {:?}, hash_in_cell: {} }}",
-            index,
-            source,
-            cell_index,
-            data_type,
-            hex::encode(&hash_in_cell_data)
+        err_assert!(
+            found_entity,
+            WitnessParserError::DecodingDataFailed {
+                index,
+                err: String::from("The witness should contains at least one of dep/old/new."),
+            }
         );
 
-        self.cell_meta_map.insert(
-            CellMeta {
-                index: cell_index,
+        for (source, data_entity) in entities {
+            let cell_index = u32::from(data_entity.index()) as usize;
+            let version = u32::from(data_entity.version());
+            let hash_in_cell_data = Self::load_witness_hash_from_cell(index, cell_index, source)?;
+
+            debug!(
+                "  witnesses[{:>2}] {{ data_type: {:?}, index: {}, source: {:?}, hash_in_cell: {} }}",
+                index,
+                data_type,
+                cell_index,
                 source,
-            },
-            self.witnesses.len(),
-        );
-        self.witnesses.push(WitnessMeta {
-            index,
-            version,
-            data_type,
-            cell_meta: CellMeta {
-                index: cell_index,
-                source,
-            },
-            hash_in_cell_data,
-        });
+                hex::encode(&hash_in_cell_data)
+            );
+
+            self.cell_meta_map.insert(
+                CellMeta {
+                    index: cell_index,
+                    source,
+                },
+                self.witnesses.len(),
+            );
+            self.witnesses.push(WitnessMeta {
+                index,
+                version,
+                data_type,
+                cell_meta: CellMeta {
+                    index: cell_index,
+                    source,
+                },
+                hash_in_cell_data,
+            });
+        }
 
         Ok(())
     }
@@ -327,6 +355,7 @@ impl WitnessQueryable for WitnessesParser {
     fn get_type_id(&mut self, type_script: TypeScript) -> Result<Hash, WitnessParserError> {
         err_assert!(self.inited, WitnessParserError::InitializationRequired);
 
+        let config_cell_type = config_cell_type();
         let config = self.get_entity_by_data_type::<packed::ConfigCellMain>(DataType::ConfigCellMain)?;
         let type_id = match type_script {
             TypeScript::AccountCellType => config.type_id_table().account_cell(),
@@ -334,8 +363,7 @@ impl WitnessQueryable for WitnessesParser {
             TypeScript::AccountAuctionCellType => config.type_id_table().account_auction_cell(),
             TypeScript::ApplyRegisterCellType => config.type_id_table().apply_register_cell(),
             TypeScript::BalanceCellType => config.type_id_table().balance_cell(),
-            // TODO Load it from the dotenv
-            TypeScript::ConfigCellType => packed::Hash::default(),
+            TypeScript::ConfigCellType => config_cell_type.code_hash(),
             TypeScript::IncomeCellType => config.type_id_table().income_cell(),
             TypeScript::OfferCellType => config.type_id_table().offer_cell(),
             TypeScript::PreAccountCellType => config.type_id_table().pre_account_cell(),
@@ -366,34 +394,28 @@ impl WitnessQueryable for WitnessesParser {
             })?
             .to_owned();
 
-        let witness = self
+        let witness_meta = self
             .witnesses
             .get(index)
             .ok_or(WitnessParserError::CanNotFindWitnessByIndex { index })?;
 
-        let buf = util::load_das_witnesses(witness.index)?;
+        let buf = util::load_das_witnesses(witness_meta.index)?;
         let data = util::parse_data_from_witness(index, &buf)?;
-        let data_entity = match witness.cell_meta.source {
+        let data_entity = match witness_meta.cell_meta.source {
             Source::CellDep => data.dep().to_opt(),
             Source::Input => data.old().to_opt(),
             Source::Output => data.new().to_opt(),
         }
         .ok_or(WitnessParserError::DecodingDataFailed {
             index,
-            err: String::from("The "),
+            err: String::from("The witness.data should contains at least one of dep/old/new.")
         })?;
 
-        // TODO verify the hash in cell data
-        // err_assert!(
-        //     data.len() >= 32,
-        //     WitnessParserError::CanNotGetVerficicationHashFromCell {
-        //         index,
-        //         msg: format!(
-        //             "The outputs_data of {:?}[{}] should have at least 32 bytes.",
-        //             source, index
-        //         )
-        //     }
-        // );
+        let entity_hash = types_util::blake2b_256(data_entity.as_reader().entity().raw_data());
+        err_assert!(
+            witness_meta.hash_in_cell_data == entity_hash,
+            WitnessParserError::WitnessHashMismatched { index: witness_meta.index, in_cell_data: hex::encode(&witness_meta.hash_in_cell_data), actual: hex::encode(&entity_hash) }
+        );
 
         let data_type = util::parse_date_type_from_witness(index, &buf)?;
         let version = u32::from(data_entity.version());
@@ -417,25 +439,19 @@ impl WitnessQueryable for WitnessesParser {
             .ok_or(WitnessParserError::CanNotFindWitnessByDataType { data_type })?
             .to_owned();
 
-        let witness = self
+        let witness_meta = self
             .witnesses
             .get(index)
             .ok_or(WitnessParserError::CanNotFindWitnessByIndex { index })?;
 
-        let buf = util::load_das_witnesses(witness.index)?;
+        let buf = util::load_das_witnesses(witness_meta.index)?;
         let data = util::parse_raw_from_witness(index, &buf)?;
 
-        // TODO verify the hash in cell data
-        // err_assert!(
-        //     data.len() >= 32,
-        //     WitnessParserError::CanNotGetVerficicationHashFromCell {
-        //         index,
-        //         msg: format!(
-        //             "The outputs_data of {:?}[{}] should have at least 32 bytes.",
-        //             source, index
-        //         )
-        //     }
-        // );
+        let entity_hash = types_util::blake2b_256(&data);
+        err_assert!(
+            witness_meta.hash_in_cell_data == entity_hash,
+            WitnessParserError::WitnessHashMismatched { index: witness_meta.index, in_cell_data: hex::encode(&witness_meta.hash_in_cell_data), actual: hex::encode(&entity_hash) }
+        );
 
         let data_type = util::parse_date_type_from_witness(index, &buf)?;
         let entity = T::from_compatible_slice(&data).map_err(|_err| WitnessParserError::DecodingEntityFailed {
@@ -450,12 +466,18 @@ impl WitnessQueryable for WitnessesParser {
     fn get_raw_by_index(&mut self, index: usize) -> Result<Vec<u8>, WitnessParserError> {
         err_assert!(self.inited, WitnessParserError::InitializationRequired);
 
-        let witness = self
+        let witness_meta = self
             .witnesses
             .get(index)
             .ok_or(WitnessParserError::CanNotFindWitnessByIndex { index })?;
 
-        let buf = util::load_das_witnesses(witness.index)?;
+        let buf = util::load_das_witnesses(witness_meta.index)?;
+
+        let buf_hash = types_util::blake2b_256(buf.get((WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES)..).unwrap());
+        err_assert!(
+            witness_meta.hash_in_cell_data == buf_hash,
+            WitnessParserError::WitnessHashMismatched { index: witness_meta.index, in_cell_data: hex::encode(&witness_meta.hash_in_cell_data), actual: hex::encode(&buf_hash) }
+        );
 
         Ok(buf)
     }
