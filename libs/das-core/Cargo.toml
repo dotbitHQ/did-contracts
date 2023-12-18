@@ -4,11 +4,10 @@ version = "1.4.0"
 edition = "2021"
 
 [features]
-default = ["dev"]
-dev = ["eip712/dev"]
-local = ["eip712/local"]
-testnet = ["eip712/testnet"]
-mainnet = ["eip712/mainnet"]
+dev = []
+local = []
+testnet = []
+mainnet = []
 
 [dependencies]
 das-map = { workspace = true }

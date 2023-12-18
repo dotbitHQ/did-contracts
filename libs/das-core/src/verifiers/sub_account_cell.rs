@@ -377,6 +377,11 @@ pub fn verify_sub_account_mint_sign(
             // TODO: args for WebAuthn actually has sub_alg_id. Need to remove. This is a temporary walkaround.
             .get(args.index(..))
             .ok_or(code_to_error!(ErrorCode::WitnessStructureError))?;
+
+            if cfg!(feature = "dev") {
+                return Ok(())
+            }
+
         sign_lib.validate_device(
             das_lock_type,
             0,
@@ -386,6 +391,10 @@ pub fn verify_sub_account_mint_sign(
             Default::default(),
         )
     } else {
+        if cfg!(feature = "dev") {
+            return Ok(())
+        }
+
         sign_lib.verify_sub_account_mint_sig(das_lock_type, expired_at, account_list_smt_root, signature, args)
     };
     match ret {
@@ -549,6 +558,11 @@ pub fn verify_sub_account_edit_sign(
             .device_key_lists
             .get(args.index(..))
             .ok_or(code_to_error!(ErrorCode::WitnessStructureError))?;
+
+        if cfg!(feature = "dev") {
+            return Ok(())
+        }
+
         sign_lib.validate_device(
             das_lock_type,
             0,
@@ -558,6 +572,10 @@ pub fn verify_sub_account_edit_sign(
             Default::default(),
         )
     } else {
+        if cfg!(feature = "dev") {
+            return Ok(())
+        }
+
         sign_lib.verify_sub_account_sig(
             das_lock_type,
             account_id,
@@ -673,6 +691,11 @@ pub fn verify_sub_account_approval_sign(
             .device_key_lists
             .get(args.index(..))
             .ok_or(code_to_error!(ErrorCode::WitnessStructureError))?;
+
+        if cfg!(feature = "dev") {
+            return Ok(())
+        }
+
         sign_lib.validate_device(
             das_lock_type,
             0,
@@ -682,6 +705,10 @@ pub fn verify_sub_account_approval_sign(
             Default::default(),
         )
     } else {
+        if cfg!(feature = "dev") {
+            return Ok(())
+        }
+
         sign_lib.verify_sub_account_approval_sig(
             das_lock_type,
             witness.action,

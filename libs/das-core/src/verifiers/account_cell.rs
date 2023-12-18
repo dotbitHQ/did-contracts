@@ -714,8 +714,6 @@ pub fn verify_unavailable_accounts(account: &[u8]) -> Result<(), Box<dyn ScriptE
 }
 
 pub fn verify_account_chars(chars_reader: AccountCharsReader) -> Result<(), Box<dyn ScriptError>> {
-    debug!("1");
-
     let mut prev_char_set_name: Option<_> = None;
     for account_char in chars_reader.iter() {
         // Loading different charset configs on demand.

@@ -3,13 +3,6 @@ name = "das-dynamic-libs"
 version = "1.0.0"
 edition = "2021"
 
-[features]
-default = ["dev"]
-dev = []
-local = []
-testnet = []
-mainnet = []
-
 [dependencies]
 das-types = { workspace = true, features = ["no_std"] }
 ckb-std = { workspace = true }

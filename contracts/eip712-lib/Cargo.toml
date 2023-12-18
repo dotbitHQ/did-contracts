@@ -4,10 +4,10 @@ version = "1.1.0"
 edition = "2021"
 
 [features]
-dev = ["das-core/dev", "eip712/dev"]
-local = ["das-core/local", "eip712/local"]
-testnet = ["das-core/testnet", "eip712/testnet"]
-mainnet = ["das-core/mainnet", "eip712/mainnet"]
+dev = ["das-core/dev"]
+local = ["das-core/local"]
+testnet = ["das-core/testnet"]
+mainnet = ["das-core/mainnet"]
 
 [dependencies]
 das-core = { workspace = true }

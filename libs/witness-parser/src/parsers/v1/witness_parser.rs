@@ -109,13 +109,13 @@ impl WitnessesParser {
                                     self.parse_action(i)?;
                                 }
                                 x if types_util::is_sub_account_data_type(&x) => {
-                                    debug!("witnesses[{:>2}] Found {:?} witness skip parsing.", i, x);
+                                    debug!("  witnesses[{:>2}] Found {:?} witness skip parsing.", i, x);
                                 }
                                 x if types_util::is_config_data_type(&x) => {
                                     self.push_witness_wrap_in_config(i, x)?;
                                 }
                                 x if types_util::is_other_data_type(&x) => {
-                                    debug!("witnesses[{:>2}] Found {:?} witness skip parsing.", i, x);
+                                    debug!("  witnesses[{:>2}] Found {:?} witness skip parsing.", i, x);
                                 }
                                 _ => {
                                     self.push_witness_wrap_in_data(i, data_type)?;

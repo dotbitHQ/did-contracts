@@ -254,6 +254,11 @@ fn verify_sign(
             .device_key_lists
             .get(args.index(..))
             .ok_or(code_to_error!(ErrorCode::WitnessStructureError))?;
+
+        if cfg!(feature = "dev") {
+            return Ok(())
+        }
+
         sign_lib.validate_device(
             das_lock_type,
             0i32,
@@ -263,6 +268,10 @@ fn verify_sign(
             Default::default(),
         )
     } else {
+        if cfg!(feature = "dev") {
+            return Ok(())
+        }
+
         sign_lib.validate_str(das_lock_type, 0i32, message.clone(), message.len(), signature, args)
     };
 

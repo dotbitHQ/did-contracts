@@ -4,10 +4,10 @@ version = "1.3.2"
 edition = "2021"
 
 [features]
-dev = ["das-core/dev", "das-dynamic-libs/dev"]
-local = ["das-core/local", "das-dynamic-libs/local"]
-testnet = ["das-core/testnet", "das-dynamic-libs/testnet"]
-mainnet = ["das-core/mainnet", "das-dynamic-libs/mainnet"]
+dev = ["das-core/dev"]
+local = ["das-core/local"]
+testnet = ["das-core/testnet"]
+mainnet = ["das-core/mainnet"]
 
 [dependencies]
 das-core = { workspace = true }
