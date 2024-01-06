@@ -155,7 +155,7 @@ pub fn action() -> Result<ContractAction, Box<dyn ScriptError>> {
 
                 let value = value.unwrap();
                 das_assert!(
-                    // TODO 限制总额 1 千万
+                    // TODO Total limit 10 million
                     value > 0 && value <= DPOINT_MAX_LIMIT,
                     ErrorCode::InitialDataError,
                     "outputs[{}] The value of each new DPointCell should be 0 < x <= {}.(current: {})",
@@ -266,13 +266,13 @@ pub fn action() -> Result<ContractAction, Box<dyn ScriptError>> {
         ));
     }
 
-    let parser = WitnessesParserV1::get_instance();
-    if parser.action == Action::TransferDP {
-        action.add_verification(Rule::new("Verify the EIP712 signature.", move |_contract| {
-            core_util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
-            Ok(())
-        }));
-    }
+    // let parser = WitnessesParserV1::get_instance();
+    // if parser.action == Action::TransferDP {
+    //     action.add_verification(Rule::new("Verify the EIP712 signature.", move |_contract| {
+    //         core_util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
+    //         Ok(())
+    //     }));
+    // }
 
     Ok(action)
 }

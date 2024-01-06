@@ -7,16 +7,17 @@ use core::result::Result;
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
 use das_core::config::Config;
-use das_core::constants::CellField;
+use das_core::constants::{CellField, ScriptType};
 use das_core::error::*;
 use das_core::witness_parser::reverse_record::{ReverseRecordWitness, ReverseRecordWitnessesParser};
 use das_core::witness_parser::webauthn_signature::WebAuthnSignature;
 use das_core::{assert as das_assert, code_to_error, debug, util, verifiers, warn};
+use das_core::util::exec_das_lock;
 use das_dynamic_libs::constants::DynLibName;
 use das_dynamic_libs::error::Error as DasDynamicLibError;
 use das_dynamic_libs::sign_lib::SignLib;
 use das_dynamic_libs::{load_2_methods, load_3_methods, load_lib, log_loading, new_context};
-use das_types::constants::{Action, DasLockType};
+use das_types::constants::{Action, das_lock, DasLockType};
 use das_types::prelude::Entity;
 use witness_parser::WitnessesParserV1;
 
@@ -93,31 +94,31 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 vec![CellField::Data],
             )?;
 
-            let mut sign_lib = SignLib::new();
-            // ⚠️ This must be present at the top level, as we will need to use the libraries later.
-            let mut eth_context = new_context!();
-            log_loading!(DynLibName::ETH, config_main.das_lock_type_id_table());
-            let eth_lib = load_lib!(eth_context, DynLibName::ETH, config_main.das_lock_type_id_table());
-            sign_lib.eth = load_2_methods!(eth_lib);
-
-            let mut tron_context = new_context!();
-            log_loading!(DynLibName::TRON, config_main.das_lock_type_id_table());
-            let tron_lib = load_lib!(tron_context, DynLibName::TRON, config_main.das_lock_type_id_table());
-            sign_lib.tron = load_2_methods!(tron_lib);
-
-            let mut doge_context = new_context!();
-            log_loading!(DynLibName::DOGE, config_main.das_lock_type_id_table());
-            let doge_lib = load_lib!(doge_context, DynLibName::DOGE, config_main.das_lock_type_id_table());
-            sign_lib.doge = load_2_methods!(doge_lib);
-
-            let mut web_authn_context = new_context!();
-            log_loading!(DynLibName::WebAuthn, config_main.das_lock_type_id_table());
-            let web_authn_lib = load_lib!(
-                web_authn_context,
-                DynLibName::WebAuthn,
-                config_main.das_lock_type_id_table()
-            );
-            sign_lib.web_authn = load_3_methods!(web_authn_lib);
+            // let mut sign_lib = SignLib::new();
+            // // ⚠️ This must be present at the top level, as we will need to use the libraries later.
+            // let mut eth_context = new_context!();
+            // log_loading!(DynLibName::ETH, config_main.das_lock_type_id_table());
+            // let eth_lib = load_lib!(eth_context, DynLibName::ETH, config_main.das_lock_type_id_table());
+            // sign_lib.eth = load_2_methods!(eth_lib);
+            //
+            // let mut tron_context = new_context!();
+            // log_loading!(DynLibName::TRON, config_main.das_lock_type_id_table());
+            // let tron_lib = load_lib!(tron_context, DynLibName::TRON, config_main.das_lock_type_id_table());
+            // sign_lib.tron = load_2_methods!(tron_lib);
+            //
+            // let mut doge_context = new_context!();
+            // log_loading!(DynLibName::DOGE, config_main.das_lock_type_id_table());
+            // let doge_lib = load_lib!(doge_context, DynLibName::DOGE, config_main.das_lock_type_id_table());
+            // sign_lib.doge = load_2_methods!(doge_lib);
+            //
+            // let mut web_authn_context = new_context!();
+            // log_loading!(DynLibName::WebAuthn, config_main.das_lock_type_id_table());
+            // let web_authn_lib = load_lib!(
+            //     web_authn_context,
+            //     DynLibName::WebAuthn,
+            //     config_main.das_lock_type_id_table()
+            // );
+            // sign_lib.web_authn = load_3_methods!(web_authn_lib);
 
             debug!("Start iterating ReverseRecord witnesses ...");
 
@@ -131,7 +132,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 }
                 let witness = witness_ret.unwrap();
 
-                verify_sign(&sign_lib, &witness, &witness_parser)?;
+                //verify_sign(&sign_lib, &witness, &witness_parser)?;
                 smt_verify_reverse_record_proof(&prev_root, &witness)?;
 
                 prev_root = witness.next_root.to_vec();
@@ -144,7 +145,14 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 output_cells[0],
                 util::hex_string(&prev_root),
                 util::hex_string(&latest_root)
-            )
+            );
+            let das_lock = das_lock();
+            let all_inputs_with_das_lock =
+                util::find_cells_by_type_id(ScriptType::Lock, das_lock.code_hash().as_reader().into(), Source::Input)?;
+            debug!("Call Das-lock to complete the reverse verification.");
+            if all_inputs_with_das_lock.len() == 0 {
+                exec_das_lock().expect("exec das-lock failed");
+            }
         }
         _ => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
     }

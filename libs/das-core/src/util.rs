@@ -4,9 +4,11 @@ use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
 use alloc::{format, vec};
+use core::any::Any;
 use core::convert::TryInto;
 use core::ffi::CStr;
 use core::fmt::Debug;
+use core::hash::Hash;
 
 use blake2b_ref::{Blake2b, Blake2bBuilder};
 use ckb_std::ckb_constants::{CellField, Source};
@@ -1152,6 +1154,13 @@ pub fn exec_by_type_id(type_script: TypeScript, argv: &[&CStr]) -> Result<(), Bo
         .map(|_| ())
 }
 
+pub fn exec_das_lock() -> Result<(), Box<dyn ScriptError>> {
+    let type_script = das_lock();
+    let type_id = type_script.code_hash();
+    high_level::exec_cell(type_id.as_slice(), ScriptHashType::Type, 0, 0, Default::default())
+        .map_err(|err| err.into())
+        .map(|_| ())
+}
 pub fn get_timestamp_from_header(header: HeaderReader) -> u64 {
     u64::from(das_packed::Uint64Reader::new_unchecked(
         header.raw().timestamp().raw_data(),

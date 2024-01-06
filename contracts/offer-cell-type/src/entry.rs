@@ -241,7 +241,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 total_input_capacity - common_fee,
             )?;
 
-            util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
+            //util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
         }
         Action::AcceptOffer => {
             let timestamp = util::load_oracle_data(OracleCellType::Time)?;

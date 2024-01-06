@@ -12,6 +12,7 @@ use ckb_std::ckb_constants::Source as CkbSource;
 use ckb_std::ckb_types::core::ScriptHashType;
 #[cfg(feature = "no_std")]
 use ckb_std::ckb_types::packed::Byte;
+use ckb_std::debug;
 #[cfg(not(feature = "no_std"))]
 use ckb_types::core::ScriptHashType;
 #[cfg(not(feature = "no_std"))]
@@ -474,6 +475,15 @@ pub enum Action {
     TestDotEnvLoadedProperly,
 }
 
+impl Action {
+        pub fn new(action_str: &str) -> Self {
+        action_str.parse::<Action>().unwrap_or_else(|e| {
+            debug!("Failed to convert string to Action, error:{:?}", e);
+            Action::Others
+        })
+    }
+
+}
 #[derive(Clone, Debug, Default, PartialEq)]
 pub enum ActionParams {
     LockAccountForCrossChain {

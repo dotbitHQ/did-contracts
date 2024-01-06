@@ -21,7 +21,7 @@ use simple_ast::types as ast_types;
 use super::approval;
 
 pub struct SubAction<'a> {
-    sign_lib: SignLib,
+    //sign_lib: SignLib,
 
     timestamp: u64,
     quote: u64,
@@ -52,7 +52,7 @@ pub struct SubAction<'a> {
 
 impl<'a> SubAction<'a> {
     pub fn new(
-        sign_lib: SignLib,
+        //sign_lib: SignLib,
         timestamp: u64,
         quote: u64,
         flag: SubAccountConfigFlag,
@@ -68,7 +68,7 @@ impl<'a> SubAction<'a> {
         custom_price_rules: &'a Option<Vec<ast_types::SubAccountRule>>,
     ) -> Self {
         Self {
-            sign_lib,
+            //sign_lib,
             timestamp,
             quote,
             flag,
@@ -529,7 +529,7 @@ impl<'a> SubAction<'a> {
             self.parent_expired_at,
             self.sub_account_last_updated_at,
         )?;
-        verifiers::sub_account_cell::verify_sub_account_edit_sign(&witness, &self.sign_lib, witness_parser)?;
+       // verifiers::sub_account_cell::verify_sub_account_edit_sign(&witness, &self.sign_lib, witness_parser)?;
         verifiers::sub_account_cell::verify_expiration(
             self.config_account,
             witness.index,
@@ -692,7 +692,7 @@ impl<'a> SubAction<'a> {
                     self.parent_expired_at,
                     self.sub_account_last_updated_at,
                 )?;
-                verifiers::sub_account_cell::verify_sub_account_edit_sign(&witness, &self.sign_lib, witness_parser)?;
+                //verifiers::sub_account_cell::verify_sub_account_edit_sign(&witness, &self.sign_lib, witness_parser)?;
             }
             SubAccountAction::RevokeApproval => {
                 verifiers::sub_account_cell::verify_sub_account_edit_sign_not_expired(
@@ -700,11 +700,11 @@ impl<'a> SubAction<'a> {
                     self.parent_expired_at,
                     self.sub_account_last_updated_at,
                 )?;
-                verifiers::sub_account_cell::verify_sub_account_approval_sign(
-                    &witness,
-                    &self.sign_lib,
-                    witness_parser,
-                )?;
+                // verifiers::sub_account_cell::verify_sub_account_approval_sign(
+                //     &witness,
+                //     &self.sign_lib,
+                //     witness_parser,
+                // )?;
             }
             SubAccountAction::FulfillApproval => match approval_action {
                 b"transfer" => {
@@ -723,11 +723,11 @@ impl<'a> SubAction<'a> {
                             self.parent_expired_at,
                             self.sub_account_last_updated_at,
                         )?;
-                        verifiers::sub_account_cell::verify_sub_account_approval_sign(
-                            &witness,
-                            &self.sign_lib,
-                            witness_parser,
-                        )?;
+                        // verifiers::sub_account_cell::verify_sub_account_approval_sign(
+                        //     &witness,
+                        //     &self.sign_lib,
+                        //     witness_parser,
+                        // )?;
                     } else {
                         debug!(
                             "  witnesses[{:>2}] The approval is released, no need to verify the signature.",

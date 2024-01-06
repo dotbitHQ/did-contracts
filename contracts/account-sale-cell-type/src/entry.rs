@@ -341,7 +341,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 "Either price or description should be modified."
             );
 
-            util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
+            //util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
         }
         Action::ForceRecoverAccountStatus => {
             util::require_type_script(

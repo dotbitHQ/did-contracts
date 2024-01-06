@@ -218,11 +218,11 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
     } else {
         debug!("Skip verifying if the DPointCells' capacity is recycled properly.")
     }
-
-    action.add_verification(Rule::new("Verify the EIP712 signature.", move |_contract| {
-        core_util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
-        Ok(())
-    }));
+    //warning: migrate to das-lock
+    // action.add_verification(Rule::new("Verify the EIP712 signature.", move |_contract| {
+    //     core_util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
+    //     Ok(())
+    // }));
 
     Ok(action)
 }

@@ -90,3 +90,13 @@ macro_rules! load_1_method {
         })
     };
 }
+
+#[macro_export]
+macro_rules! load_and_configure_lib {
+    ($sign_lib:ident, $lib_name:ident, $type_id_table:ident, $sign_lib_field:ident, $load_methods_macro:ident) => {
+        let mut context = new_context!();
+        log_loading!(DynLibName::$lib_name, $type_id_table);
+        let lib = load_lib!(context, DynLibName::$lib_name, $type_id_table);
+        $sign_lib.$sign_lib_field = $load_methods_macro!(lib);
+    };
+}

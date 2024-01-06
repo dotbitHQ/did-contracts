@@ -102,9 +102,10 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
         verifiers::balance_cell::verify_das_lock_always_with_type(config_main_reader)?;
     }
 
-    if input_cells.len() > 0 && is_unknown_action {
-        util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
-    }
+    //WARNING: migrate it to das-lock
+    // if input_cells.len() > 0 && is_unknown_action {
+    //     util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
+    // }
 
     Ok(())
 }

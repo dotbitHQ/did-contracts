@@ -115,8 +115,8 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 )?,
                 _ => unreachable!(),
             }
-
-            util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
+            //WARNING: migrate it to das-lock
+            //util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
         }
         Action::RenewAccount => {
             let timestamp = util::load_oracle_data(OracleCellType::Time)?;
@@ -942,7 +942,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             verify_account_is_unlocked_for_cross_chain(output_account_cells[0], &output_cell_witness_reader)?;
 
-            verify_multi_sign(input_account_cells[0], config_main.das_lock_type_id_table())?;
+            //verify_multi_sign(input_account_cells[0], config_main.das_lock_type_id_table())?;
         }
         Action::BidExpiredAccountDutchAuction => {
             //get configs
@@ -1135,8 +1135,8 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 bid_price,
                 basic_price_in_usd,
             )?;
-
-            util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
+            //WARNING: migrate it to das-lock
+            //util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
         }
         Action::CreateApproval | Action::DelayApproval | Action::RevokeApproval | Action::FulfillApproval => {
             action_approve()?
@@ -1330,7 +1330,7 @@ fn action_approve() -> Result<(), Box<dyn ScriptError>> {
                 output_cell_witness_reader,
             )?;
 
-            util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
+            //util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
         }
         Action::DelayApproval => {
             verifiers::account_cell::verify_account_cell_consistent_with_exception(
@@ -1350,7 +1350,7 @@ fn action_approve() -> Result<(), Box<dyn ScriptError>> {
                 output_cell_witness_reader,
             )?;
 
-            util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
+            //util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
         }
         Action::RevokeApproval => {
             verifiers::account_cell::verify_account_cell_consistent_with_exception(
@@ -1362,8 +1362,8 @@ fn action_approve() -> Result<(), Box<dyn ScriptError>> {
                 vec![],
                 vec!["status", "approval"],
             )?;
-
-            let platform_lock = approval::transfer_approval_revoke(
+            //todo remove _platform_lock
+            let _platform_lock = approval::transfer_approval_revoke(
                 timestamp,
                 input_account_cells[0],
                 output_account_cells[0],
@@ -1371,12 +1371,12 @@ fn action_approve() -> Result<(), Box<dyn ScriptError>> {
                 output_cell_witness_reader,
             )?;
 
-            verify_approval_sign(
-                "platform_lock",
-                platform_lock.as_reader(),
-                input_account_cells[0],
-                config_main.das_lock_type_id_table(),
-            )?;
+            // verify_approval_sign(
+            //     "platform_lock",
+            //     platform_lock.as_reader(),
+            //     input_account_cells[0],
+            //     config_main.das_lock_type_id_table(),
+            // )?;
         }
         Action::FulfillApproval => {
             verifiers::account_cell::verify_account_cell_consistent_with_exception(
@@ -1389,34 +1389,34 @@ fn action_approve() -> Result<(), Box<dyn ScriptError>> {
                 vec!["status", "approval", "records"],
             )?;
 
-            let sealed_until = approval::transfer_approval_fulfill(
+            let _sealed_until = approval::transfer_approval_fulfill(
                 input_account_cells[0],
                 output_account_cells[0],
                 input_cell_witness_reader,
                 output_cell_witness_reader,
             )?;
 
-            if timestamp > sealed_until {
-                debug!("The approval is already released, so anyone can fulfill it.");
-            } else {
-                let owner_lock = high_level::load_cell_lock(input_account_cells[0], Source::Input).map_err(|_| {
-                    warn!(
-                        "{:?}[{}] Loading lock field failed.",
-                        Source::Input,
-                        input_account_cells[0]
-                    );
-                    return code_to_error!(ErrorCode::InvalidTransactionStructure);
-                })?;
-
-                verify_approval_sign(
-                    "owner_lock",
-                    owner_lock.as_reader().into(),
-                    input_account_cells[0],
-                    config_main.das_lock_type_id_table(),
-                )?;
-
-                util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
-            }
+            // if timestamp > sealed_until {
+            //     debug!("The approval is already released, so anyone can fulfill it.");
+            // } else {
+            //     let owner_lock = high_level::load_cell_lock(input_account_cells[0], Source::Input).map_err(|_| {
+            //         warn!(
+            //             "{:?}[{}] Loading lock field failed.",
+            //             Source::Input,
+            //             input_account_cells[0]
+            //         );
+            //         return code_to_error!(ErrorCode::InvalidTransactionStructure);
+            //     })?;
+            //
+            //     verify_approval_sign(
+            //         "owner_lock",
+            //         owner_lock.as_reader().into(),
+            //         input_account_cells[0],
+            //         config_main.das_lock_type_id_table(),
+            //     )?;
+            //     //WARNING: migrate it to das-lock
+            //     //util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
+            // }
         }
         _ => {
             warn!("Action {} is not a valid approval action.", parser.action.to_string());
