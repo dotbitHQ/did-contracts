@@ -138,7 +138,10 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let config_main = parser.configs.main()?;
             let config_account = parser.configs.account()?;
 
+
+
             let (input_account_cells, output_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
+
             verifiers::common::verify_cell_number("AccountCell", &input_account_cells, 1, &output_account_cells, 1)?;
 
             let input_cell_witness = util::parse_account_cell_witness(&parser, input_account_cells[0], Source::Input)?;
@@ -1220,6 +1223,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                     "last_edit_manager_at",
                     "last_edit_records_at",
                     "records",
+                    "status"
                 ],
             )?;
 
@@ -1231,12 +1235,17 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 records_len
             );
 
-            // Verify if the input account cell status is Normal
-            verifiers::account_cell::verify_status(
+            verifiers::account_cell::verify_status_v2(
                 &input_cell_witness_reader,
-                AccountStatus::Normal,
+                &[AccountStatus::Normal, AccountStatus::LockedForCrossChain],
                 input_account_cells[0],
                 Source::Input,
+            )?;
+            verifiers::account_cell::verify_status(
+                &output_cell_witness_reader,
+                AccountStatus::Normal,
+                output_account_cells[0],
+                Source::Output,
             )?;
 
             debug!("Check whether the date of the account cell in the output is one year later.");
