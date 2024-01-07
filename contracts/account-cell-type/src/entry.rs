@@ -125,7 +125,10 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let config_main = Config::get_instance().main()?;
             let config_account = Config::get_instance().account()?;
 
+
+
             let (input_account_cells, output_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
+
             verifiers::common::verify_cell_number("AccountCell", &input_account_cells, 1, &output_account_cells, 1)?;
 
             let input_cell_witness = util::parse_account_cell_witness(input_account_cells[0], Source::Input)?;
@@ -1006,10 +1009,17 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 records_len
             );
 
-            // Verify if the input account cell status is Normal
-            verifiers::account_cell::verify_status(
+            // // Verify if the input account cell status is Normal
+            // verifiers::account_cell::verify_status(
+            //     &input_cell_witness_reader,
+            //     AccountStatus::Normal,
+            //     input_account_cells[0],
+            //     Source::Input,
+            // )?;
+
+            verifiers::account_cell::verify_status_v2(
                 &input_cell_witness_reader,
-                AccountStatus::Normal,
+                &[AccountStatus::Normal, AccountStatus::LockedForCrossChain],
                 input_account_cells[0],
                 Source::Input,
             )?;
