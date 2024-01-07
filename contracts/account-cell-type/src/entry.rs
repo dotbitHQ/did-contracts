@@ -998,6 +998,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                     "last_edit_manager_at",
                     "last_edit_records_at",
                     "records",
+                    "status"
                 ],
             )?;
 
@@ -1009,19 +1010,17 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 records_len
             );
 
-            // // Verify if the input account cell status is Normal
-            // verifiers::account_cell::verify_status(
-            //     &input_cell_witness_reader,
-            //     AccountStatus::Normal,
-            //     input_account_cells[0],
-            //     Source::Input,
-            // )?;
-
             verifiers::account_cell::verify_status_v2(
                 &input_cell_witness_reader,
                 &[AccountStatus::Normal, AccountStatus::LockedForCrossChain],
                 input_account_cells[0],
                 Source::Input,
+            )?;
+            verifiers::account_cell::verify_status(
+                &output_cell_witness_reader,
+                AccountStatus::Normal,
+                output_account_cells[0],
+                Source::Output,
             )?;
 
             debug!("Check whether the date of the account cell in the output is one year later.");
