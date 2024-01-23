@@ -23,7 +23,7 @@ pub fn is_reader_eq<'a, T: Reader<'a>>(a: T, b: T) -> bool {
 }
 
 pub fn is_other_data_type(data_type: &DataType) -> bool {
-    [DataType::DeviceKeyListCellData, DataType::ReverseRecord].contains(data_type)
+    [DataType::DeviceKeyListCellData, DataType::ReverseRecord, DataType::OrderInfo].contains(data_type)
 }
 
 pub fn is_sub_account_data_type(data_type: &DataType) -> bool {
@@ -40,7 +40,7 @@ pub fn is_sub_account_data_type(data_type: &DataType) -> bool {
 
 pub fn is_config_data_type(data_type: &DataType) -> bool {
     let data_type_in_int = data_type.to_owned() as u32;
-    data_type_in_int >= 100 && data_type_in_int <= 199999
+    data_type_in_int >= 100 && data_type_in_int <= 110000
 }
 
 pub fn get_action_required_sign_role(action: Action) -> Option<LockRole> {
