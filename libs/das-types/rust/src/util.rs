@@ -23,7 +23,12 @@ pub fn is_reader_eq<'a, T: Reader<'a>>(a: T, b: T) -> bool {
 }
 
 pub fn is_other_data_type(data_type: &DataType) -> bool {
-    [DataType::DeviceKeyListCellData, DataType::ReverseRecord, DataType::OrderInfo].contains(data_type)
+    [
+        DataType::DeviceKeyListCellData,
+        DataType::ReverseRecord,
+        DataType::OrderInfo,
+    ]
+    .contains(data_type)
 }
 
 pub fn is_sub_account_data_type(data_type: &DataType) -> bool {

@@ -8,10 +8,10 @@ use ckb_std::high_level;
 use das_core::config::Config;
 use das_core::constants::{CellField, ScriptType};
 use das_core::error::*;
+use das_core::util::exec_das_lock;
 use das_core::witness_parser::reverse_record::{ReverseRecordWitness, ReverseRecordWitnessesParser};
 use das_core::{assert as das_assert, code_to_error, debug, util, verifiers, warn};
-use das_core::util::exec_das_lock;
-use das_types::constants::{Action, das_lock};
+use das_types::constants::{das_lock, Action};
 use witness_parser::WitnessesParserV1;
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {

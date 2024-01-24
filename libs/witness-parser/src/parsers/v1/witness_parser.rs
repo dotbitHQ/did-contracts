@@ -408,13 +408,17 @@ impl WitnessQueryable for WitnessesParser {
         }
         .ok_or(WitnessParserError::DecodingDataFailed {
             index,
-            err: String::from("The witness.data should contains at least one of dep/old/new.")
+            err: String::from("The witness.data should contains at least one of dep/old/new."),
         })?;
 
         let entity_hash = types_util::blake2b_256(data_entity.as_reader().entity().raw_data());
         err_assert!(
             witness_meta.hash_in_cell_data == entity_hash,
-            WitnessParserError::WitnessHashMismatched { index: witness_meta.index, in_cell_data: hex::encode(&witness_meta.hash_in_cell_data), actual: hex::encode(&entity_hash) }
+            WitnessParserError::WitnessHashMismatched {
+                index: witness_meta.index,
+                in_cell_data: hex::encode(&witness_meta.hash_in_cell_data),
+                actual: hex::encode(&entity_hash)
+            }
         );
 
         let data_type = util::parse_date_type_from_witness(index, &buf)?;
@@ -450,7 +454,11 @@ impl WitnessQueryable for WitnessesParser {
         let entity_hash = types_util::blake2b_256(&data);
         err_assert!(
             witness_meta.hash_in_cell_data == entity_hash,
-            WitnessParserError::WitnessHashMismatched { index: witness_meta.index, in_cell_data: hex::encode(&witness_meta.hash_in_cell_data), actual: hex::encode(&entity_hash) }
+            WitnessParserError::WitnessHashMismatched {
+                index: witness_meta.index,
+                in_cell_data: hex::encode(&witness_meta.hash_in_cell_data),
+                actual: hex::encode(&entity_hash)
+            }
         );
 
         let data_type = util::parse_date_type_from_witness(index, &buf)?;
@@ -476,7 +484,11 @@ impl WitnessQueryable for WitnessesParser {
         let buf_hash = types_util::blake2b_256(buf.get((WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES)..).unwrap());
         err_assert!(
             witness_meta.hash_in_cell_data == buf_hash,
-            WitnessParserError::WitnessHashMismatched { index: witness_meta.index, in_cell_data: hex::encode(&witness_meta.hash_in_cell_data), actual: hex::encode(&buf_hash) }
+            WitnessParserError::WitnessHashMismatched {
+                index: witness_meta.index,
+                in_cell_data: hex::encode(&witness_meta.hash_in_cell_data),
+                actual: hex::encode(&buf_hash)
+            }
         );
 
         Ok(buf)

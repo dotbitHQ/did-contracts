@@ -378,9 +378,9 @@ pub fn verify_sub_account_mint_sign(
             .get(args.index(..))
             .ok_or(code_to_error!(ErrorCode::WitnessStructureError))?;
 
-            if cfg!(feature = "dev") {
-                return Ok(())
-            }
+        if cfg!(feature = "dev") {
+            return Ok(());
+        }
 
         sign_lib.validate_device(
             das_lock_type,
@@ -392,7 +392,7 @@ pub fn verify_sub_account_mint_sign(
         )
     } else {
         if cfg!(feature = "dev") {
-            return Ok(())
+            return Ok(());
         }
 
         sign_lib.verify_sub_account_mint_sig(das_lock_type, expired_at, account_list_smt_root, signature, args)
@@ -560,7 +560,7 @@ pub fn verify_sub_account_edit_sign(
             .ok_or(code_to_error!(ErrorCode::WitnessStructureError))?;
 
         if cfg!(feature = "dev") {
-            return Ok(())
+            return Ok(());
         }
 
         sign_lib.validate_device(
@@ -573,7 +573,7 @@ pub fn verify_sub_account_edit_sign(
         )
     } else {
         if cfg!(feature = "dev") {
-            return Ok(())
+            return Ok(());
         }
 
         sign_lib.verify_sub_account_sig(
@@ -693,7 +693,7 @@ pub fn verify_sub_account_approval_sign(
             .ok_or(code_to_error!(ErrorCode::WitnessStructureError))?;
 
         if cfg!(feature = "dev") {
-            return Ok(())
+            return Ok(());
         }
 
         sign_lib.validate_device(
@@ -706,7 +706,7 @@ pub fn verify_sub_account_approval_sign(
         )
     } else {
         if cfg!(feature = "dev") {
-            return Ok(())
+            return Ok(());
         }
 
         sign_lib.verify_sub_account_approval_sig(

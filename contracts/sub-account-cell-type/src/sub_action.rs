@@ -21,7 +21,6 @@ use super::approval;
 
 pub struct SubAction<'a> {
     //sign_lib: SignLib,
-
     timestamp: u64,
     quote: u64,
     flag: SubAccountConfigFlag,
@@ -504,11 +503,7 @@ impl<'a> SubAction<'a> {
         Ok(())
     }
 
-    fn edit(
-        &mut self,
-        witness: &SubAccountWitness,
-        prev_root: &[u8],
-    ) -> Result<(), Box<dyn ScriptError>> {
+    fn edit(&mut self, witness: &SubAccountWitness, prev_root: &[u8]) -> Result<(), Box<dyn ScriptError>> {
         let sub_account_reader = witness.sub_account.as_reader();
         let new_sub_account = generate_new_sub_account_by_edit_value(&witness)?;
         let new_sub_account_reader = new_sub_account.as_reader();
@@ -527,7 +522,7 @@ impl<'a> SubAction<'a> {
             self.parent_expired_at,
             self.sub_account_last_updated_at,
         )?;
-       // verifiers::sub_account_cell::verify_sub_account_edit_sign(&witness, &self.sign_lib, witness_parser)?;
+        // verifiers::sub_account_cell::verify_sub_account_edit_sign(&witness, &self.sign_lib, witness_parser)?;
         verifiers::sub_account_cell::verify_expiration(
             self.config_account,
             witness.index,
@@ -650,11 +645,7 @@ impl<'a> SubAction<'a> {
         Ok(())
     }
 
-    fn approve(
-        &mut self,
-        witness: &SubAccountWitness,
-        prev_root: &[u8],
-    ) -> Result<(), Box<dyn ScriptError>> {
+    fn approve(&mut self, witness: &SubAccountWitness, prev_root: &[u8]) -> Result<(), Box<dyn ScriptError>> {
         let sub_account_reader = witness.sub_account.as_reader();
         let new_sub_account = generate_new_sub_account_by_edit_value(&witness)?;
         let new_sub_account_reader = new_sub_account.as_reader();

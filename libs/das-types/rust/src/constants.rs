@@ -477,14 +477,13 @@ pub enum Action {
 }
 
 impl Action {
-        pub fn new(action_str: &str) -> Self {
+    pub fn new(action_str: &str) -> Self {
         action_str.parse::<Action>().unwrap_or_else(|_e| {
             #[cfg(feature = "no_std")]
             debug!("Failed to convert string to Action, error:{:?}", _e);
             Action::Others
         })
     }
-
 }
 #[derive(Clone, Debug, Default, PartialEq)]
 pub enum ActionParams {

@@ -42,7 +42,11 @@ pub enum WitnessParserError {
     #[error("witnesses[{index}] Failed to get the verification hash from related cell: {msg}")]
     CanNotGetVerficicationHashFromCell { index: usize, msg: String },
     #[error("witnesses[{index}] The actual hash of witness is different form the hash in the cell data.(in_cell: {in_cell_data}, actual: {actual})")]
-    WitnessHashMismatched { index: usize, in_cell_data: String, actual: String },
+    WitnessHashMismatched {
+        index: usize,
+        in_cell_data: String,
+        actual: String,
+    },
     #[error("Failed to find the witness at witnesses[{index}]")]
     CanNotFindWitnessByIndex { index: usize },
     #[error("Failed to find the witness by {source:?}[{index}]")]

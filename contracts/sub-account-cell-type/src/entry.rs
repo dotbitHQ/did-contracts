@@ -340,7 +340,6 @@ fn action_update_sub_account() -> Result<(), Box<dyn ScriptError>> {
         account_cell_reader.id().raw_data(),
     )?;
 
-
     debug!("Initialize some vars base on the sub-actions contains in the transaction ...");
 
     let parent_expired_at = data_parser::account_cell::get_expired_at(&account_cell_data);
@@ -361,8 +360,8 @@ fn action_update_sub_account() -> Result<(), Box<dyn ScriptError>> {
 
         let extract_smt_root_sign_witness =
             |_name: &str,
-            witness: &SubAccountMintSignWitness|
-            -> Result<(Option<LockRole>, packed::Script, Option<[u8; 32]>), Box<dyn ScriptError>> {
+             witness: &SubAccountMintSignWitness|
+             -> Result<(Option<LockRole>, packed::Script, Option<[u8; 32]>), Box<dyn ScriptError>> {
                 debug!("The {} is exist, verifying the signature for manual mint ...", _name);
 
                 let mut tmp = [0u8; 32];
@@ -404,7 +403,7 @@ fn action_update_sub_account() -> Result<(), Box<dyn ScriptError>> {
                     let renew_sign_role;
                     smt_root_sign_found = true;
                     (renew_sign_role, renew_sender_lock, manual_renew_list_smt_root) =
-                    extract_smt_root_sign_witness("SubAccountRenewWitness", &witness)?;
+                        extract_smt_root_sign_witness("SubAccountRenewWitness", &witness)?;
 
                     if mint_sign_role.is_some() {
                         das_assert!(

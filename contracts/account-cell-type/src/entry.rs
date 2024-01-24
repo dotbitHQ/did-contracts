@@ -1,9 +1,7 @@
-use core::str::FromStr;
-
 use alloc::boxed::Box;
-use alloc::string::String;
-use alloc::string::ToString;
+use alloc::string::{String, ToString};
 use alloc::vec;
+use core::str::FromStr;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::prelude::*;
@@ -11,9 +9,7 @@ use ckb_std::high_level;
 use das_core::config::Config;
 use das_core::constants::*;
 use das_core::error::*;
-use das_core::{
-    assert as das_assert, code_to_error, das_assert_custom, data_parser, debug, util, verifiers, warn,
-};
+use das_core::{assert as das_assert, code_to_error, das_assert_custom, data_parser, debug, util, verifiers, warn};
 use das_map::map::Map;
 use das_map::util as map_util;
 use das_types::constants::*;
@@ -124,8 +120,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let prices = Config::get_instance().price()?.prices();
             let config_main = Config::get_instance().main()?;
             let config_account = Config::get_instance().account()?;
-
-
 
             let (input_account_cells, output_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
 
@@ -996,7 +990,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                     "last_edit_manager_at",
                     "last_edit_records_at",
                     "records",
-                    "status"
+                    "status",
                 ],
             )?;
 
@@ -1402,7 +1396,9 @@ fn action_approve() -> Result<(), Box<dyn ScriptError>> {
     Ok(())
 }
 
-fn get_approval_action<'a>(witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>) -> Result<AccountApprovalAction, Box<dyn ScriptError>> {
+fn get_approval_action<'a>(
+    witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>,
+) -> Result<AccountApprovalAction, Box<dyn ScriptError>> {
     let reader = match witness_reader.try_into_latest() {
         Ok(reader) => reader,
         Err(_) => {
