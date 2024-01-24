@@ -295,7 +295,7 @@ pub fn transfer_approval_revoke<'a>(
     output_account_index: usize,
     input_account_reader: Box<dyn AccountCellDataReaderMixer + 'a>,
     output_account_reader: Box<dyn AccountCellDataReaderMixer + 'a>,
-) -> Result<Script, Box<dyn ScriptError>> {
+) -> Result<(), Box<dyn ScriptError>> {
     debug!("Parsing the AccountCellData into the latest version ...");
 
     let input_account_reader = match input_account_reader.try_into_latest() {
@@ -367,7 +367,7 @@ pub fn transfer_approval_revoke<'a>(
         output_account_index
     );
 
-    Ok(input_approval_reader.platform_lock().to_entity())
+    Ok(())
 }
 
 pub fn transfer_approval_fulfill<'a>(
@@ -375,7 +375,7 @@ pub fn transfer_approval_fulfill<'a>(
     output_account_index: usize,
     input_account_reader: Box<dyn AccountCellDataReaderMixer + 'a>,
     output_account_reader: Box<dyn AccountCellDataReaderMixer + 'a>,
-) -> Result<u64, Box<dyn ScriptError>> {
+) -> Result<(), Box<dyn ScriptError>> {
     debug!("Parsing the AccountCellData into the latest version ...");
 
     let input_account_reader = match input_account_reader.try_into_latest() {
@@ -463,7 +463,5 @@ pub fn transfer_approval_fulfill<'a>(
         output_account_index
     );
 
-    let sealed_until = u64::from(input_approval_reader.sealed_until());
-
-    Ok(sealed_until)
+    Ok(())
 }

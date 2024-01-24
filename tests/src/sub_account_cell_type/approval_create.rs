@@ -91,7 +91,7 @@ fn push_simple_sub_account_witness(template: &mut TemplateGenerator, sub_account
 }
 
 #[test]
-fn test_sub_account_approval_create() {
+fn test_sub_account_approval_create_simple() {
     let mut template = before_each();
 
     // outputs

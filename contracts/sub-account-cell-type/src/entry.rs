@@ -11,12 +11,9 @@ use ckb_std::high_level;
 use das_core::config::Config;
 use das_core::constants::*;
 use das_core::error::*;
-use das_core::util::{self, exec_by_type_id, exec_das_lock};
+use das_core::util::{self, exec_das_lock};
 use das_core::witness_parser::sub_account::*;
 use das_core::{assert as das_assert, code_to_error, data_parser, debug, verifiers, warn};
-use das_dynamic_libs::constants::DynLibName;
-use das_dynamic_libs::sign_lib::SignLib;
-use das_dynamic_libs::{load_2_methods, load_3_methods, load_lib, log_loading, new_context};
 use das_types::constants::{
     das_lock, profit_manager_lock, signhash_lock, AccountStatus, Action, DataType, LockRole, SubAccountConfigFlag,
     SubAccountCustomRuleFlag, TypeScript,
@@ -343,41 +340,6 @@ fn action_update_sub_account() -> Result<(), Box<dyn ScriptError>> {
         account_cell_reader.id().raw_data(),
     )?;
 
-    //debug!("Initialize the dynamic signing libraries ...");
-
-    // let mut sign_lib = SignLib::new();
-    // // ⚠️ This must be present at the top level, as we will need to use the libraries later.
-    //
-    // if cfg!(not(feature = "dev")) {
-    //     // let mut ckb_context = new_context!();
-    //     // log_loading!(DynLibName::CKBSignhash, config_main.das_lock_type_id_table());
-    //     // let ckb_lib = load_lib!(ckb_context, DynLibName::CKBSignhash, config_main.das_lock_type_id_table());
-    //     // sign_lib.ckb_signhash = load_2_methods!(ckb_lib);
-    //
-    //     let mut eth_context = new_context!();
-    //     log_loading!(DynLibName::ETH, config_main.das_lock_type_id_table());
-    //     let eth_lib = load_lib!(eth_context, DynLibName::ETH, config_main.das_lock_type_id_table());
-    //     sign_lib.eth = load_2_methods!(eth_lib);
-    //
-    //     let mut tron_context = new_context!();
-    //     log_loading!(DynLibName::TRON, config_main.das_lock_type_id_table());
-    //     let tron_lib = load_lib!(tron_context, DynLibName::TRON, config_main.das_lock_type_id_table());
-    //     sign_lib.tron = load_2_methods!(tron_lib);
-    //
-    //     let mut doge_context = new_context!();
-    //     log_loading!(DynLibName::DOGE, config_main.das_lock_type_id_table());
-    //     let doge_lib = load_lib!(doge_context, DynLibName::DOGE, config_main.das_lock_type_id_table());
-    //     sign_lib.doge = load_2_methods!(doge_lib);
-    //
-    //     let mut web_authn_context = new_context!();
-    //     log_loading!(DynLibName::WebAuthn, config_main.das_lock_type_id_table());
-    //     let web_authn_lib = load_lib!(
-    //         web_authn_context,
-    //         DynLibName::WebAuthn,
-    //         config_main.das_lock_type_id_table()
-    //     );
-    //     sign_lib.web_authn = load_3_methods!(web_authn_lib);
-    // }
 
     debug!("Initialize some vars base on the sub-actions contains in the transaction ...");
 
@@ -393,88 +355,80 @@ fn action_update_sub_account() -> Result<(), Box<dyn ScriptError>> {
     let mut custom_price_rules = None;
     let mut custom_preserved_rules = None;
 
-    let mut sign_verified = false;
+    let mut smt_root_sign_found = false;
     if sub_account_parser.contains_creation || sub_account_parser.contains_renew {
         debug!("Found `create/renew` action in this transaction, do some common verfications ...");
 
-        // let verify_and_init_some_vars =
-        //     |_name: &str,
-        //      witness: &SubAccountMintSignWitness|
-        //      -> Result<(Option<LockRole>, packed::Script, Option<[u8; 32]>), Box<dyn ScriptError>> {
-        //         debug!("The {} is exist, verifying the signature for manual mint ...", _name);
-        //
-        //         verifiers::sub_account_cell::verify_sub_account_mint_sign_not_expired(
-        //             &sub_account_parser,
-        //             &witness,
-        //             parent_expired_at,
-        //             sub_account_last_updated_at,
-        //         )?;
-        //         verifiers::sub_account_cell::verify_sub_account_mint_sign(&witness, &sign_lib, &sub_account_parser)?;
-        //
-        //         let mut tmp = [0u8; 32];
-        //         tmp.copy_from_slice(&witness.account_list_smt_root);
-        //         let account_list_smt_root = Some(tmp);
-        //
-        //         let sender_lock = if witness.sign_role == Some(LockRole::Manager) {
-        //             debug!("Found SubAccountWitness.sign_role is manager, use manager lock as sender_lock.");
-        //             util::derive_manager_lock_from_cell(account_cell_index, account_cell_source)?
-        //         } else {
-        //             debug!("Found SubAccountWitness.sign_role is owner, use owner lock as sender_lock.");
-        //             util::derive_owner_lock_from_cell(account_cell_index, account_cell_source)?
-        //         };
-        //
-        //         Ok((witness.sign_role.clone(), sender_lock, account_list_smt_root))
-        //     };
-        //
-        // let mut mint_sign_role = None;
-        // if sub_account_parser.contains_creation {
-        //     match sub_account_parser.get_mint_sign(account_lock_args) {
-        //         Some(Ok(witness)) => {
-        //             sign_verified = true;
-        //             (mint_sign_role, sender_lock, manual_mint_list_smt_root) =
-        //                 verify_and_init_some_vars("SubAccountMintWitness", &witness)?;
-        //         }
-        //         Some(Err(err)) => {
-        //             return Err(err);
-        //         }
-        //         None => {
-        //             debug!("There is no SubAccountMintSign found.");
-        //         }
-        //     }
-        // }
-        //
-        // if sub_account_parser.contains_renew {
-        //     match sub_account_parser.get_renew_sign(account_lock_args) {
-        //         Some(Ok(witness)) => {
-        //             let renew_sender_lock;
-        //             let renew_sign_role;
-        //             sign_verified = true;
-        //             (renew_sign_role, renew_sender_lock, manual_renew_list_smt_root) =
-        //                 verify_and_init_some_vars("SubAccountRenewWitness", &witness)?;
-        //
-        //             if mint_sign_role.is_some() {
-        //                 das_assert!(
-        //                     mint_sign_role == renew_sign_role,
-        //                     SubAccountCellErrorCode::MultipleSignRolesIsNotAllowed,
-        //                     "The sign_role of SubAccountMintSignWitness and SubAccountRenewSignWitness should be the same in the same transaction."
-        //                 );
-        //             } else {
-        //                 sender_lock = renew_sender_lock;
-        //             }
-        //         }
-        //         Some(Err(err)) => {
-        //             return Err(err);
-        //         }
-        //         None => {
-        //             debug!("There is no SubAccountRenewSign found.");
-        //         }
-        //     }
-        // } else {
-        //     if sub_account_parser.get_renew_sign(account_lock_args).is_some() {
-        //         warn!("The SubAccountRenewSignWitness is not allowed if there if no renew action exists.");
-        //         return Err(code_to_error!(SubAccountCellErrorCode::SubAccountRenewSignIsNotAllowed));
-        //     }
-        // }
+        let extract_smt_root_sign_witness =
+            |_name: &str,
+            witness: &SubAccountMintSignWitness|
+            -> Result<(Option<LockRole>, packed::Script, Option<[u8; 32]>), Box<dyn ScriptError>> {
+                debug!("The {} is exist, verifying the signature for manual mint ...", _name);
+
+                let mut tmp = [0u8; 32];
+                tmp.copy_from_slice(&witness.account_list_smt_root);
+                let account_list_smt_root = Some(tmp);
+
+                let sender_lock = if witness.sign_role == Some(LockRole::Manager) {
+                    debug!("Found SubAccountWitness.sign_role is manager, use manager lock as sender_lock.");
+                    util::derive_manager_lock_from_cell(account_cell_index, account_cell_source)?
+                } else {
+                    debug!("Found SubAccountWitness.sign_role is owner, use owner lock as sender_lock.");
+                    util::derive_owner_lock_from_cell(account_cell_index, account_cell_source)?
+                };
+
+                Ok((witness.sign_role.clone(), sender_lock, account_list_smt_root))
+            };
+
+        let mut mint_sign_role = None;
+        if sub_account_parser.contains_creation {
+            match sub_account_parser.get_mint_sign(account_lock_args) {
+                Some(Ok(witness)) => {
+                    smt_root_sign_found = true;
+                    (mint_sign_role, sender_lock, manual_mint_list_smt_root) =
+                        extract_smt_root_sign_witness("SubAccountMintWitness", &witness)?;
+                }
+                Some(Err(err)) => {
+                    return Err(err);
+                }
+                None => {
+                    debug!("There is no SubAccountMintSign found.");
+                }
+            }
+        }
+
+        if sub_account_parser.contains_renew {
+            match sub_account_parser.get_renew_sign(account_lock_args) {
+                Some(Ok(witness)) => {
+                    let renew_sender_lock;
+                    let renew_sign_role;
+                    smt_root_sign_found = true;
+                    (renew_sign_role, renew_sender_lock, manual_renew_list_smt_root) =
+                    extract_smt_root_sign_witness("SubAccountRenewWitness", &witness)?;
+
+                    if mint_sign_role.is_some() {
+                        das_assert!(
+                            mint_sign_role == renew_sign_role,
+                            SubAccountCellErrorCode::MultipleSignRolesIsNotAllowed,
+                            "The sign_role of SubAccountMintSignWitness and SubAccountRenewSignWitness should be the same in the same transaction."
+                        );
+                    } else {
+                        sender_lock = renew_sender_lock;
+                    }
+                }
+                Some(Err(err)) => {
+                    return Err(err);
+                }
+                None => {
+                    debug!("There is no SubAccountRenewSign found.");
+                }
+            }
+        } else {
+            if sub_account_parser.get_renew_sign(account_lock_args).is_some() {
+                warn!("The SubAccountRenewSignWitness is not allowed if there if no renew action exists.");
+                return Err(code_to_error!(SubAccountCellErrorCode::SubAccountRenewSignIsNotAllowed));
+            }
+        }
 
         debug!("The SubAccountCell.data.flag is {} .", flag.to_string());
 
@@ -543,7 +497,7 @@ fn action_update_sub_account() -> Result<(), Box<dyn ScriptError>> {
     let all_inputs_with_das_lock =
         util::find_cells_by_type_id(ScriptType::Lock, das_lock.code_hash().as_reader().into(), Source::Input)?;
     let mut sender_total_input_capacity = 0;
-    if sign_verified {
+    if smt_root_sign_found {
         let dpoint_type_id = Config::get_instance().main()?.type_id_table().dpoint_cell();
         let input_sender_balance_cells = util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Input)?;
 
@@ -672,7 +626,7 @@ fn action_update_sub_account() -> Result<(), Box<dyn ScriptError>> {
             let normal_cells =
                 util::find_cells_by_type_id(ScriptType::Lock, lock.as_reader().code_hash().into(), Source::Input)?;
             // 0 is SubAccountCell, all_inputs_with_das_lock are BalanceCells paied by owner/manager
-            let all_inputs = [vec![0], all_inputs_with_das_lock, normal_cells].concat();
+            let all_inputs = [vec![0], all_inputs_with_das_lock.clone(), normal_cells].concat();
 
             verifiers::misc::verify_no_more_cells(&all_inputs, Source::Input)?;
         }

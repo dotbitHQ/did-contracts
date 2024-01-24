@@ -9,10 +9,8 @@ use das_core::constants::DPOINT_MAX_LIMIT;
 use das_core::contract::defult_structs::{Action as ContractAction, Rule};
 use das_core::error::ScriptError;
 use das_core::{code_to_error, das_assert, data_parser, debug, util as core_util, verifiers};
-use das_types::constants::{Action, TypeScript};
 use das_types::packed::*;
 use dpoint_cell_type::error::ErrorCode;
-use witness_parser::WitnessesParserV1;
 
 use super::util;
 
@@ -265,14 +263,6 @@ pub fn action() -> Result<ContractAction, Box<dyn ScriptError>> {
             },
         ));
     }
-
-    // let parser = WitnessesParserV1::get_instance();
-    // if parser.action == Action::TransferDP {
-    //     action.add_verification(Rule::new("Verify the EIP712 signature.", move |_contract| {
-    //         core_util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
-    //         Ok(())
-    //     }));
-    // }
 
     Ok(action)
 }

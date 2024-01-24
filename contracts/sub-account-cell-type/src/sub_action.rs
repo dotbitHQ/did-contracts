@@ -8,7 +8,6 @@ use das_core::error::{ErrorCode, ScriptError, SubAccountCellErrorCode};
 use das_core::util::{self, blake2b_256};
 use das_core::witness_parser::sub_account::{SubAccountEditValue, SubAccountWitness, SubAccountWitnessesParser};
 use das_core::{code_to_error, das_assert, data_parser, debug, verifiers, warn};
-use das_dynamic_libs::sign_lib::SignLib;
 use das_types::constants::{das_lock, *};
 use das_types::mixer::SubAccountReaderMixer;
 use das_types::packed::*;
@@ -94,7 +93,7 @@ impl<'a> SubAction<'a> {
         &mut self,
         witness: &SubAccountWitness,
         prev_root: &[u8],
-        witness_parser: &SubAccountWitnessesParser,
+        _witness_parser: &SubAccountWitnessesParser,
     ) -> Result<(), Box<dyn ScriptError>> {
         let sub_account_reader = witness.sub_account.as_reader();
 
@@ -113,12 +112,12 @@ impl<'a> SubAction<'a> {
         match witness.action {
             SubAccountAction::Create => self.create(witness, prev_root)?,
             SubAccountAction::Renew => self.renew(witness, prev_root)?,
-            SubAccountAction::Edit => self.edit(witness, prev_root, witness_parser)?,
+            SubAccountAction::Edit => self.edit(witness, prev_root)?,
             SubAccountAction::Recycle => self.recycle(witness, prev_root)?,
             SubAccountAction::CreateApproval
             | SubAccountAction::DelayApproval
             | SubAccountAction::RevokeApproval
-            | SubAccountAction::FulfillApproval => self.approve(witness, prev_root, witness_parser)?,
+            | SubAccountAction::FulfillApproval => self.approve(witness, prev_root)?,
         }
 
         Ok(())
@@ -509,7 +508,6 @@ impl<'a> SubAction<'a> {
         &mut self,
         witness: &SubAccountWitness,
         prev_root: &[u8],
-        witness_parser: &SubAccountWitnessesParser,
     ) -> Result<(), Box<dyn ScriptError>> {
         let sub_account_reader = witness.sub_account.as_reader();
         let new_sub_account = generate_new_sub_account_by_edit_value(&witness)?;
@@ -656,7 +654,6 @@ impl<'a> SubAction<'a> {
         &mut self,
         witness: &SubAccountWitness,
         prev_root: &[u8],
-        witness_parser: &SubAccountWitnessesParser,
     ) -> Result<(), Box<dyn ScriptError>> {
         let sub_account_reader = witness.sub_account.as_reader();
         let new_sub_account = generate_new_sub_account_by_edit_value(&witness)?;

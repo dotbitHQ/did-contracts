@@ -1,7 +1,6 @@
 use alloc::boxed::Box;
 use alloc::string::ToString;
 use alloc::vec;
-use core::ops::Index;
 use core::result::Result;
 
 use ckb_std::ckb_constants::Source;
@@ -10,15 +9,9 @@ use das_core::config::Config;
 use das_core::constants::{CellField, ScriptType};
 use das_core::error::*;
 use das_core::witness_parser::reverse_record::{ReverseRecordWitness, ReverseRecordWitnessesParser};
-use das_core::witness_parser::webauthn_signature::WebAuthnSignature;
 use das_core::{assert as das_assert, code_to_error, debug, util, verifiers, warn};
 use das_core::util::exec_das_lock;
-use das_dynamic_libs::constants::DynLibName;
-use das_dynamic_libs::error::Error as DasDynamicLibError;
-use das_dynamic_libs::sign_lib::SignLib;
-use das_dynamic_libs::{load_2_methods, load_3_methods, load_lib, log_loading, new_context};
-use das_types::constants::{Action, das_lock, DasLockType};
-use das_types::prelude::Entity;
+use das_types::constants::{Action, das_lock};
 use witness_parser::WitnessesParserV1;
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
@@ -189,120 +182,6 @@ fn verify_has_some_lock_in_white_list(start_from: usize, white_list: &[[u8; 32]]
 
     warn!("Can not find any lock in the inputs exist in the SMT white list.");
     Err(code_to_error!(ErrorCode::SMTWhiteListTheLockIsNotFound))
-}
-
-fn verify_sign(
-    sign_lib: &SignLib,
-    witness: &ReverseRecordWitness,
-    witness_parser: &ReverseRecordWitnessesParser,
-) -> Result<(), Box<dyn ScriptError>> {
-    if cfg!(feature = "dev") {
-        // CAREFUL Proof verification has been skipped in development mode.
-        debug!(
-            "  witnesses[{:>2}] Skip verifying the witness.reverse_record.signature is valid.",
-            witness.index
-        );
-        return Ok(());
-    }
-
-    debug!(
-        "  witnesses[{:>2}] Verify if the witness.reverse_record.signature is valid.",
-        witness.index
-    );
-
-    let das_lock_type = match witness.sign_type {
-        DasLockType::ETH
-        | DasLockType::ETHTypedData
-        | DasLockType::TRON
-        | DasLockType::Doge
-        | DasLockType::WebAuthn => witness.sign_type,
-        _ => {
-            warn!(
-                "  witnesses[{:>2}] Parsing das-lock(witness.reverse_record.lock.args) algorithm failed (maybe not supported for now), but it is required in this transaction.",
-                witness.index
-            );
-            return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
-        }
-    };
-
-    let nonce = if let Some(prev_nonce) = witness.prev_nonce {
-        prev_nonce + 1
-    } else {
-        1
-    };
-    let account = witness.next_account.as_bytes().to_vec();
-    let signature = witness.signature.as_slice().to_vec();
-    let args = witness.address_payload.as_slice().to_vec();
-    let data = [nonce.to_le_bytes().to_vec(), account].concat();
-    let message = sign_lib.gen_digest(das_lock_type, data).map_err(|_| {
-        warn!(
-            "  witnesses[{:>2}] The lock type {} is still not supported.",
-            witness.index,
-            das_lock_type.to_string()
-        );
-        code_to_error!(ReverseRecordRootCellErrorCode::SignatureVerifyError)
-    })?;
-
-    // TODO: currently we cannot find sub_alg_id in witness. fix sub_alg_id to 7
-    let args = if das_lock_type == DasLockType::WebAuthn {
-        [vec![7], args].concat()
-    } else {
-        args
-    };
-
-    let ret = if das_lock_type == DasLockType::WebAuthn
-        && u8::from_le_bytes(
-            WebAuthnSignature::try_from(signature.as_slice())?
-                .pubkey_index()
-                .try_into()
-                .unwrap(),
-        ) != 255
-    {
-        let device_key_list = witness_parser
-            .device_key_lists
-            .get(args.index(..))
-            .ok_or(code_to_error!(ErrorCode::WitnessStructureError))?;
-
-        if cfg!(feature = "dev") {
-            return Ok(())
-        }
-
-        sign_lib.validate_device(
-            das_lock_type,
-            0i32,
-            &signature,
-            &message,
-            device_key_list.as_slice(),
-            Default::default(),
-        )
-    } else {
-        if cfg!(feature = "dev") {
-            return Ok(())
-        }
-
-        sign_lib.validate_str(das_lock_type, 0i32, message.clone(), message.len(), signature, args)
-    };
-
-    match ret {
-        Err(_error_code) if _error_code == DasDynamicLibError::UndefinedDasLockType as i32 => {
-            warn!(
-                "  witnesses[{:>2}] The signature algorithm has not been supported",
-                witness.index
-            );
-            Err(code_to_error!(ErrorCode::HardCodedError))
-        }
-        Err(_error_code) => {
-            warn!(
-                "  witnesses[{:>2}] The witness.signature is invalid, the error_code returned by dynamic library is: {}",
-                witness.index, _error_code
-            );
-            Err(code_to_error!(ReverseRecordRootCellErrorCode::SignatureVerifyError))
-        }
-        _ => {
-            debug!("  witnesses[{:>2}] The witness.signature is valid.", witness.index);
-            Ok(())
-        }
-    }
 }
 
 fn gen_smt_value(nonce: u32, account: &[u8]) -> [u8; 32] {

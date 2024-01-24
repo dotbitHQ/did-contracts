@@ -4,11 +4,9 @@ use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
 use alloc::{format, vec};
-use core::any::Any;
 use core::convert::TryInto;
 use core::ffi::CStr;
 use core::fmt::Debug;
-use core::hash::Hash;
 
 use blake2b_ref::{Blake2b, Blake2bBuilder};
 use ckb_std::ckb_constants::{CellField, Source};

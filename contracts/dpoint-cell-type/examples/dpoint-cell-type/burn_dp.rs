@@ -8,7 +8,6 @@ use das_core::constants::DPOINT_MAX_LIMIT;
 use das_core::contract::defult_structs::{Action, Rule};
 use das_core::error::ScriptError;
 use das_core::{code_to_error, das_assert, data_parser, debug, util as core_util};
-use das_types::constants::TypeScript;
 use das_types::packed::*;
 use dpoint_cell_type::error::ErrorCode;
 

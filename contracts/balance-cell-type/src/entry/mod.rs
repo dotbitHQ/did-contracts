@@ -28,8 +28,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
     let output_cells =
         util::find_cells_by_type_id(ScriptType::Lock, das_lock_reader.code_hash().into(), Source::Output)?;
 
-    let mut is_unknown_action = false;
-
     if input_cells.len() > 0 {
         debug!("Check if cells with das-lock in inputs has correct typed data hash in its signature witness.");
 
@@ -90,7 +88,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 )?;
             }
             _ => {
-                is_unknown_action = true;
+                // Unknown action, treat as a normal transfer.
             }
         }
     } else {
@@ -101,11 +99,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
         let config_main_reader = Config::get_instance().main()?;
         verifiers::balance_cell::verify_das_lock_always_with_type(config_main_reader)?;
     }
-
-    //WARNING: migrate it to das-lock
-    // if input_cells.len() > 0 && is_unknown_action {
-    //     util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
-    // }
 
     Ok(())
 }

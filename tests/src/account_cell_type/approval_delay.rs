@@ -106,7 +106,7 @@ fn challenge_account_approval_delay_action_modified() {
         }),
     );
 
-    challenge_tx(template.as_json(), AccountCellErrorCode::ApprovalParamsCanNotBeChanged)
+    challenge_tx(template.as_json(), AccountCellErrorCode::ApprovalActionUndefined)
 }
 
 #[test]

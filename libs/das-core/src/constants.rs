@@ -1,10 +1,4 @@
 pub use ckb_std::ckb_types::core::ScriptHashType;
-use das_types::constants::{config_cell_type, das_lock, DataType};
-use das_types::packed as types_packed;
-use molecule::prelude::{Builder, Entity};
-
-use crate::traits::Blake2BHash;
-use crate::witness_parser::general_witness_parser::{get_witness_parser, Condition};
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum ScriptType {
@@ -69,27 +63,3 @@ pub const CROSS_CHAIN_BLACK_ARGS: [u8; 20] = [0; 20];
 pub const TYPE_ID_CODE_HASH: [u8; 32] = [
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 84, 89, 80, 69, 95, 73, 68,
 ];
-
-// pub fn get_config_cell_main() -> types_packed::ConfigCellMain {
-//     let config = get_witness_parser()
-//         .find_unique::<types_packed::ConfigCellMain>()
-//         .unwrap();
-//     let trusted_lock = das_lock();
-//     let trusted_type = config_cell_type()
-//         .clone()
-//         .as_builder()
-//         .args(types_packed::Bytes::from_slice((DataType::ConfigCellMain as u32).to_le_bytes().as_ref()).unwrap())
-//         .build();
-//     config
-//         .verify_unique(
-//             ckb_std::ckb_constants::Source::CellDep,
-//             &[
-//                 Condition::LockHash(&trusted_lock.blake2b_256()),
-//                 Condition::TypeIs(&trusted_type.into()),
-//                 Condition::DataIs(&config.hash.unwrap()),
-//             ],
-//         )
-//         .unwrap();
-//
-//     config.result
-// }

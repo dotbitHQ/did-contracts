@@ -1,4 +1,7 @@
+use core::str::FromStr;
+
 use alloc::boxed::Box;
+use alloc::string::String;
 use alloc::string::ToString;
 use alloc::vec;
 
@@ -9,14 +12,11 @@ use das_core::config::Config;
 use das_core::constants::*;
 use das_core::error::*;
 use das_core::{
-    assert as das_assert, code_to_error, das_assert_custom, data_parser, debug, sign_util, util, verifiers, warn,
+    assert as das_assert, code_to_error, das_assert_custom, data_parser, debug, util, verifiers, warn,
 };
-use das_dynamic_libs::constants::DynLibName;
-use das_dynamic_libs::sign_lib::SignLib;
-use das_dynamic_libs::{load_1_method, load_2_methods, load_3_methods, load_lib, log_loading, new_context};
 use das_map::map::Map;
 use das_map::util as map_util;
-use das_types::constants::{cross_chain_lock, *};
+use das_types::constants::*;
 use das_types::mixer::*;
 use das_types::packed::*;
 use witness_parser::WitnessesParserV1;
@@ -857,8 +857,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             )?;
         }
         Action::UnlockAccountForCrossChain => {
-            let config_main = Config::get_instance().main()?;
-
             debug!("Verify if there is no redundant AccountCells.");
 
             let (input_account_cells, output_account_cells) = util::load_self_cells_in_inputs_and_outputs()?;
@@ -1287,7 +1285,6 @@ fn action_approve() -> Result<(), Box<dyn ScriptError>> {
     let output_cell_witness = util::parse_account_cell_witness(output_account_cells[0], Source::Output)?;
     let output_cell_witness_reader = output_cell_witness.as_reader();
 
-    let config_main = Config::get_instance().main()?;
     let config_account = Config::get_instance().account()?;
 
     verify_transaction_fee_spent_correctly(
@@ -1296,6 +1293,7 @@ fn action_approve() -> Result<(), Box<dyn ScriptError>> {
         input_account_cells[0],
         output_account_cells[0],
     )?;
+
     // TODO The codes above is duplicate with the transfer action.
 
     match output_cell_witness_reader.try_into_latest() {
@@ -1308,7 +1306,7 @@ fn action_approve() -> Result<(), Box<dyn ScriptError>> {
             );
             return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
         }
-    }
+    };
 
     match parser.action {
         Action::CreateApproval => {
@@ -1322,6 +1320,8 @@ fn action_approve() -> Result<(), Box<dyn ScriptError>> {
                 vec!["status", "approval"],
             )?;
 
+            let _approval_action = get_approval_action(&output_cell_witness_reader)?;
+
             approval::transfer_approval_create(
                 timestamp,
                 input_account_cells[0],
@@ -1329,8 +1329,6 @@ fn action_approve() -> Result<(), Box<dyn ScriptError>> {
                 input_cell_witness_reader,
                 output_cell_witness_reader,
             )?;
-
-            //util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
         }
         Action::DelayApproval => {
             verifiers::account_cell::verify_account_cell_consistent_with_exception(
@@ -1342,6 +1340,8 @@ fn action_approve() -> Result<(), Box<dyn ScriptError>> {
                 vec![],
                 vec!["approval"],
             )?;
+
+            let _approval_action = get_approval_action(&output_cell_witness_reader)?;
 
             approval::transfer_approval_delay(
                 input_account_cells[0],
@@ -1362,21 +1362,16 @@ fn action_approve() -> Result<(), Box<dyn ScriptError>> {
                 vec![],
                 vec!["status", "approval"],
             )?;
-            //todo remove _platform_lock
-            let _platform_lock = approval::transfer_approval_revoke(
+
+            let _approval_action = get_approval_action(&input_cell_witness_reader)?;
+
+            approval::transfer_approval_revoke(
                 timestamp,
                 input_account_cells[0],
                 output_account_cells[0],
                 input_cell_witness_reader,
                 output_cell_witness_reader,
             )?;
-
-            // verify_approval_sign(
-            //     "platform_lock",
-            //     platform_lock.as_reader(),
-            //     input_account_cells[0],
-            //     config_main.das_lock_type_id_table(),
-            // )?;
         }
         Action::FulfillApproval => {
             verifiers::account_cell::verify_account_cell_consistent_with_exception(
@@ -1389,34 +1384,14 @@ fn action_approve() -> Result<(), Box<dyn ScriptError>> {
                 vec!["status", "approval", "records"],
             )?;
 
-            let _sealed_until = approval::transfer_approval_fulfill(
+            let _approval_action = get_approval_action(&input_cell_witness_reader)?;
+
+            approval::transfer_approval_fulfill(
                 input_account_cells[0],
                 output_account_cells[0],
                 input_cell_witness_reader,
                 output_cell_witness_reader,
             )?;
-
-            // if timestamp > sealed_until {
-            //     debug!("The approval is already released, so anyone can fulfill it.");
-            // } else {
-            //     let owner_lock = high_level::load_cell_lock(input_account_cells[0], Source::Input).map_err(|_| {
-            //         warn!(
-            //             "{:?}[{}] Loading lock field failed.",
-            //             Source::Input,
-            //             input_account_cells[0]
-            //         );
-            //         return code_to_error!(ErrorCode::InvalidTransactionStructure);
-            //     })?;
-            //
-            //     verify_approval_sign(
-            //         "owner_lock",
-            //         owner_lock.as_reader().into(),
-            //         input_account_cells[0],
-            //         config_main.das_lock_type_id_table(),
-            //     )?;
-            //     //WARNING: migrate it to das-lock
-            //     //util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
-            // }
         }
         _ => {
             warn!("Action {} is not a valid approval action.", parser.action.to_string());
@@ -1424,9 +1399,25 @@ fn action_approve() -> Result<(), Box<dyn ScriptError>> {
         }
     }
 
-    // WARNING! No codes allowed here, all branches should end before this line.
-
     Ok(())
+}
+
+fn get_approval_action<'a>(witness_reader: &Box<dyn AccountCellDataReaderMixer + 'a>) -> Result<AccountApprovalAction, Box<dyn ScriptError>> {
+    let reader = match witness_reader.try_into_latest() {
+        Ok(reader) => reader,
+        Err(_) => {
+            warn!("Only latest version of AccountCellData should used here.");
+            return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
+        }
+    };
+
+    let action_bytes = reader.approval().action().raw_data();
+    let action_string = String::from_utf8(action_bytes.to_vec())
+        .map_err(|_| code_to_error!(AccountCellErrorCode::ApprovalActionUndefined))?;
+    let approval_action = AccountApprovalAction::from_str(&action_string)
+        .map_err(|_| code_to_error!(AccountCellErrorCode::ApprovalActionUndefined))?;
+
+    Ok(approval_action)
 }
 
 fn verify_transaction_fee_spent_correctly(
@@ -1589,114 +1580,6 @@ fn verify_account_is_unlocked_for_cross_chain<'a>(
             "outputs[{}]The AccountCell.witness.status should be Normal .",
             output_account_index
         );
-    }
-
-    Ok(())
-}
-
-fn verify_multi_sign(
-    input_account_index: usize,
-    type_id_table: DasLockTypeIdTableReader,
-) -> Result<(), Box<dyn ScriptError>> {
-    debug!("Verify the signatures of secp256k1-blake160-multisig-all ...");
-
-    let (digest, witness_args_lock) =
-        sign_util::calc_digest_by_input_group(DasLockType::CKBMulti, vec![input_account_index])?;
-    let lock_script = cross_chain_lock();
-    let mut args = lock_script.as_reader().args().raw_data().to_vec();
-    let since = high_level::load_input_since(input_account_index, Source::Input)?;
-
-    // It is the signature validation requirement.
-    args.extend_from_slice(&since.to_le_bytes());
-
-    let mut sign_lib = SignLib::new();
-    let mut ckb_multi_context = new_context!();
-    log_loading!(DynLibName::CKBMultisig, type_id_table);
-    let ckb_multi_lib = load_lib!(ckb_multi_context, DynLibName::CKBMultisig, type_id_table);
-    sign_lib.ckb_multisig = load_1_method!(ckb_multi_lib);
-
-    if cfg!(not(feature = "dev")) {
-        sign_lib
-            .validate(DasLockType::CKBMulti, 0i32, digest.to_vec(), witness_args_lock, args)
-            .map_err(|err_code| {
-                warn!(
-                    "inputs[{}] Verify signature failed, error code: {}",
-                    input_account_index, err_code
-                );
-                return ErrorCode::EIP712SignatureError;
-            })?;
-    }
-
-    Ok(())
-}
-
-fn verify_approval_sign(
-    _lock_name: &str,
-    sign_lock: ScriptReader,
-    input_account_index: usize,
-    type_id_table: DasLockTypeIdTableReader,
-) -> Result<(), Box<dyn ScriptError>> {
-    debug!("Verify the signatures of {} ...", _lock_name);
-
-    let sign_type_int = data_parser::das_lock_args::get_owner_type(sign_lock.args().raw_data());
-    let args = data_parser::das_lock_args::get_owner_lock_args(sign_lock.args().raw_data());
-    let sign_type = DasLockType::try_from(sign_type_int).map_err(|_| {
-        warn!("inputs[{}] Invalid sign type: {}", input_account_index, sign_type_int);
-        code_to_error!(ErrorCode::InvalidTransactionStructure)
-    })?;
-
-    let type_no = if sign_type == DasLockType::ETHTypedData {
-        1i32
-    } else {
-        0i32
-    };
-
-    let mut sign_lib = SignLib::new();
-
-    if cfg!(not(feature = "dev")) {
-        let mut eth_context = new_context!();
-        log_loading!(DynLibName::ETH, type_id_table);
-        let eth_lib = load_lib!(eth_context, DynLibName::ETH, type_id_table);
-        sign_lib.eth = load_2_methods!(eth_lib);
-
-        let mut tron_context = new_context!();
-        log_loading!(DynLibName::TRON, type_id_table);
-        let tron_lib = load_lib!(tron_context, DynLibName::TRON, type_id_table);
-        sign_lib.tron = load_2_methods!(tron_lib);
-
-        let mut doge_context = new_context!();
-        log_loading!(DynLibName::DOGE, type_id_table);
-        let doge_lib = load_lib!(doge_context, DynLibName::DOGE, type_id_table);
-        sign_lib.doge = load_2_methods!(doge_lib);
-
-        let mut web_authn_context = new_context!();
-        log_loading!(DynLibName::WebAuthn, type_id_table);
-        let web_authn_lib = load_lib!(web_authn_context, DynLibName::WebAuthn, type_id_table);
-        sign_lib.web_authn = load_3_methods!(web_authn_lib);
-
-        let (digest, witness_args_lock) = if sign_type == DasLockType::ETHTypedData {
-            let (_, digest, _, witness_args_lock) = sign_util::get_eip712_digest(vec![input_account_index])?;
-            (digest, witness_args_lock)
-        } else {
-            sign_util::calc_digest_by_input_group(sign_type, vec![input_account_index])?
-        };
-
-        sign_lib
-            .validate_str(
-                sign_type,
-                type_no,
-                digest.to_vec(),
-                digest.len(),
-                witness_args_lock,
-                args.to_vec(),
-            )
-            .map_err(|err_code| {
-                warn!(
-                    "inputs[{}] Verify signature failed, error code: {}",
-                    input_account_index, err_code
-                );
-                return ErrorCode::EIP712SignatureError;
-            })?;
     }
 
     Ok(())
