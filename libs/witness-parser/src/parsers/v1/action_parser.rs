@@ -34,10 +34,10 @@ pub fn parse_action(
             err: String::from("The action is not a utf-8 string."),
         }
     })?;
-    let action = Action::from_str(&action_str).map_err(|_| WitnessParserError::DecodingActionDataFailed {
-        index,
-        err: String::from("The action is undefined."),
-    })?;
+    let action = match Action::from_str(&action_str) {
+        Ok(action) => action,
+        Err(_) => Action::Others
+    };
 
     let action_params = match action {
         Action::BuyAccount => parse_buy_account(index, action_data.as_reader())?,
