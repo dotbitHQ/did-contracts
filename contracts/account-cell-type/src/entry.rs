@@ -668,7 +668,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 current_lock
             );
 
-            let expected_capacity = capacity_should_recycle - 10_000;
+            let expected_capacity = capacity_should_recycle - 20_000;
             let current_capacity = high_level::load_cell_capacity(outputs_balance_cells[0], Source::Output)?;
             das_assert!(
                 current_capacity >= expected_capacity,

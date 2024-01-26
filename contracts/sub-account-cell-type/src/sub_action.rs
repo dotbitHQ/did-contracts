@@ -354,135 +354,126 @@ impl<'a> SubAction<'a> {
             witness.index
         );
 
-        match (witness.edit_key.as_slice(), self.manual_renew_list_smt_root) {
-            (b"manual", Some(root)) => {
-                debug!(
-                    "  witnesses[{:>2}] The account will be manually renewed by owner/manager.",
-                    witness.index
-                );
+        let mut manually_renew_by_others = true;
 
-                match data_parser::sub_account_cell::get_proof_from_edit_value(&witness.edit_value_bytes) {
-                    Some(proof) => {
-                        if !proof.is_empty() {
-                            match smt_verify_sub_account_is_in_renew_list(root.clone(), &witness) {
-                                Ok(()) => {
-                                    let profit = calc_basic_profit(
-                                        self.config_sub_account.renew_sub_account_price(),
-                                        self.quote,
-                                        expiration_years,
-                                    );
-                                    self.profit_from_manual_renew += profit;
-                                    self.profit_total += profit;
-                                    self.minimal_required_das_profit += profit;
+        match (self.flag, witness.edit_key.as_slice()) {
+            (SubAccountConfigFlag::CustomRule, b"custom_rule") => {
+                if self.custom_rule_flag == SubAccountCustomRuleFlag::On {
+                    let sub_account_reader = witness.sub_account.as_reader();
+                    let (account, account_chars_reader) = gen_account_from_witness(&sub_account_reader)?;
 
-                                    return Ok(());
-                                }
-                                Err(err) => {
-                                    warn!(
-                                        "  witnesses[{:>2}] The proof in edit_value is invalid, but it is marked as manual renew.",
+                    match self.custom_price_rules.as_ref() {
+                        Some(rules) => match match_rule_with_account_chars(&rules, account_chars_reader, &account) {
+                            Ok(Some(rule)) => {
+                                debug!(
+                                    "  witnesses[{:>2}] The account will be renewed with custom rules.",
+                                    witness.index
+                                );
+
+                                das_assert!(
+                                    rule.price >= u64::from(self.config_sub_account.renew_sub_account_price()),
+                                    SubAccountCellErrorCode::MinimalProfitToDASNotReached,
+                                    "  witnesses[{:>2}] The minimal profit to .bit should be more than {} shannon.",
+                                    witness.index,
+                                    u64::from(self.config_sub_account.renew_sub_account_price()) * expiration_years
+                                );
+
+                                let profit = util::calc_yearly_capacity(rule.price, self.quote, 0) * expiration_years;
+                                self.profit_total += profit;
+
+                                debug!(
+                                    "  witnesses[{:>2}] account: {}, matched rule: {}, profit: {} in shannon",
+                                    witness.index, account, rule.index, profit
+                                );
+
+                                return Ok(());
+                            }
+                            Ok(None) => {
+                                debug!(
+                                    "  witnesses[{:>2}] The account is allowed to be renewed manually because no matched rule found.",
+                                    witness.index
+                                );
+                            }
+                            Err(err) => {
+                                warn!(
+                                    "  witnesses[{:>2}] The config rules has syntax error: {}",
+                                    witness.index,
+                                    err.to_string()
+                                );
+                                return Err(code_to_error!(SubAccountCellErrorCode::ConfigRulesHasSyntaxError));
+                            }
+                        },
+                        None => {
+                            warn!(
+                                "  witnesses[{:>2}] The account {} can not be renewed, the witness named SubAccountRules is required.",
+                                witness.index, account
+                            );
+                            return Err(code_to_error!(SubAccountCellErrorCode::AccountHasNoPrice));
+                        }
+                    }
+                } else {
+                    debug!(
+                        "  witnesses[{:>2}] The custom rules is off, the account can be renewed by anyone now.",
+                        witness.index
+                    );
+                }
+            }
+            (_, b"manual") => {
+                if let Some(root) = self.manual_renew_list_smt_root {
+                    // The signature is still reqired to verify the spending of owner/manager's BalanceCell.
+                    match data_parser::sub_account_cell::get_proof_from_edit_value(&witness.edit_value_bytes) {
+                            Some(proof) => {
+                                if !proof.is_empty() {
+                                    debug!(
+                                        "  witnesses[{:>2}] The account will be manually renewed by owner/manager.",
                                         witness.index
                                     );
 
-                                    return Err(err);
+                                    match smt_verify_sub_account_is_in_renew_list(root.clone(), &witness) {
+                                        Ok(()) => {
+                                            manually_renew_by_others = false;
+                                        }
+                                        Err(err) => {
+                                            warn!(
+                                                "  witnesses[{:>2}] The proof in edit_value is invalid, but it is marked as manual renew.",
+                                                witness.index
+                                            );
+
+                                            return Err(err);
+                                        }
+                                    }
+                                } else {
+                                    debug!(
+                                        "  witnesses[{:>2}] The account has no proof and will be treated as manually renewed by others.",
+                                        witness.index
+                                    );
                                 }
                             }
-                        } else {
-                            debug!(
-                                "  witnesses[{:>2}] The account has no proof and will be treated as manually renewed by others later.",
-                                witness.index
-                            );
+                            None => {
+                                debug!(
+                                    "  witnesses[{:>2}] The account has no proof and will be treated as manually renewed by others.",
+                                    witness.index
+                                );
+                            }
                         }
-                    }
-                    None => {
-                        debug!(
-                            "  witnesses[{:>2}] The account has no proof and will be treated as manually renewed by others later.",
-                            witness.index
-                        );
-                    }
-                }
-            }
-            _ => {}
-        }
-
-        match self.flag {
-            SubAccountConfigFlag::CustomRule => {
-                if self.custom_rule_flag == SubAccountCustomRuleFlag::Off {
-                    warn!(
-                        "  witnesses[{:>2}] The custom rules is off, the account can not be renewed for now.",
+                } else {
+                    debug!(
+                        "  witnesses[{:>2}] The account will be treated as manually renewed by others.",
                         witness.index
                     );
-                    return Err(code_to_error!(SubAccountCellErrorCode::CustomRuleIsOff));
                 }
-
-                let sub_account_reader = witness.sub_account.as_reader();
-                let (account, account_chars_reader) = gen_account_from_witness(&sub_account_reader)?;
-
-                match self.custom_price_rules.as_ref() {
-                    Some(rules) => match match_rule_with_account_chars(&rules, account_chars_reader, &account) {
-                        Ok(Some(rule)) => {
-                            debug!(
-                                "  witnesses[{:>2}] The account will be renewed with custom rules.",
-                                witness.index
-                            );
-
-                            das_assert!(
-                                witness.edit_key == b"custom_rule",
-                                SubAccountCellErrorCode::EditKeyMismatch,
-                                "  witnesses[{:>2}] The edit_key should be custom_rule, because rule[{}] found.",
-                                witness.index,
-                                rule.name
-                            );
-
-                            das_assert!(
-                                rule.price >= u64::from(self.config_sub_account.renew_sub_account_price()),
-                                SubAccountCellErrorCode::MinimalProfitToDASNotReached,
-                                "  witnesses[{:>2}] The minimal profit to .bit should be more than {} shannon.",
-                                witness.index,
-                                u64::from(self.config_sub_account.renew_sub_account_price()) * expiration_years
-                            );
-
-                            let profit = util::calc_yearly_capacity(rule.price, self.quote, 0) * expiration_years;
-                            self.profit_total += profit;
-
-                            debug!(
-                                "  witnesses[{:>2}] account: {}, matched rule: {}, profit: {} in shannon",
-                                witness.index, account, rule.index, profit
-                            );
-
-                            return Ok(());
-                        }
-                        Ok(None) => {
-                            debug!(
-                                "  witnesses[{:>2}] The account is allowed to be renewed manually because no matched rule found.",
-                                witness.index
-                            );
-                        }
-                        Err(err) => {
-                            warn!(
-                                "  witnesses[{:>2}] The config rules has syntax error: {}",
-                                witness.index,
-                                err.to_string()
-                            );
-                            return Err(code_to_error!(SubAccountCellErrorCode::ConfigRulesHasSyntaxError));
-                        }
-                    },
-                    None => {
-                        warn!(
-                            "  witnesses[{:>2}] The account {} can not be renewed, the witness named SubAccountRules is required.",
-                            witness.index, account
-                        );
-                        return Err(code_to_error!(SubAccountCellErrorCode::AccountHasNoPrice));
-                    }
-                }
-                // let matched_rule = rules.last();
             }
-            _ => {}
-        }
+            _ => {
+                let sub_account_reader = witness.sub_account.as_reader();
+                let (account, _) = gen_account_from_witness(&sub_account_reader)?;
 
-        debug!(
-            "  witnesses[{:>2}] The account will be manually renewed by others.",
-            witness.index
-        );
+                warn!(
+                    "  witnesses[{:>2}] The account {} renew failed, unknown combination of {} and edit_key .",
+                    witness.index, account, self.flag.to_string()
+                );
+                return Err(code_to_error!(SubAccountCellErrorCode::AccountHasNoPrice));
+            }
+        }
 
         das_assert!(
             witness.edit_key == b"manual",
@@ -496,7 +487,11 @@ impl<'a> SubAction<'a> {
             self.quote,
             expiration_years,
         );
-        self.profit_from_manual_renew_by_other += profit;
+        if !manually_renew_by_others {
+            self.profit_from_manual_renew += profit;
+        } else {
+            self.profit_from_manual_renew_by_other += profit;
+        }
         self.profit_total += profit;
         self.minimal_required_das_profit += profit;
 

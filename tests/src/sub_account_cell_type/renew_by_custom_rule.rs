@@ -414,6 +414,79 @@ fn test_sub_account_renew_flag_custom_rule_mix_mint() {
 }
 
 #[test]
+fn test_sub_account_renew_flag_custom_rule_flag_is_off_with_manual_renew() {
+    let mut template = init_update();
+
+    push_simple_dep_account_cell(&mut template);
+
+    // inputs
+    push_simple_rules(&mut template);
+    template.restore_sub_account_v1(vec![json!({
+        "lock": {
+            "owner_lock_args": OWNER_1,
+            "manager_lock_args": MANAGER_1
+        },
+        "account": SUB_ACCOUNT_1,
+        "suffix": SUB_ACCOUNT_SUFFIX,
+        "registered_at": TIMESTAMP,
+        "expired_at": TIMESTAMP,
+    })]);
+    push_input_sub_account_cell_v2(
+        &mut template,
+        json!({
+            "header": {
+                "height": HEIGHT - 1,
+                "timestamp": TIMESTAMP - DAY_SEC,
+            },
+            "data": {
+                "das_profit": 0,
+                "owner_profit": 0,
+                "flag": SubAccountConfigFlag::CustomRule as u8,
+                "status_flag": SubAccountCustomRuleFlag::Off as u8,
+            }
+        }),
+        ACCOUNT_1,
+    );
+    push_input_normal_cell(&mut template, TOTAL_PAID, OWNER);
+
+    // outputs
+    template.push_sub_account_witness_v2(json!({
+        "action": SubAccountAction::Renew.to_string(),
+        "sub_account": {
+            "lock": {
+                "owner_lock_args": OWNER_1,
+                "manager_lock_args": MANAGER_1
+            },
+            "account": SUB_ACCOUNT_1,
+            "suffix": SUB_ACCOUNT_SUFFIX,
+            "registered_at": TIMESTAMP,
+            "expired_at": TIMESTAMP,
+        },
+        "edit_key": "manual",
+        "edit_value": {
+            "expired_at": TIMESTAMP + YEAR_SEC,
+        }
+    }));
+
+    let total_profit = util::gen_sub_account_register_fee(SUB_ACCOUNT_NEW_PRICE, 1);
+    push_output_sub_account_cell_v2(
+        &mut template,
+        json!({
+            "data": {
+                "das_profit": total_profit,
+                "owner_profit": 0,
+                "flag": SubAccountConfigFlag::CustomRule as u8,
+                "status_flag": SubAccountCustomRuleFlag::Off as u8,
+            }
+        }),
+        ACCOUNT_1,
+    );
+    push_output_normal_cell(&mut template, TOTAL_PAID - total_profit, OWNER);
+
+    test_tx(template.as_json());
+}
+
+#[test]
 fn challenge_sub_account_renew_less_than_1_year() {
     let mut template = before_each();
 
@@ -701,80 +774,6 @@ fn challenge_sub_account_renew_flag_custom_rule_preserve_rules_hash_not_consiste
         template.as_json(),
         SubAccountCellErrorCode::SubAccountCellConsistencyError,
     );
-}
-
-#[test]
-fn challenge_sub_account_renew_custom_rule_status_flag_is_off() {
-    let mut template = init_update();
-
-    push_simple_dep_account_cell(&mut template);
-
-    // inputs
-    push_simple_rules(&mut template);
-    template.restore_sub_account_v1(vec![json!({
-        "lock": {
-            "owner_lock_args": OWNER_1,
-            "manager_lock_args": MANAGER_1
-        },
-        "account": SUB_ACCOUNT_1,
-        "suffix": SUB_ACCOUNT_SUFFIX,
-        "registered_at": TIMESTAMP,
-        "expired_at": TIMESTAMP,
-    })]);
-    push_input_sub_account_cell_v2(
-        &mut template,
-        json!({
-            "header": {
-                "height": HEIGHT - 1,
-                "timestamp": TIMESTAMP - DAY_SEC,
-            },
-            "data": {
-                "das_profit": 0,
-                "owner_profit": 0,
-                "flag": SubAccountConfigFlag::CustomRule as u8,
-                "status_flag": SubAccountCustomRuleFlag::Off as u8,
-            }
-        }),
-        ACCOUNT_1,
-    );
-    push_input_normal_cell(&mut template, TOTAL_PAID, OWNER);
-
-    // outputs
-    template.push_sub_account_witness_v2(json!({
-        "action": SubAccountAction::Renew.to_string(),
-        "sub_account": {
-            "lock": {
-                "owner_lock_args": OWNER_1,
-                "manager_lock_args": MANAGER_1
-            },
-            "account": SUB_ACCOUNT_1,
-            "suffix": SUB_ACCOUNT_SUFFIX,
-            "registered_at": TIMESTAMP,
-            "expired_at": TIMESTAMP,
-        },
-        "edit_key": "custom_rule",
-        "edit_value": {
-            "expired_at": TIMESTAMP + YEAR_SEC,
-            "rest": DUMMY_CHANNEL,
-        }
-    }));
-
-    let total_profit = util::usd_to_ckb(USD_5 * 1);
-    push_output_sub_account_cell_v2(
-        &mut template,
-        json!({
-            "data": {
-                "das_profit": total_profit,
-                "owner_profit": 0,
-                "flag": SubAccountConfigFlag::CustomRule as u8,
-                "status_flag": SubAccountCustomRuleFlag::Off as u8,
-            }
-        }),
-        ACCOUNT_1,
-    );
-    push_output_normal_cell(&mut template, TOTAL_PAID - total_profit, OWNER);
-
-    challenge_tx(template.as_json(), SubAccountCellErrorCode::CustomRuleIsOff);
 }
 
 #[test]
