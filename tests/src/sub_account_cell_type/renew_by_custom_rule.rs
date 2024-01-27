@@ -462,7 +462,8 @@ fn test_sub_account_renew_flag_custom_rule_flag_is_off_with_manual_renew() {
             "registered_at": TIMESTAMP,
             "expired_at": TIMESTAMP,
         },
-        "edit_key": "manual",
+        // Simulate renewing by others manually. In this situation, the `edit_key` should be `custom_rule`.
+        "edit_key": "custom_rule",
         "edit_value": {
             "expired_at": TIMESTAMP + YEAR_SEC,
         }

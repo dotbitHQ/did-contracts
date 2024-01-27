@@ -188,8 +188,8 @@ fn action_config_sub_account() -> Result<(), Box<dyn ScriptError>> {
                     };
 
                     let rules = match sub_account_witness_parser.get_rules(&sub_account_cell_data, data_type)? {
-                        Some(rules) => rules,
-                        None => {
+                        (_, Some(rules)) => rules,
+                        (_, None) => {
                             das_assert!(
                                 hash == Some(&[0u8; 10]),
                                 SubAccountCellErrorCode::ConfigRulesHashMismatch,
@@ -352,6 +352,7 @@ fn action_update_sub_account() -> Result<(), Box<dyn ScriptError>> {
 
     let mut custom_rule_flag = SubAccountCustomRuleFlag::Off;
     let mut custom_price_rules = None;
+    let mut is_custom_price_rules_set = false;
     let mut custom_preserved_rules = None;
 
     let mut smt_root_sign_found = false;
@@ -446,9 +447,9 @@ fn action_update_sub_account() -> Result<(), Box<dyn ScriptError>> {
                         Some(val) => val,
                         None => SubAccountCustomRuleFlag::Off,
                     };
-                custom_price_rules =
+                (is_custom_price_rules_set, custom_price_rules) =
                     sub_account_parser.get_rules(&input_sub_account_data, DataType::SubAccountPriceRule)?;
-                custom_preserved_rules =
+                (_, custom_preserved_rules) =
                     sub_account_parser.get_rules(&input_sub_account_data, DataType::SubAccountPreservedRule)?;
             }
             _ => {
@@ -575,6 +576,7 @@ fn action_update_sub_account() -> Result<(), Box<dyn ScriptError>> {
         &manual_renew_list_smt_root,
         &custom_preserved_rules,
         &custom_price_rules,
+        is_custom_price_rules_set,
     );
     for (i, witness_ret) in sub_account_parser.iter().enumerate() {
         let witness = match witness_ret {
@@ -679,10 +681,11 @@ fn action_update_sub_account() -> Result<(), Box<dyn ScriptError>> {
                 )?;
             }
         }
-        debug!("Call Das-lock to complete the sub-account signature verification.");
-        if all_inputs_with_das_lock.len() == 0 {
-            exec_das_lock().expect("exec das-lock failed");
-        }
+    }
+
+    debug!("Call Das-lock to complete the sub-account signature verification.");
+    if all_inputs_with_das_lock.len() == 0 {
+        exec_das_lock().expect("exec das-lock failed");
     }
 
     Ok(())

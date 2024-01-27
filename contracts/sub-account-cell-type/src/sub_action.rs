@@ -46,6 +46,7 @@ pub struct SubAction<'a> {
     // custom rule fields
     custom_preserved_rules: &'a Option<Vec<ast_types::SubAccountRule>>,
     custom_price_rules: &'a Option<Vec<ast_types::SubAccountRule>>,
+    is_custom_price_rules_set: bool,
 }
 
 impl<'a> SubAction<'a> {
@@ -64,6 +65,7 @@ impl<'a> SubAction<'a> {
         manual_renew_list_smt_root: &'a Option<[u8; 32]>,
         custom_preserved_rules: &'a Option<Vec<ast_types::SubAccountRule>>,
         custom_price_rules: &'a Option<Vec<ast_types::SubAccountRule>>,
+        is_custom_price_rules_set: bool,
     ) -> Self {
         Self {
             //sign_lib,
@@ -85,6 +87,7 @@ impl<'a> SubAction<'a> {
             manual_renew_list_smt_root,
             custom_preserved_rules,
             custom_price_rules,
+            is_custom_price_rules_set,
         }
     }
 
@@ -356,8 +359,9 @@ impl<'a> SubAction<'a> {
 
         let mut manually_renew_by_others = true;
 
-        match (self.flag, witness.edit_key.as_slice()) {
-            (SubAccountConfigFlag::CustomRule, b"custom_rule") => {
+        // WARNING! The `edit_key` has higher priority than the `SubAccountCell.data.flag` for now.
+        match (witness.edit_key.as_slice(), self.flag) {
+            (b"custom_rule", SubAccountConfigFlag::CustomRule) => {
                 if self.custom_rule_flag == SubAccountCustomRuleFlag::On {
                     let sub_account_reader = witness.sub_account.as_reader();
                     let (account, account_chars_reader) = gen_account_from_witness(&sub_account_reader)?;
@@ -404,11 +408,18 @@ impl<'a> SubAction<'a> {
                             }
                         },
                         None => {
-                            warn!(
-                                "  witnesses[{:>2}] The account {} can not be renewed, the witness named SubAccountRules is required.",
-                                witness.index, account
-                            );
-                            return Err(code_to_error!(SubAccountCellErrorCode::AccountHasNoPrice));
+                            if self.is_custom_price_rules_set {
+                                warn!(
+                                    "  witnesses[{:>2}] The account {} can not be renewed, the witness named SubAccountRules is required.",
+                                    witness.index, account
+                                );
+                                return Err(code_to_error!(SubAccountCellErrorCode::AccountHasNoPrice));
+                            } else {
+                                debug!(
+                                    "  witnesses[{:>2}] The account is allowed to be renewed manually because no rule is set.",
+                                    witness.index
+                                );
+                            }
                         }
                     }
                 } else {
@@ -418,7 +429,7 @@ impl<'a> SubAction<'a> {
                     );
                 }
             }
-            (_, b"manual") => {
+            (b"manual", _) => {
                 if let Some(root) = self.manual_renew_list_smt_root {
                     // The signature is still reqired to verify the spending of owner/manager's BalanceCell.
                     match data_parser::sub_account_cell::get_proof_from_edit_value(&witness.edit_value_bytes) {
@@ -474,13 +485,6 @@ impl<'a> SubAction<'a> {
                 return Err(code_to_error!(SubAccountCellErrorCode::AccountHasNoPrice));
             }
         }
-
-        das_assert!(
-            witness.edit_key == b"manual",
-            SubAccountCellErrorCode::EditKeyMismatch,
-            "  witnesses[{:>2}] The edit_key should be manual, because it does not match any other conditions.",
-            witness.index
-        );
 
         let profit = calc_basic_profit(
             self.config_sub_account.renew_sub_account_price(),

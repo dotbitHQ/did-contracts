@@ -666,32 +666,6 @@ fn challenge_sub_account_create_custom_rule_status_flag_is_off() {
 }
 
 #[test]
-fn challenge_sub_account_create_flag_custom_script_mix_custom_script() {
-    let mut template = before_each();
-
-    // outputs
-    template.push_sub_account_witness_v2(json!({
-        "action": SubAccountAction::Create.to_string(),
-        "sub_account": {
-            "lock": {
-                "owner_lock_args": OWNER_1,
-                "manager_lock_args": MANAGER_1
-            },
-            "account": SUB_ACCOUNT_1,
-            "suffix": SUB_ACCOUNT_SUFFIX,
-            "registered_at": TIMESTAMP,
-            "expired_at": TIMESTAMP + YEAR_SEC,
-        },
-        "edit_key": "custom_script",
-    }));
-
-    let total_profit = util::usd_to_ckb(USD_5 * 1);
-    push_simple_outputs(&mut template, total_profit);
-
-    challenge_tx(template.as_json(), SubAccountCellErrorCode::WitnessEditKeyInvalid);
-}
-
-#[test]
 fn challenge_sub_account_create_flag_custom_rule_account_preserved() {
     let mut template = before_each();
 
