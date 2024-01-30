@@ -36,7 +36,7 @@ pub fn parse_action(
     })?;
     let action = match Action::from_str(&action_str) {
         Ok(action) => action,
-        Err(_) => Action::Others
+        Err(_) => Action::Others,
     };
 
     let action_params = match action {

@@ -433,40 +433,40 @@ impl<'a> SubAction<'a> {
                 if let Some(root) = self.manual_renew_list_smt_root {
                     // The signature is still reqired to verify the spending of owner/manager's BalanceCell.
                     match data_parser::sub_account_cell::get_proof_from_edit_value(&witness.edit_value_bytes) {
-                            Some(proof) => {
-                                if !proof.is_empty() {
-                                    debug!(
-                                        "  witnesses[{:>2}] The account will be manually renewed by owner/manager.",
-                                        witness.index
-                                    );
+                        Some(proof) => {
+                            if !proof.is_empty() {
+                                debug!(
+                                    "  witnesses[{:>2}] The account will be manually renewed by owner/manager.",
+                                    witness.index
+                                );
 
-                                    match smt_verify_sub_account_is_in_renew_list(root.clone(), &witness) {
-                                        Ok(()) => {
-                                            manually_renew_by_others = false;
-                                        }
-                                        Err(err) => {
-                                            warn!(
+                                match smt_verify_sub_account_is_in_renew_list(root.clone(), &witness) {
+                                    Ok(()) => {
+                                        manually_renew_by_others = false;
+                                    }
+                                    Err(err) => {
+                                        warn!(
                                                 "  witnesses[{:>2}] The proof in edit_value is invalid, but it is marked as manual renew.",
                                                 witness.index
                                             );
 
-                                            return Err(err);
-                                        }
+                                        return Err(err);
                                     }
-                                } else {
-                                    debug!(
+                                }
+                            } else {
+                                debug!(
                                         "  witnesses[{:>2}] The account has no proof and will be treated as manually renewed by others.",
                                         witness.index
                                     );
-                                }
                             }
-                            None => {
-                                debug!(
+                        }
+                        None => {
+                            debug!(
                                     "  witnesses[{:>2}] The account has no proof and will be treated as manually renewed by others.",
                                     witness.index
                                 );
-                            }
                         }
+                    }
                 } else {
                     debug!(
                         "  witnesses[{:>2}] The account will be treated as manually renewed by others.",
@@ -480,7 +480,9 @@ impl<'a> SubAction<'a> {
 
                 warn!(
                     "  witnesses[{:>2}] The account {} renew failed, unknown combination of {} and edit_key .",
-                    witness.index, account, self.flag.to_string()
+                    witness.index,
+                    account,
+                    self.flag.to_string()
                 );
                 return Err(code_to_error!(SubAccountCellErrorCode::AccountHasNoPrice));
             }
