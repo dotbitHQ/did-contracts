@@ -17,7 +17,7 @@ use ckb_std::ckb_types::prelude::*;
 use ckb_std::error::SysError;
 use ckb_std::{high_level, syscalls};
 use das_types::constants::{
-    das_lock, height_cell_type, quote_cell_type, super_lock, time_cell_type, DasLockType, DataType, LockRole,
+    das_lock, height_cell_type, quote_cell_type, super_lock, time_cell_type, Action, DasLockType, DataType, LockRole,
     TypeScript, ACCOUNT_ID_LENGTH, WITNESS_HEADER,
 };
 use das_types::mixer::*;
@@ -783,10 +783,18 @@ pub fn require_super_lock() -> Result<(), Box<dyn ScriptError>> {
 /// Get the role required by each action
 ///
 /// Only the actions require manager role is list here for simplified purpose.
-pub fn get_action_required_role(action: &[u8]) -> Option<LockRole> {
+pub fn get_action_required_role_legacy(action: &[u8]) -> Option<LockRole> {
+    match action {
+        b"edit_records" => Some(LockRole::Manager),
+        _ => Some(LockRole::Owner),
+    }
+}
+
+pub fn get_action_required_role(action: Action) -> Option<LockRole> {
     match action {
         // account-cell-type
-        b"edit_records" => Some(LockRole::Manager),
+        //b"edit_records" => Some(LockRole::Manager),
+        Action::EditRecords => Some(LockRole::Manager),
         _ => Some(LockRole::Owner),
     }
 }

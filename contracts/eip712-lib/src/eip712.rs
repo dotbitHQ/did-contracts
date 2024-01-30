@@ -28,7 +28,7 @@ pub fn verify_eip712_hashes(
     parser: &WitnessesParserLegacy,
     tx_to_das_message: fn(parser: &WitnessesParserLegacy) -> Result<String, Box<dyn ScriptError>>,
 ) -> Result<(), Box<dyn ScriptError>> {
-    let required_role_opt = util::get_action_required_role(&parser.action);
+    let required_role_opt = util::get_action_required_role_legacy(&parser.action);
     let das_lock = das_lock();
     let das_lock_reader = das_lock.as_reader();
 
@@ -158,7 +158,7 @@ fn tx_to_digest(
     let mut eip712_chain_id = Vec::new();
     for (_key, input_group_idxs) in input_groups_idxs {
         let init_witness_idx = input_group_idxs[0];
-        let (digest, typed_data_hash, chain_id, _) = sign_util::get_eip712_digest(input_group_idxs)?;
+        let (digest, typed_data_hash, chain_id, _) = sign_util::get_eip712_digest_legacy(input_group_idxs)?;
         ret.insert(
             init_witness_idx,
             DigestAndHash {
