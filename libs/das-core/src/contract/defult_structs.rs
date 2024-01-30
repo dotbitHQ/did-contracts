@@ -213,7 +213,7 @@ impl RegisteredActions {
             }
         }
 
-        // TODO 把 action 改成明确的声明式
+        // TODO Change action to explicit declaration
         if let Some(_action) = default_action.as_ref() {
             debug!("==== Route to action {} ====", _action.name);
         }

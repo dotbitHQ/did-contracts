@@ -10,7 +10,8 @@ testnet = ["das-core/testnet"]
 mainnet = ["das-core/mainnet"]
 
 [dependencies]
+das-core = { workspace = true }
+das-types = { workspace = true, features = ["no_std"] }
+witness-parser = { workspace = true, features = ["no_std"] }
 ckb-std = { workspace = true }
-hex = { workspace = true, default-features = false }
-das-core = { workspace = true, default-features = false }
-das-types = { workspace = true, default-features = false, features = ["no_std"] }
+hex = { workspace = true }

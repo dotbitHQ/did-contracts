@@ -1,7 +1,7 @@
 use alloc::boxed::Box;
 use alloc::string::ToString;
 
-use das_core::constants::{das_lock, DAY_SEC};
+use das_core::constants::DAY_SEC;
 use das_core::error::*;
 use das_core::{code_to_error, das_assert, data_parser, debug, util, warn};
 use das_types::constants::*;
@@ -80,7 +80,7 @@ pub fn transfer_approval_create(
     let limit_days = 10;
 
     das_assert!(
-        util::is_type_id_equal(platform_lock.into(), das_lock_reader),
+        util::is_type_id_equal(platform_lock.into(), das_lock_reader.into()),
         SubAccountCellErrorCode::ApprovalParamsPlatformLockInvalid,
         "  witnesses[{:>2}] The edit_value.params.platform_lock should use das-lock.",
         i
@@ -117,7 +117,7 @@ pub fn transfer_approval_create(
     );
 
     das_assert!(
-        util::is_type_id_equal(to_lock.into(), das_lock_reader),
+        util::is_type_id_equal(to_lock.into(), das_lock_reader.into()),
         SubAccountCellErrorCode::ApprovalParamsToLockInvalid,
         "  witnesses[{:>2}] The edit_value.params.to_lock should use das-lock.",
         i

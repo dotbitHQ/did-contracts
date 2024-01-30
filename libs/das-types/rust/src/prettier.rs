@@ -47,7 +47,6 @@ impl Prettier for Uint8 {
 
 impl<'a> Prettier for Uint8Reader<'a> {
     fn as_prettier(&self) -> String {
-        use core::convert::TryInto;
         let number = self
             .raw_data()
             .try_into()
@@ -65,7 +64,6 @@ impl Prettier for Uint32 {
 
 impl<'a> Prettier for Uint32Reader<'a> {
     fn as_prettier(&self) -> String {
-        use core::convert::TryInto;
         let number = self
             .raw_data()
             .try_into()
@@ -83,7 +81,6 @@ impl Prettier for Uint64 {
 
 impl<'a> Prettier for Uint64Reader<'a> {
     fn as_prettier(&self) -> String {
-        use core::convert::TryInto;
         let number = self
             .raw_data()
             .try_into()
@@ -688,7 +685,9 @@ impl<'a> Prettier for ConfigCellSystemStatusReader<'a> {
             income_cell_type,
             reverse_record_cell_type,
             reverse_record_root_cell_type,
-            eip712_lib
+            eip712_lib,
+            key_list_config_cell_type,
+            dpoint_cell_type
         })
     }
 }

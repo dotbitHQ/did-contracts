@@ -356,3 +356,19 @@ table ConfigCellSubAccountV1 {
     // The fee for recycle_sub_account action.
     recycle_fee: Uint64,
 }
+
+table ConfigCellSystemStatusV1 {
+    apply_register_cell_type: ContractStatus,
+    pre_account_cell_type: ContractStatus,
+    proposal_cell_type: ContractStatus,
+    config_cell_type: ContractStatus,
+    account_cell_type: ContractStatus,
+    account_sale_cell_type: ContractStatus,
+    sub_account_cell_type: ContractStatus,
+    offer_cell_type: ContractStatus,
+    balance_cell_type: ContractStatus,
+    income_cell_type: ContractStatus,
+    reverse_record_cell_type: ContractStatus,
+    reverse_record_root_cell_type: ContractStatus,
+    eip712_lib: ContractStatus,
+}

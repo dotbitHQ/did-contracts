@@ -4,14 +4,15 @@ version = "1.7.0"
 edition = "2021"
 
 [features]
-dev = ["das-core/dev", "das-dynamic-libs/dev"]
-local = ["das-core/local", "das-dynamic-libs/local"]
-testnet = ["das-core/testnet", "das-dynamic-libs/testnet"]
-mainnet = ["das-core/mainnet", "das-dynamic-libs/mainnet"]
+dev = ["das-core/dev"]
+local = ["das-core/local"]
+testnet = ["das-core/testnet"]
+mainnet = ["das-core/mainnet"]
 
 [dependencies]
+das-core = { workspace = true }
+das-map = { workspace = true }
+das-types = { workspace = true, features = ["no_std"] }
+das-dynamic-libs = { workspace = true }
+witness-parser = { workspace = true, features = ["no_std"] }
 ckb-std = { workspace = true }
-das-core = { workspace = true, default-features = false }
-das-map = { workspace = true, default-features = false }
-das-types = { workspace = true, default-features = false, features = ["no_std"] }
-das-dynamic-libs = { path = "../../libs/das-dynamic-libs" }

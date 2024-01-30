@@ -1,33 +1,32 @@
 use alloc::boxed::Box;
+#[cfg(debug_assertions)]
+use alloc::string::ToString;
 use core::cmp::Ordering;
 use core::result::Result;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
-use das_core::constants::{ScriptType, TypeScript};
+use das_core::config::Config;
+use das_core::constants::ScriptType;
 use das_core::error::*;
 use das_core::since_util::SinceFlag;
-use das_core::witness_parser::WitnessesParser;
 use das_core::{assert, code_to_error, debug, since_util, util, verifiers};
+use das_types::constants::{Action, TypeScript};
+use witness_parser::WitnessesParserV1;
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running apply-register-cell-type ======");
 
-    let mut parser = WitnessesParser::new()?;
-    let action_cp = match parser.parse_action_with_params()? {
-        Some((action, _)) => action.to_vec(),
-        None => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
-    };
-    let action = action_cp.as_slice();
+    let parser = WitnessesParserV1::get_instance();
+    parser
+        .init()
+        .map_err(|_err| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
 
-    util::is_system_off(&parser)?;
+    util::is_system_off()?;
 
-    debug!(
-        "Route to {:?} action ...",
-        alloc::string::String::from_utf8(action.to_vec()).map_err(|_| ErrorCode::ActionNotSupported)?
-    );
-    match action {
-        b"apply_register" => {
+    debug!("Route to {:?} action ...", parser.action.to_string());
+    match parser.action {
+        Action::ApplyRegister => {
             let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
             verifiers::common::verify_cell_number_and_position(
                 "ApplyRegisterCell",
@@ -47,8 +46,8 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 "The data of ApplyRegisterCell should have 32 bytes of data."
             );
         }
-        b"refund_apply" => {
-            let config = parser.configs.apply()?;
+        Action::RefundApply => {
+            let config = Config::get_instance().apply()?;
             let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
 
             verifiers::common::verify_cell_number_range(
@@ -111,12 +110,11 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 refund_capacity
             );
 
-            let config_main_reader = parser.configs.main()?;
+            let config_main_reader = Config::get_instance().main()?;
             verifiers::balance_cell::verify_das_lock_always_with_type(config_main_reader)?;
         }
-        b"pre_register" => {
+        Action::PreRegister => {
             util::require_type_script(
-                &parser,
                 TypeScript::PreAccountCellType,
                 Source::Output,
                 ErrorCode::InvalidTransactionStructure,

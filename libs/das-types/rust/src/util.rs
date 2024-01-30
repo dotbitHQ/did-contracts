@@ -3,6 +3,10 @@ use core::convert::TryFrom;
 #[cfg(not(feature = "no_std"))]
 use std::convert::TryFrom;
 
+#[cfg(feature = "no_std")]
+use blake2b_ref::Blake2bBuilder;
+#[cfg(not(feature = "no_std"))]
+use blake2b_rs::Blake2bBuilder;
 pub use molecule::hex_string;
 use molecule::prelude::*;
 
@@ -18,6 +22,15 @@ pub fn is_reader_eq<'a, T: Reader<'a>>(a: T, b: T) -> bool {
     a.as_slice() == b.as_slice()
 }
 
+pub fn is_other_data_type(data_type: &DataType) -> bool {
+    [
+        DataType::DeviceKeyListCellData,
+        DataType::ReverseRecord,
+        DataType::OrderInfo,
+    ]
+    .contains(data_type)
+}
+
 pub fn is_sub_account_data_type(data_type: &DataType) -> bool {
     [
         DataType::SubAccount,
@@ -26,12 +39,47 @@ pub fn is_sub_account_data_type(data_type: &DataType) -> bool {
         DataType::SubAccountPreservedRule,
         DataType::DeviceKeyListCellData,
         DataType::SubAccountMintSign,
-    ].contains(data_type)
+    ]
+    .contains(data_type)
 }
 
 pub fn is_config_data_type(data_type: &DataType) -> bool {
     let data_type_in_int = data_type.to_owned() as u32;
-    data_type_in_int >= 100 && data_type_in_int <= 199999
+    data_type_in_int >= 100 && data_type_in_int <= 110000
+}
+
+pub fn get_action_required_sign_role(action: Action) -> Option<LockRole> {
+    let owner_sign_actions = vec![
+        Action::TransferAccount,
+        Action::EditManager,
+        Action::LockAccountForCrossChain,
+        Action::EnableSubAccount,
+        Action::CreateApproval,
+        Action::DelayApproval,
+        Action::RevokeApproval,
+        Action::FulfillApproval,
+        Action::StartAccountSale,
+        Action::CancelAccountSale,
+        Action::EditAccountSale,
+    ];
+
+    let manager_sign_action = vec![Action::EditRecords];
+
+    match action {
+        x if owner_sign_actions.contains(&x) => Some(LockRole::Owner),
+        x if manager_sign_action.contains(&x) => Some(LockRole::Manager),
+        _ => None,
+    }
+}
+
+pub fn blake2b_256<T: AsRef<[u8]>>(s: T) -> [u8; 32] {
+    let mut result = [0u8; CKB_HASH_DIGEST];
+    let mut blake2b = Blake2bBuilder::new(CKB_HASH_DIGEST)
+        .personal(CKB_HASH_PERSONALIZATION)
+        .build();
+    blake2b.update(s.as_ref());
+    blake2b.finalize(&mut result);
+    result
 }
 
 pub fn data_type_to_char_set(data_type: DataType) -> CharSetType {
@@ -296,7 +344,6 @@ pub fn wrap_data_witness_v3(
             let data_entity = wrap_data_entity_opt_v3(version, index, entity);
             Data::new_builder().new(data_entity).build()
         }
-        _ => panic!("Only CellDep, Input and Output is supported."),
     };
 
     Bytes::from(wrap_entity_witness_v2(data_type, data))
@@ -323,7 +370,6 @@ pub fn wrap_data_witness_v4(
             let data_entity = wrap_data_entity_opt_v3(version, index, entity);
             Data::new_builder().new(data_entity).build()
         }
-        _ => panic!("Only CellDep, Input and Output is supported."),
     };
 
     wrap_entity_witness_v2(data_type, data)

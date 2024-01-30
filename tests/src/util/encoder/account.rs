@@ -171,43 +171,48 @@ fn encode_v4_fields(path: &str, value: &Value) -> AccountApproval {
 
     let approval_action =
         util::parse_json_str(&format!("{}.{}", path, "approval.action"), &value["approval"]["action"]);
-    let approval_params = match approval_action {
-        // "transfer" => {
-        // This is use for providing invalid action
-        _ => {
-            let platform_lock = util::parse_json_script_to_mol(
-                &format!("{}.{}", path, "approval.params.platform_lock"),
-                &value["approval"]["params"]["platform_lock"],
-            );
-            let protected_until = util::parse_json_u64(
-                &format!("{}.{}", path, "approval.params.protected_until"),
-                &value["approval"]["params"]["protected_until"],
-                None,
-            );
-            let sealed_until = util::parse_json_u64(
-                &format!("{}.{}", path, "approval.params.sealed_until"),
-                &value["approval"]["params"]["sealed_until"],
-                None,
-            );
-            let delay_count_remain = util::parse_json_u8(
-                &format!("{}.{}", path, "approval.params.delay_count_remain"),
-                &value["approval"]["params"]["delay_count_remain"],
-                None,
-            );
-            let to_lock = util::parse_json_script_to_mol(
-                &format!("{}.{}", path, "approval.params.to_lock"),
-                &value["approval"]["params"]["to_lock"],
-            );
-            let account_approval_transfer = AccountApprovalTransfer::new_builder()
-                .platform_lock(platform_lock)
-                .protected_until(Uint64::from(protected_until))
-                .sealed_until(Uint64::from(sealed_until))
-                .delay_count_remain(Uint8::from(delay_count_remain))
-                .to_lock(to_lock)
-                .build();
-            Bytes::from(account_approval_transfer.as_slice().to_vec())
-        } // _ => unimplemented!("Not support action: {}", approval_action),
+    let approval_params = if value["approval"]["params"].is_null() {
+        Bytes::default()
+    } else {
+        match approval_action {
+            // "transfer" => {
+            // This is use for providing invalid action
+            _ => {
+                let platform_lock = util::parse_json_script_to_mol(
+                    &format!("{}.{}", path, "approval.params.platform_lock"),
+                    &value["approval"]["params"]["platform_lock"],
+                );
+                let protected_until = util::parse_json_u64(
+                    &format!("{}.{}", path, "approval.params.protected_until"),
+                    &value["approval"]["params"]["protected_until"],
+                    None,
+                );
+                let sealed_until = util::parse_json_u64(
+                    &format!("{}.{}", path, "approval.params.sealed_until"),
+                    &value["approval"]["params"]["sealed_until"],
+                    None,
+                );
+                let delay_count_remain = util::parse_json_u8(
+                    &format!("{}.{}", path, "approval.params.delay_count_remain"),
+                    &value["approval"]["params"]["delay_count_remain"],
+                    None,
+                );
+                let to_lock = util::parse_json_script_to_mol(
+                    &format!("{}.{}", path, "approval.params.to_lock"),
+                    &value["approval"]["params"]["to_lock"],
+                );
+                let account_approval_transfer = AccountApprovalTransfer::new_builder()
+                    .platform_lock(platform_lock)
+                    .protected_until(Uint64::from(protected_until))
+                    .sealed_until(Uint64::from(sealed_until))
+                    .delay_count_remain(Uint8::from(delay_count_remain))
+                    .to_lock(to_lock)
+                    .build();
+                Bytes::from(account_approval_transfer.as_slice().to_vec())
+            } // _ => unimplemented!("Not support action: {}", approval_action),
+        }
     };
+
     let approval = AccountApproval::new_builder()
         .action(Bytes::from(approval_action.as_bytes()))
         .params(approval_params)

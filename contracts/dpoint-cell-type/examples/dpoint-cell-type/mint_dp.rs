@@ -4,19 +4,17 @@ use core::cmp::Ordering;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
-use das_core::constants::{super_lock, ScriptType, DPOINT_MAX_LIMIT};
+use das_core::config::Config;
+use das_core::constants::{ScriptType, DPOINT_MAX_LIMIT};
 use das_core::contract::defult_structs::{Action, Rule};
 use das_core::error::ScriptError;
-use das_core::witness_parser::WitnessesParser;
 use das_core::{code_to_error, das_assert, data_parser, util as core_util, verifiers};
+use das_types::constants::super_lock;
 use das_types::packed::*;
 use dpoint_cell_type::error::ErrorCode;
 
 pub fn action() -> Result<Action, Box<dyn ScriptError>> {
-    let parser = WitnessesParser::new()?;
-    core_util::is_system_off(&parser)?;
-
-    let config_dpoint_reader = parser.configs.dpoint()?;
+    let config_dpoint_reader = Config::get_instance().dpoint()?;
 
     let mut action = Action::new("mint_dp");
     let (input_cells, output_cells) = core_util::load_self_cells_in_inputs_and_outputs()?;
@@ -38,7 +36,8 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
         "Verify if the inputs containing cells with super lock.",
         move |_contract| {
             let expected_lock = super_lock();
-            let cells = core_util::find_cells_by_script(ScriptType::Lock, expected_lock.as_reader(), Source::Input)?;
+            let cells =
+                core_util::find_cells_by_script(ScriptType::Lock, expected_lock.as_reader().into(), Source::Input)?;
 
             das_assert!(
                 cells.len() > 0,

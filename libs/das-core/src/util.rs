@@ -16,18 +16,23 @@ use ckb_std::ckb_types::packed::*;
 use ckb_std::ckb_types::prelude::*;
 use ckb_std::error::SysError;
 use ckb_std::{high_level, syscalls};
-use das_types::constants::{DasLockType, DataType, LockRole, ACCOUNT_ID_LENGTH, WITNESS_HEADER};
+use das_types::constants::{
+    das_lock, height_cell_type, quote_cell_type, super_lock, time_cell_type, Action, DasLockType, DataType, LockRole,
+    TypeScript, ACCOUNT_ID_LENGTH, WITNESS_HEADER,
+};
 use das_types::mixer::*;
 use das_types::packed::{self as das_packed};
 pub use das_types::util::{hex_string, is_entity_eq, is_reader_eq};
 #[cfg(test)]
 use hex::FromHexError;
+use witness_parser::traits::WitnessQueryable;
+use witness_parser::types::CellMeta;
+use witness_parser::WitnessesParserV1;
 
 use super::constants::*;
 use super::data_parser;
 use super::error::*;
-use super::types::ScriptLiteral;
-use super::witness_parser::WitnessesParser;
+use crate::config::Config;
 
 #[cfg(test)]
 pub fn hex_to_unpacked_bytes(input: &str) -> Result<bytes::Bytes, FromHexError> {
@@ -65,14 +70,6 @@ pub fn first_n_bytes_to_hex(bytes: &[u8], n: usize) -> String {
         .map(|v| format!("0x{}...", hex_string(v)))
         .or(Some(String::from("0x")))
         .unwrap()
-}
-
-pub fn script_literal_to_script(script: ScriptLiteral) -> Script {
-    Script::new_builder()
-        .code_hash(script.code_hash.pack())
-        .hash_type(Byte::new(script.hash_type as u8))
-        .args(bytes::Bytes::from(script.args).pack())
-        .build()
 }
 
 pub fn type_id_to_script(type_id: das_packed::HashReader) -> das_packed::Script {
@@ -249,11 +246,12 @@ pub fn payload_to_das_lock(lock_type: DasLockType, payload: &[u8]) -> Script {
     compatible_args.extend(compatible_args.clone().iter());
 
     let compatible_lock = das_lock()
+        .clone()
         .as_builder()
         .args(das_packed::Bytes::from(compatible_args).into())
         .build();
 
-    compatible_lock
+    compatible_lock.into()
 }
 
 pub fn find_cells_by_das_lock_payload(
@@ -293,7 +291,7 @@ pub fn find_balance_cells(
     source: Source,
 ) -> Result<Vec<usize>, Box<dyn ScriptError>> {
     let das_lock = das_lock();
-    if is_type_id_equal(das_lock.as_reader(), user_lock_reader) {
+    if is_type_id_equal(das_lock.as_reader().into(), user_lock_reader) {
         let args = user_lock_reader.args().raw_data();
         let lock_type = match DasLockType::try_from(data_parser::das_lock_args::get_owner_type(args)) {
             Ok(val) => val,
@@ -426,8 +424,9 @@ pub fn load_oracle_data(type_: OracleCellType) -> Result<u64, Box<dyn ScriptErro
         }
     }
 
+    // TODO Verify the lock script of the Cell.
     // There must be one OracleCell in the cell_deps, no more and no less.
-    let ret = find_cells_by_script(ScriptType::Type, type_script.as_reader(), Source::CellDep)?;
+    let ret = find_cells_by_script(ScriptType::Type, type_script.as_reader().into(), Source::CellDep)?;
     das_assert!(
         ret.len() == 1,
         ErrorCode::OracleCellIsRequired,
@@ -603,8 +602,8 @@ pub fn is_cell_capacity_equal(cell_a: (usize, Source), cell_b: (usize, Source)) 
     Ok(())
 }
 
-pub fn is_system_off(parser: &WitnessesParser) -> Result<(), Box<dyn ScriptError>> {
-    let config_main = parser.configs.main()?;
+pub fn is_system_off() -> Result<(), Box<dyn ScriptError>> {
+    let config_main = Config::get_instance().main()?;
     let status = u8::from(config_main.status());
     if status == 0 {
         warn!("The DAS system is currently off.");
@@ -623,12 +622,14 @@ pub fn get_length_in_price(account_length: u64) -> u8 {
 }
 
 pub fn is_init_day(current_timestamp: u64) -> Result<(), Box<dyn ScriptError>> {
-    use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
+    use chrono::{LocalResult, TimeZone, Utc};
 
-    let current = DateTime::<Utc>::from_utc(
-        NaiveDateTime::from_timestamp_opt(current_timestamp as i64, 0).unwrap(),
-        Utc,
-    );
+    let current = match Utc.timestamp_opt(current_timestamp as i64, 0) {
+        LocalResult::Single(current) => current,
+        _ => {
+            return Err(code_to_error!(ErrorCode::InitDayHasPassed));
+        }
+    };
 
     // On CKB main net, AKA Lina, some actions can be only executed at or before the initialization day of DAS.
     if cfg!(feature = "mainnet") {
@@ -733,57 +734,32 @@ pub fn calc_duration_from_paid(paid: u64, yearly_price: u64, quote: u64, discoun
     paid * 365 / yearly_capacity * 86400
 }
 
-fn get_type_id(
-    parser: &WitnessesParser,
-    type_script: TypeScript,
-) -> Result<das_packed::HashReader, Box<dyn ScriptError>> {
-    let config = parser.configs.main()?;
-
-    let type_id = match type_script {
-        TypeScript::AccountCellType => config.type_id_table().account_cell(),
-        TypeScript::AccountSaleCellType => config.type_id_table().account_sale_cell(),
-        TypeScript::AccountAuctionCellType => config.type_id_table().account_auction_cell(),
-        TypeScript::ApplyRegisterCellType => config.type_id_table().apply_register_cell(),
-        TypeScript::BalanceCellType => config.type_id_table().balance_cell(),
-        TypeScript::ConfigCellType => parser.config_cell_type_id.as_reader(),
-        TypeScript::IncomeCellType => config.type_id_table().income_cell(),
-        TypeScript::OfferCellType => config.type_id_table().offer_cell(),
-        TypeScript::PreAccountCellType => config.type_id_table().pre_account_cell(),
-        TypeScript::ProposalCellType => config.type_id_table().proposal_cell(),
-        TypeScript::ReverseRecordCellType => config.type_id_table().reverse_record_cell(),
-        TypeScript::SubAccountCellType => config.type_id_table().sub_account_cell(),
-        TypeScript::ReverseRecordRootCellType => config.type_id_table().reverse_record_root_cell(),
-        TypeScript::DPointCellType => config.type_id_table().dpoint_cell(),
-        TypeScript::EIP712Lib => config.type_id_table().eip712_lib(),
-    };
-
-    Ok(type_id)
-}
-
 pub fn require_type_script(
-    parser: &WitnessesParser,
     type_script: TypeScript,
     source: Source,
     err: ErrorCode,
 ) -> Result<(), Box<dyn ScriptError>> {
-    let type_id = get_type_id(parser, type_script.clone())?;
+    let type_id = WitnessesParserV1::get_instance()
+        .get_type_id(type_script)
+        .map_err(|_| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
 
     debug!(
         "Require on: 0x{}({:?}) in {:?}",
-        hex_string(type_id.raw_data()),
+        hex_string(&type_id),
         type_script,
         source
     );
 
     // Find out required cell in current transaction.
-    let required_cells = find_cells_by_type_id(ScriptType::Type, type_id, source)?;
+    let type_id_entity = das_packed::Hash::from(type_id);
+    let required_cells = find_cells_by_type_id(ScriptType::Type, type_id_entity.as_reader(), source)?;
 
     das_assert!(
         required_cells.len() > 0,
         err,
         "The cells in {:?} which has type script 0x{}({:?}) is required in this transaction.",
         source,
-        hex_string(type_id.raw_data()),
+        hex_string(&type_id),
         type_script
     );
 
@@ -792,7 +768,8 @@ pub fn require_type_script(
 
 pub fn require_super_lock() -> Result<(), Box<dyn ScriptError>> {
     let super_lock = super_lock();
-    let has_super_lock = find_cells_by_script(ScriptType::Lock, super_lock.as_reader(), Source::Input)?.len() > 0;
+    let has_super_lock =
+        find_cells_by_script(ScriptType::Lock, super_lock.as_reader().into(), Source::Input)?.len() > 0;
 
     das_assert!(
         has_super_lock,
@@ -806,10 +783,18 @@ pub fn require_super_lock() -> Result<(), Box<dyn ScriptError>> {
 /// Get the role required by each action
 ///
 /// Only the actions require manager role is list here for simplified purpose.
-pub fn get_action_required_role(action: &[u8]) -> Option<LockRole> {
+pub fn get_action_required_role_legacy(action: &[u8]) -> Option<LockRole> {
+    match action {
+        b"edit_records" => Some(LockRole::Manager),
+        _ => Some(LockRole::Owner),
+    }
+}
+
+pub fn get_action_required_role(action: Action) -> Option<LockRole> {
     match action {
         // account-cell-type
-        b"edit_records" => Some(LockRole::Manager),
+        //b"edit_records" => Some(LockRole::Manager),
+        Action::EditRecords => Some(LockRole::Manager),
         _ => Some(LockRole::Owner),
     }
 }
@@ -914,84 +899,103 @@ pub fn get_sub_account_name_from_reader<'a>(sub_account_reader: &Box<dyn SubAcco
 }
 
 pub fn parse_income_cell_witness(
-    parser: &WitnessesParser,
     index: usize,
     source: Source,
 ) -> Result<das_packed::IncomeCellData, Box<dyn ScriptError>> {
-    let (version, data_type, mol_bytes) = parser.verify_and_get(DataType::IncomeCellData, index, source)?;
+    let cell_meta = CellMeta::new(index, source.into());
+    let parser = WitnessesParserV1::get_instance();
+    let witness_meta = parser
+        .get_witness_meta_by_cell_meta(cell_meta)
+        .map_err(|_| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
 
     assert!(
-        version == 1 && data_type == DataType::IncomeCellData,
+        witness_meta.version == 1 && witness_meta.data_type == DataType::IncomeCellData,
         ErrorCode::WitnessVersionOrTypeInvalid,
         "{:?}[{}] The version or data_type of witness is invalid.",
         source,
         index
     );
 
-    let ret = das_packed::IncomeCellData::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
-        warn!("Decoding IncomeCellData failed");
-        ErrorCode::WitnessEntityDecodingError
-    })?;
+    let ret = parser
+        .get_entity_by_cell_meta::<das_packed::IncomeCellData>(cell_meta)
+        .map_err(|_| {
+            warn!("{:?}[{}] Decoding IncomeCellData failed", source, index);
+            ErrorCode::WitnessEntityDecodingError
+        })?;
 
     Ok(ret)
 }
 
 pub fn parse_proposal_cell_witness(
-    parser: &WitnessesParser,
     index: usize,
     source: Source,
 ) -> Result<das_packed::ProposalCellData, Box<dyn ScriptError>> {
-    let (version, data_type, mol_bytes) = parser.verify_and_get(DataType::ProposalCellData, index, source)?;
+    let cell_meta = CellMeta::new(index, source.into());
+    let parser = WitnessesParserV1::get_instance();
+    let witness_meta = parser
+        .get_witness_meta_by_cell_meta(cell_meta)
+        .map_err(|_| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
 
     assert!(
-        version == 1 && data_type == DataType::ProposalCellData,
+        witness_meta.version == 1 && witness_meta.data_type == DataType::ProposalCellData,
         ErrorCode::WitnessVersionOrTypeInvalid,
         "{:?}[{}] The version or data_type of witness is invalid.",
         source,
         index
     );
 
-    let ret = das_packed::ProposalCellData::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
-        warn!("Decoding ProposalCellData failed");
-        ErrorCode::WitnessEntityDecodingError
-    })?;
+    let ret = parser
+        .get_entity_by_cell_meta::<das_packed::ProposalCellData>(cell_meta)
+        .map_err(|_| {
+            warn!("{:?}[{}] Decoding ProposalCellData failed", source, index);
+            ErrorCode::WitnessEntityDecodingError
+        })?;
 
     Ok(ret)
 }
 
 pub fn parse_pre_account_cell_witness(
-    parser: &WitnessesParser,
     index: usize,
     source: Source,
 ) -> Result<Box<dyn PreAccountCellDataMixer>, Box<dyn ScriptError>> {
-    let (version, data_type, mol_bytes) = parser.verify_and_get(DataType::PreAccountCellData, index, source)?;
+    let cell_meta = CellMeta::new(index, source.into());
+    let parser = WitnessesParserV1::get_instance();
+    let witness_meta = parser
+        .get_witness_meta_by_cell_meta(cell_meta)
+        .map_err(|_| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
 
     assert!(
-        data_type == DataType::PreAccountCellData,
+        witness_meta.data_type == DataType::PreAccountCellData,
         ErrorCode::WitnessVersionOrTypeInvalid,
         "{:?}[{}] The data_type of witness is invalid.",
         source,
         index
     );
 
-    let ret: Box<dyn PreAccountCellDataMixer> = match version {
+    let ret: Box<dyn PreAccountCellDataMixer> = match witness_meta.version {
         1 => Box::new(
-            das_packed::PreAccountCellDataV1::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
-                warn!("{:?}[{}] Decoding PreAccountCellDataV1 failed", source, index);
-                ErrorCode::WitnessEntityDecodingError
-            })?,
+            parser
+                .get_entity_by_cell_meta::<das_packed::PreAccountCellDataV1>(cell_meta)
+                .map_err(|_| {
+                    warn!("{:?}[{}] Decoding PreAccountCellDataV1 failed", source, index);
+                    ErrorCode::WitnessEntityDecodingError
+                })?,
         ),
         2 => Box::new(
-            das_packed::PreAccountCellDataV2::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
-                warn!("{:?}[{}] Decoding PreAccountCellDataV2 failed", source, index);
-                ErrorCode::WitnessEntityDecodingError
-            })?,
+            parser
+                .get_entity_by_cell_meta::<das_packed::PreAccountCellDataV2>(cell_meta)
+                .map_err(|_| {
+                    warn!("{:?}[{}] Decoding PreAccountCellDataV2 failed", source, index);
+                    ErrorCode::WitnessEntityDecodingError
+                })?,
         ),
         3 => Box::new(
-            das_packed::PreAccountCellData::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
-                warn!("{:?}[{}] Decoding PreAccountCellData failed", source, index);
-                ErrorCode::WitnessEntityDecodingError
-            })?,
+            parser
+                .get_entity_by_cell_meta::<das_packed::PreAccountCellData>(cell_meta)
+                .map_err(|_| {
+                    warn!("{:?}[{}] Decoding PreAccountCellData failed", source, index);
+                    ErrorCode::WitnessEntityDecodingError
+                })?,
         ),
         _ => {
             warn!("{:?}[{}] The version of witness is invalid.", source, index);
@@ -1003,42 +1007,51 @@ pub fn parse_pre_account_cell_witness(
 }
 
 pub fn parse_account_cell_witness(
-    parser: &WitnessesParser,
     index: usize,
     source: Source,
 ) -> Result<Box<dyn AccountCellDataMixer>, Box<dyn ScriptError>> {
-    let (version, data_type, mol_bytes) = parser.verify_and_get(DataType::AccountCellData, index, source)?;
+    let cell_meta = CellMeta::new(index, source.into());
+    let parser = WitnessesParserV1::get_instance();
+    let witness_meta = parser
+        .get_witness_meta_by_cell_meta(cell_meta)
+        .map_err(|_| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
 
     assert!(
-        data_type == DataType::AccountCellData,
+        witness_meta.data_type == DataType::AccountCellData,
         ErrorCode::WitnessVersionOrTypeInvalid,
         "{:?}[{}] The data_type of witness is invalid.",
         source,
         index
     );
 
-    let ret: Box<dyn AccountCellDataMixer> = match version {
+    let ret: Box<dyn AccountCellDataMixer> = match witness_meta.version {
         1 => {
             // CAREFUL! The early versions will no longer be supported.
             return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
         }
         2 => Box::new(
-            das_packed::AccountCellDataV2::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
-                warn!("{:?}[{}] Decoding AccountCellDataV2 failed", source, index);
-                ErrorCode::WitnessEntityDecodingError
-            })?,
+            parser
+                .get_entity_by_cell_meta::<das_packed::AccountCellDataV2>(cell_meta)
+                .map_err(|_| {
+                    warn!("{:?}[{}] Decoding AccountCellDataV2 failed", source, index);
+                    ErrorCode::WitnessEntityDecodingError
+                })?,
         ),
         3 => Box::new(
-            das_packed::AccountCellDataV3::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
-                warn!("{:?}[{}] Decoding AccountCellDataV3 failed", source, index);
-                ErrorCode::WitnessEntityDecodingError
-            })?,
+            parser
+                .get_entity_by_cell_meta::<das_packed::AccountCellDataV3>(cell_meta)
+                .map_err(|_| {
+                    warn!("{:?}[{}] Decoding AccountCellDataV3 failed", source, index);
+                    ErrorCode::WitnessEntityDecodingError
+                })?,
         ),
         4 => Box::new(
-            das_packed::AccountCellData::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
-                warn!("{:?}[{}] Decoding AccountCellData failed", source, index);
-                ErrorCode::WitnessEntityDecodingError
-            })?,
+            parser
+                .get_entity_by_cell_meta::<das_packed::AccountCellData>(cell_meta)
+                .map_err(|_| {
+                    warn!("{:?}[{}] Decoding AccountCellData failed", source, index);
+                    ErrorCode::WitnessEntityDecodingError
+                })?,
         ),
         _ => {
             warn!("{:?}[{}] The version of witness is invalid.", source, index);
@@ -1050,32 +1063,39 @@ pub fn parse_account_cell_witness(
 }
 
 pub fn parse_account_sale_cell_witness(
-    parser: &WitnessesParser,
     index: usize,
     source: Source,
 ) -> Result<Box<dyn AccountSaleCellDataMixer>, Box<dyn ScriptError>> {
-    let (version, data_type, mol_bytes) = parser.verify_and_get(DataType::AccountSaleCellData, index, source)?;
+    let cell_meta = CellMeta::new(index, source.into());
+    let parser = WitnessesParserV1::get_instance();
+    let witness_meta = parser
+        .get_witness_meta_by_cell_meta(cell_meta)
+        .map_err(|_| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
 
     assert!(
-        data_type == DataType::AccountSaleCellData,
+        witness_meta.data_type == DataType::AccountSaleCellData,
         ErrorCode::WitnessVersionOrTypeInvalid,
         "{:?}[{}] The data_type of witness is invalid.",
         source,
         index
     );
 
-    let ret: Box<dyn AccountSaleCellDataMixer> = match version {
+    let ret: Box<dyn AccountSaleCellDataMixer> = match witness_meta.version {
         1 => Box::new(
-            das_packed::AccountSaleCellDataV1::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
-                warn!("{:?}[{}] Decoding AccountSaleCellDataV1 failed", source, index);
-                ErrorCode::WitnessEntityDecodingError
-            })?,
+            parser
+                .get_entity_by_cell_meta::<das_packed::AccountSaleCellDataV1>(cell_meta)
+                .map_err(|_| {
+                    warn!("{:?}[{}] Decoding AccountSaleCellDataV1 failed", source, index);
+                    ErrorCode::WitnessEntityDecodingError
+                })?,
         ),
         2 => Box::new(
-            das_packed::AccountSaleCellData::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
-                warn!("{:?}[{}] Decoding AccountSaleCellData failed", source, index);
-                ErrorCode::WitnessEntityDecodingError
-            })?,
+            parser
+                .get_entity_by_cell_meta::<das_packed::AccountSaleCellData>(cell_meta)
+                .map_err(|_| {
+                    warn!("{:?}[{}] Decoding AccountSaleCellData failed", source, index);
+                    ErrorCode::WitnessEntityDecodingError
+                })?,
         ),
         _ => {
             warn!("{:?}[{}] The version of witness is invalid.", source, index);
@@ -1087,21 +1107,24 @@ pub fn parse_account_sale_cell_witness(
 }
 
 pub fn parse_offer_cell_witness(
-    parser: &WitnessesParser,
     index: usize,
     source: Source,
 ) -> Result<das_packed::OfferCellData, Box<dyn ScriptError>> {
-    let (version, data_type, mol_bytes) = parser.verify_and_get(DataType::OfferCellData, index, source)?;
+    let cell_meta = CellMeta::new(index, source.into());
+    let parser = WitnessesParserV1::get_instance();
+    let witness_meta = parser
+        .get_witness_meta_by_cell_meta(cell_meta)
+        .map_err(|_| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
 
     assert!(
-        version == 1 && data_type == DataType::OfferCellData,
+        witness_meta.version == 1 && witness_meta.data_type == DataType::OfferCellData,
         ErrorCode::WitnessVersionOrTypeInvalid,
         "{:?}[{}] The version or data_type of witness is invalid.",
         source,
         index
     );
 
-    let ret = das_packed::OfferCellData::from_slice(mol_bytes.as_reader().raw_data()).map_err(|_| {
+    let ret: das_packed::OfferCellData = parser.get_entity_by_cell_meta(cell_meta).map_err(|_| {
         warn!("{:?}[{}] Decoding OfferCellData failed", source, index);
         ErrorCode::WitnessEntityDecodingError
     })?;
@@ -1125,24 +1148,25 @@ where
     }
 }
 
-pub fn exec_by_type_id(
-    parser: &WitnessesParser,
-    type_script: TypeScript,
-    argv: &[&CStr],
-) -> Result<(), Box<dyn ScriptError>> {
-    let type_id = get_type_id(parser, type_script.clone())?;
+pub fn exec_by_type_id(type_script: TypeScript, argv: &[&CStr]) -> Result<(), Box<dyn ScriptError>> {
+    let type_id = WitnessesParserV1::get_instance()
+        .get_type_id(type_script)
+        .map_err(|_| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
 
-    debug!(
-        "Execute script {:?} by type ID 0x{}",
-        type_script,
-        hex_string(type_id.raw_data())
-    );
+    debug!("Execute script {:?} by type ID 0x{}", type_script, hex_string(&type_id));
 
-    high_level::exec_cell(type_id.raw_data(), ScriptHashType::Type, 0, 0, argv)
+    high_level::exec_cell(&type_id, ScriptHashType::Type, 0, 0, argv)
         .map_err(|err| err.into())
         .map(|_| ())
 }
 
+pub fn exec_das_lock() -> Result<(), Box<dyn ScriptError>> {
+    let type_script = das_lock();
+    let type_id = type_script.code_hash();
+    high_level::exec_cell(type_id.as_slice(), ScriptHashType::Type, 0, 0, Default::default())
+        .map_err(|err| err.into())
+        .map(|_| ())
+}
 pub fn get_timestamp_from_header(header: HeaderReader) -> u64 {
     u64::from(das_packed::Uint64Reader::new_unchecked(
         header.raw().timestamp().raw_data(),

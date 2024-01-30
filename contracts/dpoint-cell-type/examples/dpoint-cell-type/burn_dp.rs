@@ -3,19 +3,16 @@ use alloc::vec::Vec;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
-use das_core::constants::{TypeScript, DPOINT_MAX_LIMIT};
+use das_core::config::Config;
+use das_core::constants::DPOINT_MAX_LIMIT;
 use das_core::contract::defult_structs::{Action, Rule};
 use das_core::error::ScriptError;
-use das_core::witness_parser::WitnessesParser;
 use das_core::{code_to_error, das_assert, data_parser, debug, util as core_util};
 use das_types::packed::*;
 use dpoint_cell_type::error::ErrorCode;
 
 pub fn action() -> Result<Action, Box<dyn ScriptError>> {
-    let parser = WitnessesParser::new()?;
-    core_util::is_system_off(&parser)?;
-
-    let config_dpoint_reader = parser.configs.dpoint()?;
+    let config_dpoint_reader = Config::get_instance().dpoint()?;
 
     let mut action = Action::new("burn_dp");
 
@@ -149,7 +146,9 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
                 let ret = high_level::load_cell_lock_hash(i, Source::Input);
                 match ret {
                     Ok(lock_hash) => {
-                        if transfer_whitelist_hashes.contains(&lock_hash) || recycle_whitelist_hashes.contains(&lock_hash) {
+                        if transfer_whitelist_hashes.contains(&lock_hash)
+                            || recycle_whitelist_hashes.contains(&lock_hash)
+                        {
                             has_whitelist_lock = true;
                             break;
                         }
@@ -218,11 +217,11 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
     } else {
         debug!("Skip verifying if the DPointCells' capacity is recycled properly.")
     }
-
-    action.add_verification(Rule::new("Verify the EIP712 signature.", move |_contract| {
-        core_util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
-        Ok(())
-    }));
+    //warning: migrate to das-lock
+    // action.add_verification(Rule::new("Verify the EIP712 signature.", move |_contract| {
+    //     core_util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
+    //     Ok(())
+    // }));
 
     Ok(action)
 }

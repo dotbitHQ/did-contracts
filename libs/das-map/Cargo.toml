@@ -9,7 +9,6 @@ std = ["no-std-compat/std"]
 no_std = []
 
 [dependencies]
-no-std-compat = { version = "0.4", features = [ "alloc", "compat_macros" ] }
+hex = { workspace = true }
+no-std-compat = { workspace = true }
 
-[dev-dependencies]
-hex = { version = "0.4", default-features = false }

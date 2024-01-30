@@ -8,66 +8,53 @@ use core::result::Result;
 use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::packed;
 use ckb_std::high_level;
+use das_core::config::Config;
 use das_core::constants::*;
 use das_core::error::*;
-use das_core::util::{self};
+use das_core::util::{self, exec_das_lock};
 use das_core::witness_parser::sub_account::*;
-use das_core::witness_parser::WitnessesParser;
 use das_core::{assert as das_assert, code_to_error, data_parser, debug, verifiers, warn};
-use das_dynamic_libs::constants::DynLibName;
-use das_dynamic_libs::sign_lib::SignLib;
-use das_dynamic_libs::{load_2_methods, load_3_methods, load_lib, log_loading, new_context};
-use das_types::constants::{AccountStatus, DataType, LockRole, SubAccountConfigFlag, SubAccountCustomRuleFlag};
+use das_types::constants::{
+    das_lock, profit_manager_lock, signhash_lock, AccountStatus, Action, DataType, LockRole, SubAccountConfigFlag,
+    SubAccountCustomRuleFlag, TypeScript,
+};
 use das_types::packed::*;
 use das_types::prelude::{Builder, Entity};
 use simple_ast::executor::match_rule_with_account_chars;
+use witness_parser::WitnessesParserV1;
 
 use crate::sub_action::SubAction;
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running sub-account-cell-type ======");
 
-    let mut parser = WitnessesParser::new()?;
-    let action_cp = match parser.parse_action_with_params()? {
-        Some((action, _)) => action.to_vec(),
-        None => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
-    };
-    let action = action_cp.as_slice();
+    let parser = WitnessesParserV1::get_instance();
+    parser
+        .init()
+        .map_err(|_err| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
 
-    debug!(
-        "Route to {:?} action ...",
-        alloc::string::String::from_utf8(action.to_vec()).map_err(|_| ErrorCode::ActionNotSupported)?
-    );
+    util::is_system_off()?;
 
-    match action {
-        b"enable_sub_account" => {
+    debug!("Route to {:?} action ...", parser.action.to_string());
+    match parser.action {
+        Action::EnableSubAccount => {
             util::require_type_script(
-                &parser,
                 TypeScript::AccountCellType,
                 Source::Input,
                 ErrorCode::InvalidTransactionStructure,
             )?;
         }
-        b"recycle_expired_account" => {
+        Action::RecycleExpiredAccount => {
             util::require_type_script(
-                &parser,
                 TypeScript::AccountCellType,
                 Source::Input,
                 ErrorCode::InvalidTransactionStructure,
             )?;
         }
-        b"config_sub_account" => action_config_sub_account(action, &mut parser)?,
-        b"update_sub_account" => action_update_sub_account(action, &mut parser)?,
-        b"collect_sub_account_profit" | b"collect_sub_account_channel_profit" => {
-            action_collect_sub_account_profit(action, &mut parser)?
-        }
-        b"confirm_expired_account_auction" => {
-            util::require_type_script(
-                &parser,
-                TypeScript::AccountCellType,
-                Source::Input,
-                ErrorCode::InvalidTransactionStructure,
-            )?;
+        Action::ConfigSubAccount => action_config_sub_account()?,
+        Action::UpdateSubAccount => action_update_sub_account()?,
+        Action::CollectSubAccountProfit | Action::CollectSubAccountChannelProfit => {
+            action_collect_sub_account_profit()?
         }
         _ => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
     }
@@ -75,11 +62,10 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
     Ok(())
 }
 
-fn action_config_sub_account(_action: &[u8], parser: &mut WitnessesParser) -> Result<(), Box<dyn ScriptError>> {
-    parser.parse_cell()?;
-    let config_main = parser.configs.main()?;
-    let config_account = parser.configs.account()?;
-    let config_sub_account = parser.configs.sub_account()?;
+fn action_config_sub_account() -> Result<(), Box<dyn ScriptError>> {
+    let config_main = Config::get_instance().main()?;
+    let config_account = Config::get_instance().account()?;
+    let config_sub_account = Config::get_instance().sub_account()?;
 
     let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
@@ -100,10 +86,9 @@ fn action_config_sub_account(_action: &[u8], parser: &mut WitnessesParser) -> Re
     let sender_lock = util::derive_owner_lock_from_cell(input_account_cells[0], Source::Input)?;
     verifiers::misc::verify_no_more_cells_with_same_lock(sender_lock.as_reader(), &input_account_cells, Source::Input)?;
 
-    let input_account_cell_witness = util::parse_account_cell_witness(&parser, input_account_cells[0], Source::Input)?;
+    let input_account_cell_witness = util::parse_account_cell_witness(input_account_cells[0], Source::Input)?;
     let input_account_cell_reader = input_account_cell_witness.as_reader();
-    let output_account_cell_witness =
-        util::parse_account_cell_witness(&parser, output_account_cells[0], Source::Output)?;
+    let output_account_cell_witness = util::parse_account_cell_witness(output_account_cells[0], Source::Output)?;
     let output_account_cell_reader = output_account_cell_witness.as_reader();
 
     verifiers::account_cell::verify_status_v2(
@@ -203,8 +188,8 @@ fn action_config_sub_account(_action: &[u8], parser: &mut WitnessesParser) -> Re
                     };
 
                     let rules = match sub_account_witness_parser.get_rules(&sub_account_cell_data, data_type)? {
-                        Some(rules) => rules,
-                        None => {
+                        (_, Some(rules)) => rules,
+                        (_, None) => {
                             das_assert!(
                                 hash == Some(&[0u8; 10]),
                                 SubAccountCellErrorCode::ConfigRulesHashMismatch,
@@ -261,11 +246,10 @@ fn action_config_sub_account(_action: &[u8], parser: &mut WitnessesParser) -> Re
     Ok(())
 }
 
-fn action_update_sub_account(_action: &[u8], parser: &mut WitnessesParser) -> Result<(), Box<dyn ScriptError>> {
-    parser.parse_cell()?;
-    let config_main = parser.configs.main()?;
-    let config_account = parser.configs.account()?;
-    let config_sub_account = parser.configs.sub_account()?;
+fn action_update_sub_account() -> Result<(), Box<dyn ScriptError>> {
+    let config_main = Config::get_instance().main()?;
+    let config_account = Config::get_instance().account()?;
+    let config_sub_account = Config::get_instance().sub_account()?;
 
     let timestamp = util::load_oracle_data(OracleCellType::Time)?;
     let quote = util::load_oracle_data(OracleCellType::Quote)?;
@@ -308,7 +292,7 @@ fn action_update_sub_account(_action: &[u8], parser: &mut WitnessesParser) -> Re
 
     let account_cell_index = dep_account_cells[0];
     let account_cell_source = Source::CellDep;
-    let account_cell_witness = util::parse_account_cell_witness(&parser, dep_account_cells[0], Source::CellDep)?;
+    let account_cell_witness = util::parse_account_cell_witness(dep_account_cells[0], Source::CellDep)?;
     let account_cell_reader = account_cell_witness.as_reader();
     let account_cell_data = util::load_cell_data(account_cell_index, account_cell_source)?;
     let account_lock = high_level::load_cell_lock(account_cell_index, account_cell_source)?;
@@ -356,42 +340,6 @@ fn action_update_sub_account(_action: &[u8], parser: &mut WitnessesParser) -> Re
         account_cell_reader.id().raw_data(),
     )?;
 
-    debug!("Initialize the dynamic signing libraries ...");
-
-    let mut sign_lib = SignLib::new();
-    // ⚠️ This must be present at the top level, as we will need to use the libraries later.
-
-    if cfg!(not(feature = "dev")) {
-        // let mut ckb_context = new_context!();
-        // log_loading!(DynLibName::CKBSignhash, config_main.das_lock_type_id_table());
-        // let ckb_lib = load_lib!(ckb_context, DynLibName::CKBSignhash, config_main.das_lock_type_id_table());
-        // sign_lib.ckb_signhash = load_2_methods!(ckb_lib);
-
-        let mut eth_context = new_context!();
-        log_loading!(DynLibName::ETH, config_main.das_lock_type_id_table());
-        let eth_lib = load_lib!(eth_context, DynLibName::ETH, config_main.das_lock_type_id_table());
-        sign_lib.eth = load_2_methods!(eth_lib);
-
-        let mut tron_context = new_context!();
-        log_loading!(DynLibName::TRON, config_main.das_lock_type_id_table());
-        let tron_lib = load_lib!(tron_context, DynLibName::TRON, config_main.das_lock_type_id_table());
-        sign_lib.tron = load_2_methods!(tron_lib);
-
-        let mut doge_context = new_context!();
-        log_loading!(DynLibName::DOGE, config_main.das_lock_type_id_table());
-        let doge_lib = load_lib!(doge_context, DynLibName::DOGE, config_main.das_lock_type_id_table());
-        sign_lib.doge = load_2_methods!(doge_lib);
-
-        let mut web_authn_context = new_context!();
-        log_loading!(DynLibName::WebAuthn, config_main.das_lock_type_id_table());
-        let web_authn_lib = load_lib!(
-            web_authn_context,
-            DynLibName::WebAuthn,
-            config_main.das_lock_type_id_table()
-        );
-        sign_lib.web_authn = load_3_methods!(web_authn_lib);
-    }
-
     debug!("Initialize some vars base on the sub-actions contains in the transaction ...");
 
     let parent_expired_at = data_parser::account_cell::get_expired_at(&account_cell_data);
@@ -404,25 +352,18 @@ fn action_update_sub_account(_action: &[u8], parser: &mut WitnessesParser) -> Re
 
     let mut custom_rule_flag = SubAccountCustomRuleFlag::Off;
     let mut custom_price_rules = None;
+    let mut is_custom_price_rules_set = false;
     let mut custom_preserved_rules = None;
 
-    let mut sign_verified = false;
+    let mut smt_root_sign_found = false;
     if sub_account_parser.contains_creation || sub_account_parser.contains_renew {
         debug!("Found `create/renew` action in this transaction, do some common verfications ...");
 
-        let verify_and_init_some_vars =
+        let extract_smt_root_sign_witness =
             |_name: &str,
              witness: &SubAccountMintSignWitness|
              -> Result<(Option<LockRole>, packed::Script, Option<[u8; 32]>), Box<dyn ScriptError>> {
                 debug!("The {} is exist, verifying the signature for manual mint ...", _name);
-
-                verifiers::sub_account_cell::verify_sub_account_mint_sign_not_expired(
-                    &sub_account_parser,
-                    &witness,
-                    parent_expired_at,
-                    sub_account_last_updated_at,
-                )?;
-                verifiers::sub_account_cell::verify_sub_account_mint_sign(&witness, &sign_lib, &sub_account_parser)?;
 
                 let mut tmp = [0u8; 32];
                 tmp.copy_from_slice(&witness.account_list_smt_root);
@@ -443,9 +384,9 @@ fn action_update_sub_account(_action: &[u8], parser: &mut WitnessesParser) -> Re
         if sub_account_parser.contains_creation {
             match sub_account_parser.get_mint_sign(account_lock_args) {
                 Some(Ok(witness)) => {
-                    sign_verified = true;
+                    smt_root_sign_found = true;
                     (mint_sign_role, sender_lock, manual_mint_list_smt_root) =
-                        verify_and_init_some_vars("SubAccountMintWitness", &witness)?;
+                        extract_smt_root_sign_witness("SubAccountMintWitness", &witness)?;
                 }
                 Some(Err(err)) => {
                     return Err(err);
@@ -461,9 +402,9 @@ fn action_update_sub_account(_action: &[u8], parser: &mut WitnessesParser) -> Re
                 Some(Ok(witness)) => {
                     let renew_sender_lock;
                     let renew_sign_role;
-                    sign_verified = true;
+                    smt_root_sign_found = true;
                     (renew_sign_role, renew_sender_lock, manual_renew_list_smt_root) =
-                        verify_and_init_some_vars("SubAccountRenewWitness", &witness)?;
+                        extract_smt_root_sign_witness("SubAccountRenewWitness", &witness)?;
 
                     if mint_sign_role.is_some() {
                         das_assert!(
@@ -506,9 +447,9 @@ fn action_update_sub_account(_action: &[u8], parser: &mut WitnessesParser) -> Re
                         Some(val) => val,
                         None => SubAccountCustomRuleFlag::Off,
                     };
-                custom_price_rules =
+                (is_custom_price_rules_set, custom_price_rules) =
                     sub_account_parser.get_rules(&input_sub_account_data, DataType::SubAccountPriceRule)?;
-                custom_preserved_rules =
+                (_, custom_preserved_rules) =
                     sub_account_parser.get_rules(&input_sub_account_data, DataType::SubAccountPreservedRule)?;
             }
             _ => {
@@ -556,8 +497,8 @@ fn action_update_sub_account(_action: &[u8], parser: &mut WitnessesParser) -> Re
     let all_inputs_with_das_lock =
         util::find_cells_by_type_id(ScriptType::Lock, das_lock.code_hash().as_reader().into(), Source::Input)?;
     let mut sender_total_input_capacity = 0;
-    if sign_verified {
-        let dpoint_type_id = parser.configs.main()?.type_id_table().dpoint_cell();
+    if smt_root_sign_found {
+        let dpoint_type_id = Config::get_instance().main()?.type_id_table().dpoint_cell();
         let input_sender_balance_cells = util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Input)?;
 
         verifiers::misc::verify_no_more_cells_with_same_lock_except_type(
@@ -621,13 +562,12 @@ fn action_update_sub_account(_action: &[u8], parser: &mut WitnessesParser) -> Re
     };
 
     let mut sub_action = SubAction::new(
-        sign_lib,
+        //sign_lib,
         timestamp,
         quote,
         flag,
         custom_rule_flag,
         sub_account_last_updated_at,
-        &parser,
         config_account,
         config_sub_account,
         &parent_account,
@@ -636,6 +576,7 @@ fn action_update_sub_account(_action: &[u8], parser: &mut WitnessesParser) -> Re
         &manual_renew_list_smt_root,
         &custom_preserved_rules,
         &custom_price_rules,
+        is_custom_price_rules_set,
     );
     for (i, witness_ret) in sub_account_parser.iter().enumerate() {
         let witness = match witness_ret {
@@ -682,11 +623,11 @@ fn action_update_sub_account(_action: &[u8], parser: &mut WitnessesParser) -> Re
         if profit_from_manual_renew_by_other > 0 {
             debug!("Found profit paied by others, verify if they only used NormalCells.");
 
-            let lock = signall_lock();
+            let lock = signhash_lock();
             let normal_cells =
                 util::find_cells_by_type_id(ScriptType::Lock, lock.as_reader().code_hash().into(), Source::Input)?;
             // 0 is SubAccountCell, all_inputs_with_das_lock are BalanceCells paied by owner/manager
-            let all_inputs = [vec![0], all_inputs_with_das_lock, normal_cells].concat();
+            let all_inputs = [vec![0], all_inputs_with_das_lock.clone(), normal_cells].concat();
 
             verifiers::misc::verify_no_more_cells(&all_inputs, Source::Input)?;
         }
@@ -742,13 +683,18 @@ fn action_update_sub_account(_action: &[u8], parser: &mut WitnessesParser) -> Re
         }
     }
 
+    debug!("Call Das-lock to complete the sub-account signature verification.");
+    if all_inputs_with_das_lock.len() == 0 {
+        exec_das_lock().expect("exec das-lock failed");
+    }
+
     Ok(())
 }
 
-fn action_collect_sub_account_profit(action: &[u8], parser: &mut WitnessesParser) -> Result<(), Box<dyn ScriptError>> {
-    parser.parse_cell()?;
-    let config_main = parser.configs.main()?;
-    let config_sub_account = parser.configs.sub_account()?;
+fn action_collect_sub_account_profit() -> Result<(), Box<dyn ScriptError>> {
+    let parser = WitnessesParserV1::get_instance();
+    let config_main = Config::get_instance().main()?;
+    let config_sub_account = Config::get_instance().sub_account()?;
 
     debug!("Try to find the SubAccountCells from inputs and outputs ...");
 
@@ -770,8 +716,8 @@ fn action_collect_sub_account_profit(action: &[u8], parser: &mut WitnessesParser
     let output_das_profit = data_parser::sub_account_cell::get_das_profit(&output_sub_account_data).unwrap();
     let transaction_fee = u64::from(config_sub_account.common_fee());
 
-    match action {
-        b"collect_sub_account_profit" => {
+    match parser.action {
+        Action::CollectSubAccountProfit => {
             debug!("Try to find the AccountCell from cell_deps ...");
 
             let dep_account_cells = util::find_cells_by_type_id(
@@ -782,8 +728,7 @@ fn action_collect_sub_account_profit(action: &[u8], parser: &mut WitnessesParser
 
             verifiers::common::verify_cell_dep_number("AccountCell", &dep_account_cells, 1)?;
 
-            let account_cell_witness =
-                util::parse_account_cell_witness(&parser, dep_account_cells[0], Source::CellDep)?;
+            let account_cell_witness = util::parse_account_cell_witness(dep_account_cells[0], Source::CellDep)?;
             let account_cell_reader = account_cell_witness.as_reader();
 
             verifiers::sub_account_cell::verify_sub_account_parent_id(
@@ -851,10 +796,10 @@ fn action_collect_sub_account_profit(action: &[u8], parser: &mut WitnessesParser
                 output_sub_account_capacity
             );
         }
-        b"collect_sub_account_channel_profit" => {
+        Action::CollectSubAccountChannelProfit => {
             let profit_manage_lock = profit_manager_lock();
             let input_profit_manage_cells =
-                util::find_cells_by_script(ScriptType::Lock, profit_manage_lock.as_reader(), Source::Input)?;
+                util::find_cells_by_script(ScriptType::Lock, profit_manage_lock.as_reader().into(), Source::Input)?;
 
             das_assert!(
                 !input_profit_manage_cells.is_empty(),

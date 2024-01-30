@@ -194,10 +194,6 @@ impl SignLib {
         device_key_list: &[u8],
         data: &[u8],
     ) -> Result<(), i32> {
-        if cfg!(feature = "dev") {
-            return Ok(());
-        }
-
         if das_lock_type != DasLockType::WebAuthn {
             return Err(Error::UndefinedDasLockType as i32);
         }
@@ -243,10 +239,6 @@ impl SignLib {
         sig: Vec<u8>,
         args: Vec<u8>,
     ) -> Result<(), i32> {
-        if cfg!(feature = "dev") {
-            return Ok(());
-        }
-
         let data = [expired_at, account_list_smt_root].concat();
         let message = self.gen_digest(das_lock_type, data)?;
         let type_no = 0i32;
@@ -269,10 +261,6 @@ impl SignLib {
         args: Vec<u8>,
         sign_expired_at: Vec<u8>,
     ) -> Result<(), i32> {
-        if cfg!(feature = "dev") {
-            return Ok(());
-        }
-
         let action_bytes = action.to_string().as_bytes().to_vec();
         let approval_bytes = approval.as_slice().to_vec();
         let data = [action_bytes, approval_bytes, nonce, sign_expired_at].concat();
@@ -298,10 +286,6 @@ impl SignLib {
         args: Vec<u8>,
         sign_expired_at: Vec<u8>,
     ) -> Result<(), i32> {
-        if cfg!(feature = "dev") {
-            return Ok(());
-        }
-
         let data = [account_id, edit_key, edit_value, nonce, sign_expired_at].concat();
         let message = self.gen_digest(das_lock_type, data)?;
         let type_no = 0i32;

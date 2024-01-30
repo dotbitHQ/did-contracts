@@ -11,7 +11,7 @@ fn before() -> TemplateGenerator {
 }
 
 #[test]
-fn test_apply_register() {
+fn test_apply_register_simple() {
     let mut template = before();
 
     push_output_apply_register_cell(&mut template, Value::Null);

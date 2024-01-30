@@ -1,29 +1,30 @@
 use alloc::boxed::Box;
+use alloc::string::ToString;
 use core::convert::{TryFrom, TryInto};
 use core::result::Result;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::debug;
 use ckb_std::high_level::{load_cell_lock_hash, load_cell_type};
-use das_core::constants::*;
 use das_core::error::*;
-use das_core::witness_parser::WitnessesParser;
 use das_core::{assert, code_to_error, util, warn};
-use das_types::constants::DataType;
+use das_types::constants::{super_lock, Action, DataType};
 use das_types::prelude::Entity;
+use witness_parser::WitnessesParserV1;
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running config-cell-type ======");
 
-    let mut parser = WitnessesParser::new()?;
-    let action = match parser.parse_action_with_params()? {
-        Some((action, _)) => action,
-        None => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
-    };
+    let parser = WitnessesParserV1::get_instance();
+    parser.init().map_err(|_err| {
+        warn!("{}", _err.to_string());
+        code_to_error!(ErrorCode::WitnessDataDecodingError)
+    })?;
 
     // ⚠️ NEVER use util::is_system_off here! That will make it impossible to turn the system back on by updating the ConfigCellMain. ⚠️
 
-    if action == b"config" {
+    debug!("Route to {:?} action ...", parser.action.to_string());
+    if parser.action == Action::Config {
         debug!("Route to config action ...");
 
         // Finding out ConfigCells in current transaction.

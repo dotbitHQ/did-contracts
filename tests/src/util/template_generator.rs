@@ -605,7 +605,6 @@ impl TemplateGenerator {
                 self.outputs.push(value);
                 self.outputs.len() - 1
             }
-            _ => panic!("Only CellDep, Input and Output are supported"),
         }
     }
 
@@ -1095,7 +1094,6 @@ impl TemplateGenerator {
                     generator.outputs.push(cell);
                     generator.outputs.len() - 1
                 }
-                _ => panic!("Only CellDep, Input and Output are supported"),
             }
         }
 
@@ -1452,7 +1450,6 @@ impl TemplateGenerator {
                 self.outputs.push(cell);
                 self.outputs.len() - 1
             }
-            _ => panic!("Only CellDep, Input and Output are supported"),
         }
     }
 

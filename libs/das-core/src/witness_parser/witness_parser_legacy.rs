@@ -6,7 +6,10 @@ use core::convert::{TryFrom, TryInto};
 use ckb_std::ckb_constants::Source;
 use ckb_std::error::SysError;
 use ckb_std::syscalls;
-use das_types::constants::{DataType, WITNESS_HEADER, WITNESS_HEADER_BYTES, WITNESS_LENGTH_BYTES, WITNESS_TYPE_BYTES};
+use das_types::constants::{
+    always_success_lock, config_cell_type, das_lock, multisign_lock, signhash_lock, DataType, TypeScript,
+    WITNESS_HEADER, WITNESS_HEADER_BYTES, WITNESS_LENGTH_BYTES, WITNESS_TYPE_BYTES,
+};
 use das_types::packed::*;
 use das_types::prelude::*;
 use das_types::util as types_util;
@@ -18,7 +21,7 @@ use super::super::util;
 use crate::util::load_data;
 
 #[derive(Debug)]
-pub struct WitnessesParser {
+pub struct WitnessesParserLegacy {
     pub witnesses: Vec<(usize, DataType)>,
     pub configs: Configs,
     pub action: Vec<u8>,
@@ -31,7 +34,7 @@ pub struct WitnessesParser {
     new: Vec<(u32, u32, DataType, Vec<u8>, Bytes)>,
 }
 
-impl WitnessesParser {
+impl WitnessesParserLegacy {
     pub fn new() -> Result<Self, Box<dyn ScriptError>> {
         let mut witnesses = Vec::new();
         let mut config_witnesses = BTreeMap::new();
@@ -104,10 +107,10 @@ impl WitnessesParser {
                                 );
 
                                 let args = Bytes::from((data_type.to_owned() as u32).to_le_bytes().to_vec());
-                                let type_script = config_cell_type().as_builder().args(args.into()).build();
+                                let type_script = config_cell_type().clone().as_builder().args(args.into()).build();
                                 let config_cells = util::find_cells_by_script(
                                     ScriptType::Type,
-                                    type_script.as_reader(),
+                                    type_script.as_reader().into(),
                                     Source::CellDep,
                                 )?;
 
@@ -168,13 +171,13 @@ impl WitnessesParser {
         }
 
         let lock_type_id_table = LockScriptTypeIdTable {
-            always_success: always_success_lock().into(),
-            das_lock: das_lock().into(),
-            secp256k1_blake160_signhash_all: signall_lock().into(),
-            secp256k1_blake160_multisig_all: multisign_lock().into(),
+            always_success: always_success_lock().clone(),
+            das_lock: das_lock().clone(),
+            secp256k1_blake160_signhash_all: signhash_lock().clone(),
+            secp256k1_blake160_multisig_all: multisign_lock().clone(),
         };
 
-        Ok(WitnessesParser {
+        Ok(WitnessesParserLegacy {
             witnesses,
             configs: Configs::new(config_witnesses),
             action: Vec::new(),

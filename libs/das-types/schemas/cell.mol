@@ -265,6 +265,8 @@ table ConfigCellSystemStatus {
     reverse_record_cell_type: ContractStatus,
     reverse_record_root_cell_type: ContractStatus,
     eip712_lib: ContractStatus,
+    key_list_config_cell_type: ContractStatus,
+    dpoint_cell_type: ContractStatus,
 }
 
 table ContractStatus {

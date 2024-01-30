@@ -598,32 +598,13 @@ impl SubAccountWitnessesParser {
                 edit_value = match edit_key {
                     b"manual" => {
                         das_assert!(
-                            !edit_value_bytes.len() >= 8,
+                            !edit_value_bytes.is_empty(),
                             SubAccountCellErrorCode::WitnessEditValueError,
-                            "  witnesses[{:>2}] SubAccountMintSignWitness.edit_value_bytes should not be empty.",
+                            "  witnesses[{:>2}] SubAccountMintSignWitness.edit_value_bytes should be more than 8 bytes",
                             i
                         );
 
                         SubAccountEditValue::Proof
-                    }
-                    // TODO Remove when CustomScript no longer exists
-                    b"custom_script" => {
-                        das_assert!(
-                            flag == SubAccountConfigFlag::CustomScript,
-                            SubAccountCellErrorCode::WitnessEditKeyInvalid,
-                            "  witnesses[{:>2}] The flag is {}, so the 'custom_script' is not allowed in edit_key.",
-                            i,
-                            flag.to_string()
-                        );
-
-                        das_assert!(
-                            edit_value_bytes.is_empty(),
-                            SubAccountCellErrorCode::WitnessEditValueError,
-                            "  witnesses[{:>2}] SubAccountMintSignWitness.edit_value_bytes should be empty.",
-                            i
-                        );
-
-                        SubAccountEditValue::None
                     }
                     b"custom_rule" => {
                         das_assert!(
@@ -664,20 +645,11 @@ impl SubAccountWitnessesParser {
                 edit_value = SubAccountEditValue::ExpiredAt(new_expired_at);
 
                 match edit_key {
-                    // TODO Remove when CustomScript no longer exists
-                    b"custom_script" => {
+                    b"manual" => {
                         das_assert!(
-                            flag == SubAccountConfigFlag::CustomScript,
-                            SubAccountCellErrorCode::WitnessEditKeyInvalid,
-                            "  witnesses[{:>2}] The flag is {}, so the 'custom_script' is not allowed in edit_key.",
-                            i,
-                            flag.to_string()
-                        );
-
-                        das_assert!(
-                            edit_value_bytes.is_empty(),
+                            edit_value_bytes.len() >= 8,
                             SubAccountCellErrorCode::WitnessEditValueError,
-                            "  witnesses[{:>2}] SubAccountMintSignWitness.edit_value_bytes should be empty.",
+                            "  witnesses[{:>2}] SubAccountMintSignWitness.edit_value_bytes should be more than 8 bytes.",
                             i
                         );
                     }
@@ -691,9 +663,9 @@ impl SubAccountWitnessesParser {
                         );
 
                         das_assert!(
-                            edit_value_bytes.len() == 28 + 8,
+                            edit_value_bytes.len() >= 8,
                             SubAccountCellErrorCode::WitnessEditValueError,
-                            "  witnesses[{:>2}] SubAccountMintSignWitness.edit_value_bytes should be 36 bytes.",
+                            "  witnesses[{:>2}] SubAccountMintSignWitness.edit_value_bytes should be more than 8 bytes.",
                             i
                         );
                     }
@@ -909,7 +881,7 @@ impl SubAccountWitnessesParser {
         &self,
         sub_account_cell_data: &[u8],
         data_type: DataType,
-    ) -> Result<Option<Vec<ast_types::SubAccountRule>>, Box<dyn ScriptError>> {
+    ) -> Result<(bool, Option<Vec<ast_types::SubAccountRule>>), Box<dyn ScriptError>> {
         let (indexes, expected_hash) = match data_type {
             DataType::SubAccountPriceRule => (
                 &self.price_rule_indexes,
@@ -924,7 +896,7 @@ impl SubAccountWitnessesParser {
 
         if indexes.is_empty() {
             if expected_hash.is_none() || expected_hash == Some(&[0u8; 10]) {
-                return Ok(None);
+                return Ok((false, None));
             } else {
                 warn!("The {:?} is required, but not found in witnesses.", data_type);
                 return Err(code_to_error!(ErrorCode::WitnessEmpty));
@@ -941,7 +913,7 @@ impl SubAccountWitnessesParser {
             hash.get(0..10).map(|v| util::hex_string(v))
         );
 
-        Ok(Some(rules))
+        Ok((true, Some(rules)))
     }
 
     pub fn get(&self, index: usize) -> Option<Result<SubAccountWitness, Box<dyn ScriptError>>> {
