@@ -249,7 +249,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 _ => unreachable!(),
             }
 
-            util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
+            // util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
         }
         Action::EditAccountSale => {
             verifiers::account_cell::verify_unlock_role(parser.action, parser.action_params.get_role())?;

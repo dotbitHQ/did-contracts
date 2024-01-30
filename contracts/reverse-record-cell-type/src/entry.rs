@@ -69,7 +69,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 total_input_capacity - common_fee,
             )?;
 
-            util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
+            // util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
         }
         _ => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
     }

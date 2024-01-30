@@ -200,7 +200,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let account_without_suffix = &account[0..account.len() - 4];
             verifiers::account_cell::verify_unavailable_accounts(account_without_suffix)?;
 
-            util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
+            // util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
         }
         Action::CancelOffer => {
             let config_main = Config::get_instance().main()?;
@@ -353,7 +353,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 offer_cell_capacity,
             )?;
 
-            util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
+            // util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
         }
         _ => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
     }
