@@ -7,15 +7,15 @@ edition = "2021"
 default = ["no_std"]
 std = ["no-std-compat/std"]
 no_std = []
-dev = []
-local = []
-testnet = []
-mainnet = []
 
 [dependencies]
-no-std-compat = { version = "0.4", features = [ "alloc", "compat_macros" ] }
+no-std-compat = { workspace = true }
+hex = { workspace = true }
+# eip712 only crates
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
-hex = { version = "0.4", default-features = false }
 bech32 = { version = "0.9.1", default-features = false }
-bs58 = { version = "0.4.0", default-features = false, features = [ "alloc" ] }
-sha2 = { version = "0.10.6", default-features = false }
+bs58 = { version = "0.4.0", default-features = false, features = ["alloc"] }
+sha2 = { version = "0.10.8", default-features = false }
+
+[build-dependencies]
+dotenvy = { workspace = true }

@@ -11,9 +11,9 @@ use ckb_std::error::SysError;
 use ckb_std::high_level;
 use das_core::constants::*;
 use das_core::error::*;
-use das_core::witness_parser::WitnessesParser;
+use das_core::witness_parser::WitnessesParserLegacy;
 use das_core::{assert as das_assert, code_to_error, data_parser, debug, sign_util, util, warn};
-use das_types::constants::{DasLockType, DataType, LockRole};
+use das_types::constants::{das_lock, DasLockType, DataType, LockRole, TypeScript};
 use das_types::mixer::AccountCellDataMixer;
 use das_types::packed as das_packed;
 use das_types::prelude::*;
@@ -25,10 +25,10 @@ const DATA_OMIT_SIZE: usize = 20;
 const PARAM_OMIT_SIZE: usize = 10;
 
 pub fn verify_eip712_hashes(
-    parser: &WitnessesParser,
-    tx_to_das_message: fn(parser: &WitnessesParser) -> Result<String, Box<dyn ScriptError>>,
+    parser: &WitnessesParserLegacy,
+    tx_to_das_message: fn(parser: &WitnessesParserLegacy) -> Result<String, Box<dyn ScriptError>>,
 ) -> Result<(), Box<dyn ScriptError>> {
-    let required_role_opt = util::get_action_required_role(&parser.action);
+    let required_role_opt = util::get_action_required_role_legacy(&parser.action);
     let das_lock = das_lock();
     let das_lock_reader = das_lock.as_reader();
 
@@ -66,7 +66,7 @@ pub fn verify_eip712_hashes(
             Ok(lock) => {
                 let lock_reader = lock.as_reader();
                 // Only take care of inputs with das-lock
-                if util::is_type_id_equal(das_lock_reader, lock_reader) {
+                if util::is_type_id_equal(das_lock_reader.into(), lock_reader) {
                     let args = lock_reader.args().raw_data().to_vec();
                     let type_of_args = if required_role_opt.is_some() && required_role_opt == Some(LockRole::Manager) {
                         data_parser::das_lock_args::get_manager_type(lock_reader.args().raw_data())
@@ -132,8 +132,8 @@ pub fn verify_eip712_hashes(
 }
 
 pub fn verify_eip712_hashes_if_has_das_lock(
-    parser: &WitnessesParser,
-    tx_to_das_message: fn(parser: &WitnessesParser) -> Result<String, Box<dyn ScriptError>>,
+    parser: &WitnessesParserLegacy,
+    tx_to_das_message: fn(parser: &WitnessesParserLegacy) -> Result<String, Box<dyn ScriptError>>,
 ) -> Result<(), Box<dyn ScriptError>> {
     let das_lock = das_lock();
     let input_cells =
@@ -158,7 +158,7 @@ fn tx_to_digest(
     let mut eip712_chain_id = Vec::new();
     for (_key, input_group_idxs) in input_groups_idxs {
         let init_witness_idx = input_group_idxs[0];
-        let (digest, typed_data_hash, chain_id, _) = sign_util::get_eip712_digest(input_group_idxs)?;
+        let (digest, typed_data_hash, chain_id, _) = sign_util::get_eip712_digest_legacy(input_group_idxs)?;
         ret.insert(
             init_witness_idx,
             DigestAndHash {
@@ -176,9 +176,9 @@ fn tx_to_digest(
 }
 
 pub fn tx_to_eip712_typed_data(
-    parser: &WitnessesParser,
+    parser: &WitnessesParserLegacy,
     chain_id: Vec<u8>,
-    tx_to_das_message: fn(parser: &WitnessesParser) -> Result<String, Box<dyn ScriptError>>,
+    tx_to_das_message: fn(parser: &WitnessesParserLegacy) -> Result<String, Box<dyn ScriptError>>,
 ) -> Result<TypedDataV4, Box<dyn ScriptError>> {
     let type_id_table = parser.configs.main()?.type_id_table();
 
@@ -254,7 +254,7 @@ pub fn tx_to_eip712_typed_data(
 }
 
 pub fn to_semantic_address(
-    parser: &WitnessesParser,
+    parser: &WitnessesParserLegacy,
     lock_reader: das_packed::ScriptReader,
     role: LockRole,
 ) -> Result<String, Box<dyn ScriptError>> {
@@ -336,7 +336,7 @@ pub fn to_semantic_address(
     Ok(address)
 }
 
-fn to_typed_action(parser: &WitnessesParser) -> Result<Value, Box<dyn ScriptError>> {
+fn to_typed_action(parser: &WitnessesParserLegacy) -> Result<Value, Box<dyn ScriptError>> {
     let action = String::from_utf8(parser.action.clone()).map_err(|_| ErrorCode::EIP712SerializationError)?;
     let mut params = Vec::new();
     for param in parser.params.iter() {
@@ -357,7 +357,7 @@ fn to_typed_action(parser: &WitnessesParser) -> Result<Value, Box<dyn ScriptErro
 }
 
 fn to_typed_cells(
-    parser: &WitnessesParser,
+    parser: &WitnessesParserLegacy,
     type_id_table_reader: das_packed::TypeIdTableReader,
     source: Source,
 ) -> Result<(u64, Value), Box<dyn ScriptError>> {
@@ -467,7 +467,11 @@ fn to_typed_cells(
     Ok((total_capacity, Value::Array(cells)))
 }
 
-fn to_typed_script(parser: &WitnessesParser, script_type: ScriptType, script: das_packed::ScriptReader) -> String {
+fn to_typed_script(
+    parser: &WitnessesParserLegacy,
+    script_type: ScriptType,
+    script: das_packed::ScriptReader,
+) -> String {
     let code_hash = if script_type == ScriptType::Lock {
         match parser.get_lock_script_type(script) {
             Some(LockScript::AlwaysSuccessLock) => String::from("always-success"),
@@ -534,7 +538,7 @@ fn to_semantic_account_cell_data(data_in_bytes: &[u8]) -> Result<String, Box<dyn
 }
 
 fn to_semantic_account_witness(
-    parser: &WitnessesParser,
+    parser: &WitnessesParserLegacy,
     expected_hash: &[u8],
     data_type: DataType,
     index: usize,

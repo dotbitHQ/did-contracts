@@ -1,4 +1,8 @@
 [workspace]
+package.authors = ["Link <link@d.id>"]
+package.edition = "2021"
+package.license = "MIT"
+resolver = "2"
 members = [
     # Common libs
     "libs/das-core",
@@ -8,11 +12,11 @@ members = [
     "libs/eip712",
     "libs/simple-ast",
     "libs/das-types",
+    "libs/witness-parser",
     # Contracts
     "contracts/always-success",
     "contracts/account-cell-type",
     "contracts/account-sale-cell-type",
-    "contracts/account-auction-cell-type",
     "contracts/apply-register-cell-type",
     "contracts/balance-cell-type",
     "contracts/config-cell-type",
@@ -36,7 +40,6 @@ default-members = [
     "contracts/always-success",
     "contracts/account-cell-type",
     "contracts/account-sale-cell-type",
-    "contracts/account-auction-cell-type",
     "contracts/apply-register-cell-type",
     "contracts/balance-cell-type",
     "contracts/config-cell-type",
@@ -53,18 +56,38 @@ default-members = [
 ]
 
 [workspace.dependencies]
+# workspace crates
 das-types = { path = "libs/das-types", default-features = false }
+# 对于需要同时支持 std 和 no_std 的 crate ，不要放在 workspace 中，否则会导致两种 feature 同时启用带来编译冲突
 simple-ast = { path = "libs/simple-ast", default-features = false }
-das-map = { path = "libs/das-map", default-features = false }
 das-core = { path = "libs/das-core", default-features = false }
+das-map = { path = "libs/das-map", default-features = false }
+das-dynamic-libs = { path = "libs/das-dynamic-libs" }
 das-sorted-list = { path = "libs/das-sorted-list", default-features = false }
-sparse-merkle-tree = { version = "0.6.1", default-features = false, features = [
-    "smtc",
-] }
+eip712 = { path = "libs/eip712" }
+witness-parser = { path = "libs/witness-parser", default-features = false }
+# ckb crates
+sparse-merkle-tree = { version = "0.6.1", default-features = false, features = [ "smtc" ] }
 ckb-std = "0.13.0"
 ckb-types = { version = "=0.108.0" }
 molecule = { version = "0.7", default-features = false }
-hex = { default-features = false, version = "0.4.2" }
+# third party crates
+blake2b-rs = { version = "0.2" }
+blake2b-ref = { version = "0.3" }
+hex = { version = "0.4.2", default-features = false }
+# Temporarily use thiserror-no-std
+thiserror = { version = "1.0" }
+thiserror-no-std = { version = "=2.0.2", default-features = false }
+anyhow = { version = "1.0", default-features = false }
+dotenvy = { version = "0.15" }
+no-std-compat = { version = "0.4", features = [ "alloc", "compat_macros" ] }
+strum = { version = "0.25", features = ["derive"], default-features = false }
+num_enum = { version = "0.7.1", default-features = false }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0" }
+chrono = { version = "0.4", default-features = false }
+paste = "1.0"
+log = "0.4.0"
 
 [profile.release]
 overflow-checks = true

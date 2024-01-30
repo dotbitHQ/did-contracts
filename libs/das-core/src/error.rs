@@ -51,6 +51,7 @@ pub enum ErrorCode {
     AccountIsPreserved,
     AccountIsUnAvailable,
     AccountIdIsInvalid,
+    WitnessNotInited,
     WitnessStructureError = 40,
     WitnessDataTypeDecodingError,
     WitnessReadingError,
@@ -65,9 +66,9 @@ pub enum ErrorCode {
     WitnessArgsInvalid,
     WitnessArgsDecodingError,
     WitnessVersionOrTypeInvalid,
-    WitnessVersionUndefined, // 50
-    SMTWhiteListTheLockIsNotFound,
-    SMTNewRootMismatch, // 55
+    WitnessVersionUndefined,
+    SMTWhiteListTheLockIsNotFound, // 55
+    SMTNewRootMismatch,
     SMTProofVerifyFailed,
     SignMethodUnsupported,
     WitnessCannotBeVerified,

@@ -1,9 +1,9 @@
 use alloc::boxed::Box;
 
 use ckb_std::ckb_types::packed::Script;
-use das_core::constants::das_lock;
 use das_core::error::ScriptError;
 use das_core::{assert, code_to_error};
+use das_types::constants::das_lock;
 use das_types::packed::{DeviceKeyList, DeviceKeyListCellData};
 use device_key_list_cell_type::error::ErrorCode;
 use molecule::prelude::Entity;

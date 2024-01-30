@@ -351,7 +351,7 @@ fn challenge_account_approval_create_approval_missing() {
         }),
     );
 
-    challenge_tx(template.as_json(), AccountCellErrorCode::WitnessParsingError)
+    challenge_tx(template.as_json(), AccountCellErrorCode::ApprovalActionUndefined)
 }
 
 #[test]

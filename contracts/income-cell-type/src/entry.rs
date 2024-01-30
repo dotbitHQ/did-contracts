@@ -1,37 +1,35 @@
 use alloc::borrow::ToOwned;
 use alloc::boxed::Box;
+use alloc::string::ToString;
 use alloc::vec::Vec;
 use core::result::Result;
 use core::slice::Iter;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::{debug, high_level};
+use das_core::config::Config;
 use das_core::constants::*;
 use das_core::error::*;
-use das_core::witness_parser::WitnessesParser;
 use das_core::{assert, code_to_error, util, verifiers, warn};
-use das_types::constants::{DasLockType, DataType};
+use das_types::constants::{das_lock, wallet_lock, Action, DasLockType, TypeScript};
 use das_types::packed::*;
-use das_types::prelude::*;
+use witness_parser::traits::WitnessQueryable;
+use witness_parser::types::CellMeta;
+use witness_parser::WitnessesParserV1;
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running income-cell-type ======");
 
-    let mut parser = WitnessesParser::new()?;
-    let action_cp = match parser.parse_action_with_params()? {
-        Some((action, _)) => action.to_vec(),
-        None => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
-    };
-    let action = action_cp.as_slice();
+    let parser = WitnessesParserV1::get_instance();
+    parser
+        .init()
+        .map_err(|_err| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
 
-    util::is_system_off(&parser)?;
+    util::is_system_off()?;
 
-    debug!(
-        "Route to {:?} action ...",
-        alloc::string::String::from_utf8(action.to_vec()).map_err(|_| ErrorCode::ActionNotSupported)?
-    );
-    match action {
-        b"create_income" => {
+    debug!("Route to {:?} action ...", parser.action.to_string());
+    match parser.action {
+        Action::CreateIncome => {
             debug!("Find out IncomeCells ...");
 
             let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
@@ -39,13 +37,11 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             verifiers::misc::verify_always_success_lock(output_cells[0], Source::Output)?;
 
-            parser.parse_cell()?;
-
-            let config_income = parser.configs.income()?;
+            let config_income = Config::get_instance().income()?;
 
             debug!("Read data of the IncomeCell ...");
 
-            let income_cell_witness = util::parse_income_cell_witness(&parser, output_cells[0], Source::Output)?;
+            let income_cell_witness = util::parse_income_cell_witness(output_cells[0], Source::Output)?;
             let income_cell_witness_reader = income_cell_witness.as_reader();
 
             assert!(
@@ -77,7 +73,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 cell_capacity
             );
         }
-        b"consolidate_income" => {
+        Action::ConsolidateIncome => {
             debug!("Find out IncomeCells ...");
 
             let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
@@ -93,22 +89,23 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 "The number of IncomeCells in the outputs should be lesser than or equal to in the inputs."
             );
 
-            parser.parse_cell()?;
-
-            let config_income = parser.configs.income()?;
+            let config_income = Config::get_instance().income()?;
             let income_cell_basic_capacity = u64::from(config_income.basic_capacity());
             let income_cell_max_records = u32::from(config_income.max_records()) as usize;
             let income_cell_min_transfer_capacity = u64::from(config_income.min_transfer_capacity());
-            let income_consolidate_profit_rate = u32::from(parser.configs.profit_rate()?.income_consolidate()) as u64;
+            let income_consolidate_profit_rate =
+                u32::from(Config::get_instance().profit_rate()?.income_consolidate()) as u64;
 
             debug!("Find all income records in inputs and merge them into unique script to capacity pair.");
 
             let mut creators = Vec::new();
             let mut input_records = Vec::new();
             for index in input_cells {
-                let (_, _, entity) =
-                    parser.verify_and_get(DataType::IncomeCellData, index.to_owned(), Source::Input)?;
-                let income_cell_witness = IncomeCellData::from_slice(entity.as_reader().raw_data())
+                let income_cell_witness: IncomeCellData = parser
+                    .get_entity_by_cell_meta(CellMeta {
+                        index,
+                        source: Source::Input.into(),
+                    })
                     .map_err(|_| ErrorCode::WitnessEntityDecodingError)?;
 
                 #[cfg(debug_assertions)]
@@ -134,8 +131,8 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             }
 
             // Always include DAS in the members which is free from consolidating fee.
-            let das_wallet_lock = das_wallet_lock();
-            creators.push(das_wallet_lock.into());
+            let das_wallet_lock = wallet_lock().clone();
+            creators.push(das_wallet_lock);
 
             debug!("Classify all income records in inputs for comparing them with outputs later.");
 
@@ -158,9 +155,11 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             let mut output_records: Vec<(Script, u64)> = Vec::new();
             for (i, cell_index) in output_cells.iter().enumerate() {
-                let (_, _, entity) =
-                    parser.verify_and_get(DataType::IncomeCellData, cell_index.to_owned(), Source::Output)?;
-                let income_cell_witness = IncomeCellData::from_slice(entity.as_reader().raw_data())
+                let income_cell_witness: IncomeCellData = parser
+                    .get_entity_by_cell_meta(CellMeta {
+                        index: *cell_index,
+                        source: Source::Output.into(),
+                    })
                     .map_err(|_| ErrorCode::WitnessEntityDecodingError)?;
 
                 #[cfg(debug_assertions)]
@@ -224,7 +223,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             debug!("Check if transfer as expected.");
 
-            let type_id_table = parser.configs.main()?.type_id_table();
+            let type_id_table = Config::get_instance().main()?.type_id_table();
             let das_lock = das_lock();
             let das_lock_reader = das_lock.as_reader();
             let mut records_used_for_pad = Vec::new();
@@ -381,41 +380,29 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 );
             }
         }
-        b"confirm_proposal" => {
+        Action::ConfirmProposal => {
             util::require_type_script(
-                &parser,
                 TypeScript::ProposalCellType,
                 Source::Input,
                 ErrorCode::InvalidTransactionStructure,
             )?;
         }
-        b"buy_account" => {
+        Action::BuyAccount => {
             util::require_type_script(
-                &parser,
                 TypeScript::AccountSaleCellType,
                 Source::Input,
                 ErrorCode::InvalidTransactionStructure,
             )?;
         }
-        b"accept_offer" => {
+        Action::AcceptOffer => {
             util::require_type_script(
-                &parser,
                 TypeScript::OfferCellType,
                 Source::Input,
                 ErrorCode::InvalidTransactionStructure,
             )?;
         }
-        b"bid_account_auction" => {
+        Action::RenewAccount => {
             util::require_type_script(
-                &parser,
-                TypeScript::AccountAuctionCellType,
-                Source::Input,
-                ErrorCode::InvalidTransactionStructure,
-            )?;
-        }
-        b"renew_account" => {
-            util::require_type_script(
-                &parser,
                 TypeScript::AccountCellType,
                 Source::Input,
                 ErrorCode::InvalidTransactionStructure,

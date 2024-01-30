@@ -124,6 +124,7 @@ fn test_sub_account_renew_flag_manual_by_others() {
             "registered_at": TIMESTAMP,
             "expired_at": TIMESTAMP,
         },
+        // Simulate renewing by others manually. In this situation, the `edit_key` should be `manual`.
         "edit_key": "manual",
         "edit_value": {
             "expired_at": TIMESTAMP + YEAR_SEC,

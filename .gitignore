@@ -13,4 +13,4 @@ target_*
 
 # Other
 *tmp
-
+.env

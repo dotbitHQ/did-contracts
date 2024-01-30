@@ -1,0 +1,44 @@
+[package]
+name = "witness-parser"
+version = "1.0.0"
+edition = "2021"
+
+[lib]
+path = "src/lib.rs"
+
+[features]
+default = ["std"]
+std = [
+    "num_enum/std",
+    "das-types/std",
+    "hex/std",
+    "serde",
+    "serde_json",
+    "strum/std",
+    "thiserror",
+    "blake2b-rs",
+]
+no_std = [
+    "das-types/no_std",
+    "hex/alloc",
+    "thiserror-no-std",
+    "strum",
+    "blake2b-ref",
+]
+
+[dependencies]
+das-types = { workspace = true, optional = true }
+ckb-std = { workspace = true }
+ckb-types = { workspace = true, optional = true }
+molecule = { workspace = true }
+blake2b-rs = { workspace = true, optional = true }
+blake2b-ref = { workspace = true, optional = true }
+thiserror = { workspace = true, optional = true }
+thiserror-no-std = { workspace = true, optional = true }
+log = { workspace = true }
+hex = { workspace = true }
+serde = { workspace = true, features = ["derive"], optional = true }
+serde_json = { workspace = true, optional = true }
+paste = { workspace = true }
+num_enum = { workspace = true }
+strum = { workspace = true, optional = true }

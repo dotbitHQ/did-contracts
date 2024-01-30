@@ -8,9 +8,9 @@ use das_map::util as map_util;
 use das_types::packed::*;
 use das_types::prelude::*;
 
+use crate::config::Config;
 use crate::constants::ScriptType;
 use crate::error::*;
-use crate::witness_parser::WitnessesParser;
 use crate::{assert, code_to_error, debug, util, warn};
 
 pub fn verify_newly_created(
@@ -83,10 +83,7 @@ fn verify_cell_capacity_with_records_capacity(
     Ok(())
 }
 
-pub fn verify_income_cells(
-    parser: &WitnessesParser,
-    profit_map: Map<Vec<u8>, u64>,
-) -> Result<(), Box<dyn ScriptError>> {
+pub fn verify_income_cells(profit_map: Map<Vec<u8>, u64>) -> Result<(), Box<dyn ScriptError>> {
     debug!("Verify the IncomeCells in inputs and outputs.");
 
     #[cfg(debug_assertions)]
@@ -103,7 +100,7 @@ pub fn verify_income_cells(
     } else {
         profit_map.items.iter().map(|v| v.1).reduce(|acc, v| acc + v).unwrap()
     };
-    let config_main = parser.configs.main()?;
+    let config_main = Config::get_instance().main()?;
 
     let (input_income_cells, output_income_cells) =
         util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, config_main.type_id_table().income_cell())?;
@@ -125,12 +122,12 @@ pub fn verify_income_cells(
         )?;
     }
 
-    let config_income = parser.configs.income()?;
+    let config_income = Config::get_instance().income()?;
 
     // If an existing IncomeCell is used, collect all its records for later usage.
     let mut exist_records_opt = None;
     if input_income_cells.len() == 1 {
-        let input_income_witness = util::parse_income_cell_witness(parser, input_income_cells[0], Source::Input)?;
+        let input_income_witness = util::parse_income_cell_witness(input_income_cells[0], Source::Input)?;
         let input_income_witness_reader = input_income_witness.as_reader();
 
         let mut tmp = Map::new();
@@ -143,7 +140,7 @@ pub fn verify_income_cells(
         exist_records_opt = Some(tmp);
     }
 
-    let output_income_witness = util::parse_income_cell_witness(parser, output_income_cells[0], Source::Output)?;
+    let output_income_witness = util::parse_income_cell_witness(output_income_cells[0], Source::Output)?;
     let output_income_witness_reader = output_income_witness.as_reader();
 
     #[cfg(debug_assertions)]

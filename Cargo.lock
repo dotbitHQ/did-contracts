@@ -3,17 +3,6 @@
 version = 3
 
 [[package]]
-name = "account-auction-cell-type"
-version = "1.0.0"
-dependencies = [
- "chrono",
- "ckb-std",
- "das-core",
- "das-map",
- "das-types",
-]
-
-[[package]]
 name = "account-cell-type"
 version = "1.7.0"
 dependencies = [
@@ -22,6 +11,7 @@ dependencies = [
  "das-dynamic-libs",
  "das-map",
  "das-types",
+ "witness-parser",
 ]
 
 [[package]]
@@ -33,6 +23,7 @@ dependencies = [
  "das-core",
  "das-map",
  "das-types",
+ "witness-parser",
 ]
 
 [[package]]
@@ -82,10 +73,12 @@ checksum = "a4668cab20f66d8d020e1fbc0ebe47217433c1b6c8f2040faf858554e394ace6"
 name = "apply-register-cell-type"
 version = "1.1.0"
 dependencies = [
+ "anyhow",
  "ckb-std",
  "das-core",
  "das-types",
  "hex",
+ "witness-parser",
 ]
 
 [[package]]
@@ -102,13 +95,8 @@ dependencies = [
  "das-core",
  "das-map",
  "das-types",
+ "witness-parser",
 ]
-
-[[package]]
-name = "bech32"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf9ff0bbfd639f15c74af777d81383cf53efb7c93613f6cab67c6c11e05bbf8b"
 
 [[package]]
 name = "bech32"
@@ -154,15 +142,6 @@ checksum = "a89a8565807f21b913288968e391819e7f9b2f0f46c7b89549c051cccf3a2771"
 dependencies = [
  "cc",
  "cty",
-]
-
-[[package]]
-name = "block-buffer"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4152116fd6e9dadb291ae18fc1ec3575ed6d84c29642d97890f4b4a3417297e4"
-dependencies = [
- "generic-array",
 ]
 
 [[package]]
@@ -588,6 +567,7 @@ dependencies = [
  "das-core",
  "das-types",
  "hex",
+ "witness-parser",
 ]
 
 [[package]]
@@ -598,9 +578,9 @@ checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
 
 [[package]]
 name = "core-foundation-sys"
-version = "0.8.4"
+version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e496a50fda8aacccc86d7529e2c1e0892dbd0f898a6b5645b5561b89c3210efa"
+checksum = "06ea2b9bc92be3c2baa9334a323ebca2d6f074ff852cd1d7b11064035cd3868f"
 
 [[package]]
 name = "cpufeatures"
@@ -675,23 +655,20 @@ checksum = "b365fabc795046672053e29c954733ec3b05e4be654ab130fe8f1f94d7051f35"
 name = "das-core"
 version = "1.4.0"
 dependencies = [
- "bech32 0.8.1",
  "blake2b-ref 0.3.1",
- "bs58",
  "chrono",
  "ckb-std",
  "das-dynamic-libs",
  "das-map",
  "das-types",
- "dotenvy",
  "eip712",
  "hex",
  "libm",
  "molecule",
  "paste",
- "sha2 0.9.9",
  "simple-ast",
  "sparse-merkle-tree",
+ "witness-parser",
 ]
 
 [[package]]
@@ -723,8 +700,11 @@ dependencies = [
 name = "das-types"
 version = "1.11.0"
 dependencies = [
+ "blake2b-ref 0.3.1",
+ "blake2b-rs",
  "ckb-std",
  "ckb-types",
+ "dotenvy",
  "hex",
  "molecule",
  "num_enum",
@@ -757,20 +737,11 @@ dependencies = [
 
 [[package]]
 name = "digest"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3dd60d1080a57a05ab032377049e0591415d2b31afd7028356dbf3cc6dcb066"
-dependencies = [
- "generic-array",
-]
-
-[[package]]
-name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
 dependencies = [
- "block-buffer 0.10.4",
+ "block-buffer",
  "crypto-common",
 ]
 
@@ -788,6 +759,7 @@ dependencies = [
  "das-core",
  "das-types",
  "molecule",
+ "witness-parser",
 ]
 
 [[package]]
@@ -800,11 +772,12 @@ checksum = "8d978bd5d343e8ab9b5c0fc8d93ff9c602fdc96616ffff9c05ac7a155419b824"
 name = "eip712"
 version = "1.1.0"
 dependencies = [
- "bech32 0.9.1",
+ "bech32",
  "bs58",
+ "dotenvy",
  "hex",
  "no-std-compat",
- "sha2 0.10.8",
+ "sha2",
  "tiny-keccak",
 ]
 
@@ -887,9 +860,9 @@ dependencies = [
 
 [[package]]
 name = "getrandom"
-version = "0.2.10"
+version = "0.2.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be4136b2a15dd319360be1c07d9933517ccf0be8f16bf62a3bee4f0d618df427"
+checksum = "fe9006bed769170c11f845cf00c7c1e9092aeb3f268e007c3e760ac68008070f"
 dependencies = [
  "cfg-if 1.0.0",
  "libc",
@@ -1009,6 +982,7 @@ dependencies = [
  "das-core",
  "das-types",
  "hex",
+ "witness-parser",
 ]
 
 [[package]]
@@ -1040,9 +1014,9 @@ checksum = "af150ab688ff2122fcef229be89cb50dd66af9e01a4ff320cc137eecc9bacc38"
 
 [[package]]
 name = "js-sys"
-version = "0.3.64"
+version = "0.3.66"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c5f195fe497f702db0f318b07fdd68edb16955aed830df8363d837542f8f935a"
+checksum = "cee9c64da59eae3b50095c18d3e74f8b73c0b86d2792824ff01bbce68ba229ca"
 dependencies = [
  "wasm-bindgen",
 ]
@@ -1148,18 +1122,18 @@ dependencies = [
 
 [[package]]
 name = "num_enum"
-version = "0.6.1"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a015b430d3c108a207fd776d2e2196aaf8b1cf8cf93253e3a097ff3085076a1"
+checksum = "683751d591e6d81200c39fb0d1032608b77724f34114db54f571ff1317b337c0"
 dependencies = [
  "num_enum_derive",
 ]
 
 [[package]]
 name = "num_enum_derive"
-version = "0.6.1"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96667db765a921f7b295ffee8b60472b686a51d4f21c2ee4ffdb94c7013b65a6"
+checksum = "6c11e44798ad209ccdd91fc192f0526a369a01234f7373e1b141c96d7cee4f0e"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -1221,6 +1195,7 @@ dependencies = [
  "das-core",
  "das-map",
  "das-types",
+ "witness-parser",
 ]
 
 [[package]]
@@ -1228,12 +1203,6 @@ name = "once_cell"
 version = "1.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd8b5dd2ae5ed71462c540258bedcb51965123ad7e7ccf4b9a8cafaa4a63576d"
-
-[[package]]
-name = "opaque-debug"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 
 [[package]]
 name = "parking_lot"
@@ -1315,7 +1284,6 @@ dependencies = [
  "blake2b-ref 0.3.1",
  "ckb-std",
  "das-core",
- "das-dynamic-libs",
  "das-types",
  "hex",
  "libm",
@@ -1338,6 +1306,7 @@ dependencies = [
  "das-sorted-list",
  "das-types",
  "hex",
+ "witness-parser",
 ]
 
 [[package]]
@@ -1369,6 +1338,7 @@ dependencies = [
  "das-map",
  "das-sorted-list",
  "das-types",
+ "witness-parser",
 ]
 
 [[package]]
@@ -1440,7 +1410,7 @@ version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
 dependencies = [
- "getrandom 0.2.10",
+ "getrandom 0.2.11",
 ]
 
 [[package]]
@@ -1507,6 +1477,7 @@ dependencies = [
  "das-core",
  "das-types",
  "hex",
+ "witness-parser",
 ]
 
 [[package]]
@@ -1519,6 +1490,7 @@ dependencies = [
  "das-types",
  "hex",
  "sparse-merkle-tree",
+ "witness-parser",
 ]
 
 [[package]]
@@ -1666,26 +1638,13 @@ dependencies = [
 
 [[package]]
 name = "sha2"
-version = "0.9.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d58a1e1bf39749807d89cf2d98ac2dfa0ff1cb3faa38fbb64dd88ac8013d800"
-dependencies = [
- "block-buffer 0.9.0",
- "cfg-if 1.0.0",
- "cpufeatures",
- "digest 0.9.0",
- "opaque-debug",
-]
-
-[[package]]
-name = "sha2"
 version = "0.10.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "793db75ad2bcafc3ffa7c68b215fee268f537982cd901d132f89c6343f3a3dc8"
 dependencies = [
  "cfg-if 1.0.0",
  "cpufeatures",
- "digest 0.10.7",
+ "digest",
 ]
 
 [[package]]
@@ -1716,9 +1675,9 @@ checksum = "38b58827f4464d87d377d175e90bf58eb00fd8716ff0a62f80356b5e61555d0d"
 
 [[package]]
 name = "smallvec"
-version = "1.11.1"
+version = "1.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "942b4a808e05215192e39f4ab80813e599068285906cc91aa64f923db842bd5a"
+checksum = "4dccd0940a2dcdf68d092b8cbab7dc0ad8fa938bf95787e1b916b0e3d0e8e970"
 
 [[package]]
 name = "sparse-merkle-tree"
@@ -1733,24 +1692,24 @@ dependencies = [
 
 [[package]]
 name = "strum"
-version = "0.24.1"
+version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "063e6045c0e62079840579a7e47a355ae92f60eb74daaf156fb1e84ba164e63f"
+checksum = "290d54ea6f91c969195bdbcd7442c8c2a2ba87da8bf60a7ee86a235d4bc1e125"
 dependencies = [
  "strum_macros",
 ]
 
 [[package]]
 name = "strum_macros"
-version = "0.24.3"
+version = "0.25.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e385be0d24f186b4ce2f9982191e7101bb737312ad61c1f2f984f34bcf85d59"
+checksum = "23dc1fa9ac9c169a78ba62f0b841814b7abae11bdd047b9c58f893439e309ea0"
 dependencies = [
  "heck",
  "proc-macro2",
  "quote",
  "rustversion",
- "syn 1.0.109",
+ "syn 2.0.38",
 ]
 
 [[package]]
@@ -1766,6 +1725,7 @@ dependencies = [
  "hex",
  "simple-ast",
  "sparse-merkle-tree",
+ "witness-parser",
 ]
 
 [[package]]
@@ -1806,8 +1766,10 @@ dependencies = [
  "ckb-std",
  "das-core",
  "das-types",
+ "dotenvy",
  "hex",
  "simple-ast",
+ "witness-parser",
 ]
 
 [[package]]
@@ -1956,9 +1918,9 @@ checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
 
 [[package]]
 name = "wasm-bindgen"
-version = "0.2.87"
+version = "0.2.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7706a72ab36d8cb1f80ffbf0e071533974a60d0a308d01a5d0375bf60499a342"
+checksum = "0ed0d4f68a3015cc185aff4db9506a015f4b96f95303897bfa23f846db54064e"
 dependencies = [
  "cfg-if 1.0.0",
  "wasm-bindgen-macro",
@@ -1966,9 +1928,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-backend"
-version = "0.2.87"
+version = "0.2.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ef2b6d3c510e9625e5fe6f509ab07d66a760f0885d858736483c32ed7809abd"
+checksum = "1b56f625e64f3a1084ded111c4d5f477df9f8c92df113852fa5a374dbda78826"
 dependencies = [
  "bumpalo",
  "log",
@@ -1981,9 +1943,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-macro"
-version = "0.2.87"
+version = "0.2.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dee495e55982a3bd48105a7b947fd2a9b4a8ae3010041b9e0faab3f9cd028f1d"
+checksum = "0162dbf37223cd2afce98f3d0785506dcb8d266223983e4b5b525859e6e182b2"
 dependencies = [
  "quote",
  "wasm-bindgen-macro-support",
@@ -1991,9 +1953,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-macro-support"
-version = "0.2.87"
+version = "0.2.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54681b18a46765f095758388f2d0cf16eb8d4169b639ab575a8f5693af210c7b"
+checksum = "f0eb82fcb7930ae6219a7ecfd55b217f5f0893484b7a13022ebb2b2bf20b5283"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2004,9 +1966,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-shared"
-version = "0.2.87"
+version = "0.2.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca6ad05a4870b2bf5fe995117d3728437bd27d7cd5f06f13c17443ef369775a1"
+checksum = "7ab9b36309365056cd639da3134bf87fa8f3d86008abf99e612384a6eecd459f"
 
 [[package]]
 name = "winapi"
@@ -2121,4 +2083,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a3b801d0e0a6726477cc207f60162da452f3a95adb368399bef20a946e06f65c"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "witness-parser"
+version = "1.0.0"
+dependencies = [
+ "blake2b-ref 0.3.1",
+ "blake2b-rs",
+ "ckb-std",
+ "ckb-types",
+ "das-types",
+ "hex",
+ "log",
+ "molecule",
+ "num_enum",
+ "paste",
+ "serde",
+ "serde_json",
+ "strum",
+ "thiserror",
+ "thiserror-no-std",
 ]

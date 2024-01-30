@@ -2,13 +2,21 @@ use alloc::boxed::Box;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
-use das_core::constants::{das_lock, ScriptType, TypeScript};
+use das_core::config::Config;
+use das_core::constants::ScriptType;
 use das_core::error::*;
-use das_core::witness_parser::WitnessesParser;
-use das_core::{code_to_error, debug, util, verifiers};
+use das_core::{code_to_error, debug, util, verifiers, warn};
+use das_types::constants::{das_lock, Action, TypeScript};
+use witness_parser::WitnessesParserV1;
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running balance-cell-type ======");
+
+    let parser = WitnessesParserV1::get_instance();
+    parser.init().map_err(|_err| {
+        warn!("{:?}", _err);
+        code_to_error!(ErrorCode::WitnessDataDecodingError)
+    })?;
 
     let balance_cell_type = high_level::load_script().map_err(|e| Error::<ErrorCode>::from(e))?;
     let balance_cell_type_reader = balance_cell_type.as_reader();
@@ -20,88 +28,67 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
     let output_cells =
         util::find_cells_by_type_id(ScriptType::Lock, das_lock_reader.code_hash().into(), Source::Output)?;
 
-    let mut parser = WitnessesParser::new()?;
-    let mut is_unknown_action = false;
-
     if input_cells.len() > 0 {
         debug!("Check if cells with das-lock in inputs has correct typed data hash in its signature witness.");
 
-        let action_cp = match parser.parse_action_with_params()? {
-            Some((action, _)) => action.to_vec(),
-            None => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
-        };
-        let action = action_cp.as_slice();
-
-        parser.parse_cell()?;
+        let parser = WitnessesParserV1::get_instance();
+        parser
+            .init()
+            .map_err(|_err| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
 
         // Because the semantic requirement of each action, some other type script is required to generate DAS_MESSAGE field in EIP712 properly.
-        match action {
-            b"transfer_account" | b"edit_manager" | b"edit_records" => {
+        match parser.action {
+            Action::TransferAccount | Action::EditManager | Action::EditRecords => {
                 util::require_type_script(
-                    &parser,
                     TypeScript::AccountCellType,
                     Source::Input,
                     ErrorCode::InvalidTransactionStructure,
                 )?;
             }
-            b"start_account_sale" => {
+            Action::StartAccountSale => {
                 util::require_type_script(
-                    &parser,
                     TypeScript::AccountSaleCellType,
                     Source::Output,
                     ErrorCode::InvalidTransactionStructure,
                 )?;
             }
-            b"cancel_account_sale" | b"buy_account" | b"edit_account_sale" => {
+            Action::CancelAccountSale | Action::BuyAccount | Action::EditAccountSale => {
                 util::require_type_script(
-                    &parser,
                     TypeScript::AccountSaleCellType,
                     Source::Input,
                     ErrorCode::InvalidTransactionStructure,
                 )?;
             }
-            b"declare_reverse_record" => {
+            Action::RetractReverseRecord => {
                 util::require_type_script(
-                    &parser,
-                    TypeScript::ReverseRecordCellType,
-                    Source::Output,
-                    ErrorCode::InvalidTransactionStructure,
-                )?;
-            }
-            b"redeclare_reverse_record" | b"retract_reverse_record" => {
-                util::require_type_script(
-                    &parser,
                     TypeScript::ReverseRecordCellType,
                     Source::Input,
                     ErrorCode::InvalidTransactionStructure,
                 )?;
             }
-            b"make_offer" | b"edit_offer" => {
+            Action::MakeOffer | Action::EditOffer => {
                 util::require_type_script(
-                    &parser,
                     TypeScript::OfferCellType,
                     Source::Output,
                     ErrorCode::InvalidTransactionStructure,
                 )?;
             }
-            b"cancel_offer" | b"accept_offer" => {
+            Action::CancelOffer | Action::AcceptOffer => {
                 util::require_type_script(
-                    &parser,
                     TypeScript::OfferCellType,
                     Source::Input,
                     ErrorCode::InvalidTransactionStructure,
                 )?;
             }
-            b"enable_sub_account" | b"update_sub_account" => {
+            Action::EnableSubAccount | Action::UpdateSubAccount => {
                 util::require_type_script(
-                    &parser,
                     TypeScript::SubAccountCellType,
                     Source::Output,
                     ErrorCode::InvalidTransactionStructure,
                 )?;
             }
             _ => {
-                is_unknown_action = true;
+                // Unknown action, treat as a normal transfer.
             }
         }
     } else {
@@ -109,12 +96,8 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
     }
 
     if output_cells.len() > 0 {
-        let config_main_reader = parser.configs.main()?;
+        let config_main_reader = Config::get_instance().main()?;
         verifiers::balance_cell::verify_das_lock_always_with_type(config_main_reader)?;
-    }
-
-    if input_cells.len() > 0 && is_unknown_action {
-        util::exec_by_type_id(&parser, TypeScript::EIP712Lib, &[])?;
     }
 
     Ok(())

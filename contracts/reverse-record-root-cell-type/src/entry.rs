@@ -1,46 +1,35 @@
 use alloc::boxed::Box;
 use alloc::string::ToString;
 use alloc::vec;
-use core::ops::Index;
 use core::result::Result;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
-use das_core::constants::CellField;
-use das_core::witness_parser::webauthn_signature::WebAuthnSignature;
+use das_core::config::Config;
+use das_core::constants::{CellField, ScriptType};
 use das_core::error::*;
+use das_core::util::exec_das_lock;
 use das_core::witness_parser::reverse_record::{ReverseRecordWitness, ReverseRecordWitnessesParser};
-use das_core::witness_parser::WitnessesParser;
 use das_core::{assert as das_assert, code_to_error, debug, util, verifiers, warn};
-use das_dynamic_libs::constants::DynLibName;
-use das_dynamic_libs::error::Error as DasDynamicLibError;
-use das_dynamic_libs::sign_lib::SignLib;
-use das_dynamic_libs::{load_2_methods, load_3_methods, load_lib, log_loading, new_context};
-use das_types::constants::DasLockType;
-use das_types::prelude::Entity;
+use das_types::constants::{das_lock, Action};
+use witness_parser::WitnessesParserV1;
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
     debug!("====== Running reverse-record-root-cell-type ======");
 
-    let mut parser = WitnessesParser::new()?;
-    let action_cp = match parser.parse_action_with_params()? {
-        Some((action, _)) => action.to_vec(),
-        None => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
-    };
-    let action = action_cp.as_slice();
-
-    debug!(
-        "Route to {:?} action ...",
-        alloc::string::String::from_utf8(action.to_vec()).map_err(|_| ErrorCode::ActionNotSupported)?
-    );
+    let parser = WitnessesParserV1::get_instance();
+    parser
+        .init()
+        .map_err(|_err| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
 
     let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
-    match action {
-        b"create_reverse_record_root" => {
+
+    debug!("Route to {:?} action ...", parser.action.to_string());
+    match parser.action {
+        Action::CreateReverseRecordRoot => {
             util::require_super_lock()?;
 
-            parser.parse_cell()?;
-            let config_reverse_resolution = parser.configs.reverse_resolution()?;
+            let config_reverse_resolution = Config::get_instance().reverse_resolution()?;
 
             verifiers::common::verify_cell_number_and_position(
                 "ReverseRecordRootCell",
@@ -75,13 +64,13 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 "The initial outputs_data of ReverseRecordRootCell should be 32 bytes of 0x00."
             );
         }
-        b"update_reverse_record_root" => {
-            util::is_system_off(&parser)?;
-            let config_main = parser.configs.main()?;
-            let config_smt_white_list = parser.configs.smt_node_white_list()?;
+        Action::UpdateReverseRecordRoot => {
+            util::is_system_off()?;
+            let config_main = Config::get_instance().main()?;
+            let config_smt_white_list = Config::get_instance().smt_node_white_list()?;
             verify_has_some_lock_in_white_list(1, config_smt_white_list)?;
 
-            let _config_reverse = parser.configs.reverse_resolution()?;
+            let _config_reverse = Config::get_instance().reverse_resolution()?;
 
             verifiers::common::verify_cell_number_and_position(
                 "ReverseRecordRootCell",
@@ -98,31 +87,31 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 vec![CellField::Data],
             )?;
 
-            let mut sign_lib = SignLib::new();
-            // ⚠️ This must be present at the top level, as we will need to use the libraries later.
-            let mut eth_context = new_context!();
-            log_loading!(DynLibName::ETH, config_main.das_lock_type_id_table());
-            let eth_lib = load_lib!(eth_context, DynLibName::ETH, config_main.das_lock_type_id_table());
-            sign_lib.eth = load_2_methods!(eth_lib);
-
-            let mut tron_context = new_context!();
-            log_loading!(DynLibName::TRON, config_main.das_lock_type_id_table());
-            let tron_lib = load_lib!(tron_context, DynLibName::TRON, config_main.das_lock_type_id_table());
-            sign_lib.tron = load_2_methods!(tron_lib);
-
-            let mut doge_context = new_context!();
-            log_loading!(DynLibName::DOGE, config_main.das_lock_type_id_table());
-            let doge_lib = load_lib!(doge_context, DynLibName::DOGE, config_main.das_lock_type_id_table());
-            sign_lib.doge = load_2_methods!(doge_lib);
-
-            let mut web_authn_context = new_context!();
-            log_loading!(DynLibName::WebAuthn, config_main.das_lock_type_id_table());
-            let web_authn_lib = load_lib!(
-                web_authn_context,
-                DynLibName::WebAuthn,
-                config_main.das_lock_type_id_table()
-            );
-            sign_lib.web_authn = load_3_methods!(web_authn_lib);
+            // let mut sign_lib = SignLib::new();
+            // // ⚠️ This must be present at the top level, as we will need to use the libraries later.
+            // let mut eth_context = new_context!();
+            // log_loading!(DynLibName::ETH, config_main.das_lock_type_id_table());
+            // let eth_lib = load_lib!(eth_context, DynLibName::ETH, config_main.das_lock_type_id_table());
+            // sign_lib.eth = load_2_methods!(eth_lib);
+            //
+            // let mut tron_context = new_context!();
+            // log_loading!(DynLibName::TRON, config_main.das_lock_type_id_table());
+            // let tron_lib = load_lib!(tron_context, DynLibName::TRON, config_main.das_lock_type_id_table());
+            // sign_lib.tron = load_2_methods!(tron_lib);
+            //
+            // let mut doge_context = new_context!();
+            // log_loading!(DynLibName::DOGE, config_main.das_lock_type_id_table());
+            // let doge_lib = load_lib!(doge_context, DynLibName::DOGE, config_main.das_lock_type_id_table());
+            // sign_lib.doge = load_2_methods!(doge_lib);
+            //
+            // let mut web_authn_context = new_context!();
+            // log_loading!(DynLibName::WebAuthn, config_main.das_lock_type_id_table());
+            // let web_authn_lib = load_lib!(
+            //     web_authn_context,
+            //     DynLibName::WebAuthn,
+            //     config_main.das_lock_type_id_table()
+            // );
+            // sign_lib.web_authn = load_3_methods!(web_authn_lib);
 
             debug!("Start iterating ReverseRecord witnesses ...");
 
@@ -136,7 +125,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 }
                 let witness = witness_ret.unwrap();
 
-                verify_sign(&sign_lib, &witness, &witness_parser)?;
+                //verify_sign(&sign_lib, &witness, &witness_parser)?;
                 smt_verify_reverse_record_proof(&prev_root, &witness)?;
 
                 prev_root = witness.next_root.to_vec();
@@ -149,7 +138,14 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 output_cells[0],
                 util::hex_string(&prev_root),
                 util::hex_string(&latest_root)
-            )
+            );
+            let das_lock = das_lock();
+            let all_inputs_with_das_lock =
+                util::find_cells_by_type_id(ScriptType::Lock, das_lock.code_hash().as_reader().into(), Source::Input)?;
+            debug!("Call Das-lock to complete the reverse verification.");
+            if all_inputs_with_das_lock.len() == 0 {
+                exec_das_lock().expect("exec das-lock failed");
+            }
         }
         _ => return Err(code_to_error!(ErrorCode::ActionNotSupported)),
     }
@@ -186,111 +182,6 @@ fn verify_has_some_lock_in_white_list(start_from: usize, white_list: &[[u8; 32]]
 
     warn!("Can not find any lock in the inputs exist in the SMT white list.");
     Err(code_to_error!(ErrorCode::SMTWhiteListTheLockIsNotFound))
-}
-
-fn verify_sign(
-    sign_lib: &SignLib,
-    witness: &ReverseRecordWitness,
-    witness_parser: &ReverseRecordWitnessesParser,
-) -> Result<(), Box<dyn ScriptError>> {
-    if cfg!(feature = "dev") {
-        // CAREFUL Proof verification has been skipped in development mode.
-        debug!(
-            "  witnesses[{:>2}] Skip verifying the witness.reverse_record.signature is valid.",
-            witness.index
-        );
-        return Ok(());
-    }
-
-    debug!(
-        "  witnesses[{:>2}] Verify if the witness.reverse_record.signature is valid.",
-        witness.index
-    );
-
-    let das_lock_type = match witness.sign_type {
-        DasLockType::ETH
-        | DasLockType::ETHTypedData
-        | DasLockType::TRON
-        | DasLockType::Doge
-        | DasLockType::WebAuthn => witness.sign_type,
-        _ => {
-            warn!(
-                "  witnesses[{:>2}] Parsing das-lock(witness.reverse_record.lock.args) algorithm failed (maybe not supported for now), but it is required in this transaction.",
-                witness.index
-            );
-            return Err(code_to_error!(ErrorCode::InvalidTransactionStructure));
-        }
-    };
-
-    let nonce = if let Some(prev_nonce) = witness.prev_nonce {
-        prev_nonce + 1
-    } else {
-        1
-    };
-    let account = witness.next_account.as_bytes().to_vec();
-    let signature = witness.signature.as_slice().to_vec();
-    let args = witness.address_payload.as_slice().to_vec();
-    let data = [nonce.to_le_bytes().to_vec(), account].concat();
-    let message = sign_lib.gen_digest(das_lock_type, data).map_err(|_| {
-        warn!(
-            "  witnesses[{:>2}] The lock type {} is still not supported.",
-            witness.index,
-            das_lock_type.to_string()
-        );
-        code_to_error!(ReverseRecordRootCellErrorCode::SignatureVerifyError)
-    })?;
-
-    // TODO: currently we cannot find sub_alg_id in witness. fix sub_alg_id to 7
-    let args = if das_lock_type == DasLockType::WebAuthn {
-        [vec![7], args].concat()
-    } else {
-        args
-    };
-
-    let ret = if das_lock_type == DasLockType::WebAuthn
-        && u8::from_le_bytes(
-            WebAuthnSignature::try_from(signature.as_slice())?
-                .pubkey_index()
-                .try_into()
-                .unwrap(),
-        ) != 255
-    {
-        let device_key_list = witness_parser
-            .device_key_lists
-            .get(args.index(..))
-            .ok_or(code_to_error!(ErrorCode::WitnessStructureError))?;
-        sign_lib.validate_device(
-            das_lock_type,
-            0i32,
-            &signature,
-            &message,
-            device_key_list.as_slice(),
-            Default::default(),
-        )
-    } else {
-        sign_lib.validate_str(das_lock_type, 0i32, message.clone(), message.len(), signature, args)
-    };
-
-    match ret {
-        Err(_error_code) if _error_code == DasDynamicLibError::UndefinedDasLockType as i32 => {
-            warn!(
-                "  witnesses[{:>2}] The signature algorithm has not been supported",
-                witness.index
-            );
-            Err(code_to_error!(ErrorCode::HardCodedError))
-        }
-        Err(_error_code) => {
-            warn!(
-                "  witnesses[{:>2}] The witness.signature is invalid, the error_code returned by dynamic library is: {}",
-                witness.index, _error_code
-            );
-            Err(code_to_error!(ReverseRecordRootCellErrorCode::SignatureVerifyError))
-        }
-        _ => {
-            debug!("  witnesses[{:>2}] The witness.signature is valid.", witness.index);
-            Ok(())
-        }
-    }
 }
 
 fn gen_smt_value(nonce: u32, account: &[u8]) -> [u8; 32] {

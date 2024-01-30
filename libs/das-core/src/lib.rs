@@ -11,6 +11,7 @@ extern crate alloc;
 #[macro_use]
 pub mod macros;
 
+pub mod config;
 pub mod constants;
 pub mod contract;
 pub mod data_parser;

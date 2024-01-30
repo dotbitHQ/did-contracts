@@ -5,11 +5,12 @@ use core::cmp::Ordering;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
+use das_types::constants::wallet_lock;
 use das_types::packed;
 use sparse_merkle_tree::ckb_smt::SMTBuilder;
 use sparse_merkle_tree::H256;
 
-use crate::constants::{das_wallet_lock, CellField, ScriptType};
+use crate::constants::{CellField, ScriptType};
 use crate::error::*;
 use crate::util;
 
@@ -296,8 +297,9 @@ pub fn verify_tx_fee_spent_correctly(
 }
 
 pub fn verify_das_get_change(expected_change: u64) -> Result<(), Box<dyn ScriptError>> {
-    let das_wallet_lock = das_wallet_lock();
-    let das_wallet_cells = util::find_cells_by_script(ScriptType::Lock, das_wallet_lock.as_reader(), Source::Output)?;
+    let das_wallet_lock = wallet_lock();
+    let das_wallet_cells =
+        util::find_cells_by_script(ScriptType::Lock, das_wallet_lock.as_reader().into(), Source::Output)?;
 
     let mut total_capacity = 0;
     for i in das_wallet_cells {

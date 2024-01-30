@@ -12,7 +12,6 @@ use das_types::packed::*;
 use das_types::prelude::Entity;
 use das_types::util as das_types_util;
 
-use super::constants::ScriptHashType;
 use super::error::*;
 use super::{assert, code_to_error, debug, util, warn};
 
@@ -31,12 +30,6 @@ macro_rules! get_or_try_init {
             })
             .map(|entity| entity.as_reader())
     }};
-}
-
-pub struct ScriptLiteral {
-    pub code_hash: [u8; 32],
-    pub hash_type: ScriptHashType,
-    pub args: Vec<u8>,
 }
 
 #[derive(Clone, Debug)]
