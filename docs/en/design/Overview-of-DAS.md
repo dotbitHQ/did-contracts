@@ -6,13 +6,13 @@ DAS is short for Decentralized Account System. This document is an overview of t
 
 The whole DAS is running around a blockchain named [CKB](https://www.nervos.org/), but first, let's look at a more understandable registration scenario to get a global picture of how DAS works:
 
-![DAS-big-picture](DAS-big-picture.png)
+![DAS-big-picture](../../images/DAS-big-picture.png)
 
 1. At the first, users need to access the **Registrars** of DAS through the browser in exchange or wallet.
 2. A **Registrars** can be a web service implemented by anyone that provides users with DAS registration functionality, but of course it is not limited to web services, any application that helps users complete on-chain interactions and obtain an account can be called a **Registrars**.
 3. **Registrars** convert users' registration requests and various other operations into transactions, then push transactions after users signed through any wallet application.
 4. **Keepers** are decentralized DAS node that keep monitoring transactions on CKB via JSON RPC of CKB node；
-5. When user transactions are found that need to be processed, specific transactions will be created in accordance with [Transaction Structure](Data-Structure-and-Protocol/Transaction-Structure.md) to complete user request such as account registration.
+5. When user transactions are found that need to be processed, specific transactions will be created in accordance with [Transaction Structure](../developer/Transaction-Structure.md) to complete user request such as account registration.
 6. If the **Registrars** is well developed, it can monitor the user's account registration and other status through the CKB node's  JSON RPC, and provide timely feedback to the user.
 7. Once the user has registered a account successfully and set up some records, **Resolvers** can parse on-chain blocks for data via CKB node's JSON RPC.
 8. Finally, **Resolvers** provides the data through its own RPC interface to wallets, exchanges, and other applications that need to use the records of user.
@@ -22,21 +22,21 @@ The whole DAS is running around a blockchain named [CKB](https://www.nervos.org/
 
 After the account registration process described above, one of the core assets in DAS, the DAS account, is created. Its core value is uniqueness, and the key to understanding the uniqueness of DAS accounts lies in understanding the registration process of DAS accounts, so here is a brief overview of the registration process, as shown in the following diagram
 
-![DAS-register-process](DAS-register-process.png)
+![DAS-register-process](../../images/DAS-register-process.png)
 
 - First of all, users need to apply for registration, at this step, the user's account name is hashed and keep secret, about  the design and principle are detailed in [Anti-robbery of Account](Anti-robbery-of-Account/Anti-robbery-of-Account.md).
 - After a certain period of time, the user can push a pre-register transaction by providing the plain account name.
 - If a **Keeper** found the pre-register transaction it will check the uniqueness of the account name and create a proposal with proof of uniqueness for the account name, then push a transaction contains the proposal.
 - Finally, after waiting for some time, the **Keeper** can confirm the proposal and complete the registration of the new account, see [Account Chain](Account-Chain/Account-Chain.md) for details of the design.
 
-Each step above corresponds to a transaction, if you want to understand them in depth, please see [Transaction Structure](Data-Structure-and-Protocol/Transaction-Structure.md)
+Each step above corresponds to a transaction, if you want to understand them in depth, please see [Transaction Structure](../developer/Transaction-Structure.md)
 
 
 ## Account On-Chain Structure
 
 After the account is successfully registered, the account data will be saved on blockchain in a cell, and all cells can eventually form **a one-way ordered linked list**, which is also the proof of uniqueness in the account registration process:
 
-![Account On-Chain Structure](DAS-account-structure.png)
+![Account On-Chain Structure](../../images/DAS-account-structure.png)
 
 ### Account Management
 
@@ -44,10 +44,10 @@ The use of the account can be divided into two categories: one is the write oper
 
 For write operations, in addition to understanding the data structure of the account you must also understand the various transactions of account, such as:
 
-- [TransferAccount](Data-Structure-and-Protocol/Transaction-Structure.md#TransferAccount)
-- [EditManager](Data-Structure-and-Protocol/Transaction-Structure.md#EditManager)
-- [EditRecords](Data-Structure-and-Protocol/Transaction-Structure.md#EditRecords)
-- [RenewAccount](Data-Structure-and-Protocol/Transaction-Structure.md#RenewAccount)
+- [TransferAccount](../developer/Transaction-Structure.md#TransferAccount)
+- [EditManager](../developer/Transaction-Structure.md#EditManager)
+- [EditRecords](../developer/Transaction-Structure.md#EditRecords)
+- [RenewAccount](../developer/Transaction-Structure.md#RenewAccount)
 
 For read operations, you only need to understand the data structure of the AccountCell, for details please see [Cell Structure](Data-Structure-and-Protocol/Cell-Structure.md) .
 
@@ -55,7 +55,7 @@ For read operations, you only need to understand the data structure of the Accou
 
 One factor that should always be kept in mind when reading or writing an account is the **account lifecycle**:
 
-![Account Lifecycle](DAS-account-lifecycle.png)
+![Account Lifecycle](../../images/DAS-account-lifecycle.png)
 
 Each status of lifecycle in the above diagram are:
 
@@ -84,8 +84,8 @@ Just like what you see in [Big Picture](#big-picture)，anyone can take part in 
 
 - User is the easiest kind of role to be, you can sign up for a personal account now by visiting https://da.systems/ .
 - Exchange/Wallet is usually played by a professional team or company that is already doing this type of business.
-- Registrar is the role need to resolve payment problems for users, and implement on-chain transactions base on [Transaction-Structure/Register-Transactions](Data-Structure-and-Protocol/Transaction-Structure.md#register-transactions) .
-- Keeper , because some of performance issues, is still not open source, but remember that DAS is a decentralized application. The keeper is just a server which works under DAS protocol to build transactions, and anyone can implement a server like that. If you are willing to develop a keeper you need to understand both [Cell-Structure](Data-Structure-and-Protocol/Cell-Structure.md) and [Transaction-Structure](Data-Structure-and-Protocol/Transaction-Structure.md) deeply.
+- Registrar is the role need to resolve payment problems for users, and implement on-chain transactions base on [Transaction-Structure/Register-Transactions](../developer/Transaction-Structure.md#register-transactions) .
+- Keeper , because some of performance issues, is still not open source, but remember that DAS is a decentralized application. The keeper is just a server which works under DAS protocol to build transactions, and anyone can implement a server like that. If you are willing to develop a keeper you need to understand both [Cell-Structure](Data-Structure-and-Protocol/Cell-Structure.md) and [Transaction-Structure](../developer/Transaction-Structure.md) deeply.
 - Resolver is a role easier to be，it just need to run open sourced [resolver code](https://github.com/DeAccountSystems/das_account_indexer). But there is no gain for this role, and exchange/wallet only trust their own resolvers, so it is not recommended to run this service alone.
 
 No matter which of the above roles you want to be in the DAS ecosystem, we are always happy to help you with any technical questions on our Discord group, you can find the invite link on our official site. 🤝

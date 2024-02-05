@@ -11,7 +11,7 @@ data: ...
 witness: ...
 ```
 
-其中 `lock, type, outputs_data` 都是每个 cell 必定包含的信息，从 RPC 接口返回的数据结构中也可以看到，而 `data` 就是这笔交易中与 cell 对应的 `outputs_data` 。`witness` 比较特殊，它和 cell
+其中 `lock`, `type`, `outputs_data` 都是每个 cell 必定包含的信息，从 RPC 接口返回的数据结构中也可以看到，而 `data` 就是这笔交易中与 cell 对应的 `outputs_data` 。`witness` 比较特殊，它和 cell
 之间是没有关联关系的，所以这里的 `witness` 特指 DAS witness ，而且仅仅指 DAS witness 中的 `entity` 部分，因为 DAS witness 中存放了它自己对应哪个 cell
 的相关信息，所以才有了关联关系，详见 [数据存储方案.md](数据存储方案.md) 。
 
@@ -162,7 +162,7 @@ CKB 年费 = CKB 年费 - (CKB 年费 * 折扣率 / 10000) // 折扣率是以 10
 
 - 年份需要大于等于 1 ，实际计算时按照 365 \* 86400 秒为一年来计算；
 - **账户注册年费** 保存在 [ConfigCellPrice.prices](#ConfigCell) 中，单位为 **美元**；
-- **CKB 汇率**从 QuoteCell 获取，单位为 **美元/CKB**，前面在 [数据存储方案.md](./数据存储方案.md) 的 **美元的单位** 一节我们约定了 1 美元记为 `1_000_000` ，因此如果 QuoteCell 中记录的是 `1_000`
+- **CKB 汇率**从 QuoteCell 获取，单位为 **美元/CKB**，前面在 [数据存储方案.md](数据存储方案.md) 的 **美元的单位** 一节我们约定了 1 美元记为 `1_000_000` ，因此如果 QuoteCell 中记录的是 `1_000`
   那么也就意味着 CKB 汇率就是 `0.001 美元/CKB`；
 - **AccountCell 基础成本** 只在调整 Cell 数据结构时会发生变化，可以认为是固定的常量，查看对应 Cell 的 **体积** 即可获得；
 - **Account 字节长度**，由于 AccountCell 会在 data 字段保存完整的账户，比如 `das.bit` 那么保存的就是 `0x6461732E626974` ，因此需要再加上这部分体积；
@@ -485,7 +485,7 @@ table AccountAuctionCellData {
 
 > **Deprecated**！此 Cell 已经废弃，此文档仅供交易解析使用。
 
-存放反向解析记录的 Cell ，同一个地址上可能有多个，需要按照[协议](../反向解析机制/反向解析机制.md)进行去重。
+存放反向解析记录的 Cell ，同一个地址上可能有多个，需要按照[协议](../design/反向解析机制.md)进行去重。
 
 #### 结构
 
