@@ -3,7 +3,7 @@
 
 ## Total Amount of PreRegister Transaction
 
-Users are required to pay both **storage fee** and **registration fee** when executing a [PreRegister](./Transaction-Structure.md#PreRegister) transaction. Whatever crypto currency the user is paying, it must be exchanged to CKB before this transaction. The detail formula is:
+Users are required to pay both **storage fee** and **registration fee** when executing a [PreRegister](Transaction-Structure.md#PreRegister) transaction. Whatever crypto currency the user is paying, it must be exchanged to CKB before this transaction. The detail formula is:
 
 ```
 // All numbers in the following pseudo-code are of type uint64

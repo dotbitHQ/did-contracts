@@ -7,7 +7,7 @@ Transfer 授权主要用于在有第三方监管平台的场景下进行账户�
 
 AccountApprovalTransfer 中的具体数据结构为：
 
-```
+``` 
 table AccountApprovalTransfer {
     platform_lock: Script,
     protected_until: Uint64,
