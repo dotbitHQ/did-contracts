@@ -309,36 +309,92 @@ Outputs:
 
 ### Maintaince Transactions
 
-#### RecycleExpiredAccountByKeeper
+#### Forced account restoration (ForceRecoverAccountStatus)
 
-**Action structure**
+When the account is in a non-ordinary state, that is, when `witness.status != 0`, and the account reaches the **grace period** in the life cycle, then the Keeper can **forcibly restore the account's status** at this time, so that in
+The expired account auction will be carried out after the account **fully expires**, and the account recovery will be carried out when the expired auction fails.
+
+> For accounts in the auction, if someone has already bid, the Keeper cannot be forcibly restored. However, after AccountCell enters the **grace period**, bidders can no longer pass AccountAuctionCell.
+> Make a bid and the account will be handed over to the last bidder after the bidding time ends.
+
+**action structure**
 
 ```
 table ActionData {
-  action: "recycle_expired_account_by_keeper",
-  params: [],
+   action: "force_recover_account_status",
+   params: [],
 }
 ```
 
-**Transaction structure**
+**Transaction Structure**
 
 ```
 CellDeps:
-  das-lock
-  account-cell-type
-  TimeCell
-  HeightCell
-  ConfigCellMain
-  ConfigCellAccount
+   das-lock
+   account-cell-type
+   [account-sale-cell-type]
+   [account-auction-cell-type]
+   balance-cell-type
+   TimeCell
+   HeightCell
+   ConfigCellMain
+   ConfigCellAccount
 Inputs:
-  AccountCell (n - 1)  // The previous account of the overdue account, its next pointer needs to be modified
-  AccountCell (n)      // The overdue account, its AccountCell will be consumed
-  [FeeCell]
+   AccountCell
+   [AccountSaleCell] // If the account status == 1, then the corresponding AccountSaleCell must be carried
+   [AccountAuctionCell] // If the account status == 2, then the corresponding AccountAuctionCell must be carried
 Outputs:
-  AccountCell (n - 1)
-  ChangeCell // The capacity for storage of AccountCell (n) must be refund to the owner lock of AccountCell (n)
-  [ChangeCell]
+   AccountCell
+   ChangeCell // When AccountSaleCell, AccountAuctionCell is destroyed, etc., the capacity must be returned to the user
 ```
+
+**agreement**
+
+- AccountCell must be **On Sale** or **On Auction**, i.e. 1 or 2;
+- When AccountSaleCell and AccountAuctionCell are destroyed, the capacity of these Cells must be returned to the user in the form of BalanceCell;
+- Keeper can use 10_000 shannon from the refunded amount as transaction fee;
+
+#### Recycle ExpiredAccount
+
+**action structure**
+
+```
+table ActionData {
+   action: "recycle_expired_account",
+   params: [],
+}
+```
+
+**Transaction Structure**
+
+```
+CellDeps:
+   das-lock
+   account-cell-type
+   TimeCell
+   HeightCell
+   ConfigCellMain
+   ConfigCellAccount
+Inputs:
+   AccountCell (n - 1) // next pointer points to the previous account of the overdue account
+   AccountCell (n) // Overdue account
+   [SubAccountCell] // If the overdue account has opened a sub-account, you need to recycle the SubAccountCell here.
+Outputs:
+   AccountCell (n - 1)
+   ChangeCell // Capacity returned to parent account owner
+   [ChangeCell] // If the profit of DAS exceeds 61CKB, then this part of the profit should be returned to DAS
+```
+
+** Agreement **
+
+- If the sub-account function is turned on, recycling of the sub-account is a must;
+- The account must be in the Normal, LockedForCrossChain state. If it is in the Selling, Auction state, the account status should be restored through the `force_recover_account_status` transaction;
+- When recycling, you need to modify the next pointer to point to the previous AccountCell(n - 1) of the current AccountCell(n), so that AccountCell(n - 1) inherits the current AccountCell(n).next pointer;
+- After AccountCell(n) is recycled, its remaining capacity needs to be returned to the owner lock, and an amount less than or equal to `ConfigCellAccount.common_fee` can be withdrawn as transaction fee;
+- The capacity of SubAccountCell includes four parts: basic storage fee, handling fee, DAS profit, and owner profit of the parent account. Therefore, when recycling SubAccountCell, follow the following rules to return the capacity:
+    - If the profit of DAS is more than 61CKB, it needs to be returned to DAS. If the profit is less than 61CKB, it can be taken away by the transaction constructor;
+    - All profits other than DAS will be returned to the owner lock of the parent account;
+
 
 
 ## Transactions of User
@@ -641,6 +697,1159 @@ Outputs:
   IncomeCell // This is used to store fees paid by users
   [ChangeCell]
 ```
+
+### Reverse analysis of related transactions V2
+
+#### Create reverse parsing SMT tree (CreateReverseRecordRoot)
+
+This transaction can create a Cell that stores the root of the reverse parsed SMT tree, that is, create a ReverseRecordRootCell.
+
+**action structure**
+
+```
+table ActionData {
+   action: "create_reverse_record_root",
+   params: [],
+}
+```
+
+**Transaction Structure**
+
+```
+CellDeps:
+   das-lock
+   balance-cell-type
+   reverse-record-root-cell-type
+   ConfigCellMain
+   ConfigCellReverseResolution
+Inputs:
+   BalanceCell {1,}
+Outputs:
+   ReverseRecordRootCell {1,}
+   BalanceCell {1,}
+```
+
+**agreement**
+
+- At least one BalanceCell in the inputs must use super lock.
+- A ReverseRecordRootCell with an empty Root (0x000000000000000000000000000000000000000000000000000000000000000) must be created in outputs.
+- ReverseRecordRootCell's lock must be `always-success`.
+
+#### Update reverse resolution (UpdateReverseRecordRoot)
+
+This transaction can create, edit, and delete a reverse parsing record corresponding to a public key.
+
+**action structure**
+
+```
+table ActionData {
+   action: "update_reverse_record_root",
+   params: [],
+}
+```
+
+**Transaction Structure**
+
+```
+HeaderDeps:
+   block_hash(ReverseRecordRootCell)
+CellDeps:
+   das-lock
+   balance-cell-type
+   reverse-record-root-cell-type
+   ConfigCellMain
+   ConfigCellReverseResolution
+   ConfigCellSMTNodeWhitelist
+Inputs:
+   ReverseRecordRootCell
+   BalanceCell {1,}
+Outputs:
+   ReverseRecordRootCell
+   BalanceCell {1,}
+```
+
+**agreement**
+
+- ReverseRecordRootCell must be consistent, only the SMT Root in outputs_data must be different;
+- At least one lock in the BalanceCell of inputs must exist in ConfigCellSMTNodeWhitelist;
+- The SMT operation records in the witness must be arranged in order from old to new. Each record is an update to the Root, and the updates must be performed in order;
+
+### Secondary market related transactions
+
+#### Fixed price transaction
+
+##### Start Selling (StartAccountSale)
+
+This transaction can mark the account as being sold. The transaction will create an AccountSaleCell, which stores the selling price and other related information, but the selling price must not be lower than `ConfigCellSecondaryMarket.min_sale_price`.
+
+**action structure**
+
+```
+table ActionData {
+   action: "start_account_sale",
+   params: [0x00],
+}
+```
+
+**Transaction Structure**
+
+```
+CellDeps:
+   das-lock
+   account-cell-type
+   eip712-lib
+   account-sale-cell-type
+   TimeCell
+   HeightCell
+   ConfigCellAccount
+   ConfigCellSecondaryMarket
+Inputs:
+   AccountCell
+   BalanceCell {1,}
+Outputs:
+   AccountCell
+   AccountSaleCell
+   [BalanceCell]
+```
+
+**agreement**
+
+- The locks of AccountCell and AccountSaleCell must be consistent and be das-lock;
+- The capacity of AccountSaleCell needs to be equal to `ConfigCellSecondaryMarket.sale_cell_basic_capacity + ConfigCellSecondaryMarket.sale_cell_prepared_fee_capacity`
+- AccountSaleCell needs to comply with the restrictions of other `ConfigCellSecondaryMarket.sale_*` configuration items;
+
+##### Modify product information (EditAccountSale)
+
+This transaction can modify the selling price and other information stored in AccountSaleCell.
+
+**action structure**
+
+```
+table ActionData {
+   action: "edit_account_sale",
+   params: [0x00],
+}
+```
+
+**Transaction Structure**
+
+```
+CellDeps:
+   das-lock
+   account-sale-cell-type
+   TimeCell
+   HeightCell
+   ConfigCellSecondaryMarket
+   AccountCell
+Inputs:
+   AccountSaleCell
+Outputs:
+   AccountSaleCell
+```
+
+**agreement**
+
+- AccountCell needs to have the same account ID as AccountSaleCell;
+- The handling fee can be deducted from AccountSaleCell in an amount equal to `ConfigCellSecondaryMarket.common_fee`;
+
+##### Cancel Sale (CancelAccountSale)
+
+This transaction allows you to cancel the fixed-price sale of an account as long as the account has not been sold.
+
+**action structure**
+
+```
+table ActionData {
+   action: "cancel_account_sale",
+   params: [0x00],
+}
+```
+
+**Transaction Structure**
+
+```
+CellDeps:
+   das-lock
+   account-cell-type
+   eip712-lib
+   account-sale-cell-type
+   TimeCell
+   HeightCell
+   ConfigCellAccount
+Inputs:
+   AccountCell
+   AccountSaleCell
+Outputs:
+   AccountCell
+   BalanceCell
+```
+
+**agreement**
+
+- AccountCell needs to have the same account ID as AccountSaleCell;
+- The transaction fee can be deducted from AccountSaleCell by an amount equal to `ConfigCellSecondaryMarket.common_fee`;
+- There must be a ChangeCell containing the AccountSaleCell refund;
+
+##### BuyAccount
+
+Other users can purchase the account for sale through this transaction. If the purchase is successful, the account will be transferred to the new account name, and the original resolution records will be cleared.
+
+**action structure**
+
+```
+table ActionData {
+   action: "buy_account",
+   params: [inviter_lock, channel_lock, 0x00],
+}
+```
+
+- inviter_lock, if the user who purchased the account has an inviter, the inviter information can be passed through this parameter, which is a molecule-encoded Script structure. If there is no inviter, the default value of the Script structure needs to be passed in;
+- channel_lock, the purchasing channel can fill in its own payment address through this parameter to collect the share. It must also be a molecule-encoded Script structure;
+
+**Transaction Structure**
+
+```
+CellDeps:
+   das-lock
+   account-cell-type
+   eip712-lib
+   account-sale-cell-type
+   TimeCell
+   HeightCell
+   ConfigCellAccount
+   ConfigCellIncome
+   ConfigCellSecondaryMarket
+Inputs:
+   AccountCell
+   AccountSaleCell
+   BalanceCell {1,}
+Outputs:
+   AccountCell
+   IncomeCell // Stores the profits allocated to inviter_lock and channel_lock
+   BalanceCell // The capacity of AccountSaleCell must be returned to the seller of the account in the form of NormalCell using das-lock
+```
+
+**agreement**
+
+- If inviter_lock and channel_lock are the default values of the Script structure, it will be deemed that there is no inviter and no channel provider;
+- AccountCell needs to have the same account ID as AccountSaleCell;
+- The transaction fee can be deducted from AccountSaleCell by an amount equal to `ConfigCellSecondaryMarket.common_fee`;
+- The profits of the three roles of inviter, channel, and DAS need to be stored in the IncomeCell, and the profits of the seller need to be stored in a NormalCell;
+- IncomeCell can be created directly in this transaction. IncomeCell needs to meet the following constraints:
+    - The total amount recorded must be equal to IncomeCell.capacity;
+    - If the lock scripts of the invitor, chanenl, and DAS are the same, their profit-related records must be merged;
+    - Other records cannot be merged with profit-related records;
+    - The total number of records must be less than or equal to `ConfigCellIncome.max_records`;
+
+#### Quote Trading
+
+##### Create an offer (MakeOffer)
+
+Any user can make active quotes for any DAS account.
+
+**action structure**
+
+```
+table ActionData {
+   action: "make_offer",
+   params: [0x00],
+}
+```
+
+**Transaction Structure**
+
+```
+CellDeps:
+   das-lock
+   offer-cell-type
+   ConfigCellSecondaryMarket
+Inputs:
+   BalanceCell {1,}
+Outputs:
+   OfferCell
+   [BalanceCell] {1,}
+```
+
+**agreement**
+
+- The locks of all BalanceCells in the input must be consistent and das-lock;
+- The lock of OfferCell must be consistent with the BalanceCell in the input and be das-lock;
+- The capacity of OfferCell needs to be greater than `ConfigCellSecondaryMarket.offer_cell_basic_capacity + ConfigCellSecondaryMarket.offer_cell_prepared_fee_capacity`;
+- And the capacity of OfferCell needs to be greater than or equal to `OfferCell.price` and less than or equal to `OfferCell.price + ConfigCellSecondaryMarket.offer_cell_prepared_fee_capacity`;
+- OfferCell needs to comply with the restrictions of other `ConfigCellSecondaryMarket.offer_*` configuration items;
+- The inviter information is directly stored in the inviter_lock and channel_lock fields of OfferCell. If these fields are the default values of the Script structure, it will be deemed that there is no inviter and no channel provider;
+
+##### Modify offer (EditOffer)
+
+**action structure**
+
+```
+table ActionData {
+   action: "edit_offer",
+   params: [0x00],
+}
+```
+
+**Transaction Structure**
+
+```
+CellDeps:
+   das-lock
+   offer-cell-type
+   ConfigCellSecondaryMarket
+Inputs:
+   OfferCell
+   [BalanceCell] {1,}
+Outputs:
+   OfferCell
+   [BalanceCell] {1,}
+```
+
+**agreement**
+
+- Only the price and message fields of OfferCell can be modified;
+- The transaction fee can be deducted from OfferCell in an amount equal to `ConfigCellSecondaryMarket.common_fee`;
+- When the price changes, the capacity can be filled/extracted on demand, while taking into account the minimum change amount of BalanceCell and other restrictions;
+
+##### Cancel offer (CancelOffer)
+
+The user's quotation can be canceled at any time as long as it is not accepted.
+
+**action structure**
+
+```
+table ActionData {
+   action: "cancel_offer",
+   params: [0x00],
+}
+```
+
+**Transaction Structure**
+
+```
+CellDeps:
+   das-lock
+   offer-cell-type
+   TimeCell
+   ConfigCellSecondaryMarket
+Inputs:
+   OfferCell {1,}
+Outputs:
+   BalanceCell {1,}
+```
+
+**agreement**
+
+- Users can revoke one or more OfferCells at one time;
+- The transaction fee can be deducted from OfferCell in an amount equal to `ConfigCellSecondaryMarket.common_fee`;
+- The total amount of BalanceCell in the output should be greater than or equal to the total amount of OfferCell in the input minus `ConfigCellSecondaryMarket.common_fee`;
+
+#####AcceptOffer
+
+Users holding the DAS account corresponding to the quotation can accept the quotation before the account expires.
+
+**action structure**
+
+```
+table ActionData {
+   action: "accept_offer",
+   params: [0x00],
+}
+```
+
+**Transaction Structure**
+
+```
+CellDeps:
+   das-lock
+   account-cell-type
+   eip712-lib
+   TimeCell
+   ConfigCellAccount
+   ConfigCellIncome
+   ConfigCellProfitRate
+   ConfigCellSecondaryMarket
+Inputs:
+   OfferCell
+   AccountCell
+Outputs:
+   AccountCell
+   IncomeCell // Stores the profits allocated to inviter_lock and channel_lock
+   BalanceCell {1,} // Profit allocated to Seller
+```
+
+**agreement**
+
+- AccountCell needs to have exactly the same account as OfferCell;
+- The transaction fee can be deducted from OfferCell in an amount equal to `ConfigCellSecondaryMarket.common_fee`;
+- The remaining transaction fees in OfferCell do not need to be returned to the buyer;
+- The profits of the three roles of inviter, channel, and DAS need to be stored in the IncomeCell, and the profits of the seller need to be stored in a NormalCell;
+- IncomeCell can be created directly in this transaction. IncomeCell needs to meet the following constraints:
+    - The total amount recorded must be equal to IncomeCell.capacity;
+    - If the lock scripts of the invitor, chanenl, and DAS are the same, their profit-related records must be merged;
+    - Other records cannot be merged with profit-related records;
+    - The total number of records must be less than or equal to `ConfigCellIncome.max_records`;
+
+### Sub-account related transactions v2
+
+#### Enable sub-account (EnableSubAccount)
+
+This transaction can enable sub-account functionality.
+
+**action structure**
+
+```
+table ActionData {
+   action: "enable_sub_account",
+   params: [0x00],
+}
+```
+
+**Transaction Structure**
+
+```
+CellDeps:
+   das-lock
+   account-cell-type
+   sub-account-cell-type
+   TimeCell
+   HeightCell
+   ConfigCellAccount
+   ConfigCellSubAccount
+Inputs:
+   AccountCell
+   BalanceCell {1,}
+Outputs:
+   AccountCell // AccountCell.enable_sub_account needs to be set to 1
+   SubAccountCell // Create a SubAccountCell to store the Merkle root of the sub-account
+   [BalanceCell]
+```
+
+**agreement**
+
+- AccountCell.enable_sub_account must be 0 for an unenabled account to initiate this transaction;
+- The capacity of SubAccountCell needs to be equal to `ConfigCellSubAccount.basic_capacity + ConfigCellSubAccount.prepared_fee_capacity`;
+- The `data` of SubAccountCell needs to be set to the `data.flag = 0xff` state. For other requirements of the corresponding state, see [SubAccountCell](Cell-structure protocol.md#SubAccountCell)`;
+
+#### Set up the sub-account creation script (ConfigSubAccountCustomScript)
+
+Set the type ID of the sub-account creation script. After setting it, you no longer need to put AccountCell into inputs when creating a sub-account. Instead, whether the script is passed or not is used as the criterion for transaction verification. If a sub-account creation script has been set up, the script type ID can be used to execute this transaction again.
+After replacing or clearing the sub-account creation script, the creation process will be restored to the way of manually creating sub-accounts through the owner or manager.
+
+**action structure**
+
+```
+table ActionData {
+   action: "config_sub_account_custom_script",
+   params: [0x00/0x01], // Either owner or manager can set the sub-account creation script
+}
+```
+
+**Transaction Structure**
+
+```
+CellDeps:
+   das-lock
+   account-cell-type
+   sub-account-cell-type
+   TimeCell
+   HeightCell
+   ConfigCellAccount
+   ConfigCellSubAccount
+Inputs:
+   AccountCell
+   SubAccountCell
+   BalanceCell {1,}
+Outputs:
+   AccountCell // AccountCell does not require any modification, it is only used for signature verification
+   SubAccountCell //Add a custom creation script type ID, or reset all type IDs to 0
+   [BalanceCell]
+```
+
+**agreement**
+
+- Owner or manager both have permission to configure sub-account creation scripts;
+- The AccountCell must not be in the grace period or beyond;
+- When setting the sub-account creation script, if the type ID is not all 0, it is considered to be a valid type ID; if it is all 0, it is considered to be a cleared type ID;
+
+#### Set up sub-account (ConfigSubAccount)
+
+Set the type ID of the sub-account creation script. After setting it, you no longer need to put AccountCell into inputs when creating a sub-account. Instead, whether the script is passed or not is used as the criterion for transaction verification. If a sub-account creation script has been set up, the script type ID can be used to execute this transaction again.
+After replacing or clearing the sub-account creation script, the creation process will be restored to the method of manually creating sub-accounts through the owner or manager.
+
+**action structure**
+
+```
+table ActionData {
+   action: "config_sub_account",
+   params: [0x00/0x01],
+}
+```
+
+**Transaction Structure**
+
+```
+CellDeps:
+   das-lock
+   account-cell-type
+   sub-account-cell-type
+   TimeCell
+   HeightCell
+   ConfigCellAccount
+   ConfigCellSubAccount
+Inputs:
+   AccountCell
+   SubAccountCell
+   BalanceCell {1,}
+Outputs:
+   AccountCell // AccountCell does not require any modification, it is only used for signature verification
+   SubAccountCell
+   [BalanceCell]
+Witnesses:
+   SubAccountPriceRule1
+   SubAccountPriceRule2
+   SubAccountPriceRule3
+   ...
+   SubAccountPreservedRule1
+   SubAccountPreservedRule2
+   SubAccountPreservedRule3
+   ...
+```
+
+**agreement**
+
+- Owner or manager both have permission to configure sub-account creation scripts;
+- AccountCell cannot change before and after the transaction, and must not be in the **grace period** or later;
+- SubAccountCell can only set `flag` to the following values. For other requirements of the corresponding status, see [SubAccountCell](Cell-Structure Protocol.md#SubAccountCell):
+    - `0x00`, indicating that the user only uses manual distribution;
+    - `0xff`, indicating that the user has enabled the configuration-based automatic distribution feature;
+- `SubAccountPriceRule` must be sorted according to the order of its index field;
+- `SubAccountPreservedRule` must be sorted according to the order of its index field;
+- `SubAccountPriceRule` and `SubAccountPreservedRule` must be able to successfully pass type checking;
+
+#### Update sub-account (UpdateSubAccount)
+
+This transaction accommodates all operations related to sub-account creation, editing, renewal, recycling, etc. Therefore, in addition to `ActionData` which can be used to identify the current transaction, you also need to understand each sub-account witness, which is the meaning of SubAccount witness.
+
+**action structure**
+
+```
+table ActionData {
+   action: "update_sub_account",
+   params: [],
+}
+```
+
+**Transaction Structure**
+
+```
+CellDeps:
+   das-lock
+   sub-account-cell-type
+   QuoteCell
+   TimeCell
+   HeightCell
+   ConfigCellAccount
+   ConfigCellSubAccount
+   AccountCell
+Inputs:
+   SubAccountCell
+   [BalanceCell {1,}]
+Outputs:
+   SubAccountCell // The Merkle root of the subaccount must be updated to the final state
+   [BalanceCell]
+```
+
+**Trading Agreement**
+
+> The covenants here apply to this transaction.
+
+- The AccountCell must not be in the grace period or beyond;
+- The handling fee that can be deducted from SubAccountCell for this transaction shall not be higher than the value configured in `ConfigCellSubAccount.renew_fee`;
+
+##### Create sub-account
+
+**SubAccount witness structure**
+
+```
+version: 3
+action:create
+signature: null
+sign_role: null
+sign_expired_at: null
+new_root: ...
+proof: ...
+sub_account: ...
+edit_key: "manual" // custom_script, custom_rule
+edit_value: ...
+```
+
+- When `edit_key == manual`, the `edit_value` value is a valid `proof` of `SubAccountMintSign.account_list_smt_root`, which must be able to prove that the currently created account name indeed exists in `SubAccountMintSign.account_list_smt_root`;
+- When `edit_key == custom_script`, `edit_value` must be empty;
+- When `edit_key == custom_rule`, the first 20 Bytes of `edit_value` are the identification ID of the channel provider, and the last 8 Bytes are the amount paid when registering this account;
+
+> In order to support third-party channels to distribute sub-accounts through custom rules, the witness of each sub-account registered through third-party channels needs to contain the identification ID and registration amount of the channel provider. Subsequently, the dotbit team will use this as a basis and the third Profit distribution is carried out through three-party channels.
+>
+> When there is no third-party channel, the channel identifier is filled with 20 Bytes of `0x00`, and all profits belong to the dotbit team.
+
+**agreement**
+
+- Both owner or manager have permission to create sub-accounts;
+- The registration period is at least 1 year;
+- The `SubAccount.sub_account.expired_at` corresponding to the sub-account must be filled with the corresponding expiration time;
+- When `SubAccountCell.data.flag == 0x00` indicates:
+    - Users can specify the account list for manual Mint through `SubAccountMintSign`;
+    - The registration fee for manual Mint sub-accounts is equal to `ConfigCellSubAccount.new_sub_account_price`;
+    - `SubAccount.edit_key` stores the utf-8 encoded data of `manual`;
+- When `SubAccountCell.data.flag == 0x01` indicates:
+    - Users can still specify the account list for manual Mint through `SubAccountMintSign`;
+    - The registration fee for manual Mint sub-accounts is equal to `ConfigCellSubAccount.new_sub_account_price`;
+    - If it is a manual Mint sub-account, the following information must be carried:
+        - `SubAccount.edit_key` stores the utf-8 encoded data of `manual`;
+    - The registration fee of each sub-account is governed by a custom script. The registration fee needs to be stored in `SubAccountCell.capacity` and accumulated according to `ConfigCellSubAccount.new_sub_account_custom_price_das_profit_rate` in `SubAccountCell.data.das_profit` and `SubAccountCell.data.owner_profit` respectively. The final profit distribution amount;
+    - If it is a sub-account registered according to custom rules, bring the following information:
+        - `SubAccount.edit_key` stores the utf-8 encoded data of `custom_script`;
+    - All input and output BalanceCells can only use the same lock;
+- When `SubAccountCell.data.flag == 0xff` indicates:
+    - Users can still specify the account list for manual Mint through `SubAccountMintSign`;
+    - The registration fee for manual Mint sub-accounts is equal to `ConfigCellSubAccount.new_sub_account_price`;
+    - If it is a manual Mint sub-account, the following information must be carried:
+        - `SubAccount.edit_key` stores the utf-8 encoded data of `manual`;
+    - Whether each sub-account can be registered is determined based on the execution result of `SubAccountPreservedRule`;
+    - The pricing of registerable sub-accounts is determined based on the execution results of `SubAccountPriceRule`;
+    - Accounts that are not successfully matched by `SubAccountPriceRule` cannot be registered;
+    - If it is a sub-account registered according to custom rules, bring the following information:
+        - `SubAccount.edit_key` stores the utf-8 encoded data of `custom_rule`;
+        - `SubAccount.edit_value` stores the identification ID of the third-party channel and the CKB amount paid to register this account;
+    - All registration fees are put into `SubAccountCell.data.das_profit` and then distributed after statistics;
+
+##### Edit sub-account
+
+**SubAccount witness structure**
+
+```
+version: 3
+action: edit
+signature: ...
+sign_role: ...
+sign_expired_at: ...
+new_root: ...
+proof: ...
+sub_account: ...
+edit_key: "owner" // manager, records
+edit_value: ...
+```
+
+- `signature` requires the signature of owner or manager depending on the edited field:
+    - `digest` is generated by concatenating the following data in order:
+    - `from did: ` utf8 bytes of string;
+    - A hash generated according to ckb-hash, created by splicing the following fields in order and then hashing:
+        - `account_id`
+        - `edit_key`
+        - `edit_value`
+        - `nonce`
+        - `sign_expired_at`
+- `sign_role` is used to indicate whether `signature` comes from owner or manager;
+- `sign_expired_at` is a field designed to prevent `signature` from being replayed. Its timestamp must be less than or equal to the `expired_at` of the main account, that is, all sub-accounts in the transaction;
+- When `edit_key == owner`, `edit_value` must be a valid args data of das-lock, and for security reasons, the records field of the sub-account should be cleared;
+- When `edit_key == manager`, `edit_value` must be a valid args data of das-lock;
+- When `edit_key == records`, `edit_value` must be a molecule encoded `Records` type data;
+
+**agreement**
+
+- If the current time has exceeded `SubAccount.expired_at`, the sub-account can no longer be edited;
+- The edited field name and value must be clearly defined through `edit_key, edit_value`;
+
+##### Renew sub-account
+
+**SubAccount witness structure**
+
+```
+version: 3
+action: renew
+signature: null
+sign_role: null
+sign_expired_at: null
+new_root: ...
+proof: ...
+sub_account: ...
+edit_key: "manual" // custom_script, custom_rule
+edit_value: ...
+```
+
+- In any case, the first 8 bytes of `edit_value` always store the new expiration time after renewal;
+- When `edit_key == manual`:
+    - If the owner/manager actively renews, in addition to the expiration time of 8 bytes, the value of `edit_value` must also store the valid `proof` account name of `SubAccountRenewSign.account_list_smt_root` that does exist in `SubAccountRenewSign.account_list_smt_root`;
+    - If it is renewed by someone else, the value of `edit_value` only needs an expiration time of 8 bytes;
+- When `edit_key == custom_rule`, in addition to the expiration time of 8 bytes, the value of `edit_value` also contains 20 bytes for the identification ID of the channel provider, and 8 bytes for the amount paid when registering this account;
+- `edit_key == custom_script` is no longer supported and will be deleted in the future;
+
+**agreement**
+
+- The renewal period is at least 1 year;
+- There is only one `SubAccountRenewSign` in a transaction, which can only belong to one of owner, manager or other;
+- Regardless of any value of `SubAccountCell.data.flag`:
+    - The owner or manager can always specify the account list for manual renewal through `SubAccountRenewSign`;
+    - `SubAccountRenewSign.signature` must be called by type to `AccountCell.lock` in cell_deps for signature verification and pass;
+    - You can use BalanceCell or NormalCell for payment. If you use BalanceCell for payment, you can only use BalanceCell with the same owner lock or manager lock;
+    - During manual renewal, the renewal price of each sub-account is equal to `ConfigCellSubAccount.renew_sub_account_price`;
+    - Sub-accounts for manual renewal must carry the following information:
+        - `SubAccount.edit_key` stores the utf-8 encoded data of `manual`;
+        - The first 8 bytes of `SubAccount.edit_value` store the new expired_at timestamp, and the subsequent bytes are filled with the proof corresponding to SubAccountRenewSign;
+- When `SubAccountCell.data.flag == 0x00` indicates:
+    - Sub-accounts can only be renewed manually;
+    - Since the renewal fees are the same, sub-account users can also renew using the self-renewal method at the bottom;
+- When `SubAccountCell.data.flag == 0xff` indicates:
+    - Payment can only be made using NormalCell;
+    - The renewal price is determined based on the execution results of `SubAccountPriceRule`;
+    - Sub-accounts that are renewed according to custom rules must carry the following information:
+        - `SubAccount.edit_key` stores the utf-8 encoded data of `custom_rule`;
+        - The first 8 bytes of `SubAccount.edit_value` store the new expired_at timestamp, and the subsequent bytes store the identification ID of the third-party channel and the CKB amount paid for renewal;
+    - All registration fees are put into `SubAccountCell.data.das_profit` and then distributed after statistics;
+    - In order to prevent sub-account users from bypassing the custom price for renewal, only when the sub-account cannot match any price, the sub-account user can also renew by self-renewal at the bottom;
+- When the above renewal rules cannot match the sub-account, the sub-account user can also renew himself:
+    - Payment can only be made using NormalCell;
+    - The renewal price is equal to `ConfigCellSubAccount.renew_sub_account_price`;
+    - The sub-account to be renewed must carry the following information:
+        - `SubAccount.edit_key` stores the utf-8 encoded data of `manual`;
+        - The first 8 bytes of `SubAccount.edit_value` store the new expired_at timestamp;
+
+##### Recycle sub-account
+
+When a sub-account expires, anyone can reclaim the sub-account through this transaction.
+
+**action**
+
+```
+version: 3
+action: recycle
+signature: null
+sign_role: null
+sign_expired_at: null
+new_root: ...
+proof: ...
+sub_account: ...
+edit_key: null
+edit_value: null
+```
+
+**agreement**
+
+- When the sub-account expires and passes the grace period of `ConfigCellAccount.expiration_grace_period`, it can be recycled;
+- `witness.new_root` and `witness.proof` should be able to prove that the value of the current sub-account in SMT is empty, that is, 32 bytes of `0x00`;
+
+#### Withdraw sub-account profit (CollectSubAccountProfit)
+
+The profits of DAS and owner are stored in the capacity of the sub-account. When you need to withdraw profits, you need to initiate this transaction.
+
+**action structure**
+
+```
+table ActionData {
+   action: "collect_sub_account_profit",
+   params: [],
+}
+```
+
+**Transaction Structure**
+
+```
+CellDeps:
+   das-lock
+   sub-account-cell-type
+   balance-cell-type
+   ConfigCellSubAccount
+   AccountCell
+Inputs:
+   SubAccountCell
+Outputs:
+   SubAccountCell
+   ChangeCell // Profit of DAS
+   ChangeCell // owner's profit
+```
+
+**agreement**
+
+- The account IDs of AccountCell and SubAccountCell in cell_deps must be consistent;
+- No matter what state the AccountCell is in, profits can be withdrawn;
+- Anyone can initiate this transaction to withdraw profits, but unless the input contains dotbit’s official specific lock, the owner’s profits can only be withdrawn to the owner’s address;
+- When the profit of either DAS or owner in SubAccountCell is greater than or equal to 61CKB, this transaction can be initiated to withdraw profits;
+- When withdrawing, all withdrawable CKB of the owner must be withdrawn, and the `owner_profit` record must be set to 0;
+- The handling fee that can be deducted from SubAccountCell for this transaction shall not be higher than the value configured in `ConfigCellSubAccount.common_fee`;
+
+#### Withdraw sub-account third-party channel profit (CollectSubAccountChannelProfit)
+
+Different from the previous `collect_sub_account_profit` transaction, this transaction is a transaction that can only be initiated by dotbit to extract profits and distribute them to third-party channels:
+
+**action structure**
+
+```
+table ActionData {
+   action: "collect_sub_account_channel_profit",
+   params: [],
+}
+```
+
+**Transaction Structure**
+
+```
+CellDeps:
+   das-lock
+   sub-account-cell-type
+   balance-cell-type
+   ConfigCellSubAccount
+Inputs:
+   SubAccountCell
+   NormalCell
+Outputs:
+   SubAccountCell
+   ChangeCell // Profit of channel provider 1
+   ChangeCell // Profit of channel provider 2
+```
+
+**agreement**
+
+- There must be a NormalCell containing dotbit official specific lock in the input for verification;
+
+### Device management related transactions
+
+#### Create DeviceKeyListCell (CreateDeviceKeyList)
+
+Create a DeviceKeyListCell to store the DeviceKeyList used for signature verification of each device during device management.
+
+**Action structure**
+
+```C
+table ActionData {
+   action: "create_device_key_list",
+   params: [],
+}
+```
+
+**Transaction Structure**
+
+```
+CellDeps:
+   das-lock
+   ConfigCellMain
+   device-key-list-cell-type
+
+Inputs:
+   BalanceCell
+
+Outputs:
+   DeviceKeyListCell
+   [BalanceCell]
+```
+
+**agreement**
+
+- Anyone can create DeviceKeyListCell;
+- In the args of das-lock of DeviceKeyListCell, owner and manager must be the same, equal to DeviceKey in DeviceKeyList;
+- The locks of BalanceCell in input and BalanceCell in outputs need to be consistent;
+- witness must have DeviceKeyList, and the array has only one DeviceKey;
+- The contract does not verify the correctness of the DeviceKey in the transaction;
+
+#### Update DeviceKeyListCell (UpdateDeviceKeyList)
+
+Replace the old DeviceKeyListCell with the new DeviceKeyList in the transaction.
+
+**Action structure**
+
+```
+table ActionData {
+   action: "update_device_key_list",
+   params: [],
+}
+```
+
+**Transaction Structure**
+
+```
+CellDeps:
+   das-lock
+   ConfigCellMain
+   device-key-list-cell-type
+Inputs:
+   DeviceKeyListCell
+Outputs:
+   DeviceKeyListCell
+```
+
+**agreement**
+
+- Update operations include add or delete operations;
+- Only one device can be added or deleted at a time;
+- In the UpdateDeviceKeyList operation, the lower limit of DeviceKeyList capacity is 1 and the upper limit of capacity is 10;
+
+#### Delete DeviceKeyListCell (DestroyDeviceKeyList)
+
+When the user chooses to give up device management, the list will be cleared, the cell will be released, and the ckb will be returned to DeviceKeyListCell.witness.refund_lock;
+
+**action structure**
+
+```
+table ActionData {
+   action: "destroy_device_key_list",
+   params: [],
+}
+```
+
+**Transaction Structure**
+
+```
+CellDeps:
+   das-lock
+   device-key-list-cell-type
+Inputs:
+   DeviceKeyListCell {1,}
+Outputs:
+   BalanceCell
+```
+
+**agreement**
+
+- When refunding, the ckb occupied by the cell will be refunded to the refund_lock specified in DeviceKeyListCell. This refund_lock is consistent with the lock of BalanceCell that provided ckb when creating DeviceKeyListCell.
+
+### Authorize related transactions
+
+All current authorization transactions use the same data structure:
+
+```
+CellDeps:
+   das-lock
+   account-cell-type
+   eip712-lib
+   TimeCell
+   HeightCell
+   ConfigCellMain
+   ConfigCellAccount
+Inputs:
+   AccountCell
+Outputs:
+   AccountCell
+```
+
+#### Create authorization transaction (CreateApproval)
+
+**action structure**
+
+```
+table ActionData {
+   action: "create_approval",
+   params: [0x00],
+}
+```
+
+**Transaction Structure**
+
+For the above public structure
+
+**agreement**
+
+- Transaction fees can be paid by AccountCell, but the upper limit of the payment amount cannot exceed the value of ConfigCellAccount.common_fee;
+- Satisfy [specific constraints of each type of approval](approval/basic-structure.md);
+
+#### Extend authorization transaction (DelayApproval)
+
+**action structure**
+
+```
+table ActionData {
+   action: "delay_approval",
+   params: [0x00],
+}
+```
+
+**Transaction Structure**
+
+For the above public structure
+
+**agreement**
+
+- Transaction fees can be paid by AccountCell, but the upper limit of the payment amount cannot exceed the value of ConfigCellAccount.common_fee;
+- Satisfy [specific constraints of each type of approval](approval/basic-structure.md);
+
+#### Cancel authorization transaction (RevokeApproval)
+
+**action structure**
+
+```
+table ActionData {
+   action: "revoke_approval",
+   params: [0x00],
+}
+```
+
+**Transaction Structure**
+
+For the above public structure
+
+**agreement**
+
+- Transaction fees can be paid by AccountCell, but the upper limit of the payment amount cannot exceed the value of ConfigCellAccount.common_fee;
+- Satisfy [specific constraints of each type of approval](approval/basic-structure.md);
+
+#### Execute authorized transaction (FulFillApproval)
+
+**action structure**
+
+```
+table ActionData {
+   action: "fulfill_approval",
+   params: [null/0x00],
+}
+```
+
+**Transaction Structure**
+
+For the above public structure
+
+**agreement**
+
+- Transaction fees can be paid by AccountCell, but the upper limit of the payment amount cannot exceed the value of ConfigCellAccount.common_fee;
+- Satisfy [specific constraints of each type of approval](approval/basic-structure.md);
+
+
+## Cross-chain related transactions
+
+### Cross-chain the account to other chains (LockAccountForCrossChain)
+
+When the account needs to cross to other chains, it can modify its status through this transaction and lock itself. Subsequently, the cross-chain node will mint the corresponding NFT in other chains.
+
+**action structure**
+
+```
+table ActionData {
+   action: "lock_account_for_cross_chain",
+   params: [coin_type, chain_id, role],
+}
+```
+
+- coin_type, 8 bytes, little-endian encoded u64
+- chain_id, 8 bytes, little-endian encoded u64
+- role, 1 byte, this transaction requires the owner to sign, so it is a constant `0x00`
+
+**Transaction Structure**
+
+```
+CellDeps:
+   das-lock
+   account-cell-type
+   eip712-lib
+   TimeCell
+   ConfigCellAccount
+Inputs:
+   AccountCell
+Outputs:
+   AccountCell
+```
+
+**agreement**
+
+- AccountCell must not be 90 days before the **grace period**;
+- The AccountCell during input must be in **Normal** state, that is, `0x00`;
+- The AccountCell in the output must be in the **LockedForCrossChain** state, that is, `0x03`;
+- The `lock.args` of AccountCell in the output must be set to the black hole address `0x0300000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+- The parsing record of AccountCell in the output must be cleared;
+
+> This is because if the ownership of the account is transferred after cross-chain, it should also be transferred on CKB. For safety reasons, the account status after the New Year's Eve will be based on the status of the ETH chain, so it needs to be transferred on the CKB chain. Clear the status.
+
+### Return the account from other chains across chains (UnlockAccountForCrossChain)
+
+When an account needs to be crossed back from other chains, if the cross-chain node detects that the account has been destroyed in other chains, it can unlock the account in the ckb chain through multi-signature.
+
+**action structure**
+
+```
+table ActionData {
+   action: "unlock_account_for_cross_chain",
+   params: [],
+}
+```
+
+**Transaction Structure**
+
+```
+CellDeps:
+   das-lock
+   account-cell-type
+Inputs:
+   AccountCell
+Outputs:
+   AccountCell
+```
+
+**agreement**
+
+- The AccountCell during input must be in the **LockedForCrossChain** state, that is, `0x03`;
+- The AccountCell in the output must be in the **Normal** state, that is, `0x00`;
+
+### Cross-chain sub-accounts to other chains (LockSubAccountForCrossChain)
+
+It is the same as the cross-chain transaction of the main account, but the transaction structure is different.
+
+**action structure**
+
+```
+table ActionData {
+   action: "lock_sub_account_for_cross_chain",
+   params: [coin_type, chain_id],
+}
+```
+
+**Transaction Structure**
+
+```
+CellDeps:
+   das-lock
+   sub-account-cell-type
+   TimeCell
+   ConfigCellSubAccount
+   AccountCell
+Inputs:
+   SubAccountCell
+Outputs:
+   SubAccountCell
+```
+
+**agreement**
+
+- The subaccount must not be within 90 days before the **grace period**;
+- The input sub-account must be in **Normal** state, that is, `0x00`;
+- The output neutron account must be in the **LockedForCrossChain** state, that is, `0x03`;
+- The `lock.args` of the output neutron account must be set to the black hole address `0x030000000000000000000000000000000000000003000000000000000000000000000000000000000`;
+- The parsing records of sub-accounts in the output must be cleared;
+
+### Return the account from other chains across chains (UnlockSubAccountForCrossChain)
+
+It is the same as the cross-chain transaction of the main account, but the transaction structure is different.
+
+**action structure**
+
+```
+table ActionData {
+   action: "unlock_sub_account_for_cross_chain",
+   params: [],
+}
+```
+
+**Transaction Structure**
+
+```
+CellDeps:
+   das-lock
+   sub-account-cell-type
+Inputs:
+   SubAccountCell
+Outputs:
+   SubAccountCell
+```
+
+**agreement**
+
+- The input sub-account must be in the **LockedForCrossChain** state, i.e. `0x03`;
+- The output neutron account must be in **Normal** state, that is, `0x00`;
 
 ## Special Transactions
 
