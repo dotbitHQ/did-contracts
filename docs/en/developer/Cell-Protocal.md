@@ -477,6 +477,23 @@ Actual volume: `148 ~ 170` Bytes, depending on the length of args of das-lock.
 
 On-chain volume: depends on the configuration items in ConfigCellSecondaryMarket
 
+### BalanceCell
+
+This is the Cell used to act as the user's ckb balance. The data field has no data and no associated witness.
+
+#### Structure
+
+```
+lock: <das-lock>
+type: <balance-cell-type>
+data: 0x
+```
+
+
+#### Volume
+
+Actual volume: 116 Bytes.
+
 ### ~~ReverseRecordCell~~
 
 > **Deprecated**! This Cell has been deprecated and this document is only used for transaction parsing.
@@ -653,6 +670,25 @@ enum sub_alg_id {
 ```
 #### Volume: ToDo
 
+### DPointCell
+
+This is a Cell that describes the current Cell DID Point balance.
+DID Point is launched by the .bit team and is anchored to points in US dollars. Users can purchase DID Point with US dollars or ckb, etc., and then use DID Point to purchase and renew .bit domain names.
+
+#### Structure
+
+```
+lock: <das-lock>
+type: <dpoint-cell-type>
+data:
+   value: Uint64
+```
+The data of DPointCell uses the LV (Length/Value) structure to store data, and there is no witness:
+- value, u64 type, the total number of DPoints carried in the current Cell;
+
+#### Volume
+
+Actual volume: 128 Bytes.
 
 
 ## ConfigCell
@@ -784,6 +820,7 @@ table TypeIdTable {
     sub_account_cell: Hash,
     eip712_lib: Hash,
     reverse_record_root_cell: Hash,
+    dpoint_cell: Hash,
 }
 
 table DasLockOutPointTable {
@@ -793,6 +830,8 @@ table DasLockOutPointTable {
     eth: OutPoint,
     tron: OutPoint,
     ed25519: OutPoint,
+    doge: OutPoint,
+    webauthn: OutPoint,
 }
 
 table DasLockTypeIdTable {
@@ -802,6 +841,7 @@ table DasLockTypeIdTable {
     eth: Hash,
     tron: Hash,
     doge: Hash,
+    webauthn: Hash,
 }
 ```
 
@@ -1045,6 +1085,21 @@ length|hash|hash|hash ...
 The witness of this cell stores pure binary data in its entity part without molecule encoding. The first 4 bytes are the total data length of uint32, including the 4 bytes itself, followed by the first 20 of the hash of each account name without the suffix.
 Data spliced by bytes, because each piece of data is fixed at 20 bytes, so there are no delimiters and other bytes.
 
+#### ConfigCellDPoint
+Used to store DPointCell related configurations.
+```
+table ConfigCellDPoint {
+     // The basic capacity DPointCell required, it is bigger than or equal to DPointCell occupied capacity.
+     basic_capacity: Uint64,
+     // The fees prepared for various transactions.
+     prepared_fee_capacity: Uint64,
+     // The addresses can transfer and receive DPointCells.
+     transfer_whitelist: Scripts,
+     // The addresses for recycling the CKB occupied by DPointCells.
+     capacity_recycle_whitelist: Scripts,
+}
+
+```
 
 ### TimeCell, HeightCell, QuoteCell
 

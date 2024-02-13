@@ -481,6 +481,25 @@ table AccountAuctionCellData {
 
 链上体积：取决于 ConfigCellSecondaryMarket 里的配置项
 
+
+### BalanceCell
+
+这是用来充当用户 ckb 余额的 Cell 。data 字段没有数据，也没有关联的 witness。
+
+#### 结构
+
+```
+lock: <das-lock>
+type: <balance-cell-type>
+data: 0x
+```
+
+
+#### 体积
+
+实际体积：116 Bytes。
+
+
 ### ~~ReverseRecordCell~~
 
 > **Deprecated**！此 Cell 已经废弃，此文档仅供交易解析使用。
@@ -667,6 +686,26 @@ enum sub_alg_id {
 #### 体积： ToDo
 
 
+### DPointCell
+
+这是一个描述当前 Cell DID Point 余额的 Cell。
+DID Point 是 .bit 团队推出的，锚定美金的点数，用户可以通过美元或者 ckb 等购买 DID Point，然后使用 DID Point 购买、续费 .bit 域名。
+
+#### 结构
+
+```
+lock: <das-lock>
+type: <dpoint-cell-type>
+data:
+  value: Uint64
+```
+DPointCell 的 data 采用 LV (Length/Value) 结构存放数据，没有 witness ：
+- value ，u64 类型，当前 Cell 中携带的 DPoint 总额；
+
+#### 体积
+
+实际体积：128 Bytes。
+
 
 ## ConfigCell
 
@@ -800,6 +839,7 @@ table TypeIdTable {
     sub_account_cell: Hash,
     eip712_lib: Hash,
     reverse_record_root_cell: Hash,
+    dpoint_cell: Hash,
 }
 
 table DasLockOutPointTable {
@@ -809,6 +849,8 @@ table DasLockOutPointTable {
     eth: OutPoint,
     tron: OutPoint,
     ed25519: OutPoint,
+    doge: OutPoint,
+    webauthn: OutPoint,
 }
 
 table DasLockTypeIdTable {
@@ -818,6 +860,7 @@ table DasLockTypeIdTable {
     eth: Hash,
     tron: Hash,
     doge: Hash,
+    webauthn: Hash,
 }
 ```
 
@@ -1062,6 +1105,21 @@ length|hash|hash|hash ...
 这个 cell 的 witness 在其 entity 部分**存储的是纯二进制数据**，未进行 molecule 编码。其中前 4 bytes 是 uint32 的数据总长度，**包括这 4 bytes 自身**，之后就是各个账户名不含后缀的部分 hash 后前 20
 bytes 拼接而成的数据，因为每段数据固定为 20 bytes 所以**无分隔符等字节**。
 
+#### ConfigCellDPoint
+用来存储 DPointCell 相关的配置
+```
+table ConfigCellDPoint {
+    // The basic capacity DPointCell required, it is bigger than or equal to DPointCell occupied capacity.
+    basic_capacity: Uint64,
+    // The fees prepared for various transactions.
+    prepared_fee_capacity: Uint64,
+    // The addresses can transfer and receive DPointCells.
+    transfer_whitelist: Scripts,
+    // The addresses for recycling the CKB occupied by DPointCells.
+    capacity_recycle_whitelist: Scripts,
+}
+
+```
 
 ### TimeCell、HeightCell、QuoteCell
 
