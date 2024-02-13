@@ -1710,6 +1710,115 @@ For the above public structure
 - Transaction fees can be paid by AccountCell, but the upper limit of the payment amount cannot exceed the value of ConfigCellAccount.common_fee;
 - Satisfy [specific constraints of each type of approval](approval/basic-structure.md);
 
+### DIDPoint related transactions
+DID Point is a dollar-anchored point launched by the .bit team. Users can obtain the corresponding amount of DID Points after recharging to .bit through some methods. You can then use it to purchase and renew .bit accounts.
+
+Terminology convention
+- The lock that exists in ConfigCellDPoint.transfer_whitelist is collectively referred to as `transfer lock` in the following;
+- The locks that exist in ConfigCellDPoint.capacity_recycle_whitelist are collectively called `recycle lock`;
+- Locks other than the above two are collectively called `user lock`;
+#### Mint DIDPoint (MintDp)
+
+**Action structure**
+
+```
+table ActionData {
+   action: "mint_dp",
+   params: [],
+}
+```
+
+**Transaction Structure**
+
+```
+CellDeps:
+   das-lock
+   dpoint-cell-type
+   ConfigCellMain
+   ConfigCellDPoint
+Inputs:
+   NormalCell {1, }
+Outputs:
+   DPointCell {1, }
+   ChangeCell
+```
+
+**agreement**
+- inputs must contain at least one cell using super lock;
+- outputs must contain at least one DPointCell;
+- DPointCell.capacity in outputs must be the sum of ConfigCellDPoint.basic_capacity + ConfigCellDPoint.prepared_fee_capacity;
+- DPointCell.lock in outputs must all be `transfer lock`;
+-
+#### Transfer DIDPoint (TransferDp)
+
+
+**Action structure**
+
+```
+table ActionData {
+   action: "transfer_dp",
+   params: [],
+}
+```
+
+**Transaction Structure**
+
+```
+CellDeps:
+   das-lock
+   eip712-lib
+   dpoint-cell-type
+   ConfigCellMain
+   ConfigCellDPoint
+Inputs:
+   DPointCell {1, } [A]
+Outputs:
+   DPointCell {1, } [A]
+```
+
+**agreement**
+- DPointCells.lock in inputs can only be the same lock, that is, a single `user lock` or a single `transfer lock`;
+- There can only be `user lock` from the same user in inputs or outputs;
+- There must be at least one `transfer lock` in inputs or outputs;
+- The total number of DPoints in inputs is equal to the total number of DPoints in outputs;
+- The handling fee for this transaction must be paid by other cells;
+-
+#### Destroy DIDPoint (BurnDp)
+
+
+**Action structure**
+
+```
+table ActionData {
+   action: "burn_dp",
+   params: [],
+}
+```
+
+**Transaction Structure**
+
+```
+CellDeps:
+   das-lock
+   eip712-lib
+   dpoint-cell-type
+   ConfigCellMain
+   ConfigCellDPoint
+Inputs:
+   DPointCell {1, } [A]
+   NormalCell {1, }
+Outputs:
+   DPointCell {1, } [A]
+   ChangeCell
+```
+
+**agreement**
+- There must be at least one cell using `transfer lock` or `recycling lock` in inputs;
+- All DPointCells in inputs and outputs must come from the same `user lock`;
+- The total number of DPoints in inputs must be greater than the total number of DPoints in outputs;
+- The number of DPointCells in outputs is allowed to be greater than or equal to the number of DPointCells in inputs, that is, the change DPointCells can be split in this transaction;
+- The handling fee for this transaction must be paid by other cells;
+
 
 ## Cross-chain related transactions
 
