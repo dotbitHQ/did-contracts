@@ -66,3 +66,26 @@ profit_of_proposal_confirmer = profit * proposal_confirmer_profit_rate
 
 profit_of_DAS = profit - profit_of_inviter - profit_of_channel - profit_of_proposal_creator - profit_of_proposal_confirmer
 ```
+
+### Formula for calculating auction price after account expiration
+
+When an account has not been renewed after the grace period, it will automatically enter the auction process. The auction process refers to the Dutch auction method. The bid price will continue to decrease over time until the transaction is completed or the auction is unsuccessful:
+
+Account’s auction price = base price + premium at auction;
+
+For the basic price of the account, please refer to [Total amount at pre-registration](#total-amount-of-preregister-transaction):
+
+The premium is calculated as follows:
+
+$$
+Premium = \frac{StartPremium}{2^{\frac{AuctionStartedTime}{24\times 3600}}}
+$$
+
+* Premium: is the premium at the auction;
+* StartPremium: is the initial premium, which can be obtained from ConfigCellAccount.expiration_auction_start_premiums;
+* AuctionStartedTime: is the auction start time, in seconds;
+
+
+Because floating point numbers are introduced in the calculation of the premium, resulting in accuracy differences, the contract introduces two additional mechanisms to ensure that there will not be excessive deviations.
+1. Add an allowable error table, which allows the price of a transaction to be adjusted downward or downward based on the contract calculation. The capacity of the table is 6, the unit is every 5 days, and the table value is [10, 1, 0.5. 0.05, 0.01, 0.001]. When calculating, the contract divides the current time by 5 days, looks up the table to get the error value, and then subtracts this value as the final premium. For example, in the first 5 days of the auction period, the auction price is allowed to be $10 lower than the expected contract price. Within 5 to 10 days, the auction price is allowed to be $1 lower than the contract price;
+2. Add a time period minimum price list with a capacity of 60, in units of 0.5 days, and pre-calculate the price and write it into the contract. The premium obtained by the contract through floating point operations cannot be lower than the lowest price in the corresponding time period. Prevent floating point calculation errors in online environment contracts and extremely low prices.

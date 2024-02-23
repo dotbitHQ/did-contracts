@@ -1090,6 +1090,76 @@ Outputs:
     - Other records cannot be merged with profit-related records;
     - The total number of records must be less than or equal to `ConfigCellIncome.max_records`;
 
+### Expired account auction related transactions
+
+##### Dutch Auction (BidExpiredAccountDutchAuction)
+
+When a user participates in a Dutch auction, the user bids && ships the transaction.
+
+> A Dutch auction is a special type of auction that is characterized by a price that gradually decreases from high to low until someone bids. In this type of auction, the seller sets a maximum price and then gradually lowers the price until someone bids.
+> After the grace period, the user account enters the auction period.
+
+**action structure**
+
+```
+table ActionData {
+     action: "bid_expired_account_dutch_auction",
+     params: [],
+}
+```
+
+**Transaction Structure**
+
+```
+CellDeps:
+   TimeCell
+   das-lock
+   account-cell-type
+   dpoint-cell-type
+
+Inputs:
+   AccountCell{1}   # old owner
+   DPointCell{1,}   # bidder
+   NormalCell{0,1}  # DidSvr
+
+Outputs:
+   AccountCell{1}   # bidder
+   DPCell{0,}       # bidder, change
+   DPointCell{1,}   # DidSvr, receipt
+   NormalCell{0,1}  # DidSvr
+   BalanceCell      # old owner
+   
+```
+**Explanation of Role**
+
+In this transaction, the following roles are involved:
+- old owner: refers to the owner of the account being auctioned. After the account is successfully auctioned, the storage fee in AccountCell will be returned to the user;
+- bidder: refers to the person who bids in this auction;
+- DidSvr: refers to the service address owned by the .bit team, used for advance payment, collection, etc. in transactions. Depending on the scenario, the contract may have a whitelist to verify the address;
+
+**agreement**
+
+- AccountCell must be first among Inputs and Outputs;
+- The amount of DPointCell paid should be greater than or equal to the auction price. For price calculation rules, please refer to [Formulas](Formulas.md);
+- The transaction should occur within the auction period, and the current time satisfies the following constraints:
+   ```yaml
+   expired_time + grace_period <= current time <= expired_time + grace_period + auction_period
+   ```
+    - expired_time refers to the account expiration time;
+    - grace_period refers to the grace period after the account expires, usually 90 days;
+    - auction_period refers to the auction period after the grace period, usually 30 days;
+- The properties of AccountCell in Inputs should meet the following conditions:
+    - status can only be Normal or LockedForCrossChain;
+- The properties of AccountCell in Outputs should meet the following conditions:
+    - expired_at is the current time + 1 year;
+    - records adds a default parsing record;
+    - Status is Normal;
+    - registered_at is the current time;
+    - last_transfer_account_at, last_edit_manager_at, last_edit_records_at are 0;
+- In Inputs, DPointCell can belong to anyone, including the old owner, but it can only belong to one user, and there cannot be multiple users' DPointCell to pay the auction price;
+- In Inputs and Outputs, DidSvr's Normal Cell is used to pay or receive changes in Cell storage fees caused by the increase or decrease in the number of DPointCells;
+- BalanceCell in Outputs is used to refund the basic storage fee of AccountCell;
+
 ### Sub-account related transactions v2
 
 #### Enable sub-account (EnableSubAccount)
