@@ -622,6 +622,10 @@ pub fn das_lock() -> &'static Script {
     }
 }
 
+pub fn get_das_lock_type_id() -> Vec<u8> {
+    let type_id = env!("DAS_LOCK_TYPE_ID").trim_start_matches("0x");
+    hex::decode(type_id).expect("The DAS_LOCK_TYPE_ID should be a hex string.")
+}
 pub fn always_success_lock() -> &'static Script {
     static mut ALWAYS_SUCCESS_LOCK: OnceCell<Script> = OnceCell::new();
 

@@ -493,6 +493,7 @@ fn action_update_sub_account() -> Result<(), Box<dyn ScriptError>> {
     debug!("Verify if there is any BalanceCell is abused ...");
 
     // CAREFUL This is very important, only update it with fully understanding the requirements.
+    // This verification is also exists in das-lock.
     let das_lock = das_lock();
     let all_inputs_with_das_lock =
         util::find_cells_by_type_id(ScriptType::Lock, das_lock.code_hash().as_reader().into(), Source::Input)?;
@@ -948,9 +949,6 @@ fn verify_profit_to_das_with_custom_rule(
     let input_das_profit = data_parser::sub_account_cell::get_das_profit(&input_data).unwrap();
     let output_das_profit = data_parser::sub_account_cell::get_das_profit(&output_data).unwrap();
     let das_profit = output_das_profit - input_das_profit;
-
-    // debug!("input_das_profit: {:?}", input_das_profit);
-    // debug!("output_das_profit: {:?}", output_das_profit);
 
     das_assert!(
         expected_total_profit == das_profit,

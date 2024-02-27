@@ -209,7 +209,7 @@ fn inspect_related_cells(
         let data = util::load_cell_data(i, related_cells_source)?;
 
         if util::is_reader_eq(config_main.type_id_table().account_cell(), code_hash.as_reader()) {
-            let account_cell_data_mixer = util::parse_pre_account_cell_witness(i, related_cells_source)?;
+            let account_cell_data_mixer = util::parse_account_cell_witness(i, related_cells_source)?;
 
             debug!(
                 "  {:?}[{}] AccountCell(v{}): {{ id: 0x{}, next: 0x{}, account: {} }}",
@@ -805,6 +805,7 @@ fn verify_proposal_execution_result(
                     &input_cell_witness_reader,
                     output_cell_witness_reader,
                 )?;
+                verify_witness_initial_approval(item_index, output_cell_witness_reader)?;
 
                 let mut inviter_profit = 0;
                 if input_cell_witness_reader.inviter_lock().is_some() {
@@ -1348,6 +1349,22 @@ fn verify_witness_initial_cross_chain_and_status<'a>(
             status
         );
     }
+
+    Ok(())
+}
+
+fn verify_witness_initial_approval<'a>(
+    item_index: usize,
+    account_cell_reader: AccountCellDataReader,
+) -> Result<(), Box<dyn ScriptError>> {
+    let approval_reader = account_cell_reader.approval();
+
+    assert!(
+        util::is_reader_eq(approval_reader, AccountApproval::default().as_reader()),
+        ErrorCode::ProposalConfirmNewAccountWitnessError,
+        "  Item[{}] The AccountCell.approval should be default status in outputs.",
+        item_index
+    );
 
     Ok(())
 }
