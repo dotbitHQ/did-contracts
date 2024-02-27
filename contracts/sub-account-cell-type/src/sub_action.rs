@@ -358,13 +358,13 @@ impl<'a> SubAction<'a> {
         );
 
         let mut manually_renew_by_others = true;
+        let sub_account_reader = witness.sub_account.as_reader();
+        let (account, account_chars_reader) = gen_account_from_witness(&sub_account_reader)?;
 
         // WARNING! The `edit_key` has higher priority than the `SubAccountCell.data.flag` for now.
         match (witness.edit_key.as_slice(), self.flag) {
             (b"custom_rule", SubAccountConfigFlag::CustomRule) => {
                 if self.custom_rule_flag == SubAccountCustomRuleFlag::On {
-                    let sub_account_reader = witness.sub_account.as_reader();
-                    let (account, account_chars_reader) = gen_account_from_witness(&sub_account_reader)?;
 
                     match self.custom_price_rules.as_ref() {
                         Some(rules) => match match_rule_with_account_chars(&rules, account_chars_reader, &account) {
@@ -500,6 +500,11 @@ impl<'a> SubAction<'a> {
         }
         self.profit_total += profit;
         self.minimal_required_das_profit += profit;
+
+        debug!(
+            "  witnesses[{:>2}] account: {}, manually renew, profit: {} in shannon",
+            witness.index, account, profit
+        );
 
         Ok(())
     }
