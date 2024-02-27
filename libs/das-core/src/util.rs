@@ -16,10 +16,7 @@ use ckb_std::ckb_types::packed::*;
 use ckb_std::ckb_types::prelude::*;
 use ckb_std::error::SysError;
 use ckb_std::{high_level, syscalls};
-use das_types::constants::{
-    das_lock, height_cell_type, quote_cell_type, super_lock, time_cell_type, Action, DasLockType, DataType, LockRole,
-    TypeScript, ACCOUNT_ID_LENGTH, WITNESS_HEADER,
-};
+use das_types::constants::{das_lock, height_cell_type, quote_cell_type, super_lock, time_cell_type, Action, DasLockType, DataType, LockRole, TypeScript, ACCOUNT_ID_LENGTH, WITNESS_HEADER, get_das_lock_type_id};
 use das_types::mixer::*;
 use das_types::packed::{self as das_packed};
 pub use das_types::util::{hex_string, is_entity_eq, is_reader_eq};
@@ -1161,8 +1158,7 @@ pub fn exec_by_type_id(type_script: TypeScript, argv: &[&CStr]) -> Result<(), Bo
 }
 
 pub fn exec_das_lock() -> Result<(), Box<dyn ScriptError>> {
-    let type_script = das_lock();
-    let type_id = type_script.code_hash();
+    let type_id = get_das_lock_type_id();
     high_level::exec_cell(type_id.as_slice(), ScriptHashType::Type, 0, 0, Default::default())
         .map_err(|err| err.into())
         .map(|_| ())
