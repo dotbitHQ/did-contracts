@@ -237,6 +237,8 @@ pub enum TypeScript {
     DPointCellType,
     #[strum(serialize = "eip-lib")]
     EIP712Lib,
+    #[strum(serialize = "device-key-list-cell-type")]
+    DeviceKeyListCellType,
 }
 
 #[derive(Debug, PartialEq, Copy, Clone, TryFromPrimitive, Display)]
