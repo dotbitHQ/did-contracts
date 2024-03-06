@@ -170,7 +170,7 @@ impl WitnessesParser {
             let args = packed::Bytes::from((data_type.to_owned() as u32).to_le_bytes().to_vec());
             let type_script = config_cell_type().clone().as_builder().args(args).build();
             
-            debug!("type_script: code_hash{:?}", type_script.as_reader().code_hash());
+            debug!("  type_script.code_hash {:?}", type_script.as_reader().code_hash());
             let config_cells = util::find_cells_by_script(index, ScriptType::Type, type_script.as_reader(), source)?;
 
             // For any type of ConfigCell, there should be one Cell in the cell_deps, no more and no less.

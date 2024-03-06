@@ -37,7 +37,6 @@ pub fn is_sub_account_data_type(data_type: &DataType) -> bool {
         DataType::SubAccountRenewSign,
         DataType::SubAccountPriceRule,
         DataType::SubAccountPreservedRule,
-        DataType::DeviceKeyListCellData,
         DataType::SubAccountMintSign,
     ]
     .contains(data_type)
