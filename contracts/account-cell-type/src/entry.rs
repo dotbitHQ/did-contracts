@@ -1314,15 +1314,19 @@ fn action_approve() -> Result<(), Box<dyn ScriptError>> {
                 vec!["status", "approval"],
             )?;
 
-            let _approval_action = get_approval_action(&output_cell_witness_reader)?;
+            let approval_action = get_approval_action(&output_cell_witness_reader)?;
 
-            approval::transfer_approval_create(
-                timestamp,
-                input_account_cells[0],
-                output_account_cells[0],
-                input_cell_witness_reader,
-                output_cell_witness_reader,
-            )?;
+            match approval_action {
+                AccountApprovalAction::Transfer => {
+                    approval::transfer_approval_create(
+                        timestamp,
+                        input_account_cells[0],
+                        output_account_cells[0],
+                        input_cell_witness_reader,
+                        output_cell_witness_reader,
+                    )?;
+                }
+            }
         }
         Action::DelayApproval => {
             verifiers::account_cell::verify_account_cell_consistent_with_exception(
@@ -1335,16 +1339,18 @@ fn action_approve() -> Result<(), Box<dyn ScriptError>> {
                 vec!["approval"],
             )?;
 
-            let _approval_action = get_approval_action(&output_cell_witness_reader)?;
+            let approval_action = get_approval_action(&output_cell_witness_reader)?;
 
-            approval::transfer_approval_delay(
-                input_account_cells[0],
-                output_account_cells[0],
-                input_cell_witness_reader,
-                output_cell_witness_reader,
-            )?;
-
-            //util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
+            match approval_action {
+                AccountApprovalAction::Transfer => {
+                    approval::transfer_approval_delay(
+                        input_account_cells[0],
+                        output_account_cells[0],
+                        input_cell_witness_reader,
+                        output_cell_witness_reader,
+                    )?;
+                }
+            }
         }
         Action::RevokeApproval => {
             verifiers::account_cell::verify_account_cell_consistent_with_exception(
@@ -1357,15 +1363,19 @@ fn action_approve() -> Result<(), Box<dyn ScriptError>> {
                 vec!["status", "approval"],
             )?;
 
-            let _approval_action = get_approval_action(&input_cell_witness_reader)?;
+            let approval_action = get_approval_action(&input_cell_witness_reader)?;
 
-            approval::transfer_approval_revoke(
-                timestamp,
-                input_account_cells[0],
-                output_account_cells[0],
-                input_cell_witness_reader,
-                output_cell_witness_reader,
-            )?;
+            match approval_action {
+                AccountApprovalAction::Transfer => {
+                    approval::transfer_approval_revoke(
+                        timestamp,
+                        input_account_cells[0],
+                        output_account_cells[0],
+                        input_cell_witness_reader,
+                        output_cell_witness_reader,
+                    )?;
+                }
+            }
         }
         Action::FulfillApproval => {
             verifiers::account_cell::verify_account_cell_consistent_with_exception(
@@ -1378,14 +1388,24 @@ fn action_approve() -> Result<(), Box<dyn ScriptError>> {
                 vec!["status", "approval", "records"],
             )?;
 
-            let _approval_action = get_approval_action(&input_cell_witness_reader)?;
+            let approval_action = get_approval_action(&input_cell_witness_reader)?;
 
-            approval::transfer_approval_fulfill(
-                input_account_cells[0],
-                output_account_cells[0],
-                input_cell_witness_reader,
-                output_cell_witness_reader,
-            )?;
+            match approval_action {
+                AccountApprovalAction::Transfer => {
+                    let sealed_until = approval::transfer_approval_fulfill(
+                        input_account_cells[0],
+                        output_account_cells[0],
+                        input_cell_witness_reader,
+                        output_cell_witness_reader,
+                    )?;
+
+                    if timestamp > sealed_until {
+                        debug!("The approval is already released, so anyone can fulfill it.");
+                    } else {
+                        debug!("The approval is not released, so its signature should be verified by das-lock.");
+                    }
+                }
+            }
         }
         _ => {
             warn!("Action {} is not a valid approval action.", parser.action.to_string());

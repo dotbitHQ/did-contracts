@@ -1376,7 +1376,15 @@ fn verify_refund_correct(
 ) -> Result<(), Box<dyn ScriptError>> {
     debug!("Check if the refund amount to proposer_lock is correct.");
 
+    // Each cell in CKB needs storage capacity for data. For instance, if a cell is 100 bytes in size,
+    // it will need 100 CKB (100 x 100_000_000 shannons) to store the data. This differs from the
+    // 'basic_capacity' term used in the document; 'basic_capacity' always exceeds the actual necessary
+    // capacity to support redundant data. The ProposalCell's proposer_lock is the lock of the proposal
+    // creater, who paied the storage capacity for the Proposalcell. So the refund target is always
+    // the proposer_lock.
     let proposer_lock = proposal_cell_data_reader.proposer_lock();
+    // To calculate how much capacity is refunded to the proposer_lock, we need to find all cells in
+    // outputs with the proposer_lock.
     let refund_cells = util::find_cells_by_script(ScriptType::Lock, proposer_lock.into(), Source::Output)?;
 
     assert!(
@@ -1386,11 +1394,18 @@ fn verify_refund_correct(
         proposer_lock
     );
 
+    // We calculate the total refund by adding up the capacity of all cells with proposer_lock. The
+    // reason for supporting multiple cells is to make it easier for the keeper to manage them. For
+    // instance, having two cells with 100 CKB each provides more flexibility than having one cell
+    // with 200 CKB.
     let mut refund_capacity = 0;
     for index in refund_cells {
         refund_capacity += load_cell_capacity(index, Source::Output)?;
     }
 
+    // Finally, verify the refund amount against the ProposalCell's actual capacity. Since we assume
+    // that the keeper is unwilling to cover the transaction fee, they can deduct it from the refund
+    // as long as it does not exceed the available_for_fee limit.
     let proposal_capacity = load_cell_capacity(proposal_cell_index.to_owned(), Source::Input)?;
     assert!(
         proposal_capacity <= refund_capacity + available_for_fee,

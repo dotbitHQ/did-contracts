@@ -365,7 +365,6 @@ impl<'a> SubAction<'a> {
         match (witness.edit_key.as_slice(), self.flag) {
             (b"custom_rule", SubAccountConfigFlag::CustomRule) => {
                 if self.custom_rule_flag == SubAccountCustomRuleFlag::On {
-
                     match self.custom_price_rules.as_ref() {
                         Some(rules) => match match_rule_with_account_chars(&rules, account_chars_reader, &account) {
                             Ok(Some(rule)) => {

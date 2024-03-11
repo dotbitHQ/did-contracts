@@ -913,10 +913,7 @@ fn challenge_proposal_confirm_new_account_cell_approval() {
     push_output_income_cell_with_profit(&mut template);
     push_output_normal_cell_with_refund(&mut template);
 
-    challenge_tx(
-        template.as_json(),
-        ErrorCode::ProposalConfirmNewAccountWitnessError,
-    );
+    challenge_tx(template.as_json(), ErrorCode::ProposalConfirmNewAccountWitnessError);
 }
 
 #[test]
