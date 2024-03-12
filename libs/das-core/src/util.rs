@@ -712,15 +712,15 @@ pub fn calc_account_storage_capacity(
 
     let basic_capacity = basic_capacity;
     let prepared_fee_capacity = u64::from(config_account.prepared_fee_capacity());
-    basic_capacity + prepared_fee_capacity + (account_name_storage * 100_000_000)
+    basic_capacity + prepared_fee_capacity + (account_name_storage * ONE_CKB)
 }
 
 pub fn calc_yearly_capacity(yearly_price: u64, quote: u64, discount: u32) -> u64 {
     let total;
     if yearly_price < quote {
-        total = yearly_price * 100_000_000 / quote;
+        total = yearly_price * ONE_CKB / quote;
     } else {
-        total = yearly_price / quote * 100_000_000;
+        total = yearly_price / quote * ONE_CKB;
     }
 
     total - (total * discount as u64 / 10000)
@@ -729,9 +729,9 @@ pub fn calc_yearly_capacity(yearly_price: u64, quote: u64, discount: u32) -> u64
 pub fn calc_duration_from_paid(paid: u64, yearly_price: u64, quote: u64, discount: u32) -> u64 {
     let yearly_capacity = calc_yearly_capacity(yearly_price, quote, discount);
 
-    // Original formula: duration = (paid / yearly_capacity) * 365 * 86400
+    // Original formula: duration = (paid / yearly_capacity) * DAYS_OF_YEAR * DAY_SEC
     // But CKB VM can only handle uint, so we put division to later for higher precision.
-    paid * 365 / yearly_capacity * 86400
+    paid * DAYS_OF_YEAR / yearly_capacity * DAY_SEC
 }
 
 pub fn require_type_script(

@@ -361,7 +361,12 @@ impl<'a> SubAction<'a> {
         let sub_account_reader = witness.sub_account.as_reader();
         let (account, account_chars_reader) = gen_account_from_witness(&sub_account_reader)?;
 
-        // WARNING! The `edit_key` has higher priority than the `SubAccountCell.data.flag` for now.
+        // WARNING! The `manual` renew has been the fallback option for all flags now:
+        // If the flag is `custom_rule`, any user can manually renew their sub-account in two situations:
+        //   1. The sub-account do not match any exist rules.
+        //   2. The custom_rule is turned off.
+        // In both situations, the `flag` will be ignored. Even if the `edit_key` is set to `custom_rule`, we will still treat it as a manual renewal.
+        // If the flag is set to 'manual', any user can manually renew their sub-account at any time.
         match (witness.edit_key.as_slice(), self.flag) {
             (b"custom_rule", SubAccountConfigFlag::CustomRule) => {
                 if self.custom_rule_flag == SubAccountCustomRuleFlag::On {
@@ -428,6 +433,7 @@ impl<'a> SubAction<'a> {
                     );
                 }
             }
+            // No matter what the flag is, the owner and manager can always manually renew so we use _ match here.
             (b"manual", _) => {
                 if let Some(root) = self.manual_renew_list_smt_root {
                     // The signature is still reqired to verify the spending of owner/manager's BalanceCell.

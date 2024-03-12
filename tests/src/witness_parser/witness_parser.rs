@@ -39,8 +39,8 @@ fn gen_config_cell_account() -> (Value, Value, Vec<u8>, ConfigCellAccount) {
         .transfer_account_fee(Uint64::from(ACCOUNT_OPERATE_FEE))
         .edit_manager_fee(Uint64::from(ACCOUNT_OPERATE_FEE))
         .edit_records_fee(Uint64::from(ACCOUNT_OPERATE_FEE))
-        .transfer_account_throttle(Uint32::from(86400))
-        .edit_manager_throttle(Uint32::from(3600))
+        .transfer_account_throttle(Uint32::from(DAY_SEC as u32))
+        .edit_manager_throttle(Uint32::from(HOUR_SEC as u32))
         .edit_records_throttle(Uint32::from(600))
         .build();
     let cell_data = blake2b_256(entity.as_slice()).to_vec();

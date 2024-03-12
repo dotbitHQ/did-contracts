@@ -176,7 +176,7 @@ fn challenge_account_transfer_too_often() {
             },
             "witness": {
                 // Simulate transferring multiple times in a day.
-                "last_transfer_account_at": TIMESTAMP - 86400 + 1,
+                "last_transfer_account_at": TIMESTAMP - DAY_SEC + 1,
             }
         }),
     );

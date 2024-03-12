@@ -233,7 +233,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let duration = output_expired_at - input_expired_at;
 
             das_assert!(
-                duration >= 365 * 86400,
+                duration >= DAYS_OF_YEAR * DAY_SEC,
                 AccountCellErrorCode::AccountCellRenewDurationMustLongerThanYear,
                 "The AccountCell renew should be longer than 1 year. (current: {}, expected: >= 31_536_000)",
                 duration
@@ -264,10 +264,11 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let expected_duration = util::calc_duration_from_paid(paid, renew_price_in_usd, quote, 0);
             // The duration can be floated within the range of one day.
             das_assert!(
-                duration >= expected_duration - 86400 && duration <= expected_duration + 86400,
+                duration >= expected_duration - DAY_SEC && duration <= expected_duration + DAY_SEC,
                 AccountCellErrorCode::AccountCellRenewDurationBiggerThanPayed,
-                "The duration should be equal to {} +/- 86400s. (current: duration({}), calculation: (paid({}) / (renew_price({}) / quote({}) * 100_000_000) ) * 86400 * 365)",
+                "The duration should be equal to {} +/- {}. (current: duration({}), calculation: (paid({}) / (renew_price({}) / quote({}) * 100_000_000) ) * 86400 * 365)",
                 expected_duration,
+                DAY_SEC,
                 duration,
                 paid,
                 renew_price_in_usd,
@@ -1462,7 +1463,7 @@ fn verify_transaction_fee_spent_correctly(
         Action::EditRecords => u64::from(config.edit_records_fee()),
         _ => u64::from(config.common_fee()),
     };
-    let storage_capacity = basic_capacity + account_length * 100_000_000;
+    let storage_capacity = basic_capacity + account_length * ONE_CKB;
 
     verifiers::common::verify_tx_fee_spent_correctly(
         "AccountCell",
