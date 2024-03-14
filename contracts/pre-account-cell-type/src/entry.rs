@@ -519,7 +519,7 @@ fn verify_price_and_capacity<'a>(
     let quote = u64::from(reader.quote()); // y CKB/USD
 
     // Register price for 1 year in CKB = x ÷ y.
-    let register_capacity = util::calc_yearly_capacity(new_account_price_in_usd, quote, discount);
+    let register_capacity = util::calc_yearly_register_fee(new_account_price_in_usd, quote, discount)?;
     // Storage price in CKB = AccountCell base capacity + account.bytes.length
     let storage_capacity = util::calc_account_storage_capacity(
         config_account,

@@ -2,6 +2,8 @@
 use alloc::vec;
 #[cfg(feature = "no_std")]
 use alloc::vec::Vec;
+#[cfg(feature = "no_std")]
+use alloc::string::String;
 use core::cell::OnceCell;
 use core::convert::TryFrom;
 use core::env;
@@ -446,6 +448,8 @@ pub enum Action {
     #[default]
     Others,
     // Unit test only,
+    #[strum(serialize = "unit_test")]
+    UnitTest,
     #[strum(serialize = "test_parse_witness_entity_config")]
     TestParseWitnessEntityConfig,
     #[strum(serialize = "test_parse_witness_raw_config")]
@@ -498,6 +502,7 @@ pub enum ActionParams {
         role: LockRole,
     },
     Role(LockRole),
+    TestName(String),
     #[default]
     None,
 }

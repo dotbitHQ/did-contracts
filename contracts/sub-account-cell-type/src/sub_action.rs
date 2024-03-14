@@ -203,11 +203,11 @@ impl<'a> SubAction<'a> {
                         witness.index
                     );
 
-                    let profit = calc_basic_profit(
+                    let profit = calc_total_register_fee_from_reader(
                         self.config_sub_account.new_sub_account_price(),
                         self.quote,
                         expiration_years,
-                    );
+                    )?;
                     self.profit_from_manual_mint += profit;
                     self.profit_total += profit;
                     self.minimal_required_das_profit += profit;
@@ -285,7 +285,7 @@ impl<'a> SubAction<'a> {
                                 u64::from(self.config_sub_account.new_sub_account_price()) * expiration_years
                             );
 
-                            let profit = util::calc_yearly_capacity(rule.price, self.quote, 0) * expiration_years;
+                            let profit = util::calc_total_register_fee(rule.price, self.quote, 0, expiration_years)?;
                             self.profit_total += profit;
 
                             debug!(
@@ -386,7 +386,7 @@ impl<'a> SubAction<'a> {
                                     u64::from(self.config_sub_account.renew_sub_account_price()) * expiration_years
                                 );
 
-                                let profit = util::calc_yearly_capacity(rule.price, self.quote, 0) * expiration_years;
+                                let profit = util::calc_total_register_fee(rule.price, self.quote, 0, expiration_years)?;
                                 self.profit_total += profit;
 
                                 debug!(
@@ -493,11 +493,11 @@ impl<'a> SubAction<'a> {
             }
         }
 
-        let profit = calc_basic_profit(
+        let profit = calc_total_register_fee_from_reader(
             self.config_sub_account.renew_sub_account_price(),
             self.quote,
             expiration_years,
-        );
+        )?;
         if !manually_renew_by_others {
             self.profit_from_manual_renew += profit;
         } else {
@@ -1086,10 +1086,6 @@ fn generate_new_sub_account_by_edit_value(witness: &SubAccountWitness) -> Result
     Ok(sub_account_builder.build())
 }
 
-fn calc_basic_profit(yearly_price: Uint64Reader, quote: u64, expiration_years: u64) -> u64 {
-    let usd_price = u64::from(yearly_price);
-    let ckb_price = util::calc_yearly_capacity(usd_price, quote, 0);
-    let profit = ckb_price * expiration_years;
-
-    profit
+fn calc_total_register_fee_from_reader(yearly_price: Uint64Reader, quote: u64, expiration_years: u64) -> Result<u64, Box<dyn ScriptError>> {
+    util::calc_total_register_fee(u64::from(yearly_price), quote, 0, expiration_years)
 }

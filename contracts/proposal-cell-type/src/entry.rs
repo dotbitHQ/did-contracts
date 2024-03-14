@@ -1090,7 +1090,7 @@ fn is_expired_at_correct<'a>(
     let price = u64::from(pre_account_cell_witness.price().new());
     let quote = u64::from(pre_account_cell_witness.quote());
     let discount = u32::from(pre_account_cell_witness.invited_discount());
-    let duration = util::calc_duration_from_paid(profit, price, quote, discount);
+    let duration = util::calc_duration_from_paid(profit, price, quote, discount)?;
     let expired_at = data_parser::account_cell::get_expired_at(output_cell_data);
     let calculated_expired_at = current_timestamp + duration;
 

@@ -180,6 +180,17 @@ pub fn wrap_action_witness_v2(action: &str, params_opt: Option<Bytes>) -> Vec<u8
 }
 
 #[cfg(not(feature = "no_std"))]
+pub fn wrap_action_witness_v3(action: &str, params_opt: Option<Vec<u8>>) -> Vec<u8> {
+    let mut builder = ActionData::new_builder().action(Bytes::from(action.as_bytes()));
+
+    if let Some(params) = params_opt {
+        builder = builder.params(Bytes::from(params));
+    }
+
+    wrap_entity_witness_v2(DataType::ActionData, builder.build())
+}
+
+#[cfg(not(feature = "no_std"))]
 pub enum EntityWrapper {
     ActionData(ActionData),
     PreAccountCellDataV1(PreAccountCellDataV1),

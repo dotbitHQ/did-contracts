@@ -12,6 +12,9 @@
 
 // define modules
 mod entry;
+mod uint_tests;
+mod config_tests;
+mod witness_parser_tests;
 
 use ckb_std::default_alloc;
 

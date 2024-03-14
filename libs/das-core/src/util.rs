@@ -4,6 +4,7 @@ use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
 use alloc::{format, vec};
+use primitive_types::U256;
 use core::convert::TryInto;
 use core::ffi::CStr;
 use core::fmt::Debug;
@@ -715,23 +716,49 @@ pub fn calc_account_storage_capacity(
     basic_capacity + prepared_fee_capacity + (account_name_storage * ONE_CKB)
 }
 
-pub fn calc_yearly_capacity(yearly_price: u64, quote: u64, discount: u32) -> u64 {
-    let total;
-    if yearly_price < quote {
-        total = yearly_price * ONE_CKB / quote;
-    } else {
-        total = yearly_price / quote * ONE_CKB;
-    }
+pub fn calc_yearly_register_fee(usd_price: u64, quote: u64, discount: u32) -> Result<u64, Box<dyn ScriptError>> {
+    // Original formula:
+    // - total = yearly_price / quote * ONE_CKB
+    // - discounted_total = total * (1 - discount)
+    // In order to improve the calculation accuracy of uint, here we have multiplied the numbers by a certain factor:
+    // - 1 USDT is represented as 1_000_000 .
+    // - 100% is represented as 10_000 .
+    // In order to improve the calculation accuracy, accuracy, division is calculated at the end.
 
-    total - (total * discount as u64 / 10000)
+    let total = U256::from(usd_price) * U256::from(ONE_CKB) / U256::from(quote);
+    let total_discount = total * U256::from(discount) / U256::from(10000u64);
+    let ret = total - total_discount;
+
+    if ret > U256::from(u64::MAX) {
+        Err(code_to_error!(ErrorCode::OverflowError))
+    } else {
+        Ok(ret.as_u64())
+    }
 }
 
-pub fn calc_duration_from_paid(paid: u64, yearly_price: u64, quote: u64, discount: u32) -> u64 {
-    let yearly_capacity = calc_yearly_capacity(yearly_price, quote, discount);
+pub fn calc_total_register_fee(usd_price: u64, quote: u64, discount: u32, years: u64) -> Result<u64, Box<dyn ScriptError>> {
+    let yearly_fee = U256::from(calc_yearly_register_fee(usd_price, quote, discount)?);
+    let ret = U256::from(yearly_fee) * U256::from(years);
+
+    if ret > U256::from(u64::MAX) {
+        Err(code_to_error!(ErrorCode::OverflowError))
+    } else {
+        Ok(ret.as_u64())
+    }
+}
+
+pub fn calc_duration_from_paid(paid: u64, usd_price: u64, quote: u64, discount: u32) -> Result<u64, Box<dyn ScriptError>> {
+    let yearly_fee = U256::from(calc_yearly_register_fee(usd_price, quote, discount)?);
 
     // Original formula: duration = (paid / yearly_capacity) * DAYS_OF_YEAR * DAY_SEC
-    // But CKB VM can only handle uint, so we put division to later for higher precision.
-    paid * DAYS_OF_YEAR / yearly_capacity * DAY_SEC
+    // In order to improve the calculation accuracy, accuracy, division is calculated at the end.
+    let ret = U256::from(paid) * U256::from(DAYS_OF_YEAR) * U256::from(DAY_SEC) / yearly_fee;
+
+    if ret > U256::from(u64::MAX) {
+        Err(code_to_error!(ErrorCode::OverflowError))
+    } else {
+        Ok(ret.as_u64())
+    }
 }
 
 pub fn require_type_script(

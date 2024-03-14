@@ -251,7 +251,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let renew_price_in_usd = u64::from(price.renew()); // x USD
             let quote = util::load_oracle_data(OracleCellType::Quote)?;
 
-            let yearly_capacity = util::calc_yearly_capacity(renew_price_in_usd, quote, 0);
+            let yearly_capacity = util::calc_yearly_register_fee(renew_price_in_usd, quote, 0)?;
             das_assert!(
                 paid >= yearly_capacity,
                 AccountCellErrorCode::AccountCellRenewDurationMustLongerThanYear,
@@ -261,7 +261,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             );
 
             // Renew price for 1 year in CKB = x ÷ y .
-            let expected_duration = util::calc_duration_from_paid(paid, renew_price_in_usd, quote, 0);
+            let expected_duration = util::calc_duration_from_paid(paid, renew_price_in_usd, quote, 0)?;
             // The duration can be floated within the range of one day.
             das_assert!(
                 duration >= expected_duration - DAY_SEC && duration <= expected_duration + DAY_SEC,
