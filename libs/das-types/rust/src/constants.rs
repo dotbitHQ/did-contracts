@@ -239,6 +239,8 @@ pub enum TypeScript {
     DPointCellType,
     #[strum(serialize = "eip-lib")]
     EIP712Lib,
+    #[strum(serialize = "device-key-list-cell-type")]
+    DeviceKeyListCellType,
 }
 
 #[derive(Debug, PartialEq, Copy, Clone, TryFromPrimitive, Display)]
@@ -445,6 +447,13 @@ pub enum Action {
     ConsolidateIncome,
     #[strum(serialize = "transfer")]
     Transfer,
+    #[strum(serialize = "create_device_key_list")]
+    CreateDeviceKeyList,
+    #[strum(serialize = "update_device_key_list")]
+    UpdateDeviceKeyList,
+    #[strum(serialize = "destroy_device_key_list")]
+    DestroyDeviceKeyList,
+
     #[default]
     Others,
     // Unit test only,

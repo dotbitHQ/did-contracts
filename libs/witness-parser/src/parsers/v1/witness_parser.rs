@@ -115,8 +115,9 @@ impl WitnessesParser {
                                     self.push_witness_wrap_in_config(i, x)?;
                                 }
                                 x if types_util::is_other_data_type(&x) => {
-                                    debug!("  witnesses[{:>2}] Found {:?} witness skip parsing.", i, x);
+                                    self.push_witness_for_other_data_type(i, x)?;
                                 }
+
                                 _ => {
                                     self.push_witness_wrap_in_data(i, data_type)?;
                                 }
@@ -168,6 +169,8 @@ impl WitnessesParser {
         for source in [Source::CellDep, Source::Input, Source::Output] {
             let args = packed::Bytes::from((data_type.to_owned() as u32).to_le_bytes().to_vec());
             let type_script = config_cell_type().clone().as_builder().args(args).build();
+            
+            debug!("  type_script.code_hash {:?}", type_script.as_reader().code_hash());
             let config_cells = util::find_cells_by_script(index, ScriptType::Type, type_script.as_reader(), source)?;
 
             // For any type of ConfigCell, there should be one Cell in the cell_deps, no more and no less.
@@ -285,7 +288,39 @@ impl WitnessesParser {
 
         Ok(())
     }
+    fn push_witness_for_other_data_type(
+        &mut self,
+        index: usize,
+        data_type: DataType,
+    ) -> Result<(), WitnessParserError> {
+        debug!(
+            "  witnesses[{:>2}] Presume that the type of the witness is {:?} .",
+            index, data_type
+        );
 
+        let buf = util::load_das_witnesses(index)?;
+        let hash_in_cell_data =
+            types_util::blake2b_256(buf.get((WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES)..).unwrap());
+        debug!(
+            "  witnesses[{:>2}] {{ data_type: {:?}, hash_in_cell: {} }}",
+            index,
+            data_type,
+            hex::encode(&hash_in_cell_data)
+        );
+        self.witnesses.push(WitnessMeta {
+            index,
+            version: 0,
+            data_type,
+            cell_meta: CellMeta {
+                //todo: 255 and CellDep is a magic value, need to be replaced by a proper value
+                index: 255,
+                source: Source::CellDep,
+            },
+            hash_in_cell_data,
+        });
+
+        Ok(())
+    }
     fn load_witness_hash_from_cell(
         witness_index: usize,
         cell_index: usize,
@@ -373,6 +408,7 @@ impl WitnessQueryable for WitnessesParser {
             TypeScript::ReverseRecordRootCellType => config.type_id_table().reverse_record_root_cell(),
             TypeScript::DPointCellType => config.type_id_table().dpoint_cell(),
             TypeScript::EIP712Lib => config.type_id_table().eip712_lib(),
+            TypeScript::DeviceKeyListCellType => config.type_id_table().key_list_config_cell(),
         };
 
         let type_id_vec = type_id.as_slice().to_vec();
@@ -422,7 +458,9 @@ impl WitnessQueryable for WitnessesParser {
         );
 
         let data_type = util::parse_date_type_from_witness(index, &buf)?;
+
         let version = u32::from(data_entity.version());
+
         let entity = T::from_compatible_slice(data_entity.as_reader().entity().raw_data()).map_err(|_err| {
             WitnessParserError::DecodingEntityFailed {
                 index,
