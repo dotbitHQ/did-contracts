@@ -995,13 +995,13 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 ],
             )?;
 
-            let records_len = output_cell_witness_reader.records().len();
-            das_assert!(
-                records_len == 1,
-                ErrorCode::InvalidTransactionStructure,
-                "The records field in output AccountCell should only one, but {}.",
-                records_len
-            );
+            // let records_len = output_cell_witness_reader.records().len();
+            // das_assert!(
+            //     records_len == 1,
+            //     ErrorCode::InvalidTransactionStructure,
+            //     "The records field in output AccountCell should only one, but {}.",
+            //     records_len
+            // );
 
             verifiers::account_cell::verify_status_v2(
                 &input_cell_witness_reader,
