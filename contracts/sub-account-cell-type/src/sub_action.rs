@@ -386,7 +386,8 @@ impl<'a> SubAction<'a> {
                                     u64::from(self.config_sub_account.renew_sub_account_price()) * expiration_years
                                 );
 
-                                let profit = util::calc_total_register_fee(rule.price, self.quote, 0, expiration_years)?;
+                                let profit =
+                                    util::calc_total_register_fee(rule.price, self.quote, 0, expiration_years)?;
                                 self.profit_total += profit;
 
                                 debug!(
@@ -1086,6 +1087,10 @@ fn generate_new_sub_account_by_edit_value(witness: &SubAccountWitness) -> Result
     Ok(sub_account_builder.build())
 }
 
-fn calc_total_register_fee_from_reader(yearly_price: Uint64Reader, quote: u64, expiration_years: u64) -> Result<u64, Box<dyn ScriptError>> {
+fn calc_total_register_fee_from_reader(
+    yearly_price: Uint64Reader,
+    quote: u64,
+    expiration_years: u64,
+) -> Result<u64, Box<dyn ScriptError>> {
     util::calc_total_register_fee(u64::from(yearly_price), quote, 0, expiration_years)
 }

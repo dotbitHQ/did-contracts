@@ -1,9 +1,9 @@
 #[cfg(feature = "no_std")]
+use alloc::string::String;
+#[cfg(feature = "no_std")]
 use alloc::vec;
 #[cfg(feature = "no_std")]
 use alloc::vec::Vec;
-#[cfg(feature = "no_std")]
-use alloc::string::String;
 use core::cell::OnceCell;
 use core::convert::TryFrom;
 use core::env;

@@ -4,7 +4,6 @@ use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
 use alloc::{format, vec};
-use primitive_types::U256;
 use core::convert::TryInto;
 use core::ffi::CStr;
 use core::fmt::Debug;
@@ -26,6 +25,7 @@ use das_types::packed::{self as das_packed};
 pub use das_types::util::{hex_string, is_entity_eq, is_reader_eq};
 #[cfg(test)]
 use hex::FromHexError;
+use primitive_types::U256;
 use witness_parser::traits::WitnessQueryable;
 use witness_parser::types::CellMeta;
 use witness_parser::WitnessesParserV1;
@@ -736,7 +736,12 @@ pub fn calc_yearly_register_fee(usd_price: u64, quote: u64, discount: u32) -> Re
     }
 }
 
-pub fn calc_total_register_fee(usd_price: u64, quote: u64, discount: u32, years: u64) -> Result<u64, Box<dyn ScriptError>> {
+pub fn calc_total_register_fee(
+    usd_price: u64,
+    quote: u64,
+    discount: u32,
+    years: u64,
+) -> Result<u64, Box<dyn ScriptError>> {
     let yearly_fee = U256::from(calc_yearly_register_fee(usd_price, quote, discount)?);
     let ret = U256::from(yearly_fee) * U256::from(years);
 
@@ -747,7 +752,12 @@ pub fn calc_total_register_fee(usd_price: u64, quote: u64, discount: u32, years:
     }
 }
 
-pub fn calc_duration_from_paid(paid: u64, usd_price: u64, quote: u64, discount: u32) -> Result<u64, Box<dyn ScriptError>> {
+pub fn calc_duration_from_paid(
+    paid: u64,
+    usd_price: u64,
+    quote: u64,
+    discount: u32,
+) -> Result<u64, Box<dyn ScriptError>> {
     let yearly_fee = U256::from(calc_yearly_register_fee(usd_price, quote, discount)?);
 
     // Original formula: duration = (paid / yearly_capacity) * DAYS_OF_YEAR * DAY_SEC
