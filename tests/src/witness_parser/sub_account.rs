@@ -14,8 +14,8 @@ use crate::util::template_parser::*;
 
 pub const TIMESTAMP: u64 = 1611200090u64;
 
-fn init(action: &str) -> TemplateGenerator {
-    let mut template = TemplateGenerator::new(action, None);
+fn init(name: &str) -> TemplateGenerator {
+    let mut template = TemplateGenerator::new("unit_test", Some(name.as_bytes().to_vec()));
 
     template.push_contract_cell("always_success", ContractType::DeployedContract);
     template.push_contract_cell("fake-secp256k1-blake160-signhash-all", ContractType::DeployedContract);
@@ -26,7 +26,7 @@ fn init(action: &str) -> TemplateGenerator {
 }
 
 #[test]
-fn parse_sub_account_witness_empty() {
+fn test_parse_sub_account_witness_empty() {
     let mut template = init("test_parse_sub_account_witness_empty");
 
     push_input_test_env_cell(&mut template);
@@ -35,7 +35,7 @@ fn parse_sub_account_witness_empty() {
 }
 
 #[test]
-fn parse_sub_account_witness_create_only() {
+fn test_parse_sub_account_witness_create_only() {
     let mut template = init("test_parse_sub_account_witness_create_only");
 
     push_input_test_env_cell(&mut template);
@@ -101,7 +101,7 @@ fn parse_sub_account_witness_create_only() {
 }
 
 #[test]
-fn parse_sub_account_witness_edit_only() {
+fn test_parse_sub_account_witness_edit_only() {
     let mut template = init("test_parse_sub_account_witness_edit_only");
     template.restore_sub_account_v1(vec![
         json!({
@@ -138,23 +138,6 @@ fn parse_sub_account_witness_edit_only() {
 
     push_input_test_env_cell(&mut template);
 
-    template.push_sub_account_witness_v2(json!({
-        "sign_expired_at": u64::MAX,
-        "action": SubAccountAction::Edit.to_string(),
-        "sub_account": {
-            "lock": {
-                "owner_lock_args": OWNER_1,
-                "manager_lock_args": MANAGER_1
-            },
-            "account": SUB_ACCOUNT_1,
-            "suffix": SUB_ACCOUNT_SUFFIX,
-            "registered_at": TIMESTAMP,
-            "expired_at": u64::MAX,
-        },
-        // Simulate modifying owner.
-        "edit_key": "expired_at",
-        "edit_value": u64::MAX
-    }));
     template.push_sub_account_witness_v2(json!({
         "sign_expired_at": u64::MAX,
         "action": SubAccountAction::Edit.to_string(),
@@ -201,7 +184,7 @@ fn parse_sub_account_witness_edit_only() {
 }
 
 #[test]
-fn parse_sub_account_witness_mixed() {
+fn test_parse_sub_account_witness_mixed() {
     let mut template = init("test_parse_sub_account_witness_mixed");
     template.restore_sub_account_v1(vec![
         json!({
@@ -324,8 +307,8 @@ fn get_compiled_proof(smt: &SMTWithHistory, account: &str) -> String {
 }
 
 #[test]
-fn parser_sub_account_rules_witness_empty() {
-    let mut template = init("test_parser_sub_account_rules_witness_empty");
+fn test_parse_sub_account_rules_witness_empty() {
+    let mut template = init("test_parse_sub_account_rules_witness_empty");
 
     push_input_test_env_cell(&mut template);
 
@@ -333,8 +316,8 @@ fn parser_sub_account_rules_witness_empty() {
 }
 
 #[test]
-fn parser_sub_account_rules_witness() {
-    let mut template = init("test_parser_sub_account_rules_witness");
+fn test_parse_sub_account_rules_witness_simple() {
+    let mut template = init("test_parse_sub_account_rules_witness_simple");
 
     push_input_test_env_cell(&mut template);
 
@@ -348,6 +331,7 @@ fn parser_sub_account_rules_witness() {
                     "name": "Price of 1 Charactor Emoji DID",
                     "note": "",
                     "price": 100_000_000,
+                    "status": 0,
                     "ast": {
                         "type": "operator",
                         "symbol": "and",

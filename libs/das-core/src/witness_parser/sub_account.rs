@@ -904,6 +904,7 @@ impl SubAccountWitnessesParser {
         }
 
         let (hash, rules) = self.parse_rule_witnesses(data_type)?;
+
         das_assert!(
             expected_hash == hash.get(0..10),
             SubAccountCellErrorCode::ConfigRulesHashMismatch,

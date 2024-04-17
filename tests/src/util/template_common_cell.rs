@@ -86,7 +86,7 @@ pub fn push_dep_pre_account_cell(template: &mut TemplateGenerator, cell_partial:
 
 pub fn push_input_pre_account_cell(template: &mut TemplateGenerator, cell_partial: Value, since: Option<u64>) {
     let mut cell = json!({
-        "capacity": util::gen_register_fee(5, false),
+        "capacity": util::gen_register_fee_v2(ACCOUNT_1, 5, false),
         "lock": {
             "code_hash": "{{always_success}}"
         },
@@ -126,7 +126,7 @@ pub fn push_input_pre_account_cell(template: &mut TemplateGenerator, cell_partia
 
 pub fn push_output_pre_account_cell_v1(template: &mut TemplateGenerator, cell_partial: Value) {
     let mut cell = json!({
-        "capacity": util::gen_register_fee(5, false),
+        "capacity": util::gen_register_fee_v2(ACCOUNT_1, 5, false),
         "lock": {
             "code_hash": "{{always_success}}"
         },
@@ -160,7 +160,7 @@ pub fn push_output_pre_account_cell_v1(template: &mut TemplateGenerator, cell_pa
 
 pub fn push_output_pre_account_cell_v2(template: &mut TemplateGenerator, cell_partial: Value) {
     let mut cell = json!({
-        "capacity": util::gen_register_fee(5, false),
+        "capacity": util::gen_register_fee_v2(ACCOUNT_1, 5, false),
         "lock": {
             "code_hash": "{{always_success}}"
         },
@@ -202,7 +202,7 @@ pub fn push_output_pre_account_cell_v2(template: &mut TemplateGenerator, cell_pa
 
 pub fn push_output_pre_account_cell(template: &mut TemplateGenerator, cell_partial: Value) {
     let mut cell = json!({
-        "capacity": util::gen_register_fee(5, false),
+        "capacity": util::gen_register_fee_v2(ACCOUNT_1, 5, false),
         "lock": {
             "code_hash": "{{always_success}}"
         },

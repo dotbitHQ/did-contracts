@@ -1834,6 +1834,7 @@ dependencies = [
  "dpoint-cell-type",
  "hex",
  "lazy_static",
+ "primitive-types",
  "rand 0.8.5",
  "regex",
  "secp256k1 0.25.0",

@@ -1,11 +1,12 @@
+use alloc::boxed::Box;
+use alloc::string::{String, ToString};
 use core::str::FromStr;
 
-use alloc::{boxed::Box, string::{String, ToString}};
-use das_core::{code_to_error, constants::ONE_CKB, das_assert, debug};
-use primitive_types::U256;
-use rust_decimal::{prelude::*, Decimal};
-
+use das_core::constants::ONE_CKB;
 use das_core::error::*;
+use das_core::{code_to_error, das_assert, debug};
+use primitive_types::U256;
+use rust_decimal::Decimal;
 
 fn to_u256(s: &str) -> U256 {
     let dec_str = s.replace("_", "");
@@ -19,10 +20,18 @@ fn to_dec_str(s: &str) -> String {
 // Testing the basic interface of U256 type.
 pub fn test_basic_interface() -> Result<(), Box<dyn ScriptError>> {
     let a = U256::from(999999);
-    das_assert!(a.to_string() == "999999", ErrorCode::UnittestError, "U256::from(999999) failed");
+    das_assert!(
+        a.to_string() == "999999",
+        ErrorCode::UnittestError,
+        "U256::from(999999) failed"
+    );
 
     let a = U256::from_dec_str("999999").unwrap();
-    das_assert!(a.to_string() == "999999", ErrorCode::UnittestError, "U256::from_str(\"999999\").unwrap() failed");
+    das_assert!(
+        a.to_string() == "999999",
+        ErrorCode::UnittestError,
+        "U256::from_str(\"999999\").unwrap() failed"
+    );
 
     Ok(())
 }
@@ -31,7 +40,11 @@ pub fn test_safty() -> Result<(), Box<dyn ScriptError>> {
     let a = to_u256("1_000_000_000_000_000");
     let b = to_u256("1_000_000_000_000_000");
     let c = a + b;
-    das_assert!(c.to_string() == to_dec_str("2_000_000_000_000_000"), ErrorCode::UnittestError, "U256::add failed");
+    das_assert!(
+        c.to_string() == to_dec_str("2_000_000_000_000_000"),
+        ErrorCode::UnittestError,
+        "U256::add failed"
+    );
 
     let a = to_u256("1_000_000_000_000_000");
     let b = to_u256("1_000_000_000_000_000");
@@ -41,12 +54,20 @@ pub fn test_safty() -> Result<(), Box<dyn ScriptError>> {
     let a = to_u256("1_000_000_000_000_000");
     let b = to_u256("100_000_000");
     let c = a * b;
-    das_assert!(c.to_string() == to_dec_str("1_000_000_000_000_000_00_000_000"), ErrorCode::UnittestError, "U256::mul failed");
+    das_assert!(
+        c.to_string() == to_dec_str("1_000_000_000_000_000_00_000_000"),
+        ErrorCode::UnittestError,
+        "U256::mul failed"
+    );
 
     let a = to_u256("1_000_000_000_000_000_00_000_000");
     let b = to_u256("1000");
     let c = a / b;
-    das_assert!(c.to_string() == to_dec_str("1_000_000_000_000_000_00_000"), ErrorCode::UnittestError, "U256::div failed");
+    das_assert!(
+        c.to_string() == to_dec_str("1_000_000_000_000_000_00_000"),
+        ErrorCode::UnittestError,
+        "U256::div failed"
+    );
 
     Ok(())
 }
@@ -55,7 +76,7 @@ pub fn test_safty() -> Result<(), Box<dyn ScriptError>> {
 pub fn perf_price_formula() -> Result<(), Box<dyn ScriptError>> {
     let one_billion = "1_000_000_000_000_000".replace("_", "");
     let yearly_prices = [
-        U256::from(5_000_000), // 5$ per year
+        U256::from(5_000_000),                     // 5$ per year
         U256::from_dec_str(&one_billion).unwrap(), // 1_000_000_000$ per year
     ];
 
@@ -77,7 +98,7 @@ pub fn perf_price_formula() -> Result<(), Box<dyn ScriptError>> {
             let total_price = Decimal::from_str(total_price.to_string().as_str()).unwrap();
             let expect_total_price = expect_yearly_price * expect_ckb / expect_quote;
 
-            if quote == print_at  {
+            if quote == print_at {
                 print_at = print_at * U256::from(10);
                 debug!("i: {}, total_price: {}, quote: {}", i, total_price, quote);
             }
@@ -99,7 +120,7 @@ pub fn perf_price_formula() -> Result<(), Box<dyn ScriptError>> {
             let total_price = Decimal::from_str(total_price.to_string().as_str()).unwrap();
             let expect_total_price = expect_yearly_price * expect_ckb / expect_quote;
 
-            if quote == print_at  {
+            if quote == print_at {
                 print_at = U256::from(100_000_000);
                 debug!("i: {}, total_price: {}, quote: {}", i, total_price, quote);
             }

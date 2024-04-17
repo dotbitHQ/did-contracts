@@ -478,8 +478,8 @@ pub struct TemplateGenerator {
 }
 
 impl TemplateGenerator {
-    pub fn new(action: &str, params_opt: Option<Bytes>) -> TemplateGenerator {
-        let witness = das_util::wrap_action_witness_v2(action, params_opt);
+    pub fn new(action: &str, params_opt: Option<Vec<u8>>) -> TemplateGenerator {
+        let witness = das_util::wrap_action_witness_v3(action, params_opt);
 
         let mut prices = HashMap::new();
         prices.insert(1u8, gen_price_config(1, ACCOUNT_PRICE_1_CHAR, ACCOUNT_PRICE_1_CHAR));

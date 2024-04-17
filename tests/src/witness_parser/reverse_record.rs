@@ -10,8 +10,8 @@ use crate::util::template_parser::*;
 
 pub const TIMESTAMP: u64 = 1611200090u64;
 
-fn init(action: &str) -> TemplateGenerator {
-    let mut template = TemplateGenerator::new(action, None);
+fn init(name: &str) -> TemplateGenerator {
+    let mut template = TemplateGenerator::new("unit_test", Some(name.as_bytes().to_vec()));
 
     template.push_contract_cell("always_success", ContractType::DeployedContract);
     template.push_contract_cell("fake-secp256k1-blake160-signhash-all", ContractType::DeployedContract);
@@ -23,7 +23,7 @@ fn init(action: &str) -> TemplateGenerator {
 }
 
 #[test]
-fn parse_reverse_record_witness_empty() {
+fn test_parse_reverse_record_witness_empty() {
     let mut template = init("test_parse_reverse_record_witness_empty");
 
     push_input_test_env_cell(&mut template);
@@ -32,7 +32,7 @@ fn parse_reverse_record_witness_empty() {
 }
 
 #[test]
-fn parse_reverse_record_witness_update_only() {
+fn test_parse_reverse_record_witness_update_only() {
     let mut template = init("test_parse_reverse_record_witness_update_only");
 
     push_input_test_env_cell(&mut template);
@@ -64,7 +64,7 @@ fn parse_reverse_record_witness_update_only() {
 }
 
 #[test]
-fn parse_reverse_record_witness_remove_only() {
+fn test_parse_reverse_record_witness_remove_only() {
     let mut template = init("test_parse_reverse_record_witness_remove_only");
 
     template.restore_reverse_record(vec![
@@ -109,7 +109,7 @@ fn parse_reverse_record_witness_remove_only() {
 }
 
 #[test]
-fn parse_reverse_record_witness_mixed() {
+fn test_parse_reverse_record_witness_mixed() {
     let mut template = init("test_parse_reverse_record_witness_mixed");
 
     template.restore_reverse_record(vec![
