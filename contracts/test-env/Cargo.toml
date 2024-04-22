@@ -16,6 +16,8 @@ das-core = { workspace = true }
 das-types = { workspace = true, features = ["no_std"] }
 ckb-std = { workspace = true }
 hex = { workspace = true }
+primitive-types = { workspace = true }
+rust_decimal = { version = "1.34.3", default-features = false, features = ["maths"] }
 
 [build-dependencies]
 dotenvy = { workspace = true }

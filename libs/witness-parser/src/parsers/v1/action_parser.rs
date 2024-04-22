@@ -42,6 +42,7 @@ pub fn parse_action(
     let action_params = match action {
         Action::BuyAccount => parse_buy_account(index, action_data.as_reader())?,
         Action::LockAccountForCrossChain => parse_lock_account_for_cross_chain(index, action_data.as_reader())?,
+        Action::UnitTest => parse_test_name(action_data.as_reader()),
         _ => {
             if action_data.params().is_empty() {
                 ActionParams::None
@@ -122,4 +123,11 @@ fn parse_lock_account_for_cross_chain(
         chain_id,
         role,
     })
+}
+
+fn parse_test_name(action_data: ActionDataReader) -> ActionParams {
+    let buf = action_data.params().raw_data();
+    let name = String::from_utf8(buf.to_vec()).unwrap_or_default();
+
+    ActionParams::TestName(name)
 }

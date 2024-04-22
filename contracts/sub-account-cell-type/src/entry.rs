@@ -159,8 +159,11 @@ fn action_config_sub_account() -> Result<(), Box<dyn ScriptError>> {
     let flag = match data_parser::sub_account_cell::get_flag(&output_sub_account_data) {
         Some(val) => val,
         None => {
-            warn!("The flag should always be some for now.");
-            return Err(code_to_error!(ErrorCode::HardCodedError));
+            warn!(
+                "The flag is invalid.(sub_account_data: {})",
+                util::hex_string(&output_sub_account_data)
+            );
+            return Err(code_to_error!(SubAccountCellErrorCode::ConfigFlagInvalid));
         }
     };
     let price_rules_hash = data_parser::sub_account_cell::get_price_rules_hash(&sub_account_cell_data);
@@ -271,11 +274,14 @@ fn action_update_sub_account() -> Result<(), Box<dyn ScriptError>> {
     let input_sub_account_data = high_level::load_cell_data(input_sub_account_cells[0], Source::Input)?;
     let output_sub_account_data = high_level::load_cell_data(output_sub_account_cells[0], Source::Output)?;
 
-    let flag = match data_parser::sub_account_cell::get_flag(&input_sub_account_data) {
+    let flag = match data_parser::sub_account_cell::get_flag(&output_sub_account_data) {
         Some(val) => val,
         None => {
-            warn!("The flag should always be some for now.");
-            return Err(code_to_error!(ErrorCode::HardCodedError));
+            warn!(
+                "The flag is invalid.(sub_account_data: {})",
+                util::hex_string(&output_sub_account_data)
+            );
+            return Err(code_to_error!(SubAccountCellErrorCode::ConfigFlagInvalid));
         }
     };
     let sub_account_parser = SubAccountWitnessesParser::new(flag, &config_main)?;
@@ -452,12 +458,16 @@ fn action_update_sub_account() -> Result<(), Box<dyn ScriptError>> {
                 (_, custom_preserved_rules) =
                     sub_account_parser.get_rules(&input_sub_account_data, DataType::SubAccountPreservedRule)?;
             }
-            _ => {
+            SubAccountConfigFlag::Manual => {
                 verifiers::sub_account_cell::verify_sub_account_cell_is_consistent(
                     input_sub_account_cells[0],
                     output_sub_account_cells[0],
                     vec!["smt_root", "das_profit"],
                 )?;
+            }
+            SubAccountConfigFlag::CustomScript => {
+                warn!("The flag CustomScript is no longer supported.");
+                return Err(code_to_error!(ErrorCode::HardCodedError));
             }
         }
 
@@ -673,13 +683,17 @@ fn action_update_sub_account() -> Result<(), Box<dyn ScriptError>> {
                     profit_total,
                 )?;
             }
-            _ => {
+            SubAccountConfigFlag::Manual => {
                 verify_profit_to_das_with_manual(
                     output_sub_account_cells[0],
                     &input_sub_account_data,
                     &output_sub_account_data,
                     profit_total,
                 )?;
+            }
+            SubAccountConfigFlag::CustomScript => {
+                warn!("The flag CustomScript is no longer supported.");
+                return Err(code_to_error!(ErrorCode::HardCodedError));
             }
         }
     }

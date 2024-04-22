@@ -203,11 +203,11 @@ impl<'a> SubAction<'a> {
                         witness.index
                     );
 
-                    let profit = calc_basic_profit(
+                    let profit = calc_total_register_fee_from_reader(
                         self.config_sub_account.new_sub_account_price(),
                         self.quote,
                         expiration_years,
-                    );
+                    )?;
                     self.profit_from_manual_mint += profit;
                     self.profit_total += profit;
                     self.minimal_required_das_profit += profit;
@@ -285,7 +285,7 @@ impl<'a> SubAction<'a> {
                                 u64::from(self.config_sub_account.new_sub_account_price()) * expiration_years
                             );
 
-                            let profit = util::calc_yearly_capacity(rule.price, self.quote, 0) * expiration_years;
+                            let profit = util::calc_total_register_fee(rule.price, self.quote, 0, expiration_years)?;
                             self.profit_total += profit;
 
                             debug!(
@@ -361,11 +361,15 @@ impl<'a> SubAction<'a> {
         let sub_account_reader = witness.sub_account.as_reader();
         let (account, account_chars_reader) = gen_account_from_witness(&sub_account_reader)?;
 
-        // WARNING! The `edit_key` has higher priority than the `SubAccountCell.data.flag` for now.
+        // WARNING! The `manual` renew has been the fallback option for all flags now:
+        // If the flag is `custom_rule`, any user can manually renew their sub-account in two situations:
+        //   1. The sub-account do not match any exist rules.
+        //   2. The custom_rule is turned off.
+        // In both situations, the `flag` will be ignored. Even if the `edit_key` is set to `custom_rule`, we will still treat it as a manual renewal.
+        // If the flag is set to 'manual', any user can manually renew their sub-account at any time.
         match (witness.edit_key.as_slice(), self.flag) {
             (b"custom_rule", SubAccountConfigFlag::CustomRule) => {
                 if self.custom_rule_flag == SubAccountCustomRuleFlag::On {
-
                     match self.custom_price_rules.as_ref() {
                         Some(rules) => match match_rule_with_account_chars(&rules, account_chars_reader, &account) {
                             Ok(Some(rule)) => {
@@ -382,7 +386,8 @@ impl<'a> SubAction<'a> {
                                     u64::from(self.config_sub_account.renew_sub_account_price()) * expiration_years
                                 );
 
-                                let profit = util::calc_yearly_capacity(rule.price, self.quote, 0) * expiration_years;
+                                let profit =
+                                    util::calc_total_register_fee(rule.price, self.quote, 0, expiration_years)?;
                                 self.profit_total += profit;
 
                                 debug!(
@@ -429,6 +434,7 @@ impl<'a> SubAction<'a> {
                     );
                 }
             }
+            // No matter what the flag is, the owner and manager can always manually renew so we use _ match here.
             (b"manual", _) => {
                 if let Some(root) = self.manual_renew_list_smt_root {
                     // The signature is still reqired to verify the spending of owner/manager's BalanceCell.
@@ -488,11 +494,11 @@ impl<'a> SubAction<'a> {
             }
         }
 
-        let profit = calc_basic_profit(
+        let profit = calc_total_register_fee_from_reader(
             self.config_sub_account.renew_sub_account_price(),
             self.quote,
             expiration_years,
-        );
+        )?;
         if !manually_renew_by_others {
             self.profit_from_manual_renew += profit;
         } else {
@@ -1081,10 +1087,10 @@ fn generate_new_sub_account_by_edit_value(witness: &SubAccountWitness) -> Result
     Ok(sub_account_builder.build())
 }
 
-fn calc_basic_profit(yearly_price: Uint64Reader, quote: u64, expiration_years: u64) -> u64 {
-    let usd_price = u64::from(yearly_price);
-    let ckb_price = util::calc_yearly_capacity(usd_price, quote, 0);
-    let profit = ckb_price * expiration_years;
-
-    profit
+fn calc_total_register_fee_from_reader(
+    yearly_price: Uint64Reader,
+    quote: u64,
+    expiration_years: u64,
+) -> Result<u64, Box<dyn ScriptError>> {
+    util::calc_total_register_fee(u64::from(yearly_price), quote, 0, expiration_years)
 }

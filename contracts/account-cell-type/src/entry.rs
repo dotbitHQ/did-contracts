@@ -233,7 +233,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let duration = output_expired_at - input_expired_at;
 
             das_assert!(
-                duration >= 365 * 86400,
+                duration >= DAYS_OF_YEAR * DAY_SEC,
                 AccountCellErrorCode::AccountCellRenewDurationMustLongerThanYear,
                 "The AccountCell renew should be longer than 1 year. (current: {}, expected: >= 31_536_000)",
                 duration
@@ -251,7 +251,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let renew_price_in_usd = u64::from(price.renew()); // x USD
             let quote = util::load_oracle_data(OracleCellType::Quote)?;
 
-            let yearly_capacity = util::calc_yearly_capacity(renew_price_in_usd, quote, 0);
+            let yearly_capacity = util::calc_yearly_register_fee(renew_price_in_usd, quote, 0)?;
             das_assert!(
                 paid >= yearly_capacity,
                 AccountCellErrorCode::AccountCellRenewDurationMustLongerThanYear,
@@ -261,13 +261,14 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             );
 
             // Renew price for 1 year in CKB = x ÷ y .
-            let expected_duration = util::calc_duration_from_paid(paid, renew_price_in_usd, quote, 0);
+            let expected_duration = util::calc_duration_from_paid(paid, renew_price_in_usd, quote, 0)?;
             // The duration can be floated within the range of one day.
             das_assert!(
-                duration >= expected_duration - 86400 && duration <= expected_duration + 86400,
+                duration >= expected_duration - DAY_SEC && duration <= expected_duration + DAY_SEC,
                 AccountCellErrorCode::AccountCellRenewDurationBiggerThanPayed,
-                "The duration should be equal to {} +/- 86400s. (current: duration({}), calculation: (paid({}) / (renew_price({}) / quote({}) * 100_000_000) ) * 86400 * 365)",
+                "The duration should be equal to {} +/- {}. (current: duration({}), calculation: (paid({}) / (renew_price({}) / quote({}) * 100_000_000) ) * 86400 * 365)",
                 expected_duration,
+                DAY_SEC,
                 duration,
                 paid,
                 renew_price_in_usd,
@@ -994,13 +995,13 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 ],
             )?;
 
-            let records_len = output_cell_witness_reader.records().len();
-            das_assert!(
-                records_len == 1,
-                ErrorCode::InvalidTransactionStructure,
-                "The records field in output AccountCell should only one, but {}.",
-                records_len
-            );
+            // let records_len = output_cell_witness_reader.records().len();
+            // das_assert!(
+            //     records_len == 1,
+            //     ErrorCode::InvalidTransactionStructure,
+            //     "The records field in output AccountCell should only one, but {}.",
+            //     records_len
+            // );
 
             verifiers::account_cell::verify_status_v2(
                 &input_cell_witness_reader,
@@ -1314,15 +1315,19 @@ fn action_approve() -> Result<(), Box<dyn ScriptError>> {
                 vec!["status", "approval"],
             )?;
 
-            let _approval_action = get_approval_action(&output_cell_witness_reader)?;
+            let approval_action = get_approval_action(&output_cell_witness_reader)?;
 
-            approval::transfer_approval_create(
-                timestamp,
-                input_account_cells[0],
-                output_account_cells[0],
-                input_cell_witness_reader,
-                output_cell_witness_reader,
-            )?;
+            match approval_action {
+                AccountApprovalAction::Transfer => {
+                    approval::transfer_approval_create(
+                        timestamp,
+                        input_account_cells[0],
+                        output_account_cells[0],
+                        input_cell_witness_reader,
+                        output_cell_witness_reader,
+                    )?;
+                }
+            }
         }
         Action::DelayApproval => {
             verifiers::account_cell::verify_account_cell_consistent_with_exception(
@@ -1335,16 +1340,18 @@ fn action_approve() -> Result<(), Box<dyn ScriptError>> {
                 vec!["approval"],
             )?;
 
-            let _approval_action = get_approval_action(&output_cell_witness_reader)?;
+            let approval_action = get_approval_action(&output_cell_witness_reader)?;
 
-            approval::transfer_approval_delay(
-                input_account_cells[0],
-                output_account_cells[0],
-                input_cell_witness_reader,
-                output_cell_witness_reader,
-            )?;
-
-            //util::exec_by_type_id(TypeScript::EIP712Lib, &[])?;
+            match approval_action {
+                AccountApprovalAction::Transfer => {
+                    approval::transfer_approval_delay(
+                        input_account_cells[0],
+                        output_account_cells[0],
+                        input_cell_witness_reader,
+                        output_cell_witness_reader,
+                    )?;
+                }
+            }
         }
         Action::RevokeApproval => {
             verifiers::account_cell::verify_account_cell_consistent_with_exception(
@@ -1357,15 +1364,19 @@ fn action_approve() -> Result<(), Box<dyn ScriptError>> {
                 vec!["status", "approval"],
             )?;
 
-            let _approval_action = get_approval_action(&input_cell_witness_reader)?;
+            let approval_action = get_approval_action(&input_cell_witness_reader)?;
 
-            approval::transfer_approval_revoke(
-                timestamp,
-                input_account_cells[0],
-                output_account_cells[0],
-                input_cell_witness_reader,
-                output_cell_witness_reader,
-            )?;
+            match approval_action {
+                AccountApprovalAction::Transfer => {
+                    approval::transfer_approval_revoke(
+                        timestamp,
+                        input_account_cells[0],
+                        output_account_cells[0],
+                        input_cell_witness_reader,
+                        output_cell_witness_reader,
+                    )?;
+                }
+            }
         }
         Action::FulfillApproval => {
             verifiers::account_cell::verify_account_cell_consistent_with_exception(
@@ -1378,14 +1389,24 @@ fn action_approve() -> Result<(), Box<dyn ScriptError>> {
                 vec!["status", "approval", "records"],
             )?;
 
-            let _approval_action = get_approval_action(&input_cell_witness_reader)?;
+            let approval_action = get_approval_action(&input_cell_witness_reader)?;
 
-            approval::transfer_approval_fulfill(
-                input_account_cells[0],
-                output_account_cells[0],
-                input_cell_witness_reader,
-                output_cell_witness_reader,
-            )?;
+            match approval_action {
+                AccountApprovalAction::Transfer => {
+                    let sealed_until = approval::transfer_approval_fulfill(
+                        input_account_cells[0],
+                        output_account_cells[0],
+                        input_cell_witness_reader,
+                        output_cell_witness_reader,
+                    )?;
+
+                    if timestamp > sealed_until {
+                        debug!("The approval is already released, so anyone can fulfill it.");
+                    } else {
+                        debug!("The approval is not released, so its signature should be verified by das-lock.");
+                    }
+                }
+            }
         }
         _ => {
             warn!("Action {} is not a valid approval action.", parser.action.to_string());
@@ -1442,7 +1463,7 @@ fn verify_transaction_fee_spent_correctly(
         Action::EditRecords => u64::from(config.edit_records_fee()),
         _ => u64::from(config.common_fee()),
     };
-    let storage_capacity = basic_capacity + account_length * 100_000_000;
+    let storage_capacity = basic_capacity + account_length * ONE_CKB;
 
     verifiers::common::verify_tx_fee_spent_correctly(
         "AccountCell",

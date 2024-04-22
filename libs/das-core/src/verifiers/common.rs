@@ -221,7 +221,7 @@ pub fn verify_cell_consistent_with_exception(
 
         das_assert!(
             util::is_entity_eq(&input_type, &output_type),
-            ErrorCode::CellLockCanNotBeModified,
+            ErrorCode::CellTypeCanNotBeModified,
             "The lock of the {} should be consistent.(input: {}, output: {})",
             cell_name,
             input_type,
@@ -237,7 +237,7 @@ pub fn verify_cell_consistent_with_exception(
 
         das_assert!(
             input_data == output_data,
-            ErrorCode::CellLockCanNotBeModified,
+            ErrorCode::CellDataCanNotBeModified,
             "The lock of the {} should be consistent.(input: {}, output: {})",
             cell_name,
             util::hex_string(&input_data),

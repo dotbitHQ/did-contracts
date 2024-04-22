@@ -1,5 +1,4 @@
 use das_types::constants::*;
-use das_types::packed::*;
 use serde_json::{json, Value};
 
 use crate::util::accounts::*;
@@ -8,7 +7,7 @@ use crate::util::template_generator::*;
 use crate::util::{self};
 
 pub fn init(action: &str, params_opt: Option<&str>) -> TemplateGenerator {
-    let mut template = TemplateGenerator::new(action, params_opt.map(|raw| Bytes::from(util::hex_to_bytes(raw))));
+    let mut template = TemplateGenerator::new(action, params_opt.map(|raw| util::hex_to_bytes(raw)));
 
     template.push_contract_cell("always_success", ContractType::DeployedContract);
     template.push_contract_cell("fake-das-lock", ContractType::DeployedContract);

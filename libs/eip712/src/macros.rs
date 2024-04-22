@@ -44,22 +44,22 @@ macro_rules! typed_data_v4 {
     }};
     (@array $val:expr) => { $val };
     (@domain {
-        $key_chain_id:ident: $val_chain_id:expr,
         $key_name:ident: $val_name:expr,
-        $key_verifying_contract:ident: $val_verifying_contract:expr,
-        $key_version:ident: $val_version:expr
+        $key_version:ident: $val_version:expr,
+        $key_chain_id:ident: $val_chain_id:expr,
+        $key_verifying_contract:ident: $val_verifying_contract:expr
     }) => {{
         let mut keys = alloc::vec::Vec::new();
-        keys.push(alloc::string::String::from(stringify!($key_chain_id)));
         keys.push(alloc::string::String::from(stringify!($key_name)));
-        keys.push(alloc::string::String::from(stringify!($key_verifying_contract)));
         keys.push(alloc::string::String::from(stringify!($key_version)));
+        keys.push(alloc::string::String::from(stringify!($key_chain_id)));
+        keys.push(alloc::string::String::from(stringify!($key_verifying_contract)));
 
         let mut domain = alloc::collections::BTreeMap::new();
-        domain.insert(alloc::string::String::from(stringify!($key_chain_id)), $crate::eip712::Value::Uint256(alloc::string::String::from($val_chain_id)));
         domain.insert(alloc::string::String::from(stringify!($key_name)), $crate::eip712::Value::String(alloc::string::String::from($val_name)));
-        domain.insert(alloc::string::String::from(stringify!($key_verifying_contract)), $crate::eip712::Value::Address(alloc::string::String::from($val_verifying_contract)));
         domain.insert(alloc::string::String::from(stringify!($key_version)), $crate::eip712::Value::String(alloc::string::String::from($val_version)));
+        domain.insert(alloc::string::String::from(stringify!($key_chain_id)), $crate::eip712::Value::Uint256(alloc::string::String::from($val_chain_id)));
+        domain.insert(alloc::string::String::from(stringify!($key_verifying_contract)), $crate::eip712::Value::Address(alloc::string::String::from($val_verifying_contract)));
 
         $crate::eip712::Value::Object((keys, domain))
     }};

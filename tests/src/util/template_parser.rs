@@ -46,6 +46,35 @@ impl FromStr for BinaryVersion {
     }
 }
 
+pub fn perf_tx(tx: Value) {
+    // println!("Transaction template: {}", serde_json::to_string_pretty(&tx).unwrap());
+    let mut parser = TemplateParser::from_data(tx, u64::MAX);
+    match parser.try_parse() {
+        Ok(_) => match parser.execute_tx() {
+            Ok((cycles, _)) => {
+                println!(
+                    r#"︎↑︎======================================↑︎
+Cycles: {}
+========================================"#,
+                    cycles
+                );
+            }
+            Err(e) => {
+                panic!(
+                    "\n======\nThe transaction should pass the test, but it failed in script: {}\n======\n",
+                    e.to_string()
+                );
+            }
+        },
+        Err(e) => {
+            panic!(
+                "\n======\nParse the template of transaction failed: {}\n======\n",
+                e.to_string()
+            );
+        }
+    }
+}
+
 pub fn test_tx(tx: Value) {
     // println!("Transaction template: {}", serde_json::to_string_pretty(&tx).unwrap());
     let mut parser = TemplateParser::from_data(tx, 350_000_000);

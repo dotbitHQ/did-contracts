@@ -87,32 +87,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 vec![CellField::Data],
             )?;
 
-            // let mut sign_lib = SignLib::new();
-            // // ⚠️ This must be present at the top level, as we will need to use the libraries later.
-            // let mut eth_context = new_context!();
-            // log_loading!(DynLibName::ETH, config_main.das_lock_type_id_table());
-            // let eth_lib = load_lib!(eth_context, DynLibName::ETH, config_main.das_lock_type_id_table());
-            // sign_lib.eth = load_2_methods!(eth_lib);
-            //
-            // let mut tron_context = new_context!();
-            // log_loading!(DynLibName::TRON, config_main.das_lock_type_id_table());
-            // let tron_lib = load_lib!(tron_context, DynLibName::TRON, config_main.das_lock_type_id_table());
-            // sign_lib.tron = load_2_methods!(tron_lib);
-            //
-            // let mut doge_context = new_context!();
-            // log_loading!(DynLibName::DOGE, config_main.das_lock_type_id_table());
-            // let doge_lib = load_lib!(doge_context, DynLibName::DOGE, config_main.das_lock_type_id_table());
-            // sign_lib.doge = load_2_methods!(doge_lib);
-            //
-            // let mut web_authn_context = new_context!();
-            // log_loading!(DynLibName::WebAuthn, config_main.das_lock_type_id_table());
-            // let web_authn_lib = load_lib!(
-            //     web_authn_context,
-            //     DynLibName::WebAuthn,
-            //     config_main.das_lock_type_id_table()
-            // );
-            // sign_lib.web_authn = load_3_methods!(web_authn_lib);
-
             debug!("Start iterating ReverseRecord witnesses ...");
 
             let mut prev_root = high_level::load_cell_data(input_cells[0], Source::Input)?;
@@ -125,7 +99,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 }
                 let witness = witness_ret.unwrap();
 
-                //verify_sign(&sign_lib, &witness, &witness_parser)?;
+                // WARNING! Need to verify the signatures in das-lock.
                 smt_verify_reverse_record_proof(&prev_root, &witness)?;
 
                 prev_root = witness.next_root.to_vec();

@@ -25,3 +25,4 @@ paste = { workspace = true }
 hex = { workspace = true }
 # das-core only crates
 libm = { version = "0.2", default-features = false }
+primitive-types = { workspace = true }

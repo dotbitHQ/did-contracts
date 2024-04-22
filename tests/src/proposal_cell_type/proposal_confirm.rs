@@ -81,7 +81,7 @@ fn push_input_slice_0(template: &mut TemplateGenerator) {
     push_input_pre_account_cell(
         template,
         json!({
-            "capacity": util::gen_register_fee(8, true),
+            "capacity": util::gen_register_fee_v2("das00005.bit", 8, true),
             "witness": {
                 "account": "das00005.bit",
                 "owner_lock_args": gen_das_lock_args("0x05ffff000000000000000000000000000000000005", None),
@@ -126,7 +126,7 @@ fn push_input_slice_1(template: &mut TemplateGenerator) {
     push_input_pre_account_cell(
         template,
         json!({
-            "capacity": util::gen_register_fee(8, true),
+            "capacity": util::gen_register_fee_v2("das00018.bit", 8, true),
             "witness": {
                 "account": "das00018.bit",
                 "owner_lock_args": gen_das_lock_args("0x05ffff000000000000000000000000000000000018", None),
@@ -148,7 +148,7 @@ fn push_input_slice_1(template: &mut TemplateGenerator) {
     push_input_pre_account_cell(
         template,
         json!({
-            "capacity": util::gen_register_fee(8, true),
+            "capacity": util::gen_register_fee_v2("das00008.bit", 8, true),
             "witness": {
                 "account": "das00008.bit",
                 "owner_lock_args": gen_das_lock_args("0x05ffff000000000000000000000000000000000008", None),
@@ -638,7 +638,7 @@ fn challenge_proposal_confirm_account_cell_next_mismatch() {
     push_input_pre_account_cell(
         &mut template,
         json!({
-            "capacity": util::gen_register_fee(8, true),
+            "capacity": util::gen_register_fee_v2("das00005.bit", 8, true),
             "witness": {
                 "account": "das00005.bit",
                 "owner_lock_args": "0x05ffff00000000000000000000000000000000000505ffff000000000000000000000000000000000005",
@@ -913,10 +913,7 @@ fn challenge_proposal_confirm_new_account_cell_approval() {
     push_output_income_cell_with_profit(&mut template);
     push_output_normal_cell_with_refund(&mut template);
 
-    challenge_tx(
-        template.as_json(),
-        ErrorCode::ProposalConfirmNewAccountWitnessError,
-    );
+    challenge_tx(template.as_json(), ErrorCode::ProposalConfirmNewAccountWitnessError);
 }
 
 #[test]
@@ -948,7 +945,7 @@ fn test_proposal_confirm_new_account_with_cross_chain() {
     push_input_pre_account_cell(
         &mut template,
         json!({
-            "capacity": util::gen_register_fee(8, true),
+            "capacity": util::gen_register_fee_v2("das00005.bit", 8, true),
             "witness": {
                 "account": "das00005.bit",
                 "owner_lock_args": gen_das_lock_args("0x05ffff000000000000000000000000000000000005", None),
@@ -1060,7 +1057,7 @@ fn challenge_proposal_confirm_new_account_with_cross_chain() {
     push_input_pre_account_cell(
         &mut template,
         json!({
-            "capacity": util::gen_register_fee(8, true),
+            "capacity": util::gen_register_fee_v2("das00005.bit", 8, true),
             "witness": {
                 "account": "das00005.bit",
                 "owner_lock_args": gen_das_lock_args("0x05ffff000000000000000000000000000000000005", None),

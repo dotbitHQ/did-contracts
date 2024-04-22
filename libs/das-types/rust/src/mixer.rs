@@ -572,7 +572,7 @@ impl<'r> SubAccountReaderMixer<'r> for SubAccountV1Reader<'r> {
 
 impl<'r> SubAccountReaderMixer<'r> for SubAccountReader<'r> {
     fn version(&self) -> u32 {
-        1
+        2
     }
 
     fn try_into_v1(&self) -> VerificationResult<SubAccountV1Reader<'r>> {

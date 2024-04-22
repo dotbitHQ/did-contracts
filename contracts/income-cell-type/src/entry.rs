@@ -262,14 +262,14 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 }
 
                 debug!(
-                "records_should_transfer[{}] {{ output_index: {}, args: {}, total: {}, capacity_transferred: {}, capacity_should_be_transferred: {} }}",
-                i,
-                cells[0],
-                item.0.args(),
-                item.1,
-                capacity_transferred,
-                capacity_should_be_transferred
-            );
+                    "records_should_transfer[{}] {{ output_index: {}, args: {}, total: {}, capacity_transferred: {}, capacity_should_be_transferred: {} }}",
+                    i,
+                    cells[0],
+                    item.0.args(),
+                    item.1,
+                    capacity_transferred,
+                    capacity_should_be_transferred
+                );
 
                 if capacity_transferred < capacity_should_be_transferred {
                     if need_pad {
