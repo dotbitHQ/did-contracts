@@ -21,6 +21,7 @@ pub fn get_owner_profit(data: &[u8]) -> Option<u64> {
 pub fn get_flag(data: &[u8]) -> Option<SubAccountConfigFlag> {
     match data.get(48) {
         Some(v) => SubAccountConfigFlag::try_from(*v).ok(),
+        // If the flag is not set, it is considered a `manual` flag to maintain backward compatibility with the old version.
         None => Some(SubAccountConfigFlag::Manual),
     }
 }

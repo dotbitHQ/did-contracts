@@ -16,12 +16,16 @@ use ckb_std::ckb_types::packed::*;
 use ckb_std::ckb_types::prelude::*;
 use ckb_std::error::SysError;
 use ckb_std::{high_level, syscalls};
-use das_types::constants::{das_lock, height_cell_type, quote_cell_type, super_lock, time_cell_type, Action, DasLockType, DataType, LockRole, TypeScript, ACCOUNT_ID_LENGTH, WITNESS_HEADER, get_das_lock_type_id};
+use das_types::constants::{
+    das_lock, get_das_lock_type_id, height_cell_type, quote_cell_type, super_lock, time_cell_type, Action, DasLockType,
+    DataType, LockRole, TypeScript, ACCOUNT_ID_LENGTH, WITNESS_HEADER,
+};
 use das_types::mixer::*;
 use das_types::packed::{self as das_packed};
 pub use das_types::util::{hex_string, is_entity_eq, is_reader_eq};
 #[cfg(test)]
 use hex::FromHexError;
+use primitive_types::U256;
 use witness_parser::traits::WitnessQueryable;
 use witness_parser::types::CellMeta;
 use witness_parser::WitnessesParserV1;
@@ -709,26 +713,62 @@ pub fn calc_account_storage_capacity(
 
     let basic_capacity = basic_capacity;
     let prepared_fee_capacity = u64::from(config_account.prepared_fee_capacity());
-    basic_capacity + prepared_fee_capacity + (account_name_storage * 100_000_000)
+    basic_capacity + prepared_fee_capacity + (account_name_storage * ONE_CKB)
 }
 
-pub fn calc_yearly_capacity(yearly_price: u64, quote: u64, discount: u32) -> u64 {
-    let total;
-    if yearly_price < quote {
-        total = yearly_price * 100_000_000 / quote;
+pub fn calc_yearly_register_fee(usd_price: u64, quote: u64, discount: u32) -> Result<u64, Box<dyn ScriptError>> {
+    // Original formula:
+    // - total = yearly_price / quote * ONE_CKB
+    // - discounted_total = total * (1 - discount)
+    // In order to improve the calculation accuracy of uint, here we have multiplied the numbers by a certain factor:
+    // - 1 USDT is represented as 1_000_000 .
+    // - 100% is represented as 10_000 .
+    // In order to improve the calculation accuracy, accuracy, division is calculated at the end.
+
+    let total = U256::from(usd_price) * U256::from(ONE_CKB) / U256::from(quote);
+    let total_discount = total * U256::from(discount) / U256::from(10000u64);
+    let ret = total - total_discount;
+
+    if ret > U256::from(u64::MAX) {
+        Err(code_to_error!(ErrorCode::OverflowError))
     } else {
-        total = yearly_price / quote * 100_000_000;
+        Ok(ret.as_u64())
     }
-
-    total - (total * discount as u64 / 10000)
 }
 
-pub fn calc_duration_from_paid(paid: u64, yearly_price: u64, quote: u64, discount: u32) -> u64 {
-    let yearly_capacity = calc_yearly_capacity(yearly_price, quote, discount);
+pub fn calc_total_register_fee(
+    usd_price: u64,
+    quote: u64,
+    discount: u32,
+    years: u64,
+) -> Result<u64, Box<dyn ScriptError>> {
+    let yearly_fee = U256::from(calc_yearly_register_fee(usd_price, quote, discount)?);
+    let ret = U256::from(yearly_fee) * U256::from(years);
 
-    // Original formula: duration = (paid / yearly_capacity) * 365 * 86400
-    // But CKB VM can only handle uint, so we put division to later for higher precision.
-    paid * 365 / yearly_capacity * 86400
+    if ret > U256::from(u64::MAX) {
+        Err(code_to_error!(ErrorCode::OverflowError))
+    } else {
+        Ok(ret.as_u64())
+    }
+}
+
+pub fn calc_duration_from_paid(
+    paid: u64,
+    usd_price: u64,
+    quote: u64,
+    discount: u32,
+) -> Result<u64, Box<dyn ScriptError>> {
+    let yearly_fee = U256::from(calc_yearly_register_fee(usd_price, quote, discount)?);
+
+    // Original formula: duration = (paid / yearly_capacity) * DAYS_OF_YEAR * DAY_SEC
+    // In order to improve the calculation accuracy, accuracy, division is calculated at the end.
+    let ret = U256::from(paid) * U256::from(DAYS_OF_YEAR) * U256::from(DAY_SEC) / yearly_fee;
+
+    if ret > U256::from(u64::MAX) {
+        Err(code_to_error!(ErrorCode::OverflowError))
+    } else {
+        Ok(ret.as_u64())
+    }
 }
 
 pub fn require_type_script(

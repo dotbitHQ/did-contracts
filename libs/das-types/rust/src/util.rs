@@ -37,7 +37,6 @@ pub fn is_sub_account_data_type(data_type: &DataType) -> bool {
         DataType::SubAccountRenewSign,
         DataType::SubAccountPriceRule,
         DataType::SubAccountPreservedRule,
-        DataType::DeviceKeyListCellData,
         DataType::SubAccountMintSign,
     ]
     .contains(data_type)
@@ -174,6 +173,17 @@ pub fn wrap_action_witness_v2(action: &str, params_opt: Option<Bytes>) -> Vec<u8
 
     if let Some(params) = params_opt {
         builder = builder.params(params);
+    }
+
+    wrap_entity_witness_v2(DataType::ActionData, builder.build())
+}
+
+#[cfg(not(feature = "no_std"))]
+pub fn wrap_action_witness_v3(action: &str, params_opt: Option<Vec<u8>>) -> Vec<u8> {
+    let mut builder = ActionData::new_builder().action(Bytes::from(action.as_bytes()));
+
+    if let Some(params) = params_opt {
+        builder = builder.params(Bytes::from(params));
     }
 
     wrap_entity_witness_v2(DataType::ActionData, builder.build())

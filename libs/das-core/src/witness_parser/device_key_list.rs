@@ -1,4 +1,5 @@
 use alloc::collections::BTreeMap;
+use alloc::vec::Vec;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level::{load_cell_lock, load_cell_type, QueryIter};
@@ -28,4 +29,26 @@ pub fn get_device_key_list_cell_deps(type_id: &[u8]) -> BTreeMap<[u8; 32], Bytes
     .collect();
 
     cell_deps
+}
+pub fn get_device_key_list_cells(type_id: &[u8], source: Source) -> Vec<usize> {
+    let cells = QueryIter::new(
+        |index, source| {
+            let res = load_cell_type(index, source)?;
+            Ok(res.map(|script| (index, script.code_hash())))
+        },
+        source,
+    )
+    .filter_map(|res| {
+        res.and_then(
+            |(index, hash)| {
+                if hash.as_slice() == type_id {
+                    Some(index)
+                } else {
+                    None
+                }
+            },
+        )
+    })
+    .collect();
+    cells
 }

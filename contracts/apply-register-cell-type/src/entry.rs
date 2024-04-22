@@ -7,7 +7,7 @@ use core::result::Result;
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
 use das_core::config::Config;
-use das_core::constants::ScriptType;
+use das_core::constants::{ScriptType, ONE_CKB};
 use das_core::error::*;
 use das_core::since_util::SinceFlag;
 use das_core::{assert, code_to_error, debug, since_util, util, verifiers};
@@ -103,10 +103,10 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             }
 
             assert!(
-                refund_capacity >= expected_refund_capacity - 100_000_000,
+                refund_capacity >= expected_refund_capacity - ONE_CKB,
                 ErrorCode::ApplyRegisterRefundCapacityError,
                 "The total refunds should be more than {}, but {} found.",
-                expected_refund_capacity - 100_000_000,
+                expected_refund_capacity - ONE_CKB,
                 refund_capacity
             );
 

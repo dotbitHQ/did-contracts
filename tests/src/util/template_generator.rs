@@ -478,8 +478,8 @@ pub struct TemplateGenerator {
 }
 
 impl TemplateGenerator {
-    pub fn new(action: &str, params_opt: Option<Bytes>) -> TemplateGenerator {
-        let witness = das_util::wrap_action_witness_v2(action, params_opt);
+    pub fn new(action: &str, params_opt: Option<Vec<u8>>) -> TemplateGenerator {
+        let witness = das_util::wrap_action_witness_v3(action, params_opt);
 
         let mut prices = HashMap::new();
         prices.insert(1u8, gen_price_config(1, ACCOUNT_PRICE_1_CHAR, ACCOUNT_PRICE_1_CHAR));
@@ -647,8 +647,8 @@ impl TemplateGenerator {
             .edit_manager_fee(Uint64::from(ACCOUNT_OPERATE_FEE))
             .edit_records_fee(Uint64::from(ACCOUNT_OPERATE_FEE))
             .common_fee(Uint64::from(ACCOUNT_OPERATE_FEE))
-            .transfer_account_throttle(Uint32::from(86400))
-            .edit_manager_throttle(Uint32::from(3600))
+            .transfer_account_throttle(Uint32::from(DAY_SEC as u32))
+            .edit_manager_throttle(Uint32::from(HOUR_SEC as u32))
             .edit_records_throttle(Uint32::from(600))
             .expiration_auction_period(Uint32::from(ACCOUNT_EXPIRATION_AUCTION_PERIOD as u32))
             .expiration_deliver_period(Uint32::from(ACCOUNT_EXPIRATION_DELIVER_PERIOD as u32))
@@ -792,11 +792,11 @@ impl TemplateGenerator {
         let entity = ConfigCellSecondaryMarket::new_builder()
             .common_fee(Uint64::from(SECONDARY_MARKET_COMMON_FEE))
             .sale_min_price(Uint64::from(ACCOUNT_SALE_MIN_PRICE))
-            .sale_expiration_limit(Uint32::from(86400 * 30))
+            .sale_expiration_limit(Uint32::from(DAY_SEC as u32 * 30))
             .sale_description_bytes_limit(Uint32::from(5000))
             .sale_cell_basic_capacity(Uint64::from(ACCOUNT_SALE_BASIC_CAPACITY))
             .sale_cell_prepared_fee_capacity(Uint64::from(ACCOUNT_SALE_PREPARED_FEE_CAPACITY))
-            .auction_max_extendable_duration(Uint32::from(86400 * 7))
+            .auction_max_extendable_duration(Uint32::from(DAY_SEC as u32 * 7))
             .auction_duration_increment_each_bid(Uint32::from(600))
             .auction_min_opening_price(Uint64::from(200_000_000_000))
             .auction_min_increment_rate_each_bid(Uint32::from(1000))

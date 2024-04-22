@@ -11,7 +11,10 @@
 #![feature(panic_info_message)]
 
 // define modules
+mod config_tests;
 mod entry;
+mod uint_tests;
+mod witness_parser_tests;
 
 use ckb_std::default_alloc;
 

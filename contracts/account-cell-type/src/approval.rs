@@ -375,7 +375,7 @@ pub fn transfer_approval_fulfill<'a>(
     output_account_index: usize,
     input_account_reader: Box<dyn AccountCellDataReaderMixer + 'a>,
     output_account_reader: Box<dyn AccountCellDataReaderMixer + 'a>,
-) -> Result<(), Box<dyn ScriptError>> {
+) -> Result<u64, Box<dyn ScriptError>> {
     debug!("Parsing the AccountCellData into the latest version ...");
 
     let input_account_reader = match input_account_reader.try_into_latest() {
@@ -463,5 +463,5 @@ pub fn transfer_approval_fulfill<'a>(
         output_account_index
     );
 
-    Ok(())
+    Ok(input_approval_reader.sealed_until().into())
 }

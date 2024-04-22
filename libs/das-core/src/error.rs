@@ -140,6 +140,7 @@ pub enum ErrorCode {
     UpgradeDefaultValueOfNewFieldIsError,
     CrossChainLockError,
     CrossChainUnlockError,
+    OverflowError = -3,
     UnittestError = -2,
     SystemOff = -1,
 }

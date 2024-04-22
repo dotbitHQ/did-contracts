@@ -1,5 +1,4 @@
 use das_types::constants::*;
-use das_types::packed::*;
 use serde_json::json;
 use sparse_merkle_tree::H256;
 
@@ -22,7 +21,7 @@ pub const TOTAL_PAID: u64 = USD_1 * 100 / CKB_QUOTE * ONE_CKB;
 pub const TOTAL_PAID_DP: u64 = USD_1 * 100;
 
 pub fn init(action: &str, params_opt: Option<&str>) -> TemplateGenerator {
-    let mut template = TemplateGenerator::new(action, params_opt.map(|raw| Bytes::from(util::hex_to_bytes(raw))));
+    let mut template = TemplateGenerator::new(action, params_opt.map(|raw| util::hex_to_bytes(raw)));
 
     template.push_contract_cell("always_success", ContractType::DeployedContract);
     template.push_contract_cell("fake-das-lock", ContractType::DeployedContract);

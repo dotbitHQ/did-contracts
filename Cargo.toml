@@ -88,6 +88,7 @@ serde_json = { version = "1.0" }
 chrono = { version = "0.4", default-features = false }
 paste = "1.0"
 log = "0.4.0"
+primitive-types = { version = "0.12.2", default-features = false }
 
 [profile.release]
 overflow-checks = true

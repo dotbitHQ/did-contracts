@@ -396,6 +396,10 @@ fn get_smt_new_root_and_proof(
                     let mol = util::parse_json_to_records_mol(&format!("{}.edit_value", path), &value["edit_value"]);
                     builder = builder.records(mol)
                 }
+                "expired_at" => {
+                    let expired_at = util::parse_json_u64(&format!("{}.edit_value", path), &value["edit_value"], None);
+                    builder = builder.expired_at(Uint64::from(expired_at));
+                }
                 // WARNING The _ pattern is used to test empty edit_key so it also contains "owner" | "manager" .
                 _ => {
                     let mut lock_builder = sub_account.lock().as_builder();
@@ -471,6 +475,8 @@ fn encode_smt_fields(witness_bytes: &mut Vec<u8>, new_root: [u8; 32], proof: Vec
 }
 
 fn encode_edit_fields(action: &SubAccountAction, path: &str, witness_bytes: &mut Vec<u8>, value: &Value) {
+    // println!("edit_key: {:?}", value["edit_key"]);
+    // println!("edit_value: {:?}", value["edit_value"]);
     if value["edit_key"].is_null() {
         witness_bytes.extend(encoder_util::length_of(&[]));
     } else {
@@ -505,6 +511,10 @@ fn encode_edit_fields(action: &SubAccountAction, path: &str, witness_bytes: &mut
                         let mol =
                             util::parse_json_to_records_mol(&format!("{}.edit_value", path), &value["edit_value"]);
                         mol.as_slice().to_vec()
+                    }
+                    "expired_at" => {
+                        let ret = util::parse_json_u64(&format!("{}.edit_value", path), &value["edit_value"], None);
+                        ret.to_le_bytes().to_vec()
                     }
                     // If the edit_key field is invalid just parse edit_value field as hex string.
                     _ => util::parse_json_hex(&format!("{}.edit_value", path), &value["edit_value"]),
