@@ -86,7 +86,7 @@ All tests will be executed with the above commands, but if any test fails, it is
 
 ## Audit Report
 
-The contracts were audited by [Least Authority](https://leastauthority.com/) on April 10, 2024. You can find the reports in the **Audit Report - by Least Authority.pdf** file.
+The contracts were audited by [Least Authority](https://leastauthority.com/) on April 10, 2024. You can find the reports in the [**Audit Report - by Least Authority.pdf**](https://github.com/dotbitHQ/did-contracts/blob/master/Audit%20Report%20-%20by%20Least%20Authority.pdf) file.
 
 
 ## License
