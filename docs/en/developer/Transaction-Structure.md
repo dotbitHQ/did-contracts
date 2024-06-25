@@ -698,6 +698,43 @@ Outputs:
   [ChangeCell]
 ```
 
+#### UpgradeDid
+
+When the status of Account cell is set from  Normal(0x00) to Upgraded(0x99), a DidCell should be created. This action is only allowed for AccountCell with status Normal(0x00).
+
+**Action structure**
+
+```
+table ActionData {
+  action: "upgrade_did",
+  params: []
+}
+```
+
+**Transaction structure**
+
+```
+CellDeps:
+  das-lock
+  account-cell-type
+  eip712-lib
+  income-cell-type
+  TimeCell
+  HeightCell
+  QuoteCell
+  ConfigCellMain
+  ConfigCellPrice
+  ConfigCellAccount
+Inputs:
+  AccountCell
+  FeeCell // Provides storage capacity for DidCell
+Outputs:
+  AccountCell
+  DidCell
+  [ChangeCell]
+```
+
+
 ### Reverse analysis of related transactions V2
 
 #### Create reverse parsing SMT tree (CreateReverseRecordRoot)
