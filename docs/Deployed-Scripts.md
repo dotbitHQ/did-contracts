@@ -1,6 +1,6 @@
 # Deployted Scripts
 
-> You should not relied on the outpoint of a contract if its hash_type is "type" because when the contract is upgraded, the outpoint will change. You should query the latest outpoint using the script's code_hash from explorer.
+> You should not rely on the outpoint of a contract if its hash_type is "type" because when the contract is upgraded, the outpoint will change. You should query the latest outpoint using the script's code_hash from explorer.
 
 ## Mainnet
 
