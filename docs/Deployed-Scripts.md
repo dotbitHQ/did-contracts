@@ -53,7 +53,7 @@
     "code_hash": "0x0b1f412fbae26853ff7d082d422c2bdd9e2ff94ee8aaec11240a5b34cc6e890f",
     "hash_type": "type",
     "outpoint": {
-        "tx_hash": "0x37f82dd30435575954cc7a9e2292f238ed24d71b0d57a55d8a2fc8a08aa1accf",
+        "tx_hash": "0xba16ef62509b67af5bf062ed1a3b8a4646100211d098181b2cfefcf013231a6e",
         "index": 0
     }
 }
