@@ -5,7 +5,6 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use alloc::{format, vec};
 use core::convert::TryInto;
-use core::ffi::CStr;
 use core::fmt::Debug;
 
 use blake2b_ref::{Blake2b, Blake2bBuilder};
@@ -16,9 +15,12 @@ use ckb_std::ckb_types::packed::*;
 use ckb_std::ckb_types::prelude::*;
 use ckb_std::error::SysError;
 use ckb_std::{high_level, syscalls};
+use config::configs::entity_config::ConfigAccount;
+use config::constants::FieldKey;
+use config::Config;
 use das_types::constants::{
-    das_lock, get_das_lock_type_id, height_cell_type, quote_cell_type, super_lock, time_cell_type, Action, DasLockType,
-    DataType, LockRole, TypeScript, ACCOUNT_ID_LENGTH, WITNESS_HEADER,
+    das_lock, height_cell_type, quote_cell_type, super_lock, time_cell_type, Action, DasLockType, DataType, LockRole,
+    SystemStatus, TypeScript, ACCOUNT_ID_LENGTH, WITNESS_HEADER,
 };
 use das_types::mixer::*;
 use das_types::packed::{self as das_packed};
@@ -33,7 +35,6 @@ use witness_parser::WitnessesParserV1;
 use super::constants::*;
 use super::data_parser;
 use super::error::*;
-use crate::config::Config;
 
 #[cfg(test)]
 pub fn hex_to_unpacked_bytes(input: &str) -> Result<bytes::Bytes, FromHexError> {
@@ -73,9 +74,9 @@ pub fn first_n_bytes_to_hex(bytes: &[u8], n: usize) -> String {
         .unwrap()
 }
 
-pub fn type_id_to_script(type_id: das_packed::HashReader) -> das_packed::Script {
+pub fn type_id_to_script(type_id: [u8; 32]) -> das_packed::Script {
     das_packed::Script::new_builder()
-        .code_hash(type_id.to_entity())
+        .code_hash(das_packed::Hash::from(type_id))
         .hash_type(das_packed::Byte::new(ScriptType::Type as u8))
         .build()
 }
@@ -91,7 +92,7 @@ pub fn is_type_id_equal(script_a: ScriptReader, script_b: ScriptReader) -> bool 
 
 pub fn find_cells_by_type_id(
     script_type: ScriptType,
-    type_id: das_packed::HashReader,
+    type_id: [u8; 32],
     source: Source,
 ) -> Result<Vec<usize>, Box<dyn ScriptError>> {
     let mut i = 0;
@@ -114,7 +115,7 @@ pub fn find_cells_by_type_id(
                 // Build an array with specific code_hash and hash_type
                 let mut type_id_with_hash_type = [0u8; 33];
                 let (left, _) = type_id_with_hash_type.split_at_mut(32);
-                left.copy_from_slice(type_id.raw_data());
+                left.copy_from_slice(&type_id);
                 type_id_with_hash_type[32] = ScriptType::Type as u8;
 
                 if code_hash == type_id_with_hash_type {
@@ -138,7 +139,7 @@ pub fn find_cells_by_type_id(
 
 pub fn find_cells_by_type_id_in_inputs_and_outputs(
     script_type: ScriptType,
-    type_id: das_packed::HashReader,
+    type_id: [u8; 32],
 ) -> Result<(Vec<usize>, Vec<usize>), Box<dyn ScriptError>> {
     let input_cells = find_cells_by_type_id(script_type, type_id, Source::Input)?;
     let output_cells = find_cells_by_type_id(script_type, type_id, Source::Output)?;
@@ -148,7 +149,7 @@ pub fn find_cells_by_type_id_in_inputs_and_outputs(
 
 pub fn find_cells_by_type_id_and_filter<F: Fn(usize, Source) -> Result<bool, Box<dyn ScriptError>>>(
     script_type: ScriptType,
-    type_id: das_packed::HashReader,
+    type_id: [u8; 32],
     source: Source,
     filter: F,
 ) -> Result<Vec<usize>, Box<dyn ScriptError>> {
@@ -165,7 +166,7 @@ pub fn find_cells_by_type_id_and_filter<F: Fn(usize, Source) -> Result<bool, Box
 
 pub fn find_only_cell_by_type_id(
     script_type: ScriptType,
-    type_id: das_packed::HashReader,
+    type_id: [u8; 32],
     source: Source,
 ) -> Result<usize, Box<dyn ScriptError>> {
     let cells = find_cells_by_type_id(script_type, type_id, source)?;
@@ -287,7 +288,7 @@ pub fn find_cells_by_das_lock_payload(
 }
 
 pub fn find_balance_cells(
-    config_main: das_packed::ConfigCellMainReader,
+    balance_cell_type_id: [u8; 32],
     user_lock_reader: ScriptReader,
     source: Source,
 ) -> Result<Vec<usize>, Box<dyn ScriptError>> {
@@ -303,7 +304,7 @@ pub fn find_balance_cells(
         let payload = data_parser::das_lock_args::get_owner_lock_args(args);
         let all_cells = find_cells_by_das_lock_payload(lock_type, payload, source)?;
 
-        let balance_cell_type_script = type_id_to_script(config_main.type_id_table().balance_cell());
+        let balance_cell_type_script = type_id_to_script(balance_cell_type_id);
         let mut cells = Vec::new();
         for i in all_cells {
             let type_script_opt = high_level::load_cell_type(i, source)?;
@@ -321,33 +322,6 @@ pub fn find_balance_cells(
         // Currently only BalanceCells with das-lock is supported.
         unreachable!();
     }
-}
-
-pub fn find_all_balance_cells(
-    config_main: das_packed::ConfigCellMainReader,
-    source: Source,
-) -> Result<Vec<usize>, Box<dyn ScriptError>> {
-    let das_lock = das_lock();
-    let all_cells = find_cells_by_type_id(
-        ScriptType::Lock,
-        das_packed::HashReader::from(das_lock.code_hash().as_reader()),
-        source,
-    )?;
-
-    let balance_cell_type_script = type_id_to_script(config_main.type_id_table().balance_cell());
-    let mut cells = Vec::new();
-    for i in all_cells {
-        let type_script_opt = high_level::load_cell_type(i, source)?;
-        if let Some(type_script) = type_script_opt {
-            if is_type_id_equal(type_script.as_reader(), balance_cell_type_script.as_reader().into()) {
-                cells.push(i);
-            }
-        } else {
-            cells.push(i);
-        }
-    }
-
-    Ok(cells)
 }
 
 pub fn load_data<F: Fn(&mut [u8], usize) -> Result<usize, SysError>>(syscall: F) -> Result<Vec<u8>, SysError> {
@@ -547,6 +521,21 @@ pub fn blake2b_256<T: AsRef<[u8]>>(s: T) -> [u8; 32] {
     result
 }
 
+const HASH_DIGEST_160: usize = 20;
+pub fn blake2b_160<T: AsRef<[u8]>>(s: T) -> [u8; HASH_DIGEST_160] {
+    let mut result = [0u8; CKB_HASH_DIGEST];
+    let mut blake2b = Blake2bBuilder::new(CKB_HASH_DIGEST)
+        .personal(CKB_HASH_PERSONALIZATION)
+        .build();
+    blake2b.update(s.as_ref());
+    blake2b.finalize(&mut result);
+
+    let mut ret = [0u8; HASH_DIGEST_160];
+    ret.copy_from_slice(&result[..20]);
+
+    ret
+}
+
 pub fn blake2b_das<T: AsRef<[u8]>>(s: T) -> [u8; 32] {
     let mut result = [0u8; CKB_HASH_DIGEST];
     let mut blake2b = Blake2bBuilder::new(CKB_HASH_DIGEST)
@@ -605,8 +594,8 @@ pub fn is_cell_capacity_equal(cell_a: (usize, Source), cell_b: (usize, Source)) 
 
 pub fn is_system_off() -> Result<(), Box<dyn ScriptError>> {
     let config_main = Config::get_instance().main()?;
-    let status = u8::from(config_main.status());
-    if status == 0 {
+    let status = config_main.status();
+    if status == SystemStatus::Off {
         warn!("The DAS system is currently off.");
         return Err(code_to_error!(ErrorCode::SystemOff));
     }
@@ -646,60 +635,8 @@ pub fn is_init_day(current_timestamp: u64) -> Result<(), Box<dyn ScriptError>> {
     Ok(())
 }
 
-pub fn is_account_id_in_collection(account_id: &[u8], collection: &[u8]) -> bool {
-    let length = collection.len();
-    if length <= 0 {
-        return false;
-    }
-
-    let first = &collection[0..20];
-    let last = &collection[length - 20..];
-
-    return if account_id < first {
-        debug!("The account is less than the first preserved account, skip.");
-        false
-    } else if account_id > last {
-        debug!("The account is bigger than the last preserved account, skip.");
-        false
-    } else {
-        let accounts_total = collection.len() / ACCOUNT_ID_LENGTH;
-        let mut start_account_index = 0;
-        let mut end_account_index = accounts_total - 1;
-
-        loop {
-            let mid_account_index = (start_account_index + end_account_index) / 2;
-            // debug!("mid_account_index = {:?}", mid_account_index);
-            let mid_account_start_byte_index = mid_account_index * ACCOUNT_ID_LENGTH;
-            let mid_account_end_byte_index = mid_account_start_byte_index + ACCOUNT_ID_LENGTH;
-            let mid_account_bytes = collection
-                .get(mid_account_start_byte_index..mid_account_end_byte_index)
-                .unwrap();
-
-            if mid_account_bytes < account_id {
-                start_account_index = mid_account_index + 1;
-                // debug!("<");
-            } else if mid_account_bytes > account_id {
-                // debug!(">");
-                end_account_index = if mid_account_index > 1 {
-                    mid_account_index - 1
-                } else {
-                    0
-                };
-            } else {
-                return true;
-            }
-
-            if start_account_index > end_account_index || end_account_index == 0 {
-                break;
-            }
-        }
-
-        false
-    };
-}
-
 pub fn calc_account_storage_capacity(
-    config_account: das_packed::ConfigCellAccountReader,
+    config_account: &ConfigAccount,
     account_name_storage: u64,
     owner_lock_args: das_packed::BytesReader,
 ) -> u64 {
@@ -712,7 +649,7 @@ pub fn calc_account_storage_capacity(
     };
 
     let basic_capacity = basic_capacity;
-    let prepared_fee_capacity = u64::from(config_account.prepared_fee_capacity());
+    let prepared_fee_capacity = config_account.prepared_fee_capacity();
     basic_capacity + prepared_fee_capacity + (account_name_storage * ONE_CKB)
 }
 
@@ -776,9 +713,13 @@ pub fn require_type_script(
     source: Source,
     err: ErrorCode,
 ) -> Result<(), Box<dyn ScriptError>> {
-    let type_id = WitnessesParserV1::get_instance()
-        .get_type_id(type_script)
-        .map_err(|_| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
+    let type_id = Config::get_instance()
+        .main()?
+        .get_type_id_of(FieldKey::from(type_script))
+        .map_err(|_| {
+            warn!("The type script {:?} is not defined in ConfigCellMain.", type_script);
+            code_to_error!(ErrorCode::ConfigError)
+        })?;
 
     debug!(
         "Require on: 0x{}({:?}) in {:?}",
@@ -788,8 +729,7 @@ pub fn require_type_script(
     );
 
     // Find out required cell in current transaction.
-    let type_id_entity = das_packed::Hash::from(type_id);
-    let required_cells = find_cells_by_type_id(ScriptType::Type, type_id_entity.as_reader(), source)?;
+    let required_cells = find_cells_by_type_id(ScriptType::Type, type_id, source)?;
 
     das_assert!(
         required_cells.len() > 0,
@@ -941,9 +881,10 @@ pub fn parse_income_cell_witness(
 ) -> Result<das_packed::IncomeCellData, Box<dyn ScriptError>> {
     let cell_meta = CellMeta::new(index, source.into());
     let parser = WitnessesParserV1::get_instance();
-    let witness_meta = parser
-        .get_witness_meta_by_cell_meta(cell_meta)
-        .map_err(|_| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
+    let witness_meta = parser.get_witness_meta_by_cell_meta(cell_meta).map_err(|_e| {
+        debug!("Parsing error: {}", _e);
+        code_to_error!(ErrorCode::WitnessDataDecodingError)
+    })?;
 
     assert!(
         witness_meta.version == 1 && witness_meta.data_type == DataType::IncomeCellData,
@@ -955,7 +896,8 @@ pub fn parse_income_cell_witness(
 
     let ret = parser
         .get_entity_by_cell_meta::<das_packed::IncomeCellData>(cell_meta)
-        .map_err(|_| {
+        .map_err(|_e| {
+            debug!("Parsing error: {}", _e);
             warn!("{:?}[{}] Decoding IncomeCellData failed", source, index);
             ErrorCode::WitnessEntityDecodingError
         })?;
@@ -1185,24 +1127,14 @@ where
     }
 }
 
-pub fn exec_by_type_id(type_script: TypeScript, argv: &[&CStr]) -> Result<(), Box<dyn ScriptError>> {
-    let type_id = WitnessesParserV1::get_instance()
-        .get_type_id(type_script)
-        .map_err(|_| code_to_error!(ErrorCode::WitnessDataDecodingError))?;
-
-    debug!("Execute script {:?} by type ID 0x{}", type_script, hex_string(&type_id));
-
-    high_level::exec_cell(&type_id, ScriptHashType::Type, 0, 0, argv)
-        .map_err(|err| err.into())
-        .map(|_| ())
-}
-
 pub fn exec_das_lock() -> Result<(), Box<dyn ScriptError>> {
-    let type_id = get_das_lock_type_id();
-    high_level::exec_cell(type_id.as_slice(), ScriptHashType::Type, 0, 0, Default::default())
+    let config_main = Config::get_instance().main()?;
+    let type_id = config_main.get_type_id_of(FieldKey::DispatchTypeArgs)?;
+    high_level::exec_cell(type_id.as_slice(), ScriptHashType::Type, Default::default())
         .map_err(|err| err.into())
         .map(|_| ())
 }
+
 pub fn get_timestamp_from_header(header: HeaderReader) -> u64 {
     u64::from(das_packed::Uint64Reader::new_unchecked(
         header.raw().timestamp().raw_data(),
@@ -1416,4 +1348,24 @@ pub fn print_dp(dp: &u64) -> String {
     let integer = dp / 1000000;
     let fraction = dp % 1000000;
     format!("{}.{}", integer, fraction)
+}
+
+pub fn load_type_args(index: usize, source: Source) -> ckb_std::ckb_types::bytes::Bytes {
+    high_level::load_cell_type(index, source)
+        .unwrap_or(None)
+        .unwrap_or_default()
+        .args()
+        .raw_data()
+}
+
+/// The type ID is calculated as the blake2b (with CKB's personalization) of
+/// the first CellInput in current transaction, and the created output cell
+/// index(in 64-bit little endian unsigned integer).
+pub fn calc_type_id(tx_first_input: &[u8], output_index: usize) -> [u8; 32] {
+    let mut blake2b = new_blake2b();
+    blake2b.update(tx_first_input);
+    blake2b.update(&(output_index as u64).to_le_bytes());
+    let mut verify_id = [0; 32];
+    blake2b.finalize(&mut verify_id);
+    verify_id
 }

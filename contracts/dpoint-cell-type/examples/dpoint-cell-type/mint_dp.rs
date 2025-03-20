@@ -1,20 +1,18 @@
 use alloc::boxed::Box;
-use alloc::vec::Vec;
 use core::cmp::Ordering;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
-use das_core::config::Config;
+use config::Config;
 use das_core::constants::{ScriptType, DPOINT_MAX_LIMIT};
 use das_core::contract::defult_structs::{Action, Rule};
 use das_core::error::ScriptError;
 use das_core::{code_to_error, das_assert, data_parser, util as core_util, verifiers};
 use das_types::constants::super_lock;
-use das_types::packed::*;
 use dpoint_cell_type::error::ErrorCode;
 
 pub fn action() -> Result<Action, Box<dyn ScriptError>> {
-    let config_dpoint_reader = Config::get_instance().dpoint()?;
+    let config_dpoint = Config::get_instance().dpoint()?;
 
     let mut action = Action::new("mint_dp");
     let (input_cells, output_cells) = core_util::load_self_cells_in_inputs_and_outputs()?;
@@ -50,8 +48,8 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
     ));
 
     let inner_output_cells = output_cells.clone();
-    let basic_capacity = u64::from(config_dpoint_reader.basic_capacity());
-    let prepared_fee_capacity = u64::from(config_dpoint_reader.prepared_fee_capacity());
+    let basic_capacity = config_dpoint.basic_capacity();
+    let prepared_fee_capacity = config_dpoint.prepared_fee_capacity();
     let expected_capacity = basic_capacity + prepared_fee_capacity;
     action.add_verification(Rule::new(
         "Verify if all the DPointCells keeping enough capacity.",
@@ -105,11 +103,7 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
     ));
 
     let inner_output_cells = output_cells.clone();
-    let transfer_whitelist = config_dpoint_reader.transfer_whitelist();
-    let transfer_whitelist_hashes = transfer_whitelist
-        .iter()
-        .map(|lock| core_util::blake2b_256(lock.as_slice()))
-        .collect::<Vec<_>>();
+    let transfer_whitelist_hashes = config_dpoint.transfer_whitelist();
     action.add_verification(Rule::new("Verify if all the DPointCells transfered to addresses in whitelist.", move |_contract| {
         for index in inner_output_cells.iter() {
             let lock_hash = high_level::load_cell_lock_hash(*index, Source::Output)?;

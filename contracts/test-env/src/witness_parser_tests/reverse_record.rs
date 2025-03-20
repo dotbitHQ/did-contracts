@@ -2,22 +2,19 @@ use alloc::boxed::Box;
 use alloc::string::ToString;
 use core::result::Result;
 
-use das_core::config::Config;
 use das_core::error::{ErrorCode, ScriptError};
 use das_core::witness_parser::reverse_record::ReverseRecordWitnessesParser;
 use das_core::{code_to_error, das_assert};
 use das_types::constants::{DasLockType, ReverseRecordAction};
 
 pub fn test_parse_reverse_record_witness_empty() -> Result<(), Box<dyn ScriptError>> {
-    let config_main = Config::get_instance().main()?;
-    ReverseRecordWitnessesParser::new(&config_main)?;
+    ReverseRecordWitnessesParser::new()?;
 
     Ok(())
 }
 
 pub fn test_parse_reverse_record_witness_update_only() -> Result<(), Box<dyn ScriptError>> {
-    let config_main = Config::get_instance().main()?;
-    let witness_parser = ReverseRecordWitnessesParser::new(&config_main)?;
+    let witness_parser = ReverseRecordWitnessesParser::new()?;
     for witness_ret in witness_parser.iter() {
         let witness = witness_ret.expect("Should be Ok");
 
@@ -46,8 +43,7 @@ pub fn test_parse_reverse_record_witness_update_only() -> Result<(), Box<dyn Scr
 }
 
 pub fn test_parse_reverse_record_witness_remove_only() -> Result<(), Box<dyn ScriptError>> {
-    let config_main = Config::get_instance().main()?;
-    let witness_parser = ReverseRecordWitnessesParser::new(&config_main)?;
+    let witness_parser = ReverseRecordWitnessesParser::new()?;
     for witness_ret in witness_parser.iter() {
         let witness = witness_ret.expect("Should be Ok");
 
@@ -76,8 +72,7 @@ pub fn test_parse_reverse_record_witness_remove_only() -> Result<(), Box<dyn Scr
 }
 
 pub fn test_parse_reverse_record_witness_mixed() -> Result<(), Box<dyn ScriptError>> {
-    let config_main = Config::get_instance().main()?;
-    let witness_parser = ReverseRecordWitnessesParser::new(&config_main)?;
+    let witness_parser = ReverseRecordWitnessesParser::new()?;
     for witness_ret in witness_parser.iter() {
         let witness = witness_ret.expect("Should be Ok");
 

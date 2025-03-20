@@ -54,6 +54,7 @@ pub struct SignLib {
     pub tron: Option<SignLibWith2Methods>,
     pub doge: Option<SignLibWith2Methods>,
     pub web_authn: Option<SignLibWith3Methods>,
+    pub btc: Option<SignLibWith2Methods>,
 }
 
 impl SignLib {
@@ -66,6 +67,7 @@ impl SignLib {
             tron: None,
             doge: None,
             web_authn: None,
+            btc: None,
         }
     }
 
@@ -109,6 +111,10 @@ impl SignLib {
             }
             DasLockType::Doge => {
                 let lib = self.doge.as_ref().unwrap();
+                func = &lib.c_validate;
+            }
+            DasLockType::BTC => {
+                let lib = self.btc.as_ref().unwrap();
                 func = &lib.c_validate;
             }
             _ => return Err(Error::UndefinedDasLockType as i32),
@@ -163,6 +169,10 @@ impl SignLib {
             }
             DasLockType::WebAuthn => {
                 let lib = self.web_authn.as_ref().unwrap();
+                func = &lib.c_validate_str;
+            }
+            DasLockType::BTC => {
+                let lib = self.btc.as_ref().unwrap();
                 func = &lib.c_validate_str;
             }
             _ => return Err(Error::UndefinedDasLockType as i32),
@@ -313,7 +323,8 @@ impl SignLib {
             | DasLockType::ETHTypedData
             | DasLockType::TRON
             | DasLockType::Doge
-            | DasLockType::WebAuthn => Ok(h.to_vec()),
+            | DasLockType::WebAuthn
+            | DasLockType::BTC => Ok(h.to_vec()),
             _ => Err(Error::UndefinedDasLockType as i32),
         }
     }

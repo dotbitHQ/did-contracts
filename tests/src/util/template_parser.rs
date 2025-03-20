@@ -7,15 +7,17 @@ use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::{env, fs};
 
-use ckb_chain_spec::consensus::TYPE_ID_CODE_HASH;
+use ckb_chain_spec::consensus::{build_genesis_epoch_ext, ConsensusBuilder, TYPE_ID_CODE_HASH};
 use ckb_mock_tx_types::*;
-use ckb_script::TransactionScriptsVerifier;
+use ckb_script::{TransactionScriptsVerifier, TxVerifyEnv};
 use ckb_types::core::cell::{resolve_transaction, ResolvedTransaction};
-use ckb_types::core::{Cycle, HeaderView, ScriptHashType, TransactionBuilder, TransactionView};
+use ckb_types::core::{BlockBuilder, Capacity, Cycle, HeaderView, ScriptHashType, TransactionBuilder, TransactionView};
 use ckb_types::packed::*;
 use ckb_types::prelude::*;
+use ckb_types::utilities::DIFF_TWO;
 use ckb_types::{bytes, H256};
 use das_types::{
     constants::Source,
@@ -28,6 +30,9 @@ use super::constants::*;
 use super::util;
 
 const BINARY_VERSION: &str = "BINARY_VERSION";
+const GENESIS_EPOCH_LENGTH: u64 = 1_000;
+const DEFAULT_EPOCH_DURATION_TARGET: u64 = 4 * 60 * 60; // 4 hours, unit: second
+const DEFAULT_ORPHAN_RATE_TARGET: (u32, u32) = (1, 40);
 
 pub enum BinaryVersion {
     Debug,
@@ -227,6 +232,39 @@ impl TemplateParser {
         Ok(())
     }
 
+    pub fn gen_resolved_tx(&mut self) -> Result<ResolvedTransaction, String> {
+        let mut builder = self.tx_builder.take();
+        // The block hash of headers must be put into the header_deps field, then it will be readable later in the script.
+        let mut header_hashes = Vec::new();
+        for header in self.mock_header_deps.iter() {
+            header_hashes.push(header.hash());
+        }
+        builder = builder.set_header_deps(header_hashes);
+
+        let tx = builder.build();
+
+        let mock_info = MockInfo {
+            header_deps: self.mock_header_deps.clone(),
+            cell_deps: self.mock_cell_deps.drain(0..).collect(),
+            inputs: self.mock_inputs.drain(0..).collect(),
+            extensions: vec![],
+        };
+        let mock_tx = MockTransaction {
+            mock_info,
+            tx: tx.data(),
+        };
+
+        // TODO Maybe this is not a good way to mock resolved transaction, it is also need in execute_tx method.
+        let resource = Resource::from_both(&mock_tx, DummyResourceLoader {})?;
+        let rtx: ResolvedTransaction = {
+            let mut seen_inputs = HashSet::new();
+            resolve_transaction(tx.clone(), &mut seen_inputs, &resource, &resource)
+                .map_err(|err| format!("Resolve transaction error: {:?}", err))?
+        };
+
+        Ok(rtx)
+    }
+
     pub fn execute_tx(&mut self) -> Result<(Cycle, TransactionView), String> {
         let mut builder = self.tx_builder.take();
         // The block hash of headers must be put into the header_deps field, then it will be readable later in the script.
@@ -242,22 +280,51 @@ impl TemplateParser {
             header_deps: self.mock_header_deps.clone(),
             cell_deps: self.mock_cell_deps.drain(0..).collect(),
             inputs: self.mock_inputs.drain(0..).collect(),
+            extensions: vec![],
         };
         let mock_tx = MockTransaction {
             mock_info,
             tx: tx.data(),
         };
 
+        // Mock resolved transactions
         let resource = Resource::from_both(&mock_tx, DummyResourceLoader {})?;
-        let rtx: ResolvedTransaction = {
+        let rtx = {
             let mut seen_inputs = HashSet::new();
-            resolve_transaction(tx.clone(), &mut seen_inputs, &resource, &resource)
-                .map_err(|err| format!("Resolve transaction error: {:?}", err))?
+            let rtx = resolve_transaction(tx.clone(), &mut seen_inputs, &resource, &resource)
+                .map_err(|err| format!("Resolve transaction error: {:?}", err))?;
+            Arc::new(rtx)
         };
+        // Mock data loader
         let data_loader = DummyContext {
             headers: self.mock_header_deps.drain(0..).collect(),
         };
-        let mut verifier = TransactionScriptsVerifier::new(&rtx, &data_loader);
+        // Mock consensus
+        let cellbase = TransactionView::new_advanced_builder()
+            .witness(Bytes::default())
+            .build();
+        let epoch_ext = build_genesis_epoch_ext(
+            Capacity::shannons(1000),
+            DIFF_TWO,
+            GENESIS_EPOCH_LENGTH,
+            DEFAULT_EPOCH_DURATION_TARGET,
+            DEFAULT_ORPHAN_RATE_TARGET,
+        );
+        let genesis = BlockBuilder::default().transaction(cellbase).build();
+        let consensus = ConsensusBuilder::new(genesis, epoch_ext);
+        let consensus = consensus.build();
+        let consensus = Arc::new(consensus);
+        // Mock header view
+        let epoch = 8000u64.pack(); //it should bigger than hardfork2021
+        let header_view = HeaderView::new_advanced_builder().epoch(epoch).build();
+
+        let mut verifier = TransactionScriptsVerifier::new(
+            rtx,
+            data_loader,
+            consensus,
+            Arc::new(TxVerifyEnv::new_submit(&header_view)),
+        );
+
         verifier.set_debug_printer(Box::new(|hash: &Byte32, message: &str| {
             println!("Script(0x{}): {}", hex::encode(&hash.as_slice()[..6]), message);
         }));
@@ -746,21 +813,6 @@ fn index_to_byte32(index: usize) -> Byte32 {
     Byte32::from_slice(&padding_bytes).expect("The Byte32::from_slice(&tx_hash_bytes) should always succeed.")
 }
 
-pub struct DummyResourceLoader {}
-
-impl MockResourceLoader for DummyResourceLoader {
-    fn get_header(&mut self, hash: H256) -> Result<Option<HeaderView>, String> {
-        return Err(format!("Header {:x} is missing!", hash));
-    }
-
-    fn get_live_cell(
-        &mut self,
-        out_point: OutPoint,
-    ) -> Result<Option<(CellOutput, bytes::Bytes, Option<Byte32>)>, String> {
-        return Err(format!("Cell: {:?} is missing!", out_point));
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct DummyContext {
     headers: Vec<HeaderView>,
@@ -779,5 +831,26 @@ impl ckb_traits::CellDataProvider for DummyContext {
 impl ckb_traits::HeaderProvider for DummyContext {
     fn get_header(&self, hash: &Byte32) -> Option<HeaderView> {
         self.headers.iter().find(|header| header.hash() == *hash).cloned()
+    }
+}
+
+impl ckb_traits::ExtensionProvider for DummyContext {
+    fn get_block_extension(&self, _hash: &Byte32) -> Option<Bytes> {
+        todo!()
+    }
+}
+
+pub struct DummyResourceLoader {}
+
+impl MockResourceLoader for DummyResourceLoader {
+    fn get_header(&mut self, hash: H256) -> Result<Option<HeaderView>, String> {
+        return Err(format!("Header {:x} is missing!", hash));
+    }
+
+    fn get_live_cell(
+        &mut self,
+        out_point: OutPoint,
+    ) -> Result<Option<(CellOutput, bytes::Bytes, Option<Byte32>)>, String> {
+        return Err(format!("Cell: {:?} is missing!", out_point));
     }
 }

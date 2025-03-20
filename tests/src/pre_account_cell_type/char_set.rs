@@ -75,7 +75,7 @@ fn challenge_pre_register_zh() {
         }),
     );
 
-    challenge_tx(template.as_json(), ErrorCode::ConfigIsPartialMissing)
+    challenge_tx(template.as_json(), ErrorCode::CharSetIsUndefined)
 }
 
 #[test]

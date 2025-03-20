@@ -243,8 +243,13 @@ lazy_static! {
             "dpoint-cell-type",
             "0x2de294cbd18800cb5cee3bb264e85d376922938c8726e40d89c5ee59d3695afd"
         );
+        map.insert(
+            "did-cell-type",
+            "0xe44d0d3d0c47b597b1dc9fb2e1dd7c71ee6f58c4ff361a3f75476a76e80d0ee4"
+        );
         map
     };
+
     pub static ref RE_VARIABLE: Regex = Regex::new(r"\{\{([\w\-\.]+)\}\}").unwrap();
     pub static ref RE_ZH_CHAR: Regex = Regex::new(r"^[\u4E00-\u9FA5]+$").unwrap();
 }

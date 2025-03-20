@@ -7,20 +7,22 @@ edition = "2021"
 
 [dependencies]
 # workspace crates
+config = { workspace = true, features = ["std"] }
 das-types = { workspace = true, features = ["std"] }
 simple-ast = { workspace = true, features = ["std"] }
 das-sorted-list = { workspace = true, features = ["std"] }
 device-key-list-cell-type = { path = "../contracts/device-key-list-cell-type" }
 dpoint-cell-type = { path = "../contracts/dpoint-cell-type" }
+did-cell-type = { path = "../contracts/did-cell-type" }
 # ckb crates
 #ckb-testtool = { git = "https://github.com/DA-Services/ckb-testtool", tag = "v0.7.3" }
 #ckb-testtool = { path = "../../ckb-testtool" }
-ckb-mock-tx-types = "=0.108.0"
-ckb-script = { version="=0.108.0", default-features = false }
-ckb-traits = { version="=0.108.0" }
-ckb-chain-spec = "=0.108.0"
-ckb-hash = "=0.108.0"
-ckb-jsonrpc-types = "=0.108.0"
+ckb-mock-tx-types = "0.116"
+ckb-script = { version="0.116", default-features = false }
+ckb-traits = { version="0.116" }
+ckb-chain-spec = "0.116"
+ckb-hash = "0.116"
+ckb-jsonrpc-types = "0.116"
 ckb-types = { workspace = true }
 sparse-merkle-tree = { version = "0.6.1" }
 # third party crates
@@ -35,3 +37,4 @@ walkdir = "2"
 rand = "0.8.3"
 chrono = { version = "0.4" }
 primitive-types = { workspace = true }
+molecule = { workspace = true}

@@ -9,10 +9,10 @@
 #![feature(lang_items)]
 #![feature(alloc_error_handler)]
 #![feature(panic_info_message)]
+#![feature(slice_pattern)]
 
-// define modules
-mod eip712;
 mod entry;
+mod utils;
 
 use ckb_std::default_alloc;
 
@@ -24,6 +24,6 @@ fn program_entry() -> i8 {
     // Call main function and return error code
     match entry::main() {
         Ok(_) => 0,
-        Err(err) => err.as_i8(),
+        Err(err) => err as i8,
     }
 }

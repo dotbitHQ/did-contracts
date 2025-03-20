@@ -1,11 +1,12 @@
 use alloc::boxed::Box;
-use alloc::string::ToString;
+use alloc::string::{String, ToString};
 use alloc::vec;
+use alloc::vec::Vec;
 use core::result::Result;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
-use das_core::config::Config;
+use config::Config;
 use das_core::constants::{CellField, ScriptType};
 use das_core::error::*;
 use das_core::util::exec_das_lock;
@@ -43,7 +44,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             // verify capacity
             let root_cell_capacity = high_level::load_cell_capacity(output_cells[0], Source::Output)?;
-            let expected_capacity = u64::from(config_reverse_resolution.record_basic_capacity());
+            let expected_capacity = config_reverse_resolution.record_basic_capacity();
 
             das_assert!(
                 root_cell_capacity == expected_capacity,
@@ -66,11 +67,8 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
         }
         Action::UpdateReverseRecordRoot => {
             util::is_system_off()?;
-            let config_main = Config::get_instance().main()?;
             let config_smt_white_list = Config::get_instance().smt_node_white_list()?;
-            verify_has_some_lock_in_white_list(1, config_smt_white_list)?;
-
-            let _config_reverse = Config::get_instance().reverse_resolution()?;
+            verify_has_some_lock_in_white_list(1, config_smt_white_list.value())?;
 
             verifiers::common::verify_cell_number_and_position(
                 "ReverseRecordRootCell",
@@ -92,7 +90,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let mut prev_root = high_level::load_cell_data(input_cells[0], Source::Input)?;
             let latest_root = high_level::load_cell_data(output_cells[0], Source::Output)?;
 
-            let witness_parser = ReverseRecordWitnessesParser::new(&config_main)?;
+            let witness_parser = ReverseRecordWitnessesParser::new()?;
             for witness_ret in witness_parser.iter() {
                 if let Err(e) = witness_ret {
                     return Err(e);
@@ -130,10 +128,10 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 fn verify_has_some_lock_in_white_list(start_from: usize, white_list: &[[u8; 32]]) -> Result<(), Box<dyn ScriptError>> {
     debug!("Verify if there is any lock in the inputs exist in the SMT white list.");
 
-    // debug!(
-    //     "white_list = {:?}",
-    //     white_list.iter().map(|v| util::hex_string(v)).collect::<Vec<String>>()
-    // );
+    debug!(
+        "The current white_list: {:?}",
+        white_list.iter().map(|v| util::hex_string(v)).collect::<Vec<String>>()
+    );
 
     let mut i = start_from;
     loop {

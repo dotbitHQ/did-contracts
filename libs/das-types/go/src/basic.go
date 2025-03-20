@@ -600,6 +600,329 @@ t.Nth9(*s.Nth9())
 }
         
 
+type Byte20Builder struct {
+	inner [20]Byte
+}
+
+func NewByte20Builder() *Byte20Builder {
+	return &Byte20Builder{inner: [20]Byte{ByteDefault(),ByteDefault(),ByteDefault(),ByteDefault(),ByteDefault(),ByteDefault(),ByteDefault(),ByteDefault(),ByteDefault(),ByteDefault(),ByteDefault(),ByteDefault(),ByteDefault(),ByteDefault(),ByteDefault(),ByteDefault(),ByteDefault(),ByteDefault(),ByteDefault(),ByteDefault()}}
+}
+
+func (s *Byte20Builder) Build() Byte20 {
+	b := new(bytes.Buffer)
+	len := len(s.inner)
+	for i := 0; i < len; i++ {
+		b.Write(s.inner[i].AsSlice())
+	}
+	return Byte20{inner: b.Bytes()}
+}
+        
+
+func (s *Byte20Builder) Set(v [20]Byte) *Byte20Builder {
+	s.inner = v
+	return s
+}
+        
+
+func (s *Byte20Builder) Nth0(v Byte) *Byte20Builder {
+	s.inner[0] = v
+	return s
+}
+                
+
+func (s *Byte20Builder) Nth1(v Byte) *Byte20Builder {
+	s.inner[1] = v
+	return s
+}
+                
+
+func (s *Byte20Builder) Nth2(v Byte) *Byte20Builder {
+	s.inner[2] = v
+	return s
+}
+                
+
+func (s *Byte20Builder) Nth3(v Byte) *Byte20Builder {
+	s.inner[3] = v
+	return s
+}
+                
+
+func (s *Byte20Builder) Nth4(v Byte) *Byte20Builder {
+	s.inner[4] = v
+	return s
+}
+                
+
+func (s *Byte20Builder) Nth5(v Byte) *Byte20Builder {
+	s.inner[5] = v
+	return s
+}
+                
+
+func (s *Byte20Builder) Nth6(v Byte) *Byte20Builder {
+	s.inner[6] = v
+	return s
+}
+                
+
+func (s *Byte20Builder) Nth7(v Byte) *Byte20Builder {
+	s.inner[7] = v
+	return s
+}
+                
+
+func (s *Byte20Builder) Nth8(v Byte) *Byte20Builder {
+	s.inner[8] = v
+	return s
+}
+                
+
+func (s *Byte20Builder) Nth9(v Byte) *Byte20Builder {
+	s.inner[9] = v
+	return s
+}
+                
+
+func (s *Byte20Builder) Nth10(v Byte) *Byte20Builder {
+	s.inner[10] = v
+	return s
+}
+                
+
+func (s *Byte20Builder) Nth11(v Byte) *Byte20Builder {
+	s.inner[11] = v
+	return s
+}
+                
+
+func (s *Byte20Builder) Nth12(v Byte) *Byte20Builder {
+	s.inner[12] = v
+	return s
+}
+                
+
+func (s *Byte20Builder) Nth13(v Byte) *Byte20Builder {
+	s.inner[13] = v
+	return s
+}
+                
+
+func (s *Byte20Builder) Nth14(v Byte) *Byte20Builder {
+	s.inner[14] = v
+	return s
+}
+                
+
+func (s *Byte20Builder) Nth15(v Byte) *Byte20Builder {
+	s.inner[15] = v
+	return s
+}
+                
+
+func (s *Byte20Builder) Nth16(v Byte) *Byte20Builder {
+	s.inner[16] = v
+	return s
+}
+                
+
+func (s *Byte20Builder) Nth17(v Byte) *Byte20Builder {
+	s.inner[17] = v
+	return s
+}
+                
+
+func (s *Byte20Builder) Nth18(v Byte) *Byte20Builder {
+	s.inner[18] = v
+	return s
+}
+                
+
+func (s *Byte20Builder) Nth19(v Byte) *Byte20Builder {
+	s.inner[19] = v
+	return s
+}
+                
+
+type Byte20 struct {
+    inner []byte
+}
+        
+
+func Byte20FromSliceUnchecked(slice []byte) *Byte20 {
+    return &Byte20{inner: slice}
+}
+func (s *Byte20) AsSlice() []byte {
+    return s.inner
+}
+            
+
+func Byte20Default() Byte20 {
+    return *Byte20FromSliceUnchecked([]byte{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 })
+}
+            
+
+func Byte20FromSlice(slice []byte, _compatible bool) (*Byte20, error) {
+    sliceLen := len(slice)
+    if sliceLen != 20 {
+        errMsg := strings.Join([]string{"TotalSizeNotMatch", "Byte20", strconv.Itoa(int(sliceLen)), "!=", strconv.Itoa(20)}, " ")
+        return nil, errors.New(errMsg)
+    }
+    return &Byte20{inner: slice}, nil
+}
+        
+
+func (s *Byte20) RawData() []byte {
+    return s.inner
+}
+            
+
+func (s *Byte20) Nth0() *Byte {
+    ret := ByteFromSliceUnchecked(s.inner[0:1])
+    return ret
+}
+            
+
+func (s *Byte20) Nth1() *Byte {
+    ret := ByteFromSliceUnchecked(s.inner[1:2])
+    return ret
+}
+            
+
+func (s *Byte20) Nth2() *Byte {
+    ret := ByteFromSliceUnchecked(s.inner[2:3])
+    return ret
+}
+            
+
+func (s *Byte20) Nth3() *Byte {
+    ret := ByteFromSliceUnchecked(s.inner[3:4])
+    return ret
+}
+            
+
+func (s *Byte20) Nth4() *Byte {
+    ret := ByteFromSliceUnchecked(s.inner[4:5])
+    return ret
+}
+            
+
+func (s *Byte20) Nth5() *Byte {
+    ret := ByteFromSliceUnchecked(s.inner[5:6])
+    return ret
+}
+            
+
+func (s *Byte20) Nth6() *Byte {
+    ret := ByteFromSliceUnchecked(s.inner[6:7])
+    return ret
+}
+            
+
+func (s *Byte20) Nth7() *Byte {
+    ret := ByteFromSliceUnchecked(s.inner[7:8])
+    return ret
+}
+            
+
+func (s *Byte20) Nth8() *Byte {
+    ret := ByteFromSliceUnchecked(s.inner[8:9])
+    return ret
+}
+            
+
+func (s *Byte20) Nth9() *Byte {
+    ret := ByteFromSliceUnchecked(s.inner[9:10])
+    return ret
+}
+            
+
+func (s *Byte20) Nth10() *Byte {
+    ret := ByteFromSliceUnchecked(s.inner[10:11])
+    return ret
+}
+            
+
+func (s *Byte20) Nth11() *Byte {
+    ret := ByteFromSliceUnchecked(s.inner[11:12])
+    return ret
+}
+            
+
+func (s *Byte20) Nth12() *Byte {
+    ret := ByteFromSliceUnchecked(s.inner[12:13])
+    return ret
+}
+            
+
+func (s *Byte20) Nth13() *Byte {
+    ret := ByteFromSliceUnchecked(s.inner[13:14])
+    return ret
+}
+            
+
+func (s *Byte20) Nth14() *Byte {
+    ret := ByteFromSliceUnchecked(s.inner[14:15])
+    return ret
+}
+            
+
+func (s *Byte20) Nth15() *Byte {
+    ret := ByteFromSliceUnchecked(s.inner[15:16])
+    return ret
+}
+            
+
+func (s *Byte20) Nth16() *Byte {
+    ret := ByteFromSliceUnchecked(s.inner[16:17])
+    return ret
+}
+            
+
+func (s *Byte20) Nth17() *Byte {
+    ret := ByteFromSliceUnchecked(s.inner[17:18])
+    return ret
+}
+            
+
+func (s *Byte20) Nth18() *Byte {
+    ret := ByteFromSliceUnchecked(s.inner[18:19])
+    return ret
+}
+            
+
+func (s *Byte20) Nth19() *Byte {
+    ret := ByteFromSliceUnchecked(s.inner[19:20])
+    return ret
+}
+            
+
+func (s *Byte20) AsBuilder() Byte20Builder {
+	t := NewByte20Builder()
+	t.Nth0(*s.Nth0())
+t.Nth1(*s.Nth1())
+t.Nth2(*s.Nth2())
+t.Nth3(*s.Nth3())
+t.Nth4(*s.Nth4())
+t.Nth5(*s.Nth5())
+t.Nth6(*s.Nth6())
+t.Nth7(*s.Nth7())
+t.Nth8(*s.Nth8())
+t.Nth9(*s.Nth9())
+t.Nth10(*s.Nth10())
+t.Nth11(*s.Nth11())
+t.Nth12(*s.Nth12())
+t.Nth13(*s.Nth13())
+t.Nth14(*s.Nth14())
+t.Nth15(*s.Nth15())
+t.Nth16(*s.Nth16())
+t.Nth17(*s.Nth17())
+t.Nth18(*s.Nth18())
+t.Nth19(*s.Nth19())
+	return *t
+}
+        
+
 type BytesBuilder struct {
     inner []Byte
 }
@@ -930,6 +1253,81 @@ func (s *BytesVec) AsBuilder() BytesVecBuilder {
     return *t
 }
         
+
+type BytesOptBuilder struct {
+	isNone bool
+	inner  Bytes
+}
+func NewBytesOptBuilder() *BytesOptBuilder {
+	return &BytesOptBuilder{isNone: true, inner: BytesDefault()}
+}
+func (s *BytesOptBuilder) Set(v Bytes) *BytesOptBuilder {
+	s.isNone = false
+	s.inner = v
+	return s
+}
+func (s *BytesOptBuilder) Build() BytesOpt {
+	var ret BytesOpt
+	if s.isNone {
+		ret = BytesOpt{inner: []byte{}}
+	} else {
+		ret = BytesOpt{inner: s.inner.AsSlice()}
+	}
+	return ret
+}
+            
+
+type BytesOpt struct {
+    inner []byte
+}
+        
+
+func BytesOptFromSliceUnchecked(slice []byte) *BytesOpt {
+    return &BytesOpt{inner: slice}
+}
+func (s *BytesOpt) AsSlice() []byte {
+    return s.inner
+}
+            
+
+func BytesOptDefault() BytesOpt {
+    return *BytesOptFromSliceUnchecked([]byte{  })
+}
+            
+
+func BytesOptFromSlice(slice []byte, compatible bool) (*BytesOpt, error) {
+    if len(slice) == 0 {
+        return &BytesOpt{inner: slice}, nil
+    }
+
+    _, err := BytesFromSlice(slice, compatible)
+    if err != nil {
+        return nil, err
+    }
+    return &BytesOpt{inner: slice}, nil
+}
+            
+
+func (s *BytesOpt) IntoBytes() (*Bytes, error) {
+	if s.IsNone() {
+		return nil, errors.New("No data")
+	}
+	return BytesFromSliceUnchecked(s.AsSlice()), nil
+}
+func (s *BytesOpt) IsSome() bool {
+    return len(s.inner) != 0
+}
+func (s *BytesOpt) IsNone() bool {
+    return len(s.inner) == 0
+}
+func (s *BytesOpt) AsBuilder() BytesOptBuilder {
+    var ret = NewBytesOptBuilder()
+    if s.IsSome() {
+        ret.Set(*BytesFromSliceUnchecked(s.AsSlice()))
+    }
+    return *ret
+}
+            
 
 type HashBuilder struct {
 	inner [32]Byte
@@ -1690,6 +2088,205 @@ func (s *ScriptOpt) AsBuilder() ScriptOptBuilder {
     return *ret
 }
             
+
+type ScriptsBuilder struct {
+    inner []Script
+}
+    
+
+func (s *ScriptsBuilder) Build() Scripts {
+    itemCount := len(s.inner)
+
+    b := new(bytes.Buffer)
+
+    // Empty dyn vector, just return size's bytes
+    if itemCount == 0 {
+        b.Write(packNumber(Number(HeaderSizeUint)))
+        return Scripts{inner: b.Bytes()}
+    }
+
+    // Calculate first offset then loop for rest items offsets
+    totalSize := HeaderSizeUint * uint32(itemCount+1)
+    offsets := make([]uint32, 0, itemCount)
+    offsets = append(offsets, totalSize)
+    for i := 1; i < itemCount; i++ {
+        totalSize += uint32(len(s.inner[i-1].AsSlice()))
+        offsets = append(offsets, offsets[i-1]+uint32(len(s.inner[i-1].AsSlice())))
+    }
+    totalSize += uint32(len(s.inner[itemCount-1].AsSlice()))
+
+    b.Write(packNumber(Number(totalSize)))
+
+    for i := 0; i < itemCount; i++ {
+        b.Write(packNumber(Number(offsets[i])))
+    }
+
+    for i := 0; i < itemCount; i++ {
+        b.Write(s.inner[i].AsSlice())
+    }
+
+    return Scripts{inner: b.Bytes()}
+}
+          
+
+func (s *ScriptsBuilder) Set(v []Script) *ScriptsBuilder {
+    s.inner = v
+    return s
+}
+func (s *ScriptsBuilder) Push(v Script) *ScriptsBuilder {
+    s.inner = append(s.inner, v)
+    return s
+}
+func (s *ScriptsBuilder) Extend(iter []Script) *ScriptsBuilder {
+    for i:=0; i < len(iter); i++ {
+        s.inner = append(s.inner, iter[i])
+    }
+    return s
+}
+func (s *ScriptsBuilder) Replace(index uint, v Script) *Script {
+    if uint(len(s.inner)) > index {
+        a := s.inner[index]
+        s.inner[index] = v
+        return &a
+    }
+    return nil
+}
+    
+
+func NewScriptsBuilder() *ScriptsBuilder {
+	return &ScriptsBuilder{ []Script{} }
+}
+        
+
+type Scripts struct {
+    inner []byte
+}
+        
+
+func ScriptsFromSliceUnchecked(slice []byte) *Scripts {
+    return &Scripts{inner: slice}
+}
+func (s *Scripts) AsSlice() []byte {
+    return s.inner
+}
+            
+
+func ScriptsDefault() Scripts {
+    return *ScriptsFromSliceUnchecked([]byte{ 4,0,0,0 })
+}
+            
+
+func ScriptsFromSlice(slice []byte, compatible bool) (*Scripts, error) {
+    sliceLen := len(slice)
+
+    if uint32(sliceLen) < HeaderSizeUint {
+        errMsg := strings.Join([]string{"HeaderIsBroken", "Scripts", strconv.Itoa(int(sliceLen)), "<", strconv.Itoa(int(HeaderSizeUint))}, " ")
+        return nil, errors.New(errMsg)
+    }
+
+    totalSize := unpackNumber(slice)
+    if Number(sliceLen) != totalSize {
+        errMsg := strings.Join([]string{"TotalSizeNotMatch", "Scripts", strconv.Itoa(int(sliceLen)), "!=", strconv.Itoa(int(totalSize))}, " ")
+        return nil, errors.New(errMsg)
+    }
+
+    if uint32(sliceLen) == HeaderSizeUint {
+        return &Scripts{inner: slice}, nil
+    }
+
+    if uint32(sliceLen) < HeaderSizeUint*2 {
+        errMsg := strings.Join([]string{"TotalSizeNotMatch", "Scripts", strconv.Itoa(int(sliceLen)), "<", strconv.Itoa(int(HeaderSizeUint*2))}, " ")
+        return nil, errors.New(errMsg)
+    }
+
+    offsetFirst := unpackNumber(slice[HeaderSizeUint:])
+    if uint32(offsetFirst)%HeaderSizeUint != 0 || uint32(offsetFirst) < HeaderSizeUint*2 {
+        errMsg := strings.Join([]string{"OffsetsNotMatch", "Scripts", strconv.Itoa(int(offsetFirst%4)), "!= 0", strconv.Itoa(int(offsetFirst)), "<", strconv.Itoa(int(HeaderSizeUint*2))}, " ")
+        return nil, errors.New(errMsg)
+    }
+
+    if sliceLen < int(offsetFirst) {
+        errMsg := strings.Join([]string{"HeaderIsBroken", "Scripts", strconv.Itoa(int(sliceLen)), "<", strconv.Itoa(int(offsetFirst))}, " ")
+        return nil, errors.New(errMsg)
+    }
+    itemCount := uint32(offsetFirst)/HeaderSizeUint - 1
+
+    offsets := make([]uint32, itemCount)
+
+    for i := 0; i < int(itemCount); i++ {
+        offsets[i] = uint32(unpackNumber(slice[HeaderSizeUint:][int(HeaderSizeUint)*i:]))
+    }
+
+    offsets = append(offsets, uint32(totalSize))
+
+    for i := 0; i < len(offsets); i++ {
+        if i&1 != 0 && offsets[i-1] > offsets[i] {
+            errMsg := strings.Join([]string{"OffsetsNotMatch", "Scripts"}, " ")
+            return nil, errors.New(errMsg)
+        }
+    }
+
+    for i := 0; i < len(offsets); i++ {
+        if i&1 != 0 {
+            start := offsets[i-1]
+            end := offsets[i]
+            _, err := ScriptFromSlice(slice[start:end], compatible)
+
+            if err != nil {
+                return nil, err
+            }
+        }
+    }
+
+    return &Scripts{inner: slice}, nil
+}
+            
+
+func (s *Scripts) TotalSize() uint {
+    return uint(unpackNumber(s.inner))
+}
+func (s *Scripts) ItemCount() uint {
+    var number uint = 0
+    if uint32(s.TotalSize()) == HeaderSizeUint {
+        return number
+    }
+    number = uint(unpackNumber(s.inner[HeaderSizeUint:]))/4 - 1
+    return number
+}
+func (s *Scripts) Len() uint {
+    return s.ItemCount()
+}
+func (s *Scripts) IsEmpty() bool {
+    return s.Len() == 0
+}
+// if *Script is nil, index is out of bounds
+func (s *Scripts) Get(index uint) *Script {
+    var b *Script
+    if index < s.Len() {
+        start_index := uint(HeaderSizeUint) * (1 + index)
+        start := unpackNumber(s.inner[start_index:])
+
+        if index == s.Len()-1 {
+            b = ScriptFromSliceUnchecked(s.inner[start:])
+        } else {
+            end_index := start_index + uint(HeaderSizeUint)
+            end := unpackNumber(s.inner[end_index:])
+            b = ScriptFromSliceUnchecked(s.inner[start:end])
+        }
+    }
+    return b
+}
+            
+
+func (s *Scripts) AsBuilder() ScriptsBuilder {
+    size := s.ItemCount()
+    t := NewScriptsBuilder()
+    for i:=uint(0); i < size; i++ {
+        t.Push(*s.Get(i))
+    }
+    return *t
+}
+        
 
 type OutPointBuilder struct {
     tx_hash Hash

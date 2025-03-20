@@ -6,7 +6,7 @@ use core::result::Result;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
-use das_core::config::Config;
+use config::Config;
 use das_core::constants::{ScriptType, ONE_CKB};
 use das_core::error::*;
 use das_core::since_util::SinceFlag;
@@ -58,7 +58,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 (Ordering::Equal, 0),
             )?;
 
-            let max_waiting_block_number = u32::from(config.apply_max_waiting_block_number()) as u64;
+            let max_waiting_block_number = config.apply_max_waiting_block_number() as u64;
             let mut expected_since = 0u64;
             expected_since = since_util::set_relative_flag(expected_since, SinceFlag::Relative);
             expected_since = since_util::set_metric_flag(expected_since, SinceFlag::Height);
@@ -110,8 +110,8 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 refund_capacity
             );
 
-            let config_main_reader = Config::get_instance().main()?;
-            verifiers::balance_cell::verify_das_lock_always_with_type(config_main_reader)?;
+            let config_main = Config::get_instance().main()?;
+            verifiers::balance_cell::verify_das_lock_always_with_type(&config_main)?;
         }
         Action::PreRegister => {
             util::require_type_script(

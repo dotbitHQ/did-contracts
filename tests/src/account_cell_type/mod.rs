@@ -1,5 +1,5 @@
 mod account_transfer;
-mod common;
+pub mod common;
 mod edit_manager;
 mod edit_records;
 mod force_recover_account_status;
@@ -9,8 +9,7 @@ mod approval_delay;
 mod approval_fulfill;
 mod approval_revoke;
 mod bid_expired_account_dutch_auction;
+mod did_cell_related;
 mod enable_sub_account;
-mod lock_account_for_cross_chain;
 mod recycle_expired_account;
 mod renew_account;
-mod unlock_account_for_cross_chain;

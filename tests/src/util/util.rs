@@ -127,6 +127,22 @@ pub fn get_type_id_bytes(name: &str) -> Vec<u8> {
     )
 }
 
+pub fn get_type_args_bytes(filename: &str) -> Vec<u8> {
+    // Padding args to 32 bytes, because it is convenient to use 32 bytes as the real args are also 32 bytes.
+    let mut buf = [0u8; 32];
+    let len = buf.len();
+    let bytes = filename.as_bytes();
+
+    if bytes.len() >= len {
+        buf.copy_from_slice(&bytes[..32]);
+    } else {
+        let (_, right) = buf.split_at_mut(len - bytes.len());
+        right.copy_from_slice(bytes);
+    }
+
+    buf.to_vec()
+}
+
 pub fn account_to_id(account: &str) -> Vec<u8> {
     let hash = blake2b_256(account);
     hash.get(..ACCOUNT_ID_LENGTH).unwrap().to_vec()
@@ -159,7 +175,7 @@ pub fn read_lines(file_name: &str) -> io::Result<Lines<BufReader<File>>> {
 pub fn gen_timestamp(datetime: &str) -> u64 {
     let navie_datetime =
         NaiveDateTime::parse_from_str(datetime, "%Y-%m-%d %H:%M:%S").expect("Invalid datetime format.");
-    let datetime = DateTime::<Utc>::from_utc(navie_datetime, Utc);
+    let datetime: DateTime<Utc> = DateTime::from_naive_utc_and_offset(navie_datetime, Utc);
     datetime.timestamp() as u64
 }
 

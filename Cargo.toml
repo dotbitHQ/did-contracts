@@ -5,6 +5,7 @@ package.license = "MIT"
 resolver = "2"
 members = [
     # Common libs
+    "libs/config",
     "libs/das-core",
     "libs/das-dynamic-libs",
     "libs/das-map",
@@ -27,9 +28,9 @@ members = [
     "contracts/reverse-record-cell-type",
     "contracts/reverse-record-root-cell-type",
     "contracts/sub-account-cell-type",
-    "contracts/eip712-lib",
     "contracts/device-key-list-cell-type",
     "contracts/dpoint-cell-type",
+    "contracts/did-cell-type",
     # Only for unit tests
     "tests",
     "contracts/test-env",
@@ -50,15 +51,14 @@ default-members = [
     "contracts/reverse-record-cell-type",
     "contracts/reverse-record-root-cell-type",
     "contracts/sub-account-cell-type",
-    "contracts/eip712-lib",
     "contracts/device-key-list-cell-type",
     "contracts/dpoint-cell-type",
+    "contracts/did-cell-type",
 ]
 
 [workspace.dependencies]
 # workspace crates
 das-types = { path = "libs/das-types", default-features = false }
-# 对于需要同时支持 std 和 no_std 的 crate ，不要放在 workspace 中，否则会导致两种 feature 同时启用带来编译冲突
 simple-ast = { path = "libs/simple-ast", default-features = false }
 das-core = { path = "libs/das-core", default-features = false }
 das-map = { path = "libs/das-map", default-features = false }
@@ -66,10 +66,11 @@ das-dynamic-libs = { path = "libs/das-dynamic-libs" }
 das-sorted-list = { path = "libs/das-sorted-list", default-features = false }
 eip712 = { path = "libs/eip712" }
 witness-parser = { path = "libs/witness-parser", default-features = false }
+config = { path = "libs/config", default-features = false }
 # ckb crates
 sparse-merkle-tree = { version = "0.6.1", default-features = false, features = [ "smtc" ] }
-ckb-std = "0.13.0"
-ckb-types = { version = "=0.108.0" }
+ckb-std = "0.15.0"
+ckb-types = { version = "0.116" }
 molecule = { version = "0.7", default-features = false }
 # third party crates
 blake2b-rs = { version = "0.2" }
@@ -81,7 +82,7 @@ thiserror-no-std = { version = "=2.0.2", default-features = false }
 anyhow = { version = "1.0", default-features = false }
 dotenvy = { version = "0.15" }
 no-std-compat = { version = "0.4", features = [ "alloc", "compat_macros" ] }
-strum = { version = "0.25", features = ["derive"], default-features = false }
+strum = { version = "0.26", features = ["derive"], default-features = false }
 num_enum = { version = "0.7.1", default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
@@ -96,3 +97,4 @@ opt-level = 2
 lto = true
 codegen-units = 1
 panic = 'abort'
+strip = true
