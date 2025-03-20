@@ -2,7 +2,7 @@ use alloc::boxed::Box;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
-use das_core::config::Config;
+use config::Config;
 use das_core::constants::ScriptType;
 use das_core::error::*;
 use das_core::{code_to_error, debug, util, verifiers, warn};
@@ -96,8 +96,8 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
     }
 
     if output_cells.len() > 0 {
-        let config_main_reader = Config::get_instance().main()?;
-        verifiers::balance_cell::verify_das_lock_always_with_type(config_main_reader)?;
+        let config_main = Config::get_instance().main()?;
+        verifiers::balance_cell::verify_das_lock_always_with_type(&config_main)?;
     }
 
     Ok(())

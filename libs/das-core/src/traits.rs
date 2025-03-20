@@ -102,7 +102,7 @@ where
             "ConfigCellSecondaryMarket" => DataType::ConfigCellSecondaryMarket,
             "ConfigCellReverseResolution" => DataType::ConfigCellReverseResolution,
             "ConfigCellSubAccount" => DataType::ConfigCellSubAccount,
-            "ConfigCellSubAccountBetaList" => DataType::ConfigCellSubAccountBetaList,
+            // "ConfigCellSubAccountBetaList" => DataType::ConfigCellSubAccountBetaList,
             "ConfigCellSystemStatus" => DataType::ConfigCellSystemStatus,
             "ConfigCellSMTNodeWhitelist" => DataType::ConfigCellSMTNodeWhitelist,
             "ConfigCellPreservedAccount00" => DataType::ConfigCellPreservedAccount00,

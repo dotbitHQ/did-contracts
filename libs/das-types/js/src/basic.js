@@ -219,6 +219,37 @@ export function SerializeByte10(value) {
   return buffer;
 }
 
+export class Byte20 {
+  constructor(reader, { validate = true } = {}) {
+    this.view = new DataView(assertArrayBuffer(reader));
+    if (validate) {
+      this.validate();
+    }
+  }
+
+  validate(compatible = false) {
+    assertDataLength(this.view.byteLength, 20);
+  }
+
+  indexAt(i) {
+    return this.view.getUint8(i);
+  }
+
+  raw() {
+    return this.view.buffer;
+  }
+
+  static size() {
+    return 20;
+  }
+}
+
+export function SerializeByte20(value) {
+  const buffer = assertArrayBuffer(value);
+  assertDataLength(buffer.byteLength, 20);
+  return buffer;
+}
+
 export class Bytes {
   constructor(reader, { validate = true } = {}) {
     this.view = new DataView(assertArrayBuffer(reader));
@@ -292,6 +323,37 @@ export class BytesVec {
 
 export function SerializeBytesVec(value) {
   return serializeTable(value.map(item => SerializeBytes(item)));
+}
+
+export class BytesOpt {
+  constructor(reader, { validate = true } = {}) {
+    this.view = new DataView(assertArrayBuffer(reader));
+    if (validate) {
+      this.validate();
+    }
+  }
+
+  validate(compatible = false) {
+    if (this.hasValue()) {
+      this.value().validate(compatible);
+    }
+  }
+
+  value() {
+    return new Bytes(this.view.buffer, { validate: false });
+  }
+
+  hasValue() {
+    return this.view.byteLength > 0;
+  }
+}
+
+export function SerializeBytesOpt(value) {
+  if (value) {
+    return SerializeBytes(value);
+  } else {
+    return new ArrayBuffer(0);
+  }
 }
 
 export class Hash {
@@ -403,6 +465,44 @@ export function SerializeScriptOpt(value) {
   } else {
     return new ArrayBuffer(0);
   }
+}
+
+export class Scripts {
+  constructor(reader, { validate = true } = {}) {
+    this.view = new DataView(assertArrayBuffer(reader));
+    if (validate) {
+      this.validate();
+    }
+  }
+
+  validate(compatible = false) {
+    const offsets = verifyAndExtractOffsets(this.view, 0, true);
+    for (let i = 0; i < offsets.length - 1; i++) {
+      new Script(this.view.buffer.slice(offsets[i], offsets[i + 1]), { validate: false }).validate();
+    }
+  }
+
+  length() {
+    if (this.view.byteLength < 8) {
+      return 0;
+    } else {
+      return this.view.getUint32(4, true) / 4 - 1;
+    }
+  }
+
+  indexAt(i) {
+    const start = 4 + i * 4;
+    const offset = this.view.getUint32(start, true);
+    let offset_end = this.view.byteLength;
+    if (i + 1 < this.length()) {
+      offset_end = this.view.getUint32(start + 4, true);
+    }
+    return new Script(this.view.buffer.slice(offset, offset_end), { validate: false });
+  }
+}
+
+export function SerializeScripts(value) {
+  return serializeTable(value.map(item => SerializeScript(item)));
 }
 
 export class OutPoint {

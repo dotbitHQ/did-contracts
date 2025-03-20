@@ -8,7 +8,9 @@ use core::result::Result;
 use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::packed;
 use ckb_std::high_level;
-use das_core::config::Config;
+use config::configs::entity_config::ConfigSubAccount;
+use config::constants::FieldKey;
+use config::Config;
 use das_core::constants::*;
 use das_core::error::*;
 use das_core::util::{self, exec_das_lock};
@@ -64,7 +66,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
 fn action_config_sub_account() -> Result<(), Box<dyn ScriptError>> {
     let config_main = Config::get_instance().main()?;
-    let config_account = Config::get_instance().account()?;
     let config_sub_account = Config::get_instance().sub_account()?;
 
     let timestamp = util::load_oracle_data(OracleCellType::Time)?;
@@ -73,7 +74,7 @@ fn action_config_sub_account() -> Result<(), Box<dyn ScriptError>> {
 
     let (input_account_cells, output_account_cells) = util::find_cells_by_type_id_in_inputs_and_outputs(
         ScriptType::Type,
-        config_main.type_id_table().account_cell(),
+        config_main.get_type_id_of(FieldKey::AccountCellTypeArgs)?,
     )?;
     verifiers::common::verify_cell_number_and_position(
         "AccountCell",
@@ -98,12 +99,7 @@ fn action_config_sub_account() -> Result<(), Box<dyn ScriptError>> {
         Source::Input,
     )?;
 
-    verifiers::account_cell::verify_account_expiration(
-        config_account,
-        input_account_cells[0],
-        Source::Input,
-        timestamp,
-    )?;
+    verifiers::account_cell::verify_account_expiration(input_account_cells[0], Source::Input, timestamp)?;
 
     verifiers::account_cell::verify_account_capacity_not_decrease(input_account_cells[0], output_account_cells[0])?;
 
@@ -140,7 +136,7 @@ fn action_config_sub_account() -> Result<(), Box<dyn ScriptError>> {
     let output_sub_account_data = high_level::load_cell_data(output_sub_account_cells[0], Source::Output)?;
 
     verify_sub_account_transaction_fee(
-        config_sub_account,
+        &config_sub_account,
         input_sub_account_capacity,
         &input_sub_account_data,
         output_sub_account_capacity,
@@ -182,7 +178,7 @@ fn action_config_sub_account() -> Result<(), Box<dyn ScriptError>> {
             }
 
             if !rules_to_verify.is_empty() {
-                let sub_account_witness_parser = SubAccountWitnessesParser::new(flag, &config_main)?;
+                let sub_account_witness_parser = SubAccountWitnessesParser::new(flag)?;
                 for data_type in rules_to_verify {
                     let (hash, field) = match data_type {
                         DataType::SubAccountPriceRule => (price_rules_hash, String::from("price_rules")),
@@ -208,7 +204,7 @@ fn action_config_sub_account() -> Result<(), Box<dyn ScriptError>> {
                     if data_type == DataType::SubAccountPriceRule {
                         for rule in rules.iter() {
                             das_assert!(
-                                rule.price >= u64::from(config_sub_account.new_sub_account_price()),
+                                rule.price >= config_sub_account.new_sub_account_price(),
                                 SubAccountCellErrorCode::ConfigRulesPriceError,
                                 "The SubAccountCell.witness.{} has price error, the minimal price should be {} in USD .",
                                 field,
@@ -251,7 +247,6 @@ fn action_config_sub_account() -> Result<(), Box<dyn ScriptError>> {
 
 fn action_update_sub_account() -> Result<(), Box<dyn ScriptError>> {
     let config_main = Config::get_instance().main()?;
-    let config_account = Config::get_instance().account()?;
     let config_sub_account = Config::get_instance().sub_account()?;
 
     let timestamp = util::load_oracle_data(OracleCellType::Time)?;
@@ -284,13 +279,13 @@ fn action_update_sub_account() -> Result<(), Box<dyn ScriptError>> {
             return Err(code_to_error!(SubAccountCellErrorCode::ConfigFlagInvalid));
         }
     };
-    let sub_account_parser = SubAccountWitnessesParser::new(flag, &config_main)?;
+    let sub_account_parser = SubAccountWitnessesParser::new(flag)?;
 
     debug!("Verify if the AccountCell in cell_deps has sub-account feature enabled and not expired ...");
 
     let dep_account_cells = util::find_cells_by_type_id(
         ScriptType::Type,
-        config_main.type_id_table().account_cell(),
+        config_main.get_type_id_of(FieldKey::AccountCellTypeArgs)?,
         Source::CellDep,
     )?;
 
@@ -309,12 +304,7 @@ fn action_update_sub_account() -> Result<(), Box<dyn ScriptError>> {
     if sub_account_parser.only_contains_recycle() {
         debug!("This transaction only contains recycle action, skip the account expiration check ...");
     } else {
-        verifiers::account_cell::verify_account_expiration(
-            config_account,
-            account_cell_index,
-            account_cell_source,
-            timestamp,
-        )?;
+        verifiers::account_cell::verify_account_expiration(account_cell_index, account_cell_source, timestamp)?;
     }
 
     let mut parent_account = account_cell_reader.account().as_readable();
@@ -323,7 +313,7 @@ fn action_update_sub_account() -> Result<(), Box<dyn ScriptError>> {
     debug!("Verify if the SubAccountCells have sufficient capacity and paid transaction fees properly ...");
 
     verify_sub_account_capacity_is_enough(
-        config_sub_account,
+        &config_sub_account,
         input_sub_account_cells[0],
         input_sub_account_capacity,
         &input_sub_account_data,
@@ -333,7 +323,7 @@ fn action_update_sub_account() -> Result<(), Box<dyn ScriptError>> {
     )?;
 
     let is_fee_paied = verify_sub_account_transaction_fee(
-        config_sub_account,
+        &config_sub_account,
         input_sub_account_capacity,
         &input_sub_account_data,
         output_sub_account_capacity,
@@ -509,8 +499,12 @@ fn action_update_sub_account() -> Result<(), Box<dyn ScriptError>> {
         util::find_cells_by_type_id(ScriptType::Lock, das_lock.code_hash().as_reader().into(), Source::Input)?;
     let mut sender_total_input_capacity = 0;
     if smt_root_sign_found {
-        let dpoint_type_id = Config::get_instance().main()?.type_id_table().dpoint_cell();
-        let input_sender_balance_cells = util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Input)?;
+        let dpoint_type_id = config_main.get_type_id_of(FieldKey::DpointCellTypeArgs)?;
+        let input_sender_balance_cells = util::find_balance_cells(
+            config_main.get_type_id_of(FieldKey::BalanceCellTypeArgs)?,
+            sender_lock.as_reader(),
+            Source::Input,
+        )?;
 
         verifiers::misc::verify_no_more_cells_with_same_lock_except_type(
             sender_lock.as_reader(),
@@ -579,8 +573,6 @@ fn action_update_sub_account() -> Result<(), Box<dyn ScriptError>> {
         flag,
         custom_rule_flag,
         sub_account_last_updated_at,
-        config_account,
-        config_sub_account,
         &parent_account,
         parent_expired_at,
         &manual_mint_list_smt_root,
@@ -646,8 +638,11 @@ fn action_update_sub_account() -> Result<(), Box<dyn ScriptError>> {
         if sender_total_input_capacity > 0 {
             debug!("Verify if the sender capacity cost is correct.");
 
-            let output_sender_balance_cells =
-                util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Output)?;
+            let output_sender_balance_cells = util::find_balance_cells(
+                config_main.get_type_id_of(FieldKey::BalanceCellTypeArgs)?,
+                sender_lock.as_reader(),
+                Source::Output,
+            )?;
             let sender_total_output_capacity = util::load_cells_capacity(&output_sender_balance_cells, Source::Output)?;
 
             if sender_total_input_capacity > sender_total_output_capacity {
@@ -676,12 +671,7 @@ fn action_update_sub_account() -> Result<(), Box<dyn ScriptError>> {
             SubAccountConfigFlag::CustomRule => {
                 debug!("Verify if all the profit have been accounted for .bit ...");
 
-                verify_profit_to_das_with_custom_rule(
-                    config_sub_account,
-                    &input_sub_account_data,
-                    &output_sub_account_data,
-                    profit_total,
-                )?;
+                verify_profit_to_das_with_custom_rule(&input_sub_account_data, &output_sub_account_data, profit_total)?;
             }
             SubAccountConfigFlag::Manual => {
                 verify_profit_to_das_with_manual(
@@ -729,7 +719,7 @@ fn action_collect_sub_account_profit() -> Result<(), Box<dyn ScriptError>> {
     let output_sub_account_data = high_level::load_cell_data(output_sub_account_cells[0], Source::Output)?;
     let input_das_profit = data_parser::sub_account_cell::get_das_profit(&input_sub_account_data).unwrap();
     let output_das_profit = data_parser::sub_account_cell::get_das_profit(&output_sub_account_data).unwrap();
-    let transaction_fee = u64::from(config_sub_account.common_fee());
+    let transaction_fee = config_sub_account.common_fee();
 
     match parser.action {
         Action::CollectSubAccountProfit => {
@@ -737,7 +727,7 @@ fn action_collect_sub_account_profit() -> Result<(), Box<dyn ScriptError>> {
 
             let dep_account_cells = util::find_cells_by_type_id(
                 ScriptType::Type,
-                config_main.type_id_table().account_cell(),
+                config_main.get_type_id_of(FieldKey::AccountCellTypeArgs)?,
                 Source::CellDep,
             )?;
 
@@ -789,7 +779,11 @@ fn action_collect_sub_account_profit() -> Result<(), Box<dyn ScriptError>> {
                 expected_remain_capacity -= input_owner_profit;
 
                 let owner_lock = util::derive_owner_lock_from_cell(dep_account_cells[0], Source::CellDep)?;
-                verifiers::misc::verify_user_get_change(config_main, owner_lock.as_reader(), input_owner_profit)?;
+                verifiers::misc::verify_user_get_change(
+                    config_main.get_type_id_of(FieldKey::BalanceCellTypeArgs)?,
+                    owner_lock.as_reader(),
+                    input_owner_profit,
+                )?;
             } else {
                 debug!("The profit of owner is not collected completely, so skip counting it.")
             }
@@ -845,7 +839,7 @@ fn action_collect_sub_account_profit() -> Result<(), Box<dyn ScriptError>> {
     }
 
     verify_sub_account_capacity_is_enough(
-        config_sub_account,
+        &config_sub_account,
         input_sub_account_cells[0],
         input_sub_account_capacity,
         &input_sub_account_data,
@@ -858,7 +852,7 @@ fn action_collect_sub_account_profit() -> Result<(), Box<dyn ScriptError>> {
 }
 
 fn verify_sub_account_capacity_is_enough(
-    config: ConfigCellSubAccountReader,
+    config: &ConfigSubAccount,
     input_index: usize,
     input_capacity: u64,
     input_data: &[u8],
@@ -866,7 +860,7 @@ fn verify_sub_account_capacity_is_enough(
     output_capacity: u64,
     output_data: &[u8],
 ) -> Result<(), Box<dyn ScriptError>> {
-    let basic_capacity = u64::from(config.basic_capacity());
+    let basic_capacity = config.basic_capacity();
     let input_das_profit = data_parser::sub_account_cell::get_das_profit(&input_data).unwrap();
     let output_das_profit = data_parser::sub_account_cell::get_das_profit(&output_data).unwrap();
     let input_owner_profit = data_parser::sub_account_cell::get_owner_profit(&input_data).unwrap();
@@ -897,7 +891,7 @@ fn verify_sub_account_capacity_is_enough(
 }
 
 fn verify_sub_account_transaction_fee(
-    config: ConfigCellSubAccountReader,
+    config: &ConfigSubAccount,
     input_capacity: u64,
     input_data: &[u8],
     output_capacity: u64,
@@ -953,7 +947,6 @@ fn verify_profit_to_das_with_manual(
 }
 
 fn verify_profit_to_das_with_custom_rule(
-    _config_sub_account: ConfigCellSubAccountReader,
     input_data: &[u8],
     output_data: &[u8],
     expected_total_profit: u64,

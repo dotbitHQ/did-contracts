@@ -18,7 +18,7 @@ use super::debug;
 #[cfg(debug_assertions)]
 pub fn income_cell(
     source: Source,
-    index: usize,
+    index: &usize,
     raw_witness: Option<BytesReader>,
     witness_reader_opt: Option<IncomeCellDataReader>,
 ) {

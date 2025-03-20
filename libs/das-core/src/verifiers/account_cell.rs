@@ -1,22 +1,23 @@
 use alloc::boxed::Box;
-use alloc::string::String;
-use alloc::vec;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
-use core::convert::TryFrom;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
+use config::configs::main::ConfigMain;
+use config::configs::preserved_account::ConfigPreservedAccount;
+use config::constants::FieldKey;
+use config::Config;
 use das_types::constants::{das_lock, *};
 use das_types::mixer::AccountCellDataReaderMixer;
 use das_types::packed::*;
 use das_types::util as types_util;
 
-use crate::config::Config;
 use crate::constants::*;
 use crate::error::*;
+use crate::util::find_cells_by_script;
 #[cfg(debug_assertions)]
 use crate::util::print_dp;
-use crate::util::{blake2b_256, find_cells_by_script};
 use crate::{data_parser, util};
 
 pub fn verify_unlock_role(action: Action, role: Option<LockRole>) -> Result<(), Box<dyn ScriptError>> {
@@ -39,18 +40,19 @@ pub fn verify_unlock_role(action: Action, role: Option<LockRole>) -> Result<(), 
 }
 
 pub fn verify_account_expiration(
-    config: ConfigCellAccountReader,
     index: usize,
     source: Source,
     current_timestamp: u64,
 ) -> Result<(), Box<dyn ScriptError>> {
     debug!("{:?}[{}] Verify if the AccountCell is expired.", source, index);
 
+    let config = Config::get_instance().account()?;
+
     let data = util::load_cell_data(index, source)?;
     let expired_at = data_parser::account_cell::get_expired_at(data.as_slice());
-    let expiration_grace_period = u32::from(config.expiration_grace_period()) as u64;
-    let expiration_auction_period = u32::from(config.expiration_auction_period()) as u64;
-    let expiration_deliver_period = u32::from(config.expiration_deliver_period()) as u64;
+    let expiration_grace_period = config.expiration_grace_period() as u64;
+    let expiration_auction_period = config.expiration_auction_period() as u64;
+    let expiration_deliver_period = config.expiration_deliver_period() as u64;
 
     if current_timestamp > expired_at {
         let duration = current_timestamp - expired_at;
@@ -77,7 +79,6 @@ pub fn verify_account_expiration(
 }
 
 pub fn verify_account_in_auction(
-    config: ConfigCellAccountReader,
     index: usize,
     source: Source,
     current_timestamp: u64,
@@ -89,11 +90,13 @@ pub fn verify_account_in_auction(
         source, index
     );
 
+    let config = Config::get_instance().account()?;
+
     let data = util::load_cell_data(index, source)?;
     let expired_at = data_parser::account_cell::get_expired_at(data.as_slice());
-    let expiration_grace_period = u32::from(config.expiration_grace_period()) as u64;
-    let expiration_auction_period = u32::from(config.expiration_auction_period()) as u64;
-    let expiration_auction_start_premium = u32::from(config.expiration_auction_start_premiums()) as u64;
+    let expiration_grace_period = config.expiration_grace_period() as u64;
+    let expiration_auction_period = config.expiration_auction_period() as u64;
+    let expiration_auction_start_premium = config.expiration_auction_start_premiums() as u64;
 
     if current_timestamp > expired_at {
         let duration_after_expired = current_timestamp - expired_at;
@@ -476,20 +479,18 @@ pub fn verify_account_witness_record_empty<'a>(
 }
 
 pub fn verify_account_no_other_type_cell_use_das_lock_in_inputs(
-    type_id_table: TypeIdTableReader,
+    config_main: &ConfigMain,
 ) -> Result<(), Box<dyn ScriptError>> {
     let das_lock = das_lock();
     let input_cells_with_das_lock = find_cells_by_script(ScriptType::Lock, das_lock.as_reader().into(), Source::Input)?;
-    let account_cell_type_id = type_id_table.account_cell();
-    let dp_cell_type_id = type_id_table.dpoint_cell();
-
-    let account_cell_type_id_hash = blake2b_256(account_cell_type_id.as_slice());
-    let dp_cell_type_id_hash = blake2b_256(dp_cell_type_id.as_slice());
+    let account_cell_type_id = config_main.get_type_id_of(FieldKey::AccountCellTypeArgs)?;
+    let dp_cell_type_id = config_main.get_type_id_of(FieldKey::DpointCellTypeArgs)?;
 
     for i in input_cells_with_das_lock {
-        let cell_type_id = high_level::load_cell_type_hash(i, Source::Input)?;
-        if let Some(cell_type_id) = cell_type_id {
-            if cell_type_id == account_cell_type_id_hash || cell_type_id == dp_cell_type_id_hash {
+        let cell_type = high_level::load_cell_type(i, Source::Input)?;
+        if let Some(cell_type) = cell_type {
+            let type_id = cell_type.as_reader().code_hash().raw_data();
+            if type_id == &account_cell_type_id || type_id == &dp_cell_type_id {
                 continue;
             } else {
                 warn!("The input cell type id is not account cell or dp cell.");
@@ -663,28 +664,16 @@ pub fn verify_account_cell_consistent_with_exception<'a>(
     Ok(())
 }
 
-pub fn verify_preserved_accounts(account: &[u8]) -> Result<(), Box<dyn ScriptError>> {
+pub fn verify_preserved_accounts(account_without_suffix: &[u8]) -> Result<(), Box<dyn ScriptError>> {
     debug!("Verify if account is preserved.");
 
-    let account_hash = util::blake2b_256(account);
-    let account_id = account_hash.get(..ACCOUNT_ID_LENGTH).unwrap();
-    let index = (account_id[0] % PRESERVED_ACCOUNT_CELL_COUNT) as usize;
-    let data_type = types_util::preserved_accounts_group_to_data_type(index);
+    let data_type = ConfigPreservedAccount::get_data_type_of_account(account_without_suffix);
     let preserved_accounts = Config::get_instance().preserved_account(data_type)?;
 
-    // debug!(
-    //     "account: {}, account ID: {:?}, data_type: {:?}",
-    //     String::from_utf8(account.to_vec()).unwrap(),
-    //     account_id,
-    //     data_type
-    // );
-
-    if util::is_account_id_in_collection(account_id, preserved_accounts) {
+    if preserved_accounts.is_account_exist(account_without_suffix) {
         warn!(
-            "Account {} is preserved. (hex: 0x{}, hash: 0x{})",
-            String::from_utf8(account.to_vec()).unwrap(),
-            util::hex_string(account),
-            util::hex_string(&account_hash)
+            "Account {} is preserved.",
+            String::from_utf8(account_without_suffix.to_vec()).unwrap(),
         );
         return Err(code_to_error!(ErrorCode::AccountIsPreserved));
     }
@@ -693,19 +682,15 @@ pub fn verify_preserved_accounts(account: &[u8]) -> Result<(), Box<dyn ScriptErr
 }
 
 /// Verify if the account can never be registered.
-pub fn verify_unavailable_accounts(account: &[u8]) -> Result<(), Box<dyn ScriptError>> {
+pub fn verify_unavailable_accounts(account_without_suffix: &[u8]) -> Result<(), Box<dyn ScriptError>> {
     debug!("Verify if account if unavailable");
 
-    let account_hash = util::blake2b_256(account);
-    let account_id = account_hash.get(..ACCOUNT_ID_LENGTH).unwrap();
     let unavailable_accounts = Config::get_instance().unavailable_account()?;
 
-    if util::is_account_id_in_collection(account_id, unavailable_accounts) {
+    if unavailable_accounts.is_account_exist(&account_without_suffix) {
         warn!(
-            "Account {} is unavailable. (hex: 0x{}, hash: 0x{})",
-            String::from_utf8(account.to_vec()).unwrap(),
-            util::hex_string(account),
-            util::hex_string(&account_hash)
+            "Account {} is unavailable.",
+            String::from_utf8(account_without_suffix.to_vec()).unwrap(),
         );
         return Err(code_to_error!(ErrorCode::AccountIsUnAvailable));
     }
@@ -714,64 +699,60 @@ pub fn verify_unavailable_accounts(account: &[u8]) -> Result<(), Box<dyn ScriptE
 }
 
 pub fn verify_account_chars(chars_reader: AccountCharsReader) -> Result<(), Box<dyn ScriptError>> {
-    let mut prev_char_set_name: Option<_> = None;
+    let config = Config::get_instance();
+    let mut non_global_char_set_type: Option<_> = None;
     for account_char in chars_reader.iter() {
         // Loading different charset configs on demand.
-        let data_type = types_util::char_set_to_data_type(CharSetType::try_from(account_char.char_set_name()).unwrap());
-        let char_set_index = types_util::data_type_to_char_set(data_type) as usize;
+        let char_set_type = match CharSetType::try_from(account_char.char_set_name()) {
+            Ok(char_set_type) => char_set_type,
+            Err(_) => {
+                warn!(
+                    "[1] Found undefined CharSet[{}] from char (0x{}).",
+                    u32::from(account_char.char_set_name()),
+                    util::hex_string(account_char.bytes().raw_data())
+                );
+                return Err(code_to_error!(ErrorCode::CharSetIsUndefined));
+            }
+        };
 
         // Check if account contains only one non-global character set.
-        match Config::get_instance().char_set(char_set_index) {
-            Some(Ok(char_set)) => {
+        match config.char_set(char_set_type) {
+            Ok(char_set) => {
                 if !char_set.global {
-                    if prev_char_set_name.is_none() {
-                        prev_char_set_name = Some(char_set_index);
+                    if non_global_char_set_type.is_none() {
+                        non_global_char_set_type = Some(char_set_type);
                     } else {
-                        let pre_char_set_index = prev_char_set_name.as_ref().unwrap();
+                        let non_global = non_global_char_set_type.as_ref().unwrap();
                         das_assert!(
-                            pre_char_set_index == &char_set_index,
+                            non_global == &char_set_type,
                             ErrorCode::CharSetIsConflict,
                             "Non-global CharSet[{}] has been used by account, so CharSet[{}] can not be used together.",
-                            pre_char_set_index,
-                            char_set_index
+                            non_global,
+                            char_set_type
                         );
                     }
                 }
             }
-            Some(Err(err)) => {
-                return Err(err);
-            }
-            None => {
-                warn!("[1] Chan not found CharSet[{}].", char_set_index);
+            Err(err) => {
+                warn!("Can not load CharSet[{}]: {}", char_set_type, err.to_string());
                 return Err(code_to_error!(ErrorCode::CharSetIsUndefined));
             }
         }
     }
 
-    let tmp = vec![0u8];
-    let mut required_char_sets = vec![tmp.as_slice(); CHAR_SET_LENGTH];
     for account_char in chars_reader.iter() {
-        let char_set_index = u32::from(account_char.char_set_name()) as usize;
-        if required_char_sets[char_set_index].len() <= 1 {
-            let char_set = match Config::get_instance().char_set(char_set_index) {
-                Some(Ok(char_set)) => char_set,
-                Some(Err(err)) => {
-                    return Err(err);
-                }
-                None => {
-                    warn!("[2] Chan not found CharSet[{}].", char_set_index);
-                    return Err(code_to_error!(ErrorCode::CharSetIsUndefined));
-                }
-            };
-            required_char_sets[char_set_index] = char_set.data.as_slice();
-        }
+        let char_set_type = CharSetType::try_from(account_char.char_set_name()).unwrap();
+        let char_set = config.char_set(char_set_type).unwrap();
+        let chars = char_set.value();
 
+        // Compare each character in the account with each character in the char set.
         let account_char_bytes = account_char.bytes().raw_data();
         let mut found = false;
         let mut from = 0;
-        for (i, item) in required_char_sets[char_set_index].iter().enumerate() {
+        for (i, item) in chars.iter().enumerate() {
+            // The character in the char set is split by 0x00.
             if item == &0 {
-                let char_bytes = required_char_sets[char_set_index].get(from..i).unwrap();
+                let char_bytes = chars.get(from..i).unwrap();
                 if account_char_bytes == char_bytes {
                     found = true;
                     break;
@@ -787,7 +768,7 @@ pub fn verify_account_chars(chars_reader: AccountCharsReader) -> Result<(), Box<
             "The character {}(utf-8: 0x{}) can not be used in account, because it is not contained by CharSet[{}].",
             String::from_utf8(account_char_bytes.to_vec()).unwrap(),
             util::hex_string(account_char.bytes().raw_data()),
-            char_set_index
+            char_set_type
         );
     }
 
@@ -795,8 +776,8 @@ pub fn verify_account_chars(chars_reader: AccountCharsReader) -> Result<(), Box<
 }
 
 pub fn verify_account_chars_max_length(chars_reader: AccountCharsReader) -> Result<(), Box<dyn ScriptError>> {
-    let config = Config::get_instance().account()?;
-    let max_chars_length = u32::from(config.max_length());
+    let config_account = Config::get_instance().account()?;
+    let max_chars_length = config_account.max_length();
     let account_chars_length = chars_reader.len() as u32;
 
     das_assert!(
@@ -829,8 +810,9 @@ pub fn verify_records_keys(records: RecordsReader) -> Result<(), Box<dyn ScriptE
     debug!("Check if records keys are available.");
 
     let config_account = Config::get_instance().account()?;
-    let record_key_namespace = Config::get_instance().record_key_namespace()?;
-    let records_max_size = u32::from(config_account.record_size_limit()) as usize;
+    let config_record_key_namespace = Config::get_instance().record_key_namespace()?;
+
+    let records_max_size = config_account.record_size_limit() as usize;
 
     das_assert!(
         records.total_size() <= records_max_size,
@@ -839,23 +821,12 @@ pub fn verify_records_keys(records: RecordsReader) -> Result<(), Box<dyn ScriptE
         records_max_size
     );
 
-    // extract all the keys, which are split by 0
-    let mut key_start_at = 0;
-    let mut key_list = Vec::new();
-    for (index, item) in record_key_namespace.iter().enumerate() {
-        if *item == 0 {
-            let key_vec = &record_key_namespace[key_start_at..index];
-            key_start_at = index + 1;
-
-            key_list.push(key_vec);
-        }
-    }
-
     fn vec_compare(va: &[u8], vb: &[u8]) -> bool {
         // zip stops at the shortest
         (va.len() == vb.len()) && va.iter().zip(vb).all(|(a, b)| a == b)
     }
 
+    let key_list = config_record_key_namespace.to_key_list();
     // check if all the record.{type+key} are valid
     for record in records.iter() {
         let record_type = Vec::from(record.record_type().raw_data());

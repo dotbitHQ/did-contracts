@@ -6,7 +6,7 @@ use ckb_std::high_level::{load_cell_lock, load_cell_type, QueryIter};
 use molecule::bytes::Bytes;
 use molecule::prelude::Entity;
 
-pub fn get_device_key_list_cell_deps(type_id: &[u8]) -> BTreeMap<[u8; 32], Bytes> {
+pub fn get_device_key_list_cell_deps(type_id: [u8; 32]) -> BTreeMap<[u8; 32], Bytes> {
     let cell_deps = QueryIter::new(
         |index, source| {
             let res = load_cell_type(index, source)?;
@@ -16,7 +16,7 @@ pub fn get_device_key_list_cell_deps(type_id: &[u8]) -> BTreeMap<[u8; 32], Bytes
     )
     .filter_map(|res| {
         res.and_then(|(index, hash)| {
-            if hash.as_slice() == type_id {
+            if hash.as_slice() == &type_id {
                 let lock = load_cell_lock(index, Source::CellDep).unwrap();
                 let mut buf: [u8; 32] = [0; 32];
                 let _ = ckb_std::syscalls::load_cell_data(&mut buf, 0, index, Source::CellDep);

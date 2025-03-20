@@ -1,17 +1,20 @@
-#[cfg(feature = "no_std")]
-use core::convert::TryFrom;
-#[cfg(not(feature = "no_std"))]
-use std::convert::TryFrom;
+// #[cfg(feature = "no_std")]
+// use core::convert::TryFrom;
+// #[cfg(not(feature = "no_std"))]
+// use std::convert::TryFrom;
 
 #[cfg(feature = "no_std")]
 use blake2b_ref::Blake2bBuilder;
 #[cfg(not(feature = "no_std"))]
 use blake2b_rs::Blake2bBuilder;
+#[cfg(feature = "no_std")]
+use ckb_std::ckb_types::core::ScriptHashType;
+#[cfg(not(feature = "no_std"))]
+use ckb_types::core::ScriptHashType;
 pub use molecule::hex_string;
 use molecule::prelude::*;
 
 use super::constants::*;
-#[cfg(not(feature = "no_std"))]
 use super::schemas::packed::*;
 
 pub fn is_entity_eq<T: Entity>(a: &T, b: &T) -> bool {
@@ -51,7 +54,6 @@ pub fn get_action_required_sign_role(action: Action) -> Option<LockRole> {
     let owner_sign_actions = vec![
         Action::TransferAccount,
         Action::EditManager,
-        Action::LockAccountForCrossChain,
         Action::EnableSubAccount,
         Action::CreateApproval,
         Action::DelayApproval,
@@ -81,20 +83,22 @@ pub fn blake2b_256<T: AsRef<[u8]>>(s: T) -> [u8; 32] {
     result
 }
 
-pub fn data_type_to_char_set(data_type: DataType) -> CharSetType {
-    CharSetType::try_from(data_type as u32 - 100000).unwrap()
+pub fn to_account_id(account: &[u8]) -> [u8; ACCOUNT_ID_LENGTH] {
+    let account_hash = blake2b_256(account);
+
+    let mut account_id = [0u8; ACCOUNT_ID_LENGTH];
+    account_id.copy_from_slice(&account_hash[0..ACCOUNT_ID_LENGTH]);
+    account_id
 }
 
-pub fn char_set_to_data_type(char_set: CharSetType) -> DataType {
-    DataType::try_from(char_set as u32 + 100000).unwrap()
-}
+pub fn to_type_id(type_args: &[u8]) -> [u8; 32] {
+    let type_script = Script::new_builder()
+        .code_hash(Hash::from(TYPE_ID_CODE_HASH))
+        .hash_type(ScriptHashType::Type.into())
+        .args(Bytes::from(type_args))
+        .build();
 
-pub fn data_type_to_preserved_accounts_group(data_type: DataType) -> usize {
-    data_type as u32 as usize - 10000
-}
-
-pub fn preserved_accounts_group_to_data_type(group: usize) -> DataType {
-    DataType::try_from(group as u32 + 10000).unwrap()
+    blake2b_256(type_script.as_slice())
 }
 
 #[cfg(not(feature = "no_std"))]

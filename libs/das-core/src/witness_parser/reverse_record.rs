@@ -9,8 +9,10 @@ use core::str::FromStr;
 use ckb_std::ckb_constants::Source;
 use ckb_std::error::SysError;
 use ckb_std::syscalls::{self};
+use config::constants::FieldKey;
+use config::Config;
 use das_types::constants::*;
-use das_types::packed::{ConfigCellMainReader, DeviceKeyListCellData};
+use das_types::packed::DeviceKeyListCellData;
 use das_types::prelude::Entity;
 
 use super::super::error::*;
@@ -63,12 +65,14 @@ pub struct ReverseRecordWitnessesParser {
 }
 
 impl ReverseRecordWitnessesParser {
-    pub fn new(config_main: &ConfigCellMainReader<'_>) -> Result<Self, Box<dyn ScriptError>> {
+    pub fn new() -> Result<Self, Box<dyn ScriptError>> {
+        let config_main = Config::get_instance().main()?;
+
         let mut contains_updating = false;
         let mut contains_removing = false;
         let mut reverse_record_indexes = Vec::new();
         let mut device_key_lists = BTreeMap::<Vec<u8>, DeviceKeyListCellData>::new();
-        let cell_deps = get_device_key_list_cell_deps(config_main.type_id_table().key_list_config_cell().raw_data());
+        let cell_deps = get_device_key_list_cell_deps(config_main.get_type_id_of(FieldKey::DeviceKeyListCellTypeArgs)?);
 
         let mut i = 0;
         let mut das_witnesses_started = false;

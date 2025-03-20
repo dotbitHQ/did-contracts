@@ -5,6 +5,7 @@ use core::ops::Index;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
+use config::configs::entity_config::ConfigAccount;
 use das_dynamic_libs::error::Error as DasDynamicLibError;
 use das_dynamic_libs::sign_lib::SignLib;
 use das_types::constants::{das_lock, *};
@@ -119,7 +120,7 @@ pub fn verify_status_v2<'a>(
 }
 
 pub fn verify_expiration<'a>(
-    config: ConfigCellAccountReader,
+    config: &ConfigAccount,
     sub_account_index: usize,
     sub_account_reader: &Box<dyn SubAccountReaderMixer + 'a>,
     current: u64,
@@ -130,7 +131,7 @@ pub fn verify_expiration<'a>(
     );
 
     let expired_at = u64::from(sub_account_reader.expired_at());
-    let expiration_grace_period = u32::from(config.expiration_grace_period()) as u64;
+    let expiration_grace_period = config.expiration_grace_period() as u64;
 
     if current > expired_at {
         if current - expired_at > expiration_grace_period {

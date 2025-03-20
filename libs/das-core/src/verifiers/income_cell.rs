@@ -3,12 +3,13 @@ use core::cmp::Ordering;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
+use config::constants::FieldKey;
+use config::Config;
 use das_map::map::Map;
 use das_map::util as map_util;
 use das_types::packed::*;
 use das_types::prelude::*;
 
-use crate::config::Config;
 use crate::constants::ScriptType;
 use crate::error::*;
 use crate::{assert, code_to_error, debug, util, warn};
@@ -102,8 +103,18 @@ pub fn verify_income_cells(profit_map: Map<Vec<u8>, u64>) -> Result<(), Box<dyn 
     };
     let config_main = Config::get_instance().main()?;
 
+    let type_id = match config_main.get_type_id_of(FieldKey::IncomeCellTypeArgs) {
+        Ok(type_id) => type_id,
+        Err(err) => {
+            warn!(
+                "The type_id of income-cell-type is not defined in ConfigCellMain. {}",
+                err
+            );
+            return Ok(());
+        }
+    };
     let (input_income_cells, output_income_cells) =
-        util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, config_main.type_id_table().income_cell())?;
+        util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, type_id)?;
     if profit_map.items.len() == 0 || total_profit == 0 {
         debug!("Since the profit is empty, there should be no IncomeCell in either the inputs or outputs.");
 
@@ -146,15 +157,15 @@ pub fn verify_income_cells(profit_map: Map<Vec<u8>, u64>) -> Result<(), Box<dyn 
     #[cfg(debug_assertions)]
     crate::inspect::income_cell(
         Source::Output,
-        output_income_cells[0],
+        &output_income_cells[0],
         None,
         Some(output_income_witness_reader),
     );
 
     super::misc::verify_always_success_lock(output_income_cells[0], Source::Output)?;
-    verify_records_limit(config_income, output_income_witness_reader)?;
+    verify_records_limit(config_income.value().as_reader(), output_income_witness_reader)?;
     verify_cell_capacity_with_records_capacity(
-        config_income,
+        config_income.value().as_reader(),
         output_income_cells[0],
         Source::Output,
         output_income_witness_reader,

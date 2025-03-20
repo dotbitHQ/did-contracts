@@ -59,4 +59,6 @@ pub enum WitnessParserError {
         data_type: DataType,
         version: u32,
     },
+    #[error("witnesses[{index}] {msg}.")]
+    DeprecatedWitnessType { index: usize, msg: String },
 }

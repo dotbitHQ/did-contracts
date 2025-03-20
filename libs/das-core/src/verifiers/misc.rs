@@ -5,12 +5,10 @@ use ckb_std::ckb_types::packed as ckb_packed;
 use ckb_std::high_level;
 use ckb_std::syscalls::SysError;
 use das_types::constants::always_success_lock;
-use das_types::packed::*;
 
 use crate::constants::*;
 use crate::error::*;
-use crate::util::{self, find_cells_by_script};
-use crate::{assert, code_to_error, warn};
+use crate::{assert, code_to_error, util, warn};
 
 pub fn verify_no_more_cells(cells: &[usize], source: Source) -> Result<(), Box<dyn ScriptError>> {
     assert!(
@@ -62,7 +60,7 @@ pub fn verify_no_more_cells_with_same_lock(
     cells: &[usize],
     source: Source,
 ) -> Result<(), Box<dyn ScriptError>> {
-    let cells_with_same_lock = find_cells_by_script(ScriptType::Lock, lock, source)?;
+    let cells_with_same_lock = util::find_cells_by_script(ScriptType::Lock, lock, source)?;
 
     for i in cells_with_same_lock {
         if !cells.contains(&i) {
@@ -81,9 +79,10 @@ pub fn verify_no_more_cells_with_same_lock_except_type(
     lock: ckb_packed::ScriptReader,
     cells: &[usize],
     source: Source,
-    type_id: HashReader,
+    type_id: [u8; 32],
 ) -> Result<(), Box<dyn ScriptError>> {
-    let cells_with_same_lock = find_cells_by_script(ScriptType::Lock, lock, source)?;
+    let cells_with_same_lock = util::find_cells_by_script(ScriptType::Lock, lock, source)?;
+    let except_type_script = util::type_id_to_script(type_id);
 
     for i in cells_with_same_lock {
         if !cells.contains(&i) {
@@ -98,11 +97,12 @@ pub fn verify_no_more_cells_with_same_lock_except_type(
                 }
             };
 
-            let type_script: Hash = type_script.code_hash().into();
-            if util::is_reader_eq(type_script.as_reader(), type_id) {
+            if util::is_reader_eq(type_script.as_reader(), except_type_script.as_reader().into()) {
                 debug!(
                     "{:?}[{}] The cell used the type script in whitelist, skip it.(type_id: {})",
-                    source, i, type_id
+                    source,
+                    i,
+                    util::hex_string(&type_id)
                 );
             } else {
                 warn!(
@@ -119,11 +119,11 @@ pub fn verify_no_more_cells_with_same_lock_except_type(
 
 /// CAREFUL The codes below just support das-lock.
 pub fn verify_user_get_change(
-    config_main: ConfigCellMainReader,
+    balance_cell_type_id: [u8; 32],
     user_lock_reader: ckb_packed::ScriptReader,
     expected_output_balance: u64,
 ) -> Result<(), Box<dyn ScriptError>> {
-    let output_balance_cells = util::find_balance_cells(config_main, user_lock_reader, Source::Output)?;
+    let output_balance_cells = util::find_balance_cells(balance_cell_type_id, user_lock_reader, Source::Output)?;
     let output_capacity = util::load_cells_capacity(&output_balance_cells, Source::Output)?;
 
     assert!(
@@ -139,7 +139,7 @@ pub fn verify_user_get_change(
 }
 
 pub fn verify_user_get_change_when_inputs_removed(
-    config_reader: ConfigCellMainReader,
+    balance_cell_type_id: [u8; 32],
     user_lock_reader: ckb_packed::ScriptReader,
     input_removed_cells: &[usize],
     output_created_cells: &[usize],
@@ -158,7 +158,7 @@ pub fn verify_user_get_change_when_inputs_removed(
     );
 
     verify_user_get_change(
-        config_reader,
+        balance_cell_type_id,
         user_lock_reader,
         input_capacity - output_capacity - extra_cost,
     )

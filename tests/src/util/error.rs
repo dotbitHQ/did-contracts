@@ -17,12 +17,8 @@ pub enum ErrorCode {
     InitDayHasPassed,
     OracleCellIsRequired = 10,
     OracleCellDataDecodingError,
-    ConfigTypeIsUndefined,
-    ConfigIsPartialMissing,
-    ConfigCellIsRequired,
-    ConfigCellWitnessIsCorrupted,
-    ConfigCellWitnessDecodingError,
-    TxFeeSpentError,
+    ConfigError,
+    TxFeeSpentError = 17,
     DasLockArgsInvalid,
     CellLockCanNotBeModified = 20,
     CellTypeCanNotBeModified,
@@ -43,6 +39,7 @@ pub enum ErrorCode {
     AccountIsPreserved,
     AccountIsUnAvailable,
     AccountIdIsInvalid,
+    WitnessNotInited,
     WitnessStructureError = 40,
     WitnessDataTypeDecodingError,
     WitnessReadingError,
@@ -57,11 +54,12 @@ pub enum ErrorCode {
     WitnessArgsInvalid,
     WitnessArgsDecodingError,
     WitnessVersionOrTypeInvalid,
-    WitnessVersionUndefined, // 50
-    SMTWhiteListTheLockIsNotFound,
-    SMTNewRootMismatch, // 55
+    WitnessVersionUndefined,
+    SMTWhiteListTheLockIsNotFound, // 55
+    SMTNewRootMismatch,
     SMTProofVerifyFailed,
     SignMethodUnsupported,
+    WitnessCannotBeVerified,
     ApplyRegisterNeedWaitLonger = 60,
     ApplyRegisterHasTimeout,
     ApplyLockMustBeUnique,
@@ -130,6 +128,7 @@ pub enum ErrorCode {
     UpgradeDefaultValueOfNewFieldIsError,
     CrossChainLockError,
     CrossChainUnlockError,
+    OverflowError = -3,
     UnittestError = -2,
     SystemOff = -1,
 }
@@ -235,6 +234,10 @@ pub enum AccountCellErrorCode {
     ApprovalNotRevoked,
     ApprovalInProtectionPeriod,
     ApprovalFulfillError,
+    AccountCellBidPriceTooLow,
+    InvalidUpgradeTxStructure,
+    InvalidUpgradeCellData,
+    InvalidUpgradeAction,
 }
 
 impl Into<i8> for AccountCellErrorCode {

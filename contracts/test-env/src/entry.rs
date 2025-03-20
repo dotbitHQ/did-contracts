@@ -39,6 +39,9 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
         "test_uint_safty" => uint_tests::test_safty()?,
         "perf_uint_price_formula" => uint_tests::perf_price_formula()?,
         "test_config_account_loading" => config_tests::test_config_account_loading()?,
+        "test_witness_parser_action_params_data_init" => {
+            witness_parser_tests::action_params_data::test_witness_parser_action_params_data_init()?
+        }
         "test_config_records_key_namespace_loading" => config_tests::test_config_records_key_namespace_loading()?,
         "test_witness_parser_get_entity_by_cell_meta" => {
             witness_parser_tests::test_witness_parser_get_entity_by_cell_meta()?

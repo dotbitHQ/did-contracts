@@ -6,10 +6,11 @@ use core::result::Result;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
-use das_core::config::Config;
+use config::constants::FieldKey;
+use config::Config;
 use das_core::error::*;
 use das_core::{assert, code_to_error, debug, util, verifiers};
-use das_types::constants::{Action, TypeScript};
+use das_types::constants::Action;
 use witness_parser::WitnessesParserV1;
 
 pub fn main() -> Result<(), Box<dyn ScriptError>> {
@@ -62,9 +63,9 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             debug!("Verify if all capacity have been refund to user correctly.");
 
             let expected_lock = high_level::load_cell_lock(input_cells[0], Source::Input)?;
-            let common_fee = u64::from(config_reverse_resolution.common_fee());
+            let common_fee = config_reverse_resolution.common_fee();
             verifiers::misc::verify_user_get_change(
-                config_main,
+                config_main.get_type_id_of(FieldKey::BalanceCellTypeArgs)?,
                 expected_lock.as_reader(),
                 total_input_capacity - common_fee,
             )?;

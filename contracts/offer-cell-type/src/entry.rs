@@ -6,13 +6,14 @@ use core::result::Result;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
-use das_core::config::Config;
+use config::constants::FieldKey;
+use config::Config;
 use das_core::constants::*;
 use das_core::error::*;
 use das_core::{assert, assert_lock_equal, code_to_error, data_parser, debug, util, verifiers};
 use das_map::map::Map;
 use das_map::util as map_util;
-use das_types::constants::{das_lock, wallet_lock, AccountStatus, Action, TypeScript};
+use das_types::constants::{das_lock, wallet_lock, AccountStatus, Action};
 use das_types::packed::*;
 use das_types::prelude::*;
 use witness_parser::WitnessesParserV1;
@@ -54,7 +55,11 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             }
 
             let sender_lock = high_level::load_cell_lock(0, Source::Input)?;
-            let balance_cells = util::find_balance_cells(config_main, sender_lock.as_reader(), Source::Input)?;
+            let balance_cells = util::find_balance_cells(
+                config_main.get_type_id_of(FieldKey::BalanceCellTypeArgs)?,
+                sender_lock.as_reader(),
+                Source::Input,
+            )?;
             let all_input_cells = if parser.action == Action::MakeOffer {
                 balance_cells
             } else {
@@ -74,7 +79,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 );
 
                 verifiers::misc::verify_user_get_change(
-                    config_main,
+                    config_main.get_type_id_of(FieldKey::BalanceCellTypeArgs)?,
                     sender_lock.as_reader(),
                     total_input_capacity - offer_cell_capacity - common_fee,
                 )?;
@@ -105,14 +110,8 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             if parser.action == Action::MakeOffer {
                 debug!("Verify if the fields of the OfferCell is set correctly.");
 
-                verify_price(
-                    config_second_market,
-                    output_offer_cell_witness_reader,
-                    output_cells[0],
-                    Source::Output,
-                    None,
-                )?;
-                verify_message_length(config_second_market, output_offer_cell_witness_reader)?;
+                verify_price(output_offer_cell_witness_reader, output_cells[0], Source::Output, None)?;
+                verify_message_length(output_offer_cell_witness_reader)?;
             } else {
                 let input_offer_cell_witness = util::parse_offer_cell_witness(input_cells[0], Source::Input)?;
                 let input_offer_cell_witness_reader = input_offer_cell_witness.as_reader();
@@ -167,7 +166,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 );
 
                 verify_price(
-                    config_second_market,
                     output_offer_cell_witness_reader,
                     output_cells[0],
                     Source::Output,
@@ -185,7 +183,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                     input_offer_cell_witness_reader.message(),
                     output_offer_cell_witness_reader.message(),
                 ) {
-                    verify_message_length(config_second_market, output_offer_cell_witness_reader)?;
+                    verify_message_length(output_offer_cell_witness_reader)?;
                     changed = true;
                 }
 
@@ -234,9 +232,9 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             debug!("Verify if all capacity have been refund to user correctly.");
 
             let expected_lock = high_level::load_cell_lock(input_cells[0], Source::Input)?;
-            let common_fee = u64::from(config_second_market.common_fee());
+            let common_fee = config_second_market.common_fee();
             verifiers::misc::verify_user_get_change(
-                config_main,
+                config_main.get_type_id_of(FieldKey::BalanceCellTypeArgs)?,
                 expected_lock.as_reader(),
                 total_input_capacity - common_fee,
             )?;
@@ -247,12 +245,10 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
             let config_main = Config::get_instance().main()?;
-            let config_account = Config::get_instance().account()?;
-            let config_secondary_market = Config::get_instance().secondary_market()?;
 
             verifiers::common::verify_cell_number("AccountSaleCell", &input_cells, 1, &output_cells, 0)?;
 
-            let account_cell_type_id = config_main.type_id_table().account_cell();
+            let account_cell_type_id = config_main.get_type_id_of(FieldKey::AccountCellTypeArgs)?;
             let (input_account_cells, output_account_cells) =
                 util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, account_cell_type_id)?;
             verifiers::common::verify_cell_number_and_position(
@@ -278,12 +274,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             debug!("Verify if the AccountCell is transferred properly.");
 
-            verifiers::account_cell::verify_account_expiration(
-                config_account,
-                input_account_cells[0],
-                Source::Input,
-                timestamp,
-            )?;
+            verifiers::account_cell::verify_account_expiration(input_account_cells[0], Source::Input, timestamp)?;
             verifiers::account_cell::verify_status(
                 &input_account_cell_witness_reader,
                 AccountStatus::Normal,
@@ -341,10 +332,10 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let channel_lock = input_offer_cell_witness_reader.channel_lock();
             let price = u64::from(input_offer_cell_witness_reader.price());
             let offer_cell_capacity = high_level::load_cell_capacity(input_cells[0], Source::Input)?;
-            let common_fee = u64::from(config_secondary_market.common_fee());
+            let config_secondary_market = Config::get_instance().secondary_market()?;
+            let common_fee = config_secondary_market.common_fee();
 
             verify_profit_distribution(
-                config_main,
                 seller_lock.as_reader().into(),
                 inviter_lock,
                 channel_lock,
@@ -361,11 +352,9 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
     Ok(())
 }
 
-fn verify_message_length(
-    config_second_market: ConfigCellSecondaryMarketReader,
-    offer_cell_witness: OfferCellDataReader,
-) -> Result<(), Box<dyn ScriptError>> {
-    let max_length = u32::from(config_second_market.offer_message_bytes_limit()) as usize;
+fn verify_message_length(offer_cell_witness: OfferCellDataReader) -> Result<(), Box<dyn ScriptError>> {
+    let config_second_market = Config::get_instance().secondary_market()?;
+    let max_length = config_second_market.offer_message_bytes_limit() as usize;
     let message_length = offer_cell_witness.message().len();
 
     assert!(
@@ -379,17 +368,17 @@ fn verify_message_length(
 }
 
 fn verify_price(
-    config_second_market: ConfigCellSecondaryMarketReader,
     offer_cell_witness: OfferCellDataReader,
     index: usize,
     source: Source,
     exist_fee: Option<u64>,
 ) -> Result<(), Box<dyn ScriptError>> {
-    let basic_capacity = u64::from(config_second_market.offer_cell_basic_capacity());
+    let config_second_market = Config::get_instance().secondary_market()?;
+    let basic_capacity = config_second_market.offer_cell_basic_capacity();
     let fee = if let Some(exist_fee) = exist_fee {
         exist_fee
     } else {
-        u64::from(config_second_market.offer_cell_prepared_fee_capacity())
+        config_second_market.offer_cell_prepared_fee_capacity()
     };
 
     let current_price = u64::from(offer_cell_witness.price());
@@ -414,7 +403,6 @@ fn verify_price(
 }
 
 fn verify_profit_distribution(
-    config_main: ConfigCellMainReader,
     seller_lock_reader: ScriptReader,
     inviter_lock_reader: ScriptReader,
     channel_lock_reader: ScriptReader,
@@ -431,28 +419,28 @@ fn verify_profit_distribution(
     debug!("Calculate profit distribution for all roles.");
 
     let mut profit_of_seller = price;
-    let mut profit_rate_of_das = u32::from(config_profit_rate.sale_das()) as u64;
+    let mut profit_rate_of_das = config_profit_rate.sale_das() as u64;
 
     if !util::is_reader_eq(default_script_reader, inviter_lock_reader) {
-        let profit_rate = u32::from(config_profit_rate.sale_buyer_inviter()) as u64;
+        let profit_rate = config_profit_rate.sale_buyer_inviter() as u64;
         let profit = price / RATE_BASE * profit_rate;
 
         map_util::add(&mut profit_map, inviter_lock_reader.as_slice().to_vec(), profit);
         profit_of_seller -= profit;
         debug!("  The profit of the invitor: {}", profit);
     } else {
-        profit_rate_of_das += u32::from(config_profit_rate.sale_buyer_inviter()) as u64;
+        profit_rate_of_das += config_profit_rate.sale_buyer_inviter() as u64;
     }
 
     if !util::is_reader_eq(default_script_reader, channel_lock_reader) {
-        let profit_rate = u32::from(config_profit_rate.sale_buyer_channel()) as u64;
+        let profit_rate = config_profit_rate.sale_buyer_channel() as u64;
         let profit = price / RATE_BASE * profit_rate;
 
         map_util::add(&mut profit_map, channel_lock_reader.as_slice().to_vec(), profit);
         profit_of_seller -= profit;
         debug!("  The profit of the channel: {}", profit);
     } else {
-        profit_rate_of_das += u32::from(config_profit_rate.sale_buyer_channel()) as u64;
+        profit_rate_of_das += config_profit_rate.sale_buyer_channel() as u64;
     }
 
     let profit = price / RATE_BASE * profit_rate_of_das;
@@ -464,6 +452,7 @@ fn verify_profit_distribution(
 
     debug!("Check if seller get their profit properly.");
 
+    let config_main = Config::get_instance().main()?;
     let expected_capacity = if offer_cell_capacity > price + common_fee {
         // If the OfferCell takes some fee with it, the seller should get exactly their profit.
         profit_of_seller
@@ -471,7 +460,11 @@ fn verify_profit_distribution(
         // If the OfferCell does not contain any fee, the seller should get their profit with a bit of fee has been took.
         profit_of_seller - common_fee
     };
-    verifiers::misc::verify_user_get_change(config_main, seller_lock_reader.into(), expected_capacity)?;
+    verifiers::misc::verify_user_get_change(
+        config_main.get_type_id_of(FieldKey::BalanceCellTypeArgs)?,
+        seller_lock_reader.into(),
+        expected_capacity,
+    )?;
 
     verifiers::income_cell::verify_income_cells(profit_map)?;
 

@@ -17,3 +17,4 @@ das-types = { workspace = true, features = ["no_std"] }
 sparse-merkle-tree = { workspace = true }
 blake2b-ref = "0.3"
 libm = "0.2"
+config = { workspace = true, features = ["no_std"] }

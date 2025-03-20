@@ -7,7 +7,8 @@ use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::packed as ckb_packed;
 use ckb_std::ckb_types::prelude::*;
 use ckb_std::high_level;
-use das_core::config::Config;
+use config::constants::FieldKey;
+use config::Config;
 use das_core::constants::*;
 use das_core::error::*;
 use das_core::{assert, assert_lock_equal, code_to_error, data_parser, debug, util, verifiers, warn};
@@ -35,7 +36,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let config_main = Config::get_instance().main()?;
             let config_secondary_market = Config::get_instance().secondary_market()?;
 
-            let account_cell_type_id = config_main.type_id_table().account_cell();
+            let account_cell_type_id = config_main.get_type_id_of(FieldKey::AccountCellTypeArgs)?;
             let (input_account_cells, output_account_cells) =
                 util::find_cells_by_type_id_in_inputs_and_outputs(ScriptType::Type, account_cell_type_id)?;
             let (input_sale_cells, output_sale_cells) = util::load_self_cells_in_inputs_and_outputs()?;
@@ -66,7 +67,11 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
                     let sender_lock = high_level::load_cell_lock(0, Source::Input)?;
                     let sender_lock_reader = sender_lock.as_reader();
-                    let input_balance_cells = util::find_balance_cells(config_main, sender_lock_reader, Source::Input)?;
+                    let input_balance_cells = util::find_balance_cells(
+                        config_main.get_type_id_of(FieldKey::BalanceCellTypeArgs)?,
+                        sender_lock_reader,
+                        Source::Input,
+                    )?;
 
                     debug!("Verify if there is no redundant cells in inputs.");
 
@@ -76,11 +81,11 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                     debug!("Verify if sender get their change properly.");
 
                     verifiers::misc::verify_user_get_change_when_inputs_removed(
-                        config_main,
+                        config_main.get_type_id_of(FieldKey::BalanceCellTypeArgs)?,
                         sender_lock_reader,
                         &input_balance_cells,
                         &output_sale_cells,
-                        u64::from(config_secondary_market.common_fee()),
+                        config_secondary_market.common_fee(),
                     )?;
 
                     verify_account_cell_expiration_status_and_consistent(
@@ -127,11 +132,11 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                     let sender_lock = high_level::load_cell_lock(0, Source::Input)?;
                     let sender_lock_reader = sender_lock.as_reader();
                     verifiers::misc::verify_user_get_change_when_inputs_removed(
-                        config_main,
+                        config_main.get_type_id_of(FieldKey::BalanceCellTypeArgs)?,
                         sender_lock_reader,
                         &input_sale_cells,
                         &(vec![]),
-                        u64::from(config_secondary_market.common_fee()),
+                        config_secondary_market.common_fee(),
                     )?;
 
                     verify_account_cell_expiration_status_and_consistent(
@@ -164,7 +169,11 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
                     let buyer_lock = high_level::load_cell_lock(2, Source::Input)?;
                     let buyer_lock_reader = buyer_lock.as_reader();
-                    let input_balance_cells = util::find_balance_cells(config_main, buyer_lock_reader, Source::Input)?;
+                    let input_balance_cells = util::find_balance_cells(
+                        config_main.get_type_id_of(FieldKey::BalanceCellTypeArgs)?,
+                        buyer_lock_reader,
+                        Source::Input,
+                    )?;
 
                     debug!("Verify if there is no redundant buyer's cells in inputs.");
 
@@ -222,7 +231,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                     );
 
                     verifiers::misc::verify_user_get_change_when_inputs_removed(
-                        config_main,
+                        config_main.get_type_id_of(FieldKey::BalanceCellTypeArgs)?,
                         buyer_lock_reader,
                         &input_balance_cells,
                         &(vec![]),
@@ -235,7 +244,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                     let (inviter_lock, channel_lock) = decode_scripts_from_params(parser.action_params.clone())?;
                     let account_sale_cell_capacity =
                         high_level::load_cell_capacity(input_sale_cells[0], Source::Input)?;
-                    let common_fee = u64::from(config_secondary_market.common_fee());
+                    let common_fee = config_secondary_market.common_fee();
 
                     verify_profit_distribution(
                         seller_lock.as_reader(),
@@ -285,8 +294,8 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 "AccountSaleCell",
                 input_cells[0],
                 output_cells[0],
-                u64::from(config_secondary_market_reader.common_fee()),
-                u64::from(config_secondary_market_reader.sale_cell_basic_capacity()),
+                config_secondary_market_reader.common_fee(),
+                config_secondary_market_reader.sale_cell_basic_capacity(),
             )?;
 
             let mut changed = false;
@@ -399,9 +408,7 @@ fn verify_account_cell_expiration_status_and_consistent<'a>(
 ) -> Result<(), Box<dyn ScriptError>> {
     debug!("Verify if the AccountCell is expired and its status is Selling.");
 
-    let config_account = Config::get_instance().account()?;
-
-    verifiers::account_cell::verify_account_expiration(config_account, input_account_cell, Source::Input, timestamp)?;
+    verifiers::account_cell::verify_account_expiration(input_account_cell, Source::Input, timestamp)?;
 
     // If a user want to cancel account sale, the AccountCell should be in AccountStatus::Selling status.
     verifiers::account_cell::verify_status_conversion(
@@ -449,8 +456,7 @@ fn verify_account_cell_expiration_status_and_consistent<'a>(
 fn verify_sale_cell_capacity(output_sale_cell_index: usize) -> Result<(), Box<dyn ScriptError>> {
     let config_reader = Config::get_instance().secondary_market()?;
     let account_sale_cell_capacity = high_level::load_cell_capacity(output_sale_cell_index, Source::Output)?;
-    let expected = u64::from(config_reader.sale_cell_basic_capacity())
-        + u64::from(config_reader.sale_cell_prepared_fee_capacity());
+    let expected = config_reader.sale_cell_basic_capacity() + config_reader.sale_cell_prepared_fee_capacity();
 
     assert!(
         account_sale_cell_capacity == expected,
@@ -494,7 +500,7 @@ fn verify_sale_cell_account_and_id<'a>(
 fn verify_price<'a>(witness_reader: &Box<dyn AccountSaleCellDataReaderMixer + 'a>) -> Result<(), Box<dyn ScriptError>> {
     let config_reader = Config::get_instance().secondary_market()?;
     let price = u64::from(witness_reader.price());
-    let sale_min_price = u64::from(config_reader.sale_min_price());
+    let sale_min_price = config_reader.sale_min_price();
     assert!(
         price >= sale_min_price,
         ErrorCode::AccountSaleCellPriceTooSmall,
@@ -511,7 +517,7 @@ fn verify_description<'a>(
 ) -> Result<(), Box<dyn ScriptError>> {
     let config_reader = Config::get_instance().secondary_market()?;
     let description = witness_reader.description();
-    let bytes_limit = u32::from(config_reader.sale_description_bytes_limit());
+    let bytes_limit = config_reader.sale_description_bytes_limit();
     assert!(
         description.len() <= bytes_limit as usize,
         ErrorCode::AccountSaleCellDescriptionTooLarge,
@@ -630,14 +636,14 @@ fn verify_profit_distribution<'a>(
     debug!("Calculate profit distribution for all roles.");
 
     let mut profit_of_seller = price;
-    let mut profit_rate_of_das = u32::from(config_profit_rate.sale_das()) as u64;
+    let mut profit_rate_of_das = config_profit_rate.sale_das() as u64;
 
     if !util::is_reader_eq(default_script_reader, inviter_lock_reader) {
         let profit_rate = if input_sale_cell_witness_reader.version() == 2 {
             let witness_reader = input_sale_cell_witness_reader.try_into_latest().unwrap();
             u32::from(witness_reader.buyer_inviter_profit_rate()) as u64
         } else {
-            u32::from(config_profit_rate.sale_buyer_inviter()) as u64
+            config_profit_rate.sale_buyer_inviter() as u64
         };
         let profit = price / RATE_BASE * profit_rate;
 
@@ -647,11 +653,11 @@ fn verify_profit_distribution<'a>(
         }
         debug!("  The profit of the invitor: {}", profit);
     } else {
-        profit_rate_of_das += u32::from(config_profit_rate.sale_buyer_inviter()) as u64;
+        profit_rate_of_das += config_profit_rate.sale_buyer_inviter() as u64;
     }
 
     if !util::is_reader_eq(default_script_reader, channel_lock_reader) {
-        let profit_rate = u32::from(config_profit_rate.sale_buyer_channel()) as u64;
+        let profit_rate = config_profit_rate.sale_buyer_channel() as u64;
         let profit = price / RATE_BASE * profit_rate;
 
         if profit > 0 {
@@ -660,7 +666,7 @@ fn verify_profit_distribution<'a>(
         }
         debug!("  The profit of the channel: {}", profit);
     } else {
-        profit_rate_of_das += u32::from(config_profit_rate.sale_buyer_channel()) as u64;
+        profit_rate_of_das += config_profit_rate.sale_buyer_channel() as u64;
     }
 
     let profit = price / RATE_BASE * profit_rate_of_das;
@@ -675,7 +681,11 @@ fn verify_profit_distribution<'a>(
     debug!("Check if seller get their profit properly.");
 
     let expected_capacity = profit_of_seller + account_sale_cell_capacity - common_fee;
-    verifiers::misc::verify_user_get_change(config_main, seller_lock_reader, expected_capacity)?;
+    verifiers::misc::verify_user_get_change(
+        config_main.get_type_id_of(FieldKey::BalanceCellTypeArgs)?,
+        seller_lock_reader,
+        expected_capacity,
+    )?;
 
     verifiers::income_cell::verify_income_cells(profit_map)?;
 

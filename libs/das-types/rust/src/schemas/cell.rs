@@ -299,9 +299,9 @@ impl ::core::fmt::Display for ConfigCellMain {
 impl ::core::default::Default for ConfigCellMain {
     fn default() -> Self {
         let v: Vec<u8> = vec![
-            81, 4, 0, 0, 20, 0, 0, 0, 21, 0, 0, 0, 53, 2, 0, 0, 81, 3, 0, 0, 0, 32, 2, 0, 0, 64, 0, 0, 0, 96, 0, 0, 0,
-            128, 0, 0, 0, 160, 0, 0, 0, 192, 0, 0, 0, 224, 0, 0, 0, 0, 1, 0, 0, 32, 1, 0, 0, 64, 1, 0, 0, 96, 1, 0, 0,
-            128, 1, 0, 0, 160, 1, 0, 0, 192, 1, 0, 0, 224, 1, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            157, 4, 0, 0, 20, 0, 0, 0, 21, 0, 0, 0, 53, 2, 0, 0, 121, 3, 0, 0, 0, 32, 2, 0, 0, 64, 0, 0, 0, 96, 0, 0,
+            0, 128, 0, 0, 0, 160, 0, 0, 0, 192, 0, 0, 0, 224, 0, 0, 0, 0, 1, 0, 0, 32, 1, 0, 0, 64, 1, 0, 0, 96, 1, 0,
+            0, 128, 1, 0, 0, 160, 1, 0, 0, 192, 1, 0, 0, 224, 1, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -314,8 +314,9 @@ impl ::core::default::Default for ConfigCellMain {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            28, 1, 0, 0, 32, 0, 0, 0, 68, 0, 0, 0, 104, 0, 0, 0, 140, 0, 0, 0, 176, 0, 0, 0, 212, 0, 0, 0, 248, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            68, 1, 0, 0, 36, 0, 0, 0, 72, 0, 0, 0, 108, 0, 0, 0, 144, 0, 0, 0, 180, 0, 0, 0, 216, 0, 0, 0, 252, 0, 0,
+            0, 32, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -323,14 +324,15 @@ impl ::core::default::Default for ConfigCellMain {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 1, 0, 0, 32, 0, 0, 0, 64, 0, 0, 0, 96, 0, 0, 0, 128, 0, 0, 0, 160, 0, 0, 0, 192, 0, 0, 0, 224, 0, 0,
+            0, 0, 0, 0, 0, 0, 36, 1, 0, 0, 36, 0, 0, 0, 68, 0, 0, 0, 100, 0, 0, 0, 132, 0, 0, 0, 164, 0, 0, 0, 196, 0,
+            0, 0, 228, 0, 0, 0, 4, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ];
         ConfigCellMain::new_unchecked(v.into())
     }
@@ -1256,6 +1258,7 @@ impl ::core::fmt::Display for DasLockOutPointTable {
         write!(f, ", {}: {}", "tron", self.tron())?;
         write!(f, ", {}: {}", "ed25519", self.ed25519())?;
         write!(f, ", {}: {}", "web_authn", self.web_authn())?;
+        write!(f, ", {}: {}", "btc", self.btc())?;
         let extra_count = self.count_extra_fields();
         if extra_count != 0 {
             write!(f, ", .. ({} fields)", extra_count)?;
@@ -1266,7 +1269,8 @@ impl ::core::fmt::Display for DasLockOutPointTable {
 impl ::core::default::Default for DasLockOutPointTable {
     fn default() -> Self {
         let v: Vec<u8> = vec![
-            28, 1, 0, 0, 32, 0, 0, 0, 68, 0, 0, 0, 104, 0, 0, 0, 140, 0, 0, 0, 176, 0, 0, 0, 212, 0, 0, 0, 248, 0, 0,
+            68, 1, 0, 0, 36, 0, 0, 0, 72, 0, 0, 0, 108, 0, 0, 0, 144, 0, 0, 0, 180, 0, 0, 0, 216, 0, 0, 0, 252, 0, 0,
+            0, 32, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -1274,13 +1278,13 @@ impl ::core::default::Default for DasLockOutPointTable {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0,
+            0, 0, 0, 0, 0, 0,
         ];
         DasLockOutPointTable::new_unchecked(v.into())
     }
 }
 impl DasLockOutPointTable {
-    pub const FIELD_COUNT: usize = 7;
+    pub const FIELD_COUNT: usize = 8;
     pub fn total_size(&self) -> usize {
         molecule::unpack_number(self.as_slice()) as usize
     }
@@ -1336,8 +1340,14 @@ impl DasLockOutPointTable {
     pub fn web_authn(&self) -> OutPoint {
         let slice = self.as_slice();
         let start = molecule::unpack_number(&slice[28..]) as usize;
+        let end = molecule::unpack_number(&slice[32..]) as usize;
+        OutPoint::new_unchecked(self.0.slice(start..end))
+    }
+    pub fn btc(&self) -> OutPoint {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[32..]) as usize;
         if self.has_extra_fields() {
-            let end = molecule::unpack_number(&slice[32..]) as usize;
+            let end = molecule::unpack_number(&slice[36..]) as usize;
             OutPoint::new_unchecked(self.0.slice(start..end))
         } else {
             OutPoint::new_unchecked(self.0.slice(start..))
@@ -1377,6 +1387,7 @@ impl molecule::prelude::Entity for DasLockOutPointTable {
             .tron(self.tron())
             .ed25519(self.ed25519())
             .web_authn(self.web_authn())
+            .btc(self.btc())
     }
 }
 #[derive(Clone, Copy)]
@@ -1405,6 +1416,7 @@ impl<'r> ::core::fmt::Display for DasLockOutPointTableReader<'r> {
         write!(f, ", {}: {}", "tron", self.tron())?;
         write!(f, ", {}: {}", "ed25519", self.ed25519())?;
         write!(f, ", {}: {}", "web_authn", self.web_authn())?;
+        write!(f, ", {}: {}", "btc", self.btc())?;
         let extra_count = self.count_extra_fields();
         if extra_count != 0 {
             write!(f, ", .. ({} fields)", extra_count)?;
@@ -1413,7 +1425,7 @@ impl<'r> ::core::fmt::Display for DasLockOutPointTableReader<'r> {
     }
 }
 impl<'r> DasLockOutPointTableReader<'r> {
-    pub const FIELD_COUNT: usize = 7;
+    pub const FIELD_COUNT: usize = 8;
     pub fn total_size(&self) -> usize {
         molecule::unpack_number(self.as_slice()) as usize
     }
@@ -1469,8 +1481,14 @@ impl<'r> DasLockOutPointTableReader<'r> {
     pub fn web_authn(&self) -> OutPointReader<'r> {
         let slice = self.as_slice();
         let start = molecule::unpack_number(&slice[28..]) as usize;
+        let end = molecule::unpack_number(&slice[32..]) as usize;
+        OutPointReader::new_unchecked(&self.as_slice()[start..end])
+    }
+    pub fn btc(&self) -> OutPointReader<'r> {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[32..]) as usize;
         if self.has_extra_fields() {
-            let end = molecule::unpack_number(&slice[32..]) as usize;
+            let end = molecule::unpack_number(&slice[36..]) as usize;
             OutPointReader::new_unchecked(&self.as_slice()[start..end])
         } else {
             OutPointReader::new_unchecked(&self.as_slice()[start..])
@@ -1533,6 +1551,7 @@ impl<'r> molecule::prelude::Reader<'r> for DasLockOutPointTableReader<'r> {
         OutPointReader::verify(&slice[offsets[4]..offsets[5]], compatible)?;
         OutPointReader::verify(&slice[offsets[5]..offsets[6]], compatible)?;
         OutPointReader::verify(&slice[offsets[6]..offsets[7]], compatible)?;
+        OutPointReader::verify(&slice[offsets[7]..offsets[8]], compatible)?;
         Ok(())
     }
 }
@@ -1545,9 +1564,10 @@ pub struct DasLockOutPointTableBuilder {
     pub(crate) tron: OutPoint,
     pub(crate) ed25519: OutPoint,
     pub(crate) web_authn: OutPoint,
+    pub(crate) btc: OutPoint,
 }
 impl DasLockOutPointTableBuilder {
-    pub const FIELD_COUNT: usize = 7;
+    pub const FIELD_COUNT: usize = 8;
     pub fn ckb_signall(mut self, v: OutPoint) -> Self {
         self.ckb_signall = v;
         self
@@ -1576,6 +1596,10 @@ impl DasLockOutPointTableBuilder {
         self.web_authn = v;
         self
     }
+    pub fn btc(mut self, v: OutPoint) -> Self {
+        self.btc = v;
+        self
+    }
 }
 impl molecule::prelude::Builder for DasLockOutPointTableBuilder {
     type Entity = DasLockOutPointTable;
@@ -1589,6 +1613,7 @@ impl molecule::prelude::Builder for DasLockOutPointTableBuilder {
             + self.tron.as_slice().len()
             + self.ed25519.as_slice().len()
             + self.web_authn.as_slice().len()
+            + self.btc.as_slice().len()
     }
     fn write<W: molecule::io::Write>(&self, writer: &mut W) -> molecule::io::Result<()> {
         let mut total_size = molecule::NUMBER_SIZE * (Self::FIELD_COUNT + 1);
@@ -1607,6 +1632,8 @@ impl molecule::prelude::Builder for DasLockOutPointTableBuilder {
         total_size += self.ed25519.as_slice().len();
         offsets.push(total_size);
         total_size += self.web_authn.as_slice().len();
+        offsets.push(total_size);
+        total_size += self.btc.as_slice().len();
         writer.write_all(&molecule::pack_number(total_size as molecule::Number))?;
         for offset in offsets.into_iter() {
             writer.write_all(&molecule::pack_number(offset as molecule::Number))?;
@@ -1618,6 +1645,7 @@ impl molecule::prelude::Builder for DasLockOutPointTableBuilder {
         writer.write_all(self.tron.as_slice())?;
         writer.write_all(self.ed25519.as_slice())?;
         writer.write_all(self.web_authn.as_slice())?;
+        writer.write_all(self.btc.as_slice())?;
         Ok(())
     }
     fn build(&self) -> Self::Entity {
@@ -1653,6 +1681,7 @@ impl ::core::fmt::Display for DasLockTypeIdTable {
         write!(f, ", {}: {}", "tron", self.tron())?;
         write!(f, ", {}: {}", "doge", self.doge())?;
         write!(f, ", {}: {}", "web_authn", self.web_authn())?;
+        write!(f, ", {}: {}", "btc", self.btc())?;
         let extra_count = self.count_extra_fields();
         if extra_count != 0 {
             write!(f, ", .. ({} fields)", extra_count)?;
@@ -1663,20 +1692,21 @@ impl ::core::fmt::Display for DasLockTypeIdTable {
 impl ::core::default::Default for DasLockTypeIdTable {
     fn default() -> Self {
         let v: Vec<u8> = vec![
-            0, 1, 0, 0, 32, 0, 0, 0, 64, 0, 0, 0, 96, 0, 0, 0, 128, 0, 0, 0, 160, 0, 0, 0, 192, 0, 0, 0, 224, 0, 0, 0,
+            36, 1, 0, 0, 36, 0, 0, 0, 68, 0, 0, 0, 100, 0, 0, 0, 132, 0, 0, 0, 164, 0, 0, 0, 196, 0, 0, 0, 228, 0, 0,
+            0, 4, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0,
         ];
         DasLockTypeIdTable::new_unchecked(v.into())
     }
 }
 impl DasLockTypeIdTable {
-    pub const FIELD_COUNT: usize = 7;
+    pub const FIELD_COUNT: usize = 8;
     pub fn total_size(&self) -> usize {
         molecule::unpack_number(self.as_slice()) as usize
     }
@@ -1732,8 +1762,14 @@ impl DasLockTypeIdTable {
     pub fn web_authn(&self) -> Hash {
         let slice = self.as_slice();
         let start = molecule::unpack_number(&slice[28..]) as usize;
+        let end = molecule::unpack_number(&slice[32..]) as usize;
+        Hash::new_unchecked(self.0.slice(start..end))
+    }
+    pub fn btc(&self) -> Hash {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[32..]) as usize;
         if self.has_extra_fields() {
-            let end = molecule::unpack_number(&slice[32..]) as usize;
+            let end = molecule::unpack_number(&slice[36..]) as usize;
             Hash::new_unchecked(self.0.slice(start..end))
         } else {
             Hash::new_unchecked(self.0.slice(start..))
@@ -1773,6 +1809,7 @@ impl molecule::prelude::Entity for DasLockTypeIdTable {
             .tron(self.tron())
             .doge(self.doge())
             .web_authn(self.web_authn())
+            .btc(self.btc())
     }
 }
 #[derive(Clone, Copy)]
@@ -1801,6 +1838,7 @@ impl<'r> ::core::fmt::Display for DasLockTypeIdTableReader<'r> {
         write!(f, ", {}: {}", "tron", self.tron())?;
         write!(f, ", {}: {}", "doge", self.doge())?;
         write!(f, ", {}: {}", "web_authn", self.web_authn())?;
+        write!(f, ", {}: {}", "btc", self.btc())?;
         let extra_count = self.count_extra_fields();
         if extra_count != 0 {
             write!(f, ", .. ({} fields)", extra_count)?;
@@ -1809,7 +1847,7 @@ impl<'r> ::core::fmt::Display for DasLockTypeIdTableReader<'r> {
     }
 }
 impl<'r> DasLockTypeIdTableReader<'r> {
-    pub const FIELD_COUNT: usize = 7;
+    pub const FIELD_COUNT: usize = 8;
     pub fn total_size(&self) -> usize {
         molecule::unpack_number(self.as_slice()) as usize
     }
@@ -1865,8 +1903,14 @@ impl<'r> DasLockTypeIdTableReader<'r> {
     pub fn web_authn(&self) -> HashReader<'r> {
         let slice = self.as_slice();
         let start = molecule::unpack_number(&slice[28..]) as usize;
+        let end = molecule::unpack_number(&slice[32..]) as usize;
+        HashReader::new_unchecked(&self.as_slice()[start..end])
+    }
+    pub fn btc(&self) -> HashReader<'r> {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[32..]) as usize;
         if self.has_extra_fields() {
-            let end = molecule::unpack_number(&slice[32..]) as usize;
+            let end = molecule::unpack_number(&slice[36..]) as usize;
             HashReader::new_unchecked(&self.as_slice()[start..end])
         } else {
             HashReader::new_unchecked(&self.as_slice()[start..])
@@ -1929,6 +1973,7 @@ impl<'r> molecule::prelude::Reader<'r> for DasLockTypeIdTableReader<'r> {
         HashReader::verify(&slice[offsets[4]..offsets[5]], compatible)?;
         HashReader::verify(&slice[offsets[5]..offsets[6]], compatible)?;
         HashReader::verify(&slice[offsets[6]..offsets[7]], compatible)?;
+        HashReader::verify(&slice[offsets[7]..offsets[8]], compatible)?;
         Ok(())
     }
 }
@@ -1941,9 +1986,10 @@ pub struct DasLockTypeIdTableBuilder {
     pub(crate) tron: Hash,
     pub(crate) doge: Hash,
     pub(crate) web_authn: Hash,
+    pub(crate) btc: Hash,
 }
 impl DasLockTypeIdTableBuilder {
-    pub const FIELD_COUNT: usize = 7;
+    pub const FIELD_COUNT: usize = 8;
     pub fn ckb_signhash(mut self, v: Hash) -> Self {
         self.ckb_signhash = v;
         self
@@ -1972,6 +2018,10 @@ impl DasLockTypeIdTableBuilder {
         self.web_authn = v;
         self
     }
+    pub fn btc(mut self, v: Hash) -> Self {
+        self.btc = v;
+        self
+    }
 }
 impl molecule::prelude::Builder for DasLockTypeIdTableBuilder {
     type Entity = DasLockTypeIdTable;
@@ -1985,6 +2035,7 @@ impl molecule::prelude::Builder for DasLockTypeIdTableBuilder {
             + self.tron.as_slice().len()
             + self.doge.as_slice().len()
             + self.web_authn.as_slice().len()
+            + self.btc.as_slice().len()
     }
     fn write<W: molecule::io::Write>(&self, writer: &mut W) -> molecule::io::Result<()> {
         let mut total_size = molecule::NUMBER_SIZE * (Self::FIELD_COUNT + 1);
@@ -2003,6 +2054,8 @@ impl molecule::prelude::Builder for DasLockTypeIdTableBuilder {
         total_size += self.doge.as_slice().len();
         offsets.push(total_size);
         total_size += self.web_authn.as_slice().len();
+        offsets.push(total_size);
+        total_size += self.btc.as_slice().len();
         writer.write_all(&molecule::pack_number(total_size as molecule::Number))?;
         for offset in offsets.into_iter() {
             writer.write_all(&molecule::pack_number(offset as molecule::Number))?;
@@ -2014,6 +2067,7 @@ impl molecule::prelude::Builder for DasLockTypeIdTableBuilder {
         writer.write_all(self.tron.as_slice())?;
         writer.write_all(self.doge.as_slice())?;
         writer.write_all(self.web_authn.as_slice())?;
+        writer.write_all(self.btc.as_slice())?;
         Ok(())
     }
     fn build(&self) -> Self::Entity {
@@ -20416,5 +20470,2118 @@ impl molecule::prelude::Builder for OrderInfoBuilder {
         self.write(&mut inner)
             .unwrap_or_else(|_| panic!("{} build should be ok", Self::NAME));
         OrderInfo::new_unchecked(inner.into())
+    }
+}
+#[derive(Clone)]
+pub struct SporeData(molecule::bytes::Bytes);
+impl ::core::fmt::LowerHex for SporeData {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        use molecule::hex_string;
+        if f.alternate() {
+            write!(f, "0x")?;
+        }
+        write!(f, "{}", hex_string(self.as_slice()))
+    }
+}
+impl ::core::fmt::Debug for SporeData {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{}({:#x})", Self::NAME, self)
+    }
+}
+impl ::core::fmt::Display for SporeData {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{} {{ ", Self::NAME)?;
+        write!(f, "{}: {}", "content_type", self.content_type())?;
+        write!(f, ", {}: {}", "content", self.content())?;
+        write!(f, ", {}: {}", "cluster_id", self.cluster_id())?;
+        let extra_count = self.count_extra_fields();
+        if extra_count != 0 {
+            write!(f, ", .. ({} fields)", extra_count)?;
+        }
+        write!(f, " }}")
+    }
+}
+impl ::core::default::Default for SporeData {
+    fn default() -> Self {
+        let v: Vec<u8> = vec![
+            24, 0, 0, 0, 16, 0, 0, 0, 20, 0, 0, 0, 24, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ];
+        SporeData::new_unchecked(v.into())
+    }
+}
+impl SporeData {
+    pub const FIELD_COUNT: usize = 3;
+    pub fn total_size(&self) -> usize {
+        molecule::unpack_number(self.as_slice()) as usize
+    }
+    pub fn field_count(&self) -> usize {
+        if self.total_size() == molecule::NUMBER_SIZE {
+            0
+        } else {
+            (molecule::unpack_number(&self.as_slice()[molecule::NUMBER_SIZE..]) as usize / 4) - 1
+        }
+    }
+    pub fn count_extra_fields(&self) -> usize {
+        self.field_count() - Self::FIELD_COUNT
+    }
+    pub fn has_extra_fields(&self) -> bool {
+        Self::FIELD_COUNT != self.field_count()
+    }
+    pub fn content_type(&self) -> Bytes {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[4..]) as usize;
+        let end = molecule::unpack_number(&slice[8..]) as usize;
+        Bytes::new_unchecked(self.0.slice(start..end))
+    }
+    pub fn content(&self) -> Bytes {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[8..]) as usize;
+        let end = molecule::unpack_number(&slice[12..]) as usize;
+        Bytes::new_unchecked(self.0.slice(start..end))
+    }
+    pub fn cluster_id(&self) -> BytesOpt {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[12..]) as usize;
+        if self.has_extra_fields() {
+            let end = molecule::unpack_number(&slice[16..]) as usize;
+            BytesOpt::new_unchecked(self.0.slice(start..end))
+        } else {
+            BytesOpt::new_unchecked(self.0.slice(start..))
+        }
+    }
+    pub fn as_reader<'r>(&'r self) -> SporeDataReader<'r> {
+        SporeDataReader::new_unchecked(self.as_slice())
+    }
+}
+impl molecule::prelude::Entity for SporeData {
+    type Builder = SporeDataBuilder;
+    const NAME: &'static str = "SporeData";
+    fn new_unchecked(data: molecule::bytes::Bytes) -> Self {
+        SporeData(data)
+    }
+    fn as_bytes(&self) -> molecule::bytes::Bytes {
+        self.0.clone()
+    }
+    fn as_slice(&self) -> &[u8] {
+        &self.0[..]
+    }
+    fn from_slice(slice: &[u8]) -> molecule::error::VerificationResult<Self> {
+        SporeDataReader::from_slice(slice).map(|reader| reader.to_entity())
+    }
+    fn from_compatible_slice(slice: &[u8]) -> molecule::error::VerificationResult<Self> {
+        SporeDataReader::from_compatible_slice(slice).map(|reader| reader.to_entity())
+    }
+    fn new_builder() -> Self::Builder {
+        ::core::default::Default::default()
+    }
+    fn as_builder(self) -> Self::Builder {
+        Self::new_builder()
+            .content_type(self.content_type())
+            .content(self.content())
+            .cluster_id(self.cluster_id())
+    }
+}
+#[derive(Clone, Copy)]
+pub struct SporeDataReader<'r>(&'r [u8]);
+impl<'r> ::core::fmt::LowerHex for SporeDataReader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        use molecule::hex_string;
+        if f.alternate() {
+            write!(f, "0x")?;
+        }
+        write!(f, "{}", hex_string(self.as_slice()))
+    }
+}
+impl<'r> ::core::fmt::Debug for SporeDataReader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{}({:#x})", Self::NAME, self)
+    }
+}
+impl<'r> ::core::fmt::Display for SporeDataReader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{} {{ ", Self::NAME)?;
+        write!(f, "{}: {}", "content_type", self.content_type())?;
+        write!(f, ", {}: {}", "content", self.content())?;
+        write!(f, ", {}: {}", "cluster_id", self.cluster_id())?;
+        let extra_count = self.count_extra_fields();
+        if extra_count != 0 {
+            write!(f, ", .. ({} fields)", extra_count)?;
+        }
+        write!(f, " }}")
+    }
+}
+impl<'r> SporeDataReader<'r> {
+    pub const FIELD_COUNT: usize = 3;
+    pub fn total_size(&self) -> usize {
+        molecule::unpack_number(self.as_slice()) as usize
+    }
+    pub fn field_count(&self) -> usize {
+        if self.total_size() == molecule::NUMBER_SIZE {
+            0
+        } else {
+            (molecule::unpack_number(&self.as_slice()[molecule::NUMBER_SIZE..]) as usize / 4) - 1
+        }
+    }
+    pub fn count_extra_fields(&self) -> usize {
+        self.field_count() - Self::FIELD_COUNT
+    }
+    pub fn has_extra_fields(&self) -> bool {
+        Self::FIELD_COUNT != self.field_count()
+    }
+    pub fn content_type(&self) -> BytesReader<'r> {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[4..]) as usize;
+        let end = molecule::unpack_number(&slice[8..]) as usize;
+        BytesReader::new_unchecked(&self.as_slice()[start..end])
+    }
+    pub fn content(&self) -> BytesReader<'r> {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[8..]) as usize;
+        let end = molecule::unpack_number(&slice[12..]) as usize;
+        BytesReader::new_unchecked(&self.as_slice()[start..end])
+    }
+    pub fn cluster_id(&self) -> BytesOptReader<'r> {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[12..]) as usize;
+        if self.has_extra_fields() {
+            let end = molecule::unpack_number(&slice[16..]) as usize;
+            BytesOptReader::new_unchecked(&self.as_slice()[start..end])
+        } else {
+            BytesOptReader::new_unchecked(&self.as_slice()[start..])
+        }
+    }
+}
+impl<'r> molecule::prelude::Reader<'r> for SporeDataReader<'r> {
+    type Entity = SporeData;
+    const NAME: &'static str = "SporeDataReader";
+    fn to_entity(&self) -> Self::Entity {
+        Self::Entity::new_unchecked(self.as_slice().to_owned().into())
+    }
+    fn new_unchecked(slice: &'r [u8]) -> Self {
+        SporeDataReader(slice)
+    }
+    fn as_slice(&self) -> &'r [u8] {
+        self.0
+    }
+    fn verify(slice: &[u8], compatible: bool) -> molecule::error::VerificationResult<()> {
+        use molecule::verification_error as ve;
+        let slice_len = slice.len();
+        if slice_len < molecule::NUMBER_SIZE {
+            return ve!(Self, HeaderIsBroken, molecule::NUMBER_SIZE, slice_len);
+        }
+        let total_size = molecule::unpack_number(slice) as usize;
+        if slice_len != total_size {
+            return ve!(Self, TotalSizeNotMatch, total_size, slice_len);
+        }
+        if slice_len == molecule::NUMBER_SIZE && Self::FIELD_COUNT == 0 {
+            return Ok(());
+        }
+        if slice_len < molecule::NUMBER_SIZE * 2 {
+            return ve!(Self, HeaderIsBroken, molecule::NUMBER_SIZE * 2, slice_len);
+        }
+        let offset_first = molecule::unpack_number(&slice[molecule::NUMBER_SIZE..]) as usize;
+        if offset_first % molecule::NUMBER_SIZE != 0 || offset_first < molecule::NUMBER_SIZE * 2 {
+            return ve!(Self, OffsetsNotMatch);
+        }
+        if slice_len < offset_first {
+            return ve!(Self, HeaderIsBroken, offset_first, slice_len);
+        }
+        let field_count = offset_first / molecule::NUMBER_SIZE - 1;
+        if field_count < Self::FIELD_COUNT {
+            return ve!(Self, FieldCountNotMatch, Self::FIELD_COUNT, field_count);
+        } else if !compatible && field_count > Self::FIELD_COUNT {
+            return ve!(Self, FieldCountNotMatch, Self::FIELD_COUNT, field_count);
+        };
+        let mut offsets: Vec<usize> = slice[molecule::NUMBER_SIZE..offset_first]
+            .chunks_exact(molecule::NUMBER_SIZE)
+            .map(|x| molecule::unpack_number(x) as usize)
+            .collect();
+        offsets.push(total_size);
+        if offsets.windows(2).any(|i| i[0] > i[1]) {
+            return ve!(Self, OffsetsNotMatch);
+        }
+        BytesReader::verify(&slice[offsets[0]..offsets[1]], compatible)?;
+        BytesReader::verify(&slice[offsets[1]..offsets[2]], compatible)?;
+        BytesOptReader::verify(&slice[offsets[2]..offsets[3]], compatible)?;
+        Ok(())
+    }
+}
+#[derive(Debug, Default)]
+pub struct SporeDataBuilder {
+    pub(crate) content_type: Bytes,
+    pub(crate) content: Bytes,
+    pub(crate) cluster_id: BytesOpt,
+}
+impl SporeDataBuilder {
+    pub const FIELD_COUNT: usize = 3;
+    pub fn content_type(mut self, v: Bytes) -> Self {
+        self.content_type = v;
+        self
+    }
+    pub fn content(mut self, v: Bytes) -> Self {
+        self.content = v;
+        self
+    }
+    pub fn cluster_id(mut self, v: BytesOpt) -> Self {
+        self.cluster_id = v;
+        self
+    }
+}
+impl molecule::prelude::Builder for SporeDataBuilder {
+    type Entity = SporeData;
+    const NAME: &'static str = "SporeDataBuilder";
+    fn expected_length(&self) -> usize {
+        molecule::NUMBER_SIZE * (Self::FIELD_COUNT + 1)
+            + self.content_type.as_slice().len()
+            + self.content.as_slice().len()
+            + self.cluster_id.as_slice().len()
+    }
+    fn write<W: molecule::io::Write>(&self, writer: &mut W) -> molecule::io::Result<()> {
+        let mut total_size = molecule::NUMBER_SIZE * (Self::FIELD_COUNT + 1);
+        let mut offsets = Vec::with_capacity(Self::FIELD_COUNT);
+        offsets.push(total_size);
+        total_size += self.content_type.as_slice().len();
+        offsets.push(total_size);
+        total_size += self.content.as_slice().len();
+        offsets.push(total_size);
+        total_size += self.cluster_id.as_slice().len();
+        writer.write_all(&molecule::pack_number(total_size as molecule::Number))?;
+        for offset in offsets.into_iter() {
+            writer.write_all(&molecule::pack_number(offset as molecule::Number))?;
+        }
+        writer.write_all(self.content_type.as_slice())?;
+        writer.write_all(self.content.as_slice())?;
+        writer.write_all(self.cluster_id.as_slice())?;
+        Ok(())
+    }
+    fn build(&self) -> Self::Entity {
+        let mut inner = Vec::with_capacity(self.expected_length());
+        self.write(&mut inner)
+            .unwrap_or_else(|_| panic!("{} build should be ok", Self::NAME));
+        SporeData::new_unchecked(inner.into())
+    }
+}
+#[derive(Clone)]
+pub struct DidCellData(molecule::bytes::Bytes);
+impl ::core::fmt::LowerHex for DidCellData {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        use molecule::hex_string;
+        if f.alternate() {
+            write!(f, "0x")?;
+        }
+        write!(f, "{}", hex_string(self.as_slice()))
+    }
+}
+impl ::core::fmt::Debug for DidCellData {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{}({:#x})", Self::NAME, self)
+    }
+}
+impl ::core::fmt::Display for DidCellData {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{}(", Self::NAME)?;
+        self.to_enum().display_inner(f)?;
+        write!(f, ")")
+    }
+}
+impl ::core::default::Default for DidCellData {
+    fn default() -> Self {
+        let v: Vec<u8> = vec![
+            0, 0, 0, 0, 48, 0, 0, 0, 16, 0, 0, 0, 36, 0, 0, 0, 44, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ];
+        DidCellData::new_unchecked(v.into())
+    }
+}
+impl DidCellData {
+    pub const ITEMS_COUNT: usize = 1;
+    pub fn item_id(&self) -> molecule::Number {
+        molecule::unpack_number(self.as_slice())
+    }
+    pub fn to_enum(&self) -> DidCellDataUnion {
+        let inner = self.0.slice(molecule::NUMBER_SIZE..);
+        match self.item_id() {
+            0 => DidCellDataV0::new_unchecked(inner).into(),
+            _ => panic!("{}: invalid data", Self::NAME),
+        }
+    }
+    pub fn as_reader<'r>(&'r self) -> DidCellDataReader<'r> {
+        DidCellDataReader::new_unchecked(self.as_slice())
+    }
+}
+impl molecule::prelude::Entity for DidCellData {
+    type Builder = DidCellDataBuilder;
+    const NAME: &'static str = "DidCellData";
+    fn new_unchecked(data: molecule::bytes::Bytes) -> Self {
+        DidCellData(data)
+    }
+    fn as_bytes(&self) -> molecule::bytes::Bytes {
+        self.0.clone()
+    }
+    fn as_slice(&self) -> &[u8] {
+        &self.0[..]
+    }
+    fn from_slice(slice: &[u8]) -> molecule::error::VerificationResult<Self> {
+        DidCellDataReader::from_slice(slice).map(|reader| reader.to_entity())
+    }
+    fn from_compatible_slice(slice: &[u8]) -> molecule::error::VerificationResult<Self> {
+        DidCellDataReader::from_compatible_slice(slice).map(|reader| reader.to_entity())
+    }
+    fn new_builder() -> Self::Builder {
+        ::core::default::Default::default()
+    }
+    fn as_builder(self) -> Self::Builder {
+        Self::new_builder().set(self.to_enum())
+    }
+}
+#[derive(Clone, Copy)]
+pub struct DidCellDataReader<'r>(&'r [u8]);
+impl<'r> ::core::fmt::LowerHex for DidCellDataReader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        use molecule::hex_string;
+        if f.alternate() {
+            write!(f, "0x")?;
+        }
+        write!(f, "{}", hex_string(self.as_slice()))
+    }
+}
+impl<'r> ::core::fmt::Debug for DidCellDataReader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{}({:#x})", Self::NAME, self)
+    }
+}
+impl<'r> ::core::fmt::Display for DidCellDataReader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{}(", Self::NAME)?;
+        self.to_enum().display_inner(f)?;
+        write!(f, ")")
+    }
+}
+impl<'r> DidCellDataReader<'r> {
+    pub const ITEMS_COUNT: usize = 1;
+    pub fn item_id(&self) -> molecule::Number {
+        molecule::unpack_number(self.as_slice())
+    }
+    pub fn to_enum(&self) -> DidCellDataUnionReader<'r> {
+        let inner = &self.as_slice()[molecule::NUMBER_SIZE..];
+        match self.item_id() {
+            0 => DidCellDataV0Reader::new_unchecked(inner).into(),
+            _ => panic!("{}: invalid data", Self::NAME),
+        }
+    }
+}
+impl<'r> molecule::prelude::Reader<'r> for DidCellDataReader<'r> {
+    type Entity = DidCellData;
+    const NAME: &'static str = "DidCellDataReader";
+    fn to_entity(&self) -> Self::Entity {
+        Self::Entity::new_unchecked(self.as_slice().to_owned().into())
+    }
+    fn new_unchecked(slice: &'r [u8]) -> Self {
+        DidCellDataReader(slice)
+    }
+    fn as_slice(&self) -> &'r [u8] {
+        self.0
+    }
+    fn verify(slice: &[u8], compatible: bool) -> molecule::error::VerificationResult<()> {
+        use molecule::verification_error as ve;
+        let slice_len = slice.len();
+        if slice_len < molecule::NUMBER_SIZE {
+            return ve!(Self, HeaderIsBroken, molecule::NUMBER_SIZE, slice_len);
+        }
+        let item_id = molecule::unpack_number(slice);
+        let inner_slice = &slice[molecule::NUMBER_SIZE..];
+        match item_id {
+            0 => DidCellDataV0Reader::verify(inner_slice, compatible),
+            _ => ve!(Self, UnknownItem, Self::ITEMS_COUNT, item_id),
+        }?;
+        Ok(())
+    }
+}
+#[derive(Debug, Default)]
+pub struct DidCellDataBuilder(pub(crate) DidCellDataUnion);
+impl DidCellDataBuilder {
+    pub const ITEMS_COUNT: usize = 1;
+    pub fn set<I>(mut self, v: I) -> Self
+    where
+        I: ::core::convert::Into<DidCellDataUnion>,
+    {
+        self.0 = v.into();
+        self
+    }
+}
+impl molecule::prelude::Builder for DidCellDataBuilder {
+    type Entity = DidCellData;
+    const NAME: &'static str = "DidCellDataBuilder";
+    fn expected_length(&self) -> usize {
+        molecule::NUMBER_SIZE + self.0.as_slice().len()
+    }
+    fn write<W: molecule::io::Write>(&self, writer: &mut W) -> molecule::io::Result<()> {
+        writer.write_all(&molecule::pack_number(self.0.item_id()))?;
+        writer.write_all(self.0.as_slice())
+    }
+    fn build(&self) -> Self::Entity {
+        let mut inner = Vec::with_capacity(self.expected_length());
+        self.write(&mut inner)
+            .unwrap_or_else(|_| panic!("{} build should be ok", Self::NAME));
+        DidCellData::new_unchecked(inner.into())
+    }
+}
+#[derive(Debug, Clone)]
+pub enum DidCellDataUnion {
+    DidCellDataV0(DidCellDataV0),
+}
+#[derive(Debug, Clone, Copy)]
+pub enum DidCellDataUnionReader<'r> {
+    DidCellDataV0(DidCellDataV0Reader<'r>),
+}
+impl ::core::default::Default for DidCellDataUnion {
+    fn default() -> Self {
+        DidCellDataUnion::DidCellDataV0(::core::default::Default::default())
+    }
+}
+impl ::core::fmt::Display for DidCellDataUnion {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        match self {
+            DidCellDataUnion::DidCellDataV0(ref item) => {
+                write!(f, "{}::{}({})", Self::NAME, DidCellDataV0::NAME, item)
+            }
+        }
+    }
+}
+impl<'r> ::core::fmt::Display for DidCellDataUnionReader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        match self {
+            DidCellDataUnionReader::DidCellDataV0(ref item) => {
+                write!(f, "{}::{}({})", Self::NAME, DidCellDataV0::NAME, item)
+            }
+        }
+    }
+}
+impl DidCellDataUnion {
+    pub(crate) fn display_inner(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        match self {
+            DidCellDataUnion::DidCellDataV0(ref item) => write!(f, "{}", item),
+        }
+    }
+}
+impl<'r> DidCellDataUnionReader<'r> {
+    pub(crate) fn display_inner(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        match self {
+            DidCellDataUnionReader::DidCellDataV0(ref item) => write!(f, "{}", item),
+        }
+    }
+}
+impl ::core::convert::From<DidCellDataV0> for DidCellDataUnion {
+    fn from(item: DidCellDataV0) -> Self {
+        DidCellDataUnion::DidCellDataV0(item)
+    }
+}
+impl<'r> ::core::convert::From<DidCellDataV0Reader<'r>> for DidCellDataUnionReader<'r> {
+    fn from(item: DidCellDataV0Reader<'r>) -> Self {
+        DidCellDataUnionReader::DidCellDataV0(item)
+    }
+}
+impl DidCellDataUnion {
+    pub const NAME: &'static str = "DidCellDataUnion";
+    pub fn as_bytes(&self) -> molecule::bytes::Bytes {
+        match self {
+            DidCellDataUnion::DidCellDataV0(item) => item.as_bytes(),
+        }
+    }
+    pub fn as_slice(&self) -> &[u8] {
+        match self {
+            DidCellDataUnion::DidCellDataV0(item) => item.as_slice(),
+        }
+    }
+    pub fn item_id(&self) -> molecule::Number {
+        match self {
+            DidCellDataUnion::DidCellDataV0(_) => 0,
+        }
+    }
+    pub fn item_name(&self) -> &str {
+        match self {
+            DidCellDataUnion::DidCellDataV0(_) => "DidCellDataV0",
+        }
+    }
+    pub fn as_reader<'r>(&'r self) -> DidCellDataUnionReader<'r> {
+        match self {
+            DidCellDataUnion::DidCellDataV0(item) => item.as_reader().into(),
+        }
+    }
+}
+impl<'r> DidCellDataUnionReader<'r> {
+    pub const NAME: &'r str = "DidCellDataUnionReader";
+    pub fn as_slice(&self) -> &'r [u8] {
+        match self {
+            DidCellDataUnionReader::DidCellDataV0(item) => item.as_slice(),
+        }
+    }
+    pub fn item_id(&self) -> molecule::Number {
+        match self {
+            DidCellDataUnionReader::DidCellDataV0(_) => 0,
+        }
+    }
+    pub fn item_name(&self) -> &str {
+        match self {
+            DidCellDataUnionReader::DidCellDataV0(_) => "DidCellDataV0",
+        }
+    }
+}
+#[derive(Clone)]
+pub struct DidCellDataV0(molecule::bytes::Bytes);
+impl ::core::fmt::LowerHex for DidCellDataV0 {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        use molecule::hex_string;
+        if f.alternate() {
+            write!(f, "0x")?;
+        }
+        write!(f, "{}", hex_string(self.as_slice()))
+    }
+}
+impl ::core::fmt::Debug for DidCellDataV0 {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{}({:#x})", Self::NAME, self)
+    }
+}
+impl ::core::fmt::Display for DidCellDataV0 {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{} {{ ", Self::NAME)?;
+        write!(f, "{}: {}", "witness_hash", self.witness_hash())?;
+        write!(f, ", {}: {}", "expire_at", self.expire_at())?;
+        write!(f, ", {}: {}", "account", self.account())?;
+        let extra_count = self.count_extra_fields();
+        if extra_count != 0 {
+            write!(f, ", .. ({} fields)", extra_count)?;
+        }
+        write!(f, " }}")
+    }
+}
+impl ::core::default::Default for DidCellDataV0 {
+    fn default() -> Self {
+        let v: Vec<u8> = vec![
+            48, 0, 0, 0, 16, 0, 0, 0, 36, 0, 0, 0, 44, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ];
+        DidCellDataV0::new_unchecked(v.into())
+    }
+}
+impl DidCellDataV0 {
+    pub const FIELD_COUNT: usize = 3;
+    pub fn total_size(&self) -> usize {
+        molecule::unpack_number(self.as_slice()) as usize
+    }
+    pub fn field_count(&self) -> usize {
+        if self.total_size() == molecule::NUMBER_SIZE {
+            0
+        } else {
+            (molecule::unpack_number(&self.as_slice()[molecule::NUMBER_SIZE..]) as usize / 4) - 1
+        }
+    }
+    pub fn count_extra_fields(&self) -> usize {
+        self.field_count() - Self::FIELD_COUNT
+    }
+    pub fn has_extra_fields(&self) -> bool {
+        Self::FIELD_COUNT != self.field_count()
+    }
+    pub fn witness_hash(&self) -> Byte20 {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[4..]) as usize;
+        let end = molecule::unpack_number(&slice[8..]) as usize;
+        Byte20::new_unchecked(self.0.slice(start..end))
+    }
+    pub fn expire_at(&self) -> Uint64 {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[8..]) as usize;
+        let end = molecule::unpack_number(&slice[12..]) as usize;
+        Uint64::new_unchecked(self.0.slice(start..end))
+    }
+    pub fn account(&self) -> Bytes {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[12..]) as usize;
+        if self.has_extra_fields() {
+            let end = molecule::unpack_number(&slice[16..]) as usize;
+            Bytes::new_unchecked(self.0.slice(start..end))
+        } else {
+            Bytes::new_unchecked(self.0.slice(start..))
+        }
+    }
+    pub fn as_reader<'r>(&'r self) -> DidCellDataV0Reader<'r> {
+        DidCellDataV0Reader::new_unchecked(self.as_slice())
+    }
+}
+impl molecule::prelude::Entity for DidCellDataV0 {
+    type Builder = DidCellDataV0Builder;
+    const NAME: &'static str = "DidCellDataV0";
+    fn new_unchecked(data: molecule::bytes::Bytes) -> Self {
+        DidCellDataV0(data)
+    }
+    fn as_bytes(&self) -> molecule::bytes::Bytes {
+        self.0.clone()
+    }
+    fn as_slice(&self) -> &[u8] {
+        &self.0[..]
+    }
+    fn from_slice(slice: &[u8]) -> molecule::error::VerificationResult<Self> {
+        DidCellDataV0Reader::from_slice(slice).map(|reader| reader.to_entity())
+    }
+    fn from_compatible_slice(slice: &[u8]) -> molecule::error::VerificationResult<Self> {
+        DidCellDataV0Reader::from_compatible_slice(slice).map(|reader| reader.to_entity())
+    }
+    fn new_builder() -> Self::Builder {
+        ::core::default::Default::default()
+    }
+    fn as_builder(self) -> Self::Builder {
+        Self::new_builder()
+            .witness_hash(self.witness_hash())
+            .expire_at(self.expire_at())
+            .account(self.account())
+    }
+}
+#[derive(Clone, Copy)]
+pub struct DidCellDataV0Reader<'r>(&'r [u8]);
+impl<'r> ::core::fmt::LowerHex for DidCellDataV0Reader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        use molecule::hex_string;
+        if f.alternate() {
+            write!(f, "0x")?;
+        }
+        write!(f, "{}", hex_string(self.as_slice()))
+    }
+}
+impl<'r> ::core::fmt::Debug for DidCellDataV0Reader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{}({:#x})", Self::NAME, self)
+    }
+}
+impl<'r> ::core::fmt::Display for DidCellDataV0Reader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{} {{ ", Self::NAME)?;
+        write!(f, "{}: {}", "witness_hash", self.witness_hash())?;
+        write!(f, ", {}: {}", "expire_at", self.expire_at())?;
+        write!(f, ", {}: {}", "account", self.account())?;
+        let extra_count = self.count_extra_fields();
+        if extra_count != 0 {
+            write!(f, ", .. ({} fields)", extra_count)?;
+        }
+        write!(f, " }}")
+    }
+}
+impl<'r> DidCellDataV0Reader<'r> {
+    pub const FIELD_COUNT: usize = 3;
+    pub fn total_size(&self) -> usize {
+        molecule::unpack_number(self.as_slice()) as usize
+    }
+    pub fn field_count(&self) -> usize {
+        if self.total_size() == molecule::NUMBER_SIZE {
+            0
+        } else {
+            (molecule::unpack_number(&self.as_slice()[molecule::NUMBER_SIZE..]) as usize / 4) - 1
+        }
+    }
+    pub fn count_extra_fields(&self) -> usize {
+        self.field_count() - Self::FIELD_COUNT
+    }
+    pub fn has_extra_fields(&self) -> bool {
+        Self::FIELD_COUNT != self.field_count()
+    }
+    pub fn witness_hash(&self) -> Byte20Reader<'r> {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[4..]) as usize;
+        let end = molecule::unpack_number(&slice[8..]) as usize;
+        Byte20Reader::new_unchecked(&self.as_slice()[start..end])
+    }
+    pub fn expire_at(&self) -> Uint64Reader<'r> {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[8..]) as usize;
+        let end = molecule::unpack_number(&slice[12..]) as usize;
+        Uint64Reader::new_unchecked(&self.as_slice()[start..end])
+    }
+    pub fn account(&self) -> BytesReader<'r> {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[12..]) as usize;
+        if self.has_extra_fields() {
+            let end = molecule::unpack_number(&slice[16..]) as usize;
+            BytesReader::new_unchecked(&self.as_slice()[start..end])
+        } else {
+            BytesReader::new_unchecked(&self.as_slice()[start..])
+        }
+    }
+}
+impl<'r> molecule::prelude::Reader<'r> for DidCellDataV0Reader<'r> {
+    type Entity = DidCellDataV0;
+    const NAME: &'static str = "DidCellDataV0Reader";
+    fn to_entity(&self) -> Self::Entity {
+        Self::Entity::new_unchecked(self.as_slice().to_owned().into())
+    }
+    fn new_unchecked(slice: &'r [u8]) -> Self {
+        DidCellDataV0Reader(slice)
+    }
+    fn as_slice(&self) -> &'r [u8] {
+        self.0
+    }
+    fn verify(slice: &[u8], compatible: bool) -> molecule::error::VerificationResult<()> {
+        use molecule::verification_error as ve;
+        let slice_len = slice.len();
+        if slice_len < molecule::NUMBER_SIZE {
+            return ve!(Self, HeaderIsBroken, molecule::NUMBER_SIZE, slice_len);
+        }
+        let total_size = molecule::unpack_number(slice) as usize;
+        if slice_len != total_size {
+            return ve!(Self, TotalSizeNotMatch, total_size, slice_len);
+        }
+        if slice_len == molecule::NUMBER_SIZE && Self::FIELD_COUNT == 0 {
+            return Ok(());
+        }
+        if slice_len < molecule::NUMBER_SIZE * 2 {
+            return ve!(Self, HeaderIsBroken, molecule::NUMBER_SIZE * 2, slice_len);
+        }
+        let offset_first = molecule::unpack_number(&slice[molecule::NUMBER_SIZE..]) as usize;
+        if offset_first % molecule::NUMBER_SIZE != 0 || offset_first < molecule::NUMBER_SIZE * 2 {
+            return ve!(Self, OffsetsNotMatch);
+        }
+        if slice_len < offset_first {
+            return ve!(Self, HeaderIsBroken, offset_first, slice_len);
+        }
+        let field_count = offset_first / molecule::NUMBER_SIZE - 1;
+        if field_count < Self::FIELD_COUNT {
+            return ve!(Self, FieldCountNotMatch, Self::FIELD_COUNT, field_count);
+        } else if !compatible && field_count > Self::FIELD_COUNT {
+            return ve!(Self, FieldCountNotMatch, Self::FIELD_COUNT, field_count);
+        };
+        let mut offsets: Vec<usize> = slice[molecule::NUMBER_SIZE..offset_first]
+            .chunks_exact(molecule::NUMBER_SIZE)
+            .map(|x| molecule::unpack_number(x) as usize)
+            .collect();
+        offsets.push(total_size);
+        if offsets.windows(2).any(|i| i[0] > i[1]) {
+            return ve!(Self, OffsetsNotMatch);
+        }
+        Byte20Reader::verify(&slice[offsets[0]..offsets[1]], compatible)?;
+        Uint64Reader::verify(&slice[offsets[1]..offsets[2]], compatible)?;
+        BytesReader::verify(&slice[offsets[2]..offsets[3]], compatible)?;
+        Ok(())
+    }
+}
+#[derive(Debug, Default)]
+pub struct DidCellDataV0Builder {
+    pub(crate) witness_hash: Byte20,
+    pub(crate) expire_at: Uint64,
+    pub(crate) account: Bytes,
+}
+impl DidCellDataV0Builder {
+    pub const FIELD_COUNT: usize = 3;
+    pub fn witness_hash(mut self, v: Byte20) -> Self {
+        self.witness_hash = v;
+        self
+    }
+    pub fn expire_at(mut self, v: Uint64) -> Self {
+        self.expire_at = v;
+        self
+    }
+    pub fn account(mut self, v: Bytes) -> Self {
+        self.account = v;
+        self
+    }
+}
+impl molecule::prelude::Builder for DidCellDataV0Builder {
+    type Entity = DidCellDataV0;
+    const NAME: &'static str = "DidCellDataV0Builder";
+    fn expected_length(&self) -> usize {
+        molecule::NUMBER_SIZE * (Self::FIELD_COUNT + 1)
+            + self.witness_hash.as_slice().len()
+            + self.expire_at.as_slice().len()
+            + self.account.as_slice().len()
+    }
+    fn write<W: molecule::io::Write>(&self, writer: &mut W) -> molecule::io::Result<()> {
+        let mut total_size = molecule::NUMBER_SIZE * (Self::FIELD_COUNT + 1);
+        let mut offsets = Vec::with_capacity(Self::FIELD_COUNT);
+        offsets.push(total_size);
+        total_size += self.witness_hash.as_slice().len();
+        offsets.push(total_size);
+        total_size += self.expire_at.as_slice().len();
+        offsets.push(total_size);
+        total_size += self.account.as_slice().len();
+        writer.write_all(&molecule::pack_number(total_size as molecule::Number))?;
+        for offset in offsets.into_iter() {
+            writer.write_all(&molecule::pack_number(offset as molecule::Number))?;
+        }
+        writer.write_all(self.witness_hash.as_slice())?;
+        writer.write_all(self.expire_at.as_slice())?;
+        writer.write_all(self.account.as_slice())?;
+        Ok(())
+    }
+    fn build(&self) -> Self::Entity {
+        let mut inner = Vec::with_capacity(self.expected_length());
+        self.write(&mut inner)
+            .unwrap_or_else(|_| panic!("{} build should be ok", Self::NAME));
+        DidCellDataV0::new_unchecked(inner.into())
+    }
+}
+#[derive(Clone)]
+pub struct CellMeta(molecule::bytes::Bytes);
+impl ::core::fmt::LowerHex for CellMeta {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        use molecule::hex_string;
+        if f.alternate() {
+            write!(f, "0x")?;
+        }
+        write!(f, "{}", hex_string(self.as_slice()))
+    }
+}
+impl ::core::fmt::Debug for CellMeta {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{}({:#x})", Self::NAME, self)
+    }
+}
+impl ::core::fmt::Display for CellMeta {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{} {{ ", Self::NAME)?;
+        write!(f, "{}: {}", "source", self.source())?;
+        write!(f, ", {}: {}", "index", self.index())?;
+        write!(f, " }}")
+    }
+}
+impl ::core::default::Default for CellMeta {
+    fn default() -> Self {
+        let v: Vec<u8> = vec![0, 0, 0, 0, 0, 0, 0, 0, 0];
+        CellMeta::new_unchecked(v.into())
+    }
+}
+impl CellMeta {
+    pub const TOTAL_SIZE: usize = 9;
+    pub const FIELD_SIZES: [usize; 2] = [1, 8];
+    pub const FIELD_COUNT: usize = 2;
+    pub fn source(&self) -> Byte {
+        Byte::new_unchecked(self.0.slice(0..1))
+    }
+    pub fn index(&self) -> Uint64 {
+        Uint64::new_unchecked(self.0.slice(1..9))
+    }
+    pub fn as_reader<'r>(&'r self) -> CellMetaReader<'r> {
+        CellMetaReader::new_unchecked(self.as_slice())
+    }
+}
+impl molecule::prelude::Entity for CellMeta {
+    type Builder = CellMetaBuilder;
+    const NAME: &'static str = "CellMeta";
+    fn new_unchecked(data: molecule::bytes::Bytes) -> Self {
+        CellMeta(data)
+    }
+    fn as_bytes(&self) -> molecule::bytes::Bytes {
+        self.0.clone()
+    }
+    fn as_slice(&self) -> &[u8] {
+        &self.0[..]
+    }
+    fn from_slice(slice: &[u8]) -> molecule::error::VerificationResult<Self> {
+        CellMetaReader::from_slice(slice).map(|reader| reader.to_entity())
+    }
+    fn from_compatible_slice(slice: &[u8]) -> molecule::error::VerificationResult<Self> {
+        CellMetaReader::from_compatible_slice(slice).map(|reader| reader.to_entity())
+    }
+    fn new_builder() -> Self::Builder {
+        ::core::default::Default::default()
+    }
+    fn as_builder(self) -> Self::Builder {
+        Self::new_builder().source(self.source()).index(self.index())
+    }
+}
+#[derive(Clone, Copy)]
+pub struct CellMetaReader<'r>(&'r [u8]);
+impl<'r> ::core::fmt::LowerHex for CellMetaReader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        use molecule::hex_string;
+        if f.alternate() {
+            write!(f, "0x")?;
+        }
+        write!(f, "{}", hex_string(self.as_slice()))
+    }
+}
+impl<'r> ::core::fmt::Debug for CellMetaReader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{}({:#x})", Self::NAME, self)
+    }
+}
+impl<'r> ::core::fmt::Display for CellMetaReader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{} {{ ", Self::NAME)?;
+        write!(f, "{}: {}", "source", self.source())?;
+        write!(f, ", {}: {}", "index", self.index())?;
+        write!(f, " }}")
+    }
+}
+impl<'r> CellMetaReader<'r> {
+    pub const TOTAL_SIZE: usize = 9;
+    pub const FIELD_SIZES: [usize; 2] = [1, 8];
+    pub const FIELD_COUNT: usize = 2;
+    pub fn source(&self) -> ByteReader<'r> {
+        ByteReader::new_unchecked(&self.as_slice()[0..1])
+    }
+    pub fn index(&self) -> Uint64Reader<'r> {
+        Uint64Reader::new_unchecked(&self.as_slice()[1..9])
+    }
+}
+impl<'r> molecule::prelude::Reader<'r> for CellMetaReader<'r> {
+    type Entity = CellMeta;
+    const NAME: &'static str = "CellMetaReader";
+    fn to_entity(&self) -> Self::Entity {
+        Self::Entity::new_unchecked(self.as_slice().to_owned().into())
+    }
+    fn new_unchecked(slice: &'r [u8]) -> Self {
+        CellMetaReader(slice)
+    }
+    fn as_slice(&self) -> &'r [u8] {
+        self.0
+    }
+    fn verify(slice: &[u8], _compatible: bool) -> molecule::error::VerificationResult<()> {
+        use molecule::verification_error as ve;
+        let slice_len = slice.len();
+        if slice_len != Self::TOTAL_SIZE {
+            return ve!(Self, TotalSizeNotMatch, Self::TOTAL_SIZE, slice_len);
+        }
+        Ok(())
+    }
+}
+#[derive(Debug, Default)]
+pub struct CellMetaBuilder {
+    pub(crate) source: Byte,
+    pub(crate) index: Uint64,
+}
+impl CellMetaBuilder {
+    pub const TOTAL_SIZE: usize = 9;
+    pub const FIELD_SIZES: [usize; 2] = [1, 8];
+    pub const FIELD_COUNT: usize = 2;
+    pub fn source(mut self, v: Byte) -> Self {
+        self.source = v;
+        self
+    }
+    pub fn index(mut self, v: Uint64) -> Self {
+        self.index = v;
+        self
+    }
+}
+impl molecule::prelude::Builder for CellMetaBuilder {
+    type Entity = CellMeta;
+    const NAME: &'static str = "CellMetaBuilder";
+    fn expected_length(&self) -> usize {
+        Self::TOTAL_SIZE
+    }
+    fn write<W: molecule::io::Write>(&self, writer: &mut W) -> molecule::io::Result<()> {
+        writer.write_all(self.source.as_slice())?;
+        writer.write_all(self.index.as_slice())?;
+        Ok(())
+    }
+    fn build(&self) -> Self::Entity {
+        let mut inner = Vec::with_capacity(self.expected_length());
+        self.write(&mut inner)
+            .unwrap_or_else(|_| panic!("{} build should be ok", Self::NAME));
+        CellMeta::new_unchecked(inner.into())
+    }
+}
+#[derive(Clone)]
+pub struct CellMetaOpt(molecule::bytes::Bytes);
+impl ::core::fmt::LowerHex for CellMetaOpt {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        use molecule::hex_string;
+        if f.alternate() {
+            write!(f, "0x")?;
+        }
+        write!(f, "{}", hex_string(self.as_slice()))
+    }
+}
+impl ::core::fmt::Debug for CellMetaOpt {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{}({:#x})", Self::NAME, self)
+    }
+}
+impl ::core::fmt::Display for CellMetaOpt {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        if let Some(v) = self.to_opt() {
+            write!(f, "{}(Some({}))", Self::NAME, v)
+        } else {
+            write!(f, "{}(None)", Self::NAME)
+        }
+    }
+}
+impl ::core::default::Default for CellMetaOpt {
+    fn default() -> Self {
+        let v: Vec<u8> = vec![];
+        CellMetaOpt::new_unchecked(v.into())
+    }
+}
+impl CellMetaOpt {
+    pub fn is_none(&self) -> bool {
+        self.0.is_empty()
+    }
+    pub fn is_some(&self) -> bool {
+        !self.0.is_empty()
+    }
+    pub fn to_opt(&self) -> Option<CellMeta> {
+        if self.is_none() {
+            None
+        } else {
+            Some(CellMeta::new_unchecked(self.0.clone()))
+        }
+    }
+    pub fn as_reader<'r>(&'r self) -> CellMetaOptReader<'r> {
+        CellMetaOptReader::new_unchecked(self.as_slice())
+    }
+}
+impl molecule::prelude::Entity for CellMetaOpt {
+    type Builder = CellMetaOptBuilder;
+    const NAME: &'static str = "CellMetaOpt";
+    fn new_unchecked(data: molecule::bytes::Bytes) -> Self {
+        CellMetaOpt(data)
+    }
+    fn as_bytes(&self) -> molecule::bytes::Bytes {
+        self.0.clone()
+    }
+    fn as_slice(&self) -> &[u8] {
+        &self.0[..]
+    }
+    fn from_slice(slice: &[u8]) -> molecule::error::VerificationResult<Self> {
+        CellMetaOptReader::from_slice(slice).map(|reader| reader.to_entity())
+    }
+    fn from_compatible_slice(slice: &[u8]) -> molecule::error::VerificationResult<Self> {
+        CellMetaOptReader::from_compatible_slice(slice).map(|reader| reader.to_entity())
+    }
+    fn new_builder() -> Self::Builder {
+        ::core::default::Default::default()
+    }
+    fn as_builder(self) -> Self::Builder {
+        Self::new_builder().set(self.to_opt())
+    }
+}
+#[derive(Clone, Copy)]
+pub struct CellMetaOptReader<'r>(&'r [u8]);
+impl<'r> ::core::fmt::LowerHex for CellMetaOptReader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        use molecule::hex_string;
+        if f.alternate() {
+            write!(f, "0x")?;
+        }
+        write!(f, "{}", hex_string(self.as_slice()))
+    }
+}
+impl<'r> ::core::fmt::Debug for CellMetaOptReader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{}({:#x})", Self::NAME, self)
+    }
+}
+impl<'r> ::core::fmt::Display for CellMetaOptReader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        if let Some(v) = self.to_opt() {
+            write!(f, "{}(Some({}))", Self::NAME, v)
+        } else {
+            write!(f, "{}(None)", Self::NAME)
+        }
+    }
+}
+impl<'r> CellMetaOptReader<'r> {
+    pub fn is_none(&self) -> bool {
+        self.0.is_empty()
+    }
+    pub fn is_some(&self) -> bool {
+        !self.0.is_empty()
+    }
+    pub fn to_opt(&self) -> Option<CellMetaReader<'r>> {
+        if self.is_none() {
+            None
+        } else {
+            Some(CellMetaReader::new_unchecked(self.as_slice()))
+        }
+    }
+}
+impl<'r> molecule::prelude::Reader<'r> for CellMetaOptReader<'r> {
+    type Entity = CellMetaOpt;
+    const NAME: &'static str = "CellMetaOptReader";
+    fn to_entity(&self) -> Self::Entity {
+        Self::Entity::new_unchecked(self.as_slice().to_owned().into())
+    }
+    fn new_unchecked(slice: &'r [u8]) -> Self {
+        CellMetaOptReader(slice)
+    }
+    fn as_slice(&self) -> &'r [u8] {
+        self.0
+    }
+    fn verify(slice: &[u8], compatible: bool) -> molecule::error::VerificationResult<()> {
+        if !slice.is_empty() {
+            CellMetaReader::verify(&slice[..], compatible)?;
+        }
+        Ok(())
+    }
+}
+#[derive(Debug, Default)]
+pub struct CellMetaOptBuilder(pub(crate) Option<CellMeta>);
+impl CellMetaOptBuilder {
+    pub fn set(mut self, v: Option<CellMeta>) -> Self {
+        self.0 = v;
+        self
+    }
+}
+impl molecule::prelude::Builder for CellMetaOptBuilder {
+    type Entity = CellMetaOpt;
+    const NAME: &'static str = "CellMetaOptBuilder";
+    fn expected_length(&self) -> usize {
+        self.0.as_ref().map(|ref inner| inner.as_slice().len()).unwrap_or(0)
+    }
+    fn write<W: molecule::io::Write>(&self, writer: &mut W) -> molecule::io::Result<()> {
+        self.0
+            .as_ref()
+            .map(|ref inner| writer.write_all(inner.as_slice()))
+            .unwrap_or(Ok(()))
+    }
+    fn build(&self) -> Self::Entity {
+        let mut inner = Vec::with_capacity(self.expected_length());
+        self.write(&mut inner)
+            .unwrap_or_else(|_| panic!("{} build should be ok", Self::NAME));
+        CellMetaOpt::new_unchecked(inner.into())
+    }
+}
+#[derive(Clone)]
+pub struct Byte20Opt(molecule::bytes::Bytes);
+impl ::core::fmt::LowerHex for Byte20Opt {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        use molecule::hex_string;
+        if f.alternate() {
+            write!(f, "0x")?;
+        }
+        write!(f, "{}", hex_string(self.as_slice()))
+    }
+}
+impl ::core::fmt::Debug for Byte20Opt {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{}({:#x})", Self::NAME, self)
+    }
+}
+impl ::core::fmt::Display for Byte20Opt {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        if let Some(v) = self.to_opt() {
+            write!(f, "{}(Some({}))", Self::NAME, v)
+        } else {
+            write!(f, "{}(None)", Self::NAME)
+        }
+    }
+}
+impl ::core::default::Default for Byte20Opt {
+    fn default() -> Self {
+        let v: Vec<u8> = vec![];
+        Byte20Opt::new_unchecked(v.into())
+    }
+}
+impl Byte20Opt {
+    pub fn is_none(&self) -> bool {
+        self.0.is_empty()
+    }
+    pub fn is_some(&self) -> bool {
+        !self.0.is_empty()
+    }
+    pub fn to_opt(&self) -> Option<Byte20> {
+        if self.is_none() {
+            None
+        } else {
+            Some(Byte20::new_unchecked(self.0.clone()))
+        }
+    }
+    pub fn as_reader<'r>(&'r self) -> Byte20OptReader<'r> {
+        Byte20OptReader::new_unchecked(self.as_slice())
+    }
+}
+impl molecule::prelude::Entity for Byte20Opt {
+    type Builder = Byte20OptBuilder;
+    const NAME: &'static str = "Byte20Opt";
+    fn new_unchecked(data: molecule::bytes::Bytes) -> Self {
+        Byte20Opt(data)
+    }
+    fn as_bytes(&self) -> molecule::bytes::Bytes {
+        self.0.clone()
+    }
+    fn as_slice(&self) -> &[u8] {
+        &self.0[..]
+    }
+    fn from_slice(slice: &[u8]) -> molecule::error::VerificationResult<Self> {
+        Byte20OptReader::from_slice(slice).map(|reader| reader.to_entity())
+    }
+    fn from_compatible_slice(slice: &[u8]) -> molecule::error::VerificationResult<Self> {
+        Byte20OptReader::from_compatible_slice(slice).map(|reader| reader.to_entity())
+    }
+    fn new_builder() -> Self::Builder {
+        ::core::default::Default::default()
+    }
+    fn as_builder(self) -> Self::Builder {
+        Self::new_builder().set(self.to_opt())
+    }
+}
+#[derive(Clone, Copy)]
+pub struct Byte20OptReader<'r>(&'r [u8]);
+impl<'r> ::core::fmt::LowerHex for Byte20OptReader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        use molecule::hex_string;
+        if f.alternate() {
+            write!(f, "0x")?;
+        }
+        write!(f, "{}", hex_string(self.as_slice()))
+    }
+}
+impl<'r> ::core::fmt::Debug for Byte20OptReader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{}({:#x})", Self::NAME, self)
+    }
+}
+impl<'r> ::core::fmt::Display for Byte20OptReader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        if let Some(v) = self.to_opt() {
+            write!(f, "{}(Some({}))", Self::NAME, v)
+        } else {
+            write!(f, "{}(None)", Self::NAME)
+        }
+    }
+}
+impl<'r> Byte20OptReader<'r> {
+    pub fn is_none(&self) -> bool {
+        self.0.is_empty()
+    }
+    pub fn is_some(&self) -> bool {
+        !self.0.is_empty()
+    }
+    pub fn to_opt(&self) -> Option<Byte20Reader<'r>> {
+        if self.is_none() {
+            None
+        } else {
+            Some(Byte20Reader::new_unchecked(self.as_slice()))
+        }
+    }
+}
+impl<'r> molecule::prelude::Reader<'r> for Byte20OptReader<'r> {
+    type Entity = Byte20Opt;
+    const NAME: &'static str = "Byte20OptReader";
+    fn to_entity(&self) -> Self::Entity {
+        Self::Entity::new_unchecked(self.as_slice().to_owned().into())
+    }
+    fn new_unchecked(slice: &'r [u8]) -> Self {
+        Byte20OptReader(slice)
+    }
+    fn as_slice(&self) -> &'r [u8] {
+        self.0
+    }
+    fn verify(slice: &[u8], compatible: bool) -> molecule::error::VerificationResult<()> {
+        if !slice.is_empty() {
+            Byte20Reader::verify(&slice[..], compatible)?;
+        }
+        Ok(())
+    }
+}
+#[derive(Debug, Default)]
+pub struct Byte20OptBuilder(pub(crate) Option<Byte20>);
+impl Byte20OptBuilder {
+    pub fn set(mut self, v: Option<Byte20>) -> Self {
+        self.0 = v;
+        self
+    }
+}
+impl molecule::prelude::Builder for Byte20OptBuilder {
+    type Entity = Byte20Opt;
+    const NAME: &'static str = "Byte20OptBuilder";
+    fn expected_length(&self) -> usize {
+        self.0.as_ref().map(|ref inner| inner.as_slice().len()).unwrap_or(0)
+    }
+    fn write<W: molecule::io::Write>(&self, writer: &mut W) -> molecule::io::Result<()> {
+        self.0
+            .as_ref()
+            .map(|ref inner| writer.write_all(inner.as_slice()))
+            .unwrap_or(Ok(()))
+    }
+    fn build(&self) -> Self::Entity {
+        let mut inner = Vec::with_capacity(self.expected_length());
+        self.write(&mut inner)
+            .unwrap_or_else(|_| panic!("{} build should be ok", Self::NAME));
+        Byte20Opt::new_unchecked(inner.into())
+    }
+}
+#[derive(Clone)]
+pub struct DidEntity(molecule::bytes::Bytes);
+impl ::core::fmt::LowerHex for DidEntity {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        use molecule::hex_string;
+        if f.alternate() {
+            write!(f, "0x")?;
+        }
+        write!(f, "{}", hex_string(self.as_slice()))
+    }
+}
+impl ::core::fmt::Debug for DidEntity {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{}({:#x})", Self::NAME, self)
+    }
+}
+impl ::core::fmt::Display for DidEntity {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{} {{ ", Self::NAME)?;
+        write!(f, "{}: {}", "data", self.data())?;
+        write!(f, ", {}: {}", "target", self.target())?;
+        write!(f, ", {}: {}", "hash", self.hash())?;
+        let extra_count = self.count_extra_fields();
+        if extra_count != 0 {
+            write!(f, ", .. ({} fields)", extra_count)?;
+        }
+        write!(f, " }}")
+    }
+}
+impl ::core::default::Default for DidEntity {
+    fn default() -> Self {
+        let v: Vec<u8> = vec![
+            32, 0, 0, 0, 16, 0, 0, 0, 32, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 8, 0, 0, 0, 4, 0, 0, 0,
+        ];
+        DidEntity::new_unchecked(v.into())
+    }
+}
+impl DidEntity {
+    pub const FIELD_COUNT: usize = 3;
+    pub fn total_size(&self) -> usize {
+        molecule::unpack_number(self.as_slice()) as usize
+    }
+    pub fn field_count(&self) -> usize {
+        if self.total_size() == molecule::NUMBER_SIZE {
+            0
+        } else {
+            (molecule::unpack_number(&self.as_slice()[molecule::NUMBER_SIZE..]) as usize / 4) - 1
+        }
+    }
+    pub fn count_extra_fields(&self) -> usize {
+        self.field_count() - Self::FIELD_COUNT
+    }
+    pub fn has_extra_fields(&self) -> bool {
+        Self::FIELD_COUNT != self.field_count()
+    }
+    pub fn data(&self) -> WitnessData {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[4..]) as usize;
+        let end = molecule::unpack_number(&slice[8..]) as usize;
+        WitnessData::new_unchecked(self.0.slice(start..end))
+    }
+    pub fn target(&self) -> CellMetaOpt {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[8..]) as usize;
+        let end = molecule::unpack_number(&slice[12..]) as usize;
+        CellMetaOpt::new_unchecked(self.0.slice(start..end))
+    }
+    pub fn hash(&self) -> Byte20Opt {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[12..]) as usize;
+        if self.has_extra_fields() {
+            let end = molecule::unpack_number(&slice[16..]) as usize;
+            Byte20Opt::new_unchecked(self.0.slice(start..end))
+        } else {
+            Byte20Opt::new_unchecked(self.0.slice(start..))
+        }
+    }
+    pub fn as_reader<'r>(&'r self) -> DidEntityReader<'r> {
+        DidEntityReader::new_unchecked(self.as_slice())
+    }
+}
+impl molecule::prelude::Entity for DidEntity {
+    type Builder = DidEntityBuilder;
+    const NAME: &'static str = "DidEntity";
+    fn new_unchecked(data: molecule::bytes::Bytes) -> Self {
+        DidEntity(data)
+    }
+    fn as_bytes(&self) -> molecule::bytes::Bytes {
+        self.0.clone()
+    }
+    fn as_slice(&self) -> &[u8] {
+        &self.0[..]
+    }
+    fn from_slice(slice: &[u8]) -> molecule::error::VerificationResult<Self> {
+        DidEntityReader::from_slice(slice).map(|reader| reader.to_entity())
+    }
+    fn from_compatible_slice(slice: &[u8]) -> molecule::error::VerificationResult<Self> {
+        DidEntityReader::from_compatible_slice(slice).map(|reader| reader.to_entity())
+    }
+    fn new_builder() -> Self::Builder {
+        ::core::default::Default::default()
+    }
+    fn as_builder(self) -> Self::Builder {
+        Self::new_builder()
+            .data(self.data())
+            .target(self.target())
+            .hash(self.hash())
+    }
+}
+#[derive(Clone, Copy)]
+pub struct DidEntityReader<'r>(&'r [u8]);
+impl<'r> ::core::fmt::LowerHex for DidEntityReader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        use molecule::hex_string;
+        if f.alternate() {
+            write!(f, "0x")?;
+        }
+        write!(f, "{}", hex_string(self.as_slice()))
+    }
+}
+impl<'r> ::core::fmt::Debug for DidEntityReader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{}({:#x})", Self::NAME, self)
+    }
+}
+impl<'r> ::core::fmt::Display for DidEntityReader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{} {{ ", Self::NAME)?;
+        write!(f, "{}: {}", "data", self.data())?;
+        write!(f, ", {}: {}", "target", self.target())?;
+        write!(f, ", {}: {}", "hash", self.hash())?;
+        let extra_count = self.count_extra_fields();
+        if extra_count != 0 {
+            write!(f, ", .. ({} fields)", extra_count)?;
+        }
+        write!(f, " }}")
+    }
+}
+impl<'r> DidEntityReader<'r> {
+    pub const FIELD_COUNT: usize = 3;
+    pub fn total_size(&self) -> usize {
+        molecule::unpack_number(self.as_slice()) as usize
+    }
+    pub fn field_count(&self) -> usize {
+        if self.total_size() == molecule::NUMBER_SIZE {
+            0
+        } else {
+            (molecule::unpack_number(&self.as_slice()[molecule::NUMBER_SIZE..]) as usize / 4) - 1
+        }
+    }
+    pub fn count_extra_fields(&self) -> usize {
+        self.field_count() - Self::FIELD_COUNT
+    }
+    pub fn has_extra_fields(&self) -> bool {
+        Self::FIELD_COUNT != self.field_count()
+    }
+    pub fn data(&self) -> WitnessDataReader<'r> {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[4..]) as usize;
+        let end = molecule::unpack_number(&slice[8..]) as usize;
+        WitnessDataReader::new_unchecked(&self.as_slice()[start..end])
+    }
+    pub fn target(&self) -> CellMetaOptReader<'r> {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[8..]) as usize;
+        let end = molecule::unpack_number(&slice[12..]) as usize;
+        CellMetaOptReader::new_unchecked(&self.as_slice()[start..end])
+    }
+    pub fn hash(&self) -> Byte20OptReader<'r> {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[12..]) as usize;
+        if self.has_extra_fields() {
+            let end = molecule::unpack_number(&slice[16..]) as usize;
+            Byte20OptReader::new_unchecked(&self.as_slice()[start..end])
+        } else {
+            Byte20OptReader::new_unchecked(&self.as_slice()[start..])
+        }
+    }
+}
+impl<'r> molecule::prelude::Reader<'r> for DidEntityReader<'r> {
+    type Entity = DidEntity;
+    const NAME: &'static str = "DidEntityReader";
+    fn to_entity(&self) -> Self::Entity {
+        Self::Entity::new_unchecked(self.as_slice().to_owned().into())
+    }
+    fn new_unchecked(slice: &'r [u8]) -> Self {
+        DidEntityReader(slice)
+    }
+    fn as_slice(&self) -> &'r [u8] {
+        self.0
+    }
+    fn verify(slice: &[u8], compatible: bool) -> molecule::error::VerificationResult<()> {
+        use molecule::verification_error as ve;
+        let slice_len = slice.len();
+        if slice_len < molecule::NUMBER_SIZE {
+            return ve!(Self, HeaderIsBroken, molecule::NUMBER_SIZE, slice_len);
+        }
+        let total_size = molecule::unpack_number(slice) as usize;
+        if slice_len != total_size {
+            return ve!(Self, TotalSizeNotMatch, total_size, slice_len);
+        }
+        if slice_len == molecule::NUMBER_SIZE && Self::FIELD_COUNT == 0 {
+            return Ok(());
+        }
+        if slice_len < molecule::NUMBER_SIZE * 2 {
+            return ve!(Self, HeaderIsBroken, molecule::NUMBER_SIZE * 2, slice_len);
+        }
+        let offset_first = molecule::unpack_number(&slice[molecule::NUMBER_SIZE..]) as usize;
+        if offset_first % molecule::NUMBER_SIZE != 0 || offset_first < molecule::NUMBER_SIZE * 2 {
+            return ve!(Self, OffsetsNotMatch);
+        }
+        if slice_len < offset_first {
+            return ve!(Self, HeaderIsBroken, offset_first, slice_len);
+        }
+        let field_count = offset_first / molecule::NUMBER_SIZE - 1;
+        if field_count < Self::FIELD_COUNT {
+            return ve!(Self, FieldCountNotMatch, Self::FIELD_COUNT, field_count);
+        } else if !compatible && field_count > Self::FIELD_COUNT {
+            return ve!(Self, FieldCountNotMatch, Self::FIELD_COUNT, field_count);
+        };
+        let mut offsets: Vec<usize> = slice[molecule::NUMBER_SIZE..offset_first]
+            .chunks_exact(molecule::NUMBER_SIZE)
+            .map(|x| molecule::unpack_number(x) as usize)
+            .collect();
+        offsets.push(total_size);
+        if offsets.windows(2).any(|i| i[0] > i[1]) {
+            return ve!(Self, OffsetsNotMatch);
+        }
+        WitnessDataReader::verify(&slice[offsets[0]..offsets[1]], compatible)?;
+        CellMetaOptReader::verify(&slice[offsets[1]..offsets[2]], compatible)?;
+        Byte20OptReader::verify(&slice[offsets[2]..offsets[3]], compatible)?;
+        Ok(())
+    }
+}
+#[derive(Debug, Default)]
+pub struct DidEntityBuilder {
+    pub(crate) data: WitnessData,
+    pub(crate) target: CellMetaOpt,
+    pub(crate) hash: Byte20Opt,
+}
+impl DidEntityBuilder {
+    pub const FIELD_COUNT: usize = 3;
+    pub fn data(mut self, v: WitnessData) -> Self {
+        self.data = v;
+        self
+    }
+    pub fn target(mut self, v: CellMetaOpt) -> Self {
+        self.target = v;
+        self
+    }
+    pub fn hash(mut self, v: Byte20Opt) -> Self {
+        self.hash = v;
+        self
+    }
+}
+impl molecule::prelude::Builder for DidEntityBuilder {
+    type Entity = DidEntity;
+    const NAME: &'static str = "DidEntityBuilder";
+    fn expected_length(&self) -> usize {
+        molecule::NUMBER_SIZE * (Self::FIELD_COUNT + 1)
+            + self.data.as_slice().len()
+            + self.target.as_slice().len()
+            + self.hash.as_slice().len()
+    }
+    fn write<W: molecule::io::Write>(&self, writer: &mut W) -> molecule::io::Result<()> {
+        let mut total_size = molecule::NUMBER_SIZE * (Self::FIELD_COUNT + 1);
+        let mut offsets = Vec::with_capacity(Self::FIELD_COUNT);
+        offsets.push(total_size);
+        total_size += self.data.as_slice().len();
+        offsets.push(total_size);
+        total_size += self.target.as_slice().len();
+        offsets.push(total_size);
+        total_size += self.hash.as_slice().len();
+        writer.write_all(&molecule::pack_number(total_size as molecule::Number))?;
+        for offset in offsets.into_iter() {
+            writer.write_all(&molecule::pack_number(offset as molecule::Number))?;
+        }
+        writer.write_all(self.data.as_slice())?;
+        writer.write_all(self.target.as_slice())?;
+        writer.write_all(self.hash.as_slice())?;
+        Ok(())
+    }
+    fn build(&self) -> Self::Entity {
+        let mut inner = Vec::with_capacity(self.expected_length());
+        self.write(&mut inner)
+            .unwrap_or_else(|_| panic!("{} build should be ok", Self::NAME));
+        DidEntity::new_unchecked(inner.into())
+    }
+}
+#[derive(Clone)]
+pub struct DidCellWitnessDataV0(molecule::bytes::Bytes);
+impl ::core::fmt::LowerHex for DidCellWitnessDataV0 {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        use molecule::hex_string;
+        if f.alternate() {
+            write!(f, "0x")?;
+        }
+        write!(f, "{}", hex_string(self.as_slice()))
+    }
+}
+impl ::core::fmt::Debug for DidCellWitnessDataV0 {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{}({:#x})", Self::NAME, self)
+    }
+}
+impl ::core::fmt::Display for DidCellWitnessDataV0 {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{} {{ ", Self::NAME)?;
+        write!(f, "{}: {}", "records", self.records())?;
+        let extra_count = self.count_extra_fields();
+        if extra_count != 0 {
+            write!(f, ", .. ({} fields)", extra_count)?;
+        }
+        write!(f, " }}")
+    }
+}
+impl ::core::default::Default for DidCellWitnessDataV0 {
+    fn default() -> Self {
+        let v: Vec<u8> = vec![12, 0, 0, 0, 8, 0, 0, 0, 4, 0, 0, 0];
+        DidCellWitnessDataV0::new_unchecked(v.into())
+    }
+}
+impl DidCellWitnessDataV0 {
+    pub const FIELD_COUNT: usize = 1;
+    pub fn total_size(&self) -> usize {
+        molecule::unpack_number(self.as_slice()) as usize
+    }
+    pub fn field_count(&self) -> usize {
+        if self.total_size() == molecule::NUMBER_SIZE {
+            0
+        } else {
+            (molecule::unpack_number(&self.as_slice()[molecule::NUMBER_SIZE..]) as usize / 4) - 1
+        }
+    }
+    pub fn count_extra_fields(&self) -> usize {
+        self.field_count() - Self::FIELD_COUNT
+    }
+    pub fn has_extra_fields(&self) -> bool {
+        Self::FIELD_COUNT != self.field_count()
+    }
+    pub fn records(&self) -> Records {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[4..]) as usize;
+        if self.has_extra_fields() {
+            let end = molecule::unpack_number(&slice[8..]) as usize;
+            Records::new_unchecked(self.0.slice(start..end))
+        } else {
+            Records::new_unchecked(self.0.slice(start..))
+        }
+    }
+    pub fn as_reader<'r>(&'r self) -> DidCellWitnessDataV0Reader<'r> {
+        DidCellWitnessDataV0Reader::new_unchecked(self.as_slice())
+    }
+}
+impl molecule::prelude::Entity for DidCellWitnessDataV0 {
+    type Builder = DidCellWitnessDataV0Builder;
+    const NAME: &'static str = "DidCellWitnessDataV0";
+    fn new_unchecked(data: molecule::bytes::Bytes) -> Self {
+        DidCellWitnessDataV0(data)
+    }
+    fn as_bytes(&self) -> molecule::bytes::Bytes {
+        self.0.clone()
+    }
+    fn as_slice(&self) -> &[u8] {
+        &self.0[..]
+    }
+    fn from_slice(slice: &[u8]) -> molecule::error::VerificationResult<Self> {
+        DidCellWitnessDataV0Reader::from_slice(slice).map(|reader| reader.to_entity())
+    }
+    fn from_compatible_slice(slice: &[u8]) -> molecule::error::VerificationResult<Self> {
+        DidCellWitnessDataV0Reader::from_compatible_slice(slice).map(|reader| reader.to_entity())
+    }
+    fn new_builder() -> Self::Builder {
+        ::core::default::Default::default()
+    }
+    fn as_builder(self) -> Self::Builder {
+        Self::new_builder().records(self.records())
+    }
+}
+#[derive(Clone, Copy)]
+pub struct DidCellWitnessDataV0Reader<'r>(&'r [u8]);
+impl<'r> ::core::fmt::LowerHex for DidCellWitnessDataV0Reader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        use molecule::hex_string;
+        if f.alternate() {
+            write!(f, "0x")?;
+        }
+        write!(f, "{}", hex_string(self.as_slice()))
+    }
+}
+impl<'r> ::core::fmt::Debug for DidCellWitnessDataV0Reader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{}({:#x})", Self::NAME, self)
+    }
+}
+impl<'r> ::core::fmt::Display for DidCellWitnessDataV0Reader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{} {{ ", Self::NAME)?;
+        write!(f, "{}: {}", "records", self.records())?;
+        let extra_count = self.count_extra_fields();
+        if extra_count != 0 {
+            write!(f, ", .. ({} fields)", extra_count)?;
+        }
+        write!(f, " }}")
+    }
+}
+impl<'r> DidCellWitnessDataV0Reader<'r> {
+    pub const FIELD_COUNT: usize = 1;
+    pub fn total_size(&self) -> usize {
+        molecule::unpack_number(self.as_slice()) as usize
+    }
+    pub fn field_count(&self) -> usize {
+        if self.total_size() == molecule::NUMBER_SIZE {
+            0
+        } else {
+            (molecule::unpack_number(&self.as_slice()[molecule::NUMBER_SIZE..]) as usize / 4) - 1
+        }
+    }
+    pub fn count_extra_fields(&self) -> usize {
+        self.field_count() - Self::FIELD_COUNT
+    }
+    pub fn has_extra_fields(&self) -> bool {
+        Self::FIELD_COUNT != self.field_count()
+    }
+    pub fn records(&self) -> RecordsReader<'r> {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[4..]) as usize;
+        if self.has_extra_fields() {
+            let end = molecule::unpack_number(&slice[8..]) as usize;
+            RecordsReader::new_unchecked(&self.as_slice()[start..end])
+        } else {
+            RecordsReader::new_unchecked(&self.as_slice()[start..])
+        }
+    }
+}
+impl<'r> molecule::prelude::Reader<'r> for DidCellWitnessDataV0Reader<'r> {
+    type Entity = DidCellWitnessDataV0;
+    const NAME: &'static str = "DidCellWitnessDataV0Reader";
+    fn to_entity(&self) -> Self::Entity {
+        Self::Entity::new_unchecked(self.as_slice().to_owned().into())
+    }
+    fn new_unchecked(slice: &'r [u8]) -> Self {
+        DidCellWitnessDataV0Reader(slice)
+    }
+    fn as_slice(&self) -> &'r [u8] {
+        self.0
+    }
+    fn verify(slice: &[u8], compatible: bool) -> molecule::error::VerificationResult<()> {
+        use molecule::verification_error as ve;
+        let slice_len = slice.len();
+        if slice_len < molecule::NUMBER_SIZE {
+            return ve!(Self, HeaderIsBroken, molecule::NUMBER_SIZE, slice_len);
+        }
+        let total_size = molecule::unpack_number(slice) as usize;
+        if slice_len != total_size {
+            return ve!(Self, TotalSizeNotMatch, total_size, slice_len);
+        }
+        if slice_len == molecule::NUMBER_SIZE && Self::FIELD_COUNT == 0 {
+            return Ok(());
+        }
+        if slice_len < molecule::NUMBER_SIZE * 2 {
+            return ve!(Self, HeaderIsBroken, molecule::NUMBER_SIZE * 2, slice_len);
+        }
+        let offset_first = molecule::unpack_number(&slice[molecule::NUMBER_SIZE..]) as usize;
+        if offset_first % molecule::NUMBER_SIZE != 0 || offset_first < molecule::NUMBER_SIZE * 2 {
+            return ve!(Self, OffsetsNotMatch);
+        }
+        if slice_len < offset_first {
+            return ve!(Self, HeaderIsBroken, offset_first, slice_len);
+        }
+        let field_count = offset_first / molecule::NUMBER_SIZE - 1;
+        if field_count < Self::FIELD_COUNT {
+            return ve!(Self, FieldCountNotMatch, Self::FIELD_COUNT, field_count);
+        } else if !compatible && field_count > Self::FIELD_COUNT {
+            return ve!(Self, FieldCountNotMatch, Self::FIELD_COUNT, field_count);
+        };
+        let mut offsets: Vec<usize> = slice[molecule::NUMBER_SIZE..offset_first]
+            .chunks_exact(molecule::NUMBER_SIZE)
+            .map(|x| molecule::unpack_number(x) as usize)
+            .collect();
+        offsets.push(total_size);
+        if offsets.windows(2).any(|i| i[0] > i[1]) {
+            return ve!(Self, OffsetsNotMatch);
+        }
+        RecordsReader::verify(&slice[offsets[0]..offsets[1]], compatible)?;
+        Ok(())
+    }
+}
+#[derive(Debug, Default)]
+pub struct DidCellWitnessDataV0Builder {
+    pub(crate) records: Records,
+}
+impl DidCellWitnessDataV0Builder {
+    pub const FIELD_COUNT: usize = 1;
+    pub fn records(mut self, v: Records) -> Self {
+        self.records = v;
+        self
+    }
+}
+impl molecule::prelude::Builder for DidCellWitnessDataV0Builder {
+    type Entity = DidCellWitnessDataV0;
+    const NAME: &'static str = "DidCellWitnessDataV0Builder";
+    fn expected_length(&self) -> usize {
+        molecule::NUMBER_SIZE * (Self::FIELD_COUNT + 1) + self.records.as_slice().len()
+    }
+    fn write<W: molecule::io::Write>(&self, writer: &mut W) -> molecule::io::Result<()> {
+        let mut total_size = molecule::NUMBER_SIZE * (Self::FIELD_COUNT + 1);
+        let mut offsets = Vec::with_capacity(Self::FIELD_COUNT);
+        offsets.push(total_size);
+        total_size += self.records.as_slice().len();
+        writer.write_all(&molecule::pack_number(total_size as molecule::Number))?;
+        for offset in offsets.into_iter() {
+            writer.write_all(&molecule::pack_number(offset as molecule::Number))?;
+        }
+        writer.write_all(self.records.as_slice())?;
+        Ok(())
+    }
+    fn build(&self) -> Self::Entity {
+        let mut inner = Vec::with_capacity(self.expected_length());
+        self.write(&mut inner)
+            .unwrap_or_else(|_| panic!("{} build should be ok", Self::NAME));
+        DidCellWitnessDataV0::new_unchecked(inner.into())
+    }
+}
+#[derive(Clone)]
+pub struct WitnessData(molecule::bytes::Bytes);
+impl ::core::fmt::LowerHex for WitnessData {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        use molecule::hex_string;
+        if f.alternate() {
+            write!(f, "0x")?;
+        }
+        write!(f, "{}", hex_string(self.as_slice()))
+    }
+}
+impl ::core::fmt::Debug for WitnessData {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{}({:#x})", Self::NAME, self)
+    }
+}
+impl ::core::fmt::Display for WitnessData {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{}(", Self::NAME)?;
+        self.to_enum().display_inner(f)?;
+        write!(f, ")")
+    }
+}
+impl ::core::default::Default for WitnessData {
+    fn default() -> Self {
+        let v: Vec<u8> = vec![0, 0, 0, 0, 12, 0, 0, 0, 8, 0, 0, 0, 4, 0, 0, 0];
+        WitnessData::new_unchecked(v.into())
+    }
+}
+impl WitnessData {
+    pub const ITEMS_COUNT: usize = 1;
+    pub fn item_id(&self) -> molecule::Number {
+        molecule::unpack_number(self.as_slice())
+    }
+    pub fn to_enum(&self) -> WitnessDataUnion {
+        let inner = self.0.slice(molecule::NUMBER_SIZE..);
+        match self.item_id() {
+            0 => DidCellWitnessDataV0::new_unchecked(inner).into(),
+            _ => panic!("{}: invalid data", Self::NAME),
+        }
+    }
+    pub fn as_reader<'r>(&'r self) -> WitnessDataReader<'r> {
+        WitnessDataReader::new_unchecked(self.as_slice())
+    }
+}
+impl molecule::prelude::Entity for WitnessData {
+    type Builder = WitnessDataBuilder;
+    const NAME: &'static str = "WitnessData";
+    fn new_unchecked(data: molecule::bytes::Bytes) -> Self {
+        WitnessData(data)
+    }
+    fn as_bytes(&self) -> molecule::bytes::Bytes {
+        self.0.clone()
+    }
+    fn as_slice(&self) -> &[u8] {
+        &self.0[..]
+    }
+    fn from_slice(slice: &[u8]) -> molecule::error::VerificationResult<Self> {
+        WitnessDataReader::from_slice(slice).map(|reader| reader.to_entity())
+    }
+    fn from_compatible_slice(slice: &[u8]) -> molecule::error::VerificationResult<Self> {
+        WitnessDataReader::from_compatible_slice(slice).map(|reader| reader.to_entity())
+    }
+    fn new_builder() -> Self::Builder {
+        ::core::default::Default::default()
+    }
+    fn as_builder(self) -> Self::Builder {
+        Self::new_builder().set(self.to_enum())
+    }
+}
+#[derive(Clone, Copy)]
+pub struct WitnessDataReader<'r>(&'r [u8]);
+impl<'r> ::core::fmt::LowerHex for WitnessDataReader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        use molecule::hex_string;
+        if f.alternate() {
+            write!(f, "0x")?;
+        }
+        write!(f, "{}", hex_string(self.as_slice()))
+    }
+}
+impl<'r> ::core::fmt::Debug for WitnessDataReader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{}({:#x})", Self::NAME, self)
+    }
+}
+impl<'r> ::core::fmt::Display for WitnessDataReader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{}(", Self::NAME)?;
+        self.to_enum().display_inner(f)?;
+        write!(f, ")")
+    }
+}
+impl<'r> WitnessDataReader<'r> {
+    pub const ITEMS_COUNT: usize = 1;
+    pub fn item_id(&self) -> molecule::Number {
+        molecule::unpack_number(self.as_slice())
+    }
+    pub fn to_enum(&self) -> WitnessDataUnionReader<'r> {
+        let inner = &self.as_slice()[molecule::NUMBER_SIZE..];
+        match self.item_id() {
+            0 => DidCellWitnessDataV0Reader::new_unchecked(inner).into(),
+            _ => panic!("{}: invalid data", Self::NAME),
+        }
+    }
+}
+impl<'r> molecule::prelude::Reader<'r> for WitnessDataReader<'r> {
+    type Entity = WitnessData;
+    const NAME: &'static str = "WitnessDataReader";
+    fn to_entity(&self) -> Self::Entity {
+        Self::Entity::new_unchecked(self.as_slice().to_owned().into())
+    }
+    fn new_unchecked(slice: &'r [u8]) -> Self {
+        WitnessDataReader(slice)
+    }
+    fn as_slice(&self) -> &'r [u8] {
+        self.0
+    }
+    fn verify(slice: &[u8], compatible: bool) -> molecule::error::VerificationResult<()> {
+        use molecule::verification_error as ve;
+        let slice_len = slice.len();
+        if slice_len < molecule::NUMBER_SIZE {
+            return ve!(Self, HeaderIsBroken, molecule::NUMBER_SIZE, slice_len);
+        }
+        let item_id = molecule::unpack_number(slice);
+        let inner_slice = &slice[molecule::NUMBER_SIZE..];
+        match item_id {
+            0 => DidCellWitnessDataV0Reader::verify(inner_slice, compatible),
+            _ => ve!(Self, UnknownItem, Self::ITEMS_COUNT, item_id),
+        }?;
+        Ok(())
+    }
+}
+#[derive(Debug, Default)]
+pub struct WitnessDataBuilder(pub(crate) WitnessDataUnion);
+impl WitnessDataBuilder {
+    pub const ITEMS_COUNT: usize = 1;
+    pub fn set<I>(mut self, v: I) -> Self
+    where
+        I: ::core::convert::Into<WitnessDataUnion>,
+    {
+        self.0 = v.into();
+        self
+    }
+}
+impl molecule::prelude::Builder for WitnessDataBuilder {
+    type Entity = WitnessData;
+    const NAME: &'static str = "WitnessDataBuilder";
+    fn expected_length(&self) -> usize {
+        molecule::NUMBER_SIZE + self.0.as_slice().len()
+    }
+    fn write<W: molecule::io::Write>(&self, writer: &mut W) -> molecule::io::Result<()> {
+        writer.write_all(&molecule::pack_number(self.0.item_id()))?;
+        writer.write_all(self.0.as_slice())
+    }
+    fn build(&self) -> Self::Entity {
+        let mut inner = Vec::with_capacity(self.expected_length());
+        self.write(&mut inner)
+            .unwrap_or_else(|_| panic!("{} build should be ok", Self::NAME));
+        WitnessData::new_unchecked(inner.into())
+    }
+}
+#[derive(Debug, Clone)]
+pub enum WitnessDataUnion {
+    DidCellWitnessDataV0(DidCellWitnessDataV0),
+}
+#[derive(Debug, Clone, Copy)]
+pub enum WitnessDataUnionReader<'r> {
+    DidCellWitnessDataV0(DidCellWitnessDataV0Reader<'r>),
+}
+impl ::core::default::Default for WitnessDataUnion {
+    fn default() -> Self {
+        WitnessDataUnion::DidCellWitnessDataV0(::core::default::Default::default())
+    }
+}
+impl ::core::fmt::Display for WitnessDataUnion {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        match self {
+            WitnessDataUnion::DidCellWitnessDataV0(ref item) => {
+                write!(f, "{}::{}({})", Self::NAME, DidCellWitnessDataV0::NAME, item)
+            }
+        }
+    }
+}
+impl<'r> ::core::fmt::Display for WitnessDataUnionReader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        match self {
+            WitnessDataUnionReader::DidCellWitnessDataV0(ref item) => {
+                write!(f, "{}::{}({})", Self::NAME, DidCellWitnessDataV0::NAME, item)
+            }
+        }
+    }
+}
+impl WitnessDataUnion {
+    pub(crate) fn display_inner(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        match self {
+            WitnessDataUnion::DidCellWitnessDataV0(ref item) => write!(f, "{}", item),
+        }
+    }
+}
+impl<'r> WitnessDataUnionReader<'r> {
+    pub(crate) fn display_inner(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        match self {
+            WitnessDataUnionReader::DidCellWitnessDataV0(ref item) => write!(f, "{}", item),
+        }
+    }
+}
+impl ::core::convert::From<DidCellWitnessDataV0> for WitnessDataUnion {
+    fn from(item: DidCellWitnessDataV0) -> Self {
+        WitnessDataUnion::DidCellWitnessDataV0(item)
+    }
+}
+impl<'r> ::core::convert::From<DidCellWitnessDataV0Reader<'r>> for WitnessDataUnionReader<'r> {
+    fn from(item: DidCellWitnessDataV0Reader<'r>) -> Self {
+        WitnessDataUnionReader::DidCellWitnessDataV0(item)
+    }
+}
+impl WitnessDataUnion {
+    pub const NAME: &'static str = "WitnessDataUnion";
+    pub fn as_bytes(&self) -> molecule::bytes::Bytes {
+        match self {
+            WitnessDataUnion::DidCellWitnessDataV0(item) => item.as_bytes(),
+        }
+    }
+    pub fn as_slice(&self) -> &[u8] {
+        match self {
+            WitnessDataUnion::DidCellWitnessDataV0(item) => item.as_slice(),
+        }
+    }
+    pub fn item_id(&self) -> molecule::Number {
+        match self {
+            WitnessDataUnion::DidCellWitnessDataV0(_) => 0,
+        }
+    }
+    pub fn item_name(&self) -> &str {
+        match self {
+            WitnessDataUnion::DidCellWitnessDataV0(_) => "DidCellWitnessDataV0",
+        }
+    }
+    pub fn as_reader<'r>(&'r self) -> WitnessDataUnionReader<'r> {
+        match self {
+            WitnessDataUnion::DidCellWitnessDataV0(item) => item.as_reader().into(),
+        }
+    }
+}
+impl<'r> WitnessDataUnionReader<'r> {
+    pub const NAME: &'r str = "WitnessDataUnionReader";
+    pub fn as_slice(&self) -> &'r [u8] {
+        match self {
+            WitnessDataUnionReader::DidCellWitnessDataV0(item) => item.as_slice(),
+        }
+    }
+    pub fn item_id(&self) -> molecule::Number {
+        match self {
+            WitnessDataUnionReader::DidCellWitnessDataV0(_) => 0,
+        }
+    }
+    pub fn item_name(&self) -> &str {
+        match self {
+            WitnessDataUnionReader::DidCellWitnessDataV0(_) => "DidCellWitnessDataV0",
+        }
     }
 }

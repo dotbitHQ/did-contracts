@@ -24,7 +24,7 @@ use molecule::prelude::{Builder, Entity};
 use num_enum::{TryFromPrimitive, TryFromPrimitiveError};
 #[cfg(not(feature = "no_std"))]
 use serde::{Deserialize, Serialize};
-use strum::{Display, EnumString};
+use strum::{Display, EnumString, FromRepr};
 
 use super::schemas::packed::{self, Hash, Script, Uint32, Uint32Reader};
 
@@ -40,6 +40,10 @@ pub const PRESERVED_ACCOUNT_CELL_COUNT: u8 = 20;
 
 pub const CKB_HASH_DIGEST: usize = 32;
 pub const CKB_HASH_PERSONALIZATION: &[u8] = b"ckb-default-hash";
+
+pub const TYPE_ID_CODE_HASH: [u8; 32] = [
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 84, 89, 80, 69, 95, 73, 68,
+];
 
 #[derive(Debug, Copy, Clone, TryFromPrimitive, EnumString, Display, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(not(feature = "no_std"), derive(Hash))]
@@ -61,21 +65,22 @@ pub enum DataType {
     DeviceKeyListEntityData,
     SubAccountRenewSign,
     DeviceKeyListCellData,
-    ConfigCellAccount = 100,              // args: 0x64000000
-    ConfigCellApply = 101,                // args: 0x65000000
-    ConfigCellIncome = 103,               // args: 0x67000000
-    ConfigCellMain,                       // args: 0x68000000
-    ConfigCellPrice,                      // args: 0x69000000
-    ConfigCellProposal,                   // args: 0x6a000000
-    ConfigCellProfitRate,                 // args: 0x6b000000
-    ConfigCellRecordKeyNamespace,         // args: 0x6c000000
-    ConfigCellRelease,                    // args: 0x6d000000
-    ConfigCellUnAvailableAccount,         // args: 0x6e000000
-    ConfigCellSecondaryMarket,            // args: 0x6f000000
-    ConfigCellReverseResolution,          // args: 0x70000000
-    ConfigCellSubAccount,                 // args: 0x71000000
-    ConfigCellSubAccountBetaList,         // args: 0x72000000
-    ConfigCellSystemStatus,               // args: 0x73000000
+    ConfigCellAccount = 100,      // args: 0x64000000
+    ConfigCellApply = 101,        // args: 0x65000000
+    ConfigCellIncome = 103,       // args: 0x67000000
+    ConfigCellMain,               // args: 0x68000000
+    ConfigCellPrice,              // args: 0x69000000
+    ConfigCellProposal,           // args: 0x6a000000
+    ConfigCellProfitRate,         // args: 0x6b000000
+    ConfigCellRecordKeyNamespace, // args: 0x6c000000
+    ConfigCellRelease,            // args: 0x6d000000
+    ConfigCellUnAvailableAccount, // args: 0x6e000000
+    ConfigCellSecondaryMarket,    // args: 0x6f000000
+    ConfigCellReverseResolution,  // args: 0x70000000
+    ConfigCellSubAccount,         // args: 0x71000000
+    // TODO Remove ConfigCellSubAccountBetaList
+    ConfigCellSubAccountBetaList,      // args: 0x72000000
+    ConfigCellSystemStatus = 115,         // args: 0x73000000
     ConfigCellSMTNodeWhitelist,           // args: 0x74000000
     ConfigCellDPoint,                     // args: 0x75000000
     ConfigCellPreservedAccount00 = 10000, // args: 0x10270000
@@ -178,14 +183,16 @@ pub enum ProposalSliceItemType {
     New,
 }
 
-#[derive(Debug, PartialEq, Copy, Clone)]
+#[derive(Debug, PartialEq, Copy, Clone, FromRepr)]
 #[repr(u8)]
 pub enum AccountStatus {
     Normal,
     Selling,
     Auction,
+    // #[deprecated]
     LockedForCrossChain,
-    ApprovedTransfer,
+    ApprovedTransfer = 4,
+    Upgraded = 0x99,
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]
@@ -213,10 +220,10 @@ pub enum TypeScript {
     AccountCellType,
     #[strum(serialize = "account-sale-cell-type")]
     AccountSaleCellType,
-    #[strum(serialize = "account-auction-cell-type")]
-    AccountAuctionCellType,
+    // #[strum(serialize = "account-auction-cell-type")]
+    // AccountAuctionCellType,
     #[strum(serialize = "apply-register-cell-type")]
-    ApplyRegisterCellType,
+    ApplyRegisterCellType = 3,
     #[strum(serialize = "balance-cell-type")]
     BalanceCellType,
     #[strum(serialize = "config-cell-type")]
@@ -237,6 +244,8 @@ pub enum TypeScript {
     ReverseRecordRootCellType,
     #[strum(serialize = "dpoint-cell-type")]
     DPointCellType,
+    #[strum(serialize = "did-cell-type")]
+    DidCellType,
     #[strum(serialize = "eip-lib")]
     EIP712Lib,
     #[strum(serialize = "device-key-list-cell-type")]
@@ -255,6 +264,7 @@ pub enum DasLockType {
     MIXIN,
     Doge,
     WebAuthn,
+    BTC,
 }
 
 #[derive(Debug, PartialEq, Copy, Clone, TryFromPrimitive)]
@@ -385,6 +395,8 @@ pub enum Action {
     EditRecords,
     #[strum(serialize = "renew_account")]
     RenewAccount,
+    #[strum(serialize = "upgrade_did")]
+    UpgradeDid,
     #[strum(serialize = "retract_reverse_record")]
     RetractReverseRecord,
     #[strum(serialize = "create_reverse_record_root")]
@@ -400,9 +412,9 @@ pub enum Action {
     #[strum(serialize = "fulfill_approval")]
     FulfillApproval,
     #[strum(serialize = "lock_account_for_cross_chain")]
-    LockAccountForCrossChain,
+    LockAccountForCrossChain, // deprecated
     #[strum(serialize = "unlock_account_for_cross_chain")]
-    UnlockAccountForCrossChain,
+    UnlockAccountForCrossChain, // deprecated
     #[strum(serialize = "force_recover_account_status")]
     ForceRecoverAccountStatus,
     #[strum(serialize = "recycle_expired_account")]
@@ -500,6 +512,7 @@ impl Action {
 }
 #[derive(Clone, Debug, Default, PartialEq)]
 pub enum ActionParams {
+    #[deprecated]
     LockAccountForCrossChain {
         coin_type: u64,
         chain_id: u64,
@@ -524,16 +537,13 @@ impl ActionParams {
                 channel_lock_bytes: _,
                 role,
             } => Some(*role),
-            Self::LockAccountForCrossChain {
-                coin_type: _,
-                chain_id: _,
-                role,
-            } => Some(*role),
             Self::Role(role) => Some(*role),
             _ => None,
         }
     }
 }
+
+pub type ActionParamsData = Vec<Vec<u8>>;
 
 pub fn super_lock() -> &'static Script {
     static mut SUPER_LOCK: OnceCell<Script> = OnceCell::new();
@@ -577,17 +587,17 @@ pub fn wallet_lock() -> &'static Script {
     }
 }
 
-pub fn cross_chain_lock() -> &'static Script {
-    static mut CROSS_CHAIN_LOCK: OnceCell<Script> = OnceCell::new();
+pub fn migrat_lock() -> &'static Script {
+    static mut MIGRAT_LOCK: OnceCell<Script> = OnceCell::new();
 
-    let code_hash = env!("CROSS_CHAIN_CODE_HASH").trim_start_matches("0x");
-    let code_hash = hex::decode(code_hash).expect("The CROSS_CHAIN_CODE_HASH should be a hex string.");
+    let code_hash = env!("MIGRAT_CODE_HASH").trim_start_matches("0x");
+    let code_hash = hex::decode(code_hash).expect("The MIGRAT_CODE_HASH should be a hex string.");
 
-    let args = env!("CROSS_CHAIN_ARGS").trim_start_matches("0x");
-    let args = hex::decode(args).expect("The CROSS_CHAIN_ARGS should be a hex string.");
+    let args = env!("MIGRAT_ARGS").trim_start_matches("0x");
+    let args = hex::decode(args).expect("The MIGRAT_ARGS should be a hex string.");
 
     unsafe {
-        CROSS_CHAIN_LOCK.get_or_init(|| {
+        MIGRAT_LOCK.get_or_init(|| {
             let script = Script::new_builder()
                 .code_hash(Hash::try_from(code_hash).unwrap())
                 .hash_type(Byte::new(ScriptHashType::Type.into()))
@@ -640,6 +650,7 @@ pub fn get_das_lock_type_id() -> Vec<u8> {
     let type_id = env!("DAS_LOCK_TYPE_ID").trim_start_matches("0x");
     hex::decode(type_id).expect("The DAS_LOCK_TYPE_ID should be a hex string.")
 }
+
 pub fn always_success_lock() -> &'static Script {
     static mut ALWAYS_SUCCESS_LOCK: OnceCell<Script> = OnceCell::new();
 
@@ -765,5 +776,63 @@ pub fn height_cell_type() -> &'static Script {
                 .build();
             script
         })
+    }
+}
+
+pub fn get_account_cell_type_id() -> &'static [u8; 32] {
+    static TYPE_ID_HEX: &'static str = env!("ACCOUNT_CELL_TYPE_ID");
+    static mut TYPE_ID: OnceCell<[u8; 32]> = OnceCell::new();
+
+    unsafe {
+        TYPE_ID.get_or_init(|| {
+            let type_id_str = TYPE_ID_HEX.trim_start_matches("0x");
+            let bytes = hex::decode(type_id_str).unwrap();
+
+            let mut type_id = [0u8; 32];
+            type_id.copy_from_slice(&bytes);
+            type_id
+        })
+    }
+}
+
+pub fn get_did_cell_type_id() -> &'static [u8; 32] {
+    static TYPE_ID_HEX: &'static str = env!("DID_CELL_TYPE_ID");
+    static mut TYPE_ID: OnceCell<[u8; 32]> = OnceCell::new();
+
+    unsafe {
+        TYPE_ID.get_or_init(|| {
+            let type_id_str = TYPE_ID_HEX.trim_start_matches("0x");
+            let bytes = hex::decode(type_id_str).unwrap();
+
+            let mut type_id = [0u8; 32];
+            type_id.copy_from_slice(&bytes);
+            type_id
+        })
+    }
+}
+
+pub fn get_cluster_id() -> &'static Vec<u8> {
+    static TYPE_ID_HEX: &'static str = env!("SPORE_DATA_CLUSTER_ID");
+    static mut TYPE_ID: OnceCell<Vec<u8>> = OnceCell::new();
+
+    unsafe {
+        TYPE_ID.get_or_init(|| {
+            let type_id = TYPE_ID_HEX.trim_start_matches("0x");
+            hex::decode(type_id).unwrap()
+        })
+    }
+}
+
+pub fn get_recycle_indiator_tx() -> &'static Vec<u8> {
+    static TX_HASH_HEX: &'static str = env!("RECYCLE_INDIATOR_TX");
+    static mut TX_HASH: Option<Vec<u8>> = None;
+
+    unsafe {
+        if TX_HASH.is_none() {
+            let tx_hash = TX_HASH_HEX.trim_start_matches("0x");
+            TX_HASH = Some(hex::decode(tx_hash).unwrap());
+        }
+
+        TX_HASH.as_ref().unwrap()
     }
 }

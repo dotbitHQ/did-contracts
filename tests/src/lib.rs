@@ -23,4 +23,6 @@ mod sub_account_cell_type;
 mod uint;
 mod witness_parser;
 
+mod did_cell_type;
+
 mod gen_type_id_table;

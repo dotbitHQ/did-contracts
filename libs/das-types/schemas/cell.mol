@@ -47,6 +47,7 @@ table DasLockOutPointTable {
     tron: OutPoint,
     ed25519: OutPoint,
     web_authn: OutPoint,
+    btc: OutPoint,
 }
 
 table DasLockTypeIdTable {
@@ -57,6 +58,7 @@ table DasLockTypeIdTable {
     tron: Hash,
     doge: Hash,
     web_authn: Hash,
+    btc: Hash,
 }
 
 table ConfigCellAccount {
@@ -592,7 +594,6 @@ struct DeviceKey {
     pubkey: Byte10,
 }
 
-
 vector DeviceKeyList <DeviceKey>;
 
 table DeviceKeyListCellData {
@@ -619,3 +620,62 @@ table Config {
 table OrderInfo {
     memo: Bytes,
 }
+
+/* Did Cell realated molecule types */
+
+// did-cell-type data molecule
+table SporeData {
+    content_type: Bytes, // default empty
+    content: Bytes, // <- account data will store here
+    cluster_id: BytesOpt, // 32 bytes hash
+}
+
+// did-cell-data in lv
+// [0] [version; u8|1byte][witness_hash; 20bytes][expire_at: 8bytes|uint64][account; n bytes]
+
+// use union will add extra 3 bytes
+union DidCellData {
+    DidCellDataV0,
+}
+
+table DidCellDataV0 {
+    witness_hash: Byte20,
+    expire_at: Uint64,
+    account: Bytes,
+}
+
+// encode DidCellData in DidCell's data field
+/*
+    <DidCellData molecule bytes>
+*/
+
+struct CellMeta {
+    source: byte, // input = 0/output = 1/deps = 2
+    index: Uint64,
+}
+
+option CellMetaOpt (CellMeta);
+option Byte20Opt (Byte20);
+
+// an update to old table data
+// use new target field to replace `new/old/dep`
+// one witness refers to one cell
+table DidEntity {
+    data: WitnessData,
+    target: CellMetaOpt,
+    hash: Byte20Opt,
+}
+
+table DidCellWitnessDataV0 {
+    records: Records,
+}
+
+// use union to implement version control
+union WitnessData {
+    DidCellWitnessDataV0,
+}
+
+// encode DidEntity in witness
+/*
+    DID + DidEntity
+*/

@@ -12,6 +12,7 @@
 
 // define modules
 mod approval;
+mod did_cell_related;
 mod entry;
 
 use ckb_std::default_alloc;
