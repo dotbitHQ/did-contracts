@@ -9,7 +9,9 @@ use core::result::Result;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
-use das_core::config::Config;
+use config::configs::entity_config::{ConfigAccount, ConfigPrice};
+use config::constants::FieldKey;
+use config::Config;
 use das_core::constants::*;
 use das_core::error::*;
 use das_core::since_util::SinceFlag;
@@ -43,13 +45,13 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
         Action::PreRegister => {
             debug!("Find out PreAccountCell ...");
 
-            let config_main_reader = Config::get_instance().main()?;
+            let config_main = Config::get_instance().main()?;
 
             debug!("Parse cells in transaction ...");
 
             let dep_account_cells = util::find_cells_by_type_id(
                 ScriptType::Type,
-                config_main_reader.type_id_table().account_cell(),
+                config_main.get_type_id_of(FieldKey::AccountCellTypeArgs)?,
                 Source::CellDep,
             )?;
 
@@ -58,7 +60,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let (input_apply_register_cells, output_apply_register_cells) =
                 util::find_cells_by_type_id_in_inputs_and_outputs(
                     ScriptType::Type,
-                    config_main_reader.type_id_table().apply_register_cell(),
+                    config_main.get_type_id_of(FieldKey::ApplyRegisterCellTypeArgs)?,
                 )?;
 
             verifiers::common::verify_cell_number(
@@ -73,8 +75,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             verifiers::common::verify_cell_number("PreRegisterCell", &input_cells, 0, &output_cells, 1)?;
 
             debug!("Read data of ApplyRegisterCell ...");
-
-            let config_apply_reader = Config::get_instance().apply()?;
 
             // Read the hash from outputs_data of the ApplyRegisterCell.
             let index = &input_apply_register_cells[0];
@@ -93,7 +93,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             if cells_with_super_lock.len() > 0 {
                 debug!("Skip ApplyRegisterCell.data.since verification because of super lock.");
             } else {
-                verify_apply_height_with_since(index.to_owned(), config_apply_reader)?
+                verify_apply_height_with_since(index.to_owned())?
             }
 
             debug!("Read witness of PreAccountCell ...");
@@ -131,8 +131,13 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 &apply_register_hash,
             )?;
             verify_owner_lock_args(&pre_account_cell_witness_reader)?;
-            verify_invited_discount(config_price, &pre_account_cell_witness_reader)?;
-            verify_price_and_capacity(config_account, config_price, &pre_account_cell_witness_reader, capacity)?;
+            verify_invited_discount(&config_price, &pre_account_cell_witness_reader)?;
+            verify_price_and_capacity(
+                &config_account,
+                &config_price,
+                &pre_account_cell_witness_reader,
+                capacity,
+            )?;
             verify_account_id(&pre_account_cell_witness_reader, account_id)?;
             verify_account_not_exist(dep_account_cells[0], account_id)?;
 
@@ -151,25 +156,20 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 verify_account_length_and_years(&pre_account_cell_witness_reader, timestamp)?
             }
 
-            let config_release = Config::get_instance().release()?;
             if cells_with_super_lock.len() > 0 {
                 debug!("Skip account release status verification because of super lock.");
             } else {
-                verify_account_release_status(
-                    config_release,
-                    &pre_account_cell_witness_reader,
-                    input_apply_register_cells[0],
-                )?;
+                verify_account_release_status(&pre_account_cell_witness_reader, input_apply_register_cells[0])?;
             }
 
-            let account = pre_account_cell_witness_reader.account().as_readable();
+            let account_without_suffix = pre_account_cell_witness_reader.account().as_readable();
             if cells_with_super_lock.len() > 0 {
                 debug!("Skip preserved account verification because of super lock.");
             } else {
-                verifiers::account_cell::verify_preserved_accounts(&account)?
+                verifiers::account_cell::verify_preserved_accounts(&account_without_suffix)?
             }
 
-            verifiers::account_cell::verify_unavailable_accounts(&account)?;
+            verifiers::account_cell::verify_unavailable_accounts(&account_without_suffix)?;
 
             let chars_reader = pre_account_cell_witness_reader.account();
             verifiers::account_cell::verify_account_chars(chars_reader)?;
@@ -196,7 +196,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             }
         }
         Action::RefundPreRegister => {
-            let config_main_reader = Config::get_instance().main()?;
+            let config_main = Config::get_instance().main()?;
             let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
 
             verifiers::common::verify_cell_number_range(
@@ -292,7 +292,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
                 );
             }
 
-            verifiers::balance_cell::verify_das_lock_always_with_type(config_main_reader)?;
+            verifiers::balance_cell::verify_das_lock_always_with_type(&config_main)?;
         }
         _ => {
             return Err(code_to_error!(ErrorCode::ActionNotSupported));
@@ -302,19 +302,15 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
     Ok(())
 }
 
-fn verify_apply_height_with_since(
-    index: usize,
-    config_reader: ConfigCellApplyReader,
-) -> Result<(), Box<dyn ScriptError>> {
+fn verify_apply_height_with_since(index: usize) -> Result<(), Box<dyn ScriptError>> {
     debug!("Check if the ApplyRegisterCell has existed long enough ...");
+
+    let config_apply = Config::get_instance().apply()?;
 
     let mut expected_since = 0u64;
     expected_since = since_util::set_relative_flag(expected_since, SinceFlag::Relative);
     expected_since = since_util::set_metric_flag(expected_since, SinceFlag::Height);
-    expected_since = since_util::set_value(
-        expected_since,
-        u32::from(config_reader.apply_min_waiting_block_number()) as u64,
-    );
+    expected_since = since_util::set_value(expected_since, config_apply.apply_min_waiting_block_number() as u64);
 
     let since = high_level::load_input_since(index, Source::Input)?;
 
@@ -427,7 +423,7 @@ fn verify_quote<'a>(reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>) -> Res
 }
 
 fn verify_invited_discount<'a>(
-    config: ConfigCellPriceReader,
+    config: &ConfigPrice,
     reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>,
 ) -> Result<(), Box<dyn ScriptError>> {
     debug!("Check if PreAccountCell.witness.invited_discount is 0 or the same as configuration.");
@@ -489,8 +485,8 @@ fn verify_invited_discount<'a>(
 }
 
 fn verify_price_and_capacity<'a>(
-    config_account: ConfigCellAccountReader,
-    config_price: ConfigCellPriceReader,
+    config_account: &ConfigAccount,
+    config_price: &ConfigPrice,
     reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>,
     capacity: u64,
 ) -> Result<(), Box<dyn ScriptError>> {
@@ -553,13 +549,13 @@ fn verify_account_length_and_years<'a>(
     #[cfg(debug_assertions)]
     {
         use chrono::{DateTime, NaiveDateTime, Utc};
-        let _current = DateTime::<Utc>::from_utc(
+        let current: DateTime<Utc> = DateTime::from_naive_utc_and_offset(
             NaiveDateTime::from_timestamp_opt(_current_timestamp as i64, 0).unwrap(),
             Utc,
         );
         debug!(
             "Check if the account is available for registration now. (length: {}, current: {:#?})",
-            account_length, _current
+            account_length, current
         );
     }
 
@@ -575,11 +571,12 @@ fn verify_account_length_and_years<'a>(
 }
 
 fn verify_account_release_status<'a>(
-    config_release: ConfigCellReleaseReader,
     reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>,
     input_apply_register_cell: usize,
 ) -> Result<(), Box<dyn ScriptError>> {
     debug!("Check if account is released for registration.");
+
+    let config_release = Config::get_instance().release()?;
 
     if reader.account().len() >= 10 {
         debug!("Ths account contains more than 9 characters, skip verification.");
@@ -628,7 +625,7 @@ fn verify_account_release_status<'a>(
     let account: Vec<u8> = [reader.account().as_readable(), ACCOUNT_SUFFIX.as_bytes().to_vec()].concat();
     let hash = util::blake2b_das(account.as_slice());
     let lucky_num = u32::from_be_bytes((&hash[0..4]).try_into().unwrap());
-    let expected_lucky_num = u32::from(config_release.lucky_number());
+    let expected_lucky_num = config_release.lucky_number();
 
     // CAREFUL Triple check.
     assert!(

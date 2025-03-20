@@ -1,9 +1,10 @@
 use alloc::boxed::Box;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use core::convert::Into;
 use core::fmt;
 
 use ckb_std::error::SysError;
+use config::error::ConfigError;
 
 /// Error
 ///
@@ -25,12 +26,8 @@ pub enum ErrorCode {
     InitDayHasPassed,
     OracleCellIsRequired = 10,
     OracleCellDataDecodingError,
-    ConfigTypeIsUndefined,
-    ConfigIsPartialMissing,
-    ConfigCellIsRequired,
-    ConfigCellWitnessIsCorrupted,
-    ConfigCellWitnessDecodingError,
-    TxFeeSpentError,
+    ConfigError,
+    TxFeeSpentError = 17,
     DasLockArgsInvalid,
     CellLockCanNotBeModified = 20,
     CellTypeCanNotBeModified,
@@ -170,6 +167,19 @@ impl Into<i8> for ErrorCode {
     }
 }
 
+impl From<ConfigError> for ErrorCode {
+    fn from(err: ConfigError) -> Self {
+        warn!("ConfigError: {:?}", err.to_string());
+        Self::ConfigError
+    }
+}
+
+impl From<ConfigError> for Box<dyn ScriptError> {
+    fn from(err: ConfigError) -> Box<dyn ScriptError> {
+        Box::new(Error::new(ErrorCode::from(err), String::new()))
+    }
+}
+
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[repr(i8)]
 pub enum AccountCellErrorCode {
@@ -228,6 +238,9 @@ pub enum AccountCellErrorCode {
     ApprovalFulfillError,
     //87
     AccountCellBidPriceTooLow,
+    InvalidUpgradeTxStructure,
+    InvalidUpgradeCellData,
+    InvalidUpgradeAction,
 }
 
 impl From<SysError> for AccountCellErrorCode {

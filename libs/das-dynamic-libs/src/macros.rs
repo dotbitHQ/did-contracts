@@ -22,21 +22,21 @@ macro_rules! new_context {
 
 #[macro_export]
 macro_rules! log_loading {
-    ($name:expr, $type_id_table:expr) => {
+    ($name:expr, $type_id:expr) => {
         $crate::debug_log!(
             "Loading {} dynamic library with type ID 0x{} ...",
             $name,
-            $crate::util::hex_string($name.get_code_hash($type_id_table))
+            $crate::util::hex_string(&$type_id)
         );
     };
 }
 
 #[macro_export]
 macro_rules! load_lib {
-    ($context:expr, $name:expr, $type_id_table:expr) => {
+    ($context:expr, $type_id:expr) => {
         $context
             .load_by(
-                $name.get_code_hash($type_id_table),
+                &$type_id,
                 ckb_std::ckb_types::core::ScriptHashType::Type,
             )
             .expect("The shared lib should be loaded successfully.")
@@ -93,10 +93,10 @@ macro_rules! load_1_method {
 
 #[macro_export]
 macro_rules! load_and_configure_lib {
-    ($sign_lib:ident, $lib_name:ident, $type_id_table:ident, $sign_lib_field:ident, $load_methods_macro:ident) => {
+    ($sign_lib:ident, $lib_name:expr, $type_id:expr, $sign_lib_field:ident, $load_methods_macro:ident) => {
         let mut context = new_context!();
-        log_loading!(DynLibName::$lib_name, $type_id_table);
-        let lib = load_lib!(context, DynLibName::$lib_name, $type_id_table);
+        log_loading!($lib_name, $type_id);
+        let lib = load_lib!(context, $type_id);
         $sign_lib.$sign_lib_field = $load_methods_macro!(lib);
     };
 }

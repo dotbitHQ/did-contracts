@@ -3,12 +3,15 @@ array Uint32  [byte; 4];
 array Uint64  [byte; 8];
 
 array Byte10 [byte; 10];
+array Byte20 [byte; 20];
 
 // The following byte vector represents data of arbitrary length, whether it is utf-8 encoded or
 // another structure will depend on the meaning of the field.
 vector Bytes <byte>;
 
 vector BytesVec <Bytes>;
+
+option BytesOpt (Bytes);
 
 // The following array represents a fixed-length 32-byte array that is always used to store hashes.
 array Hash [byte; 32];

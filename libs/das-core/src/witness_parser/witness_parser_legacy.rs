@@ -7,8 +7,8 @@ use ckb_std::ckb_constants::Source;
 use ckb_std::error::SysError;
 use ckb_std::syscalls;
 use das_types::constants::{
-    always_success_lock, config_cell_type, das_lock, multisign_lock, signhash_lock, DataType, TypeScript,
-    WITNESS_HEADER, WITNESS_HEADER_BYTES, WITNESS_LENGTH_BYTES, WITNESS_TYPE_BYTES,
+    always_success_lock, config_cell_type, das_lock, multisign_lock, signhash_lock, DataType, WITNESS_HEADER,
+    WITNESS_HEADER_BYTES, WITNESS_LENGTH_BYTES, WITNESS_TYPE_BYTES,
 };
 use das_types::packed::*;
 use das_types::prelude::*;
@@ -16,14 +16,13 @@ use das_types::util as types_util;
 
 use super::super::constants::*;
 use super::super::error::*;
-use super::super::types::{Configs, LockScriptTypeIdTable};
+use super::super::types::LockScriptTypeIdTable;
 use super::super::util;
 use crate::util::load_data;
 
 #[derive(Debug)]
 pub struct WitnessesParserLegacy {
     pub witnesses: Vec<(usize, DataType)>,
-    pub configs: Configs,
     pub action: Vec<u8>,
     pub params: Vec<Bytes>,
     pub lock_type_id_table: LockScriptTypeIdTable,
@@ -118,7 +117,7 @@ impl WitnessesParserLegacy {
                                     // For any type of ConfigCell, there should be one Cell in the cell_deps, no more and no less.
                                     assert!(
                                         config_cells.len() == 1,
-                                        ErrorCode::ConfigCellIsRequired,
+                                        ErrorCode::ConfigError,
                                         "witnesses[{:>2}] There should be only one {:?} in cell_deps. (find_condition: {})",
                                         i,
                                         data_type,
@@ -179,7 +178,6 @@ impl WitnessesParserLegacy {
 
         Ok(WitnessesParserLegacy {
             witnesses,
-            configs: Configs::new(config_witnesses),
             action: Vec::new(),
             params: Vec::new(),
             lock_type_id_table,
@@ -243,25 +241,6 @@ impl WitnessesParserLegacy {
                     Bytes::from(bytes_of_role),
                 ]
             }
-            b"lock_account_for_cross_chain" => {
-                let bytes = action_data.as_reader().params().raw_data();
-
-                assert!(
-                    bytes.len() == 8 + 8 + 1,
-                    ErrorCode::ParamsDecodingError,
-                    "The params of this action should contains 8 bytes coin_type, 8 bytes chain_id and 1 byte role."
-                );
-
-                let coin_type = &bytes[0..8];
-                let chain_id = &bytes[8..16];
-                let role = bytes[16];
-
-                vec![
-                    Bytes::from(coin_type),
-                    Bytes::from(chain_id),
-                    Bytes::from(vec![role].as_slice()),
-                ]
-            }
             _ => {
                 if action_data.params().is_empty() {
                     Vec::new()
@@ -305,46 +284,6 @@ impl WitnessesParserLegacy {
             {
                 Some(LockScript::Secp256k1Blake160MultisigLock)
             }
-            _ => None,
-        }
-    }
-
-    pub fn get_type_script_type(&self, script_reader: ScriptReader) -> Option<TypeScript> {
-        if script_reader.hash_type().as_slice()[0] != ScriptHashType::Type as u8 {
-            return None;
-        }
-
-        let type_id_table_reader = self
-            .configs
-            .main()
-            .expect("Expect ConfigCellMain has been loaded.")
-            .type_id_table();
-
-        match script_reader.code_hash() {
-            x if util::is_reader_eq(x, type_id_table_reader.apply_register_cell()) => {
-                Some(TypeScript::ApplyRegisterCellType)
-            }
-            x if util::is_reader_eq(x, type_id_table_reader.account_cell()) => Some(TypeScript::AccountCellType),
-            x if util::is_reader_eq(x, type_id_table_reader.account_sale_cell()) => {
-                Some(TypeScript::AccountSaleCellType)
-            }
-            x if util::is_reader_eq(x, type_id_table_reader.account_auction_cell()) => {
-                Some(TypeScript::AccountAuctionCellType)
-            }
-            x if util::is_reader_eq(x, type_id_table_reader.balance_cell()) => Some(TypeScript::BalanceCellType),
-            x if util::is_reader_eq(x, type_id_table_reader.income_cell()) => Some(TypeScript::IncomeCellType),
-            x if util::is_reader_eq(x, type_id_table_reader.offer_cell()) => Some(TypeScript::OfferCellType),
-            x if util::is_reader_eq(x, type_id_table_reader.pre_account_cell()) => Some(TypeScript::PreAccountCellType),
-            x if util::is_reader_eq(x, type_id_table_reader.proposal_cell()) => Some(TypeScript::ProposalCellType),
-            x if util::is_reader_eq(x, type_id_table_reader.reverse_record_cell()) => {
-                Some(TypeScript::ReverseRecordCellType)
-            }
-            x if util::is_reader_eq(x, type_id_table_reader.sub_account_cell()) => Some(TypeScript::SubAccountCellType),
-            x if util::is_reader_eq(x, type_id_table_reader.reverse_record_root_cell()) => {
-                Some(TypeScript::ReverseRecordRootCellType)
-            }
-            x if util::is_reader_eq(x, type_id_table_reader.dpoint_cell()) => Some(TypeScript::DPointCellType),
-            x if util::is_reader_eq(x, self.config_cell_type_id.as_reader()) => Some(TypeScript::ConfigCellType),
             _ => None,
         }
     }

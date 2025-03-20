@@ -1,0 +1,29 @@
+[package]
+name = "did-cell-type"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+default = ["config/std"]
+dev = ["das-core/dev", "config/no_std"]
+local = ["das-core/local", "config/no_std"]
+testnet = ["das-core/testnet", "config/no_std"]
+mainnet = ["das-core/mainnet", "config/no_std"]
+
+# If the dependency supports both std and no-std, you can put it under [dependencies]
+[dependencies]
+ckb-std = { workspace = true }
+config = { workspace = true, optional = true }
+# Do not use das-core as dependency, otherwise tests won't compile because das-core is causes das-core imported into unit tests.
+# das-core = { workspace = true }
+
+# WARNING DO NOT move these to [dependencies], it will break the unit tests
+# if the dependency only supports no-std, you should put it under [dev-dependencies].
+[dev-dependencies]
+das-core = { workspace = true }
+das-types = { workspace = true }
+molecule = { workspace = true }
+witness-parser = { workspace = true, features = ["no_std"] }
+hex = { workspace = true }

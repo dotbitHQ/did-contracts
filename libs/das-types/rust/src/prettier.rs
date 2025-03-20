@@ -1167,7 +1167,8 @@ impl<'a> Prettier for DasLockTypeIdTableReader<'a> {
             eth,
             tron,
             doge,
-            web_authn
+            web_authn,
+            btc
         })
     }
 }

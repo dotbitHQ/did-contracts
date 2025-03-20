@@ -3,6 +3,7 @@ use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
+use config::Config;
 use das_core::constants::*;
 use das_core::error::{ErrorCode, ScriptError, SubAccountCellErrorCode};
 use das_core::util::{self, blake2b_256};
@@ -27,8 +28,6 @@ pub struct SubAction<'a> {
     custom_rule_flag: SubAccountCustomRuleFlag,
     sub_account_last_updated_at: u64,
 
-    config_account: ConfigCellAccountReader<'a>,
-    config_sub_account: ConfigCellSubAccountReader<'a>,
     parent_account: &'a [u8],
     parent_expired_at: u64,
 
@@ -57,8 +56,6 @@ impl<'a> SubAction<'a> {
         flag: SubAccountConfigFlag,
         custom_rule_flag: SubAccountCustomRuleFlag,
         sub_account_last_updated_at: u64,
-        config_account: ConfigCellAccountReader<'a>,
-        config_sub_account: ConfigCellSubAccountReader<'a>,
         parent_account: &'a [u8],
         parent_expired_at: u64,
         manual_mint_list_smt_root: &'a Option<[u8; 32]>,
@@ -74,8 +71,6 @@ impl<'a> SubAction<'a> {
             flag,
             custom_rule_flag,
             sub_account_last_updated_at,
-            config_account,
-            config_sub_account,
             parent_account,
             parent_expired_at,
             minimal_required_das_profit: 0,
@@ -140,6 +135,8 @@ impl<'a> SubAction<'a> {
             witness.index
         );
 
+        let config_sub_account = Config::get_instance().sub_account()?;
+
         let sub_account = match witness.sub_account.try_into_latest() {
             Ok(sub_account) => sub_account,
             Err(_) => {
@@ -203,9 +200,10 @@ impl<'a> SubAction<'a> {
                         witness.index
                     );
 
-                    let profit = calc_total_register_fee_from_reader(
-                        self.config_sub_account.new_sub_account_price(),
+                    let profit = util::calc_total_register_fee(
+                        config_sub_account.new_sub_account_price(),
                         self.quote,
+                        0,
                         expiration_years,
                     )?;
                     self.profit_from_manual_mint += profit;
@@ -278,11 +276,11 @@ impl<'a> SubAction<'a> {
 
                         if let Some(rule) = matched_rule {
                             das_assert!(
-                                rule.price >= u64::from(self.config_sub_account.new_sub_account_price()),
+                                rule.price >= config_sub_account.new_sub_account_price(),
                                 SubAccountCellErrorCode::MinimalProfitToDASNotReached,
                                 "  witnesses[{:>2}] The minimal profit to .bit should be more than {} shannon.",
                                 witness.index,
-                                u64::from(self.config_sub_account.new_sub_account_price()) * expiration_years
+                                config_sub_account.new_sub_account_price() * expiration_years
                             );
 
                             let profit = util::calc_total_register_fee(rule.price, self.quote, 0, expiration_years)?;
@@ -324,6 +322,8 @@ impl<'a> SubAction<'a> {
     }
 
     fn renew(&mut self, witness: &SubAccountWitness, prev_root: &[u8]) -> Result<(), Box<dyn ScriptError>> {
+        let config_sub_account = Config::get_instance().sub_account()?;
+
         let sub_account_reader = witness.sub_account.as_reader();
         let new_sub_account = generate_new_sub_account_by_edit_value(&witness)?;
         let new_sub_account_reader = new_sub_account.as_reader();
@@ -379,11 +379,11 @@ impl<'a> SubAction<'a> {
                                 );
 
                                 das_assert!(
-                                    rule.price >= u64::from(self.config_sub_account.renew_sub_account_price()),
+                                    rule.price >= config_sub_account.renew_sub_account_price(),
                                     SubAccountCellErrorCode::MinimalProfitToDASNotReached,
                                     "  witnesses[{:>2}] The minimal profit to .bit should be more than {} shannon.",
                                     witness.index,
-                                    u64::from(self.config_sub_account.renew_sub_account_price()) * expiration_years
+                                    config_sub_account.renew_sub_account_price() * expiration_years
                                 );
 
                                 let profit =
@@ -494,9 +494,10 @@ impl<'a> SubAction<'a> {
             }
         }
 
-        let profit = calc_total_register_fee_from_reader(
-            self.config_sub_account.renew_sub_account_price(),
+        let profit = util::calc_total_register_fee(
+            config_sub_account.renew_sub_account_price(),
             self.quote,
+            0,
             expiration_years,
         )?;
         if !manually_renew_by_others {
@@ -516,6 +517,8 @@ impl<'a> SubAction<'a> {
     }
 
     fn edit(&mut self, witness: &SubAccountWitness, prev_root: &[u8]) -> Result<(), Box<dyn ScriptError>> {
+        let config_account = Config::get_instance().account()?;
+
         let sub_account_reader = witness.sub_account.as_reader();
         let new_sub_account = generate_new_sub_account_by_edit_value(&witness)?;
         let new_sub_account_reader = new_sub_account.as_reader();
@@ -536,7 +539,7 @@ impl<'a> SubAction<'a> {
         )?;
         // verifiers::sub_account_cell::verify_sub_account_edit_sign(&witness, &self.sign_lib, witness_parser)?;
         verifiers::sub_account_cell::verify_expiration(
-            self.config_account,
+            &config_account,
             witness.index,
             &sub_account_reader,
             self.timestamp,
@@ -611,6 +614,7 @@ impl<'a> SubAction<'a> {
     }
 
     fn recycle(&mut self, witness: &SubAccountWitness, prev_root: &[u8]) -> Result<(), Box<dyn ScriptError>> {
+        let config_account = Config::get_instance().account()?;
         let sub_account_reader = witness.sub_account.as_reader();
 
         // WARNING! The sub-account only has 2 status for now, if more status added, the recycling logic should be also updated.
@@ -621,7 +625,7 @@ impl<'a> SubAction<'a> {
         )?;
 
         match verifiers::sub_account_cell::verify_expiration(
-            self.config_account,
+            &config_account,
             witness.index,
             &sub_account_reader,
             self.timestamp,
@@ -1085,12 +1089,4 @@ fn generate_new_sub_account_by_edit_value(witness: &SubAccountWitness) -> Result
     sub_account_builder = sub_account_builder.nonce(Uint64::from(current_nonce + 1));
 
     Ok(sub_account_builder.build())
-}
-
-fn calc_total_register_fee_from_reader(
-    yearly_price: Uint64Reader,
-    quote: u64,
-    expiration_years: u64,
-) -> Result<u64, Box<dyn ScriptError>> {
-    util::calc_total_register_fee(u64::from(yearly_price), quote, 0, expiration_years)
 }

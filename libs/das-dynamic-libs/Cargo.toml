@@ -5,5 +5,5 @@ edition = "2021"
 
 [dependencies]
 das-types = { workspace = true, features = ["no_std"] }
-ckb-std = { workspace = true }
+ckb-std = { workspace = true, features = ["dlopen-c"] }
 blake2b-ref = { workspace = true }

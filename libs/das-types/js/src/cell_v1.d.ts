@@ -22,6 +22,33 @@ export interface AccountCellDataV1Type {
   records: RecordsType;
 }
 
+export interface PreAccountCellDataV1Type {
+  account: AccountCharsType;
+  refund_lock: ScriptType;
+  owner_lock_args: BytesType;
+  inviter_id: BytesType;
+  inviter_lock?: ScriptType;
+  channel_lock?: ScriptType;
+  price: PriceConfigType;
+  quote: Uint64Type;
+  invited_discount: Uint32Type;
+  created_at: Uint64Type;
+}
+
+export interface SubAccountV1Type {
+  lock: ScriptType;
+  id: AccountIdType;
+  account: AccountCharsType;
+  suffix: BytesType;
+  registered_at: Uint64Type;
+  expired_at: Uint64Type;
+  status: Uint8Type;
+  records: RecordsType;
+  nonce: Uint64Type;
+  enable_sub_account: Uint8Type;
+  renew_sub_account_price: Uint64Type;
+}
+
 export type Uint8Type = CanCastToArrayBuffer;
 
 export type Uint32Type = CanCastToArrayBuffer;
@@ -30,9 +57,13 @@ export type Uint64Type = CanCastToArrayBuffer;
 
 export type Byte10Type = CanCastToArrayBuffer;
 
+export type Byte20Type = CanCastToArrayBuffer;
+
 export type BytesType = CanCastToArrayBuffer;
 
 export type BytesVecType = BytesType[];
+
+export type BytesOptType = BytesType | undefined;
 
 export type HashType = CanCastToArrayBuffer;
 
@@ -43,6 +74,8 @@ export interface ScriptType {
 }
 
 export type ScriptOptType = ScriptType | undefined;
+
+export type ScriptsType = ScriptType[];
 
 export interface OutPointType {
   tx_hash: HashType;
@@ -90,6 +123,7 @@ export interface TypeIdTableType {
   eip712_lib: HashType;
   reverse_record_root_cell: HashType;
   key_list_config_cell: HashType;
+  dpoint_cell: HashType;
 }
 
 export interface DasLockOutPointTableType {
@@ -100,6 +134,7 @@ export interface DasLockOutPointTableType {
   tron: OutPointType;
   ed25519: OutPointType;
   web_authn: OutPointType;
+  btc: OutPointType;
 }
 
 export interface DasLockTypeIdTableType {
@@ -110,6 +145,7 @@ export interface DasLockTypeIdTableType {
   tron: HashType;
   doge: HashType;
   web_authn: HashType;
+  btc: HashType;
 }
 
 export interface ConfigCellAccountType {
@@ -127,6 +163,9 @@ export interface ConfigCellAccountType {
   edit_manager_throttle: Uint32Type;
   edit_records_throttle: Uint32Type;
   common_throttle: Uint32Type;
+  expiration_auction_period: Uint32Type;
+  expiration_deliver_period: Uint32Type;
+  expiration_auction_start_premiums: Uint32Type;
 }
 
 export interface ConfigCellApplyType {
@@ -240,11 +279,20 @@ export interface ConfigCellSystemStatusType {
   reverse_record_cell_type: ContractStatusType;
   reverse_record_root_cell_type: ContractStatusType;
   eip712_lib: ContractStatusType;
+  key_list_config_cell_type: ContractStatusType;
+  dpoint_cell_type: ContractStatusType;
 }
 
 export interface ContractStatusType {
   status: CanCastToArrayBuffer;
   version: BytesType;
+}
+
+export interface ConfigCellDPointType {
+  basic_capacity: Uint64Type;
+  prepared_fee_capacity: Uint64Type;
+  transfer_whitelist: ScriptsType;
+  capacity_recycle_whitelist: ScriptsType;
 }
 
 export interface ProposalCellDataType {
@@ -275,17 +323,6 @@ export interface IncomeRecordType {
   capacity: Uint64Type;
 }
 
-export interface AccountCellDataV2Type {
-  id: AccountIdType;
-  account: AccountCharsType;
-  registered_at: Uint64Type;
-  last_transfer_account_at: Uint64Type;
-  last_edit_manager_at: Uint64Type;
-  last_edit_records_at: Uint64Type;
-  status: Uint8Type;
-  records: RecordsType;
-}
-
 export interface AccountCellDataType {
   id: AccountIdType;
   account: AccountCharsType;
@@ -297,6 +334,7 @@ export interface AccountCellDataType {
   records: RecordsType;
   enable_sub_account: Uint8Type;
   renew_sub_account_price: Uint64Type;
+  approval: AccountApprovalType;
 }
 
 export type AccountIdType = CanCastToArrayBuffer;
@@ -310,6 +348,19 @@ export interface RecordType {
 }
 
 export type RecordsType = RecordType[];
+
+export interface AccountApprovalType {
+  action: BytesType;
+  params: BytesType;
+}
+
+export interface AccountApprovalTransferType {
+  platform_lock: ScriptType;
+  protected_until: Uint64Type;
+  sealed_until: Uint64Type;
+  delay_count_remain: Uint8Type;
+  to_lock: ScriptType;
+}
 
 export interface AccountSaleCellDataV1Type {
   account_id: AccountIdType;
@@ -339,33 +390,6 @@ export interface AccountAuctionCellDataType {
   current_bidder_lock: ScriptType;
   current_bid_price: Uint64Type;
   prev_bidder_profit_rate: Uint32Type;
-}
-
-export interface PreAccountCellDataV1Type {
-  account: AccountCharsType;
-  refund_lock: ScriptType;
-  owner_lock_args: BytesType;
-  inviter_id: BytesType;
-  inviter_lock?: ScriptType;
-  channel_lock?: ScriptType;
-  price: PriceConfigType;
-  quote: Uint64Type;
-  invited_discount: Uint32Type;
-  created_at: Uint64Type;
-}
-
-export interface PreAccountCellDataV2Type {
-  account: AccountCharsType;
-  refund_lock: ScriptType;
-  owner_lock_args: BytesType;
-  inviter_id: BytesType;
-  inviter_lock?: ScriptType;
-  channel_lock?: ScriptType;
-  price: PriceConfigType;
-  quote: Uint64Type;
-  invited_discount: Uint32Type;
-  created_at: Uint64Type;
-  initial_records: RecordsType;
 }
 
 export interface PreAccountCellDataType {
@@ -416,6 +440,7 @@ export interface SubAccountType {
   nonce: Uint64Type;
   enable_sub_account: Uint8Type;
   renew_sub_account_price: Uint64Type;
+  approval: AccountApprovalType;
 }
 
 export interface SubAccountRuleType {
@@ -469,6 +494,59 @@ export interface DeviceKeyListCellDataType {
   refund_lock: ScriptType;
 }
 
+export interface MapEntryType {
+  key: BytesType;
+  value: BytesType;
+}
+
+export type ConfigListType = MapEntryType[];
+
+export interface ConfigType {
+  status: Uint8Type;
+  configs: ConfigListType;
+}
+
+export interface OrderInfoType {
+  memo: BytesType;
+}
+
+export interface SporeDataType {
+  content_type: BytesType;
+  content: BytesType;
+  cluster_id?: BytesType;
+}
+
+export type DidCellDataType =
+	|{ type: "DidCellDataV0", value: DidCellDataV0Type };
+
+export interface DidCellDataV0Type {
+  witness_hash: Byte20Type;
+  expire_at: Uint64Type;
+  account: BytesType;
+}
+
+export interface CellMetaType {
+  source: CanCastToArrayBuffer;
+  index: Uint64Type;
+}
+
+export type CellMetaOptType = CellMetaType | undefined;
+
+export type Byte20OptType = Byte20Type | undefined;
+
+export interface DidEntityType {
+  data: WitnessDataType;
+  target?: CellMetaType;
+  hash?: Byte20Type;
+}
+
+export interface DidCellWitnessDataV0Type {
+  records: RecordsType;
+}
+
+export type WitnessDataType =
+	|{ type: "DidCellWitnessDataV0", value: DidCellWitnessDataV0Type };
+
 export function SerializeAccountCellDataV1(value: AccountCellDataV1Type): ArrayBuffer;
 export class AccountCellDataV1 {
   constructor(reader: CanCastToArrayBuffer, options?: CreateOptions);
@@ -479,6 +557,39 @@ export class AccountCellDataV1 {
   getUpdatedAt(): Uint64;
   getStatus(): Uint8;
   getRecords(): Records;
+}
+
+export function SerializePreAccountCellDataV1(value: PreAccountCellDataV1Type): ArrayBuffer;
+export class PreAccountCellDataV1 {
+  constructor(reader: CanCastToArrayBuffer, options?: CreateOptions);
+  validate(compatible?: boolean): void;
+  getAccount(): AccountChars;
+  getRefundLock(): Script;
+  getOwnerLockArgs(): Bytes;
+  getInviterId(): Bytes;
+  getInviterLock(): ScriptOpt;
+  getChannelLock(): ScriptOpt;
+  getPrice(): PriceConfig;
+  getQuote(): Uint64;
+  getInvitedDiscount(): Uint32;
+  getCreatedAt(): Uint64;
+}
+
+export function SerializeSubAccountV1(value: SubAccountV1Type): ArrayBuffer;
+export class SubAccountV1 {
+  constructor(reader: CanCastToArrayBuffer, options?: CreateOptions);
+  validate(compatible?: boolean): void;
+  getLock(): Script;
+  getId(): AccountId;
+  getAccount(): AccountChars;
+  getSuffix(): Bytes;
+  getRegisteredAt(): Uint64;
+  getExpiredAt(): Uint64;
+  getStatus(): Uint8;
+  getRecords(): Records;
+  getNonce(): Uint64;
+  getEnableSubAccount(): Uint8;
+  getRenewSubAccountPrice(): Uint64;
 }
 
 export function SerializeUint8(value: CanCastToArrayBuffer): ArrayBuffer;
@@ -521,6 +632,15 @@ export class Byte10 {
   static size(): Number;
 }
 
+export function SerializeByte20(value: CanCastToArrayBuffer): ArrayBuffer;
+export class Byte20 {
+  constructor(reader: CanCastToArrayBuffer, options?: CreateOptions);
+  validate(compatible?: boolean): void;
+  indexAt(i: number): number;
+  raw(): ArrayBuffer;
+  static size(): Number;
+}
+
 export function SerializeBytes(value: CanCastToArrayBuffer): ArrayBuffer;
 export class Bytes {
   constructor(reader: CanCastToArrayBuffer, options?: CreateOptions);
@@ -536,6 +656,14 @@ export class BytesVec {
   validate(compatible?: boolean): void;
   indexAt(i: number): Bytes;
   length(): number;
+}
+
+export function SerializeBytesOpt(value: BytesType | null): ArrayBuffer;
+export class BytesOpt {
+  constructor(reader: CanCastToArrayBuffer, options?: CreateOptions);
+  validate(compatible?: boolean): void;
+  value(): Bytes;
+  hasValue(): boolean;
 }
 
 export function SerializeHash(value: CanCastToArrayBuffer): ArrayBuffer;
@@ -562,6 +690,14 @@ export class ScriptOpt {
   validate(compatible?: boolean): void;
   value(): Script;
   hasValue(): boolean;
+}
+
+export function SerializeScripts(value: Array<ScriptType>): ArrayBuffer;
+export class Scripts {
+  constructor(reader: CanCastToArrayBuffer, options?: CreateOptions);
+  validate(compatible?: boolean): void;
+  indexAt(i: number): Script;
+  length(): number;
 }
 
 export function SerializeOutPoint(value: OutPointType): ArrayBuffer;
@@ -635,6 +771,7 @@ export class TypeIdTable {
   getEip712Lib(): Hash;
   getReverseRecordRootCell(): Hash;
   getKeyListConfigCell(): Hash;
+  getDpointCell(): Hash;
 }
 
 export function SerializeDasLockOutPointTable(value: DasLockOutPointTableType): ArrayBuffer;
@@ -648,6 +785,7 @@ export class DasLockOutPointTable {
   getTron(): OutPoint;
   getEd25519(): OutPoint;
   getWebAuthn(): OutPoint;
+  getBtc(): OutPoint;
 }
 
 export function SerializeDasLockTypeIdTable(value: DasLockTypeIdTableType): ArrayBuffer;
@@ -661,6 +799,7 @@ export class DasLockTypeIdTable {
   getTron(): Hash;
   getDoge(): Hash;
   getWebAuthn(): Hash;
+  getBtc(): Hash;
 }
 
 export function SerializeConfigCellAccount(value: ConfigCellAccountType): ArrayBuffer;
@@ -681,6 +820,9 @@ export class ConfigCellAccount {
   getEditManagerThrottle(): Uint32;
   getEditRecordsThrottle(): Uint32;
   getCommonThrottle(): Uint32;
+  getExpirationAuctionPeriod(): Uint32;
+  getExpirationDeliverPeriod(): Uint32;
+  getExpirationAuctionStartPremiums(): Uint32;
 }
 
 export function SerializeConfigCellApply(value: ConfigCellApplyType): ArrayBuffer;
@@ -842,6 +984,8 @@ export class ConfigCellSystemStatus {
   getReverseRecordCellType(): ContractStatus;
   getReverseRecordRootCellType(): ContractStatus;
   getEip712Lib(): ContractStatus;
+  getKeyListConfigCellType(): ContractStatus;
+  getDpointCellType(): ContractStatus;
 }
 
 export function SerializeContractStatus(value: ContractStatusType): ArrayBuffer;
@@ -850,6 +994,16 @@ export class ContractStatus {
   validate(compatible?: boolean): void;
   getStatus(): number;
   getVersion(): Bytes;
+}
+
+export function SerializeConfigCellDPoint(value: ConfigCellDPointType): ArrayBuffer;
+export class ConfigCellDPoint {
+  constructor(reader: CanCastToArrayBuffer, options?: CreateOptions);
+  validate(compatible?: boolean): void;
+  getBasicCapacity(): Uint64;
+  getPreparedFeeCapacity(): Uint64;
+  getTransferWhitelist(): Scripts;
+  getCapacityRecycleWhitelist(): Scripts;
 }
 
 export function SerializeProposalCellData(value: ProposalCellDataType): ArrayBuffer;
@@ -910,20 +1064,6 @@ export class IncomeRecord {
   getCapacity(): Uint64;
 }
 
-export function SerializeAccountCellDataV2(value: AccountCellDataV2Type): ArrayBuffer;
-export class AccountCellDataV2 {
-  constructor(reader: CanCastToArrayBuffer, options?: CreateOptions);
-  validate(compatible?: boolean): void;
-  getId(): AccountId;
-  getAccount(): AccountChars;
-  getRegisteredAt(): Uint64;
-  getLastTransferAccountAt(): Uint64;
-  getLastEditManagerAt(): Uint64;
-  getLastEditRecordsAt(): Uint64;
-  getStatus(): Uint8;
-  getRecords(): Records;
-}
-
 export function SerializeAccountCellData(value: AccountCellDataType): ArrayBuffer;
 export class AccountCellData {
   constructor(reader: CanCastToArrayBuffer, options?: CreateOptions);
@@ -938,6 +1078,7 @@ export class AccountCellData {
   getRecords(): Records;
   getEnableSubAccount(): Uint8;
   getRenewSubAccountPrice(): Uint64;
+  getApproval(): AccountApproval;
 }
 
 export function SerializeAccountId(value: CanCastToArrayBuffer): ArrayBuffer;
@@ -966,6 +1107,25 @@ export class Records {
   validate(compatible?: boolean): void;
   indexAt(i: number): Record;
   length(): number;
+}
+
+export function SerializeAccountApproval(value: AccountApprovalType): ArrayBuffer;
+export class AccountApproval {
+  constructor(reader: CanCastToArrayBuffer, options?: CreateOptions);
+  validate(compatible?: boolean): void;
+  getAction(): Bytes;
+  getParams(): Bytes;
+}
+
+export function SerializeAccountApprovalTransfer(value: AccountApprovalTransferType): ArrayBuffer;
+export class AccountApprovalTransfer {
+  constructor(reader: CanCastToArrayBuffer, options?: CreateOptions);
+  validate(compatible?: boolean): void;
+  getPlatformLock(): Script;
+  getProtectedUntil(): Uint64;
+  getSealedUntil(): Uint64;
+  getDelayCountRemain(): Uint8;
+  getToLock(): Script;
 }
 
 export function SerializeAccountSaleCellDataV1(value: AccountSaleCellDataV1Type): ArrayBuffer;
@@ -1005,39 +1165,6 @@ export class AccountAuctionCellData {
   getCurrentBidderLock(): Script;
   getCurrentBidPrice(): Uint64;
   getPrevBidderProfitRate(): Uint32;
-}
-
-export function SerializePreAccountCellDataV1(value: PreAccountCellDataV1Type): ArrayBuffer;
-export class PreAccountCellDataV1 {
-  constructor(reader: CanCastToArrayBuffer, options?: CreateOptions);
-  validate(compatible?: boolean): void;
-  getAccount(): AccountChars;
-  getRefundLock(): Script;
-  getOwnerLockArgs(): Bytes;
-  getInviterId(): Bytes;
-  getInviterLock(): ScriptOpt;
-  getChannelLock(): ScriptOpt;
-  getPrice(): PriceConfig;
-  getQuote(): Uint64;
-  getInvitedDiscount(): Uint32;
-  getCreatedAt(): Uint64;
-}
-
-export function SerializePreAccountCellDataV2(value: PreAccountCellDataV2Type): ArrayBuffer;
-export class PreAccountCellDataV2 {
-  constructor(reader: CanCastToArrayBuffer, options?: CreateOptions);
-  validate(compatible?: boolean): void;
-  getAccount(): AccountChars;
-  getRefundLock(): Script;
-  getOwnerLockArgs(): Bytes;
-  getInviterId(): Bytes;
-  getInviterLock(): ScriptOpt;
-  getChannelLock(): ScriptOpt;
-  getPrice(): PriceConfig;
-  getQuote(): Uint64;
-  getInvitedDiscount(): Uint32;
-  getCreatedAt(): Uint64;
-  getInitialRecords(): Records;
 }
 
 export function SerializePreAccountCellData(value: PreAccountCellDataType): ArrayBuffer;
@@ -1109,6 +1236,7 @@ export class SubAccount {
   getNonce(): Uint64;
   getEnableSubAccount(): Uint8;
   getRenewSubAccountPrice(): Uint64;
+  getApproval(): AccountApproval;
 }
 
 export function SerializeSubAccountRule(value: SubAccountRuleType): ArrayBuffer;
@@ -1203,5 +1331,111 @@ export class DeviceKeyListCellData {
   validate(compatible?: boolean): void;
   getKeys(): DeviceKeyList;
   getRefundLock(): Script;
+}
+
+export function SerializeMapEntry(value: MapEntryType): ArrayBuffer;
+export class MapEntry {
+  constructor(reader: CanCastToArrayBuffer, options?: CreateOptions);
+  validate(compatible?: boolean): void;
+  getKey(): Bytes;
+  getValue(): Bytes;
+}
+
+export function SerializeConfigList(value: Array<MapEntryType>): ArrayBuffer;
+export class ConfigList {
+  constructor(reader: CanCastToArrayBuffer, options?: CreateOptions);
+  validate(compatible?: boolean): void;
+  indexAt(i: number): MapEntry;
+  length(): number;
+}
+
+export function SerializeConfig(value: ConfigType): ArrayBuffer;
+export class Config {
+  constructor(reader: CanCastToArrayBuffer, options?: CreateOptions);
+  validate(compatible?: boolean): void;
+  getStatus(): Uint8;
+  getConfigs(): ConfigList;
+}
+
+export function SerializeOrderInfo(value: OrderInfoType): ArrayBuffer;
+export class OrderInfo {
+  constructor(reader: CanCastToArrayBuffer, options?: CreateOptions);
+  validate(compatible?: boolean): void;
+  getMemo(): Bytes;
+}
+
+export function SerializeSporeData(value: SporeDataType): ArrayBuffer;
+export class SporeData {
+  constructor(reader: CanCastToArrayBuffer, options?: CreateOptions);
+  validate(compatible?: boolean): void;
+  getContentType(): Bytes;
+  getContent(): Bytes;
+  getClusterId(): BytesOpt;
+}
+
+export function SerializeDidCellData(value: DidCellDataType): ArrayBuffer;
+export class DidCellData {
+  constructor(reader: CanCastToArrayBuffer, options?: CreateOptions);
+  validate(compatible?: boolean): void;
+  unionType(): string;
+  value(): any;
+}
+
+export function SerializeDidCellDataV0(value: DidCellDataV0Type): ArrayBuffer;
+export class DidCellDataV0 {
+  constructor(reader: CanCastToArrayBuffer, options?: CreateOptions);
+  validate(compatible?: boolean): void;
+  getWitnessHash(): Byte20;
+  getExpireAt(): Uint64;
+  getAccount(): Bytes;
+}
+
+export function SerializeCellMeta(value: CellMetaType): ArrayBuffer;
+export class CellMeta {
+  constructor(reader: CanCastToArrayBuffer, options?: CreateOptions);
+  validate(compatible?: boolean): void;
+  static size(): Number;
+  getSource(): number;
+  getIndex(): Uint64;
+}
+
+export function SerializeCellMetaOpt(value: CellMetaType | null): ArrayBuffer;
+export class CellMetaOpt {
+  constructor(reader: CanCastToArrayBuffer, options?: CreateOptions);
+  validate(compatible?: boolean): void;
+  value(): CellMeta;
+  hasValue(): boolean;
+}
+
+export function SerializeByte20Opt(value: Byte20Type | null): ArrayBuffer;
+export class Byte20Opt {
+  constructor(reader: CanCastToArrayBuffer, options?: CreateOptions);
+  validate(compatible?: boolean): void;
+  value(): Byte20;
+  hasValue(): boolean;
+}
+
+export function SerializeDidEntity(value: DidEntityType): ArrayBuffer;
+export class DidEntity {
+  constructor(reader: CanCastToArrayBuffer, options?: CreateOptions);
+  validate(compatible?: boolean): void;
+  getData(): WitnessData;
+  getTarget(): CellMetaOpt;
+  getHash(): Byte20Opt;
+}
+
+export function SerializeDidCellWitnessDataV0(value: DidCellWitnessDataV0Type): ArrayBuffer;
+export class DidCellWitnessDataV0 {
+  constructor(reader: CanCastToArrayBuffer, options?: CreateOptions);
+  validate(compatible?: boolean): void;
+  getRecords(): Records;
+}
+
+export function SerializeWitnessData(value: WitnessDataType): ArrayBuffer;
+export class WitnessData {
+  constructor(reader: CanCastToArrayBuffer, options?: CreateOptions);
+  validate(compatible?: boolean): void;
+  unionType(): string;
+  value(): any;
 }
 

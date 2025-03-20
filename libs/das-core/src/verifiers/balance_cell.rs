@@ -3,28 +3,24 @@ use alloc::vec::Vec;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
+use config::configs::main::ConfigMain;
+use config::constants::FieldKey;
 use das_types::constants::{das_lock, DasLockType};
 use das_types::packed as das_packed;
-use das_types::prelude::{Builder, Entity, Reader};
 
 use crate::constants::*;
 use crate::error::*;
 use crate::util::{self};
 use crate::{code_to_error, data_parser, warn};
 
-pub fn verify_das_lock_always_with_type(
-    config_main_reader: das_packed::ConfigCellMainReader,
-) -> Result<(), Box<dyn ScriptError>> {
+pub fn verify_das_lock_always_with_type(config_main: &ConfigMain) -> Result<(), Box<dyn ScriptError>> {
     debug!("Check if any cells with das-lock in outputs lack of one of balance-cell-type, account-cell-type, account-sale-cell-type, account-auction-cell-type.");
 
     let das_lock = das_lock();
     let das_lock_reader = das_lock.as_reader();
 
-    let balance_cell_type_id = config_main_reader.type_id_table().balance_cell();
-    let balance_cell_type = das_packed::Script::new_builder()
-        .code_hash(balance_cell_type_id.to_entity())
-        .hash_type(das_packed::Byte::new(ScriptHashType::Type as u8))
-        .build();
+    let balance_cell_type_id = config_main.get_type_id_of(FieldKey::BalanceCellTypeArgs)?;
+    let balance_cell_type = util::type_id_to_script(balance_cell_type_id);
     let balance_cell_type_reader = balance_cell_type.as_reader();
 
     // We need to find all BalanceCells even it has no type script, so we use das-lock as the finding condition.
@@ -52,19 +48,19 @@ pub fn verify_das_lock_always_with_type(
                             debug!("Try to load type ID table from ConfigCellMain, because found some cells with das-lock not using balance-cell-type.");
 
                             macro_rules! push_type_script {
-                                ($type_id_name:ident) => {
-                                    let type_id = config_main_reader.type_id_table().$type_id_name();
+                                ($field_key:expr) => {
+                                    let type_id = config_main.get_type_id_of($field_key)?;
+                                    // debug!("{:?} type_id: {}", $field_key, util::hex_string(&type_id));
                                     let type_script = util::type_id_to_script(type_id);
                                     available_type_scripts.push(type_script);
                                 };
                             }
 
-                            push_type_script!(account_cell);
-                            push_type_script!(account_sale_cell);
-                            push_type_script!(account_auction_cell);
-                            push_type_script!(offer_cell);
-                            push_type_script!(reverse_record_cell);
-                            push_type_script!(dpoint_cell);
+                            push_type_script!(FieldKey::AccountCellTypeArgs);
+                            push_type_script!(FieldKey::AccountSaleCellTypeArgs);
+                            push_type_script!(FieldKey::OfferCellTypeArgs);
+                            push_type_script!(FieldKey::ReverseRecordCellTypeArgs);
+                            push_type_script!(FieldKey::DpointCellTypeArgs);
                         }
 
                         for script in available_type_scripts.iter() {

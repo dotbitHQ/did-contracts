@@ -292,6 +292,82 @@ fn test_income_consolidate_no_pad() {
 }
 
 #[test]
+fn test_income_consolidate_migration() {
+    let mut template = before();
+
+    // inputs
+    push_input_income_cell(
+        &mut template,
+        json!({
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": WALLET_LOCK_ARGS
+                        },
+                        "capacity": 20_000_000_000u64
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000010"
+                        },
+                        "capacity": 10_000_000_000u64, // 100 CKB
+                    },
+                ]
+            }
+        }),
+    );
+    push_input_income_cell(
+        &mut template,
+        json!({
+            "witness": {
+                "records": [
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": WALLET_LOCK_ARGS
+                        },
+                        "capacity": 20_000_000_000u64
+                    },
+                    {
+                        "belong_to": {
+                            "code_hash": "{{fake-secp256k1-blake160-signhash-all}}",
+                            "args": "0x0000000000000000000000000000000000000010"
+                        },
+                        "capacity": 200_000_000, // 2 CKB
+                    },
+                ]
+            }
+        }),
+    );
+    // 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF is the keeper who pushed the consolidate_income transaction.
+    push_input_normal_cell(
+        &mut template,
+        6_100_000_000,
+        "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+    );
+
+    // outputs
+    // Simulate consolidate the
+    push_output_normal_cell(&mut template, 40_000_000_000, MIGRAT_LOCK_ARGS);
+    push_output_normal_cell(
+        &mut template,
+        10_098_000_000,
+        "0x0000000000000000000000000000000000000010",
+    );
+    // 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF can take some from user as their profit.
+    push_output_normal_cell(
+        &mut template,
+        6_162_000_000,
+        "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+    );
+
+    test_tx(template.as_json())
+}
+
+#[test]
 fn test_income_consolidate_free_fee() {
     let mut template = before();
 

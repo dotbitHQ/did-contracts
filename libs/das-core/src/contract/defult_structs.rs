@@ -40,6 +40,7 @@ impl Action {
 }
 
 pub struct Rule<T> {
+    #[allow(dead_code)]
     desc: String,
     verification: T,
 }

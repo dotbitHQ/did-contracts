@@ -1,18 +1,16 @@
 use alloc::boxed::Box;
-use alloc::vec::Vec;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level;
-use das_core::config::Config;
+use config::Config;
 use das_core::constants::DPOINT_MAX_LIMIT;
 use das_core::contract::defult_structs::{Action, Rule};
 use das_core::error::ScriptError;
 use das_core::{code_to_error, das_assert, data_parser, debug, util as core_util};
-use das_types::packed::*;
 use dpoint_cell_type::error::ErrorCode;
 
 pub fn action() -> Result<Action, Box<dyn ScriptError>> {
-    let config_dpoint_reader = Config::get_instance().dpoint()?;
+    let config_dpoint = Config::get_instance().dpoint()?;
 
     let mut action = Action::new("burn_dp");
 
@@ -58,8 +56,8 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
     }));
 
     let inner_output_cells = output_cells.clone();
-    let basic_capacity = u64::from(config_dpoint_reader.basic_capacity());
-    let prepared_fee_capacity = u64::from(config_dpoint_reader.prepared_fee_capacity());
+    let basic_capacity = config_dpoint.basic_capacity();
+    let prepared_fee_capacity = config_dpoint.prepared_fee_capacity();
     let expected_capacity = basic_capacity + prepared_fee_capacity;
     action.add_verification(Rule::new(
         "Verify if all the DPointCells keeping enough capacity.",
@@ -126,16 +124,8 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
         Ok(())
     }));
 
-    let transfer_whitelist = config_dpoint_reader.transfer_whitelist();
-    let transfer_whitelist_hashes = transfer_whitelist
-        .iter()
-        .map(|lock| core_util::blake2b_256(lock.as_slice()))
-        .collect::<Vec<_>>();
-    let recycle_whitelist = config_dpoint_reader.capacity_recycle_whitelist();
-    let recycle_whitelist_hashes = recycle_whitelist
-        .iter()
-        .map(|lock| core_util::blake2b_256(lock.as_slice()))
-        .collect::<Vec<_>>();
+    let transfer_whitelist_hashes = config_dpoint.transfer_whitelist();
+    let recycle_whitelist_hashes = config_dpoint.capacity_recycle_whitelist();
     action.add_verification(Rule::new(
         "Verify if there is any address in inputs exist in whitelist.",
         move |_contract| {
@@ -177,11 +167,7 @@ pub fn action() -> Result<Action, Box<dyn ScriptError>> {
             recycle_capacity += capacity;
         }
 
-        let recycle_whitelist = config_dpoint_reader.capacity_recycle_whitelist();
-        let recycle_whitelist_hashes = recycle_whitelist
-            .iter()
-            .map(|lock| core_util::blake2b_256(lock.as_slice()))
-            .collect::<Vec<_>>();
+        let recycle_whitelist_hashes = config_dpoint.capacity_recycle_whitelist();
         action.add_verification(Rule::new(
             "Verify if the DPoints' capacity recycled properly.",
             move |_contract| {

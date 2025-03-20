@@ -16,23 +16,22 @@ use ckb_std::error::SysError;
 #[cfg(feature = "no_std")]
 use ckb_std::syscalls;
 use das_types::constants::{
-    config_cell_type, Action, ActionParams, DataType, Source, TypeScript, WITNESS_HEADER, WITNESS_HEADER_BYTES,
-    WITNESS_TYPE_BYTES,
+    Action, ActionParams, ActionParamsData, DataType, Source, WITNESS_HEADER, WITNESS_HEADER_BYTES, WITNESS_TYPE_BYTES,
 };
 use das_types::prelude::*;
 use das_types::{packed, util as types_util};
 
 use super::action_parser::parse_action;
-use crate::constants::ScriptType;
 use crate::error::WitnessParserError;
 use crate::traits::WitnessQueryable;
-use crate::types::{CellMeta, Hash, WitnessMeta};
+use crate::types::{CellMeta, WitnessMeta};
 use crate::util;
 
 #[derive(Debug, Default)]
 pub struct WitnessesParser {
     pub action: Action,
     pub action_params: ActionParams,
+    pub action_params_data: ActionParamsData,
     pub action_data: packed::ActionData,
 
     inited: bool,
@@ -112,12 +111,14 @@ impl WitnessesParser {
                                     debug!("  witnesses[{:>2}] Found {:?} witness skip parsing.", i, x);
                                 }
                                 x if types_util::is_config_data_type(&x) => {
-                                    self.push_witness_wrap_in_config(i, x)?;
+                                    return Err(WitnessParserError::DeprecatedWitnessType {
+                                        index: i,
+                                        msg: format!("The witness of config has been deprecated."),
+                                    })
                                 }
                                 x if types_util::is_other_data_type(&x) => {
                                     self.push_witness_for_other_data_type(i, x)?;
                                 }
-
                                 _ => {
                                     self.push_witness_wrap_in_data(i, data_type)?;
                                 }
@@ -157,60 +158,6 @@ impl WitnessesParser {
 
     pub fn get_action_data(&self) -> &packed::ActionData {
         &self.action_data
-    }
-
-    fn push_witness_wrap_in_config(&mut self, index: usize, data_type: DataType) -> Result<(), WitnessParserError> {
-        debug!(
-            "  witnesses[{:>2}] Presume that the type of the witness is {:?} .",
-            index, data_type
-        );
-
-        let mut found_config_cell = false;
-        for source in [Source::CellDep, Source::Input, Source::Output] {
-            let args = packed::Bytes::from((data_type.to_owned() as u32).to_le_bytes().to_vec());
-            let type_script = config_cell_type().clone().as_builder().args(args).build();
-            let config_cells = util::find_cells_by_script(index, ScriptType::Type, type_script.as_reader(), source)?;
-
-            // For any type of ConfigCell, there should be one Cell in the cell_deps, no more and no less.
-            match config_cells.len() {
-                0 => continue,
-                1 => {
-                    found_config_cell = true;
-                }
-                _ => return Err(WitnessParserError::DuplicatedConfigCellFound { index, data_type }),
-            }
-
-            let cell_index = config_cells[0];
-            let hash_in_cell_data = Self::load_witness_hash_from_cell(index, cell_index, source)?;
-
-            debug!(
-                "  witnesses[{:>2}] {{ data_type: {:?}, index: {}, source: {:?}, hash_in_cell: {} }}",
-                index,
-                data_type,
-                cell_index,
-                source,
-                hex::encode(&hash_in_cell_data)
-            );
-
-            self.data_type_map.insert(data_type, self.witnesses.len());
-            self.witnesses.push(WitnessMeta {
-                index,
-                version: 0,
-                data_type,
-                cell_meta: CellMeta {
-                    index: cell_index,
-                    source: source,
-                },
-                hash_in_cell_data,
-            });
-        }
-
-        err_assert!(
-            found_config_cell,
-            WitnessParserError::ConfigCellNotFound { index, data_type }
-        );
-
-        Ok(())
     }
 
     fn push_witness_wrap_in_data(&mut self, index: usize, data_type: DataType) -> Result<(), WitnessParserError> {
@@ -319,11 +266,14 @@ impl WitnessesParser {
 
         Ok(())
     }
-    fn load_witness_hash_from_cell(
+    pub fn load_witness_hash_from_cell(
         witness_index: usize,
         cell_index: usize,
         source: Source,
     ) -> Result<[u8; 32], WitnessParserError> {
+        // TODO Add some limit here to avoid memory overflow panic
+        // If the transaction has an incorrect cell_index that may contain excessively large data,
+        // the syscall::load_cell_data function will panic without returning an error.
         let data = util::load_cell_data(cell_index, source.into())?;
         debug!(
             "  witnesses[{:>2}] Loading expected hash from {:?}[{}]",
@@ -349,10 +299,11 @@ impl WitnessesParser {
 
     fn parse_action(&mut self, index: usize) -> Result<(), WitnessParserError> {
         let bytes = util::load_das_witnesses(index)?;
-        let (action_data, action, action_params) = parse_action(index, bytes)?;
+        let (action_data, action, action_params, action_params_data) = parse_action(index, bytes)?;
         self.action_data = action_data;
         self.action = action;
         self.action_params = action_params;
+        self.action_params_data = action_params_data;
 
         Ok(())
     }
@@ -383,37 +334,6 @@ impl WitnessQueryable for WitnessesParser {
             .to_owned();
 
         self.get_witness_meta_by_index(index)
-    }
-
-    fn get_type_id(&mut self, type_script: TypeScript) -> Result<Hash, WitnessParserError> {
-        err_assert!(self.inited, WitnessParserError::InitializationRequired);
-
-        let config_cell_type = config_cell_type();
-        let config = self.get_entity_by_data_type::<packed::ConfigCellMain>(DataType::ConfigCellMain)?;
-        let type_id = match type_script {
-            TypeScript::AccountCellType => config.type_id_table().account_cell(),
-            TypeScript::AccountSaleCellType => config.type_id_table().account_sale_cell(),
-            TypeScript::AccountAuctionCellType => config.type_id_table().account_auction_cell(),
-            TypeScript::ApplyRegisterCellType => config.type_id_table().apply_register_cell(),
-            TypeScript::BalanceCellType => config.type_id_table().balance_cell(),
-            TypeScript::ConfigCellType => config_cell_type.code_hash(),
-            TypeScript::IncomeCellType => config.type_id_table().income_cell(),
-            TypeScript::OfferCellType => config.type_id_table().offer_cell(),
-            TypeScript::PreAccountCellType => config.type_id_table().pre_account_cell(),
-            TypeScript::ProposalCellType => config.type_id_table().proposal_cell(),
-            TypeScript::ReverseRecordCellType => config.type_id_table().reverse_record_cell(),
-            TypeScript::SubAccountCellType => config.type_id_table().sub_account_cell(),
-            TypeScript::ReverseRecordRootCellType => config.type_id_table().reverse_record_root_cell(),
-            TypeScript::DPointCellType => config.type_id_table().dpoint_cell(),
-            TypeScript::EIP712Lib => config.type_id_table().eip712_lib(),
-            TypeScript::DeviceKeyListCellType => config.type_id_table().key_list_config_cell(),
-        };
-
-        let type_id_vec = type_id.as_slice().to_vec();
-        let mut ret = Hash::default();
-        ret.copy_from_slice(&type_id_vec);
-
-        Ok(ret)
     }
 
     fn get_entity_by_cell_meta<T: Entity>(&mut self, cell_meta: CellMeta) -> Result<T, WitnessParserError> {
@@ -507,49 +427,15 @@ impl WitnessQueryable for WitnessesParser {
         Ok(entity)
     }
 
-    fn get_raw_by_index(&mut self, index: usize) -> Result<Vec<u8>, WitnessParserError> {
-        err_assert!(self.inited, WitnessParserError::InitializationRequired);
-
-        let witness_meta = self
-            .witnesses
-            .get(index)
-            .ok_or(WitnessParserError::CanNotFindWitnessByIndex { index })?;
-
-        let buf = util::load_das_witnesses(witness_meta.index)?;
-
-        let buf_hash = types_util::blake2b_256(buf.get((WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES)..).unwrap());
-        err_assert!(
-            witness_meta.hash_in_cell_data == buf_hash,
-            WitnessParserError::WitnessHashMismatched {
-                index: witness_meta.index,
-                in_cell_data: hex::encode(&witness_meta.hash_in_cell_data),
-                actual: hex::encode(&buf_hash)
-            }
-        );
-
-        Ok(buf)
+    fn get_raw_by_index(&mut self, _index: usize) -> Result<Vec<u8>, WitnessParserError> {
+        unreachable!()
     }
 
-    fn get_raw_by_cell_meta(&mut self, cell_meta: CellMeta) -> Result<Vec<u8>, WitnessParserError> {
-        let index = self
-            .cell_meta_map
-            .get(&cell_meta)
-            .ok_or(WitnessParserError::CanNotFindWitnessByCellMeta {
-                source: cell_meta.source,
-                index: cell_meta.index,
-            })?
-            .to_owned();
-
-        self.get_raw_by_index(index)
+    fn get_raw_by_cell_meta(&mut self, _cell_meta: CellMeta) -> Result<Vec<u8>, WitnessParserError> {
+        unreachable!()
     }
 
-    fn get_raw_by_data_type(&mut self, data_type: DataType) -> Result<Vec<u8>, WitnessParserError> {
-        let index = self
-            .data_type_map
-            .get(&data_type)
-            .ok_or(WitnessParserError::CanNotFindWitnessByDataType { data_type })?
-            .to_owned();
-
-        self.get_raw_by_index(index)
+    fn get_raw_by_data_type(&mut self, _data_type: DataType) -> Result<Vec<u8>, WitnessParserError> {
+        unreachable!()
     }
 }

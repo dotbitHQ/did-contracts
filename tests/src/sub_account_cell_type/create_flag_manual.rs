@@ -395,7 +395,7 @@ fn challenge_sub_account_create_flag_manual_undefined_char() {
     }));
     push_common_output_cells(&mut template, 1, SubAccountConfigFlag::Manual);
 
-    challenge_tx(template.as_json(), ErrorCode::ConfigIsPartialMissing);
+    challenge_tx(template.as_json(), ErrorCode::CharSetIsUndefined);
 }
 
 #[test]

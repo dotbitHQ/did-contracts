@@ -147,6 +147,25 @@ impl From<Script> for ScriptOpt {
     }
 }
 
+// Convert &[u8] to schema::basic::Byte20
+// asume &[u8] length is 20
+impl From<&[u8]> for Byte20 {
+    fn from(v: &[u8]) -> Self {
+        let mut inner = [Byte::new(0); 20];
+        for (i, item) in v.iter().enumerate() {
+            inner[i] = Byte::new(*item);
+        }
+        Self::new_builder().set(inner).build()
+    }
+}
+
+impl From<&[u8; 20]> for Byte20 {
+    fn from(v: &[u8; 20]) -> Self {
+        let v = &v[..];
+        v.into()
+    }
+}
+
 /// Convert &[u8] to schemas::basic::Hash
 ///
 /// The difference with from_slice is that it does not require a dynvec header.
@@ -352,5 +371,15 @@ impl ContractStatus {
             .status(Byte::new(status as u8))
             .version(Bytes::from(version.as_bytes()))
             .build()
+    }
+}
+
+impl Into<[u8; 20]> for Byte20 {
+    fn into(self) -> [u8; 20] {
+        let mut buf = [0u8; 20];
+
+        (&mut buf).copy_from_slice(self.as_slice());
+
+        return buf;
     }
 }

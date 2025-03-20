@@ -4,15 +4,17 @@ version = "1.7.0"
 edition = "2021"
 
 [features]
-dev = ["das-core/dev"]
-local = ["das-core/local"]
-testnet = ["das-core/testnet"]
-mainnet = ["das-core/mainnet"]
+dev = ["das-core/dev", "did-cell-type/dev"]
+local = ["das-core/local", "did-cell-type/local"]
+testnet = ["das-core/testnet", "did-cell-type/testnet"]
+mainnet = ["das-core/mainnet", "did-cell-type/mainnet"]
 
 [dependencies]
+config = { workspace = true, features = ["no_std"] }
 das-core = { workspace = true }
 das-map = { workspace = true }
 das-types = { workspace = true, features = ["no_std"] }
 das-dynamic-libs = { workspace = true }
 witness-parser = { workspace = true, features = ["no_std"] }
 ckb-std = { workspace = true }
+did-cell-type = { path = "../did-cell-type", default_features = false }

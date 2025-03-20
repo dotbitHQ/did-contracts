@@ -58,8 +58,4 @@ pub const YEAR_SEC: u64 = DAY_SEC * DAYS_OF_YEAR;
 pub const PRE_ACCOUNT_CELL_TIMEOUT: u64 = DAY_SEC;
 pub const PRE_ACCOUNT_CELL_SHORT_TIMEOUT: u64 = 3600;
 
-pub const CROSS_CHAIN_BLACK_ARGS: [u8; 20] = [0; 20];
-
-pub const TYPE_ID_CODE_HASH: [u8; 32] = [
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 84, 89, 80, 69, 95, 73, 68,
-];
+pub const BLACK_HOLE_ARGS: [u8; 20] = [0; 20];

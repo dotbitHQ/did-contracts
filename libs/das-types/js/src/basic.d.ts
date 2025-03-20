@@ -21,9 +21,13 @@ export type Uint64Type = CanCastToArrayBuffer;
 
 export type Byte10Type = CanCastToArrayBuffer;
 
+export type Byte20Type = CanCastToArrayBuffer;
+
 export type BytesType = CanCastToArrayBuffer;
 
 export type BytesVecType = BytesType[];
+
+export type BytesOptType = BytesType | undefined;
 
 export type HashType = CanCastToArrayBuffer;
 
@@ -34,6 +38,8 @@ export interface ScriptType {
 }
 
 export type ScriptOptType = ScriptType | undefined;
+
+export type ScriptsType = ScriptType[];
 
 export interface OutPointType {
   tx_hash: HashType;
@@ -94,6 +100,15 @@ export class Byte10 {
   static size(): Number;
 }
 
+export function SerializeByte20(value: CanCastToArrayBuffer): ArrayBuffer;
+export class Byte20 {
+  constructor(reader: CanCastToArrayBuffer, options?: CreateOptions);
+  validate(compatible?: boolean): void;
+  indexAt(i: number): number;
+  raw(): ArrayBuffer;
+  static size(): Number;
+}
+
 export function SerializeBytes(value: CanCastToArrayBuffer): ArrayBuffer;
 export class Bytes {
   constructor(reader: CanCastToArrayBuffer, options?: CreateOptions);
@@ -109,6 +124,14 @@ export class BytesVec {
   validate(compatible?: boolean): void;
   indexAt(i: number): Bytes;
   length(): number;
+}
+
+export function SerializeBytesOpt(value: BytesType | null): ArrayBuffer;
+export class BytesOpt {
+  constructor(reader: CanCastToArrayBuffer, options?: CreateOptions);
+  validate(compatible?: boolean): void;
+  value(): Bytes;
+  hasValue(): boolean;
 }
 
 export function SerializeHash(value: CanCastToArrayBuffer): ArrayBuffer;
@@ -135,6 +158,14 @@ export class ScriptOpt {
   validate(compatible?: boolean): void;
   value(): Script;
   hasValue(): boolean;
+}
+
+export function SerializeScripts(value: Array<ScriptType>): ArrayBuffer;
+export class Scripts {
+  constructor(reader: CanCastToArrayBuffer, options?: CreateOptions);
+  validate(compatible?: boolean): void;
+  indexAt(i: number): Script;
+  length(): number;
 }
 
 export function SerializeOutPoint(value: OutPointType): ArrayBuffer;

@@ -1,11 +1,15 @@
 #[cfg(feature = "no_std")]
 use alloc::string::{String, ToString};
 #[cfg(feature = "no_std")]
+use alloc::vec;
+#[cfg(feature = "no_std")]
 use alloc::vec::Vec;
 #[cfg(feature = "no_std")]
 use core::str::FromStr;
 
-use das_types::constants::{Action, ActionParams, LockRole, WITNESS_HEADER_BYTES, WITNESS_TYPE_BYTES};
+use das_types::constants::{
+    Action, ActionParams, ActionParamsData, LockRole, WITNESS_HEADER_BYTES, WITNESS_TYPE_BYTES,
+};
 use das_types::packed::{self as packed, ActionDataReader};
 use molecule::prelude::Entity;
 
@@ -14,7 +18,7 @@ use crate::error::WitnessParserError;
 pub fn parse_action(
     index: usize,
     buf: Vec<u8>,
-) -> Result<(packed::ActionData, Action, ActionParams), WitnessParserError> {
+) -> Result<(packed::ActionData, Action, ActionParams, ActionParamsData), WitnessParserError> {
     let action_data = match buf.get((WITNESS_HEADER_BYTES + WITNESS_TYPE_BYTES)..) {
         Some(buf) => match packed::ActionData::from_slice(buf) {
             Ok(data) => data,
@@ -39,27 +43,30 @@ pub fn parse_action(
         Err(_) => Action::Others,
     };
 
-    let action_params = match action {
+    let (action_params, action_params_data) = match action {
         Action::BuyAccount => parse_buy_account(index, action_data.as_reader())?,
-        Action::LockAccountForCrossChain => parse_lock_account_for_cross_chain(index, action_data.as_reader())?,
         Action::UnitTest => parse_test_name(action_data.as_reader()),
         _ => {
             if action_data.params().is_empty() {
-                ActionParams::None
+                (ActionParams::None, vec![])
             } else {
                 let buf = action_data.as_reader().params().raw_data();
                 let role = LockRole::try_from(*(buf.last().unwrap()))
                     .map_err(|_| WitnessParserError::DecodingActionParamsFailed { index })?;
-
-                ActionParams::Role(role)
+                let mut action_params_data: ActionParamsData = vec![];
+                action_params_data.push(vec![*(buf.last().unwrap())]);
+                (ActionParams::Role(role), action_params_data)
             }
         }
     };
 
-    Ok((action_data, action, action_params))
+    Ok((action_data, action, action_params, action_params_data))
 }
 
-fn parse_buy_account(index: usize, action_data: ActionDataReader) -> Result<ActionParams, WitnessParserError> {
+fn parse_buy_account(
+    index: usize,
+    action_data: ActionDataReader,
+) -> Result<(ActionParams, ActionParamsData), WitnessParserError> {
     // TODO replace this implement with LV parser
     let bytes = action_data.params().raw_data();
     let first_header = bytes
@@ -96,38 +103,27 @@ fn parse_buy_account(index: usize, action_data: ActionDataReader) -> Result<Acti
     // debug!("bytes_of_inviter_lock = 0x{}", hex::encode(bytes_of_inviter_lock));
     // debug!("bytes_of_channel_lock = 0x{}", hex::encode(bytes_of_channel_lock));
 
-    Ok(ActionParams::BuyAccount {
-        inviter_lock_bytes,
-        channel_lock_bytes,
+    let action_params = ActionParams::BuyAccount {
+        inviter_lock_bytes: inviter_lock_bytes.clone(),
+        channel_lock_bytes: channel_lock_bytes.clone(),
         role,
-    })
+    };
+
+    let mut action_params_data: ActionParamsData = vec![];
+    action_params_data.push(inviter_lock_bytes);
+    action_params_data.push(channel_lock_bytes);
+    action_params_data.push(vec![bytes_of_role[0]]);
+
+    Ok((action_params, action_params_data))
 }
 
-fn parse_lock_account_for_cross_chain(
-    index: usize,
-    action_data: ActionDataReader,
-) -> Result<ActionParams, WitnessParserError> {
-    let buf = action_data.params().raw_data();
-
-    err_assert!(
-        buf.len() == 8 + 8 + 1,
-        WitnessParserError::DecodingActionParamsFailed { index }
-    );
-
-    let coin_type = u64::from_le_bytes((&buf[0..8]).try_into().unwrap());
-    let chain_id = u64::from_le_bytes((&buf[8..16]).try_into().unwrap());
-    let role = LockRole::try_from(buf[16]).map_err(|_| WitnessParserError::DecodingActionParamsFailed { index })?;
-
-    Ok(ActionParams::LockAccountForCrossChain {
-        coin_type,
-        chain_id,
-        role,
-    })
-}
-
-fn parse_test_name(action_data: ActionDataReader) -> ActionParams {
+fn parse_test_name(action_data: ActionDataReader) -> (ActionParams, ActionParamsData) {
     let buf = action_data.params().raw_data();
     let name = String::from_utf8(buf.to_vec()).unwrap_or_default();
 
-    ActionParams::TestName(name)
+    let action_params = ActionParams::TestName(name);
+    let mut action_params_data: ActionParamsData = vec![];
+    action_params_data.push(buf.to_vec());
+
+    (action_params, action_params_data)
 }

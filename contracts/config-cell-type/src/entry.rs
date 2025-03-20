@@ -30,52 +30,46 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
         // Finding out ConfigCells in current transaction.
         let (input_cells, output_cells) = util::load_self_cells_in_inputs_and_outputs()?;
 
-        assert!(
-            output_cells.len() >= 1,
-            ErrorCode::InvalidTransactionStructure,
-            "There should be at least one ConfigCell in the outputs."
-        );
 
-        debug!("Check if ConfigCells in inputs and outputs are consistent ...");
+        if input_cells.len() == 0 {
+            debug!("Create new ConfigCells will require super lock to execute after the initialization day of DAS.");
 
-        if input_cells.len() > 0 {
-            assert!(
-                input_cells.len() == output_cells.len(),
-                ErrorCode::InvalidTransactionStructure,
-                "The number of ConfigCell in outputs should be the same as inputs."
-            );
-        } else {
-            // Create new ConfigCells will require super lock to execute after the initialization day of DAS.
             util::require_super_lock()?;
-        }
+        } else {
+            if input_cells.len() == output_cells.len() {
+                debug!("Check if ConfigCells in inputs and outputs are consistent ...");
 
-        // Define DAS official super lock.
-        let super_lock = super_lock();
-        let super_lock_hash = util::blake2b_256(super_lock.as_slice());
-        for (i, output_cell_index) in output_cells.into_iter().enumerate() {
-            // The ConfigCell in outputs must has the same lock script as super lock.
-            // Why we do not limit the input ConfigCell's lock script is because when super lock need to be updated,
-            // we need to update this type script at first, then update the ConfigCell after type script deployed.
-            let cell_lock_hash =
-                load_cell_lock_hash(output_cell_index, Source::Output).map_err(|e| Error::<ErrorCode>::from(e))?;
+                // Define DAS official super lock.
+                let super_lock = super_lock();
+                let super_lock_hash = util::blake2b_256(super_lock.as_slice());
+                for (i, output_cell_index) in output_cells.into_iter().enumerate() {
+                    // The ConfigCell in outputs must has the same lock script as super lock.
+                    // Why we do not limit the input ConfigCell's lock script is because when super lock need to be updated,
+                    // we need to update this type script at first, then update the ConfigCell after type script deployed.
+                    let cell_lock_hash =
+                        load_cell_lock_hash(output_cell_index, Source::Output).map_err(|e| Error::<ErrorCode>::from(e))?;
 
-            assert!(
-                cell_lock_hash == super_lock_hash,
-                ErrorCode::SuperLockIsRequired,
-                "The ConfigCells in outputs must use super lock."
-            );
+                    assert!(
+                        cell_lock_hash == super_lock_hash,
+                        ErrorCode::SuperLockIsRequired,
+                        "The ConfigCells in outputs must use super lock."
+                    );
 
-            let output_config_id = get_config_id(output_cell_index, Source::Output)?;
+                    let output_config_id = get_config_id(output_cell_index, Source::Output)?;
 
-            if input_cells.len() > 0 {
-                let input_cell_index = input_cells[i];
-                let input_config_id = get_config_id(input_cell_index, Source::Input)?;
+                    if input_cells.len() > 0 {
+                        let input_cell_index = input_cells[i];
+                        let input_config_id = get_config_id(input_cell_index, Source::Input)?;
 
-                assert!(
-                    output_config_id == input_config_id,
-                    ErrorCode::InvalidTransactionStructure,
-                    "The Config ID in ConfigCells should be the same order in both inputs and outputs."
-                );
+                        assert!(
+                            output_config_id == input_config_id,
+                            ErrorCode::InvalidTransactionStructure,
+                            "The Config ID in ConfigCells should be the same order in both inputs and outputs."
+                        );
+                    }
+                }
+            } else if input_cells.len() >= output_cells.len() {
+                debug!("Destroy redundant ConfigCells, skip checking ...")
             }
         }
     } else {
@@ -96,7 +90,7 @@ fn get_config_id(cell_index: usize, source: Source) -> Result<DataType, Box<dyn 
         .raw_data()
         .try_into()
         .map_err(|_| ErrorCode::Encoding)?;
-    let config_type = DataType::try_from(u32::from_le_bytes(args)).map_err(|_| ErrorCode::ConfigTypeIsUndefined)?;
+    let config_type = DataType::try_from(u32::from_le_bytes(args)).map_err(|_| ErrorCode::ConfigError)?;
 
     Ok(config_type)
 }

@@ -9,7 +9,8 @@ use core::result::Result;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level::{self, load_cell_capacity, load_cell_lock, load_cell_type, load_script};
-use das_core::config::Config;
+use config::constants::FieldKey;
+use config::Config;
 use das_core::constants::*;
 use das_core::error::*;
 use das_core::{assert, code_to_error, data_parser, debug, util, verifiers, warn};
@@ -44,9 +45,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
         Action::Propose | Action::ExtendProposal => {
             let timestamp = util::load_oracle_data(OracleCellType::Time)?;
 
-            let config_main = Config::get_instance().main()?;
-            let config_proposal = Config::get_instance().proposal()?;
-
             if parser.action == Action::Propose {
                 assert!(
                     dep_cells.len() == 0,
@@ -76,13 +74,13 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let output_cell_witness = util::parse_proposal_cell_witness(output_cells[0], Source::Output)?;
             let output_cell_witness_reader = output_cell_witness.as_reader();
 
-            let required_cells_count = verify_slices(config_proposal, output_cell_witness_reader.slices())?;
-            let dep_related_cells = find_proposal_related_cells(config_main, Source::CellDep)?;
+            let required_cells_count = verify_slices(output_cell_witness_reader.slices())?;
+            let dep_related_cells = find_proposal_related_cells(Source::CellDep)?;
 
             #[cfg(debug_assertions)]
             inspect_slices(output_cell_witness_reader.slices())?;
             #[cfg(debug_assertions)]
-            inspect_related_cells(config_main, dep_related_cells.clone(), Source::CellDep)?;
+            inspect_related_cells(dep_related_cells.clone(), Source::CellDep)?;
 
             assert!(
                 required_cells_count == dep_related_cells.len(),
@@ -94,7 +92,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             verify_slices_relevant_cells(
                 timestamp,
-                config_main,
                 output_cell_witness_reader.slices(),
                 dep_related_cells,
                 prev_slices_reader_opt,
@@ -102,10 +99,6 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
         }
         Action::ConfirmProposal => {
             let timestamp = util::load_oracle_data(OracleCellType::Time)?;
-
-            let config_account = Config::get_instance().account()?;
-            let config_main = Config::get_instance().main()?;
-            let config_profit_rate = Config::get_instance().profit_rate()?;
             let config_proposal_reader = Config::get_instance().proposal()?;
 
             verifiers::common::verify_cell_number("ProposalCell", &input_cells, 1, &output_cells, 0)?;
@@ -116,7 +109,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             debug!("Check if the ProposalCell is able to be confirmed.");
 
             let height = util::load_oracle_data(OracleCellType::Height)?;
-            let proposal_min_confirm_interval = u8::from(config_proposal_reader.proposal_min_confirm_interval()) as u64;
+            let proposal_min_confirm_interval = config_proposal_reader.proposal_min_confirm_interval() as u64;
             let created_at_height = u64::from(input_cell_witness_reader.created_at_height());
 
             assert!(
@@ -128,18 +121,12 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
 
             debug!("Check all AccountCells are updated or created base on proposal.");
 
-            verify_proposal_execution_result(
-                config_account,
-                config_main,
-                config_profit_rate,
-                timestamp,
-                input_cell_witness_reader,
-            )?;
+            verify_proposal_execution_result(timestamp, input_cell_witness_reader)?;
 
             verify_refund_correct(input_cells[0], input_cell_witness_reader, 0)?;
         }
         Action::RecycleProposal => {
-            let config_proposal_reader = Config::get_instance().proposal()?;
+            let config_proposal = Config::get_instance().proposal()?;
 
             verifiers::common::verify_cell_number("ProposalCell", &input_cells, 1, &output_cells, 0)?;
 
@@ -149,7 +136,7 @@ pub fn main() -> Result<(), Box<dyn ScriptError>> {
             let input_cell_witness_reader = input_cell_witness.as_reader();
 
             let height = util::load_oracle_data(OracleCellType::Height)?;
-            let proposal_min_recycle_interval = u8::from(config_proposal_reader.proposal_min_recycle_interval()) as u64;
+            let proposal_min_recycle_interval = config_proposal.proposal_min_recycle_interval() as u64;
             let created_at_height = u64::from(input_cell_witness_reader.created_at_height());
 
             assert!(
@@ -196,19 +183,17 @@ fn inspect_slices(slices_reader: SliceListReader) -> Result<(), Box<dyn ScriptEr
 }
 
 #[cfg(debug_assertions)]
-fn inspect_related_cells(
-    config_main: ConfigCellMainReader,
-    related_cells: Vec<usize>,
-    related_cells_source: Source,
-) -> Result<(), Box<dyn ScriptError>> {
+fn inspect_related_cells(related_cells: Vec<usize>, related_cells_source: Source) -> Result<(), Box<dyn ScriptError>> {
     debug!("Inspect {:?}{:?}:", related_cells_source, related_cells);
+
+    let config_main = Config::get_instance().main()?;
 
     for i in related_cells {
         let script = load_cell_type(i, related_cells_source)?.unwrap();
-        let code_hash = Hash::from(script.code_hash());
+        let code_hash = script.as_reader().code_hash().raw_data();
         let data = util::load_cell_data(i, related_cells_source)?;
 
-        if util::is_reader_eq(config_main.type_id_table().account_cell(), code_hash.as_reader()) {
+        if &config_main.get_type_id_of(FieldKey::AccountCellTypeArgs)? == code_hash {
             let account_cell_data_mixer = util::parse_account_cell_witness(i, related_cells_source)?;
 
             debug!(
@@ -220,7 +205,7 @@ fn inspect_related_cells(
                 util::hex_string(data_parser::account_cell::get_next(&data)),
                 String::from_utf8(data_parser::account_cell::get_account(&data).to_vec()).unwrap()
             );
-        } else if util::is_reader_eq(config_main.type_id_table().pre_account_cell(), code_hash.as_reader()) {
+        } else if &config_main.get_type_id_of(FieldKey::PreAccountCellTypeArgs)? == code_hash {
             let pre_account_cell_data_mixer = util::parse_pre_account_cell_witness(i, related_cells_source)?;
 
             debug!(
@@ -236,11 +221,10 @@ fn inspect_related_cells(
     Ok(())
 }
 
-fn verify_slices(
-    config: ConfigCellProposalReader,
-    slices_reader: SliceListReader,
-) -> Result<usize, Box<dyn ScriptError>> {
+fn verify_slices(slices_reader: SliceListReader) -> Result<usize, Box<dyn ScriptError>> {
     debug!("Check the data structure of proposal slices.");
+
+    let config = Config::get_instance().proposal()?;
 
     // debug!("slices_reader = {}", slices_reader);
 
@@ -364,7 +348,7 @@ fn verify_slices(
         "The order of items in slices is incorrect."
     );
 
-    let max_account_cell_count = u32::from(config.proposal_max_account_affect());
+    let max_account_cell_count = config.proposal_max_account_affect();
     assert!(
         account_cell_contained <= max_account_cell_count,
         ErrorCode::InvalidTransactionStructure,
@@ -372,7 +356,7 @@ fn verify_slices(
         max_account_cell_count
     );
 
-    let max_pre_account_cell_count = u32::from(config.proposal_max_pre_account_contain());
+    let max_pre_account_cell_count = config.proposal_max_pre_account_contain();
     assert!(
         pre_account_cell_contained <= max_pre_account_cell_count,
         ErrorCode::InvalidTransactionStructure,
@@ -383,14 +367,13 @@ fn verify_slices(
     Ok(required_cells_count)
 }
 
-fn find_proposal_related_cells(
-    config: ConfigCellMainReader,
-    source: Source,
-) -> Result<Vec<usize>, Box<dyn ScriptError>> {
+fn find_proposal_related_cells(source: Source) -> Result<Vec<usize>, Box<dyn ScriptError>> {
+    let config_main = Config::get_instance().main()?;
+
     // Find related cells' indexes in cell_deps or inputs.
-    let account_cell_type_id = config.type_id_table().account_cell();
+    let account_cell_type_id = config_main.get_type_id_of(FieldKey::AccountCellTypeArgs)?;
     let account_cells = util::find_cells_by_type_id(ScriptType::Type, account_cell_type_id, source)?;
-    let pre_account_cell_type_id = config.type_id_table().pre_account_cell();
+    let pre_account_cell_type_id = config_main.get_type_id_of(FieldKey::PreAccountCellTypeArgs)?;
     let pre_account_cells = util::find_cells_by_type_id(ScriptType::Type, pre_account_cell_type_id, source)?;
 
     assert!(
@@ -443,9 +426,11 @@ fn find_proposal_related_cells(
     Ok(sorted)
 }
 
-fn find_output_account_cells(config: ConfigCellMainReader) -> Result<Vec<usize>, Box<dyn ScriptError>> {
+fn find_output_account_cells() -> Result<Vec<usize>, Box<dyn ScriptError>> {
+    let config_main = Config::get_instance().main()?;
+
     // Find updated cells' indexes in outputs.
-    let account_cell_type_id = config.type_id_table().account_cell();
+    let account_cell_type_id = config_main.get_type_id_of(FieldKey::AccountCellTypeArgs)?;
     let mut account_cells = util::find_cells_by_type_id(ScriptType::Type, account_cell_type_id, Source::Output)?;
     account_cells.sort();
 
@@ -462,12 +447,13 @@ fn find_output_account_cells(config: ConfigCellMainReader) -> Result<Vec<usize>,
 
 fn verify_slices_relevant_cells(
     timestamp: u64,
-    config: ConfigCellMainReader,
     slices_reader: SliceListReader,
     relevant_cells: Vec<usize>,
     prev_slices_reader_opt: Option<SliceListReader>,
 ) -> Result<(), Box<dyn ScriptError>> {
     debug!("Check the proposal slices relevant cells are real exist and in correct status.");
+
+    let config_main = Config::get_instance().main()?;
 
     let mut i = 0;
     for (_sl_index, sl_reader) in slices_reader.iter().enumerate() {
@@ -482,7 +468,7 @@ fn verify_slices_relevant_cells(
             // Check if the relevant cells has the same type as in the proposal.
             let cell_data = util::load_cell_data(cell_index, Source::CellDep)?;
             if item_type == ProposalSliceItemType::Exist as u8 {
-                let expected_type_id = config.type_id_table().account_cell();
+                let expected_type_id = config_main.get_type_id_of(FieldKey::AccountCellTypeArgs)?;
                 verify_cell_type_id(item_index, cell_index, Source::CellDep, &expected_type_id)?;
 
                 // Check if the relevant cells have the same account ID as in the proposal.
@@ -494,7 +480,7 @@ fn verify_slices_relevant_cells(
                     item_account_id.raw_data(),
                 )?;
             } else {
-                let expected_type_id = config.type_id_table().pre_account_cell();
+                let expected_type_id = config_main.get_type_id_of(FieldKey::PreAccountCellTypeArgs)?;
                 verify_cell_type_id(item_index, cell_index, Source::CellDep, &expected_type_id)?;
 
                 // Check if the relevant cells have the same account ID as in the proposal.
@@ -590,13 +576,14 @@ fn find_item_contains_account_id(
 }
 
 fn verify_proposal_execution_result(
-    config_account: ConfigCellAccountReader,
-    config_main: ConfigCellMainReader,
-    config_profit_rate: ConfigCellProfitRateReader,
     timestamp: u64,
     proposal_cell_data_reader: ProposalCellDataReader,
 ) -> Result<(), Box<dyn ScriptError>> {
     debug!("Check that all AccountCells/PreAccountCells have been converted according to the proposal.");
+
+    let config_account = Config::get_instance().account()?;
+    let config_main = Config::get_instance().main()?;
+    let config_profit_rate = Config::get_instance().profit_rate()?;
 
     #[cfg(debug_assertions)]
     inspect_slices(proposal_cell_data_reader.slices())?;
@@ -605,21 +592,21 @@ fn verify_proposal_execution_result(
     let proposer_lock_reader = proposal_cell_data_reader.proposer_lock();
     let slices_reader = proposal_cell_data_reader.slices();
 
-    let account_cell_type_id = config_main.type_id_table().account_cell();
-    let pre_account_cell_type_id = config_main.type_id_table().pre_account_cell();
-    let input_related_cells = find_proposal_related_cells(config_main, Source::Input)?;
-    let output_account_cells = find_output_account_cells(config_main)?;
+    let account_cell_type_id = config_main.get_type_id_of(FieldKey::AccountCellTypeArgs)?;
+    let pre_account_cell_type_id = config_main.get_type_id_of(FieldKey::PreAccountCellTypeArgs)?;
+    let input_related_cells = find_proposal_related_cells(Source::Input)?;
+    let output_account_cells = find_output_account_cells()?;
 
     #[cfg(debug_assertions)]
-    inspect_related_cells(config_main, input_related_cells.clone(), Source::Input)?;
+    inspect_related_cells(input_related_cells.clone(), Source::Input)?;
     #[cfg(debug_assertions)]
-    inspect_related_cells(config_main, output_account_cells.clone(), Source::Output)?;
+    inspect_related_cells(output_account_cells.clone(), Source::Output)?;
 
     let mut profit_map = Map::new();
-    let inviter_profit_rate = u32::from(config_profit_rate.inviter()) as u64;
-    let channel_profit_rate = u32::from(config_profit_rate.channel()) as u64;
-    let proposal_create_profit_rate = u32::from(config_profit_rate.proposal_create()) as u64;
-    let proposal_confirm_profit_rate = u32::from(config_profit_rate.proposal_confirm()) as u64;
+    let inviter_profit_rate = config_profit_rate.inviter() as u64;
+    let channel_profit_rate = config_profit_rate.channel() as u64;
+    let proposal_create_profit_rate = config_profit_rate.proposal_create() as u64;
+    let proposal_confirm_profit_rate = config_profit_rate.proposal_confirm() as u64;
 
     let default_lock = Script::default();
     let default_lock_reader = default_lock.as_reader();
@@ -761,7 +748,7 @@ fn verify_proposal_execution_result(
 
                 let lock = high_level::load_cell_lock(output_account_cells[i], Source::Output)?;
                 let storage_capacity = util::calc_account_storage_capacity(
-                    config_account,
+                    &config_account,
                     account_name_storage,
                     lock.args().as_reader().into(),
                 );
@@ -800,11 +787,7 @@ fn verify_proposal_execution_result(
                 verify_witness_throttle_fields(item_index, output_cell_witness_reader)?;
                 verify_witness_sub_account_fields(item_index, output_cell_witness_reader)?;
                 verify_witness_initial_records(item_index, &input_cell_witness_reader, output_cell_witness_reader)?;
-                verify_witness_initial_cross_chain_and_status(
-                    item_index,
-                    &input_cell_witness_reader,
-                    output_cell_witness_reader,
-                )?;
+                verify_witness_status(item_index, &input_cell_witness_reader, output_cell_witness_reader)?;
                 verify_witness_initial_approval(item_index, output_cell_witness_reader)?;
 
                 let mut inviter_profit = 0;
@@ -885,18 +868,18 @@ fn verify_cell_type_id(
     item_index: usize,
     cell_index: usize,
     source: Source,
-    expected_type_id: &HashReader,
+    expected_type_id: &[u8],
 ) -> Result<(), Box<dyn ScriptError>> {
     let cell_type_id = load_cell_type(cell_index, source)?
         .map(|script| script.code_hash())
         .ok_or(ErrorCode::ProposalSliceRelatedCellNotFound)?;
 
     assert!(
-        cell_type_id.as_reader().raw_data() == expected_type_id.raw_data(),
+        cell_type_id.as_reader().raw_data() == expected_type_id,
         ErrorCode::ProposalCellTypeError,
-        "  The type ID of Item[{}] should be {}. (related_cell: {:?}[{}])",
+        "  The type ID of Item[{}] should be 0x{}. (related_cell: {:?}[{}])",
         item_index,
-        expected_type_id,
+        util::hex_string(expected_type_id),
         source,
         cell_index
     );
@@ -1295,60 +1278,25 @@ fn verify_witness_initial_records<'a>(
     Ok(())
 }
 
-fn verify_witness_initial_cross_chain_and_status<'a>(
+fn verify_witness_status<'a>(
     item_index: usize,
     pre_account_cell_reader: &Box<dyn PreAccountCellDataReaderMixer + 'a>,
     account_cell_reader: AccountCellDataReader,
 ) -> Result<(), Box<dyn ScriptError>> {
     let status = u8::from(account_cell_reader.status());
-    if pre_account_cell_reader.version() >= 3 {
-        debug!(
-            "  Item[{}] The PreAccountCell's version is >= 3, start verifying the field initial_cross_chain.",
-            item_index
-        );
-
-        let checked;
-        if let Ok(reader) = pre_account_cell_reader.try_into_latest() {
-            checked = u8::from(reader.initial_cross_chain().checked());
-        } else {
-            warn!("  Item[{}] Some version of PreAccountCell is unhandled. It is required to verify the field initial_cross_chain.", item_index);
-            return Err(code_to_error!(ErrorCode::HardCodedError));
-        }
-
-        if checked == 1 {
-            assert!(
-                status == AccountStatus::LockedForCrossChain as u8,
-                ErrorCode::ProposalConfirmNewAccountWitnessError,
-                "  Item[{}] The AccountCell.status should be LockedForCrossChain in outputs. (expected: {:?}, current: {})",
-                item_index,
-                AccountStatus::LockedForCrossChain as u8,
-                status
-            );
-        } else {
-            assert!(
-                status == AccountStatus::Normal as u8,
-                ErrorCode::ProposalConfirmNewAccountWitnessError,
-                "  Item[{}] The AccountCell.status should be Normal in outputs. (expected: {:?}, current: {})",
-                item_index,
-                AccountStatus::Normal as u8,
-                status
-            );
-        }
-    } else {
-        debug!(
-            "  Item[{}] The PreAccountCell's version is <= 2, start verifying if the new AccountCell.status is Normal.",
-            item_index
-        );
-
-        assert!(
-            status == AccountStatus::Normal as u8,
-            ErrorCode::ProposalConfirmNewAccountWitnessError,
-            "  Item[{}] The AccountCell.status should be Normal in outputs. (expected: {:?}, current: {})",
-            item_index,
-            AccountStatus::Normal as u8,
-            status
-        );
-    }
+    debug!(
+        "  Item[{}] The PreAccountCell's version is {}, start verifying if the new AccountCell.status is Normal.",
+        item_index,
+        pre_account_cell_reader.version()
+    );
+    assert!(
+        status == AccountStatus::Normal as u8,
+        ErrorCode::ProposalConfirmNewAccountWitnessError,
+        "  Item[{}] The AccountCell.status should be Normal in outputs. (expected: {:?}, current: {})",
+        item_index,
+        AccountStatus::Normal as u8,
+        status
+    );
 
     Ok(())
 }

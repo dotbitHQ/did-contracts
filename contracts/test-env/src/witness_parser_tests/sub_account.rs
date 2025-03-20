@@ -3,7 +3,6 @@ use alloc::string::String;
 use alloc::vec;
 use core::result::Result;
 
-use das_core::config::Config;
 use das_core::error::{ErrorCode, ScriptError};
 use das_core::witness_parser::sub_account::{SubAccountEditValue, SubAccountWitnessesParser};
 use das_core::{code_to_error, das_assert, warn};
@@ -12,15 +11,13 @@ use das_types::data_parser;
 use simple_ast::types as ast_types;
 
 pub fn test_parse_sub_account_witness_empty() -> Result<(), Box<dyn ScriptError>> {
-    let config_main = Config::get_instance().main()?;
-    SubAccountWitnessesParser::new(SubAccountConfigFlag::CustomRule, &config_main)?;
+    SubAccountWitnessesParser::new(SubAccountConfigFlag::CustomRule)?;
 
     Ok(())
 }
 
 pub fn test_parse_sub_account_witness_create_only() -> Result<(), Box<dyn ScriptError>> {
-    let config_main = Config::get_instance().main()?;
-    let sub_account_witness_parser = SubAccountWitnessesParser::new(SubAccountConfigFlag::CustomRule, &config_main)?;
+    let sub_account_witness_parser = SubAccountWitnessesParser::new(SubAccountConfigFlag::CustomRule)?;
 
     let lock_args = &[
         2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -130,8 +127,7 @@ pub fn test_parse_sub_account_witness_create_only() -> Result<(), Box<dyn Script
 }
 
 pub fn test_parse_sub_account_witness_edit_only() -> Result<(), Box<dyn ScriptError>> {
-    let config_main = Config::get_instance().main()?;
-    let sub_account_witness_parser = SubAccountWitnessesParser::new(SubAccountConfigFlag::CustomRule, &config_main)?;
+    let sub_account_witness_parser = SubAccountWitnessesParser::new(SubAccountConfigFlag::CustomRule)?;
 
     das_assert!(
         sub_account_witness_parser.len() == 2,
@@ -222,8 +218,7 @@ pub fn test_parse_sub_account_witness_edit_only() -> Result<(), Box<dyn ScriptEr
 }
 
 pub fn test_parse_sub_account_witness_mixed() -> Result<(), Box<dyn ScriptError>> {
-    let config_main = Config::get_instance().main()?;
-    let sub_account_witness_parser = SubAccountWitnessesParser::new(SubAccountConfigFlag::CustomRule, &config_main)?;
+    let sub_account_witness_parser = SubAccountWitnessesParser::new(SubAccountConfigFlag::CustomRule)?;
 
     let lock_args = &[
         2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -321,8 +316,7 @@ pub fn test_parse_sub_account_witness_mixed() -> Result<(), Box<dyn ScriptError>
 }
 
 pub fn test_parse_sub_account_rules_witness_empty() -> Result<(), Box<dyn ScriptError>> {
-    let config_main = Config::get_instance().main()?;
-    let sub_account_witness_parser = SubAccountWitnessesParser::new(SubAccountConfigFlag::CustomRule, &config_main)?;
+    let sub_account_witness_parser = SubAccountWitnessesParser::new(SubAccountConfigFlag::CustomRule)?;
 
     sub_account_witness_parser.get_rules(&[0u8; 10], DataType::SubAccountPriceRule)?;
 
@@ -330,8 +324,7 @@ pub fn test_parse_sub_account_rules_witness_empty() -> Result<(), Box<dyn Script
 }
 
 pub fn test_parse_sub_account_rules_witness_simple() -> Result<(), Box<dyn ScriptError>> {
-    let config_main = Config::get_instance().main()?;
-    let sub_account_witness_parser = SubAccountWitnessesParser::new(SubAccountConfigFlag::CustomRule, &config_main)?;
+    let sub_account_witness_parser = SubAccountWitnessesParser::new(SubAccountConfigFlag::CustomRule)?;
 
     let mut expected_data = vec![0u8; 50];
     expected_data.extend(hex::decode("4000016615d4645428ec").unwrap());

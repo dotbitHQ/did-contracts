@@ -16,6 +16,7 @@ ckb-std = { workspace = true }
 
 # WARNING DO NOT move these to [dependencies], it will break the unit tests
 [dev-dependencies]
+config = { workspace = true, features = ["no_std"] }
 das-core = { workspace = true }
 das-types = { workspace = true }
 molecule = { workspace = true }
